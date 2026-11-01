@@ -5,7 +5,6 @@ from typing import Any
 
 from worker.core.hermes_adapter_config import HermesAdapterConfig, HermesModelSelectionPolicy
 
-
 OPENROUTER_HERMES_DEFAULT_CONFIG_PATH = "config/workers/hermes.openrouter.yaml"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_PRIMARY_MODEL = "google/gemini-2.5-flash"
@@ -34,7 +33,14 @@ def build_openrouter_hermes_adapter_config(
         "timeout_seconds": float(os.getenv("HERMES_TIMEOUT_SECONDS", "180")),
         "max_retries": int(os.getenv("HERMES_MAX_RETRIES", "1")),
         "allowed_task_kinds": ["plan_only", "review", "summarize", "patch_propose", "research_limited"],
-        "blocked_task_kinds": ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation"],
+        "blocked_task_kinds": [
+            "patch_apply",
+            "command_execute",
+            "shell_execute",
+            "shell_execution",
+            "service_mutation",
+            "config_mutation",
+        ],
         "cloud_allowed": _env_bool("HERMES_CLOUD_ALLOWED", True),
         "max_context_chars": int(os.getenv("HERMES_MAX_CONTEXT_CHARS", "120000")),
         "strict_json_required": True,
@@ -63,7 +69,14 @@ def build_openrouter_hermes_adapter_config(
             reject_mutation_tasks_for_hermes=True,
             allow_candidate_roles=True,
             allowed_task_kinds_for_hermes=["plan_only", "review", "summarize", "patch_propose", "research_limited"],
-            blocked_task_kinds=["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation"],
+            blocked_task_kinds=[
+                "patch_apply",
+                "command_execute",
+                "shell_execute",
+                "shell_execution",
+                "service_mutation",
+                "config_mutation",
+            ],
         ),
     }
     if overrides:

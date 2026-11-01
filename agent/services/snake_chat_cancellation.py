@@ -1,4 +1,5 @@
 """Cancellation registry for hub-owned AI-Snake chat runs."""
+
 from __future__ import annotations
 
 import threading

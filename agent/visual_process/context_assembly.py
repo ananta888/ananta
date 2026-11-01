@@ -6,17 +6,19 @@ and the artifacts produced by predecessor steps.
 The assembled context is a dict that can be passed directly into
 WorkerExecutionContextContract.context or used by a planner.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+from agent.visual_process.models import VisualProcessGraph
 
 
 @dataclass
 class StepContext:
     """Assembled execution context for one step."""
+
     step_id: str
     step_label: str
     step_kind: str

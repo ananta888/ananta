@@ -116,22 +116,15 @@ def initialize_research_training(app: Flask) -> ResearchTrainingWiringStatus:
             state_path = Path(str(app.config.get("ANANTA_RESEARCH_TRAINING_STATE") or settings.research_training_state))
             artifact_root = Path(
                 str(
-                    app.config.get("ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT")
-                    or settings.research_training_artifact_root
+                    app.config.get("ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT") or settings.research_training_artifact_root
                 )
             )
             dataset_root = Path(
-                str(
-                    app.config.get("ANANTA_RESEARCH_TRAINING_DATASET_ROOT")
-                    or settings.research_training_dataset_root
-                )
+                str(app.config.get("ANANTA_RESEARCH_TRAINING_DATASET_ROOT") or settings.research_training_dataset_root)
             )
             dataset_root.mkdir(parents=True, exist_ok=True)
             result_root = Path(
-                str(
-                    app.config.get("ANANTA_RESEARCH_TRAINING_RESULT_ROOT")
-                    or settings.research_training_result_root
-                )
+                str(app.config.get("ANANTA_RESEARCH_TRAINING_RESULT_ROOT") or settings.research_training_result_root)
             )
             result_root.mkdir(parents=True, exist_ok=True)
             recipes = ResearchTrainingRecipeService(policy)

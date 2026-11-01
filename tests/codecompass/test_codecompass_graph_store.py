@@ -88,10 +88,7 @@ def test_codecompass_graph_store_loads_nodes_edges_and_indexes(tmp_path):
     raw = json.loads((tmp_path / "cc_graph_index.json").read_text(encoding="utf-8"))
     assert raw["state"]["storage_encoding"] == "compact_v2"
     assert raw["state"]["edge_index_encoding"] == "derived"
-    assert (
-        raw["state"]["edge_storage"]["graph_edges"]["edge_id_strategy"]
-        == "legacy_confidence_default_omitted"
-    )
+    assert raw["state"]["edge_storage"]["graph_edges"]["edge_id_strategy"] == "legacy_confidence_default_omitted"
     assert "node_index" not in raw
     assert "outgoing_index" not in raw
     assert "incoming_index" not in raw
@@ -113,12 +110,48 @@ def _build_sample_store(tmp_path) -> CodeCompassGraphStore:
     store = CodeCompassGraphStore(index_path=tmp_path / "cc_graph_index.json")
     store.rebuild_from_output_records(
         records=[
-            {"id": "type:UserDto", "kind": "java_type", "name": "UserDto", "file": "src/UserDto.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"id": "type:UserService", "kind": "java_type", "name": "UserService", "file": "src/UserService.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"id": "type:UserController", "kind": "java_type", "name": "UserController", "file": "src/UserController.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"source": "type:UserService", "target": "type:UserDto", "type": "field_type_uses", "confidence": 0.94, "_provenance": {"output_kind": "graph_edges"}},
-            {"source": "type:UserController", "target": "type:UserService", "type": "injects_dependency", "confidence": 0.9, "_provenance": {"output_kind": "graph_edges"}},
-            {"source": "type:UserService", "target": "type:UserController", "type": "calls_probable_target", "confidence": 0.4, "_provenance": {"output_kind": "graph_edges"}},
+            {
+                "id": "type:UserDto",
+                "kind": "java_type",
+                "name": "UserDto",
+                "file": "src/UserDto.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "id": "type:UserService",
+                "kind": "java_type",
+                "name": "UserService",
+                "file": "src/UserService.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "id": "type:UserController",
+                "kind": "java_type",
+                "name": "UserController",
+                "file": "src/UserController.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "source": "type:UserService",
+                "target": "type:UserDto",
+                "type": "field_type_uses",
+                "confidence": 0.94,
+                "_provenance": {"output_kind": "graph_edges"},
+            },
+            {
+                "source": "type:UserController",
+                "target": "type:UserService",
+                "type": "injects_dependency",
+                "confidence": 0.9,
+                "_provenance": {"output_kind": "graph_edges"},
+            },
+            {
+                "source": "type:UserService",
+                "target": "type:UserController",
+                "type": "calls_probable_target",
+                "confidence": 0.4,
+                "_provenance": {"output_kind": "graph_edges"},
+            },
         ],
         manifest_hash="mh-sample",
     )
@@ -198,10 +231,32 @@ def test_traverse_paths_terminates_on_cyclic_graph(tmp_path):
     store = CodeCompassGraphStore(index_path=tmp_path / "cc_graph_index.json")
     store.rebuild_from_output_records(
         records=[
-            {"id": "a", "kind": "java_type", "name": "A", "file": "src/A.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"id": "b", "kind": "java_type", "name": "B", "file": "src/B.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"source": "a", "target": "b", "type": "calls_probable_target", "_provenance": {"output_kind": "graph_edges"}},
-            {"source": "b", "target": "a", "type": "calls_probable_target", "_provenance": {"output_kind": "graph_edges"}},
+            {
+                "id": "a",
+                "kind": "java_type",
+                "name": "A",
+                "file": "src/A.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "id": "b",
+                "kind": "java_type",
+                "name": "B",
+                "file": "src/B.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "source": "a",
+                "target": "b",
+                "type": "calls_probable_target",
+                "_provenance": {"output_kind": "graph_edges"},
+            },
+            {
+                "source": "b",
+                "target": "a",
+                "type": "calls_probable_target",
+                "_provenance": {"output_kind": "graph_edges"},
+            },
         ],
         manifest_hash="mh-cycle",
     )
@@ -218,21 +273,61 @@ def test_sqlite_store_delivers_equivalent_results_to_json_store(tmp_path):
     sqlite_store = CodeCompassSqliteGraphStore(db_path=tmp_path / "cc_graph_index.sqlite")
     sqlite_store.rebuild_from_output_records(
         records=[
-            {"id": "type:UserDto", "kind": "java_type", "name": "UserDto", "file": "src/UserDto.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"id": "type:UserService", "kind": "java_type", "name": "UserService", "file": "src/UserService.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"id": "type:UserController", "kind": "java_type", "name": "UserController", "file": "src/UserController.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"source": "type:UserService", "target": "type:UserDto", "type": "field_type_uses", "confidence": 0.94, "_provenance": {"output_kind": "graph_edges"}},
-            {"source": "type:UserController", "target": "type:UserService", "type": "injects_dependency", "confidence": 0.9, "_provenance": {"output_kind": "graph_edges"}},
-            {"source": "type:UserService", "target": "type:UserController", "type": "calls_probable_target", "confidence": 0.4, "_provenance": {"output_kind": "graph_edges"}},
+            {
+                "id": "type:UserDto",
+                "kind": "java_type",
+                "name": "UserDto",
+                "file": "src/UserDto.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "id": "type:UserService",
+                "kind": "java_type",
+                "name": "UserService",
+                "file": "src/UserService.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "id": "type:UserController",
+                "kind": "java_type",
+                "name": "UserController",
+                "file": "src/UserController.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "source": "type:UserService",
+                "target": "type:UserDto",
+                "type": "field_type_uses",
+                "confidence": 0.94,
+                "_provenance": {"output_kind": "graph_edges"},
+            },
+            {
+                "source": "type:UserController",
+                "target": "type:UserService",
+                "type": "injects_dependency",
+                "confidence": 0.9,
+                "_provenance": {"output_kind": "graph_edges"},
+            },
+            {
+                "source": "type:UserService",
+                "target": "type:UserController",
+                "type": "calls_probable_target",
+                "confidence": 0.4,
+                "_provenance": {"output_kind": "graph_edges"},
+            },
         ],
         manifest_hash="mh-sample",
     )
 
     assert sqlite_store.incoming_edges(node_id="type:UserDto") == json_store.incoming_edges(node_id="type:UserDto")
-    assert sqlite_store.outgoing_edges(node_id="type:UserService") == json_store.outgoing_edges(node_id="type:UserService")
+    assert sqlite_store.outgoing_edges(node_id="type:UserService") == json_store.outgoing_edges(
+        node_id="type:UserService"
+    )
     assert sqlite_store.find_nodes_by_name(name="UserDto") == json_store.find_nodes_by_name(name="UserDto")
     json_traversal = json_store.traverse_paths(seed_ids=["type:UserDto"], max_depth=3, max_nodes=10, direction="both")
-    sqlite_traversal = sqlite_store.traverse_paths(seed_ids=["type:UserDto"], max_depth=3, max_nodes=10, direction="both")
+    sqlite_traversal = sqlite_store.traverse_paths(
+        seed_ids=["type:UserDto"], max_depth=3, max_nodes=10, direction="both"
+    )
     assert sqlite_traversal["paths"] == json_traversal["paths"]
     assert [node["id"] for node in sqlite_traversal["nodes"]] == [node["id"] for node in json_traversal["nodes"]]
 

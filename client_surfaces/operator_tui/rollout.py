@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 
-
 ROLLOUT_STAGES = ("local_dev", "advanced_opt_in", "default_candidate", "default")
 
 

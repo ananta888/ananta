@@ -107,10 +107,9 @@ def invoke_hermes_adapter(
     from worker.core.hermes_adapter_config import HermesAdapterConfig
 
     try:
-        hermes_config = HermesAdapterConfig(**{
-            k: v for k, v in hermes_cfg_raw.items()
-            if k in HermesAdapterConfig.model_fields
-        })
+        hermes_config = HermesAdapterConfig(
+            **{k: v for k, v in hermes_cfg_raw.items() if k in HermesAdapterConfig.model_fields}
+        )
     except Exception:
         hermes_config = HermesAdapterConfig()
 
@@ -146,15 +145,17 @@ def invoke_hermes_adapter(
 
     # HF-T021: convert WorkerResult artifacts to task response format
     artifacts = []
-    for art in (worker_result.artifacts or []):
-        artifacts.append({
-            "artifact_id": art.artifact_id,
-            "kind": art.kind,
-            "provenance": art.provenance,
-            "summary": art.summary,
-            "metadata": dict(art.metadata or {}),
-            "source": "hermes",
-        })
+    for art in worker_result.artifacts or []:
+        artifacts.append(
+            {
+                "artifact_id": art.artifact_id,
+                "kind": art.kind,
+                "provenance": art.provenance,
+                "summary": art.summary,
+                "metadata": dict(art.metadata or {}),
+                "source": "hermes",
+            }
+        )
 
     return {
         "status": worker_result.status.value,
@@ -222,8 +223,7 @@ def try_handler_propose(
             "reason": "handler_safety_requires_review",
         }
     worker_owns_response_only = bool(
-        str(settings.role or "").strip().lower() == "worker"
-        and has_bound_knowledge_index_job(task)
+        str(settings.role or "").strip().lower() == "worker" and has_bound_knowledge_index_job(task)
     )
     if not worker_owns_response_only:
         try:

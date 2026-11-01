@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from flask import Flask
 
-from agent.routes.source_control_v1 import SourceControlV1RequestGuard
 from agent.routes.source_control_v1 import (
+    SourceControlV1RequestGuard,
     create_source_control_v1_blueprint,
 )
 from tests.project_access_fakes import AllowProjectAccess
@@ -83,7 +83,8 @@ def _app(monkeypatch):
     )
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(
+    app.register_blueprint(
+        create_source_control_v1_blueprint(
             _Api(),
             request_guard=request_guard,
             auth_decorator=lambda view: view,
@@ -104,16 +105,11 @@ def _connection_payload(*, dry_run: bool) -> dict[str, object]:
 
 def test_detail_uses_exact_v1_envelope_and_projection_etag(monkeypatch) -> None:
     app = _app(monkeypatch)
-    response = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example"
-    )
+    response = app.test_client().get("/api/source-control/v1/connections/conn-example")
 
     assert response.status_code == 200
     assert set(response.get_json()) == {"schema", "data"}
-    assert (
-        response.get_json()["schema"]
-        == "ananta.source-control.api-response.v1"
-    )
+    assert response.get_json()["schema"] == "ananta.source-control.api-response.v1"
     assert response.headers["ETag"] == "a" * 64
 
 
@@ -121,8 +117,7 @@ def test_graph_route_forwards_topology_window_parameters(monkeypatch) -> None:
     app = _app(monkeypatch)
 
     response = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=topology&limit=500&max_edges=2000"
+        "/api/source-control/v1/connections/conn-example/graph?view=topology&limit=500&max_edges=2000"
     )
 
     assert response.status_code == 200
@@ -138,8 +133,7 @@ def test_graph_route_rejects_out_of_budget_max_edges(monkeypatch) -> None:
     app = _app(monkeypatch)
 
     response = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=topology&max_edges=2001"
+        "/api/source-control/v1/connections/conn-example/graph?view=topology&max_edges=2001"
     )
 
     assert response.status_code == 400
@@ -150,14 +144,11 @@ def test_graph_route_rejects_cursor_for_single_topology_window(monkeypatch) -> N
     app = _app(monkeypatch)
 
     response = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=topology&cursor=b2Zmc2V0OjUwMA"
+        "/api/source-control/v1/connections/conn-example/graph?view=topology&cursor=b2Zmc2V0OjUwMA"
     )
 
     assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == (
-        "graph_topology_cursor_unsupported"
-    )
+    assert response.get_json()["error"]["code"] == ("graph_topology_cursor_unsupported")
 
 
 def test_graph_route_forwards_project_domain_scope_and_subdomain_policy(
@@ -187,18 +178,14 @@ def test_graph_route_allows_inventory_and_lossless_staged_pages(monkeypatch) -> 
     app = _app(monkeypatch)
 
     inventory = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=inventory&cursor=inventory-cursor&limit=250"
+        "/api/source-control/v1/connections/conn-example/graph?view=inventory&cursor=inventory-cursor&limit=250"
     )
     staged = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=staged&stage=edges&max_edges=500"
+        "/api/source-control/v1/connections/conn-example/graph?view=staged&stage=edges&max_edges=500"
     )
 
     assert inventory.status_code == 200
-    assert inventory.get_json()["data"]["parameters"]["cursor"] == (
-        "inventory-cursor"
-    )
+    assert inventory.get_json()["data"]["parameters"]["cursor"] == ("inventory-cursor")
     assert staged.status_code == 200
     assert staged.get_json()["data"]["parameters"]["stage"] == "edges"
 
@@ -207,38 +194,27 @@ def test_graph_route_rejects_invalid_scope_boolean_and_stage(monkeypatch) -> Non
     app = _app(monkeypatch)
 
     invalid_scope = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?domain_scope=contains%20space"
+        "/api/source-control/v1/connections/conn-example/graph?domain_scope=contains%20space"
     )
     invalid_boolean = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?include_subdomains=1"
+        "/api/source-control/v1/connections/conn-example/graph?include_subdomains=1"
     )
     invalid_stage = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=topology&stage=nodes"
+        "/api/source-control/v1/connections/conn-example/graph?view=topology&stage=nodes"
     )
     misplaced_scope = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example/graph"
-        "?view=inventory&domain_scope=domain_id:"
-        + "a" * 64
+        "/api/source-control/v1/connections/conn-example/graph?view=inventory&domain_scope=domain_id:" + "a" * 64
     )
 
     assert invalid_scope.get_json()["error"]["code"] == "domain_scope_invalid"
-    assert invalid_boolean.get_json()["error"]["code"] == (
-        "include_subdomains_invalid"
-    )
+    assert invalid_boolean.get_json()["error"]["code"] == ("include_subdomains_invalid")
     assert invalid_stage.get_json()["error"]["code"] == "graph_stage_invalid"
-    assert misplaced_scope.get_json()["error"]["code"] == (
-        "graph_domain_parameters_invalid"
-    )
+    assert misplaced_scope.get_json()["error"]["code"] == ("graph_domain_parameters_invalid")
 
 
 def test_unknown_object_is_uniform_404_not_success(monkeypatch) -> None:
     app = _app(monkeypatch)
-    response = app.test_client().get(
-        "/api/source-control/v1/connections/missing"
-    )
+    response = app.test_client().get("/api/source-control/v1/connections/missing")
 
     assert response.status_code == 404
     assert response.get_json() == {
@@ -264,22 +240,18 @@ def test_common_policy_denial_stops_collection_before_service(
     )
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(
+    app.register_blueprint(
+        create_source_control_v1_blueprint(
             _Api(),
             request_guard=request_guard,
             auth_decorator=lambda view: view,
         )
     )
 
-    response = app.test_client().get(
-        "/api/source-control/v1/connections"
-    )
+    response = app.test_client().get("/api/source-control/v1/connections")
 
     assert response.status_code == 403
-    assert (
-        response.get_json()["error"]["code"]
-        == "source_control_forbidden"
-    )
+    assert response.get_json()["error"]["code"] == "source_control_forbidden"
 
 
 def test_create_requires_idempotency_but_no_if_match(monkeypatch) -> None:
@@ -324,10 +296,7 @@ def test_client_cannot_claim_scope_or_destination_security(monkeypatch) -> None:
 
     assert connection_response.status_code == 400
     assert preview_response.status_code == 400
-    assert (
-        connection_response.get_json()["error"]["code"]
-        == "request_fields_forbidden"
-    )
+    assert connection_response.get_json()["error"]["code"] == "request_fields_forbidden"
 
 
 def test_connection_rejects_browser_digest_url_and_path(monkeypatch) -> None:
@@ -345,18 +314,14 @@ def test_connection_rejects_browser_digest_url_and_path(monkeypatch) -> None:
             json={**base, **forbidden},
         )
         assert response.status_code == 400
-        assert response.get_json()["error"]["code"] == (
-            "request_fields_forbidden"
-        )
+        assert response.get_json()["error"]["code"] == ("request_fields_forbidden")
 
     traversal = client.post(
         "/api/source-control/v1/connections/validate",
         json={**base, "relative_path": "../escape"},
     )
     assert traversal.status_code == 400
-    assert traversal.get_json()["error"]["code"] == (
-        "workspace_relative_path_invalid"
-    )
+    assert traversal.get_json()["error"]["code"] == ("workspace_relative_path_invalid")
 
     safe_relative = client.post(
         "/api/source-control/v1/connections/validate",
@@ -408,19 +373,16 @@ def test_unexpected_exception_never_crosses_versioned_boundary(
     api.raise_detail = True
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(
+    app.register_blueprint(
+        create_source_control_v1_blueprint(
             api,
             request_guard=request_guard,
             auth_decorator=lambda view: view,
         )
     )
 
-    response = app.test_client().get(
-        "/api/source-control/v1/connections/conn-example"
-    )
+    response = app.test_client().get("/api/source-control/v1/connections/conn-example")
 
     assert response.status_code == 500
-    assert response.get_json()["error"]["code"] == (
-        "source_control_internal_error"
-    )
+    assert response.get_json()["error"]["code"] == ("source_control_internal_error")
     assert "do-not-leak" not in response.get_data(as_text=True)

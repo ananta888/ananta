@@ -12,8 +12,13 @@ from agent.services.planning_parse_primitives import (
     strip_markdown_fences,
 )
 
-
-DEFAULT_CHAIN = ["strict_json", "strip_markdown_fence", "extract_first_json_block", "mermaid_graph_extract", "llm_repair"]
+DEFAULT_CHAIN = [
+    "strict_json",
+    "strip_markdown_fence",
+    "extract_first_json_block",
+    "mermaid_graph_extract",
+    "llm_repair",
+]
 
 
 def _parse_subtasks_quick(text: str, *, default_priority: str) -> list[dict[str, Any]]:
@@ -69,13 +74,17 @@ def _parse_subtasks_quick(text: str, *, default_priority: str) -> list[dict[str,
         if not s:
             continue
         if s.startswith(("-", "*", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
-            n = normalize_subtask({"description": s.lstrip("-*1234567890. ").strip()}, default_priority=default_priority)
+            n = normalize_subtask(
+                {"description": s.lstrip("-*1234567890. ").strip()}, default_priority=default_priority
+            )
             if n:
                 tasks.append(n)
     return tasks
 
 
-def run_parser_chain(raw_text: str, *, chain: list[str] | None = None, default_priority: str = "Medium") -> dict[str, Any]:
+def run_parser_chain(
+    raw_text: str, *, chain: list[str] | None = None, default_priority: str = "Medium"
+) -> dict[str, Any]:
     text = str(raw_text or "")
     steps = list(chain or DEFAULT_CHAIN)
     trace: list[dict[str, Any]] = []

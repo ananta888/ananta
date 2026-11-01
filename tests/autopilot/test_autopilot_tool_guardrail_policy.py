@@ -55,11 +55,20 @@ def test_autopilot_tool_guardrail_ignores_token_cap_in_aggressive_mode():
 
 def _safe(tool_calls):
     return AutopilotDecisionService().evaluate_tool_guardrails_for_autopilot(
-        task=_task(), policy={"level": "safe", "allowed_tool_classes": ["read"]},
-        agent_cfg={"llm_tool_guardrails": {"enabled": True, "max_external_calls_per_request": 99,
-                                           "max_estimated_cost_units_per_request": 999,
-                                           "tool_classes": {"file_read": "read", "file_write": "write"}}},
-        reason="r", command=None, tool_calls=tool_calls)
+        task=_task(),
+        policy={"level": "safe", "allowed_tool_classes": ["read"]},
+        agent_cfg={
+            "llm_tool_guardrails": {
+                "enabled": True,
+                "max_external_calls_per_request": 99,
+                "max_estimated_cost_units_per_request": 999,
+                "tool_classes": {"file_read": "read", "file_write": "write"},
+            }
+        },
+        reason="r",
+        command=None,
+        tool_calls=tool_calls,
+    )
 
 
 def test_safe_level_judges_the_resolved_call_not_the_invented_name():

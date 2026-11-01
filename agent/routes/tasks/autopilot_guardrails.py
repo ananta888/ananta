@@ -77,10 +77,7 @@ def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str
         if "max_concurrency_cap" in configured:
             base["max_concurrency_cap"] = max(
                 1,
-                int(
-                    configured.get("max_concurrency_cap")
-                    or base["max_concurrency_cap"]
-                ),
+                int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"]),
             )
         if "execute_timeout" in configured:
             base["execute_timeout"] = max(1, int(configured.get("execute_timeout") or base["execute_timeout"]))
@@ -129,43 +126,33 @@ def check_guardrail_limits(
 
 def resolve_resilience_config(*, agent_config: dict[str, Any]) -> dict[str, Any]:
     cfg = (agent_config or {}).get("autonomous_resilience", {}) or {}
-    retry_strategy = str(
-        cfg.get("retry_backoff_strategy")
-        or cfg.get("command_retry_strategy")
-        or "exponential"
-    ).strip().lower()
+    retry_strategy = (
+        str(cfg.get("retry_backoff_strategy") or cfg.get("command_retry_strategy") or "exponential").strip().lower()
+    )
     if retry_strategy not in {"constant", "exponential"}:
         retry_strategy = "exponential"
     return {
         "retry_attempts": _bounded_int(
-            cfg.get("retry_attempts")
-            or cfg.get("command_retries")
-            or 2,
+            cfg.get("retry_attempts") or cfg.get("command_retries") or 2,
             default=2,
             minimum=1,
             maximum=5,
         ),
         "retry_backoff_strategy": retry_strategy,
         "retry_backoff_seconds": _bounded_float(
-            cfg.get("retry_backoff_seconds")
-            or cfg.get("command_retry_delay")
-            or 0.2,
+            cfg.get("retry_backoff_seconds") or cfg.get("command_retry_delay") or 0.2,
             default=0.2,
             minimum=0.0,
             maximum=60.0,
         ),
         "retry_max_backoff_seconds": _bounded_float(
-            cfg.get("retry_max_backoff_seconds")
-            or cfg.get("command_max_retry_delay")
-            or 5.0,
+            cfg.get("retry_max_backoff_seconds") or cfg.get("command_max_retry_delay") or 5.0,
             default=5.0,
             minimum=0.0,
             maximum=300.0,
         ),
         "retry_jitter_factor": _bounded_float(
-            cfg.get("retry_jitter_factor")
-            or cfg.get("command_retry_jitter_factor")
-            or 0.2,
+            cfg.get("retry_jitter_factor") or cfg.get("command_retry_jitter_factor") or 0.2,
             default=0.2,
             minimum=0.0,
             maximum=1.0,

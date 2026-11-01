@@ -178,6 +178,7 @@ def test_explicit_missing_profiles_path_fails_closed_without_legacy_call(
     )
     monkeypatch.delenv("MODEL_ROUTING_PATH", raising=False)
     monkeypatch.delenv("ANANTA_MODEL_ROUTING_PATH", raising=False)
+
     def post(*args, **kwargs):  # noqa: ANN002, ANN003
         pytest.fail("legacy provider must not be called")
 
@@ -231,6 +232,7 @@ def test_explicit_invalid_routing_file_fails_closed_without_legacy_call(
     monkeypatch.setenv("MODEL_PROFILES_PATH", str(profiles_path))
     monkeypatch.setenv("MODEL_ROUTING_PATH", str(routing_path))
     monkeypatch.delenv("ANANTA_MODEL_ROUTING_PATH", raising=False)
+
     def post(*args, **kwargs):  # noqa: ANN002, ANN003
         pytest.fail("legacy provider must not be called")
 
@@ -301,6 +303,7 @@ def test_implicit_routing_context_disallows_cloud() -> None:
         block_secret_context=True,
     )
     resolver = ModelProfileResolver([cloud])
+
     def post(*args, **kwargs):  # noqa: ANN002, ANN003
         pytest.fail("cloud provider must not be called")
 
@@ -404,7 +407,6 @@ def test_make_chat_call_with_routing_ctx_includes_resolution_info() -> None:
         routing_rules=RoutingRules(),
     )
 
-
     captured: dict = {}
 
     def _fake_post(  # noqa: ANN001
@@ -488,7 +490,6 @@ def test_profile_request_applies_generation_limits() -> None:
             },
         )
 
-
     result = _service(resolver=resolver, post=_fake_post).invoke_result(
         "hello",
         system_prompt="Solve carefully.",
@@ -541,7 +542,6 @@ def test_profile_ollama_generate_uses_signed_exact_native_target() -> None:
                 "eval_count": 2,
             },
         )
-
 
     result = _service(resolver=resolver, post=_fake_post).invoke_result(
         "hello",
@@ -861,7 +861,6 @@ def test_hub_signed_attempt_plan_fails_closed_for_denied_triggers(
             terminal_reason=error_type,
         )
 
-
     with pytest.raises(LLMUnavailableError) as raised:
         _service(resolver=resolver, transport=_TransportDouble(_denied_call)).invoke_result(
             "hello",
@@ -901,7 +900,6 @@ def test_hub_signed_attempt_plan_http_4xx_does_not_call_gemma() -> None:
             text="invalid request",
             url="",
         )
-
 
     with pytest.raises(LLMUnavailableError) as raised:
         _service(resolver=resolver, settings=settings, post=_client_error).invoke_result(
@@ -944,7 +942,6 @@ def test_hub_signed_context_overflow_defers_directly_to_hub_recovery() -> None:
             url="",
         )
 
-
     with pytest.raises(LLMUnavailableError) as raised:
         _service(resolver=resolver, settings=settings, post=_context_overflow).invoke_result(
             "hello",
@@ -977,7 +974,6 @@ def test_provider_context_retry_attempt_advances_for_every_profile_request() -> 
             "choices": [{"message": {"content": "ok"}}],
             "metadata": {"llm_call_profile": []},
         }
-
 
     result = _service(resolver=resolver, transport=_TransportDouble(_fake_call)).invoke_result(
         "hello",
@@ -1013,7 +1009,6 @@ def test_bound_primary_context_cannot_authorize_unbound_fallback() -> None:
             llm_call_profile=[{"error_type": "timeout"}],
             terminal_reason="timeout",
         )
-
 
     with pytest.raises(LLMUnavailableError) as raised:
         _service(resolver=resolver, transport=_TransportDouble(_fake_call)).invoke_result(
@@ -1057,7 +1052,6 @@ def test_hub_bound_fallback_uses_its_own_context_and_reports_actual_profile() ->
             "model": "gemma",
             "metadata": {"llm_call_profile": []},
         }
-
 
     result = _service(resolver=resolver, transport=_TransportDouble(_fake_call)).invoke_result(
         "hello",
@@ -1246,7 +1240,6 @@ def test_group_retry_budget_caps_retries_across_all_profiles() -> None:
         assert allow_redirects is False
         calls.append(json["model"])
         raise requests.exceptions.Timeout("timeout")
-
 
     with pytest.raises(LLMUnavailableError) as raised:
         _service(resolver=resolver, settings=settings, post=_always_timeout).invoke_result(

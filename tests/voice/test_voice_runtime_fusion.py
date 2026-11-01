@@ -104,9 +104,7 @@ def test_deterministic_fusion_selects_existing_candidate_and_records_disagreemen
     assert all(item["alignment_method"] == "time_v1" for item in region.alternatives)
     assert all("score" in item for item in region.alternatives)
     assert first.result.warnings == ("fusion_cross_engine_confidence_degraded",)
-    assert first.result.decision_trace["confidence_comparison_mode"] == (
-        "degraded_cross_engine_uncalibrated"
-    )
+    assert first.result.decision_trace["confidence_comparison_mode"] == ("degraded_cross_engine_uncalibrated")
     assert first.result.provenance_valid is True
     assert first.result_hash == second.result_hash
     assert all(
@@ -200,9 +198,7 @@ def test_word_consensus_can_assemble_only_provenanced_candidate_tokens():
 
     assert outcome.result.text == "eins blau alt"
     assert outcome.result.text not in {candidate.text for candidate in candidates}
-    source_tokens = {
-        candidate.candidate_id: set(candidate.text.split()) for candidate in candidates
-    }
+    source_tokens = {candidate.candidate_id: set(candidate.text.split()) for candidate in candidates}
     for item in outcome.result.decision_trace["token_provenance"]:
         assert item["token"] in source_tokens[item["candidate_id"]]
     assert outcome.result.provenance_valid is True
@@ -237,11 +233,10 @@ def test_correlated_child_candidate_does_not_double_weight_its_parent_lineage():
     with_child = service.fuse((red, blue, blue_child))
 
     assert with_child.result.text == without_child.result.text
-    assert with_child.result.decision_trace["candidate_scores"]["blue"]["signals"][
-        "agreement"
-    ]["value"] == without_child.result.decision_trace["candidate_scores"]["blue"][
-        "signals"
-    ]["agreement"]["value"]
+    assert (
+        with_child.result.decision_trace["candidate_scores"]["blue"]["signals"]["agreement"]["value"]
+        == without_child.result.decision_trace["candidate_scores"]["blue"]["signals"]["agreement"]["value"]
+    )
 
 
 def test_time_alignment_covers_insert_delete_overlap_and_is_bit_stable():
@@ -273,9 +268,7 @@ def test_time_alignment_covers_insert_delete_overlap_and_is_bit_stable():
     assert first.method == "time_v1"
     assert {item.operation for item in first.spans} >= {"equal", "insert", "delete"}
     assert all(
-        item.start_ms is not None and item.end_ms is not None
-        for item in first.spans
-        if item.operation != "equal"
+        item.start_ms is not None and item.end_ms is not None for item in first.spans if item.operation != "equal"
     )
 
 

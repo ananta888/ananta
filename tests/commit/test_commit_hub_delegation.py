@@ -15,9 +15,7 @@ def _task(commit_metadata=None, task_kind="coding", auto_commit=False):
         "goal_id": "goal-1",
         "priority": "medium",
         "commit_metadata": commit_metadata,
-        "effective_config": {
-            "git_workspace": {"auto_commit": auto_commit}
-        },
+        "effective_config": {"git_workspace": {"auto_commit": auto_commit}},
     }
 
 

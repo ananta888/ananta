@@ -6,6 +6,7 @@ granted decision. It must NOT touch tasks that are already in
 non-pending states, and it must log an approval_request_redispatch
 audit event for every successful re-dispatch.
 """
+
 from __future__ import annotations
 
 import time
@@ -54,9 +55,9 @@ def test_redispatch_moves_pending_approval_task_to_todo(
     status=todo and recording status_reason_code=approval_granted_redispatch.
     """
     from agent.services.approval_request_service import (
+        AUDIT_APPROVAL_REQUEST_REDISPATCH,
         ApprovalRequestDB,
         ApprovalRequestService,
-        AUDIT_APPROVAL_REQUEST_REDISPATCH,
     )
 
     captured: list[tuple[str, dict[str, Any]]] = []
@@ -104,6 +105,7 @@ def test_redispatch_skips_already_running_task() -> None:
     repo = _FakeTaskRepo()
     repo.add(_FakeTask("task-rd-2", "running"))
     import unittest.mock as mock
+
     with mock.patch(
         "agent.services.repository_registry.get_repository_registry",
         return_value=_FakeRegistry(repo),
@@ -139,6 +141,7 @@ def test_redispatch_handles_missing_task_quietly() -> None:
 
     repo = _FakeTaskRepo()  # empty
     import unittest.mock as mock
+
     with mock.patch(
         "agent.services.repository_registry.get_repository_registry",
         return_value=_FakeRegistry(repo),

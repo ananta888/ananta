@@ -63,8 +63,6 @@ def test_segmented_ledger_is_bounded_replays_from_cache_and_fails_closed_at_capa
         )
     assert exhausted.value.code == "voice_deletion_ledger.capacity_exhausted"
 
-    persisted = "".join(
-        path.read_text(encoding="utf-8") for path in (*ledger.segment_paths, ledger.path)
-    )
+    persisted = "".join(path.read_text(encoding="utf-8") for path in (*ledger.segment_paths, ledger.path))
     for raw_value in ("bounded-tenant-a", "bounded-tenant-b", "bounded-tenant-c", "bounded-key"):
         assert raw_value not in persisted

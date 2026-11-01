@@ -1,4 +1,5 @@
 """Mutable outcome DTO shared by Hub dispatch coordinators."""
+
 from dataclasses import dataclass
 
 

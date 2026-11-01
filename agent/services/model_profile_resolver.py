@@ -19,6 +19,7 @@ Precedence ranks (0 = highest):
   11  capability_match          — best capability-matched profile
   12  legacy_fallback_chain     — fallback chain from routing rules
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,6 +47,7 @@ _DEFAULT_SECRET_PATTERNS: list[str] = [
 @dataclass
 class RoutingContext:
     """All facts known at resolution time."""
+
     model_role: str = "any"
     blueprint_id: str | None = None
     template_id: str | None = None
@@ -84,6 +86,7 @@ class RoutingContext:
 @dataclass
 class ResolutionDecision:
     """A single step in the resolution trace."""
+
     rank: int
     source: str
     profile_id: str | None
@@ -105,10 +108,7 @@ class ResolutionResult:
 
     def summary(self) -> str:
         if self.profile:
-            return (
-                f"resolved:{self.profile.profile_id} "
-                f"via:{self.final_source}(rank={self.final_rank})"
-            )
+            return f"resolved:{self.profile.profile_id} via:{self.final_source}(rank={self.final_rank})"
         return "no_profile_resolved"
 
 
@@ -180,6 +180,7 @@ class SecurityPolicyChecker:
 @dataclass
 class RoutingRules:
     """Loaded routing rules from config/routing file."""
+
     task_overrides: dict[str, str] = field(default_factory=dict)
     blueprint_rules: dict[str, str] = field(default_factory=dict)
     template_rules: dict[str, str] = field(default_factory=dict)
@@ -223,11 +224,7 @@ class RoutingRules:
         for group_id, raw_group in (data.get("fallback_groups") or {}).items():
             if not isinstance(raw_group, dict):
                 continue
-            ordered = [
-                str(pid).strip()
-                for pid in list(raw_group.get("ordered_profiles") or [])
-                if str(pid).strip()
-            ]
+            ordered = [str(pid).strip() for pid in list(raw_group.get("ordered_profiles") or []) if str(pid).strip()]
             rules.fallback_groups[str(group_id)] = FallbackGroupRule(
                 group_id=str(group_id),
                 ordered_profiles=ordered,
@@ -239,12 +236,14 @@ class RoutingRules:
         for raw_rule in list(data.get("escalation_rules") or []):
             if not isinstance(raw_rule, dict):
                 continue
-            rules.escalation_rules.append(EscalationRule(
-                trigger=str(raw_rule.get("trigger") or "").strip(),
-                from_profile=str(raw_rule.get("from_profile") or "").strip() or None,
-                to_profile=str(raw_rule.get("to_profile") or "").strip() or None,
-                condition=dict(raw_rule.get("condition") or {}),
-            ))
+            rules.escalation_rules.append(
+                EscalationRule(
+                    trigger=str(raw_rule.get("trigger") or "").strip(),
+                    from_profile=str(raw_rule.get("from_profile") or "").strip() or None,
+                    to_profile=str(raw_rule.get("to_profile") or "").strip() or None,
+                    condition=dict(raw_rule.get("condition") or {}),
+                )
+            )
         raw_recovery = data.get("context_recovery")
         if isinstance(raw_recovery, dict):
             try:
@@ -254,20 +253,14 @@ class RoutingRules:
 
                 recovery = ModelRoutingConfig.from_mapping(
                     {
-                        "context_recovery_strategies": raw_recovery.get(
-                            "strategies", []
-                        ),
+                        "context_recovery_strategies": raw_recovery.get("strategies", []),
                         "require_approval_for_generated_plan": raw_recovery.get(
                             "require_approval_for_generated_plan", True
                         ),
                     }
                 )
-                rules.context_recovery_strategies = list(
-                    recovery.context_recovery_strategies
-                )
-                rules.require_approval_for_generated_plan = bool(
-                    recovery.require_approval_for_generated_plan
-                )
+                rules.context_recovery_strategies = list(recovery.context_recovery_strategies)
+                rules.require_approval_for_generated_plan = bool(recovery.require_approval_for_generated_plan)
             except Exception:
                 if strict:
                     raise
@@ -288,10 +281,12 @@ class ProviderHealthCache:
 
     def mark_unavailable(self, provider_id: str) -> None:
         import time
+
         self._unavailable[provider_id] = time.time()
 
     def is_available(self, provider_id: str) -> bool:
         import time
+
         last_fail = self._unavailable.get(provider_id)
         if last_fail is None:
             return True
@@ -345,9 +340,7 @@ class ModelProfileResolver:
         master_default_profile: ModelProfile | None = None,
         style_ranking: StyleRankingPort | None = None,
     ):
-        self._profiles_by_id: dict[str, ModelProfile] = {
-            p.profile_id: p for p in profiles
-        }
+        self._profiles_by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles}
         self._by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles if p.enabled}
         self._all_enabled: list[ModelProfile] = [p for p in profiles if p.enabled]
         self.security = security_policy or SecurityPolicyChecker()
@@ -373,11 +366,7 @@ class ModelProfileResolver:
         provider = str(provider_id or "").strip()
         model = str(model_id or "").strip()
         return next(
-            (
-                profile
-                for profile in self._all_enabled
-                if profile.provider_id == provider and profile.model == model
-            ),
+            (profile for profile in self._all_enabled if profile.provider_id == provider and profile.model == model),
             None,
         )
 
@@ -391,16 +380,10 @@ class ModelProfileResolver:
                 return None
             prof = self._by_id.get(pid)
             if not prof:
-                reason = (
-                    "profile_disabled"
-                    if pid in self._profiles_by_id
-                    else f"profile_not_found:{pid}"
-                )
+                reason = "profile_disabled" if pid in self._profiles_by_id else f"profile_not_found:{pid}"
                 if reason == "profile_disabled":
                     blocked.append((pid, reason))
-                decisions.append(
-                    ResolutionDecision(rank, source, pid, False, reason)
-                )
+                decisions.append(ResolutionDecision(rank, source, pid, False, reason))
                 return None
             allowed, reason = self.security.is_allowed_for_context(prof, ctx)
             if not allowed:
@@ -432,9 +415,7 @@ class ModelProfileResolver:
             pid = prof.profile_id
             if not prof.enabled:
                 blocked.append((pid, "profile_disabled"))
-                decisions.append(
-                    ResolutionDecision(rank, source, pid, False, "profile_disabled")
-                )
+                decisions.append(ResolutionDecision(rank, source, pid, False, "profile_disabled"))
                 return None
             allowed, reason = self.security.is_allowed_for_context(prof, ctx)
             if not allowed:
@@ -448,7 +429,10 @@ class ModelProfileResolver:
             if not self.health.is_available(prof.provider_id):
                 decisions.append(
                     ResolutionDecision(
-                        rank, source, pid, False,
+                        rank,
+                        source,
+                        pid,
+                        False,
                         f"provider_health:unavailable:{prof.provider_id}",
                     )
                 )
@@ -530,9 +514,7 @@ class ModelProfileResolver:
                 return ResolutionResult(prof, decisions, blocked, 12, "legacy_fallback_chain")
 
         # exhausted
-        decisions.append(
-            ResolutionDecision(12, "no_fallback", None, False, "no_usable_profile_found")
-        )
+        decisions.append(ResolutionDecision(12, "no_fallback", None, False, "no_usable_profile_found"))
         return ResolutionResult(None, decisions, blocked, None, None)
 
     def _capability_check(self, prof: ModelProfile, ctx: RoutingContext) -> tuple[bool, str]:
@@ -574,10 +556,7 @@ class ModelProfileResolver:
         role_matched = [p for p in candidates if p.model_role == ctx.model_role or p.model_role == "any"]
         if role_matched:
             candidates = role_matched
-        benchmark_order = {
-            profile_id: index
-            for index, profile_id in enumerate(self._benchmark_profile_order)
-        }
+        benchmark_order = {profile_id: index for index, profile_id in enumerate(self._benchmark_profile_order)}
         benchmark_ranked = [p for p in candidates if p.profile_id in benchmark_order]
         if benchmark_ranked:
             candidates = sorted(
@@ -602,20 +581,21 @@ class ModelProfileResolver:
             allowed, reason = self.security.is_allowed_for_context(prof, ctx)
             if not allowed:
                 blocked.append((prof.profile_id, reason))
-                decisions.append(
-                    ResolutionDecision(11, "capability_match", prof.profile_id, False, reason)
-                )
+                decisions.append(ResolutionDecision(11, "capability_match", prof.profile_id, False, reason))
                 continue
             cap_ok, cap_reason = self._capability_check(prof, ctx)
             if not cap_ok:
-                decisions.append(
-                    ResolutionDecision(11, "capability_match", prof.profile_id, False, cap_reason)
-                )
+                decisions.append(ResolutionDecision(11, "capability_match", prof.profile_id, False, cap_reason))
                 continue
             if not self.health.is_available(prof.provider_id):
                 decisions.append(
-                    ResolutionDecision(11, "capability_match", prof.profile_id, False,
-                                       f"provider_health:unavailable:{prof.provider_id}")
+                    ResolutionDecision(
+                        11,
+                        "capability_match",
+                        prof.profile_id,
+                        False,
+                        f"provider_health:unavailable:{prof.provider_id}",
+                    )
                 )
                 continue
             eligible.append(prof)
@@ -625,26 +605,31 @@ class ModelProfileResolver:
                 tuple(eligible),
                 role_id=str(ctx.metadata.get("style_role_id") or ctx.model_role),
                 project_id=str(ctx.metadata.get("style_project_id") or "") or None,
-                organization_id=str(
-                    ctx.metadata.get("style_organization_id") or ""
-                ) or None,
+                organization_id=str(ctx.metadata.get("style_organization_id") or "") or None,
             )
             eligible = [item.profile for item in ranked]
             for item in ranked:
                 score = "unknown" if item.score is None else f"{item.score:.6f}"
-                decisions.append(ResolutionDecision(
-                    11,
-                    "cognitive_style_soft_ranking",
-                    item.profile.profile_id,
-                    True,
-                    f"{item.reason}:score={score}:grants_authority=false",
-                ))
+                decisions.append(
+                    ResolutionDecision(
+                        11,
+                        "cognitive_style_soft_ranking",
+                        item.profile.profile_id,
+                        True,
+                        f"{item.reason}:score={score}:grants_authority=false",
+                    )
+                )
         if not eligible:
             return None
-        decisions.append(ResolutionDecision(
-            11, "capability_match", eligible[0].profile_id, True,
-            "best_capability_match_after_soft_ranking",
-        ))
+        decisions.append(
+            ResolutionDecision(
+                11,
+                "capability_match",
+                eligible[0].profile_id,
+                True,
+                "best_capability_match_after_soft_ranking",
+            )
+        )
         return eligible[0]
 
     def resolve_candidate_chain(self, ctx: RoutingContext) -> tuple[ResolutionResult, list[ModelProfile]]:
@@ -656,10 +641,7 @@ class ModelProfileResolver:
                 effective_ctx,
                 result.profile.profile_id,
             )
-            if (
-                refined_ctx.max_estimated_cost_per_step
-                != effective_ctx.max_estimated_cost_per_step
-            ):
+            if refined_ctx.max_estimated_cost_per_step != effective_ctx.max_estimated_cost_per_step:
                 effective_ctx = refined_ctx
                 result = self.resolve(effective_ctx)
         ordered_ids = self._candidate_ids_for_context(
@@ -691,9 +673,7 @@ class ModelProfileResolver:
             if direct_policy_blocked_cloud and prof.is_cloud():
                 reason = "fallback_policy:cloud_block_is_terminal"
                 blocked.append((pid, reason))
-                decisions.append(
-                    ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason)
-                )
+                decisions.append(ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason))
                 continue
             candidate_context_limit = (
                 effective_ctx.fallback_candidate_max_context_tokens.get(pid)
@@ -723,9 +703,7 @@ class ModelProfileResolver:
             ):
                 reason = "fallback_policy:cloud_candidate_not_allowed"
                 blocked.append((pid, reason))
-                decisions.append(
-                    ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason)
-                )
+                decisions.append(ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason))
                 if effective_ctx.fallback_profile_ids and effective_ctx.fallback_stop_on_policy_block:
                     direct_policy_blocked_cloud = True
                 continue
@@ -743,20 +721,14 @@ class ModelProfileResolver:
             candidate_cost = effective_ctx.fallback_candidate_max_costs.get(pid)
             effective_cost = effective_ctx.max_estimated_cost_per_step
             if candidate_cost is not None:
-                effective_cost = (
-                    min(effective_cost, candidate_cost)
-                    if effective_cost is not None
-                    else candidate_cost
-                )
+                effective_cost = min(effective_cost, candidate_cost) if effective_cost is not None else candidate_cost
             candidate_ctx = replace(
                 effective_ctx,
                 requires_tools=(
-                    effective_ctx.requires_tools
-                    or effective_ctx.fallback_candidate_requires_tools.get(pid, False)
+                    effective_ctx.requires_tools or effective_ctx.fallback_candidate_requires_tools.get(pid, False)
                 ),
                 requires_json=(
-                    effective_ctx.requires_json
-                    or effective_ctx.fallback_candidate_requires_json.get(pid, False)
+                    effective_ctx.requires_json or effective_ctx.fallback_candidate_requires_json.get(pid, False)
                 ),
                 max_estimated_cost_per_step=effective_cost,
             )
@@ -797,13 +769,15 @@ class ModelProfileResolver:
             and result.profile is not None
             and result.profile.profile_id not in direct_allowed_ids
         ):
-            decisions.append(ResolutionDecision(
-                13,
-                "hub_assignment_boundary",
-                result.profile.profile_id,
-                False,
-                "candidate_not_in_effective_assignment_chain",
-            ))
+            decisions.append(
+                ResolutionDecision(
+                    13,
+                    "hub_assignment_boundary",
+                    result.profile.profile_id,
+                    False,
+                    "candidate_not_in_effective_assignment_chain",
+                )
+            )
             result = ResolutionResult(
                 profile=chain[0] if chain else None,
                 decisions=decisions,
@@ -842,11 +816,7 @@ class ModelProfileResolver:
         ):
             limits.append(float(request_limit))
         group = self.fallback_group_rule_for_context(ctx, resolved_profile_id)
-        group_limit = (
-            group.cost_policy.get("max_estimated_cost_per_step")
-            if group is not None
-            else None
-        )
+        group_limit = group.cost_policy.get("max_estimated_cost_per_step") if group is not None else None
         if (
             not isinstance(group_limit, bool)
             and isinstance(group_limit, (int, float))
@@ -892,10 +862,7 @@ class ModelProfileResolver:
         group_id = self._fallback_group_id_for_context(ctx, resolved_profile_id)
         if group_id and group_id in self.rules.fallback_groups:
             return list(self.rules.fallback_groups[group_id].ordered_profiles)
-        grouped = [
-            p for p in self._all_enabled
-            if group_id and p.fallback_group == group_id
-        ]
+        grouped = [p for p in self._all_enabled if group_id and p.fallback_group == group_id]
         if grouped:
             return [
                 profile.profile_id

@@ -44,31 +44,23 @@ class RegisteredWorkspaceCatalogPort(Protocol):
 
 
 class WorkspaceFileInspectionPort(Protocol):
-    def stat(
-        self, path: Path, *, follow_symlinks: bool
-    ) -> os.stat_result: ...
+    def stat(self, path: Path, *, follow_symlinks: bool) -> os.stat_result: ...
 
     def lstat(self, path: Path) -> os.stat_result: ...
 
-    def hash_file(
-        self, path: Path, *, before: os.stat_result
-    ) -> str: ...
+    def hash_file(self, path: Path, *, before: os.stat_result) -> str: ...
 
 
 class PosixWorkspaceFileInspection:
     """Narrow injectable seam for deterministic race enforcement."""
 
-    def stat(
-        self, path: Path, *, follow_symlinks: bool
-    ) -> os.stat_result:
+    def stat(self, path: Path, *, follow_symlinks: bool) -> os.stat_result:
         return path.stat(follow_symlinks=follow_symlinks)
 
     def lstat(self, path: Path) -> os.stat_result:
         return path.lstat()
 
-    def hash_file(
-        self, path: Path, *, before: os.stat_result
-    ) -> str:
+    def hash_file(self, path: Path, *, before: os.stat_result) -> str:
         return _hash_file_no_follow(path, before=before)
 
 
@@ -169,9 +161,7 @@ class RegisteredWorkspaceConnector:
             if directory_stat.st_dev != root_stat.st_dev:
                 raise RegisteredWorkspaceError("workspace_mount_changed")
             if not stat.S_ISDIR(directory_stat.st_mode):
-                raise RegisteredWorkspaceError(
-                    "workspace_special_file_forbidden"
-                )
+                raise RegisteredWorkspaceError("workspace_special_file_forbidden")
             relative_directory = directory_path.relative_to(target)
             if len(relative_directory.parts) > self._limits.max_depth:
                 raise RegisteredWorkspaceError("workspace_depth_budget_exceeded")
@@ -183,9 +173,7 @@ class RegisteredWorkspaceConnector:
                 if stat.S_ISLNK(child_stat.st_mode):
                     raise RegisteredWorkspaceError("workspace_symlink_forbidden")
                 if not stat.S_ISDIR(child_stat.st_mode):
-                    raise RegisteredWorkspaceError(
-                        "workspace_special_file_forbidden"
-                    )
+                    raise RegisteredWorkspaceError("workspace_special_file_forbidden")
                 if child_stat.st_dev != root_stat.st_dev:
                     raise RegisteredWorkspaceError("workspace_mount_changed")
             for filename in filenames:
@@ -199,13 +187,9 @@ class RegisteredWorkspaceConnector:
                 entries.append(entry)
                 total_bytes += entry.byte_size
                 if len(entries) > self._limits.max_files:
-                    raise RegisteredWorkspaceError(
-                        "workspace_file_count_budget_exceeded"
-                    )
+                    raise RegisteredWorkspaceError("workspace_file_count_budget_exceeded")
                 if total_bytes > self._limits.max_total_bytes:
-                    raise RegisteredWorkspaceError(
-                        "workspace_total_bytes_budget_exceeded"
-                    )
+                    raise RegisteredWorkspaceError("workspace_total_bytes_budget_exceeded")
         entries.sort(key=lambda entry: entry.relative_path)
         manifest_payload = [
             {

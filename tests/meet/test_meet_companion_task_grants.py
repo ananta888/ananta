@@ -23,16 +23,27 @@ def assigned(tmp_path):
     path.chmod(0o600)
     issuer = MeetMachineGrantIssuer("https://hub.example.test", path)
     service = MeetCompanionTaskGrants(f.authority, issuer, clock=lambda: f.now)
-    request = {"project_id": "project", "task_id": "task", "lease_id": "dispatch",
-               "runtime_id": "runtime", "session_id": "hub-session", "capabilities": ["chat.read", "chat.send"]}
+    request = {
+        "project_id": "project",
+        "task_id": "task",
+        "lease_id": "dispatch",
+        "runtime_id": "runtime",
+        "session_id": "hub-session",
+        "capabilities": ["chat.read", "chat.send"],
+    }
     return f, service, request, key
 
 
 def test_registered_task_binding_is_signed_without_caller_identity_issuance(assigned):
     f, service, request, key = assigned
     result = service.issue(request)
-    claims = jwt.decode(result["grant"], key.public_key(), algorithms=["EdDSA"],
-                        issuer="https://hub.example.test", audience="ananta-meet-machine-v2")
+    claims = jwt.decode(
+        result["grant"],
+        key.public_key(),
+        algorithms=["EdDSA"],
+        issuer="https://hub.example.test",
+        audience="ananta-meet-machine-v2",
+    )
     assert (claims["taskId"], claims["runtimeId"], claims["sessionId"]) == ("task", "runtime", "hub-session")
     assert claims["capabilities"] == request["capabilities"]
     assert claims["exp"] <= min(f.now + 120, f.context["deadline"])
@@ -42,13 +53,22 @@ def test_registered_task_binding_is_signed_without_caller_identity_issuance(assi
         service.issue(request)
 
 
-@pytest.mark.parametrize("patch", [
-    {"project_id": "foreign"}, {"session_id": "invented"}, {"runtime_id": "invented"},
-    {"lease_id": "stale"}, {"capabilities": ["chat.read"]},
-    {"capabilities": ["chat.read", "chat.send", "avatar.publish"]},
-    {"capabilities": ["chat.read", "chat.read"]}, {"capabilities": "chat.read"},
-    {"capabilities": [True]}, {"source_id": "SRC_invented"}, {"task_id": ""},
-])
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"project_id": "foreign"},
+        {"session_id": "invented"},
+        {"runtime_id": "invented"},
+        {"lease_id": "stale"},
+        {"capabilities": ["chat.read"]},
+        {"capabilities": ["chat.read", "chat.send", "avatar.publish"]},
+        {"capabilities": ["chat.read", "chat.read"]},
+        {"capabilities": "chat.read"},
+        {"capabilities": [True]},
+        {"source_id": "SRC_invented"},
+        {"task_id": ""},
+    ],
+)
 def test_closed_scope_cannot_be_forged_broadened_or_replaced(assigned, patch):
     _f, service, request, _key = assigned
     with pytest.raises(MeetError):

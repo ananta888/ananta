@@ -3,6 +3,7 @@
 Workers can propose new skills for Hub review, but cannot self-install them.
 Requires skill_propose capability. Proposals do not mutate the active SkillRegistry.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ class SkillProposalArtifact:
     Does NOT enable or write to the active SkillRegistry.
     Approval/installation is an explicit, separate Hub workflow.
     """
+
     proposed_manifest: dict[str, Any]
     rationale: str
     evidence_refs: list[str] = field(default_factory=list)

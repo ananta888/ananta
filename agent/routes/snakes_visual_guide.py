@@ -17,7 +17,9 @@ from .snakes_chat_helpers import _append_room_ai_message
 def _get_visual_state_ref() -> dict:
     """Lazy accessor that avoids a circular import at module init time."""
     from agent.services.visual_guide.service import _visual_state as _vs
+
     return _vs
+
 
 _VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
 _VISUAL_SESSION_ID: str = "ananta-visual"  # tag for messages belonging to the visual snake session
@@ -34,6 +36,7 @@ def _visual_session_settings() -> dict:
     conftest monkeypatches on get_manager are picked up automatically."""
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
     from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
     defaults = {k: v for k, v in _DEFAULT_SESSION_SETTINGS.items() if k.startswith("predictive_guide_")}
     try:
         sessions = get_manager().load().get("chat_sessions") or []
@@ -81,10 +84,12 @@ def _append_visual_user_tick(
     if log_deltas:
         # Per-snake delta baseline (VG-003)
         from agent.services.visual_guide.service import _get_visual_state
+
         state = _get_visual_state(snake_id) if snake_id else None
         prev_delta = (state["delta_snapshot"] if state else "") or ""
         try:
             from agent.services.snapshot_delta import diff_snapshots
+
             delta = diff_snapshots(prev_delta, ui_snapshot)
             if not delta.is_empty():
                 delta_text = f"[ui-delta] {delta.as_compact_text()}"
@@ -100,6 +105,7 @@ def _append_visual_user_tick(
     # Update per-snake delta baseline — separate from reply-throttle key
     if snake_id:
         from agent.services.visual_guide.service import _get_visual_state
+
         state = _get_visual_state(snake_id)
         state["delta_snapshot"] = ui_snapshot
         state["updated_at"] = time.time()
@@ -122,6 +128,7 @@ def _spawn_visual_reply(
         __CANDIDATES__: [{"label":"primary","bubble":"...","steps":[...]}, ...]
     Single-candidate mode keeps the legacy __GUIDE__: format."""
     from agent.services.visual_guide.service import _visual_guide_service
+
     _visual_guide_service.handle_ui_tick(
         snake_id=snake_id,
         ui_snapshot=ui_snapshot,
@@ -144,6 +151,7 @@ def _spawn_region_explain_reply(
     region_steps and AI-generated bubble texts, so the client can play
     the guide with real explanations instead of raw element labels."""
     from agent.services.visual_guide.service import _visual_guide_service
+
     _visual_guide_service.handle_region_explain(
         snake_id=snake_id,
         region_steps=region_steps,

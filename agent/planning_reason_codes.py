@@ -4,6 +4,7 @@ Standardised reason codes for planning lifecycle events (PRI-011).
 All automated abort/failure paths in the planning pipeline should use one of
 these constants so that logs, events, and CLI diagnostics can filter by code.
 """
+
 from __future__ import annotations
 
 # --- slot / queue ---
@@ -42,14 +43,16 @@ RATE_LIMIT_REJECTED = "rate_limit_rejected"
 
 
 # Ordered set of all terminal planning reason codes for filtering.
-TERMINAL_REASON_CODES: frozenset[str] = frozenset({
-    PLANNING_SLOT_TIMEOUT,
-    PLANNING_BACKGROUND_TIMEOUT,
-    PLANNING_DEADLINE_GUARD_TIMEOUT,
-    PLANNING_BACKGROUND_EXCEPTION,
-    PLANNING_STALE_RECOVERED,
-    PLANNING_PREFLIGHT_STALE_CANCELLED,
-    PLANNING_GOAL_CANCELLED,
-    CIRCUIT_BREAKER_OPEN,
-    RATE_LIMIT_REJECTED,
-})
+TERMINAL_REASON_CODES: frozenset[str] = frozenset(
+    {
+        PLANNING_SLOT_TIMEOUT,
+        PLANNING_BACKGROUND_TIMEOUT,
+        PLANNING_DEADLINE_GUARD_TIMEOUT,
+        PLANNING_BACKGROUND_EXCEPTION,
+        PLANNING_STALE_RECOVERED,
+        PLANNING_PREFLIGHT_STALE_CANCELLED,
+        PLANNING_GOAL_CANCELLED,
+        CIRCUIT_BREAKER_OPEN,
+        RATE_LIMIT_REJECTED,
+    }
+)

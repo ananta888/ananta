@@ -3,8 +3,6 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Mapping
 
-from ananta_contracts.unsloth_task import canonical_unsloth_json
-
 from agent.services.unsloth_cleanup_reservation_reconciler import (
     UnslothCleanupReservationPolicy,
     UnslothCleanupReservationReconciler,
@@ -12,7 +10,7 @@ from agent.services.unsloth_cleanup_reservation_reconciler import (
 from agent.services.unsloth_storage_governance_service import (
     UnslothStorageError,
 )
-
+from ananta_contracts.unsloth_task import canonical_unsloth_json
 
 TENANT = "tenant-a"
 SCOPE = "a" * 64
@@ -32,10 +30,7 @@ def _payload(task_id: str) -> dict[str, Any]:
             {
                 "artifact_id": "export-a",
                 "kind": "export",
-                "relative_ref": (
-                    f"tenants/{SCOPE}/jobs/job-a/attempts/attempt-a/"
-                    "exports/export-a.zip"
-                ),
+                "relative_ref": (f"tenants/{SCOPE}/jobs/job-a/attempts/attempt-a/exports/export-a.zip"),
                 "job_id": "job-a",
                 "attempt_id": "attempt-a",
                 "sha256": "d" * 64,
@@ -60,9 +55,7 @@ def _submission(
         "task_type": "ml.storage.cleanup",
         "tenant_id": TENANT,
         "payload": payload,
-        "payload_sha256": hashlib.sha256(
-            encoded.encode("utf-8")
-        ).hexdigest(),
+        "payload_sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
         "result_handler": "unsloth_storage_cleanup_v1",
         "status_reason_details": {},
     }
@@ -75,9 +68,7 @@ class _Tasks:
         *,
         deny_leases: bool = False,
     ) -> None:
-        self.items = {
-            str(item["task_id"]): item for item in submissions
-        }
+        self.items = {str(item["task_id"]): item for item in submissions}
         self.deny_leases = deny_leases
         self.list_limits: list[int] = []
 
@@ -91,8 +82,7 @@ class _Tasks:
         return tuple(
             dict(item)
             for item in self.items.values()
-            if item["status"] == "reserved"
-            and float(item["created_at"]) <= before
+            if item["status"] == "reserved" and float(item["created_at"]) <= before
         )[:limit]
 
     def lease_reserved(
@@ -204,9 +194,7 @@ def test_stale_valid_reservation_is_catalog_bound_then_activated():
 
 
 def test_expired_reservation_is_released_before_terminal_rejection():
-    tasks = _Tasks(
-        [_submission("unsloth-cleanup-expired", created_at=100.0)]
-    )
+    tasks = _Tasks([_submission("unsloth-cleanup-expired", created_at=100.0)])
     catalog = _Catalog()
 
     result = _service(
@@ -261,18 +249,11 @@ def test_tampered_payload_hash_remains_fail_closed_and_is_audited():
     assert result["invalid"] == 1
     assert catalog.marked == []
     assert tasks.items["unsloth-cleanup-tampered"]["status"] == "reserved"
-    assert audit[0][1]["reason_code"] == (
-        "unsloth_cleanup_reservation_contract_invalid"
-    )
+    assert audit[0][1]["reason_code"] == ("unsloth_cleanup_reservation_contract_invalid")
 
 
 def test_run_once_never_processes_more_than_requested_limit():
-    tasks = _Tasks(
-        [
-            _submission(f"unsloth-cleanup-{index}")
-            for index in range(6)
-        ]
-    )
+    tasks = _Tasks([_submission(f"unsloth-cleanup-{index}") for index in range(6)])
     catalog = _Catalog()
 
     result = _service(tasks, catalog).run_once(limit=2)

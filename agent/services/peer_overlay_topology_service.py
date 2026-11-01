@@ -129,11 +129,7 @@ class PeerOverlayTopologyService:
             raise ValueError("peer_overlay_signing_key_too_short")
         if not 2 <= max_children <= 3:
             raise ValueError("peer_overlay_max_children_invalid")
-        if (
-            not 30 <= lease_seconds <= 300
-            or not 0 <= max_turn_edges <= 16
-            or not 0 <= minimum_eligible_ms <= 300_000
-        ):
+        if not 30 <= lease_seconds <= 300 or not 0 <= max_turn_edges <= 16 or not 0 <= minimum_eligible_ms <= 300_000:
             raise ValueError("peer_overlay_budget_invalid")
         self._key = bytes(signing_key)
         self._hub_key_id = require_overlay_id(hub_key_id, "hub_key_id")

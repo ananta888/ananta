@@ -1,4 +1,5 @@
 """Heuristic Simulator — simuliert DSL-Kandidaten gegen aufgezeichnete Snapshots."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,6 +8,7 @@ from typing import Any
 try:
     from agent.services.heuristic_runtime.dsl.evaluator import DslEvaluator
     from agent.services.heuristic_runtime.dsl.validator import DslValidator
+
     _RUNTIME_AVAILABLE = True
 except ImportError:
     _RUNTIME_AVAILABLE = False
@@ -79,15 +81,19 @@ class HeuristicSimulator:
     ) -> SimulationResult:
         """Simuliert DSL gegen Liste von Snapshot-Frames."""
         if not _RUNTIME_AVAILABLE:
-            return SimulationResult(proposal_id=proposal_id, passed=False,
-                                  rejection_reason="DSL runtime nicht verfügbar")
+            return SimulationResult(
+                proposal_id=proposal_id, passed=False, rejection_reason="DSL runtime nicht verfügbar"
+            )
 
         # Validierung zuerst
         val = self._validator.validate(dsl)
         if not val.passed:
-            return SimulationResult(proposal_id=proposal_id, passed=False,
-                                  validation_errors=val.errors,
-                                  rejection_reason="Validation fehlgeschlagen")
+            return SimulationResult(
+                proposal_id=proposal_id,
+                passed=False,
+                validation_errors=val.errors,
+                rejection_reason="Validation fehlgeschlagen",
+            )
 
         metrics = SimulationMetrics()
 

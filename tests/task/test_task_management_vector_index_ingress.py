@@ -67,9 +67,7 @@ def _bound_knowledge_index_task(task_id: str = "bound-index-task") -> dict:
         ),
         (
             "api",
-            TaskCreateRequest(
-                worker_execution_context={"knowledge_index_job": {}}
-            ),
+            TaskCreateRequest(worker_execution_context={"knowledge_index_job": {}}),
             "worker_execution_context.knowledge_index_job",
         ),
     ],
@@ -227,13 +225,7 @@ def test_patch_task_rejects_generic_mutation_of_existing_vector_index_task(
         {"status": "completed"},
         {"task_kind": "ordinary_task"},
         {"required_capabilities": []},
-        {
-            "worker_execution_context": {
-                "knowledge_index_dispatch_receipt": {
-                    "schema": "forged-receipt"
-                }
-            }
-        },
+        {"worker_execution_context": {"knowledge_index_dispatch_receipt": {"schema": "forged-receipt"}}},
     ],
 )
 def test_patch_task_rejects_all_generic_mutation_of_bound_knowledge_index_job(
@@ -271,9 +263,7 @@ def test_patch_task_rejects_all_generic_mutation_of_bound_knowledge_index_job(
         "error": "knowledge_index_task_control_plane_mutation_forbidden",
         "code": 409,
         "data": {
-            "reason_code": (
-                "knowledge_index_task_control_plane_mutation_forbidden"
-            ),
+            "reason_code": ("knowledge_index_task_control_plane_mutation_forbidden"),
             "task_id": task_id,
             "action": "patch",
         },
@@ -332,11 +322,7 @@ def test_bound_knowledge_index_generic_claim_is_rejected_before_queue(
     monkeypatch.setattr(
         "agent.services.task_claim_service.get_repository_registry",
         lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: SimpleNamespace(
-                    model_dump=lambda: task
-                )
-            )
+            task_repo=SimpleNamespace(get_by_id=lambda _task_id: SimpleNamespace(model_dump=lambda: task))
         ),
     )
     queue = SimpleNamespace(claim_task=_unexpected_dependency)
@@ -346,9 +332,7 @@ def test_bound_knowledge_index_generic_claim_is_rejected_before_queue(
         agent_url="http://worker-a:5001",
         requested_lease=120,
         idempotency_key="claim-bound-index",
-        policy=SimpleNamespace(
-            validate_lease_duration=_unexpected_dependency
-        ),
+        policy=SimpleNamespace(validate_lease_duration=_unexpected_dependency),
         task_queue_service=queue,
     )
 
@@ -434,9 +418,7 @@ def test_bound_knowledge_index_generic_delegation_and_completion_are_rejected():
 
     assert delegated["data"]["action"] == "delegate_task"
     assert completed["data"]["action"] == "orchestration_complete"
-    assert delegated["error"] == completed["error"] == (
-        BOUND_KNOWLEDGE_INDEX_MUTATION_REASON
-    )
+    assert delegated["error"] == completed["error"] == (BOUND_KNOWLEDGE_INDEX_MUTATION_REASON)
 
 
 def test_bound_knowledge_index_admin_intervention_and_archive_are_rejected(
@@ -449,9 +431,7 @@ def test_bound_knowledge_index_admin_intervention_and_archive_are_rejected(
     )
     repositories = SimpleNamespace(
         task_repo=SimpleNamespace(get_by_id=lambda _task_id: task),
-        archived_task_repo=SimpleNamespace(
-            get_by_id=lambda _task_id: task
-        ),
+        archived_task_repo=SimpleNamespace(get_by_id=lambda _task_id: task),
     )
     monkeypatch.setattr(
         "agent.services.task_admin_service.get_repository_registry",

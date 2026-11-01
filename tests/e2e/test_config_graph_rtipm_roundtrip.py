@@ -15,32 +15,44 @@ def test_config_graph_rtipm_roundtrip_persists_arrays_booleans_numbers_and_rolls
     (tmp_path / "agent/services").mkdir(parents=True)
     (tmp_path / "AGENTS.md").write_text("# root\n", encoding="utf-8")
     (tmp_path / "docs/agent-profiles/profile-map.json").write_text('{"profiles":{}}', encoding="utf-8")
-    (tmp_path / "user.json").write_text(json.dumps({
-        "path_ai_modes": [
-            {"path_glob": "agent/**", "blocked_ai_modes": ["full_llm"]}
-        ],
-        "restricted_inference": {
-            "models": [{"id": "mock", "engine": "mock", "tasks": ["candidate_rerank"]}]
-        },
-        "codecompass_ranking": {"restricted_inference_rerank_enabled": False},
-    }), encoding="utf-8")
+    (tmp_path / "user.json").write_text(
+        json.dumps(
+            {
+                "path_ai_modes": [{"path_glob": "agent/**", "blocked_ai_modes": ["full_llm"]}],
+                "restricted_inference": {"models": [{"id": "mock", "engine": "mock", "tasks": ["candidate_rerank"]}]},
+                "codecompass_ranking": {"restricted_inference_rerank_enabled": False},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     cfg = json.loads((tmp_path / "user.json").read_text(encoding="utf-8"))
     graph = ConfigGraphBuilderService(repo_root=tmp_path, user_config=cfg).build()
     persistence = ConfigGraphPersistenceService(repo_root=tmp_path)
-    result = persistence.persist(graph, [
-        PatchOp(op="set_data", target="path_rule::agent/**", data={
-            "allowed_ai_modes": ["codecompass_only", "restricted_transformer_inference"],
-            "allowed_model_engines": ["mock"],
-            "allow_free_text_generation": False,
-            "max_input_chars": 42,
-            "max_batch_size": 3,
-        }),
-        PatchOp(op="set_data", target="codecompass_ranking::default", data={
-            "restricted_inference_rerank_enabled": True,
-            "score_weights": {"transformer_rerank_score": 1.0},
-        }),
-    ])
+    result = persistence.persist(
+        graph,
+        [
+            PatchOp(
+                op="set_data",
+                target="path_rule::agent/**",
+                data={
+                    "allowed_ai_modes": ["codecompass_only", "restricted_transformer_inference"],
+                    "allowed_model_engines": ["mock"],
+                    "allow_free_text_generation": False,
+                    "max_input_chars": 42,
+                    "max_batch_size": 3,
+                },
+            ),
+            PatchOp(
+                op="set_data",
+                target="codecompass_ranking::default",
+                data={
+                    "restricted_inference_rerank_enabled": True,
+                    "score_weights": {"transformer_rerank_score": 1.0},
+                },
+            ),
+        ],
+    )
 
     assert result.success
     updated = json.loads((tmp_path / "user.json").read_text(encoding="utf-8"))

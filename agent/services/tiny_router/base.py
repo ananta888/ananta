@@ -1,10 +1,14 @@
 """Small ports for candidate generation and telemetry."""
+
 from __future__ import annotations
 
 from typing import Any, Mapping, Protocol
 
 from agent.services.tiny_router.types import (
-    AdapterRequest, AdapterResult, RoutingDecision, TinyActionModelProfile,
+    AdapterRequest,
+    AdapterResult,
+    RoutingDecision,
+    TinyActionModelProfile,
 )
 
 
@@ -20,12 +24,20 @@ class ToolInvocationTransport(Protocol):
     """Existing provider transport seam; adapters must not create HTTP clients."""
 
     def invoke_with_tools(
-        self, prompt: str, tools: list[dict[str, Any]], *,
-        model: str, timeout_seconds: float,
+        self,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        *,
+        model: str,
+        timeout_seconds: float,
     ) -> Mapping[str, Any]: ...
 
     def invoke_text(
-        self, prompt: str, *, model: str, timeout_seconds: float,
+        self,
+        prompt: str,
+        *,
+        model: str,
+        timeout_seconds: float,
     ) -> str: ...
 
 

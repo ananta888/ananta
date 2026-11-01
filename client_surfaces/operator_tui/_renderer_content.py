@@ -12,66 +12,65 @@ from __future__ import annotations
 
 import os
 import re
-import time
 from dataclasses import dataclass
 from textwrap import shorten
 from typing import TYPE_CHECKING
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
-from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
-from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
+from client_surfaces.operator_tui.ai_snake_config_view import (
+    ai_snake_config_filter_options,
+    ai_snake_config_items,
+    chat_model_option_label,
+)
 from client_surfaces.operator_tui.chat_long_message import (
-    compact_chat_message_text,
     get_render_mode,
     is_showing_chat_long_message,
-    long_message_history_rows,
-    should_use_middle_view_for_message,
 )
-from client_surfaces.operator_tui.chat_state import get_active_channel
+from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
+from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
+from client_surfaces.operator_tui.keymap import bindings_for_mode
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
-from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
-from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
-from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
+from client_surfaces.operator_tui.scroll.scrollbar_renderer import render_scrollbar_column
+from client_surfaces.operator_tui.sections import get_section
+from client_surfaces.operator_tui.theme import DEFAULT_THEME
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine, SplashState
-
-
-
+    pass
 
 
 # === Cross-module imports (resolve symbols from other sub-modules) ===
-from client_surfaces.operator_tui import _renderer_utils as _ru_x
-from client_surfaces.operator_tui._renderer_utils import (_clip, _clip_with_scroll, _overlay_at_visible_col, _render_hscrollbar_row, _render_vscrollbar_char, _rule, _splice_inspector_into_chrome, _truncate_to_height, _chat_channel_label, _inline_input_with_cursor, _pane_title)
-from client_surfaces.operator_tui import _renderer_chat_ai as _rca_x
-from client_surfaces.operator_tui._renderer_chat_ai import (_chat_timeout_progress_text, _is_chat_ask_mode, _participant_color, _participant_label, _plain_channel_selector, _wrap_plain)
-from client_surfaces.operator_tui import _renderer_snake_overlay as _rso_x
-from client_surfaces.operator_tui._renderer_snake_overlay import (_ansi_color, _latest_ai_message_text)
-from client_surfaces.operator_tui import _renderer_layout as _rl_x
-from client_surfaces.operator_tui._renderer_layout import (_runtime_detail_lines)
 from client_surfaces.operator_tui import _renderer_content_artifact as _rc_art_x
+from client_surfaces.operator_tui import _renderer_content_detail as _rc_det_x
 from client_surfaces.operator_tui import _renderer_content_templates as _rc_tpl_x
+from client_surfaces.operator_tui._renderer_chat_ai import (
+    _is_chat_ask_mode,
+    _wrap_plain,
+)
 from client_surfaces.operator_tui._renderer_content_templates import (  # noqa: F401
-    _TPL_THEME,
-    _TPL_VAR_NAME_RE,
-    _TPL_VAR_COLOR,
-    _TPL_WARN_COLOR,
     _TPL_ERR_COLOR,
     _TPL_RESET,
+    _TPL_THEME,
+    _TPL_VAR_COLOR,
+    _TPL_VAR_NAME_RE,
+    _TPL_WARN_COLOR,
 )
-from client_surfaces.operator_tui import _renderer_content_detail as _rc_det_x
-
-
+from client_surfaces.operator_tui._renderer_snake_overlay import _latest_ai_message_text
+from client_surfaces.operator_tui._renderer_utils import (
+    _clip,
+    _clip_with_scroll,
+    _inline_input_with_cursor,
+    _pane_title,
+    _render_hscrollbar_row,
+    _render_vscrollbar_char,
+    _rule,
+    _splice_inspector_into_chrome,
+    _truncate_to_height,
+)
 
 # === Functions extracted from the original renderer.py ===
+
 
 def _content_browser_lines(game: dict, width: int, *, height: int | None = None) -> list[str]:
     """Render Carbonyl browser output via pyte virtual terminal."""
@@ -79,19 +78,17 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
     status = str(game.get("center_browser_status") or "")
     url = str(game.get("center_browser_url") or "")
     error = str(game.get("center_browser_error") or "")
-    render_mode = str(
-        game.get("center_browser_render_mode")
-        or os.environ.get("ANANTA_TUI_BROWSER_RENDER_MODE")
-        or "pyte_auto"
-    ).strip().lower()
-    header = f"\x1b[38;2;80;140;220m[BROWSER]\x1b[0m {url[:max(4, width - 12)]}"
+    render_mode = (
+        str(game.get("center_browser_render_mode") or os.environ.get("ANANTA_TUI_BROWSER_RENDER_MODE") or "pyte_auto")
+        .strip()
+        .lower()
+    )
+    header = f"\x1b[38;2;80;140;220m[BROWSER]\x1b[0m {url[: max(4, width - 12)]}"
 
     if status in ("requested", "starting"):
         return [header, "  \x1b[2mstarte carbonyl…\x1b[0m"]
     if status == "error" or error:
-        return [header,
-                f"  \x1b[38;2;220;80;80m✗ {error[:width - 4]}\x1b[0m",
-                "  \x1b[2mCtrl+2 zum Schliessen\x1b[0m"]
+        return [header, f"  \x1b[38;2;220;80;80m✗ {error[: width - 4]}\x1b[0m", "  \x1b[2mCtrl+2 zum Schliessen\x1b[0m"]
 
     raw_bytes: bytes = bytes(game.get("_browser_frame_bytes") or b"")
     if not raw_bytes:
@@ -126,6 +123,7 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
 
     try:
         import pyte
+
         screen = pyte.Screen(width, h)
         stream = pyte.ByteStream(screen)
         # Feed the last 128 KB to the virtual terminal
@@ -148,9 +146,7 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
                     fg = str(getattr(cell, "fg", "default") or "default").lower()
                     reverse = bool(getattr(cell, "reverse", False))
                     styled_space = (
-                        bg not in {"default", "black", "000000", "#000000"}
-                        or fg not in {"default"}
-                        or reverse
+                        bg not in {"default", "black", "000000", "#000000"} or fg not in {"default"} or reverse
                     )
                     if styled_space:
                         ch = "█"
@@ -161,11 +157,10 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
         # Some Carbonyl/frame combinations render as nearly-empty in pyte; prefer raw fallback then.
         if non_space_chars <= max(8, width // 6):
             return _raw_fallback_lines()
-        return result[:h + 1]
+        return result[: h + 1]
     except Exception:
         # pyte not available or parse error — fall back to last raw lines
         return _raw_fallback_lines()
-
 
 
 _GLOBAL_CONTENT_OVERLAY_KEYS = ("shortcut_help_middle_open", "ai_snake_config_open", "center_browser_active")
@@ -236,7 +231,7 @@ def _goals_section_lines(ctx: _ContentContext) -> list[str]:
         return ['  no goals — try: ananta plan "..."']
     state = ctx.state
     return [
-        f"{_selection_marker(i, state)} {item.get('id','?')}  [{item.get('status','?')}]  {item.get('title','')}"
+        f"{_selection_marker(i, state)} {item.get('id', '?')}  [{item.get('status', '?')}]  {item.get('title', '')}"
         for i, item in enumerate(items)
     ]
 
@@ -247,13 +242,13 @@ def _tasks_section_lines(ctx: _ContentContext) -> list[str]:
     lines = [] if items else ["  no tasks yet"]
     for i, item in enumerate(items):
         lines.append(
-            f"{_selection_marker(i, state)} {item.get('id','?')}  [{item.get('status','?')}]  "
-            f"agent={item.get('agent','?')}  {item.get('title','')}"
+            f"{_selection_marker(i, state)} {item.get('id', '?')}  [{item.get('status', '?')}]  "
+            f"agent={item.get('agent', '?')}  {item.get('title', '')}"
         )
     timeline = payload.get("timeline") or []
     if timeline:
         lines.extend(["", "  Timeline:"])
-        lines.extend(f"    {entry.get('id','?')}  {entry.get('summary','')}" for entry in timeline[:3])
+        lines.extend(f"    {entry.get('id', '?')}  {entry.get('summary', '')}" for entry in timeline[:3])
     return lines
 
 
@@ -374,9 +369,7 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
     if placeholder is not None:
         return lines + placeholder
 
-    ctx = _ContentContext(
-        state=state, payload=payload, game=game, width=width, height=height, panel_state=panel_state
-    )
+    ctx = _ContentContext(state=state, payload=payload, game=game, width=width, height=height, panel_state=panel_state)
     render_body = _SECTION_BODY_RENDERERS.get(section.id, _generic_section_lines)
     lines.extend(render_body(ctx))
     lines.extend(_markdown_appendix_lines(state, width))
@@ -386,19 +379,22 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
 def _templates_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     return _rc_tpl_x._templates_content_lines(payload, state, width)
 
+
 def _audit_viewer_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
     return _rc_tpl_x._audit_viewer_content_lines(state, width, viewport_height=viewport_height)
+
 
 def _highlight_template_line(line: str) -> tuple[str, int]:
     return _rc_tpl_x._highlight_template_line(line)
 
-def _templates_editor_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
+
+def _templates_editor_content_lines(
+    state: OperatorState, width: int, *, viewport_height: int | None = None
+) -> list[str]:
     return _rc_tpl_x._templates_editor_content_lines(state, width, viewport_height=viewport_height)
 
 
-def _content_chat_plain_ask_lines(
-    state: OperatorState, width: int, *, height: int | None = None
-) -> list[str] | None:
+def _content_chat_plain_ask_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str] | None:
     """Render the :ask answer as plain text in the middle pane (no visual
     viewport, no tree compression, no markdown rendering). Returns None if
     there is no AI answer to show yet — caller falls back to the visual
@@ -436,7 +432,7 @@ def _content_chat_plain_ask_lines(
             continue
         body.extend(_wrap_plain(raw_line, body_width) or [""])
     lines.extend("  " + row for row in body)
-    lines.append(f"  \x1b[2mStrg+C: Antwort kopieren  PgUp/PgDn: scrollen\x1b[0m")
+    lines.append("  \x1b[2mStrg+C: Antwort kopieren  PgUp/PgDn: scrollen\x1b[0m")
 
     out = [_clip(l, width) for l in lines]
 
@@ -454,7 +450,6 @@ def _content_chat_plain_ask_lines(
         out = _splice_inspector_into_chrome(out, inspector_lines, height)
 
     return out
-
 
 
 def _profile_inspector_lines(game: dict, width: int) -> list[str]:
@@ -509,7 +504,10 @@ def _profile_inspector_lines(game: dict, width: int) -> list[str]:
     # restarting the TUI. Default: off (single-line inspector is enough for
     # 99% of the users).
     verbose = str(os.environ.get("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE") or "").strip().lower() in {
-        "1", "true", "yes", "on"
+        "1",
+        "true",
+        "yes",
+        "on",
     }
     if verbose:
         reasons = trace.get("reasons") or []
@@ -520,12 +518,16 @@ def _profile_inspector_lines(game: dict, width: int) -> list[str]:
     return lines
 
 
-
 def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     runtime = dict(game.get("visual_runtime_status") or {})
     title = _pane_title("VISUAL VIEWPORT", state.focus == FocusPane.CONTENT)
-    show_doc_diag = str(os.environ.get("ANANTA_TUI_DOC_DIAGNOSTICS") or "").strip().lower() in {"1", "true", "yes", "on"}
+    show_doc_diag = str(os.environ.get("ANANTA_TUI_DOC_DIAGNOSTICS") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     frame_lines = [str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)]
     if not frame_lines:
@@ -564,7 +566,11 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
 
     # Compose output lines
     lines: list[str] = [title]
-    if show_doc_diag and str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "") == "markdown_mermaid_document":
+    if (
+        show_doc_diag
+        and str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "")
+        == "markdown_mermaid_document"
+    ):
         diag = dict(game.get("visual_viewport_scene_meta") or {})
         profile = str(diag.get("docs_graphics_profile") or "-")
         backend = str(diag.get("mermaid_renderer_used") or "-")
@@ -633,7 +639,9 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
         page_down = display_for_action("scroll_page_down", "PgDn")
         left = display_for_action("scroll_left", "Shift+Left")
         right = display_for_action("scroll_right", "Shift+Right")
-        lines.append(_clip(f"  Scroll {up}/{down} {page_up}/{page_down}  H {left}/{right}  Ctrl+Cursor  Maus/Rad", width))
+        lines.append(
+            _clip(f"  Scroll {up}/{down} {page_up}/{page_down}  H {left}/{right}  Ctrl+Cursor  Maus/Rad", width)
+        )
         if content_lines > 0:
             max_v = max(0, content_lines - max(1, body_rows))
             max_h = max(0, max_line_width - max(1, width))
@@ -641,7 +649,6 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     if fallback:
         lines.append(f"  fallback: {fallback}")
     return [_clip(l, width) for l in lines]
-
 
 
 def _content_shortcut_lines(state: OperatorState, width: int) -> list[str]:
@@ -654,7 +661,6 @@ def _content_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     lines.append("    /  im Chat-Input: Command-Modus")
     lines.append("    :  normal: Command-Modus")
     return [_clip(line, width) for line in lines]
-
 
 
 def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str]:
@@ -704,7 +710,6 @@ def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str
     return [_clip(line, width) for line in lines]
 
 
-
 def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = None, width: int = 72) -> list[str]:
     lines = []
     agents = payload.get("agents") or {}
@@ -741,7 +746,6 @@ def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = Non
     return lines
 
 
-
 def _system_content_lines(payload: dict) -> list[str]:
     lines = []
     agents = payload.get("agents") or {}
@@ -775,9 +779,9 @@ def _system_content_lines(payload: dict) -> list[str]:
     return lines
 
 
-
 def _share_section_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     from client_surfaces.operator_tui.share_menu import share_section_lines
+
     # Live-Status aus game state in payload einbauen: Share-Aktionen laufen im
     # Hintergrund und sollen sofort im Menü sichtbar werden.
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
@@ -805,7 +809,6 @@ def _share_section_content_lines(payload: dict, state: OperatorState, width: int
         if active_session.get("participants") and not merged.get("participants"):
             merged["participants"] = list(active_session.get("participants") or [])
     return share_section_lines(merged, width=width, selected_index=state.selected_index)
-
 
 
 def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
@@ -845,15 +848,17 @@ def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> 
     return lines
 
 
-
 def _detail_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
     return _rc_det_x._detail_lines(state, width, height=height)
+
 
 def _standard_detail_lines(state: OperatorState, width: int) -> list[str]:
     return _rc_det_x._standard_detail_lines(state, width)
 
+
 def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     return _rc_det_x._context_shortcut_lines(state, width)
+
 
 def _chat_detail_lines(
     state: OperatorState,
@@ -864,8 +869,10 @@ def _chat_detail_lines(
 ) -> list[str]:
     return _rc_det_x._chat_detail_lines(state, width, max_height=max_height, bottom_align=bottom_align)
 
+
 def _snake_ai_chat_detail_lines(state: OperatorState, width: int, *, height: int) -> list[str]:
     return _rc_det_x._snake_ai_chat_detail_lines(state, width, height=height)
+
 
 def _snake_ai_detail_lines(state: OperatorState, width: int) -> list[str]:
     return _rc_det_x._snake_ai_detail_lines(state, width)
@@ -874,17 +881,22 @@ def _snake_ai_detail_lines(state: OperatorState, width: int) -> list[str]:
 def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
     return _rc_art_x._planning_track_content_lines(payload, width=width, compact=compact)
 
+
 def _helpcenter_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
     return _rc_art_x._helpcenter_content_lines(payload, width=width, compact=compact)
+
 
 def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
     return _rc_art_x._mail_content_lines(payload, width=width, compact=compact)
 
+
 def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
     return _rc_art_x._goal_artifacts_content_lines(payload, width=width, compact=compact)
 
+
 def _diff3_content_lines(payload: dict, *, width: int) -> list[str]:
     return _rc_art_x._diff3_content_lines(payload, width=width)
+
 
 def _help_overlay(state: OperatorState, width: int) -> list[str]:
     lines = [_rule(width), "HELP"]
@@ -892,13 +904,13 @@ def _help_overlay(state: OperatorState, width: int) -> list[str]:
     return lines
 
 
-
 def _binding_lines(state: OperatorState, width: int) -> list[str]:
     lines = []
     for binding in bindings_for_mode(state.mode):
-        lines.append(shorten(f"{binding.key:<7} {binding.action:<18} {binding.description}", width=width, placeholder="..."))
+        lines.append(
+            shorten(f"{binding.key:<7} {binding.action:<18} {binding.description}", width=width, placeholder="...")
+        )
     return lines
-
 
 
 def _cell(lines: list[str], index: int, width: int) -> str:
@@ -908,12 +920,13 @@ def _cell(lines: list[str], index: int, width: int) -> str:
     return clipped + " " * max(0, width - visible_len)
 
 
-
 def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
     chat = game.get("artifact_chat_state") if isinstance(game.get("artifact_chat_state"), dict) else {}
-    show_tutorial_flow = (bool(game.get("tutorial_mode")) or bool(history) or bool(chat.get("active_target"))) and not bool(game.get("chat_panel_open"))
+    show_tutorial_flow = (
+        bool(game.get("tutorial_mode")) or bool(history) or bool(chat.get("active_target"))
+    ) and not bool(game.get("chat_panel_open"))
     if not show_tutorial_flow:
         return []
 

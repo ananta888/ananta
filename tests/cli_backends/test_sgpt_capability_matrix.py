@@ -34,7 +34,9 @@ def test_sgpt_execute_exposes_trace_and_grounding(client, admin_auth_header):
         patch("agent.routes.sgpt.run_llm_cli_command") as run,
     ):
         run.return_value = (0, "ok", "", "sgpt")
-        res = client.post("/api/sgpt/execute", json={"prompt": "x", "use_hybrid_context": True}, headers=admin_auth_header)
+        res = client.post(
+            "/api/sgpt/execute", json={"prompt": "x", "use_hybrid_context": True}, headers=admin_auth_header
+        )
     assert res.status_code == 200
     data = res.json["data"]
     assert data.get("trace_id")

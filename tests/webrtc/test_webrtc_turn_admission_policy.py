@@ -9,16 +9,26 @@ from agent.services.webrtc_turn_admission_policy import (
     WebrtcTurnAdmissionPolicy,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def _request(index=1, high=TurnQuotaVector(1, 2, 1, 6_000_000, 1_000_000), **changes):
     values = dict(
-        reservation_id=f"reservation-{index}", tenant_ref="tenant-a", room_ref="room-a",
-        receiver_ref=f"receiver-{index}", region="eu-1", pool_id="pool-a", requested_layer="high",
-        layer_projections={"high": high, "medium": TurnQuotaVector(1, 2, 1, 2_000_000, 500_000), "low": TurnQuotaVector(1, 2, 1, 500_000, 100_000)},
-        publisher_to_sfu_ingress_bps=1_000_000, sfu_to_turn_egress_bps=6_000_000, accounting_available=True,
+        reservation_id=f"reservation-{index}",
+        tenant_ref="tenant-a",
+        room_ref="room-a",
+        receiver_ref=f"receiver-{index}",
+        region="eu-1",
+        pool_id="pool-a",
+        requested_layer="high",
+        layer_projections={
+            "high": high,
+            "medium": TurnQuotaVector(1, 2, 1, 2_000_000, 500_000),
+            "low": TurnQuotaVector(1, 2, 1, 500_000, 100_000),
+        },
+        publisher_to_sfu_ingress_bps=1_000_000,
+        sfu_to_turn_egress_bps=6_000_000,
+        accounting_available=True,
     )
     values.update(changes)
     return TurnAdmissionRequest(**values)
@@ -27,7 +37,9 @@ def _request(index=1, high=TurnQuotaVector(1, 2, 1, 6_000_000, 1_000_000), **cha
 def _policy():
     reservations = InMemoryTurnQuotaReservationPort()
     config = TurnQuotaPolicyConfig.from_path(ROOT / "config/webrtc_turn_quotas.default.json")
-    return WebrtcTurnAdmissionPolicy(config=config, reservations=reservations, scope_secret=b"q" * 32, clock=lambda: 1000), reservations
+    return WebrtcTurnAdmissionPolicy(
+        config=config, reservations=reservations, scope_secret=b"q" * 32, clock=lambda: 1000
+    ), reservations
 
 
 def test_hard_receiver_limit_selects_lower_cap_and_missing_accounting_fails_closed():

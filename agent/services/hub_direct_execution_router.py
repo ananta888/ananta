@@ -15,6 +15,7 @@ never via free-text guessing.
 
 Contract: ``docs/contracts/hub-direct-execution.md``.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,14 +39,52 @@ _MAX_PATTERN_CHARS = 200
 # Write-ish / multi-step keywords keep the router conservative (HDE-003):
 # any hit means "not directly eligible", the worker/LLM decides instead.
 _NON_DIRECT_KEYWORDS = (
-    "fix", "behebe", "repariere", "implement", "implementiere", "refactor",
-    "refaktor", "schreibe", "write ", "erstelle", "create ", "lege ",
-    "ändere", "aendere", "change ", "modify", "lösche", "loesche",
-    "delete", "remove", "entferne", "patch", "commit", "push", "merge",
-    "install", "deploy", "starte", "restart", "update ", "upgrade",
-    "führe tests aus", "fuehre tests aus", "run tests", "run the tests",
-    "analysiere", "analyze", "analyse", "bewerte", "review", "schlage",
-    "propose", "und dann", "danach", "anschließend", "anschliessend",
+    "fix",
+    "behebe",
+    "repariere",
+    "implement",
+    "implementiere",
+    "refactor",
+    "refaktor",
+    "schreibe",
+    "write ",
+    "erstelle",
+    "create ",
+    "lege ",
+    "ändere",
+    "aendere",
+    "change ",
+    "modify",
+    "lösche",
+    "loesche",
+    "delete",
+    "remove",
+    "entferne",
+    "patch",
+    "commit",
+    "push",
+    "merge",
+    "install",
+    "deploy",
+    "starte",
+    "restart",
+    "update ",
+    "upgrade",
+    "führe tests aus",
+    "fuehre tests aus",
+    "run tests",
+    "run the tests",
+    "analysiere",
+    "analyze",
+    "analyse",
+    "bewerte",
+    "review",
+    "schlage",
+    "propose",
+    "und dann",
+    "danach",
+    "anschließend",
+    "anschliessend",
 )
 
 
@@ -106,16 +145,21 @@ _LIST_FILES_RE = re.compile(
     re.IGNORECASE,
 )
 _READ_FILE_RE = re.compile(
-    r"^(lies|lese|zeige|read|show|open|cat)( mir)?( bitte)?( die)?( datei| file)? " + _PATH_RE +
-    r"( (zeile[n]?|lines?) (?P<start>\d+)( ?(bis|to|-) ?(?P<end>\d+))?)?$",
+    r"^(lies|lese|zeige|read|show|open|cat)( mir)?( bitte)?( die)?( datei| file)? "
+    + _PATH_RE
+    + r"( (zeile[n]?|lines?) (?P<start>\d+)( ?(bis|to|-) ?(?P<end>\d+))?)?$",
     re.IGNORECASE,
 )
 _GREP_RE = re.compile(
     r"^(grep|suche|search|finde|find)( bitte)?( nach| for)? (?P<pattern>.+?)( (in|im) (?P<glob>[\w./*\-]+))?$",
     re.IGNORECASE,
 )
-_GIT_STATUS_RE = re.compile(r"^(zeige |show )?(den |the )?git[ \-]?status( des workspace| of the workspace)?$", re.IGNORECASE)
-_GIT_DIFF_RE = re.compile(r"^(zeige |show )?(den |the )?git[ \-]?diff( (für|fuer|for|von|of) " + _PATH_RE + r")?$", re.IGNORECASE)
+_GIT_STATUS_RE = re.compile(
+    r"^(zeige |show )?(den |the )?git[ \-]?status( des workspace| of the workspace)?$", re.IGNORECASE
+)
+_GIT_DIFF_RE = re.compile(
+    r"^(zeige |show )?(den |the )?git[ \-]?diff( (für|fuer|for|von|of) " + _PATH_RE + r")?$", re.IGNORECASE
+)
 _TEST_DISCOVER_RE = re.compile(
     r"^((entdecke|finde|liste|discover|list|find) (die |alle |all )?tests( im workspace| in the workspace)?|welche tests gibt es( im workspace)?\??)$",
     re.IGNORECASE,

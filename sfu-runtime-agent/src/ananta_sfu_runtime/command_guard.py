@@ -198,9 +198,7 @@ class RuntimeCommandGuard:
                 raise RuntimeCommandGuardError("runtime_command_version_invalid", status_code=400)
         now = self._clock_ms()
         issued = int(command["issued_at_ms"])
-        effective_deadline = min(
-            int(command["expires_at_ms"]), int(command["stale_access_deadline_ms"])
-        )
+        effective_deadline = min(int(command["expires_at_ms"]), int(command["stale_access_deadline_ms"]))
         if issued > now + self._config.clock_skew_ms:
             raise RuntimeCommandGuardError("runtime_command_clock_skew", status_code=400)
         if effective_deadline <= now:
@@ -232,9 +230,7 @@ class RuntimeCommandGuard:
             if int(command[field]) < int(route.get(field, 0)):
                 raise RuntimeCommandGuardError("runtime_command_epoch_stale")
 
-    def _duplicate(
-        self, state: Mapping[str, object], command: Mapping[str, object]
-    ) -> Mapping[str, object] | None:
+    def _duplicate(self, state: Mapping[str, object], command: Mapping[str, object]) -> Mapping[str, object] | None:
         for receipt in state["receipts"]:
             if receipt["command_id"] != command["command_id"]:
                 continue
@@ -259,9 +255,7 @@ class RuntimeCommandGuard:
         )
         state["receipts"] = receipts[-self._config.receipt_count_max :]
 
-    def _advance_state(
-        self, state: dict[str, object], command: Mapping[str, object]
-    ) -> None:
+    def _advance_state(self, state: dict[str, object], command: Mapping[str, object]) -> None:
         state["fencing_token"] = int(command["fencing_token"])
         state["flag_version"] = int(command["flag_version"])
         state["cohort_version"] = int(command["cohort_version"])
@@ -275,9 +269,7 @@ class RuntimeCommandGuard:
             raise RuntimeCommandGuardError("runtime_command_route_state_exhausted", status_code=503)
         state["routes"] = routes
 
-    def _response(
-        self, command: Mapping[str, object], result: Mapping[str, object]
-    ) -> dict[str, object]:
+    def _response(self, command: Mapping[str, object], result: Mapping[str, object]) -> dict[str, object]:
         response = dict(result)
         response.update(
             {
@@ -316,14 +308,18 @@ class RuntimeCommandGuard:
             state = json.loads(raw)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise RuntimeCommandGuardError("runtime_command_state_invalid", status_code=503) from exc
-        if set(state) != {
-            "schema_version",
-            "fencing_token",
-            "flag_version",
-            "cohort_version",
-            "routes",
-            "receipts",
-        } or state["schema_version"] != "sfu_runtime_control_state.v1":
+        if (
+            set(state)
+            != {
+                "schema_version",
+                "fencing_token",
+                "flag_version",
+                "cohort_version",
+                "routes",
+                "receipts",
+            }
+            or state["schema_version"] != "sfu_runtime_control_state.v1"
+        ):
             raise RuntimeCommandGuardError("runtime_command_state_invalid", status_code=503)
         return state
 
@@ -331,9 +327,7 @@ class RuntimeCommandGuard:
         payload = _canonical(state)
         if len(payload) > self._config.state_bytes_max:
             raise RuntimeCommandGuardError("runtime_command_state_oversize", status_code=503)
-        temporary = self._config.state_path.with_name(
-            f".{self._config.state_path.name}.{os.getpid()}.tmp"
-        )
+        temporary = self._config.state_path.with_name(f".{self._config.state_path.name}.{os.getpid()}.tmp")
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             with os.fdopen(descriptor, "wb") as stream:
@@ -375,9 +369,9 @@ def _route_scope(payload: Mapping[str, object]) -> str:
 
 def _canonical(value: Mapping[str, object]) -> bytes:
     try:
-        return json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
-        ).encode("ascii")
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode(
+            "ascii"
+        )
     except (TypeError, ValueError) as exc:
         raise RuntimeCommandGuardError("runtime_command_json_invalid", status_code=400) from exc
 

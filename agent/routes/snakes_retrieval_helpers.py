@@ -8,18 +8,20 @@ from typing import Any
 from agent.config import settings
 from agent.services.rag_service import get_rag_service
 
-_SNAKE_RETRIEVAL_CONFIG_KEYS = frozenset({
-    "chat_retrieval_profile",
-    "chat_retrieval_domain_hint",
-    "chat_code_questions_repo_first",
-    "chat_architecture_analysis_mode",
-    "chat_codecompass_trigger_mode",
-    "chat_use_codecompass",
-    "chat_include_local_project",
-    "chat_include_wikipedia",
-    "chat_include_task_memory",
-    "chat_source_pack_id",
-})
+_SNAKE_RETRIEVAL_CONFIG_KEYS = frozenset(
+    {
+        "chat_retrieval_profile",
+        "chat_retrieval_domain_hint",
+        "chat_code_questions_repo_first",
+        "chat_architecture_analysis_mode",
+        "chat_codecompass_trigger_mode",
+        "chat_use_codecompass",
+        "chat_include_local_project",
+        "chat_include_wikipedia",
+        "chat_include_task_memory",
+        "chat_source_pack_id",
+    }
+)
 
 
 def _snake_retrieval_config_overrides(body: dict[str, Any]) -> dict[str, Any]:
@@ -65,14 +67,17 @@ def _domain_scope_response(domain_scope: object | None, bundle_domain_scope: dic
     if domain_scope is None:
         return {}
     from agent.codecompass.domain_scope import ResolvedDomainScope
+
     if isinstance(domain_scope, ResolvedDomainScope) and domain_scope.active:
         info = domain_scope.as_dict()
         if bundle_domain_scope and isinstance(bundle_domain_scope, dict):
-            info.update({
-                k: bundle_domain_scope[k]
-                for k in ("active_domain_ids", "filter_stats", "guidance")
-                if k in bundle_domain_scope
-            })
+            info.update(
+                {
+                    k: bundle_domain_scope[k]
+                    for k in ("active_domain_ids", "filter_stats", "guidance")
+                    if k in bundle_domain_scope
+                }
+            )
         return {"domain_scope": info}
     return {}
 
@@ -92,6 +97,7 @@ def _resolve_domain_scope_for_chat(domain_hint: str | None) -> object | None:
             DomainScopeResolver,
             scope_from_domain_hint,
         )
+
         scope = scope_from_domain_hint(
             domain_hint,
             enabled=True,
@@ -259,10 +265,15 @@ def _snake_retrieval_dry_run(
 
         q_lower = question.lower()
         hints: list[str] = []
-        if any(w in q_lower for w in ("readme", "docs", "doku", "architektur", "todo", "notiz")) and not scope.include_docs:
+        if (
+            any(w in q_lower for w in ("readme", "docs", "doku", "architektur", "todo", "notiz"))
+            and not scope.include_docs
+        ):
             hints.append("Tipp: docs/artifact deaktiviert → :config chat_retrieval_profile docs_first")
         if any(w in q_lower for w in ("test", "spec", "pytest", "unittest")) and not scope.include_test_paths:
-            hints.append("Tipp: tests deaktiviert → ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS=1 oder :config code_with_tests")
+            hints.append(
+                "Tipp: tests deaktiviert → ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS=1 oder :config code_with_tests"
+            )
         if any(w in q_lower for w in ("workflow", "blueprint", "ops", "runbook")) and not scope.include_workflows:
             hints.append("Tipp: workflows deaktiviert → ANANTA_CODECOMPASS_INCLUDE_WORKFLOWS=1 oder :config ops")
         result["preset_hints"] = hints

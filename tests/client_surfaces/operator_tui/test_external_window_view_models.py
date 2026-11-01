@@ -24,7 +24,11 @@ def test_ai_snake_window_model_is_serializable_shape() -> None:
 
 def test_center_window_model_maps_state_and_game() -> None:
     state = SimpleNamespace(section_id="dashboard", focus=SimpleNamespace(value="content"), status_message="ok")
-    game = {"center_window_view_mode": "doc", "visual_viewport_active_view": "markdown_mermaid_document", "center_browser_active": False}
+    game = {
+        "center_window_view_mode": "doc",
+        "visual_viewport_active_view": "markdown_mermaid_document",
+        "center_browser_active": False,
+    }
     model = build_center_window_model(state=state, game=game)
     assert model["mode"] == "doc"
     assert model["section"] == "dashboard"

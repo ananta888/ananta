@@ -106,7 +106,8 @@ def _validate_attestation(
     if not isinstance(rows, list):
         return ("release_attestation_verifier_invalid",)
     matched = [
-        row for row in rows
+        row
+        for row in rows
         if isinstance(row, Mapping)
         and row.get("artifact_sha256") == entry.get("artifact_sha256")
         and row.get("profile_id") == profile_id
@@ -140,9 +141,7 @@ def _release_requirements(
     elif external_dependencies != declared_external:
         reasons.add("release_cross_track_prerequisites_mismatch")
 
-    required_gate_ids = {
-        item for item in dependencies if ":" not in item and item != GATE_ID
-    }
+    required_gate_ids = {item for item in dependencies if ":" not in item and item != GATE_ID}
     policy = gate_manifest.get("release_policy")
     if not isinstance(policy, Mapping):
         reasons.add("release_policy_missing")
@@ -334,9 +333,7 @@ def _verified_evidence_count(
         if isinstance(row, Mapping) and isinstance(row.get("gate_id"), str)
     }
     maximum_age = int(gate_manifest.get("default_policy", {}).get("max_age_seconds", 0))
-    future_skew = int(
-        gate_manifest.get("default_policy", {}).get("max_future_skew_seconds", 0)
-    )
+    future_skew = int(gate_manifest.get("default_policy", {}).get("max_future_skew_seconds", 0))
     digest_registry: dict[tuple[str, str], str] = {}
     verified = 0
     for gate_id in sorted(required_gate_ids):
@@ -390,23 +387,17 @@ def _validate_rollback(
     if rollback.get("schema") != "ananta.sfu-broadcast-game-day-gate.v1":
         reasons.add("release_rollback_schema_invalid")
     rollback_summary = rollback.get("summary")
-    scenario_count = (
-        rollback_summary.get("scenario_count") if isinstance(rollback_summary, Mapping) else 0
-    )
-    atomic_count = (
-        rollback_summary.get("atomic_rollback_count")
-        if isinstance(rollback_summary, Mapping)
-        else -1
-    )
+    scenario_count = rollback_summary.get("scenario_count") if isinstance(rollback_summary, Mapping) else 0
+    atomic_count = rollback_summary.get("atomic_rollback_count") if isinstance(rollback_summary, Mapping) else -1
     rollback_atomic = (
         rollback.get("status") == "passed"
         and isinstance(scenario_count, int)
         and scenario_count > 0
         and atomic_count == scenario_count
     )
-    flags_disabled = isinstance(rollback_summary, Mapping) and rollback_summary.get(
-        "all_advanced_flags_disabled"
-    ) is True
+    flags_disabled = (
+        isinstance(rollback_summary, Mapping) and rollback_summary.get("all_advanced_flags_disabled") is True
+    )
     kill_switch_verified = risk_summary.get("kill_switch_verified") is True
     if not rollback_atomic:
         reasons.add("release_rollback_not_atomic")
@@ -433,9 +424,7 @@ def _validate_risk_summary(
         if counters.get(name) != 0:
             reasons.add(f"release_open_finding:{name}")
     residual_risks = risk_summary.get("known_residual_risks")
-    if not isinstance(residual_risks, list) or any(
-        not isinstance(item, str) or not item for item in residual_risks
-    ):
+    if not isinstance(residual_risks, list) or any(not isinstance(item, str) or not item for item in residual_risks):
         reasons.add("release_residual_risk_inventory_invalid")
         residual_risks = []
     return residual_risks
@@ -455,9 +444,15 @@ def evaluate_release(
     artifact_root: Path,
     attestation_verifier: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    reasons: set[str] = set(content_reasons(
-        evidence_manifest, parent, capacity, rollback, risk_summary,
-    ))
+    reasons: set[str] = set(
+        content_reasons(
+            evidence_manifest,
+            parent,
+            capacity,
+            rollback,
+            risk_summary,
+        )
+    )
     reasons.update(parent_activation_reasons(parent))
     if not is_sha256(expected_source_sha256):
         reasons.add("release_expected_source_digest_missing")
@@ -550,8 +545,11 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     required = (
-        args.evidence_manifest, args.parent_evidence, args.capacity_profile,
-        args.rollback_evidence, args.risk_summary,
+        args.evidence_manifest,
+        args.parent_evidence,
+        args.capacity_profile,
+        args.rollback_evidence,
+        args.risk_summary,
     )
     if any(path is None for path in required):
         report = {
@@ -575,11 +573,13 @@ def main() -> int:
             "versions": {"browsers": {}, "sfu": None, "turn": None},
             "known_residual_risks": [],
             "evidence_summary": {
-                "required_gate_count": 0, "verified_gate_count": 0,
+                "required_gate_count": 0,
+                "verified_gate_count": 0,
                 "manifest_version": 0,
             },
             "rollback_summary": {
-                "atomic": False, "kill_switch_verified": False,
+                "atomic": False,
+                "kill_switch_verified": False,
                 "all_advanced_flags_disabled": False,
             },
         }
@@ -601,8 +601,7 @@ def main() -> int:
             as_of=as_of,
             artifact_root=ROOT,
             attestation_verifier=(
-                read_bounded_json(args.attestation_verifier_result)
-                if args.attestation_verifier_result else None
+                read_bounded_json(args.attestation_verifier_result) if args.attestation_verifier_result else None
             ),
         )
     atomic_write_report(args.output, report)

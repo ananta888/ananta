@@ -1,4 +1,5 @@
 """X86CC-013: Capstone-based adapter with graceful degradation when capstone unavailable."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -9,6 +10,7 @@ from agent.codecompass.x86.input_taxonomy import X86InputRecord
 
 try:
     import capstone as _capstone  # type: ignore[import]
+
     _CAPSTONE_AVAILABLE = True
 except ImportError:
     _capstone = None  # type: ignore[assignment]
@@ -20,19 +22,23 @@ def is_available() -> bool:
     return _CAPSTONE_AVAILABLE
 
 
-_CAPSTONE_INPUT_TYPES = frozenset({
-    "function_bytes",
-    "raw_assembly_text",
-    "normalized_assembly",
-})
+_CAPSTONE_INPUT_TYPES = frozenset(
+    {
+        "function_bytes",
+        "raw_assembly_text",
+        "normalized_assembly",
+    }
+)
 
-_CAPSTONE_PROFILES = frozenset({
-    "x86_64_sysv",
-    "x86_64_windows",
-    "x86_32_cdecl",
-    "x86_32_stdcall",
-    "unknown_x86",
-})
+_CAPSTONE_PROFILES = frozenset(
+    {
+        "x86_64_sysv",
+        "x86_64_windows",
+        "x86_32_cdecl",
+        "x86_32_stdcall",
+        "unknown_x86",
+    }
+)
 
 
 class CapstoneAdapter(X86DisassemblerAdapter):
@@ -93,7 +99,11 @@ class CapstoneAdapter(X86DisassemblerAdapter):
             return {
                 "nodes": [],
                 "edges": [],
-                "diagnostics": [x86_diag_dict(DISASSEMBLER_UNAVAILABLE, "raw_bytes required for capstone disassembly", severity="warning")],
+                "diagnostics": [
+                    x86_diag_dict(
+                        DISASSEMBLER_UNAVAILABLE, "raw_bytes required for capstone disassembly", severity="warning"
+                    )
+                ],
                 "metadata": {"adapter": self.name, "available": True, "instruction_count": 0},
             }
 
@@ -104,13 +114,15 @@ class CapstoneAdapter(X86DisassemblerAdapter):
             nodes = []
             base = input_record.base_address or 0
             for instr in md.disasm(input_record.raw_bytes, base):
-                nodes.append({
-                    "kind": "instruction",
-                    "address": instr.address,
-                    "mnemonic": instr.mnemonic,
-                    "bytes_hex": instr.bytes.hex(" "),
-                    "op_str": instr.op_str,
-                })
+                nodes.append(
+                    {
+                        "kind": "instruction",
+                        "address": instr.address,
+                        "mnemonic": instr.mnemonic,
+                        "bytes_hex": instr.bytes.hex(" "),
+                        "op_str": instr.op_str,
+                    }
+                )
             return {
                 "nodes": nodes,
                 "edges": [],

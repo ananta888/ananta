@@ -12,6 +12,7 @@ the existing ``ApprovalRequestService`` (ALWA lifecycle):
 The decision payload carries ``approval_request_id``/``arguments_digest``
 so callers (worker, routes) can surface and later resolve the request.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,9 +21,9 @@ from typing import Any
 from agent.codecompass.domain_scope import (
     DECISION_ALLOW,
     DECISION_APPROVAL_REQUIRED,
+    WRITE_ENFORCEMENT_MODE_STRICT,
     DomainScopeDecision,
     DomainScopeViolation,
-    WRITE_ENFORCEMENT_MODE_STRICT,
     decide_cross_domain_write,
 )
 

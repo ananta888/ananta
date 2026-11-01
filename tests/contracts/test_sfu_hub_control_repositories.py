@@ -47,7 +47,6 @@ from agent.services.sfu_layer_projection_service import (
     SfuProjectionScopeAuthorizerPort,
 )
 
-
 TABLES = (
     SfuOperationsSnapshotDB.__table__,
     SfuOperationsSnapshotRecordDB.__table__,
@@ -108,9 +107,7 @@ def test_sql_operations_snapshot_survives_repository_restart(
 ) -> None:
     path = tmp_path / "operations.db"
     first_engine = _create(path)
-    first = SqlSfuBroadcastOperationsSnapshotRepository(
-        db_engine=first_engine, clock=lambda: 100.0
-    )
+    first = SqlSfuBroadcastOperationsSnapshotRepository(db_engine=first_engine, clock=lambda: 100.0)
     snapshot = SfuBroadcastOperationsSnapshot("snapshot-v1", (_record(),))
 
     assert first.save(snapshot) == "saved"
@@ -118,10 +115,8 @@ def test_sql_operations_snapshot_survives_repository_restart(
     first_engine.dispose()
 
     second_engine = _engine(path)
-    second: SfuBroadcastOperationsSnapshotPort = (
-        SqlSfuBroadcastOperationsSnapshotRepository(
-            db_engine=second_engine, clock=lambda: 101.0
-        )
+    second: SfuBroadcastOperationsSnapshotPort = SqlSfuBroadcastOperationsSnapshotRepository(
+        db_engine=second_engine, clock=lambda: 101.0
     )
     restored = second.load(snapshot_version="snapshot-v1", max_records=10)
 
@@ -154,9 +149,7 @@ def test_sql_command_ledger_replays_completed_result_after_restart(
 
     assert status == "replay"
     assert replay == result
-    assert second.claim(
-        scope, key, hashlib.sha256(b"different").hexdigest(), 101.0
-    ) == ("conflict", None)
+    assert second.claim(scope, key, hashlib.sha256(b"different").hexdigest(), 101.0) == ("conflict", None)
 
 
 def test_sql_command_ledger_recovers_stale_delivery_with_same_operation_id(
@@ -243,9 +236,7 @@ def test_scope_epoch_resolver_requires_authority_and_subject_grant(
     db_engine = _create(path)
     secret = b"s" * 32
     actor_digest = sfu_scope_identity_digest(secret, "actor", "actor-a")
-    subject_digest = sfu_scope_identity_digest(
-        secret, "subject", "subscription-a"
-    )
+    subject_digest = sfu_scope_identity_digest(secret, "subject", "subscription-a")
     with Session(db_engine) as db:
         db.add(
             SfuScopeEpochAuthorityDB(
@@ -291,9 +282,7 @@ def test_scope_epoch_resolver_requires_authority_and_subject_grant(
     capability_port: SfuCapabilityAdmissionScopePort = resolver
     projection_port: SfuProjectionScopeAuthorizerPort = resolver
 
-    capability = capability_port.resolve(
-        tenant_id="tenant-a", room_id="room-a", actor_id="actor-a"
-    )
+    capability = capability_port.resolve(tenant_id="tenant-a", room_id="room-a", actor_id="actor-a")
     projection = projection_port.authorize(
         tenant_id="tenant-a",
         room_id="room-a",
@@ -327,7 +316,5 @@ def test_new_control_tables_store_no_payload_json_or_secret_columns() -> None:
     for table in TABLES:
         names = {column.name for column in table.columns}
         assert not any(
-            marker in name
-            for name in names
-            for marker in ("payload", "secret", "raw_document", "options_json")
+            marker in name for name in names for marker in ("payload", "secret", "raw_document", "options_json")
         )

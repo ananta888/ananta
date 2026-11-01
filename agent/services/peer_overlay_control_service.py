@@ -181,12 +181,8 @@ class PeerOverlayControlService:
             candidates=[PeerOverlayCandidate(**dict(item)) for item in candidates],
             epochs=epochs,
         )
-        candidate_by_id = {
-            str(item["peer_id"]): PeerOverlayCandidate(**dict(item)) for item in candidates
-        }
-        turn_edges = sum(
-            "turn" in {str(capability) for capability in lease.capabilities} for lease in plan.leases
-        )
+        candidate_by_id = {str(item["peer_id"]): PeerOverlayCandidate(**dict(item)) for item in candidates}
+        turn_edges = sum("turn" in {str(capability) for capability in lease.capabilities} for lease in plan.leases)
         relay_leases = [lease for lease in plan.leases if lease.primary_parent_id != source_peer_id]
         relay_parents = [candidate_by_id[lease.primary_parent_id] for lease in relay_leases]
         cost_decision = self._cost_policy.evaluate(

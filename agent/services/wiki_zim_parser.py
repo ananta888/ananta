@@ -108,10 +108,19 @@ class ZimParser:
         if len(data) < _HEADER.size:
             raise ValueError("zim_file_too_small")
         (
-            magic, major, minor, uuid,
-            article_count, cluster_count,
-            url_ptr_pos, title_ptr_pos, cluster_ptr_pos, mime_list_pos,
-            main_page, layout_page, checksum_pos,
+            magic,
+            major,
+            minor,
+            uuid,
+            article_count,
+            cluster_count,
+            url_ptr_pos,
+            title_ptr_pos,
+            cluster_ptr_pos,
+            mime_list_pos,
+            main_page,
+            layout_page,
+            checksum_pos,
         ) = _HEADER.unpack(data)
         if magic != _ZIM_MAGIC:
             raise ValueError(f"not_a_zim_file:magic={magic:#010x}")
@@ -165,9 +174,13 @@ class ZimParser:
             if param_len:
                 f.read(param_len)
             return {
-                "mime_idx": mime_idx, "namespace": namespace,
-                "is_redirect": True, "is_deleted": False,
-                "redirect_idx": redirect_idx, "url": url, "title": title,
+                "mime_idx": mime_idx,
+                "namespace": namespace,
+                "is_redirect": True,
+                "is_deleted": False,
+                "redirect_idx": redirect_idx,
+                "url": url,
+                "title": title,
             }
 
         if is_deleted:
@@ -176,9 +189,12 @@ class ZimParser:
             if param_len:
                 f.read(param_len)
             return {
-                "mime_idx": mime_idx, "namespace": namespace,
-                "is_redirect": False, "is_deleted": True,
-                "url": url, "title": title,
+                "mime_idx": mime_idx,
+                "namespace": namespace,
+                "is_redirect": False,
+                "is_deleted": True,
+                "url": url,
+                "title": title,
             }
 
         extra_data = f.read(_ENTRY_ARTICLE.size)
@@ -188,10 +204,14 @@ class ZimParser:
         if param_len:
             f.read(param_len)
         return {
-            "mime_idx": mime_idx, "namespace": namespace,
-            "is_redirect": False, "is_deleted": False,
-            "cluster_number": cluster_number, "blob_number": blob_number,
-            "url": url, "title": title,
+            "mime_idx": mime_idx,
+            "namespace": namespace,
+            "is_redirect": False,
+            "is_deleted": False,
+            "cluster_number": cluster_number,
+            "blob_number": blob_number,
+            "url": url,
+            "title": title,
         }
 
     # ------------------------------------------------------------------
@@ -243,9 +263,7 @@ class ZimParser:
             cluster_data_size = next_cluster_offset - cluster_offset - 1
             compressed = f.read(cluster_data_size)
             try:
-                decompressed = zstandard.ZstdDecompressor().decompress(
-                    compressed, max_output_size=256 * 1024 * 1024
-                )
+                decompressed = zstandard.ZstdDecompressor().decompress(compressed, max_output_size=256 * 1024 * 1024)
             except Exception as exc:
                 self._report(f"zstd_decompression_failed:{exc}")
                 return None
@@ -254,9 +272,7 @@ class ZimParser:
             if blob_number >= n_blobs:
                 self._report(f"blob_number_out_of_range:{blob_number}>={n_blobs}")
                 return None
-            start, end = struct.unpack_from(
-                f"<{offset_fmt}{offset_fmt}", decompressed, blob_number * offset_size
-            )
+            start, end = struct.unpack_from(f"<{offset_fmt}{offset_fmt}", decompressed, blob_number * offset_size)
             return decompressed[start:end]
 
         if compress_type == _COMPRESS_LZ4:
@@ -345,9 +361,7 @@ class ZimParser:
 
                 cluster_offset = cluster_ptrs[cluster_number]
                 next_cluster_offset = (
-                    cluster_ptrs[cluster_number + 1]
-                    if cluster_number + 1 < len(cluster_ptrs)
-                    else file_size
+                    cluster_ptrs[cluster_number + 1] if cluster_number + 1 < len(cluster_ptrs) else file_size
                 )
 
                 raw = self._read_blob(f, cluster_offset, blob_number, next_cluster_offset)

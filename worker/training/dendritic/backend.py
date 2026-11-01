@@ -73,9 +73,7 @@ class MockDendriticExperimentBackend:
     def evaluate(self, spec: DendriticJobSpecV1, pack: DendriticMemoryPackManifestV1) -> Mapping[str, Any]:
         return {"spec_digest": spec.digest, "pack_digest": pack.digest, "mock": True}
 
-    def compose(
-        self, spec: DendriticJobSpecV1, parents: Sequence[DendriticMemoryPackManifestV1]
-    ) -> Mapping[str, Any]:
+    def compose(self, spec: DendriticJobSpecV1, parents: Sequence[DendriticMemoryPackManifestV1]) -> Mapping[str, Any]:
         return {"spec_digest": spec.digest, "parent_digests": [item.digest for item in parents], "mock": True}
 
     def cancel(self, *, run_id: str, attempt_id: str) -> None:
@@ -90,15 +88,11 @@ class TorchReferenceDendriticExperimentBackend:
         self._clock = clock
 
     def prepare(self, spec: DendriticJobSpecV1) -> Mapping[str, Any]:
-        resolved = self._models.resolve(
-            model_id=spec.base_model_id, snapshot_digest=spec.base_model_snapshot_digest
-        )
+        resolved = self._models.resolve(model_id=spec.base_model_id, snapshot_digest=spec.base_model_snapshot_digest)
         return {
             "ready": True,
             "spec_digest": spec.digest,
-            "catalog_entry_digest": canonical_digest(
-                {key: value for key, value in resolved.items() if key != "model"}
-            ),
+            "catalog_entry_digest": canonical_digest({key: value for key, value in resolved.items() if key != "model"}),
             "model_download_performed": False,
         }
 
@@ -109,9 +103,7 @@ class TorchReferenceDendriticExperimentBackend:
             raise RuntimeError("dendritic_torch_unavailable") from exc
         if not 3 <= len(records) <= 100_000:
             raise ValueError("dendritic_dataset_size_invalid")
-        resolved = self._models.resolve(
-            model_id=spec.base_model_id, snapshot_digest=spec.base_model_snapshot_digest
-        )
+        resolved = self._models.resolve(model_id=spec.base_model_id, snapshot_digest=spec.base_model_snapshot_digest)
         model = resolved.get("model")
         allowed_prefixes = tuple(resolved.get("allowed_target_prefixes") or ())
         if model is None or not allowed_prefixes:
@@ -217,9 +209,7 @@ class TorchReferenceDendriticExperimentBackend:
     def evaluate(self, spec: DendriticJobSpecV1, pack: DendriticMemoryPackManifestV1) -> Mapping[str, Any]:
         return {"spec_digest": spec.digest, "pack_digest": pack.digest, "backend": "torch_reference"}
 
-    def compose(
-        self, spec: DendriticJobSpecV1, parents: Sequence[DendriticMemoryPackManifestV1]
-    ) -> Mapping[str, Any]:
+    def compose(self, spec: DendriticJobSpecV1, parents: Sequence[DendriticMemoryPackManifestV1]) -> Mapping[str, Any]:
         return {
             "spec_digest": spec.digest,
             "parent_digests": [item.digest for item in parents],
@@ -256,11 +246,7 @@ def _materialize_training_records(records: Sequence[Mapping[str, Any]], hidden: 
         digest = canonical_digest({"features": record["features"], "target": record["target"]})
         digests_by_split[str(record["split"])].append(digest)
     sets = [set(values) for values in digests_by_split.values()]
-    overlaps = any(
-        sets[left] & sets[right]
-        for left in range(3)
-        for right in range(left + 1, 3)
-    )
+    overlaps = any(sets[left] & sets[right] for left in range(3) for right in range(left + 1, 3))
     if any(not values for values in sets) or overlaps:
         raise ValueError("dendritic_dataset_split_leakage")
     train = [record for record in records if record["split"] == "train"]
@@ -270,9 +256,7 @@ def _materialize_training_records(records: Sequence[Mapping[str, Any]], hidden: 
         raise ValueError("dendritic_training_record_shape_invalid")
     if not torch.isfinite(features).all() or not torch.isfinite(targets).all():
         raise ValueError("dendritic_training_record_non_finite")
-    return features, targets, {
-        split: canonical_digest(sorted(values)) for split, values in digests_by_split.items()
-    }
+    return features, targets, {split: canonical_digest(sorted(values)) for split, values in digests_by_split.items()}
 
 
 __all__ = [

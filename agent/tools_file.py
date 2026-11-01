@@ -5,6 +5,7 @@ from agent.tools_registry import registry
 
 def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
     from agent.services.platform_governance_service import get_platform_governance_service
+
     gov = get_platform_governance_service()
     cfg = current_app.config.get("AGENT_CONFIG")
     if not gov.evaluate_action_pack_access("file", cfg):
@@ -90,17 +91,25 @@ def _workspace_file_hint() -> str:
         "required": ["path"],
     },
 )
-def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = "",
-                   start_line: int | None = None, end_line: int | None = None):
+def file_read_tool(
+    path: str = "",
+    encoding: str = "utf-8",
+    file_path: str = "",
+    filename: str = "",
+    start_line: int | None = None,
+    end_line: int | None = None,
+):
     resolved = path or file_path or filename
     if not resolved:
         hint = _workspace_file_hint()
         return {"error": f"Parameter 'path' fehlt.{hint}"}
     resolved = _resolve_workspace_path(resolved)
     ok, err = _check_file_access(resolved, "read")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import os
+
     if not os.path.exists(resolved):
         return {"error": f"Datei '{resolved}' nicht gefunden."}
     try:
@@ -110,8 +119,9 @@ def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "",
                 lines = content.splitlines(keepends=True)
                 first = max(1, int(start_line or 1))
                 last = min(len(lines), int(end_line or len(lines)))
-                content = "".join(lines[first - 1:last])
+                content = "".join(lines[first - 1 : last])
             from agent.common.audit import log_audit
+
             log_audit("file_read", {"path": resolved, "size": len(content)})
             return {"content": content, "path": resolved}
     except Exception as e:
@@ -131,21 +141,26 @@ def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "",
         "required": ["path", "content"],
     },
 )
-def file_write_tool(path: str = "", content: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""):
+def file_write_tool(
+    path: str = "", content: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""
+):
     resolved = path or file_path or filename
     if not resolved:
         hint = _workspace_file_hint()
         return {"error": f"Parameter 'path' fehlt.{hint}"}
     resolved = _resolve_workspace_path(resolved)
     ok, err = _check_file_access(resolved, "write")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import os
+
     try:
         os.makedirs(os.path.dirname(os.path.abspath(resolved)), exist_ok=True)
         with open(resolved, "w", encoding=encoding) as f:
             f.write(content)
             from agent.common.audit import log_audit
+
             log_audit("file_write", {"path": resolved, "size": len(content)})
             return {"status": "success", "path": resolved, "size": len(content)}
     except Exception as e:
@@ -166,9 +181,11 @@ def file_write_tool(path: str = "", content: str = "", encoding: str = "utf-8", 
 def file_list_tool(path: str = ".", recursive: bool = False):
     resolved = _resolve_workspace_path(path)
     ok, err = _check_file_access(resolved, "read")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import os
+
     if not os.path.exists(resolved):
         return {"error": f"Verzeichnis '{resolved}' nicht gefunden."}
 
@@ -205,9 +222,11 @@ def file_patch_tool(path: str = "", search: str = "", replace: str = "", file_pa
         return {"error": f"Parameter 'path' fehlt.{hint}"}
     resolved = _resolve_workspace_path(resolved)
     ok, err = _check_file_access(resolved, "write")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import os
+
     if not os.path.exists(resolved):
         return {"error": f"Datei '{resolved}' nicht gefunden."}
 
@@ -224,6 +243,7 @@ def file_patch_tool(path: str = "", search: str = "", replace: str = "", file_pa
             f.write(new_content)
 
         from agent.common.audit import log_audit
+
         log_audit("file_patch", {"path": resolved, "search_len": len(search), "replace_len": len(replace)})
         return {"status": "success", "path": resolved}
     except Exception as e:

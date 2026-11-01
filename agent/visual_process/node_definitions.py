@@ -158,8 +158,7 @@ _MODEL_ROUTING_FIELDS = [
         "Kontext-Notfallkette",
         "multi_select",
         help_text=(
-            "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker "
-            "dürfen daraus keine Tasks selbst erzeugen."
+            "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen."
         ),
         options=[
             {"value": "compact_context", "label": "Kontext verdichten"},
@@ -179,8 +178,7 @@ _MODEL_ROUTING_FIELDS = [
         "Generierten Task-Plan freigeben",
         "boolean",
         help_text=(
-            "Bindet die Task-Materialisierung an eine exakte, Hub-seitige "
-            "Freigabe des gespeicherten Plan-Digests."
+            "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests."
         ),
         essential=False,
     ),

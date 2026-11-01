@@ -110,11 +110,7 @@ def _dynamic_imports(tree: ast.AST):
             continue
         name = _decorator_name(node.func)
         first = node.args[0]
-        if (
-            name in {"import_module", "__import__"}
-            and isinstance(first, ast.Constant)
-            and isinstance(first.value, str)
-        ):
+        if name in {"import_module", "__import__"} and isinstance(first, ast.Constant) and isinstance(first.value, str):
             yield node, first.value
 
 
@@ -162,15 +158,12 @@ def _check_indirect_hub_worker_imports(
         module
         for module, path in modules.items()
         if (
-            str(path.relative_to(root))
-            == "agent/bootstrap/source_control_api.py"
+            str(path.relative_to(root)) == "agent/bootstrap/source_control_api.py"
             or path.name.startswith("source_control")
-            and any(
-                part in {"bootstrap", "routes", "services", "sources"}
-                for part in path.parts
-            )
+            and any(part in {"bootstrap", "routes", "services", "sources"} for part in path.parts)
         )
     )
+
     def source_control_owned(module: str) -> bool:
         return (
             module.startswith("agent.bootstrap.source_control")
@@ -184,9 +177,7 @@ def _check_indirect_hub_worker_imports(
         # Follow Source-Control modules transitively. For an adjacent general
         # Hub module, inspect one hop for a direct Worker import but do not
         # attribute its entire dependency graph to Source-Control.
-        queue: list[tuple[str, tuple[str, ...], int]] = [
-            (entrypoint, (entrypoint,), 1)
-        ]
+        queue: list[tuple[str, tuple[str, ...], int]] = [(entrypoint, (entrypoint,), 1)]
         visited: set[tuple[str, int]] = set()
         while queue:
             module, chain, bridge_budget = queue.pop(0)
@@ -219,9 +210,7 @@ def _check_indirect_hub_worker_imports(
                     if bridge_budget == 0:
                         continue
                     next_bridge_budget -= 1
-                queue.append(
-                    (candidate, (*chain, candidate), next_bridge_budget)
-                )
+                queue.append((candidate, (*chain, candidate), next_bridge_budget))
     return list(violations.values())
 
 
@@ -270,17 +259,10 @@ def _check_route_authentication(root: Path) -> list[BoundaryViolation]:
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            route_decorators = [
-                decorator
-                for decorator in node.decorator_list
-                if _is_route_decorator(decorator)
-            ]
+            route_decorators = [decorator for decorator in node.decorator_list if _is_route_decorator(decorator)]
             if not route_decorators:
                 continue
-            decorator_names = {
-                _decorator_name(decorator)
-                for decorator in node.decorator_list
-            }
+            decorator_names = {_decorator_name(decorator) for decorator in node.decorator_list}
             if not {"check_auth", "admin_required"} & decorator_names:
                 violations.append(
                     BoundaryViolation(
@@ -325,13 +307,10 @@ def _check_bootstrap_bypasses(root: Path) -> list[BoundaryViolation]:
             "agent/routes/source_control_operations.py",
         }:
             text = path.read_text(encoding="utf-8")
-            if (
-                "/api/source-control/v1" in text
-                and not _verified_v1_extension(
-                    root=root,
-                    relative=relative,
-                    route_tree=tree,
-                )
+            if "/api/source-control/v1" in text and not _verified_v1_extension(
+                root=root,
+                relative=relative,
+                route_tree=tree,
             ):
                 violations.append(
                     BoundaryViolation(
@@ -391,12 +370,7 @@ def _verified_v1_extension(
         and any(_is_route_decorator(item) for item in node.decorator_list)
     ]
     route_guards_verified = bool(route_functions) and all(
-        {"check_auth", access_guard}.issubset(
-            {
-                _decorator_name(decorator)
-                for decorator in node.decorator_list
-            }
-        )
+        {"check_auth", access_guard}.issubset({_decorator_name(decorator) for decorator in node.decorator_list})
         for node in route_functions
     )
     bootstrap = root / "agent/bootstrap/source_control_api.py"
@@ -435,10 +409,7 @@ def _is_route_decorator(node: ast.expr) -> bool:
     if not isinstance(node, ast.Call):
         return False
     function = node.func
-    return (
-        isinstance(function, ast.Attribute)
-        and function.attr in {"route", "get", "post", "put", "patch", "delete"}
-    )
+    return isinstance(function, ast.Attribute) and function.attr in {"route", "get", "post", "put", "patch", "delete"}
 
 
 def _decorator_name(node: ast.expr) -> str:

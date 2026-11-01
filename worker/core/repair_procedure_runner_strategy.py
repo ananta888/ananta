@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from worker.core.propose import ExecutableProposal, ProposeStrategyResult
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 
 
 class RepairProcedureRunnerStrategy(ProposeStrategy):
@@ -39,4 +39,3 @@ class RepairProcedureRunnerStrategy(ProposeStrategy):
             "repair_requested_without_missing_paths",
             metadata={"source": "verification_critique"},
         )
-

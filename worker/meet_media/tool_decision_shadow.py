@@ -90,9 +90,14 @@ class ToolDecisionShadow:
             record.update(decision=None, error=outcome.error)
         else:
             tool = decision.tool or NO_TOOL
-            record.update(decision=tool, status=decision.status, reason=decision.reason,
-                          probability=round(decision.confidence, 6), margin=decision.margin,
-                          agrees=tool == record["actual_first"])
+            record.update(
+                decision=tool,
+                status=decision.status,
+                reason=decision.reason,
+                probability=round(decision.confidence, 6),
+                margin=decision.margin,
+                agrees=tool == record["actual_first"],
+            )
             generated = [decision.arguments.get(name) for name in decision.generated_arguments]
             argument = generated[0] if generated and isinstance(generated[0], str) else ""
             record["argument_chars"] = len(argument)
@@ -108,9 +113,11 @@ class ToolDecisionShadow:
     def observe_later(self, question, definitions, *, route, calls):
         """``observe`` on a daemon thread, so the reply is sent without waiting for the shadow."""
         thread = threading.Thread(
-            target=self.observe, args=(question, list(definitions)),
+            target=self.observe,
+            args=(question, list(definitions)),
             kwargs={"route": route, "calls": [dict(call) for call in calls]},
-            name="tool-decision-shadow", daemon=True,
+            name="tool-decision-shadow",
+            daemon=True,
         )
         thread.start()
         return thread

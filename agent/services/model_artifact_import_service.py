@@ -86,8 +86,7 @@ class ModelImportPolicyLoader:
             if type(maximum) is not int or not 1 <= maximum <= 1024 * 1024**3:
                 raise ValueError
             if any(
-                type(payload[key]) is not bool
-                for key in ("allow_remote_code", "allow_symlinks", "publish_read_only")
+                type(payload[key]) is not bool for key in ("allow_remote_code", "allow_symlinks", "publish_read_only")
             ):
                 raise ValueError
             return ModelImportPolicy(
@@ -189,9 +188,7 @@ class ModelArtifactImportService:
     def _validate_policy(artifact: ModelSourceArtifact, purpose: str) -> None:
         if artifact.license.status in {"unknown", "rejected"}:
             raise ModelArtifactAdmissionError("model_artifact_license_unverified")
-        if purpose == "production" and (
-            artifact.activation != "eligible" or artifact.license.status != "approved"
-        ):
+        if purpose == "production" and (artifact.activation != "eligible" or artifact.license.status != "approved"):
             raise ModelArtifactAdmissionError("model_artifact_production_not_eligible")
         if purpose == "evaluation" and artifact.activation == "default_off":
             raise ModelArtifactAdmissionError("model_artifact_evaluation_not_approved")

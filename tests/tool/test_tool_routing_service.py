@@ -34,7 +34,9 @@ def test_tool_routing_builds_normalized_capability_catalog():
     opencode = next(item for item in catalog["items"] if item["id"] == "opencode" and item["kind"] == "backend")
     assert opencode["supports_stateful_session"] is True
     assert opencode["availability"] == "ready"
-    admin_tool = next(item for item in catalog["items"] if item["id"] == "set_autopilot_state" and item["kind"] == "tool")
+    admin_tool = next(
+        item for item in catalog["items"] if item["id"] == "set_autopilot_state" and item["kind"] == "tool"
+    )
     assert admin_tool["risk_class"] == "high"
     assert admin_tool["requires_approval"] is True
 

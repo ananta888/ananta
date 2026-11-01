@@ -10,25 +10,20 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
 import re
+from dataclasses import dataclass, field
 from typing import Any, Pattern
 
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
-
 from agent.services._deterministic_repair_constants import (
-    REPAIR_PROBLEM_CLASS_INVENTORY,
     INITIAL_SIGNATURE_CATALOG_DEFINITIONS,
+    REPAIR_PROBLEM_CLASS_INVENTORY,
 )
 
 
-from dataclasses import dataclass, field
 def _get_match_impl():
     from agent.services import _deterministic_repair_utils as _drr_utils
+
     return _drr_utils._match_failure_signatures_impl
 
 
@@ -51,8 +46,6 @@ class FailureSignature:
 log = logging.getLogger(__name__)
 
 
-
-
 def build_failure_signature(payload: dict[str, Any]) -> FailureSignature:
     try:
         raw_patterns = payload.get("evidence_patterns") or []
@@ -68,16 +61,17 @@ def build_failure_signature(payload: dict[str, Any]) -> FailureSignature:
             id=str(payload.get("id") or "").strip() or "signature-unnamed",
             problem_class=problem_class,
             evidence_patterns=patterns,
-            structured_fields=tuple(str(item).strip() for item in payload.get("structured_fields", []) if str(item).strip()),
-            environment_constraints={str(k): str(v) for k, v in dict(payload.get("environment_constraints") or {}).items()},
+            structured_fields=tuple(
+                str(item).strip() for item in payload.get("structured_fields", []) if str(item).strip()
+            ),
+            environment_constraints={
+                str(k): str(v) for k, v in dict(payload.get("environment_constraints") or {}).items()
+            },
             confidence_weight=confidence_weight,
         )
     except Exception as exc:
         log.error("build_failure_signature failed: %s", exc)
         raise
-
-
-
 
 
 def signature_to_dict(signature: FailureSignature) -> dict[str, Any]:
@@ -91,17 +85,11 @@ def signature_to_dict(signature: FailureSignature) -> dict[str, Any]:
     }
 
 
-
-
-
 def build_initial_failure_signature_catalog() -> tuple[FailureSignature, ...]:
     catalog: list[FailureSignature] = []
     for payload in INITIAL_SIGNATURE_CATALOG_DEFINITIONS:
         catalog.append(build_failure_signature(payload))
     return tuple(catalog)
-
-
-
 
 
 def match_failure_signatures(
@@ -127,9 +115,6 @@ def match_failure_signatures(
             "llm_used": False,
             "error": str(exc),
         }
-
-
-
 
 
 def classify_signature_matching_outcome(
@@ -215,9 +200,6 @@ def classify_signature_matching_outcome(
     }
 
 
-
-
-
 def build_signature_explanation(
     *,
     match: dict[str, Any],
@@ -247,6 +229,3 @@ def build_signature_explanation(
             f"on platform {platform_target} using patterns: {', '.join(matched_patterns[:2])}."
         ),
     }
-
-
-

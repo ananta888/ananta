@@ -55,11 +55,7 @@ def evaluate_dispatch_gates(ctx: DispatchContext) -> tuple[TaskDispatchResult | 
             result.failure_type = gate_decision.reason_code
             return result, None
     current_task = ctx.dependencies.repository_registry(app_ctx).task_repo.get_by_id(task.id)
-    organization_decision = (
-        get_organization_task_dispatch_gate_service().evaluate(
-            current_task or task
-        )
-    )
+    organization_decision = get_organization_task_dispatch_gate_service().evaluate(current_task or task)
     if not organization_decision.allowed:
         append_trace_event(
             task.id,
@@ -235,9 +231,7 @@ def allocate_execution_scope(
     update_local_task_status = ctx.update_local_task_status
     current_task_status = ctx.dependencies.current_task_status
     is_local_fallback = (
-        settings.role == "hub"
-        and settings.hub_can_be_worker
-        and target_worker.url.rstrip("/") == local_worker_url
+        settings.role == "hub" and settings.hub_can_be_worker and target_worker.url.rstrip("/") == local_worker_url
     )
     if is_local_fallback and not fallback_policy["allow_hub_worker_fallback"]:
         blocked_status = fallback_policy["fallback_block_status"]

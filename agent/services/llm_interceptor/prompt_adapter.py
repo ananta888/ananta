@@ -40,4 +40,3 @@ class PromptAdapter:
                 }
             )
         return prepend + original
-

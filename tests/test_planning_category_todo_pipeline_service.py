@@ -394,6 +394,4 @@ def test_pipeline_recovers_reconciled_tasks_from_matching_completed_result() -> 
     assert child.status == "completed"
     assert child.last_output == raw_output
     assert child.last_exit_code == 0
-    assert child.history[-1]["event_type"] == (
-        "organization_category_research_assignment_completed"
-    )
+    assert child.history[-1]["event_type"] == ("organization_category_research_assignment_completed")

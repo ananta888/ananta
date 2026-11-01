@@ -475,25 +475,26 @@ def validate_result_status(
 
 def command_observation_revision(receipt: WorkflowControlCommandReceipt, status: dict[str, Any]) -> int:
     """Compare an admitted execution revision to its bound execution observation."""
-    if 'command_binding' not in status:
+    if "command_binding" not in status:
         return status_revision(status)
     from agent.services.bpmn_command_binding import project_bpmn_command_binding
 
     command = admitted_receipt_command(receipt)
-    source = status.get('source_observation')
+    source = status.get("source_observation")
     if (
-        not isinstance(source, dict) or source.get('backend') != 'local'
-        or status.get('tenant_id') != receipt.tenant_id
-        or status.get('workflow_id') != receipt.workflow_id
-        or status.get('run_id') != receipt.run_id
-        or status.get('plan_hash') != command.plan_hash
+        not isinstance(source, dict)
+        or source.get("backend") != "local"
+        or status.get("tenant_id") != receipt.tenant_id
+        or status.get("workflow_id") != receipt.workflow_id
+        or status.get("run_id") != receipt.run_id
+        or status.get("plan_hash") != command.plan_hash
     ):
-        raise WorkflowControlCommandReceiptError('workflow_control_command_receipt_public_status_invalid')
+        raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_public_status_invalid")
     try:
-        projection = project_bpmn_command_binding({**status, 'revision': source.get('revision')}, binding=command)
+        projection = project_bpmn_command_binding({**status, "revision": source.get("revision")}, binding=command)
     except ValueError as exc:
-        raise WorkflowControlCommandReceiptError('workflow_control_command_receipt_public_status_invalid') from exc
-    return projection['expected_revision']
+        raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_public_status_invalid") from exc
+    return projection["expected_revision"]
 
 
 def validate_persisted_public_status(

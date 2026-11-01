@@ -31,7 +31,15 @@ def test_rag_service_builds_grounded_prompt_from_retrieved_context():
         "query": "where timeout bug",
         "strategy": {"semantic_search": 1},
         "policy_version": "v1",
-        "chunks": [{"engine": "semantic_search", "source": "docs/bug.md", "content": "timeout in worker", "score": 1.2, "metadata": {}}],
+        "chunks": [
+            {
+                "engine": "semantic_search",
+                "source": "docs/bug.md",
+                "content": "timeout in worker",
+                "score": 1.2,
+                "metadata": {},
+            }
+        ],
         "context_text": "selected context",
         "token_estimate": 12,
     }
@@ -98,7 +106,9 @@ def test_rag_service_compact_policy_trims_chunks_and_hides_context_text():
     }
     service = RagService(retrieval_service=retrieval)
 
-    bundle = service.retrieve_context_bundle("find docs", include_context_text=False, max_chunks=2, policy_mode="compact")
+    bundle = service.retrieve_context_bundle(
+        "find docs", include_context_text=False, max_chunks=2, policy_mode="compact"
+    )
 
     assert "context_text" not in bundle
     assert bundle["chunk_count"] == 2
@@ -128,7 +138,9 @@ def test_rag_service_standard_policy_records_effective_context_policy():
     }
     service = RagService(retrieval_service=retrieval)
 
-    bundle = service.retrieve_context_bundle("find docs", include_context_text=True, max_chunks=4, policy_mode="standard")
+    bundle = service.retrieve_context_bundle(
+        "find docs", include_context_text=True, max_chunks=4, policy_mode="standard"
+    )
 
     assert bundle["context_text"] == "ctx"
     assert bundle["context_policy"]["mode"] == "standard"
@@ -149,7 +161,13 @@ def test_rag_service_full_mode_keeps_detailed_explainability_profile():
         "strategy": {"repository_map": 1},
         "policy_version": "v1",
         "chunks": [
-            {"engine": "repository_map", "source": f"file-{idx}.md", "content": "ctx " * 800, "score": 1.0, "metadata": {}}
+            {
+                "engine": "repository_map",
+                "source": f"file-{idx}.md",
+                "content": "ctx " * 800,
+                "score": 1.0,
+                "metadata": {},
+            }
             for idx in range(10)
         ],
         "context_text": "ctx",
@@ -188,6 +206,7 @@ def test_rag_service_redacts_sensitive_values_in_explainability_and_selection_tr
         "token_estimate": 8,
     }
     from agent.config import settings
+
     monkeypatch.setattr(settings, "rag_redact_sensitive", True)
     service = RagService(retrieval_service=retrieval)
 

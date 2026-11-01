@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 
 try:
-    from tree_sitter import Language, Parser
     import tree_sitter_java as tsjava
+    from tree_sitter import Language, Parser
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     Language = None
     Parser = None
@@ -22,7 +22,9 @@ def _parse_first_type(code: str):
     return src, type_node
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class JavaTypeExtractorTests(unittest.TestCase):
     def test_extract_type_excludes_trivial_methods_when_requested(self) -> None:
         src, type_node = _parse_first_type(
@@ -62,15 +64,16 @@ class JavaTypeExtractorTests(unittest.TestCase):
         self.assertEqual(type_record["name"], "User")
         self.assertEqual(type_record["methods"], ["displayName(): String"])
         self.assertEqual(stats["method_count"], 1)
-        self.assertTrue(any(
-            record["kind"] == "java_method" and record["name"] == "displayName"
-            for record in detail_records
-        ))
-        self.assertTrue(all(
-            not (record["kind"] == "java_method" and record["name"] == "getName")
-            for record in detail_records
-            if "name" in record
-        ))
+        self.assertTrue(
+            any(record["kind"] == "java_method" and record["name"] == "displayName" for record in detail_records)
+        )
+        self.assertTrue(
+            all(
+                not (record["kind"] == "java_method" and record["name"] == "getName")
+                for record in detail_records
+                if "name" in record
+            )
+        )
         self.assertTrue(any(rel["relation"] == "declares_method" for rel in relation_records))
 
     def test_extract_type_respects_max_methods_per_class(self) -> None:
@@ -189,15 +192,18 @@ class JavaTypeExtractorTests(unittest.TestCase):
         _, detail_records, relation_records, _ = extract_type(ctx, type_node)
 
         method_record = next(record for record in detail_records if record["kind"] == "java_method")
-        self.assertTrue(any(
-            target["target_resolved"] == "demo.UserRepository.save"
-            for target in method_record["resolved_call_targets"]
-        ))
-        self.assertTrue(any(
-            rel["relation"] == "calls_probable_target"
-            and rel["target_resolved"] == "demo.UserRepository.save"
-            for rel in relation_records
-        ))
+        self.assertTrue(
+            any(
+                target["target_resolved"] == "demo.UserRepository.save"
+                for target in method_record["resolved_call_targets"]
+            )
+        )
+        self.assertTrue(
+            any(
+                rel["relation"] == "calls_probable_target" and rel["target_resolved"] == "demo.UserRepository.save"
+                for rel in relation_records
+            )
+        )
 
     def test_extract_type_adds_spring_and_jpa_relations(self) -> None:
         src, type_node = _parse_first_type(

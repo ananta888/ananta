@@ -106,10 +106,7 @@ def test_http_port_pins_execution_and_health_to_the_same_private_origin() -> Non
     assert health["model_ids"] == ["gemma-2b-it"]
     assert opener.requests[0][0].full_url.startswith("http://10.77.0.4:8093/internal/")
     assert opener.requests[1][0].full_url == "http://10.77.0.4:8093/health"
-    assert all(
-        item[0].get_header("Host") == "generative-corrector-worker:8093"
-        for item in opener.requests
-    )
+    assert all(item[0].get_header("Host") == "generative-corrector-worker:8093" for item in opener.requests)
 
 
 def test_http_port_accepts_qualified_models_and_bounded_provider_health_metadata() -> None:

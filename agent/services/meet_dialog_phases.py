@@ -137,10 +137,18 @@ class MeetDialogPhases:
         # Build and validate the whole observation before the single CAS write.
         # A malformed/expired publication receipt must not leave a joined phase
         # behind when the later publication transition is rejected.
-        joined = (transition(record, "joined", self._now(), membership=membership)
-                  if record["phase"] == "connecting" else record)
-        changed = transition(joined, "publishing" if observation["sources"] else "joined",
-                             self._now(), membership=membership, observation=observation)
+        joined = (
+            transition(record, "joined", self._now(), membership=membership)
+            if record["phase"] == "connecting"
+            else record
+        )
+        changed = transition(
+            joined,
+            "publishing" if observation["sources"] else "joined",
+            self._now(),
+            membership=membership,
+            observation=observation,
+        )
         self._write(task, record, changed)
         self.authority.current(scope.task_id, scope.lease_id, scope.runtime_id)
 

@@ -53,21 +53,33 @@ def test_hub_executes_delegated_dag_without_human_intervention(tmp_path: Path) -
         stage_id = claim["claimed_stage_id"]
         stage = claim["stages"][stage_id]
         result = runner.execute(
-            run_spec=claim["spec"], run_id=run["run_id"], stage={
-                key: stage[key]
-                for key in ("stage_id", "kind", "dependencies", "required_capability", "max_attempts")
-            } | {"timeout_seconds": next(
-                item["timeout_seconds"] for item in claim["spec"]["pipeline"]["stages"] if item["stage_id"] == stage_id
-            )},
-            attempt_id=stage["attempt_id"], parent_artifact_digests=parent_digests,
+            run_spec=claim["spec"],
+            run_id=run["run_id"],
+            stage={
+                key: stage[key] for key in ("stage_id", "kind", "dependencies", "required_capability", "max_attempts")
+            }
+            | {
+                "timeout_seconds": next(
+                    item["timeout_seconds"]
+                    for item in claim["spec"]["pipeline"]["stages"]
+                    if item["stage_id"] == stage_id
+                )
+            },
+            attempt_id=stage["attempt_id"],
+            parent_artifact_digests=parent_digests,
         )
         receipt = artifacts.publish(manifest=result["manifest"], content=result["content"])
         lineage.register(manifest=result["manifest"], artifact_ref=receipt["artifact_ref"])
         parent_digests = [result["manifest"]["artifact_digest"]]
         run = runs.transition(
-            tenant_id="tenant-a", run_id=run["run_id"], stage_id=stage_id,
-            attempt_id=stage["attempt_id"], worker_authorization=claim["worker_authorization"],
-            target="completed", expected_revision=claim["revision"], artifact_manifest=result["manifest"],
+            tenant_id="tenant-a",
+            run_id=run["run_id"],
+            stage_id=stage_id,
+            attempt_id=stage["attempt_id"],
+            worker_authorization=claim["worker_authorization"],
+            target="completed",
+            expected_revision=claim["revision"],
+            artifact_manifest=result["manifest"],
         )
 
     assert run["automatic_release_eligible"] is True
@@ -84,9 +96,14 @@ def test_stale_or_forged_worker_transition_is_rejected(tmp_path: Path) -> None:
     stage = claim["stages"][claim["claimed_stage_id"]]
     with pytest.raises(ResearchTrainingDenied, match="authorization_invalid"):
         runs.transition(
-            tenant_id="tenant-a", run_id=run["run_id"], stage_id=stage["stage_id"],
-            attempt_id=stage["attempt_id"], worker_authorization="0" * 64, target="failed",
-            expected_revision=claim["revision"], reason_code="research_synthetic_failure",
+            tenant_id="tenant-a",
+            run_id=run["run_id"],
+            stage_id=stage["stage_id"],
+            attempt_id=stage["attempt_id"],
+            worker_authorization="0" * 64,
+            target="failed",
+            expected_revision=claim["revision"],
+            reason_code="research_synthetic_failure",
         )
 
     forged = copy.deepcopy(claim)

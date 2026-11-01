@@ -37,8 +37,10 @@ class AvatarRenewalObserver:
             raise ValueError("test_avatar_renewal_generation_invalid")
         with self.condition:
             assert self.condition.wait_for(
-                lambda: generation in self.generations
-                and {"generation": generation, "sha256": image_hash} in self.hydrations,
+                lambda: (
+                    generation in self.generations
+                    and {"generation": generation, "sha256": image_hash} in self.hydrations
+                ),
                 timeout=75,
             ), {
                 "lease_generations": sorted(self.generations),

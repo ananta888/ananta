@@ -7,6 +7,7 @@ chunk/node tables.
 
 Sensitivity policy is enforced before any chunk or summary is returned.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +28,7 @@ _SENSITIVITY_ORDER = ["public", "internal", "internal_high", "secret", "credenti
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MemoryChunkResult:
@@ -56,7 +58,7 @@ class MemoryNodeResult:
 @dataclass
 class MemoryRetrievalResult:
     query: str
-    scope: str                          # "source" | "topic" | "global" | "any"
+    scope: str  # "source" | "topic" | "global" | "any"
     chunks: list[MemoryChunkResult] = field(default_factory=list)
     summary_node: Optional[MemoryNodeResult] = None
     drilldown_refs: list[str] = field(default_factory=list)
@@ -68,6 +70,7 @@ class MemoryRetrievalResult:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sensitivity_idx(label: str) -> int:
     try:
@@ -118,6 +121,7 @@ def _keyword_score(chunk: MemoryTreeChunkDB, tokens: list[str]) -> float:
 # ---------------------------------------------------------------------------
 # MemoryTreeRetrievalService
 # ---------------------------------------------------------------------------
+
 
 class MemoryTreeRetrievalService:
     """Query the Memory Tree across source/topic/global scopes."""
@@ -298,10 +302,7 @@ class MemoryTreeRetrievalService:
 
         if source_ids:
             for sid in source_ids:
-                r = self.retrieve_source(
-                    sid, query=query, lifecycle=None,
-                    sensitivity_ceiling=ceiling, limit=max_n
-                )
+                r = self.retrieve_source(sid, query=query, lifecycle=None, sensitivity_ceiling=ceiling, limit=max_n)
                 combined.chunks.extend(r.chunks)
                 combined.filtered_by_policy += r.filtered_by_policy
                 if r.summary_node and combined.summary_node is None:
@@ -309,16 +310,12 @@ class MemoryTreeRetrievalService:
 
         if topic_labels:
             for tl in topic_labels:
-                r = self.retrieve_topic(
-                    tl, query=query, sensitivity_ceiling=ceiling, limit=max_n
-                )
+                r = self.retrieve_topic(tl, query=query, sensitivity_ceiling=ceiling, limit=max_n)
                 combined.chunks.extend(r.chunks)
                 combined.filtered_by_policy += r.filtered_by_policy
 
         if global_scope:
-            r = self.retrieve_global(
-                global_scope, query=query, sensitivity_ceiling=ceiling, limit=max_n
-            )
+            r = self.retrieve_global(global_scope, query=query, sensitivity_ceiling=ceiling, limit=max_n)
             combined.chunks.extend(r.chunks)
             combined.filtered_by_policy += r.filtered_by_policy
 

@@ -1,17 +1,18 @@
 """Demo: VectorEncoding pipeline end-to-end (no network, no API calls)."""
+
 from __future__ import annotations
 
 import json
 import math
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from worker.retrieval.vector_encoding import (
     EncodedVector,
-    VectorEncodingProfile,
     VectorEncoder,
+    VectorEncodingProfile,
 )
 
 MODES = [
@@ -73,16 +74,14 @@ for mode in MODES:
     decoded: list[float] = encoder.decode(encoded)
 
     ratio = encoded.diagnostics.get("compression_ratio_vs_float32", 1.0)
-    err   = encoded.diagnostics.get("max_abs_error", 0.0)
+    err = encoded.diagnostics.get("max_abs_error", 0.0)
     nbytes = encoded.diagnostics.get("bytes_encoded_payload", len(SAMPLE) * 4)
-    h     = encoded.metadata.get("profile_hash", profile.config_hash())
-    csim  = cosine_sim(SAMPLE, decoded)
+    h = encoded.metadata.get("profile_hash", profile.config_hash())
+    csim = cosine_sim(SAMPLE, decoded)
 
-    results.append(dict(mode=mode, ratio=ratio, err=err, nbytes=nbytes,
-                        hash=h, csim=csim, encoded=encoded))
+    results.append(dict(mode=mode, ratio=ratio, err=err, nbytes=nbytes, hash=h, csim=csim, encoded=encoded))
 
-    print(f"  [{mode}]  ratio={ratio:.2f}×  max_abs_err={err:.4f}"
-          f"  bytes={nbytes}  hash={h[:12]}")
+    print(f"  [{mode}]  ratio={ratio:.2f}×  max_abs_err={err:.4f}  bytes={nbytes}  hash={h[:12]}")
 
 # ---------------------------------------------------------------------------
 # 4. Comparison table
@@ -108,6 +107,7 @@ for r in results:
 section("TurboQuant_prod stub (NotImplementedError expected)")
 try:
     from worker.retrieval.turboquant_encoding import TurboQuantProd  # type: ignore
+
     tq = TurboQuantProd()
     tq.encode(SAMPLE)
     print("  WARN: TurboQuantProd did not raise — stub incomplete")
@@ -122,6 +122,7 @@ except ImportError:
 section("QuantizationFallbackPolicy: fallback_float32 mode")
 try:
     from worker.retrieval.vector_encoding import QuantizationFallbackPolicy  # type: ignore
+
     policy = QuantizationFallbackPolicy(fallback_mode="float32")
     print(f"  QuantizationFallbackPolicy loaded: fallback_mode={policy.fallback_mode}")
 except (ImportError, AttributeError):
@@ -130,7 +131,7 @@ except (ImportError, AttributeError):
     fallback_encoder = VectorEncoder(fallback_profile)
     encoded_fb = fallback_encoder.encode(SAMPLE)
     err_fb = encoded_fb.diagnostics.get("max_abs_error", 0.0)
-    print(f"  QuantizationFallbackPolicy not yet in module.")
+    print("  QuantizationFallbackPolicy not yet in module.")
     print(f"  Simulated fallback: mode=float32  max_abs_error={err_fb:.4f}  (lossless)")
 
 # ---------------------------------------------------------------------------

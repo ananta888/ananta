@@ -1,8 +1,8 @@
 """Raw Prompt Access Policy for PromptTrace. PTI-013."""
+
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ class PromptTraceAccessPolicy:
     ) -> RawAccessDecision:
         try:
             from agent.config import settings
+
             store_raw = bool(getattr(settings, "prompt_trace_store_raw_prompts", False))
             allowed_modes = list(getattr(settings, "prompt_trace_allowed_raw_access_modes", []) or [])
         except Exception:
@@ -48,6 +49,7 @@ class PromptTraceAccessPolicy:
     def audit_raw_access(self, trace_id: str, accessor: str | None = None) -> None:
         try:
             from agent.common.audit import log_audit
+
             log_audit("prompt_trace_raw_access", extra={"trace_id": trace_id, "accessor": accessor or "unknown"})
         except Exception as exc:
             logger.debug("Could not log raw access audit: %s", exc)

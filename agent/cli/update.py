@@ -172,10 +172,7 @@ def _print_update_summary(*, repo_dir: Path, previous_commit: str, current_commi
         print("Update result: updated to a new commit.")
     else:
         print("Update result: already up to date.")
-    print(
-        "Rollback command: "
-        f"ananta update --repo-dir \"{repo_dir}\" --rollback-to {previous_commit}"
-    )
+    print(f'Rollback command: ananta update --repo-dir "{repo_dir}" --rollback-to {previous_commit}')
 
 
 def main(argv: list[str] | None = None) -> int:

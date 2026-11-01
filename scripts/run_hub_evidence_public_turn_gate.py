@@ -99,9 +99,7 @@ def repository_revision(root: Path = ROOT) -> str:
     )
     revision = completed.stdout.strip().lower()
     if completed.returncode != 0 or _SHA.fullmatch(revision) is None:
-        raise PublicTurnEvidenceGateError(
-            "public_turn_gate_repository_revision_invalid"
-        )
+        raise PublicTurnEvidenceGateError("public_turn_gate_repository_revision_invalid")
     changed = subprocess.run(
         ("git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS),
         cwd=root,
@@ -119,10 +117,7 @@ def read_turn_secret() -> str:
     if (
         not secret
         or len(secret) > 4096
-        or any(
-            character.isspace() or not character.isprintable()
-            for character in secret
-        )
+        or any(character.isspace() or not character.isprintable() for character in secret)
     ):
         raise PublicTurnEvidenceGateError("public_turn_gate_secret_invalid")
     return secret
@@ -133,37 +128,25 @@ def public_endpoint_environment(host: str) -> dict[str, Any]:
         addresses = sorted(
             {
                 ipaddress.ip_address(sockaddr[0]).compressed
-                for family, _, _, _, sockaddr in socket.getaddrinfo(
-                    host, 5349, type=socket.SOCK_STREAM
-                )
+                for family, _, _, _, sockaddr in socket.getaddrinfo(host, 5349, type=socket.SOCK_STREAM)
                 if family in {socket.AF_INET, socket.AF_INET6}
             }
         )
     except (OSError, ValueError) as exc:
-        raise PublicTurnEvidenceGateError(
-            "public_turn_gate_dns_resolution_failed"
-        ) from exc
-    if not addresses or any(
-        not ipaddress.ip_address(address).is_global for address in addresses
-    ):
+        raise PublicTurnEvidenceGateError("public_turn_gate_dns_resolution_failed") from exc
+    if not addresses or any(not ipaddress.ip_address(address).is_global for address in addresses):
         raise PublicTurnEvidenceGateError("public_turn_gate_public_address_required")
     try:
         context = ssl.create_default_context()
         with socket.create_connection((host, 5349), timeout=10) as connection:
-            with context.wrap_socket(
-                connection, server_hostname=host
-            ) as secured:
+            with context.wrap_socket(connection, server_hostname=host) as secured:
                 certificate = secured.getpeercert(binary_form=True)
                 protocol = secured.version()
                 cipher = secured.cipher()
     except (OSError, ssl.SSLError) as exc:
-        raise PublicTurnEvidenceGateError(
-            "public_turn_gate_tls_validation_failed"
-        ) from exc
+        raise PublicTurnEvidenceGateError("public_turn_gate_tls_validation_failed") from exc
     if not certificate:
-        raise PublicTurnEvidenceGateError(
-            "public_turn_gate_tls_validation_failed"
-        )
+        raise PublicTurnEvidenceGateError("public_turn_gate_tls_validation_failed")
     return {
         "schema": "ananta.public-turn-environment.v1",
         "host": host,
@@ -218,9 +201,7 @@ def project_probe_report(report: Mapping[str, Any]) -> dict[str, Any]:
         "engines": list(report.get("engines") or []),
         "transports": list(report.get("transports") or []),
         "results": projected,
-        "human_intervention_required": report.get(
-            "human_intervention_required"
-        ),
+        "human_intervention_required": report.get("human_intervention_required"),
         "production_capacity": report.get("production_capacity"),
     }
 
@@ -254,24 +235,15 @@ def projection_passed(projection: Mapping[str, Any], *, host: str) -> bool:
     rows = projection.get("results")
     if not isinstance(rows, list):
         return False
-    combinations = {
-        (str(row.get("engine")), str(row.get("transport")))
-        for row in rows
-        if isinstance(row, Mapping)
-    }
-    expected = {
-        (engine, transport)
-        for engine in _EXPECTED_ENGINES
-        for transport in _EXPECTED_TRANSPORTS
-    }
+    combinations = {(str(row.get("engine")), str(row.get("transport"))) for row in rows if isinstance(row, Mapping)}
+    expected = {(engine, transport) for engine in _EXPECTED_ENGINES for transport in _EXPECTED_TRANSPORTS}
     return bool(
         projection.get("schema") == "ananta.public-turn-relay-probe.v1"
         and projection.get("status") == "passed"
         and projection.get("public_host") == host
         and projection.get("credential_ttl_seconds") == 600
         and frozenset(projection.get("engines") or ()) == _EXPECTED_ENGINES
-        and frozenset(projection.get("transports") or ())
-        == _EXPECTED_TRANSPORTS
+        and frozenset(projection.get("transports") or ()) == _EXPECTED_TRANSPORTS
         and combinations == expected
         and len(rows) == len(expected)
         and all(
@@ -282,11 +254,8 @@ def projection_passed(projection: Mapping[str, Any], *, host: str) -> bool:
             and row.get("pairState") == "succeeded"
             and int(row.get("bytesSent") or 0) > 0
             and int(row.get("bytesReceived") or 0) > 0
-            and int(row.get("applicationBytesReceived") or 0)
-            >= int(row.get("applicationBytesSent") or 0)
-            > 0
-            and int(row.get("applicationBytesEchoed") or 0)
-            >= int(row.get("applicationBytesSent") or 0)
+            and int(row.get("applicationBytesReceived") or 0) >= int(row.get("applicationBytesSent") or 0) > 0
+            and int(row.get("applicationBytesEchoed") or 0) >= int(row.get("applicationBytesSent") or 0)
             for row in rows
         )
         and projection.get("human_intervention_required") is False
@@ -301,9 +270,7 @@ def _prepare_database(database_url: str) -> str:
         "",
         ":memory:",
     }:
-        Path(parsed.database).expanduser().resolve().parent.mkdir(
-            parents=True, exist_ok=True
-        )
+        Path(parsed.database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     return database_url
 
 
@@ -345,9 +312,7 @@ def execute_gate(
         {
             "host": host,
             "addresses": environment["addresses"],
-            "tls_certificate_sha256": environment[
-                "tls_certificate_sha256"
-            ],
+            "tls_certificate_sha256": environment["tls_certificate_sha256"],
         }
     )
     policy_digest = canonical_evidence_digest(
@@ -393,9 +358,7 @@ def execute_gate(
     )
 
     def worker(assignment: Mapping[str, Any]) -> Mapping[str, Any]:
-        with tempfile.TemporaryDirectory(
-            prefix="ananta-public-turn-gate-"
-        ) as temporary:
+        with tempfile.TemporaryDirectory(prefix="ananta-public-turn-gate-") as temporary:
             raw_report = Path(temporary) / "probe.json"
             completed = subprocess.run(
                 (
@@ -419,13 +382,9 @@ def execute_gate(
                 try:
                     loaded = json.loads(raw_report.read_text(encoding="utf-8"))
                 except json.JSONDecodeError as exc:
-                    raise PublicTurnEvidenceGateError(
-                        "public_turn_gate_report_invalid"
-                    ) from exc
+                    raise PublicTurnEvidenceGateError("public_turn_gate_report_invalid") from exc
                 if not isinstance(loaded, Mapping):
-                    raise PublicTurnEvidenceGateError(
-                        "public_turn_gate_report_invalid"
-                    )
+                    raise PublicTurnEvidenceGateError("public_turn_gate_report_invalid")
                 projection = project_probe_report(loaded)
             else:
                 projection = failed_probe_projection(completed.stderr)
@@ -434,10 +393,7 @@ def execute_gate(
                 assignment.get("task_id") == TASK_ID
                 and assignment.get("evidence_scope") == "external"
                 and len(assignment.get("source_ids") or ()) == 2
-                and _DIGEST.fullmatch(
-                    str(assignment.get("binding_digest") or "")
-                )
-                is not None
+                and _DIGEST.fullmatch(str(assignment.get("binding_digest") or "")) is not None
             )
             secret_exposed = secret in json.dumps(projection, sort_keys=True)
             passed = bool(
@@ -448,20 +404,12 @@ def execute_gate(
             )
             return {
                 "passed": passed,
-                "reason_code": (
-                    "public_turn_external_gate_passed"
-                    if passed
-                    else "public_turn_external_gate_failed"
-                ),
+                "reason_code": ("public_turn_external_gate_passed" if passed else "public_turn_external_gate_failed"),
                 "assignment_bound": assignment_bound,
                 "secret_exposed": secret_exposed,
                 "probe": projection,
-                "stdout_digest": hashlib.sha256(
-                    completed.stdout.encode()
-                ).hexdigest(),
-                "stderr_digest": hashlib.sha256(
-                    completed.stderr.encode()
-                ).hexdigest(),
+                "stdout_digest": hashlib.sha256(completed.stdout.encode()).hexdigest(),
+                "stderr_digest": hashlib.sha256(completed.stderr.encode()).hexdigest(),
             }
 
     outcome = HubEvidenceGateService(registry).execute(request, worker)

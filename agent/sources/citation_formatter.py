@@ -62,4 +62,3 @@ def format_citation(
     selected = str(output_format or "long").lower()
     payload["rendered"] = payload.get(selected) if selected in {"short", "long", "markdown"} else payload["long"]
     return payload
-

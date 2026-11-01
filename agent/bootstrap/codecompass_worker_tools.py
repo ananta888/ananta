@@ -32,10 +32,12 @@ def initialize_codecompass_worker_tools(app: Flask) -> None:
         }
         return
     registration = dict(app.extensions.get("workflow_adapter_worker_registration") or {})
-    registration["capabilities"] = sorted({
-        *(registration.get("capabilities") or []),
-        "codecompass",
-    })
+    registration["capabilities"] = sorted(
+        {
+            *(registration.get("capabilities") or []),
+            "codecompass",
+        }
+    )
     app.extensions["workflow_adapter_worker_registration"] = registration
     app.extensions["codecompass_worker_tools_status"] = {
         "registered": True,

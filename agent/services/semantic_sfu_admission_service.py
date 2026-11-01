@@ -321,15 +321,18 @@ class SemanticSfuAdmissionService:
         with self._lock:
             state = self._state.load(tenant_id, normalized_session)
             if state is None:
-                return self._with_capacity_profile({
-                    "ok": True,
-                    "room_id": room_id,
-                    "membership_epoch": epoch,
-                    "revision": 0,
-                    "joined": False,
-                    "publications": [],
-                    "subscriptions": [],
-                }, room_id)
+                return self._with_capacity_profile(
+                    {
+                        "ok": True,
+                        "room_id": room_id,
+                        "membership_epoch": epoch,
+                        "revision": 0,
+                        "joined": False,
+                        "publications": [],
+                        "subscriptions": [],
+                    },
+                    room_id,
+                )
             publications = [
                 json.loads(json.dumps(row))
                 for row in state.publications.values()
@@ -340,15 +343,18 @@ class SemanticSfuAdmissionService:
                 for row in state.subscriptions.values()
                 if row["subscriber_id"] == actor_id and row["status"] != "revoked"
             ]
-            return self._with_capacity_profile({
-                "ok": True,
-                "room_id": room_id,
-                "membership_epoch": epoch,
-                "revision": state.revision,
-                "joined": state.participants.get(actor_id) == epoch,
-                "publications": sorted(publications, key=lambda row: row["publication_id"]),
-                "subscriptions": sorted(subscriptions, key=lambda row: row["subscription_id"]),
-            }, room_id)
+            return self._with_capacity_profile(
+                {
+                    "ok": True,
+                    "room_id": room_id,
+                    "membership_epoch": epoch,
+                    "revision": state.revision,
+                    "joined": state.participants.get(actor_id) == epoch,
+                    "publications": sorted(publications, key=lambda row: row["publication_id"]),
+                    "subscriptions": sorted(subscriptions, key=lambda row: row["subscription_id"]),
+                },
+                room_id,
+            )
 
     @observed_control_path("admission")
     def authorize_publication(self, request: Mapping[str, Any], *, actor_id: str, tenant_id: str) -> dict[str, Any]:
@@ -511,8 +517,7 @@ class SemanticSfuAdmissionService:
         ):
             raise SfuAdmissionError("sfu_topology_policy_denied", 409)
         if privacy == "private_recovery" and (
-            audience_id is None
-            or sum(route.private_recovery_authorized for route in plan.routes) != 1
+            audience_id is None or sum(route.private_recovery_authorized for route in plan.routes) != 1
         ):
             raise SfuAdmissionError("sfu_private_recovery_forbidden", 403)
 
@@ -708,13 +713,14 @@ class SemanticSfuAdmissionService:
             ttl_seconds=max(60, min(600, self._ttl * 4)),
             fencing_token=max(1, state.revision),
         )
-        authorized_subscribers = sorted({
-            str(subscriber_id)
-            for publication in state.publications.values()
-            if publication["participant_id"] == member.participant_id
-            and publication["status"] != "revoked"
-            for subscriber_id in publication.get("authorized_subscriber_ids") or ()
-        })
+        authorized_subscribers = sorted(
+            {
+                str(subscriber_id)
+                for publication in state.publications.values()
+                if publication["participant_id"] == member.participant_id and publication["status"] != "revoked"
+                for subscriber_id in publication.get("authorized_subscriber_ids") or ()
+            }
+        )
         subscriber_vendor_identities = {
             subscriber_id: self._vendor_identities.issue_identity(
                 tenant_id=member.tenant_id,
@@ -754,17 +760,20 @@ class SemanticSfuAdmissionService:
                 "lease_authority": False,
             },
         }
-        return self._with_capacity_profile({
-            "ok": True,
-            "server_url": self._public_ws_url,
-            "access_token": jwt.encode(claims, self._api_secret, algorithm="HS256"),
-            "expires_at": expires,
-            "room_id": room,
-            "livekit_identity": vendor_identity.identity_handle,
-            "authorized_subscriber_livekit_identities": subscriber_vendor_identities,
-            "membership_epoch": member.epoch,
-            "revision": state.revision,
-        }, room)
+        return self._with_capacity_profile(
+            {
+                "ok": True,
+                "server_url": self._public_ws_url,
+                "access_token": jwt.encode(claims, self._api_secret, algorithm="HS256"),
+                "expires_at": expires,
+                "room_id": room,
+                "livekit_identity": vendor_identity.identity_handle,
+                "authorized_subscriber_livekit_identities": subscriber_vendor_identities,
+                "membership_epoch": member.epoch,
+                "revision": state.revision,
+            },
+            room,
+        )
 
     def _require_configuration(self) -> None:
         try:

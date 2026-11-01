@@ -5,6 +5,7 @@ All defaults are ``off`` *except* safety properties listed in
 environment. The adapter is optional and never required for native
 Ananta graph capabilities.
 """
+
 from __future__ import annotations
 
 GROUP = "crg"

@@ -97,9 +97,7 @@ def test_default_discovery_disables_proxies_redirects_and_bounds_model_count(mon
 
         def iter_content(self, *, chunk_size: int):
             assert chunk_size == 64 * 1024
-            yield json.dumps(
-                {"models": [{"name": f"model-{index}"} for index in range(100)]}
-            ).encode()
+            yield json.dumps({"models": [{"name": f"model-{index}"} for index in range(100)]}).encode()
 
     class _Session:
         trust_env = True

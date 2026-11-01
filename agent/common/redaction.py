@@ -1,7 +1,6 @@
 import enum
-import json
 import re
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Optional, Set
 
 
 class SensitiveDataClass(str, enum.Enum):
@@ -17,38 +16,60 @@ class SensitiveDataClass(str, enum.Enum):
 
 class VisibilityLevel(int, enum.Enum):
     PUBLIC = 0  # Strengste Maskierung, nur absolut unbedenkliche Infos
-    USER = 1    # Standard für Benutzer, moderate Maskierung (Secrets/Tokens weg)
-    ADMIN = 2   # Für Admins, weniger Maskierung (z.B. Pfade/interne URLs sichtbar)
-    DEBUG = 3   # Keine Maskierung (nur für lokale Entwicklung)
+    USER = 1  # Standard für Benutzer, moderate Maskierung (Secrets/Tokens weg)
+    ADMIN = 2  # Für Admins, weniger Maskierung (z.B. Pfade/interne URLs sichtbar)
+    DEBUG = 3  # Keine Maskierung (nur für lokale Entwicklung)
 
 
 # Standardmäßig zu maskierende Schlüssel (Keys in Dicts)
 DEFAULT_SENSITIVE_KEYS: Dict[SensitiveDataClass, Set[str]] = {
     SensitiveDataClass.TOKEN: {
-        "token", "api_key", "access_token", "refresh_token", "agent_token",
-        "registration_token", "bearer_token", "jwt_token"
+        "token",
+        "api_key",
+        "access_token",
+        "refresh_token",
+        "agent_token",
+        "registration_token",
+        "bearer_token",
+        "jwt_token",
     },
     SensitiveDataClass.SECRET: {
-        "secret", "password", "new_password", "old_password", "secret_key",
-        "mfa_encryption_key", "vault_token", "private_key", "ssh_key"
+        "secret",
+        "password",
+        "new_password",
+        "old_password",
+        "secret_key",
+        "mfa_encryption_key",
+        "vault_token",
+        "private_key",
+        "ssh_key",
     },
-    SensitiveDataClass.CREDENTIAL: {
-        "authorization", "credentials", "auth", "proxy_auth", "basic_auth"
-    },
+    SensitiveDataClass.CREDENTIAL: {"authorization", "credentials", "auth", "proxy_auth", "basic_auth"},
     SensitiveDataClass.PATH: {
-        "path", "file_path", "shell_path", "plugin_dirs", "vault_path",
-        "abs_path", "relative_path", "mount_point", "log_file"
+        "path",
+        "file_path",
+        "shell_path",
+        "plugin_dirs",
+        "vault_path",
+        "abs_path",
+        "relative_path",
+        "mount_point",
+        "log_file",
     },
     SensitiveDataClass.INTERNAL_URL: {
-        "hub_url", "ollama_url", "lmstudio_url", "vault_url", "evolver_base_url",
-        "openai_url", "anthropic_url", "mock_url", "agent_url", "controller_url"
+        "hub_url",
+        "ollama_url",
+        "lmstudio_url",
+        "vault_url",
+        "evolver_base_url",
+        "openai_url",
+        "anthropic_url",
+        "mock_url",
+        "agent_url",
+        "controller_url",
     },
-    SensitiveDataClass.PRIVATE_PROMPT: {
-        "system_prompt", "private_prompt", "hidden_context", "instruction_override"
-    },
-    SensitiveDataClass.IP_ADDRESS: {
-        "ip", "remote_addr", "server_ip", "client_ip"
-    }
+    SensitiveDataClass.PRIVATE_PROMPT: {"system_prompt", "private_prompt", "hidden_context", "instruction_override"},
+    SensitiveDataClass.IP_ADDRESS: {"ip", "remote_addr", "server_ip", "client_ip"},
 }
 
 
@@ -67,11 +88,9 @@ class Redactor:
         patterns = {
             SensitiveDataClass.TOKEN: re.compile(
                 r"(?:api[_-]key|token|auth[_-]token)[=:]\s*([^\s,\)\"\']+)|(\bsk-[A-Za-z0-9_-]{20,})|(AKIA[0-9A-Z]{16})",
-                re.IGNORECASE
+                re.IGNORECASE,
             ),
-            SensitiveDataClass.SECRET: re.compile(
-                r"(?:password|secret|key)[=:]\s*([^\s,\)\"\']+)", re.IGNORECASE
-            ),
+            SensitiveDataClass.SECRET: re.compile(r"(?:password|secret|key)[=:]\s*([^\s,\)\"\']+)", re.IGNORECASE),
             SensitiveDataClass.CREDENTIAL: re.compile(
                 r"(?:authorization\s*[:=]\s*(?:bearer\s+)?|bearer\s+)([^\s,\)\"\']+)", re.IGNORECASE
             ),
@@ -98,10 +117,10 @@ class Redactor:
             return [self.redact(item, current_vis) for item in data]
         elif isinstance(data, str):
             return self._redact_string(data, current_vis)
-        elif hasattr(data, "model_dump"): # Pydantic v2
-             return self._redact_dict(data.model_dump(), current_vis)
-        elif hasattr(data, "dict"): # Pydantic v1
-             return self._redact_dict(data.dict(), current_vis)
+        elif hasattr(data, "model_dump"):  # Pydantic v2
+            return self._redact_dict(data.model_dump(), current_vis)
+        elif hasattr(data, "dict"):  # Pydantic v1
+            return self._redact_dict(data.dict(), current_vis)
 
         return data
 
@@ -145,11 +164,7 @@ class Redactor:
 
         if visibility == VisibilityLevel.ADMIN:
             # Admins dürfen Pfade, interne URLs und IP-Adressen sehen
-            if data_class in {
-                SensitiveDataClass.PATH,
-                SensitiveDataClass.INTERNAL_URL,
-                SensitiveDataClass.IP_ADDRESS
-            }:
+            if data_class in {SensitiveDataClass.PATH, SensitiveDataClass.INTERNAL_URL, SensitiveDataClass.IP_ADDRESS}:
                 return False
 
         if visibility == VisibilityLevel.USER:

@@ -23,10 +23,7 @@ class HrmContractValidator:
 
     def __init__(self, schema_path: Path | None = None) -> None:
         path = schema_path or (
-            Path(__file__).resolve().parents[3]
-            / "schemas"
-            / "hrm-experiments"
-            / "contracts.v1.json"
+            Path(__file__).resolve().parents[3] / "schemas" / "hrm-experiments" / "contracts.v1.json"
         )
         with path.open("r", encoding="utf-8") as schema_file:
             schema = json.load(schema_file)
@@ -56,8 +53,7 @@ class HrmContractValidator:
         if not errors:
             return
         violations = tuple(
-            f"{'/'.join(str(part) for part in error.absolute_path) or '$'}: {error.message}"
-            for error in errors[:16]
+            f"{'/'.join(str(part) for part in error.absolute_path) or '$'}: {error.message}" for error in errors[:16]
         )
         raise HrmContractValidationError(contract_name, violations)
 

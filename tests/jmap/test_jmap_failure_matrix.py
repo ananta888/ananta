@@ -37,7 +37,6 @@ from agent.services.mail_provider_ports import (
     MailProviderSession,
 )
 
-
 _SECRET = "SECRET-TOKEN-T19"
 _BODY_MARKER = "PRIVATE-BODY-T19"
 
@@ -421,9 +420,7 @@ def test_partial_not_updated_and_not_destroyed_preserve_per_object_results_and_a
         b'{"methodResponses":[["Email/set",{"oldState":"e1","newState":"e2",'
         b'"updated":{"E1":null},"notUpdated":{"E2":{"type":"forbidden"}}},"c1"]]}'
     )
-    update_provider, update_adapter, update_audit = _mutation_provider(
-        [_response(200, body=update_body)]
-    )
+    update_provider, update_adapter, update_audit = _mutation_provider([_response(200, body=update_body)])
     changes = tuple(
         MailKeywordChange(
             account_id="acc-1",
@@ -459,9 +456,7 @@ def test_partial_not_updated_and_not_destroyed_preserve_per_object_results_and_a
         b'{"methodResponses":[["Email/set",{"oldState":"e2","newState":"e3",'
         b'"destroyed":["E1"],"notDestroyed":{"E2":{"type":"forbidden"}}},"c1"]]}'
     )
-    delete_provider, delete_adapter, delete_audit = _mutation_provider(
-        [_response(200, body=destroy_body)]
-    )
+    delete_provider, delete_adapter, delete_audit = _mutation_provider([_response(200, body=destroy_body)])
     deletes = tuple(
         MailDeleteRequest(
             account_id="acc-1",
@@ -483,11 +478,10 @@ def test_partial_not_updated_and_not_destroyed_preserve_per_object_results_and_a
         (True, "ok"),
         (False, "jmap_set_forbidden"),
     ]
-    assert [
-        event["reason_code"]
-        for event in delete_audit.events
-        if event["outcome"] in {"succeeded", "failed"}
-    ] == ["ok", "jmap_set_forbidden"]
+    assert [event["reason_code"] for event in delete_audit.events if event["outcome"] in {"succeeded", "failed"}] == [
+        "ok",
+        "jmap_set_forbidden",
+    ]
     _assert_no_result_leak(
         updated,
         destroyed,
@@ -526,10 +520,7 @@ def test_ambiguous_mutation_reconciles_with_get_and_never_sends_second_set() -> 
     )
     assert result.ok is True
     assert result.reason_code == "jmap_mutation_reconciled"
-    method_names = [
-        json.loads(request.body)["methodCalls"][0][0]
-        for request in adapter.requests
-    ]
+    method_names = [json.loads(request.body)["methodCalls"][0][0] for request in adapter.requests]
     assert method_names == ["Email/set", "Email/get"]
     assert [event["outcome"] for event in audit.events][-1] == "reconciled"
     _assert_no_result_leak(result, audit.events)

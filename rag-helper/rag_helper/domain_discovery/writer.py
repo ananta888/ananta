@@ -43,7 +43,6 @@ from rag_helper.domain_discovery.clustering import (
     cluster_domains,
 )
 from rag_helper.domain_discovery.contracts import (
-    DOMAIN_ANALYSIS_SCHEMA,
     DOMAIN_COUPLING_SCHEMA,
     DomainCandidate,
     build_analysis_payload,
@@ -178,18 +177,17 @@ def run_domain_discovery(
 
     graph = DomainGraph.build(inputs)
     clustering: ClusteringResult = cluster_domains(
-        graph, records=inputs.index_records,
-        manifest=manifest, # Pass manifest to cluster_domains
-        min_files=getattr(limits, 'domain_discovery_min_files', None) if limits else None,
-        min_coupled_edges=getattr(limits, 'domain_discovery_min_coupled_edges', None) if limits else None,
+        graph,
+        records=inputs.index_records,
+        manifest=manifest,  # Pass manifest to cluster_domains
+        min_files=getattr(limits, "domain_discovery_min_files", None) if limits else None,
+        min_coupled_edges=getattr(limits, "domain_discovery_min_coupled_edges", None) if limits else None,
     )
     descriptors: dict[str, ExistingDescriptor] = index_existing_descriptors(
         project_root_s, domains_dirname=domains_dirname
     )
     mismatches = build_descriptor_mismatches(descriptors, clustering.candidates)
-    boundary: BoundaryResult = compute_boundary_metrics(
-        clustering, graph, descriptor_mismatches=mismatches
-    )
+    boundary: BoundaryResult = compute_boundary_metrics(clustering, graph, descriptor_mismatches=mismatches)
 
     warnings: list[str] = []
     warnings.extend(inputs.warnings)
@@ -330,9 +328,7 @@ def write_descriptor_suggestions(
     if opt_in:
         suggestions_root = out_dir / descriptor_dirname
         for candidate in result.domain_candidates:
-            suggestion = _build_descriptor_suggestion(
-                candidate, descriptor_dirname=descriptor_dirname
-            )
+            suggestion = _build_descriptor_suggestion(candidate, descriptor_dirname=descriptor_dirname)
             target = suggestions_root / candidate.domain_id / DOMAIN_DESCRIPTOR_FILE_NAME
             if not dry_run:
                 target.parent.mkdir(parents=True, exist_ok=True)

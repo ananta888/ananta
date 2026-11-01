@@ -40,9 +40,7 @@ except ModuleNotFoundError:
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_SCHEMA = "ananta.sfu-broadcast-advanced-gate-profile.v1"
 ADAPTER_CONTRACT = "ananta.sfu-broadcast-external-gate-adapter.v1"
-SUPPORTED_GATES = frozenset(
-    {"SFB-GATE-005", "SFB-GATE-006", "SFB-GATE-007", "SFB-GATE-008", "SFB-GATE-010"}
-)
+SUPPORTED_GATES = frozenset({"SFB-GATE-005", "SFB-GATE-006", "SFB-GATE-007", "SFB-GATE-008", "SFB-GATE-010"})
 SHA256_NAMES = frozenset(
     {
         "source_sha256",
@@ -211,9 +209,12 @@ def _validate_requirements(document: Mapping[str, Any]) -> None:
         if not _unique_strings(document.get(field)):
             raise SfuBroadcastGateError("advanced_gate_requirements_invalid")
     cleanup = document.get("cleanup_requirements")
-    if not isinstance(cleanup, Mapping) or not cleanup or any(
-        not isinstance(key, str) or not key or not isinstance(value, (bool, int))
-        for key, value in cleanup.items()
+    if (
+        not isinstance(cleanup, Mapping)
+        or not cleanup
+        or any(
+            not isinstance(key, str) or not key or not isinstance(value, (bool, int)) for key, value in cleanup.items()
+        )
     ):
         raise SfuBroadcastGateError("advanced_gate_cleanup_invalid")
 
@@ -249,9 +250,13 @@ def _validate_environment(document: Mapping[str, Any]) -> None:
     if not _relative_paths([environment.get("browser_lock_path")]):
         raise SfuBroadcastGateError("advanced_gate_environment_paths_invalid")
     images = environment.get("images")
-    if not isinstance(images, Mapping) or not images or any(
-        not isinstance(name, str) or not isinstance(value, str) or "@sha256:" not in value
-        for name, value in images.items()
+    if (
+        not isinstance(images, Mapping)
+        or not images
+        or any(
+            not isinstance(name, str) or not isinstance(value, str) or "@sha256:" not in value
+            for name, value in images.items()
+        )
     ):
         raise SfuBroadcastGateError("advanced_gate_image_pins_invalid")
     if set(environment.get("required_digest_names") or []) != SHA256_NAMES:
@@ -582,8 +587,14 @@ def run_advanced_gate(
         external_result = result_adapter.read(maximum_bytes=profile.execution["artifact_bytes_max"])
         reasons = evaluate_external_result(external_result, profile=profile, expected_digests=digests)
         status = "passed" if not reasons else "failed"
-    safe_started_at = external_result.get("started_at") if external_result and _utc_timestamp(external_result.get("started_at")) else None
-    safe_ended_at = external_result.get("ended_at") if external_result and _utc_timestamp(external_result.get("ended_at")) else None
+    safe_started_at = (
+        external_result.get("started_at")
+        if external_result and _utc_timestamp(external_result.get("started_at"))
+        else None
+    )
+    safe_ended_at = (
+        external_result.get("ended_at") if external_result and _utc_timestamp(external_result.get("ended_at")) else None
+    )
     report = {
         "schema": profile.artifact_schema,
         "gate_id": profile.gate_id,
@@ -594,7 +605,8 @@ def run_advanced_gate(
         "execution_mode": "external_result_validation",
         "claims": {
             "real_processes_verified": status == "passed",
-            "browser_evidence_verified": status == "passed" and "real_browser_processes" in profile.document["required_capabilities"],
+            "browser_evidence_verified": status == "passed"
+            and "real_browser_processes" in profile.document["required_capabilities"],
             "load_evidence_verified": status == "passed" and profile.gate_id in {"SFB-GATE-005", "SFB-GATE-008"},
             "chaos_evidence_verified": status == "passed" and profile.gate_id in {"SFB-GATE-006", "SFB-GATE-007"},
         },

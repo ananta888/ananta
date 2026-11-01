@@ -7,7 +7,6 @@ from typing import Any, Callable, Mapping
 
 from flask import Blueprint, jsonify, request
 
-
 TransportIdentityResolver = Callable[[Mapping[str, Any]], Any | None]
 ObservationHandler = Callable[[bytes, Any], Any]
 AuditLogger = Callable[[str, Mapping[str, Any]], None]
@@ -64,4 +63,3 @@ def build_turn_observation_blueprint(
         return jsonify(response), 202 if response.get("status") == "accepted" else 200
 
     return blueprint
-

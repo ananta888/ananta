@@ -4,6 +4,7 @@ Advisory-only artifacts produced by non-executable strategies.
 None of these may be directly executed — they require validation, approval
 or conversion to ExecutableProposal before any execution path.
 """
+
 from __future__ import annotations
 
 import re
@@ -24,6 +25,7 @@ def _validate_relative_path(path: str) -> str:
 
 # ── PlannerProposalArtifact ───────────────────────────────────────────────────
 
+
 @dataclass
 class PlannerProposalArtifact:
     """Advisory artifact produced by a planner LLM.
@@ -31,6 +33,7 @@ class PlannerProposalArtifact:
     Stores non-executable plans and advice.  Never authoritative for
     task graph mutation or direct execution.
     """
+
     artifact_id: str
     task_id: str
     goal_id: str
@@ -46,10 +49,16 @@ class PlannerProposalArtifact:
     adoption_reason: str | None = None
     created_at: float = field(default_factory=time.time)
 
-    _VALID_PARSE_STATUSES = frozenset({
-        "parsed", "failed", "unparsed", "malformed_json",
-        "markdown_fenced", "natural_language",
-    })
+    _VALID_PARSE_STATUSES = frozenset(
+        {
+            "parsed",
+            "failed",
+            "unparsed",
+            "malformed_json",
+            "markdown_fenced",
+            "natural_language",
+        }
+    )
     _VALID_ADOPTION_STATUSES = frozenset({"pending", "adopted", "rejected", "ignored"})
 
     def __post_init__(self) -> None:
@@ -105,6 +114,7 @@ class PlannerProposalArtifact:
 
 # ── FileProposalArtifact ──────────────────────────────────────────────────────
 
+
 @dataclass
 class FileProposalArtifact:
     """Proposed file write.
@@ -112,6 +122,7 @@ class FileProposalArtifact:
     Requires validation and optional approval before apply.
     Absolute paths and path traversal are rejected at construction time.
     """
+
     artifact_id: str
     task_id: str
     goal_id: str
@@ -188,6 +199,7 @@ class FileProposalArtifact:
 
 # ── PatchProposalArtifact ─────────────────────────────────────────────────────
 
+
 @dataclass
 class PatchProposalArtifact:
     """Unified diff/patch proposal.
@@ -195,6 +207,7 @@ class PatchProposalArtifact:
     Requires validation and optional approval before apply.
     Target paths are validated; absolute paths and traversal are rejected.
     """
+
     artifact_id: str
     task_id: str
     goal_id: str
@@ -268,9 +281,11 @@ class PatchProposalArtifact:
 
 # ── AdvisoryProposalArtifact ──────────────────────────────────────────────────
 
+
 @dataclass
 class AdvisoryProposalArtifact:
     """Plain natural language output — never executable."""
+
     artifact_id: str
     task_id: str
     goal_id: str

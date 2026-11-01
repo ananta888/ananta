@@ -18,15 +18,28 @@ from ananta_contracts.native_artifact_transfer import (
 def transfer():
     content = b'{"synthetic":true}\n'
     binding = {
-        "hub_task_id": "task", "command_digest": "a" * 64, "assignment_id": "assignment",
-        "assignment_revision": 1, "attempt_id": "attempt", "fencing_token": 1,
+        "hub_task_id": "task",
+        "command_digest": "a" * 64,
+        "assignment_id": "assignment",
+        "assignment_revision": 1,
+        "attempt_id": "attempt",
+        "fencing_token": 1,
         "dispatch_lease_digest": "b" * 64,
     }
-    return {"schema": SCHEMA, "binding": binding, "artifacts": [{
-        "output_name": "report", "filename": "report.json", "media_type": "application/json",
-        "size_bytes": len(content), "sha256": hashlib.sha256(content).hexdigest(),
-        "content_base64": base64.b64encode(content).decode("ascii"),
-    }]}
+    return {
+        "schema": SCHEMA,
+        "binding": binding,
+        "artifacts": [
+            {
+                "output_name": "report",
+                "filename": "report.json",
+                "media_type": "application/json",
+                "size_bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+                "content_base64": base64.b64encode(content).decode("ascii"),
+            }
+        ],
+    }
 
 
 def validate(raw, binding):
@@ -34,16 +47,23 @@ def validate(raw, binding):
 
 
 def test_bytes_survive_transfer_without_worker_storage_identity(transfer):
-    artifact, = validate(transfer, transfer["binding"])
+    (artifact,) = validate(transfer, transfer["binding"])
     assert artifact.content == b'{"synthetic":true}\n'
     assert artifact.sha256 == hashlib.sha256(artifact.content).hexdigest()
 
 
-@pytest.mark.parametrize("field,value", [
-    ("hub_task_id", "foreign"), ("assignment_id", "foreign"), ("assignment_revision", 2),
-    ("attempt_id", "foreign"), ("fencing_token", 2), ("command_digest", "c" * 64),
-    ("dispatch_lease_digest", "d" * 64),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("hub_task_id", "foreign"),
+        ("assignment_id", "foreign"),
+        ("assignment_revision", 2),
+        ("attempt_id", "foreign"),
+        ("fencing_token", 2),
+        ("command_digest", "c" * 64),
+        ("dispatch_lease_digest", "d" * 64),
+    ],
+)
 def test_all_authority_bindings_are_independently_matched(transfer, field, value):
     expected = copy.deepcopy(transfer["binding"])
     transfer["binding"][field] = value
@@ -51,27 +71,36 @@ def test_all_authority_bindings_are_independently_matched(transfer, field, value
         validate(transfer, expected)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("fencing_token", True), ("assignment_revision", 1.0), ("assignment_revision", 0),
-    ("dispatch_lease_digest", "RUN_forged"), ("hub_task_id", "task\n"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("fencing_token", True),
+        ("assignment_revision", 1.0),
+        ("assignment_revision", 0),
+        ("dispatch_lease_digest", "RUN_forged"),
+        ("hub_task_id", "task\n"),
+    ],
+)
 def test_binding_types_cannot_coerce_even_when_both_sides_match(transfer, field, value):
     transfer["binding"][field] = value
     with pytest.raises(ValueError, match="binding_invalid"):
         validate(transfer, transfer["binding"])
 
 
-@pytest.mark.parametrize("field,value,reason", [
-    ("filename", "../report.json", "filename_invalid"),
-    ("filename", "C:\\report.json", "filename_invalid"),
-    ("filename", "report\x00.json", "filename_invalid"),
-    ("media_type", "application/json\r\nX: value", "media_type_invalid"),
-    ("size_bytes", True, "size_invalid"),
-    ("size_bytes", MAX_ARTIFACT_BYTES + 1, "size_invalid"),
-    ("sha256", "0" * 64, "content_hash_mismatch"),
-    ("content_base64", "", "content_size_mismatch"),
-    ("output_name", "undeclared", "output_binding_invalid"),
-])
+@pytest.mark.parametrize(
+    "field,value,reason",
+    [
+        ("filename", "../report.json", "filename_invalid"),
+        ("filename", "C:\\report.json", "filename_invalid"),
+        ("filename", "report\x00.json", "filename_invalid"),
+        ("media_type", "application/json\r\nX: value", "media_type_invalid"),
+        ("size_bytes", True, "size_invalid"),
+        ("size_bytes", MAX_ARTIFACT_BYTES + 1, "size_invalid"),
+        ("sha256", "0" * 64, "content_hash_mismatch"),
+        ("content_base64", "", "content_size_mismatch"),
+        ("output_name", "undeclared", "output_binding_invalid"),
+    ],
+)
 def test_hostile_descriptors_fail_closed(transfer, field, value, reason):
     transfer["artifacts"][0][field] = value
     with pytest.raises(ValueError, match=reason):
@@ -95,19 +124,26 @@ def test_duplicate_output_is_rejected(transfer):
 def test_missing_declared_output_is_rejected(transfer):
     with pytest.raises(ValueError, match="output_missing"):
         validate_native_artifact_transfer(
-            transfer, expected_binding=transfer["binding"], declared_outputs=("report", "other"),
+            transfer,
+            expected_binding=transfer["binding"],
+            declared_outputs=("report", "other"),
         )
 
 
 def test_total_limit_applies_to_actual_decoded_bytes(transfer):
     content = b"x" * MAX_ARTIFACT_BYTES
     item = transfer["artifacts"][0]
-    item.update(size_bytes=len(content), sha256=hashlib.sha256(content).hexdigest(),
-                content_base64=base64.b64encode(content).decode("ascii"))
+    item.update(
+        size_bytes=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
+        content_base64=base64.b64encode(content).decode("ascii"),
+    )
     transfer["artifacts"] = [{**item, "output_name": str(i)} for i in range(MAX_TOTAL_BYTES // len(content) + 1)]
     with pytest.raises(ValueError, match="total_size_exceeded"):
         validate_native_artifact_transfer(
-            transfer, expected_binding=transfer["binding"], declared_outputs=tuple(str(i) for i in range(3)),
+            transfer,
+            expected_binding=transfer["binding"],
+            declared_outputs=tuple(str(i) for i in range(3)),
         )
 
 

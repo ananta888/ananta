@@ -59,9 +59,7 @@ def build_workflow_adapter_task_contract(
         task_type=submission.task_type,
         attempt_id=attempt_id,
         fencing_token=fencing_token,
-        authorization_envelope=AuthorizationEnvelopeRef.from_mapping(
-            authorization.to_dict()
-        ),
+        authorization_envelope=AuthorizationEnvelopeRef.from_mapping(authorization.to_dict()),
         payload=_bound_payload(
             submission,
             authorization=authorization,
@@ -109,9 +107,7 @@ def _bound_payload(
         "selected_model_id",
         "allowed_policy_scopes",
     }
-    safe = {
-        key: value for key, value in submission.payload.items() if key not in reserved
-    }
+    safe = {key: value for key, value in submission.payload.items() if key not in reserved}
     provider_binding = submission.provider_binding
     has_profile_route = bool(submission.provider_profile_bindings)
     spec = HubProviderContextSpec(
@@ -121,14 +117,10 @@ def _bound_payload(
         step_id=submission.step_id,
         plan_hash=submission.plan_hash,
         policy_version=submission.policy_version,
-        prompt_version=str(
-            safe.get("prompt_version") or "workflow-adapter-prompt-v1"
-        ),
+        prompt_version=str(safe.get("prompt_version") or "workflow-adapter-prompt-v1"),
         correlation_id=submission.correlation_id,
         max_attempts=(
-            submission.provider_maximum_attempts
-            if has_profile_route
-            else max(1, submission.maximum_retries + 1)
+            submission.provider_maximum_attempts if has_profile_route else max(1, submission.maximum_retries + 1)
         ),
         max_total_tokens=submission.max_total_tokens,
         max_completion_tokens_per_call=_completion_token_limit(
@@ -136,9 +128,7 @@ def _bound_payload(
             maximum=submission.max_total_tokens,
         ),
         max_cost_micros=submission.max_cost_micros,
-        combined_retry_maximum=(
-            0 if has_profile_route else submission.maximum_retries
-        ),
+        combined_retry_maximum=(0 if has_profile_route else submission.maximum_retries),
         authorization_envelope=authorization.to_dict(),
         attempt_id=attempt_id,
         fencing_token=fencing_token,
@@ -155,11 +145,9 @@ def _bound_payload(
         "provider_context": provider_context,
     }
     if submission.provider_profile_bindings:
-        payload["provider_contexts_by_profile_id"] = (
-            spec.build_profile_contexts(
-                submission.provider_profile_bindings,
-                decision_reason=submission.provider_decision_reason,
-            )
+        payload["provider_contexts_by_profile_id"] = spec.build_profile_contexts(
+            submission.provider_profile_bindings,
+            decision_reason=submission.provider_decision_reason,
         )
     if submission.model_routing:
         payload["model_routing"] = dict(submission.model_routing)

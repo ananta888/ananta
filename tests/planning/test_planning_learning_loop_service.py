@@ -94,7 +94,16 @@ def test_learning_loop_disabled_is_noop(monkeypatch):
 
     reg = _Registry(
         runs=[_make_run()],
-        profiles=[SimpleNamespace(profile_name="lmstudio_laptop", provider="lmstudio", model_name_pattern="gemma", model_family="gemma", preferred_prompt_version_id=None, enabled=True)],
+        profiles=[
+            SimpleNamespace(
+                profile_name="lmstudio_laptop",
+                provider="lmstudio",
+                model_name_pattern="gemma",
+                model_family="gemma",
+                preferred_prompt_version_id=None,
+                enabled=True,
+            )
+        ],
         versions=[],
     )
     monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
@@ -120,7 +129,15 @@ def test_learning_loop_creates_candidate_for_degrading_profile(monkeypatch):
         enabled=True,
     )
     runs = [
-        _make_run(id=f"run-{idx}", planning_profile="lmstudio_laptop", prompt_version_id=str(active_version.id), parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0)
+        _make_run(
+            id=f"run-{idx}",
+            planning_profile="lmstudio_laptop",
+            prompt_version_id=str(active_version.id),
+            parse_mode="parse_failed",
+            repair_needed=True,
+            validation_success=False,
+            generated_task_count=0,
+        )
         for idx in range(1, 9)
     ]
     reg = _Registry(
@@ -181,9 +198,13 @@ def test_learning_loop_creates_candidate_for_degrading_profile(monkeypatch):
     monkeypatch.setattr(
         mod,
         "get_model_response_behavior_aggregation_service",
-        lambda: SimpleNamespace(aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}),
+        lambda: SimpleNamespace(
+            aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}
+        ),
     )
-    monkeypatch.setattr(mod, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: []))
+    monkeypatch.setattr(
+        mod, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: [])
+    )
 
     result = PlanningLearningLoopService().run_once(
         planning_policy={
@@ -229,7 +250,15 @@ def test_learning_loop_never_directly_activates_profile_on_candidate_creation(mo
         enabled=True,
     )
     runs = [
-        _make_run(id=f"run-{idx}", planning_profile="lmstudio_laptop", prompt_version_id=str(active_version.id), parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0)
+        _make_run(
+            id=f"run-{idx}",
+            planning_profile="lmstudio_laptop",
+            prompt_version_id=str(active_version.id),
+            parse_mode="parse_failed",
+            repair_needed=True,
+            validation_success=False,
+            generated_task_count=0,
+        )
         for idx in range(1, 9)
     ]
     reg = _Registry(
@@ -290,9 +319,13 @@ def test_learning_loop_never_directly_activates_profile_on_candidate_creation(mo
     monkeypatch.setattr(
         mod,
         "get_model_response_behavior_aggregation_service",
-        lambda: SimpleNamespace(aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}),
+        lambda: SimpleNamespace(
+            aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}
+        ),
     )
-    monkeypatch.setattr(mod, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: []))
+    monkeypatch.setattr(
+        mod, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: [])
+    )
 
     result = PlanningLearningLoopService().run_once(
         planning_policy={
@@ -351,7 +384,15 @@ def test_learning_loop_marks_profile_stable_after_canary_promotion(monkeypatch):
     )
     reg = _Registry(
         runs=[
-            _make_run(id="run-11", planning_profile="lmstudio_laptop", prompt_version_id=str(previous_version.id), parse_mode="strict_json", repair_needed=False, validation_success=True, generated_task_count=2),
+            _make_run(
+                id="run-11",
+                planning_profile="lmstudio_laptop",
+                prompt_version_id=str(previous_version.id),
+                parse_mode="strict_json",
+                repair_needed=False,
+                validation_success=True,
+                generated_task_count=2,
+            ),
         ],
         profiles=[
             SimpleNamespace(
@@ -455,7 +496,15 @@ def test_learning_loop_does_not_rollback_on_single_bad_run(monkeypatch):
     )
     reg = _Registry(
         runs=[
-            _make_run(id="run-11", planning_profile="lmstudio_laptop", prompt_version_id=str(previous_version.id), parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0),
+            _make_run(
+                id="run-11",
+                planning_profile="lmstudio_laptop",
+                prompt_version_id=str(previous_version.id),
+                parse_mode="parse_failed",
+                repair_needed=True,
+                validation_success=False,
+                generated_task_count=0,
+            ),
         ],
         profiles=[
             SimpleNamespace(
@@ -571,8 +620,24 @@ def test_learning_loop_rolls_back_regressed_canary(monkeypatch):
     )
     reg = _Registry(
         runs=[
-            _make_run(id="run-11", planning_profile="lmstudio_laptop", prompt_version_id=str(canary_version.id), parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0),
-            _make_run(id="run-12", planning_profile="lmstudio_laptop", prompt_version_id=str(canary_version.id), parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0),
+            _make_run(
+                id="run-11",
+                planning_profile="lmstudio_laptop",
+                prompt_version_id=str(canary_version.id),
+                parse_mode="parse_failed",
+                repair_needed=True,
+                validation_success=False,
+                generated_task_count=0,
+            ),
+            _make_run(
+                id="run-12",
+                planning_profile="lmstudio_laptop",
+                prompt_version_id=str(canary_version.id),
+                parse_mode="parse_failed",
+                repair_needed=True,
+                validation_success=False,
+                generated_task_count=0,
+            ),
         ],
         profiles=[
             SimpleNamespace(
@@ -650,9 +715,10 @@ def test_learning_loop_rolls_back_regressed_canary(monkeypatch):
 
 
 def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
-    import agent.services.planning_learning_loop_service as mod
-    import agent.services.model_response_behavior_aggregation_service as behavior_mod
     import time
+
+    import agent.services.model_response_behavior_aggregation_service as behavior_mod
+    import agent.services.planning_learning_loop_service as mod
 
     previous_version = PlanningPromptVersionDB(
         version="v1",
@@ -670,18 +736,28 @@ def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
         goal_type="software_project",
         mode="new_software_project",
         candidate_payload={
-                "profile_name": "lmstudio_laptop",
-                "current_prompt_version_id": str(previous_version.id),
-                "new_prompt_version_id": "next-version",
-                "canary_window_runs": 3,
-                "created_at": time.time(),
-                "candidate_state": "canary",
-            },
+            "profile_name": "lmstudio_laptop",
+            "current_prompt_version_id": str(previous_version.id),
+            "new_prompt_version_id": "next-version",
+            "canary_window_runs": 3,
+            "created_at": time.time(),
+            "candidate_state": "canary",
+        },
         confidence="medium",
         status="canary",
     )
     reg = _Registry(
-        runs=[_make_run(id="run-1", planning_profile="lmstudio_laptop", prompt_version_id=str(previous_version.id), parse_mode="strict_json", repair_needed=False, validation_success=True, generated_task_count=2)],
+        runs=[
+            _make_run(
+                id="run-1",
+                planning_profile="lmstudio_laptop",
+                prompt_version_id=str(previous_version.id),
+                parse_mode="strict_json",
+                repair_needed=False,
+                validation_success=True,
+                generated_task_count=2,
+            )
+        ],
         profiles=[
             SimpleNamespace(
                 profile_name="lmstudio_laptop",

@@ -9,9 +9,9 @@ from agent.services.meet_dialog_controls import initial_controls
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_dialog import validate_assignment
 from tests.meet.test_meet_dialog_audio import runtime
-from tests.test_meet_dialog_authority import fixture
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_dialog_transport import assignment
+from tests.test_meet_dialog_authority import fixture
 
 CAPABILITIES = ("audio.receive", "chat.read", "chat.send", "speech.publish")
 CAPABILITY_SETS = [list(c) for n in range(1, 5) for c in combinations(CAPABILITIES, n)]

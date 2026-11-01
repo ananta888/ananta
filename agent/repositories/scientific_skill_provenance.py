@@ -17,7 +17,11 @@ class ScientificSkillProvenanceRepository:
         with Session(self._database) as session:
             existing = session.get(ScientificSkillProvenanceReceiptDB, row.receipt_digest)
             if existing is not None:
-                if existing.payload != row.payload or existing.tenant_id != row.tenant_id or existing.project_id != row.project_id:
+                if (
+                    existing.payload != row.payload
+                    or existing.tenant_id != row.tenant_id
+                    or existing.project_id != row.project_id
+                ):
                     raise ValueError("scientific_skill_receipt_immutable_conflict")
                 return existing
             session.add(row)

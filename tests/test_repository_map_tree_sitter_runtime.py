@@ -51,9 +51,7 @@ def test_incompatible_legacy_bundle_is_reported_as_unavailable(monkeypatch) -> N
             raise ModuleNotFoundError(name)
         if name == "tree_sitter_languages":
             return SimpleNamespace(
-                get_parser=lambda _language: (_ for _ in ()).throw(
-                    TypeError("incompatible language constructor")
-                )
+                get_parser=lambda _language: (_ for _ in ()).throw(TypeError("incompatible language constructor"))
             )
         raise AssertionError(f"unexpected import: {name}")
 

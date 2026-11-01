@@ -43,13 +43,9 @@ from agent.services.organization_topology_lifecycle_service import (
 
 def test_category_research_is_excluded_from_generic_dispatch_paths() -> None:
     def unexpected_session():
-        raise AssertionError(
-            "secure research gate must reject before DB access"
-        )
+        raise AssertionError("secure research gate must reject before DB access")
 
-    decision = OrganizationTaskDispatchGateService(
-        session_factory=unexpected_session
-    ).evaluate(
+    decision = OrganizationTaskDispatchGateService(session_factory=unexpected_session).evaluate(
         {
             "tenant_id": "tenant-1",
             "project_id": "project-1",
@@ -59,9 +55,7 @@ def test_category_research_is_excluded_from_generic_dispatch_paths() -> None:
     )
 
     assert decision.allowed is False
-    assert decision.reason_code == (
-        "organization_research_secure_delegation_required"
-    )
+    assert decision.reason_code == ("organization_research_secure_delegation_required")
 
 
 @pytest.mark.parametrize("phase", ["propose", "execute"])
@@ -106,9 +100,7 @@ def test_hub_task_scoped_execution_rejects_category_research_before_work(
         )
 
     assert outcome.code == 409
-    assert outcome.data["reason_code"] == (
-        "organization_research_secure_delegation_required"
-    )
+    assert outcome.data["reason_code"] == ("organization_research_secure_delegation_required")
 
 
 def test_generic_forwarder_cannot_bypass_secure_research_delegation(
@@ -135,9 +127,7 @@ def test_generic_forwarder_cannot_bypass_secure_research_delegation(
 
     assert outcome is not None
     assert outcome.code == 409
-    assert outcome.data["reason_code"] == (
-        "organization_research_secure_delegation_required"
-    )
+    assert outcome.data["reason_code"] == ("organization_research_secure_delegation_required")
 
 
 @pytest.mark.parametrize(
@@ -355,14 +345,10 @@ def test_activation_plan_promotes_materialized_topology_without_starting_workers
     db_session.flush()
 
     units = db_session.exec(
-        select(OrganizationUnitDB).where(
-            OrganizationUnitDB.organization_id == organization_id
-        )
+        select(OrganizationUnitDB).where(OrganizationUnitDB.organization_id == organization_id)
     ).all()
     link = db_session.exec(
-        select(OrganizationTeamLinkDB).where(
-            OrganizationTeamLinkDB.organization_id == organization_id
-        )
+        select(OrganizationTeamLinkDB).where(OrganizationTeamLinkDB.organization_id == organization_id)
     ).one()
     slot = db_session.get(OrganizationRoleSlotDB, "slot-topology-activation")
     relation = db_session.get(
@@ -375,9 +361,7 @@ def test_activation_plan_promotes_materialized_topology_without_starting_workers
         "link_lifecycle": link.lifecycle,
         "link_activated_at": link.activated_at,
         "slot_lifecycle": slot.lifecycle if slot is not None else None,
-        "relation_lifecycle": (
-            relation.lifecycle if relation is not None else None
-        ),
+        "relation_lifecycle": (relation.lifecycle if relation is not None else None),
         "team_active": team.is_active if team is not None else None,
     }
     db_session.rollback()
@@ -588,9 +572,7 @@ def test_application_lifecycle_fences_queued_work_and_projects_topology(
     with Session(engine) as session:
         queued = session.get(TaskDB, task_id)
         link = session.exec(
-            select(OrganizationTeamLinkDB).where(
-                OrganizationTeamLinkDB.organization_id == organization_id
-            )
+            select(OrganizationTeamLinkDB).where(OrganizationTeamLinkDB.organization_id == organization_id)
         ).one()
         team = session.get(TeamDB, team_id)
         active_assignment = session.get(
@@ -601,9 +583,7 @@ def test_application_lifecycle_fences_queued_work_and_projects_topology(
             OrganizationRoleAssignmentDB,
             "assignment-lifecycle-manual",
         )
-        paused_decision = OrganizationTaskDispatchGateService(
-            session_factory=lambda: Session(engine)
-        ).evaluate(queued)
+        paused_decision = OrganizationTaskDispatchGateService(session_factory=lambda: Session(engine)).evaluate(queued)
         assert queued is not None and queued.status == "todo"
         assert link.lifecycle == "draining"
         assert team is not None and team.is_active is False
@@ -644,9 +624,7 @@ def test_application_lifecycle_fences_queued_work_and_projects_topology(
         )
         assert active_assignment is not None
         assert active_assignment.lifecycle == "active"
-        assert active_assignment.assignment_metadata == {
-            "label": "active-assignment"
-        }
+        assert active_assignment.assignment_metadata == {"label": "active-assignment"}
         assert manual_assignment is not None
         assert manual_assignment.lifecycle == "suspended"
         assert manual_assignment.assignment_metadata == {
@@ -693,9 +671,7 @@ def test_application_lifecycle_fences_queued_work_and_projects_topology(
     with Session(engine) as session:
         task = session.get(TaskDB, task_id)
         link = session.exec(
-            select(OrganizationTeamLinkDB).where(
-                OrganizationTeamLinkDB.organization_id == organization_id
-            )
+            select(OrganizationTeamLinkDB).where(OrganizationTeamLinkDB.organization_id == organization_id)
         ).one()
         active_assignment = session.get(
             OrganizationRoleAssignmentDB,
@@ -709,19 +685,12 @@ def test_application_lifecycle_fences_queued_work_and_projects_topology(
         assert link.lifecycle == "planned"
         assert active_assignment is not None
         assert active_assignment.lifecycle == "ended"
-        assert active_assignment.assignment_metadata == {
-            "label": "active-assignment"
-        }
+        assert active_assignment.assignment_metadata == {"label": "active-assignment"}
         assert manual_assignment is not None
         assert manual_assignment.lifecycle == "ended"
-        assert manual_assignment.assignment_metadata == {
-            "label": "manual-assignment"
-        }
+        assert manual_assignment.assignment_metadata == {"label": "manual-assignment"}
         assert (
-            OrganizationTaskDispatchGateService(
-                session_factory=lambda: Session(engine)
-            ).evaluate(task).allowed
-            is False
+            OrganizationTaskDispatchGateService(session_factory=lambda: Session(engine)).evaluate(task).allowed is False
         )
 
     assert activated["topology_activation"]["action"] == "activate"
@@ -730,24 +699,14 @@ def test_application_lifecycle_fences_queued_work_and_projects_topology(
     assert resumed["topology_projection"]["action"] == "activate"
     assert task_id in completed["active_work"]["source_task_ids"]
     assert archived["topology_projection"]["action"] == "archive"
-    assert recovered["topology_projection"]["action"] == (
-        "prepare_activation_candidate"
-    )
+    assert recovered["topology_projection"]["action"] == ("prepare_activation_candidate")
 
     # This test commits deliberately so the application service can open its
     # own production-shaped UoW. Remove the scoped aggregate in FK-safe order.
     with Session(engine) as session:
         session.exec(delete(TaskDB).where(TaskDB.id == task_id))
-        session.exec(
-            delete(OrganizationInstanceDB).where(
-                OrganizationInstanceDB.organization_id == organization_id
-            )
-        )
-        session.exec(
-            delete(AgentInfoDB).where(
-                AgentInfoDB.url.in_((active_agent_url, manual_agent_url))
-            )
-        )
+        session.exec(delete(OrganizationInstanceDB).where(OrganizationInstanceDB.organization_id == organization_id))
+        session.exec(delete(AgentInfoDB).where(AgentInfoDB.url.in_((active_agent_url, manual_agent_url))))
         session.exec(delete(TeamDB).where(TeamDB.id == team_id))
         session.exec(
             delete(ProjectDB).where(

@@ -31,9 +31,17 @@ class TurnQuotaVector:
 
     def __post_init__(self) -> None:
         for name, value in self.values().items():
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or value < 0:
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+                or value < 0
+            ):
                 raise WebrtcTurnAdmissionError(f"turn_quota_{name}_invalid", 503)
-        if any(not isinstance(getattr(self, name), int) for name in ("allocations", "ports", "receivers", "bps", "bytes_per_window")):
+        if any(
+            not isinstance(getattr(self, name), int)
+            for name in ("allocations", "ports", "receivers", "bps", "bytes_per_window")
+        ):
             raise WebrtcTurnAdmissionError("turn_quota_integer_unit_invalid", 503)
 
     def values(self) -> dict[str, int | float]:
@@ -261,7 +269,9 @@ class WebrtcTurnAdmissionPolicy:
 
     def _scopes(self, request: TurnAdmissionRequest) -> dict[str, str]:
         return {
-            "receiver": self._digest("receiver", request.tenant_ref + "\0" + request.room_ref + "\0" + request.receiver_ref),
+            "receiver": self._digest(
+                "receiver", request.tenant_ref + "\0" + request.room_ref + "\0" + request.receiver_ref
+            ),
             "room": self._digest("room", request.tenant_ref + "\0" + request.room_ref),
             "tenant": self._digest("tenant", request.tenant_ref),
             "region": self._digest("region", request.region),

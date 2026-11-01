@@ -1,4 +1,5 @@
 """AFH-T013: Artifact persistence tests."""
+
 from __future__ import annotations
 
 import hashlib
@@ -39,14 +40,10 @@ class TestArtifactStorePersistence:
             content=b"attack",
         )
         # The sanitized filename must not contain ../
-        assert "../" not in result["filename"], (
-            f"Filename must not contain path traversal: {result['filename']!r}"
-        )
+        assert "../" not in result["filename"], f"Filename must not contain path traversal: {result['filename']!r}"
         # And the file must be stored in the artifact dir, not escaped
         storage = Path(result["storage_path"])
-        assert storage.is_relative_to(tmp_path.resolve()), (
-            "Storage path must be inside artifact base dir"
-        )
+        assert storage.is_relative_to(tmp_path.resolve()), "Storage path must be inside artifact base dir"
 
     def test_store_bytes_detects_media_type(self, tmp_path: Path) -> None:
         store = ArtifactStore(base_dir=tmp_path / "artifacts")

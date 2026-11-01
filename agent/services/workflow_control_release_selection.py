@@ -8,9 +8,7 @@ from agent.services.workflow_backend import WorkflowBackend
 from agent.services.workflow_control_service import RuntimeSelection
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 
-PROTECTED_RUNTIME_CAPABILITIES = frozenset(
-    {"audit", "authorization", "policy", "side_effect_guard"}
-)
+PROTECTED_RUNTIME_CAPABILITIES = frozenset({"audit", "authorization", "policy", "side_effect_guard"})
 
 
 class WorkflowRuntimeReleaseAdmissionPort(Protocol):
@@ -68,10 +66,7 @@ class ConfiguredBackendRuntimeSelection:
             )
         required_capabilities = frozenset(plan.capabilities) | PROTECTED_RUNTIME_CAPABILITIES
         if self._runtime_id == "temporal":
-            admission = (
-                self._release_admission
-                or UnavailableWorkflowRuntimeReleaseAdmission()
-            )
+            admission = self._release_admission or UnavailableWorkflowRuntimeReleaseAdmission()
             try:
                 admitted, reason_code = admission.evaluate(
                     plan=plan,
@@ -89,9 +84,7 @@ class ConfiguredBackendRuntimeSelection:
                     runtime_id="",
                     capabilities=frozenset(),
                     mode="blocked",
-                    reason_code=str(
-                        reason_code or "runtime_release_evidence_invalid"
-                    ),
+                    reason_code=str(reason_code or "runtime_release_evidence_invalid"),
                 )
             capabilities = required_capabilities
         else:

@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
-
 BASE006_GATE_ID = "SFB-BASE-006"
 BASE006_SCHEMA = "ananta.livekit-broadcast-runtime-capabilities.v1"
 BASE006_ARTIFACT_PATH = "artifacts/domain/livekit-broadcast-runtime-capabilities.json"
@@ -88,12 +87,7 @@ class VersionBoundary:
         minimum = _version_tuple(self.minimum_inclusive)
         maximum = _version_tuple(self.maximum_inclusive)
         observed = _version_tuple(self.observed_version)
-        return (
-            minimum is not None
-            and maximum is not None
-            and observed is not None
-            and minimum <= observed <= maximum
-        )
+        return minimum is not None and maximum is not None and observed is not None and minimum <= observed <= maximum
 
 
 @dataclass(frozen=True, slots=True)
@@ -450,9 +444,7 @@ def _identifier_candidates(row: Mapping[str, object]) -> frozenset[str]:
             values = container.get(plural)
             if isinstance(values, Sequence) and not isinstance(values, (str, bytes, bytearray)):
                 found.update(
-                    value
-                    for value in values
-                    if isinstance(value, str) and _EVIDENCE_ID.fullmatch(value) is not None
+                    value for value in values if isinstance(value, str) and _EVIDENCE_ID.fullmatch(value) is not None
                 )
     return frozenset(found)
 
@@ -482,7 +474,9 @@ def _codec_values(row: Mapping[str, object] | None) -> tuple[str, ...]:
     values = (row or {}).get("codecs")
     if not isinstance(values, Sequence) or isinstance(values, (str, bytes, bytearray)):
         return ()
-    return tuple(sorted({value.casefold() for value in values if isinstance(value, str) and value.casefold() in allowed}))
+    return tuple(
+        sorted({value.casefold() for value in values if isinstance(value, str) and value.casefold() in allowed})
+    )
 
 
 def _svc_modes(row: Mapping[str, object] | None) -> tuple[str, ...]:
@@ -505,9 +499,10 @@ def _facts_valid(kind: CapabilityKind, row: Mapping[str, object]) -> bool:
         return row.get("e2ee_compatible") is True
     if kind is CapabilityKind.DATA_PACKET:
         limits = _as_mapping(row.get("limits"))
-        return _positive_int(limits.get("reliable_payload_bytes")) is not None and _positive_int(
-            limits.get("lossy_payload_bytes")
-        ) is not None
+        return (
+            _positive_int(limits.get("reliable_payload_bytes")) is not None
+            and _positive_int(limits.get("lossy_payload_bytes")) is not None
+        )
     if kind is CapabilityKind.QUEUE_HOOK:
         return row.get("authenticated") is True and row.get("fenced") is True
     return True
@@ -579,9 +574,7 @@ def _snapshot_from_document(
     for kind in CapabilityKind:
         row, capability_id, combined, duplicate = _select_row(kind, indexed, duplicates)
         selected[kind] = row
-        supports[kind] = _support(
-            document, kind, row, capability_id, combined, duplicate, provided, artifact_valid
-        )
+        supports[kind] = _support(document, kind, row, capability_id, combined, duplicate, provided, artifact_valid)
 
     packet_limits = _as_mapping((selected[CapabilityKind.DATA_PACKET] or {}).get("limits"))
     simulcast_layers = _positive_int((selected[CapabilityKind.SIMULCAST] or {}).get("max_spatial_layers"))
@@ -610,9 +603,7 @@ def _snapshot_from_document(
             supports[CapabilityKind.QUEUE_HOOK].available
             and (selected[CapabilityKind.QUEUE_HOOK] or {}).get("fenced") is True,
         ),
-        metrics=MetricsCapability(
-            supports[CapabilityKind.METRICS], supports[CapabilityKind.METRICS].available
-        ),
+        metrics=MetricsCapability(supports[CapabilityKind.METRICS], supports[CapabilityKind.METRICS].available),
         turn=TurnCapability(supports[CapabilityKind.TURN], supports[CapabilityKind.TURN].available),
         drain=DrainCapability(supports[CapabilityKind.DRAIN], supports[CapabilityKind.DRAIN].available),
     )
@@ -639,12 +630,8 @@ SFB_FEATURE_CAPABILITY_REQUIREMENTS: tuple[FeatureCapabilityRequirement, ...] = 
         (CapabilityKind.CODEC, CapabilityKind.ENCODED_TRANSFORM, CapabilityKind.SERVER_SUBSCRIPTION),
     ),
     FeatureCapabilityRequirement("semantic_media_receiver_groups", (CapabilityKind.SERVER_SUBSCRIPTION,)),
-    FeatureCapabilityRequirement(
-        "semantic_media_fleet_admission", (CapabilityKind.METRICS, CapabilityKind.DRAIN)
-    ),
-    FeatureCapabilityRequirement(
-        "semantic_media_turn_cost_controls", (CapabilityKind.TURN, CapabilityKind.METRICS)
-    ),
+    FeatureCapabilityRequirement("semantic_media_fleet_admission", (CapabilityKind.METRICS, CapabilityKind.DRAIN)),
+    FeatureCapabilityRequirement("semantic_media_turn_cost_controls", (CapabilityKind.TURN, CapabilityKind.METRICS)),
     FeatureCapabilityRequirement(
         "semantic_media_simulcast", (CapabilityKind.CODEC, CapabilityKind.SIMULCAST, CapabilityKind.ENCODED_TRANSFORM)
     ),
@@ -692,9 +679,7 @@ class CapabilitySupportGate:
             None,
         )
         if requirement is None:
-            return CapabilityGateDecision(
-                False, (CapabilityReasonCode.FEATURE_UNKNOWN.value,), (), ()
-            )
+            return CapabilityGateDecision(False, (CapabilityReasonCode.FEATURE_UNKNOWN.value,), (), ())
         if requested is not True:
             return CapabilityGateDecision(
                 False,

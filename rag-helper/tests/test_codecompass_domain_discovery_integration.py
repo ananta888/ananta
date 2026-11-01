@@ -150,9 +150,7 @@ class TestFixtureLayout(unittest.TestCase):
 
         for relative in self.EXPECTED_FILES:
             full = f"{FIXTURE_ROOT}/{relative}"
-            self.assertTrue(
-                os.path.isfile(full), f"missing fixture file: {full}"
-            )
+            self.assertTrue(os.path.isfile(full), f"missing fixture file: {full}")
 
     def test_fixture_root_exists(self) -> None:
         import os

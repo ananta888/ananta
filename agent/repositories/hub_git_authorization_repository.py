@@ -27,9 +27,7 @@ from agent.ports.hub_git_authorization_registry import (
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
-_OPAQUE_IDENTIFIER = re.compile(
-    r"^[A-Za-z0-9](?:[A-Za-z0-9_.:/@+=-]|%[0-9A-Fa-f]{2}){0,511}$"
-)
+_OPAQUE_IDENTIFIER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9_.:/@+=-]|%[0-9A-Fa-f]{2}){0,511}$")
 _MAX_OPAQUE_IDENTIFIER_LENGTH = 512
 _SAFE_AUDIT_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _AUTHORIZATION_STATES = frozenset({"active", "revoked", "scope_loss"})
@@ -68,9 +66,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
             if existing is not None:
                 if _head_matches(existing, record, scopes_json):
                     return existing.current_revision
-                raise HubGitAuthorizationPersistenceError(
-                    "git_authorization_registration_conflict"
-                )
+                raise HubGitAuthorizationPersistenceError("git_authorization_registration_conflict")
             head = _head_from_record(
                 registration_id=registration_id,
                 record=record,
@@ -107,9 +103,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
                 session.commit()
             except IntegrityError:
                 session.rollback()
-                raise HubGitAuthorizationPersistenceError(
-                    "git_authorization_registration_conflict"
-                ) from None
+                raise HubGitAuthorizationPersistenceError("git_authorization_registration_conflict") from None
         return 1
 
     def revise(
@@ -123,9 +117,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
     ) -> int:
         actor_id, reason_code = _audit_values(actor_id, reason_code)
         if not _SAFE_AUDIT_VALUE.fullmatch(str(action or "")):
-            raise HubGitAuthorizationPersistenceError(
-                "git_authorization_audit_value_invalid"
-            )
+            raise HubGitAuthorizationPersistenceError("git_authorization_audit_value_invalid")
         _validate_persistable(record)
         registration_id = _registration_id(
             record.scope,
@@ -137,24 +129,17 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
         with self._session_factory() as session:
             current = session.get(HubGitRemoteRegistrationDB, registration_id)
             if current is None:
-                raise HubGitAuthorizationPersistenceError(
-                    "git_authorization_not_found"
-                )
+                raise HubGitAuthorizationPersistenceError("git_authorization_not_found")
             if current.current_revision != expected_revision:
-                raise HubGitAuthorizationPersistenceError(
-                    "git_authorization_revision_conflict"
-                )
+                raise HubGitAuthorizationPersistenceError("git_authorization_revision_conflict")
             next_revision = expected_revision + 1
             previous_authorization_state = current.authorization_state
             result = session.execute(
                 update(HubGitRemoteRegistrationDB)
                 .where(
-                    HubGitRemoteRegistrationDB.registration_id
-                    == registration_id,
-                    HubGitRemoteRegistrationDB.current_revision
-                    == expected_revision,
-                    HubGitRemoteRegistrationDB.lock_version
-                    == current.lock_version,
+                    HubGitRemoteRegistrationDB.registration_id == registration_id,
+                    HubGitRemoteRegistrationDB.current_revision == expected_revision,
+                    HubGitRemoteRegistrationDB.lock_version == current.lock_version,
                 )
                 .values(
                     authorization_kind=record.authorization_kind,
@@ -170,9 +155,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
             )
             if result.rowcount != 1:
                 session.rollback()
-                raise HubGitAuthorizationPersistenceError(
-                    "git_authorization_revision_conflict"
-                )
+                raise HubGitAuthorizationPersistenceError("git_authorization_revision_conflict")
             digest = _snapshot_digest(record, scopes_json)
             session.add(
                 _revision_from_record(
@@ -202,9 +185,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
                 session.commit()
             except IntegrityError:
                 session.rollback()
-                raise HubGitAuthorizationPersistenceError(
-                    "git_authorization_revision_conflict"
-                ) from None
+                raise HubGitAuthorizationPersistenceError("git_authorization_revision_conflict") from None
         return next_revision
 
     def transition_authorization_state(
@@ -220,18 +201,14 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
         granted_scopes: frozenset[str] | None = None,
     ) -> int:
         if authorization_state not in _AUTHORIZATION_STATES:
-            raise HubGitAuthorizationPersistenceError(
-                "git_authorization_state_invalid"
-            )
+            raise HubGitAuthorizationPersistenceError("git_authorization_state_invalid")
         current = self.resolve_connection(
             scope=scope,
             connection_ref=connection_ref,
             repository_identifier=repository,
         )
         if current is None:
-            raise HubGitAuthorizationPersistenceError(
-                "git_authorization_not_found"
-            )
+            raise HubGitAuthorizationPersistenceError("git_authorization_not_found")
         revised = RegisteredGitAuthorization(
             scope=current.scope,
             connection_ref=current.connection_ref,
@@ -240,11 +217,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
             credential_ref=current.credential_ref,
             credential_username=current.credential_username,
             authorization_state=authorization_state,
-            granted_scopes=(
-                current.granted_scopes
-                if granted_scopes is None
-                else granted_scopes
-            ),
+            granted_scopes=(current.granted_scopes if granted_scopes is None else granted_scopes),
             repository=current.repository,
         )
         return self.revise(
@@ -268,9 +241,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
                 HubGitRemoteRegistrationDB.project_id == str(project_id),
             )
             if owner_id is not None:
-                statement = statement.where(
-                    HubGitRemoteRegistrationDB.owner_id == str(owner_id)
-                )
+                statement = statement.where(HubGitRemoteRegistrationDB.owner_id == str(owner_id))
             rows = session.exec(
                 statement.order_by(
                     HubGitRemoteRegistrationDB.connection_ref,
@@ -292,13 +263,10 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
             statement = select(HubGitRemoteRegistrationDB).where(
                 HubGitRemoteRegistrationDB.tenant_id == str(tenant_id),
                 HubGitRemoteRegistrationDB.project_id == str(project_id),
-                HubGitRemoteRegistrationDB.connection_ref
-                == str(remote_id or "").strip(),
+                HubGitRemoteRegistrationDB.connection_ref == str(remote_id or "").strip(),
             )
             if owner_id is not None:
-                statement = statement.where(
-                    HubGitRemoteRegistrationDB.owner_id == str(owner_id)
-                )
+                statement = statement.where(HubGitRemoteRegistrationDB.owner_id == str(owner_id))
             rows = session.exec(statement).all()
             return _record_from_head(rows[0]) if len(rows) == 1 else None
 
@@ -315,8 +283,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
                 HubGitRemoteRegistrationDB.tenant_id == str(scope.tenant_id),
                 HubGitRemoteRegistrationDB.project_id == str(scope.project_id),
                 HubGitRemoteRegistrationDB.owner_id == str(scope.owner_id),
-                HubGitRemoteRegistrationDB.connection_ref
-                == str(connection_ref or "").strip(),
+                HubGitRemoteRegistrationDB.connection_ref == str(connection_ref or "").strip(),
                 HubGitRemoteRegistrationDB.repository_key == repository_key,
             )
             head = session.exec(statement).first()
@@ -380,10 +347,7 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
         with self._session_factory() as session:
             statement = (
                 select(HubGitRemoteRegistrationRevisionDB)
-                .where(
-                    HubGitRemoteRegistrationRevisionDB.registration_id
-                    == registration_id
-                )
+                .where(HubGitRemoteRegistrationRevisionDB.registration_id == registration_id)
                 .order_by(HubGitRemoteRegistrationRevisionDB.revision)
             )
             return tuple(session.exec(statement).all())
@@ -392,37 +356,24 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
 def _validate_persistable(record: RegisteredGitAuthorization) -> None:
     credential_ref = str(record.credential_ref or "").strip()
     if credential_ref and (
-        len(credential_ref) > _MAX_OPAQUE_IDENTIFIER_LENGTH
-        or _OPAQUE_IDENTIFIER.fullmatch(credential_ref) is None
+        len(credential_ref) > _MAX_OPAQUE_IDENTIFIER_LENGTH or _OPAQUE_IDENTIFIER.fullmatch(credential_ref) is None
     ):
-        raise HubGitAuthorizationPersistenceError(
-            "git_credential_reference_invalid"
-        )
+        raise HubGitAuthorizationPersistenceError("git_credential_reference_invalid")
     parsed_remote = urlsplit(str(record.remote_url or "").strip())
     if (
         parsed_remote.password is not None
         or parsed_remote.query
         or parsed_remote.fragment
-        or (
-            parsed_remote.scheme.lower() in {"http", "https"}
-            and parsed_remote.username is not None
-        )
+        or (parsed_remote.scheme.lower() in {"http", "https"} and parsed_remote.username is not None)
     ):
-        raise HubGitAuthorizationPersistenceError(
-            "git_remote_embedded_credential_forbidden"
-        )
+        raise HubGitAuthorizationPersistenceError("git_remote_embedded_credential_forbidden")
 
 
 def _audit_values(actor_id: str, reason_code: str) -> tuple[str, str]:
     actor = str(actor_id or "").strip()
     reason = str(reason_code or "").strip()
-    if (
-        _SAFE_AUDIT_VALUE.fullmatch(actor) is None
-        or _SAFE_AUDIT_VALUE.fullmatch(reason) is None
-    ):
-        raise HubGitAuthorizationPersistenceError(
-            "git_authorization_audit_value_invalid"
-        )
+    if _SAFE_AUDIT_VALUE.fullmatch(actor) is None or _SAFE_AUDIT_VALUE.fullmatch(reason) is None:
+        raise HubGitAuthorizationPersistenceError("git_authorization_audit_value_invalid")
     return actor, reason
 
 
@@ -520,9 +471,7 @@ def _revision_from_record(
     reason_code: str,
     now: int,
 ) -> HubGitRemoteRegistrationRevisionDB:
-    revision_id = hashlib.sha256(
-        f"{registration_id}:{revision}".encode("ascii")
-    ).hexdigest()
+    revision_id = hashlib.sha256(f"{registration_id}:{revision}".encode("ascii")).hexdigest()
     return HubGitRemoteRegistrationRevisionDB(
         revision_id=revision_id,
         registration_id=registration_id,
@@ -556,9 +505,7 @@ def _audit_from_record(
     actor_id: str,
     now: int,
 ) -> HubGitRemoteRegistrationAuditDB:
-    audit_id = hashlib.sha256(
-        f"{registration_id}:{revision}:{action}".encode("ascii")
-    ).hexdigest()
+    audit_id = hashlib.sha256(f"{registration_id}:{revision}:{action}".encode("ascii")).hexdigest()
     return HubGitRemoteRegistrationAuditDB(
         audit_id=audit_id,
         registration_id=registration_id,
@@ -586,9 +533,7 @@ def _audit_registration_digest(
     revision: int,
     authorization_state: str,
 ) -> str:
-    material = (
-        f"{registration_id}:{revision}:{authorization_state}"
-    ).encode("ascii")
+    material = (f"{registration_id}:{revision}:{authorization_state}").encode("ascii")
     return hashlib.sha256(material).hexdigest()
 
 

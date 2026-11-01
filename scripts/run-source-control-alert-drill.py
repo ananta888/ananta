@@ -32,10 +32,7 @@ from agent.services.source_control_observability import (  # noqa: E402
 
 REPORT_SCHEMA = "ananta.source-control.alert-delivery-drill.v1"
 RULE_PATH = REPOSITORY_ROOT / "config/monitoring/source-control-alerts.yml"
-DEFAULT_OUTPUT = (
-    REPOSITORY_ROOT
-    / "artifacts/test-gates/source-control-alert-delivery-drill.json"
-)
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "artifacts/test-gates/source-control-alert-delivery-drill.json"
 _ALERT_NAME = "SourceControlOperationalAlarm"
 _REASON_CODE = "storage_pressure"
 _RECEIVER_NAME = "source-control-drill-loopback"
@@ -55,8 +52,7 @@ _FORBIDDEN_CONTENT = (
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Send Alertmanager-compatible firing and resolved notifications "
-            "only to an ephemeral loopback receiver."
+            "Send Alertmanager-compatible firing and resolved notifications only to an ephemeral loopback receiver."
         )
     )
     parser.add_argument(
@@ -139,19 +135,13 @@ def _alertmanager_payload(
         "labels": labels,
         "annotations": dict(rule["annotations"]),
         "startsAt": "2000-01-01T00:00:00Z",
-        "endsAt": (
-            "2000-01-01T00:05:00Z"
-            if status == "resolved"
-            else "0001-01-01T00:00:00Z"
-        ),
+        "endsAt": ("2000-01-01T00:05:00Z" if status == "resolved" else "0001-01-01T00:00:00Z"),
         "generatorURL": "about:blank",
-        "fingerprint": hashlib.sha256(
-            f"{_ALERT_NAME}:{_REASON_CODE}".encode()
-        ).hexdigest()[:16],
+        "fingerprint": hashlib.sha256(f"{_ALERT_NAME}:{_REASON_CODE}".encode()).hexdigest()[:16],
     }
     return {
         "version": "4",
-        "groupKey": f"{{}}:{{alertname=\"{_ALERT_NAME}\"}}",
+        "groupKey": f'{{}}:{{alertname="{_ALERT_NAME}"}}',
         "truncatedAlerts": 0,
         "status": status,
         "receiver": _RECEIVER_NAME,
@@ -212,12 +202,7 @@ class _LoopbackReceiver:
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self) -> None:  # noqa: N802
-                if (
-                    self.path != "/source-control-drill"
-                    or not ipaddress.ip_address(
-                        self.client_address[0]
-                    ).is_loopback
-                ):
+                if self.path != "/source-control-drill" or not ipaddress.ip_address(self.client_address[0]).is_loopback:
                     self.send_error(403)
                     return
                 try:
@@ -268,9 +253,7 @@ class _LoopbackReceiver:
             response = connection.getresponse()
             response.read()
             if response.status != 204:
-                raise RuntimeError(
-                    "source_control_alert_delivery_rejected"
-                )
+                raise RuntimeError("source_control_alert_delivery_rejected")
         finally:
             connection.close()
 
@@ -289,9 +272,7 @@ def _sample(
 def _run_drill() -> dict[str, object]:
     rule = _operational_rule()
     registry = CollectorRegistry()
-    metrics = PrometheusSourceControlMetrics(
-        _metric_instruments(registry)
-    )
+    metrics = PrometheusSourceControlMetrics(_metric_instruments(registry))
     health = SourceControlHealthMonitor()
     publisher = SourceControlHealthMetricsPublisher(metrics)
 
@@ -314,9 +295,7 @@ def _run_drill() -> dict[str, object]:
             != 1.0
         ):
             raise RuntimeError("source_control_alert_not_firing")
-        receiver.deliver(
-            _alertmanager_payload(status="firing", rule=rule)
-        )
+        receiver.deliver(_alertmanager_payload(status="firing", rule=rule))
 
         health.set_operational_alarm(_REASON_CODE, active=False)
         recovered = health.snapshot()
@@ -331,15 +310,9 @@ def _run_drill() -> dict[str, object]:
             "source_control_alert_state",
             {"reason_code": _REASON_CODE, "status": "resolved"},
         )
-        if (
-            recovered.health.status != "healthy"
-            or firing_value != 0.0
-            or resolved_value != 1.0
-        ):
+        if recovered.health.status != "healthy" or firing_value != 0.0 or resolved_value != 1.0:
             raise RuntimeError("source_control_alert_not_resolved")
-        receiver.deliver(
-            _alertmanager_payload(status="resolved", rule=rule)
-        )
+        receiver.deliver(_alertmanager_payload(status="resolved", rule=rule))
         delivery_sequence = list(receiver.events)
 
     if [event["status"] for event in delivery_sequence] != [
@@ -367,17 +340,14 @@ def _run_drill() -> dict[str, object]:
             "firing_metric": firing_value,
             "resolved_metric": resolved_value,
         },
-        "rule_digest": "sha256:"
-        + hashlib.sha256(RULE_PATH.read_bytes()).hexdigest(),
+        "rule_digest": "sha256:" + hashlib.sha256(RULE_PATH.read_bytes()).hexdigest(),
     }
     canonical = json.dumps(
         payload,
         sort_keys=True,
         separators=(",", ":"),
     ).encode()
-    payload["evidence_id"] = (
-        "scad-" + hashlib.sha256(canonical).hexdigest()[:24]
-    )
+    payload["evidence_id"] = "scad-" + hashlib.sha256(canonical).hexdigest()[:24]
     return payload
 
 

@@ -58,10 +58,15 @@ class NativeGraphCheckpointService:
             # An unchanged BPMN tick must not invalidate an operator's loaded
             # preconditions. Lease validation and revision checks still run;
             # any event, result, wait consumption or command changes the state.
-            latest.verify(key_ring=self._key_ring, tenant_id=plan.tenant_id,
-                          workflow_id=plan.workflow_id, run_id=request.run_id,
-                          task_id=request.control_task_id, plan_hash=plan.plan_hash,
-                          policy_version=plan.policy_version)
+            latest.verify(
+                key_ring=self._key_ring,
+                tenant_id=plan.tenant_id,
+                workflow_id=plan.workflow_id,
+                run_id=request.run_id,
+                task_id=request.control_task_id,
+                plan_hash=plan.plan_hash,
+                policy_version=plan.policy_version,
+            )
             return latest
         revision = (latest.revision + 1) if latest else 1
         fence = max(

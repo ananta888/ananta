@@ -50,12 +50,8 @@ def test_voice_governance_migration_up_down_and_reupgrade(ram_tmp_path: Path) ->
     assert "voice_live_runs" in live_inspector.get_table_names()
     assert "voice_live_run_segments" in live_inspector.get_table_names()
     assert "reported_gap_sequences" in {item["name"] for item in live_inspector.get_columns("voice_live_runs")}
-    assert "timeline_revision" in {
-        item["name"] for item in live_inspector.get_columns("voice_live_runs")
-    }
-    live_segment_columns = {
-        item["name"] for item in live_inspector.get_columns("voice_live_run_segments")
-    }
+    assert "timeline_revision" in {item["name"] for item in live_inspector.get_columns("voice_live_runs")}
+    live_segment_columns = {item["name"] for item in live_inspector.get_columns("voice_live_run_segments")}
     assert {
         "provisional_result_ref",
         "correction_task_id",

@@ -363,10 +363,18 @@ class EvolverAdapter(EvolutionEngine):
                 runtime = health.get("runtime")
                 if isinstance(runtime, dict):
                     metadata["runtime"] = {
-                        key: runtime[key] for key in (
-                            "version", "commit", "license", "license_sha256", "package_lock_sha256",
-                            "contract_sha256", "protocol_version", "analyze_only",
-                        ) if key in runtime and isinstance(runtime[key], (str, bool))
+                        key: runtime[key]
+                        for key in (
+                            "version",
+                            "commit",
+                            "license",
+                            "license_sha256",
+                            "package_lock_sha256",
+                            "contract_sha256",
+                            "protocol_version",
+                            "analyze_only",
+                        )
+                        if key in runtime and isinstance(runtime[key], (str, bool))
                     }
                 if health.get("fallback"):
                     metadata["health_fallback"] = health.get("fallback")

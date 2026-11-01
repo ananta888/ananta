@@ -84,19 +84,12 @@ def test_injected_secret_resolver_is_bounded_to_allowed_root(tmp_path) -> None:
     )
 
     assert resolver.resolve(SecretReference.parse("env://ANANTA_QDRANT_API_KEY")) == "env-secret"
-    assert (
-        resolver.resolve(
-            SecretReference.parse(f"secretfile://{secret_file}")
-        )
-        == "secret-value"
-    )
+    assert resolver.resolve(SecretReference.parse(f"secretfile://{secret_file}")) == "secret-value"
 
     outside = tmp_path / "outside"
     outside.write_text("forbidden", encoding="utf-8")
     with pytest.raises(VectorStoreSecretError, match="path_not_allowed"):
-        resolver.resolve(
-            SecretReference.parse(f"secretfile://{outside}")
-        )
+        resolver.resolve(SecretReference.parse(f"secretfile://{outside}"))
 
     with pytest.raises(VectorStoreSecretError, match="env_not_allowed"):
         resolver.resolve(SecretReference.parse("env://UNRELATED_PROCESS_SECRET"))

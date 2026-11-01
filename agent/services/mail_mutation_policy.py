@@ -16,8 +16,7 @@ class MailMutationAuthorization:
 
 
 class MailMutationAuthorizer(Protocol):
-    def authorize(self, request: MailMutationAuthorization) -> MailProviderResult[None]:
-        ...
+    def authorize(self, request: MailMutationAuthorization) -> MailProviderResult[None]: ...
 
 
 class MailMutationIntentVerifier(Protocol):
@@ -26,8 +25,7 @@ class MailMutationIntentVerifier(Protocol):
     def verify(
         self,
         request: MailMutationAuthorization,
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
 
 class VerifiedIntentMutationAuthorizer:
@@ -48,8 +46,7 @@ class MailMutationAuditSink(Protocol):
         audit_ref: str,
         outcome: str,
         reason_code: str,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class MailMutationPolicy:

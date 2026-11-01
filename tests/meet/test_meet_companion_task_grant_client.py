@@ -33,8 +33,9 @@ class HubTransport:
     def open(self, request, timeout):
         assert 0 < timeout <= 2.5
         self.requests.append(request.data)
-        result = self.app.test_client().post("/api/meet/v1/internal/companion/task-grant", data=request.data,
-                                            headers=dict(request.header_items()))
+        result = self.app.test_client().post(
+            "/api/meet/v1/internal/companion/task-grant", data=request.data, headers=dict(request.header_items())
+        )
         if result.status_code != 200:
             raise RuntimeError("synthetic HTTP denial")
         body, signature = result.data, result.headers[SIGNATURE_HEADER]
@@ -63,8 +64,22 @@ def test_worker_consumes_current_exact_signed_hub_task_and_denies_cancellation(h
         value.read()
 
 
-@pytest.mark.parametrize("change", ["task_id", "lease_id", "runtime_id", "session_id", "project_id",
-                                    "origin", "room_id", "capabilities", "deadline", "controls", "extra"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        "task_id",
+        "lease_id",
+        "runtime_id",
+        "session_id",
+        "project_id",
+        "origin",
+        "room_id",
+        "capabilities",
+        "deadline",
+        "controls",
+        "extra",
+    ],
+)
 def test_even_signed_response_cannot_change_assignment_or_controls_shape(hub, change):
     def transform(raw, body, _signature):
         response = json.loads(body)
@@ -109,15 +124,23 @@ def test_missing_or_invalid_signature_has_no_cached_authority_fallback(hub, sign
 
 def test_signed_oversize_body_fails_bounded(hub):
     def oversized(raw, _body, _signature):
-        body = b'x' * 8193
+        body = b"x" * 8193
         return body, response_signature(KEY, raw, body)
+
     value, _transport = client(hub, oversized)
     with pytest.raises(ValueError, match="unavailable_or_invalid"):
         value.read()
 
 
-@pytest.mark.parametrize("url", ["https://user:secret@example.test/api/meet/v1/internal/companion/task-grant",
-                                 URL + "?fallback=legacy", URL + "#fragment", URL.replace("task-grant", "grant")])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:secret@example.test/api/meet/v1/internal/companion/task-grant",
+        URL + "?fallback=legacy",
+        URL + "#fragment",
+        URL.replace("task-grant", "grant"),
+    ],
+)
 def test_endpoint_is_operator_fixed_and_cannot_select_legacy_or_credentials(url):
     with pytest.raises(ValueError, match="endpoint_invalid"):
         AssignedCompanionGrantClient(assignment(), url, KEY)

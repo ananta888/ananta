@@ -61,14 +61,18 @@ class ApprovalPolicyService:
         payload = dict(value or {})
         normalized = {
             "enabled": bool(payload.get("enabled", _DEFAULT_POLICY["enabled"])),
-            "enforce_confirm_required": bool(payload.get("enforce_confirm_required", _DEFAULT_POLICY["enforce_confirm_required"])),
+            "enforce_confirm_required": bool(
+                payload.get("enforce_confirm_required", _DEFAULT_POLICY["enforce_confirm_required"])
+            ),
             "governance_overrides": {},
         }
         overrides = payload.get("governance_overrides") if isinstance(payload.get("governance_overrides"), dict) else {}
         for mode in ("safe", "balanced", "strict"):
             mode_cfg = overrides.get(mode) if isinstance(overrides.get(mode), dict) else {}
             default_cfg = _DEFAULT_POLICY["governance_overrides"][mode]
-            confirm_required = self._normalize_action_classes(mode_cfg.get("confirm_required"), default_cfg["confirm_required"])
+            confirm_required = self._normalize_action_classes(
+                mode_cfg.get("confirm_required"), default_cfg["confirm_required"]
+            )
             blocked = self._normalize_action_classes(mode_cfg.get("blocked"), default_cfg["blocked"])
             normalized["governance_overrides"][mode] = {
                 "confirm_required": confirm_required,
@@ -95,7 +99,9 @@ class ApprovalPolicyService:
         # SCG-007: segment-aware operation classification for chain commands
         seg_op_classes: list[dict[str, Any]] = []
         if command_analysis is not None and command_analysis.contains_chain and command_analysis.allowed:
-            raw_classes = [self._classify_operation(command=seg.raw, tool_calls=None, cfg=cfg) for seg in command_analysis.segments]
+            raw_classes = [
+                self._classify_operation(command=seg.raw, tool_calls=None, cfg=cfg) for seg in command_analysis.segments
+            ]
             operation_class = self._aggregate_operation_classes(raw_classes)
             seg_op_classes = [{"index": i + 1, "class": c} for i, c in enumerate(raw_classes)]
             risk_level = max_risk_level(
@@ -104,7 +110,9 @@ class ApprovalPolicyService:
             )
         else:
             operation_class = self._classify_operation(command=command, tool_calls=tool_calls, cfg=cfg)
-            risk_level = max_risk_level(classify_command_risk(command), classify_tool_calls_risk(tool_calls, guard_cfg=cfg))
+            risk_level = max_risk_level(
+                classify_command_risk(command), classify_tool_calls_risk(tool_calls, guard_cfg=cfg)
+            )
         mode_policy = policy["governance_overrides"][governance_mode]
 
         classification = "allow"
@@ -140,7 +148,8 @@ class ApprovalPolicyService:
 
         approval_confirmed = bool((task or {}).get("approval_confirmed"))
         enforced = bool(policy.get("enabled", True)) and (
-            classification == "blocked" or (classification == "confirm_required" and bool(policy.get("enforce_confirm_required")))
+            classification == "blocked"
+            or (classification == "confirm_required" and bool(policy.get("enforce_confirm_required")))
         )
 
         # ALWA-005: digest-bound grant resolution comes first — a persisted
@@ -210,7 +219,9 @@ class ApprovalPolicyService:
             svc = get_approval_request_service()
             grant = svc.resolve_grant_for_call(
                 tool_name=str(approval_context.get("tool_name") or ""),
-                arguments=approval_context.get("arguments") if isinstance(approval_context.get("arguments"), dict) else {},
+                arguments=approval_context.get("arguments")
+                if isinstance(approval_context.get("arguments"), dict)
+                else {},
                 task_id=str(approval_context.get("task_id") or (task or {}).get("id") or "").strip() or None,
                 goal_id=str(approval_context.get("goal_id") or (task or {}).get("goal_id") or "").strip() or None,
                 target_fingerprint=str(approval_context.get("target_fingerprint") or "").strip() or None,
@@ -220,7 +231,11 @@ class ApprovalPolicyService:
             return {
                 "request_id": grant.id,
                 "digest_prefix": digest_prefix(grant.arguments_digest),
-                "scope_summary": {k: v for k, v in dict(grant.scope or {}).items() if k in {"approval_class", "pre_approval", "goal_id"}},
+                "scope_summary": {
+                    k: v
+                    for k, v in dict(grant.scope or {}).items()
+                    if k in {"approval_class", "pre_approval", "goal_id"}
+                },
                 "reason_code": "approval_granted_by_request",
             }
         except Exception:
@@ -229,8 +244,8 @@ class ApprovalPolicyService:
     @staticmethod
     def _audit_legacy_bypass(*, task: dict | None, operation_class: str) -> None:
         try:
-            from agent.services.approval_request_service import AUDIT_APPROVAL_LEGACY_BYPASS_USED
             from agent.common.audit import log_audit
+            from agent.services.approval_request_service import AUDIT_APPROVAL_LEGACY_BYPASS_USED
 
             log_audit(
                 AUDIT_APPROVAL_LEGACY_BYPASS_USED,
@@ -258,7 +273,7 @@ class ApprovalPolicyService:
 
     @staticmethod
     def _tool_class_map(cfg: dict[str, Any]) -> dict[str, str]:
-        payload = (((cfg or {}).get("llm_tool_guardrails") or {}).get("tool_classes"))
+        payload = ((cfg or {}).get("llm_tool_guardrails") or {}).get("tool_classes")
         raw = payload if isinstance(payload, dict) else {}
         result: dict[str, str] = {}
         for key, value in raw.items():
@@ -276,7 +291,15 @@ class ApprovalPolicyService:
         if command_text:
             if any(
                 token in command_text
-                for token in ("pip install", "pip uninstall", "npm install", "apt install", "apt remove", "brew install", "brew uninstall")
+                for token in (
+                    "pip install",
+                    "pip uninstall",
+                    "npm install",
+                    "apt install",
+                    "apt remove",
+                    "brew install",
+                    "brew uninstall",
+                )
             ):
                 return "install_remove"
             if any(token in command_text for token in ("rm -rf", "shutdown", "reboot", "systemctl")):
@@ -285,7 +308,11 @@ class ApprovalPolicyService:
                 return "mutation"
             return "read_only"
 
-        classes = [self._tool_class_map(cfg).get(str((item or {}).get("name") or "").strip(), "unknown") for item in list(tool_calls or []) if isinstance(item, dict)]
+        classes = [
+            self._tool_class_map(cfg).get(str((item or {}).get("name") or "").strip(), "unknown")
+            for item in list(tool_calls or [])
+            if isinstance(item, dict)
+        ]
         if "admin" in classes:
             return "admin_mutation"
         if "write" in classes:
@@ -300,7 +327,9 @@ class ApprovalPolicyService:
 
     @staticmethod
     def _specialized_profiles(cfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
-        payload = cfg.get("specialized_worker_profiles") if isinstance(cfg.get("specialized_worker_profiles"), dict) else {}
+        payload = (
+            cfg.get("specialized_worker_profiles") if isinstance(cfg.get("specialized_worker_profiles"), dict) else {}
+        )
         if not bool(payload.get("enabled", False)):
             return {}
         profiles = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}

@@ -11,7 +11,12 @@ def test_codecompass_worker_fixture_manifest_is_complete_and_deterministic():
     assert manifest["schema"] == "codecompass_worker_fixture_manifest.v1"
     assert len(manifest["queries"]) >= 4
     query_ids = {item["id"] for item in manifest["queries"]}
-    assert {"bugfix-timeout-retry", "refactor-repository-dependency", "architecture-transaction-boundary", "config-timeout-property"} <= query_ids
+    assert {
+        "bugfix-timeout-retry",
+        "refactor-repository-dependency",
+        "architecture-transaction-boundary",
+        "config-timeout-property",
+    } <= query_ids
 
     for rel in manifest["source_files"]:
         assert (fixture_root / rel).exists()
@@ -24,4 +29,3 @@ def test_codecompass_worker_fixture_manifest_is_complete_and_deterministic():
         for row in rows:
             parsed = json.loads(row)
             assert isinstance(parsed, dict)
-

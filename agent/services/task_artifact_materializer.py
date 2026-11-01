@@ -29,6 +29,7 @@ class TaskArtifactMaterializer:
         workspace_dir = Path(workspace_dir)
         try:
             from agent.repositories.tasks import TaskRepository
+
             all_tasks = TaskRepository().get_by_goal_id(goal_id)
         except Exception as exc:
             logging.warning("TaskArtifactMaterializer: could not load goal tasks: %s", exc)
@@ -43,11 +44,7 @@ class TaskArtifactMaterializer:
             vs = dict(getattr(task, "verification_status", None) or {})
             refs = list(vs.get("execution_artifacts") or [])
             if not refs:
-                refs = [
-                    ref
-                    for ref in list(getattr(task, "artifact_refs", None) or [])
-                    if isinstance(ref, dict)
-                ]
+                refs = [ref for ref in list(getattr(task, "artifact_refs", None) or []) if isinstance(ref, dict)]
             source_agent_url = str(task.assigned_agent_url or "").strip()
             for ref in refs:
                 if ref.get("kind") != "workspace_file":
@@ -68,16 +65,19 @@ class TaskArtifactMaterializer:
                     continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(content)
-                manifest.append({
-                    "artifact_id": artifact_id,
-                    "source_task_id": str(task.id),
-                    "relative_path": rel_path,
-                    "size_bytes": len(content),
-                })
+                manifest.append(
+                    {
+                        "artifact_id": artifact_id,
+                        "source_task_id": str(task.id),
+                        "relative_path": rel_path,
+                        "size_bytes": len(content),
+                    }
+                )
         if manifest:
             logging.info(
                 "TaskArtifactMaterializer: materialized %d file(s) for task %s",
-                len(manifest), task_id,
+                len(manifest),
+                task_id,
             )
         return manifest
 
@@ -94,6 +94,7 @@ class TaskArtifactMaterializer:
         # 3. Try hub
         try:
             from agent.config import settings
+
             hub = str(settings.hub_url or "").rstrip("/")
             if hub:
                 content = self._try_http(hub, artifact_id)
@@ -107,6 +108,7 @@ class TaskArtifactMaterializer:
     def _try_local(artifact_id: str) -> Optional[bytes]:
         try:
             from agent.repository import artifact_version_repo
+
             versions = artifact_version_repo.get_by_artifact(artifact_id)
             if versions:
                 p = Path(versions[0].storage_path)
@@ -120,7 +122,9 @@ class TaskArtifactMaterializer:
     def _try_http(base_url: str, artifact_id: str) -> Optional[bytes]:
         try:
             import requests
+
             from agent.config import settings
+
             token = str(settings.agent_token or "").strip()
             headers = {"Authorization": f"Bearer {token}"} if token else {}
             url = f"{base_url.rstrip('/')}/artifacts/{artifact_id}/content"

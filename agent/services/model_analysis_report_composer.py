@@ -41,9 +41,7 @@ class ModelAnalysisReportComposer:
         publisher: ModelAnalysisArtifactPublisher,
     ) -> None:
         self._publisher = publisher
-        self._reports = ModelIntelligenceReportService(
-            artifact_store=artifact_store
-        )
+        self._reports = ModelIntelligenceReportService(artifact_store=artifact_store)
 
     def compose(
         self,

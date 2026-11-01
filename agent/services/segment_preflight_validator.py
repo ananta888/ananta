@@ -1,16 +1,20 @@
 """SCG-005: SegmentPreflightValidator — per-segment upfront policy check."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.command_chain_parser import CommandChainSegment
 from agent.services.command_to_tool_mapper import CommandToToolMapper
-from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.sandbox_policy_service import get_sandbox_policy_service
-from agent.services.task_execution_policy_service import resolve_task_scope_allowed_tools, validate_task_scoped_tool_calls
+from agent.services.task_execution_policy_service import (
+    resolve_task_scope_allowed_tools,
+    validate_task_scoped_tool_calls,
+)
 
 
 @dataclass(frozen=True)
@@ -95,28 +99,36 @@ class SegmentPreflightValidator:
         mapped_is_known = bool(mapped.mapped_tool and mapped.mapped_tool in known_tool_set)
         mapped_tool_calls = [{"name": mapped.mapped_tool, "args": mapped.args}] if mapped_is_known else None
 
-        seg_approval = get_approval_policy_service().evaluate(
-            command=None if mapped_is_known else seg_cmd,
-            tool_calls=mapped_tool_calls,
-            task=effective_task,
-            agent_cfg=cfg,
-        ).as_dict()
+        seg_approval = (
+            get_approval_policy_service()
+            .evaluate(
+                command=None if mapped_is_known else seg_cmd,
+                tool_calls=mapped_tool_calls,
+                task=effective_task,
+                agent_cfg=cfg,
+            )
+            .as_dict()
+        )
         seg_risk = evaluate_execution_risk(
             command=None if mapped_is_known else seg_cmd,
             tool_calls=mapped_tool_calls,
             task=effective_task,
             agent_cfg=cfg,
         )
-        mutation_decision = get_mutation_gate_service().evaluate(
-            command=None if mapped_is_known else seg_cmd,
-            tool_calls=mapped_tool_calls,
-            task=effective_task,
-            agent_cfg=cfg,
-            approval_decision=seg_approval,
-            risk_decision=seg_risk,
-            trace_id=str(effective_task.get("goal_trace_id") or "").strip() or None,
-            actor="system",
-        ).as_dict()
+        mutation_decision = (
+            get_mutation_gate_service()
+            .evaluate(
+                command=None if mapped_is_known else seg_cmd,
+                tool_calls=mapped_tool_calls,
+                task=effective_task,
+                agent_cfg=cfg,
+                approval_decision=seg_approval,
+                risk_decision=seg_risk,
+                trace_id=str(effective_task.get("goal_trace_id") or "").strip() or None,
+                actor="system",
+            )
+            .as_dict()
+        )
 
         allowed = True
         reason_codes: list[str] = []
@@ -171,6 +183,6 @@ class SegmentPreflightValidator:
             value = str(effective_task.get(key) or "").strip().lower()
             if value:
                 return value
-        wrappers = ((cfg.get("sandbox_policy") or {}).get("command_wrappers") or {})
+        wrappers = (cfg.get("sandbox_policy") or {}).get("command_wrappers") or {}
         default_class = str(wrappers.get("default_isolation_class") or "").strip().lower()
         return default_class or None

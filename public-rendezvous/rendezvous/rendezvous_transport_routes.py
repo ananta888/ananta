@@ -184,7 +184,10 @@ class TransportRoutes:
         if not recipient_id:
             return jsonify({"error": "recipient_id_required"}), 400
         if limited := self._support.rate_limit_guard(
-            "signal", selected_peer_id, self._config.RATE_SIGNAL_LIMIT, self._config.RATE_SIGNAL_WINDOW,
+            "signal",
+            selected_peer_id,
+            self._config.RATE_SIGNAL_LIMIT,
+            self._config.RATE_SIGNAL_WINDOW,
         ):
             return limited
         signal_type = str(body.get("type") or "").strip()

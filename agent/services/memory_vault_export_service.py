@@ -25,9 +25,11 @@ def _origin_frontmatter(chunk, export_origin):
     export_json = json.dumps(export_origin, ensure_ascii=False, sort_keys=True, allow_nan=False)
     content = str(getattr(chunk, "content", "") or "")
     return [
-        "grounding_state: unverified", "production_release_evidence: false",
+        "grounding_state: unverified",
+        "production_release_evidence: false",
         f"content_digest: {hashlib.sha256(content.encode('utf-8')).hexdigest()}",
-        f"memory_access_origin: {source_json}", f"export_access_origin: {export_json}",
+        f"memory_access_origin: {source_json}",
+        f"export_access_origin: {export_json}",
     ]
 
 
@@ -74,8 +76,7 @@ class MemoryVaultExportService:
         if output_dir.is_symlink() or (output_dir / "sources").is_symlink():
             raise MemoryAccessError("memory_export_path_forbidden")
 
-        excluded = {str(x).strip().lower()
-                    for x in (export_cfg.get("exclude_sensitivity") or list(_DEFAULT_EXCLUDE))}
+        excluded = {str(x).strip().lower() for x in (export_cfg.get("exclude_sensitivity") or list(_DEFAULT_EXCLUDE))}
         if include_sensitive_local_only:
             excluded = set()
 
@@ -140,4 +141,3 @@ _SERVICE = MemoryVaultExportService()
 
 def get_memory_vault_export_service() -> MemoryVaultExportService:
     return _SERVICE
-

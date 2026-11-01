@@ -131,7 +131,9 @@ class TurnObservationIngestionService:
             public_key = Ed25519PublicKey.from_public_bytes(
                 base64.b64decode(authorization.public_key_b64, validate=True)
             )
-            public_key.verify(base64.b64decode(signature_value, validate=True), b"ananta.turn-observation.v1\0" + canonical_bytes)
+            public_key.verify(
+                base64.b64decode(signature_value, validate=True), b"ananta.turn-observation.v1\0" + canonical_bytes
+            )
         except (ValueError, InvalidSignature) as exc:
             raise TurnObservationError("turn_observation_signature_invalid", 403) from exc
         now = float(self._clock())
@@ -141,9 +143,12 @@ class TurnObservationIngestionService:
             raise TurnObservationError("turn_observation_clock_skew")
         if window < 1 or window > self._max_window or document["window_started_at_seconds"] + window > measured + 1:
             raise TurnObservationError("turn_observation_window_invalid")
-        if self._repository.count_recent(
-            pool_id=document["pool_id"], instance_id=document["instance_id"], since=now - 60
-        ) >= self._max_rate:
+        if (
+            self._repository.count_recent(
+                pool_id=document["pool_id"], instance_id=document["instance_id"], since=now - 60
+            )
+            >= self._max_rate
+        ):
             raise TurnObservationError("turn_observation_rate_exceeded", 429)
         counters = document["counters"]
         known = all(value is not None for value in counters.values())

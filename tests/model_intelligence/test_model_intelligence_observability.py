@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-from ananta_contracts.model_intelligence import ArtifactRef
 from agent.services.model_intelligence_observability import (
-    HmacModelIntelligenceCorrelationService,
     JOB_STATES,
+    OPERATIONAL_SCENARIO_REASON_CODES,
+    HmacModelIntelligenceCorrelationService,
     ModelIntelligenceQuotaLimits,
     ModelIntelligenceQuotaPolicy,
     ModelIntelligenceResourceRequest,
-    OPERATIONAL_SCENARIO_REASON_CODES,
     TenantResourceSnapshot,
     operational_reason_code,
 )
+from ananta_contracts.model_intelligence import ArtifactRef
 from worker.model_intelligence.metrics import (
     WORKER_JOB_STATES,
     WORKER_OPERATIONAL_SCENARIOS,
@@ -79,16 +79,11 @@ def test_quota_policy_rejects_each_resource_before_execution(
         )
     )
 
-    assert (
-        policy.decide(TenantResourceSnapshot("tenant-a"), resource_request).reason_code
-        == reason_code
-    )
+    assert policy.decide(TenantResourceSnapshot("tenant-a"), resource_request).reason_code == reason_code
 
 
 def test_quota_boundaries_are_inclusive_and_tenant_mismatch_fails_closed() -> None:
-    policy = ModelIntelligenceQuotaPolicy(
-        ModelIntelligenceQuotaLimits(10, 10, 1, 10, max_vram_bytes=10)
-    )
+    policy = ModelIntelligenceQuotaPolicy(ModelIntelligenceQuotaLimits(10, 10, 1, 10, max_vram_bytes=10))
     exact = ModelIntelligenceResourceRequest(
         "tenant-a",
         disk_bytes=10,
@@ -98,10 +93,7 @@ def test_quota_boundaries_are_inclusive_and_tenant_mismatch_fails_closed() -> No
     )
 
     assert policy.decide(TenantResourceSnapshot("tenant-a"), exact).allowed is True
-    assert (
-        policy.decide(TenantResourceSnapshot("tenant-b"), exact).reason_code
-        == "tenant_scope_mismatch"
-    )
+    assert policy.decide(TenantResourceSnapshot("tenant-b"), exact).reason_code == "tenant_scope_mismatch"
 
 
 class _MetricSink:

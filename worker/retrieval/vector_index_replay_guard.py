@@ -19,9 +19,7 @@ from ananta_contracts.vector_index_dispatch import (
     canonicalize_vector_index_worker_audience,
 )
 
-_DEFAULT_LEDGER_PATH = (
-    "/app/data/vector-index-replay/vector-index-task-replay.sqlite3"
-)
+_DEFAULT_LEDGER_PATH = "/app/data/vector-index-replay/vector-index-task-replay.sqlite3"
 _DEFAULT_RECEIPT_RETENTION_SECONDS = 86_400.0
 _MIN_RECEIPT_RETENTION_SECONDS = 3_600.0
 _MAX_RECEIPT_RETENTION_SECONDS = 31_536_000.0
@@ -55,12 +53,7 @@ def _dispatch_receipt(
     if (
         not normalized_job_id
         or len(normalized_job_id.encode("utf-8")) > 256
-        or any(
-            character.isspace()
-            or ord(character) < 32
-            or ord(character) == 127
-            for character in normalized_job_id
-        )
+        or any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in normalized_job_id)
         or _ATTEMPT_ID.fullmatch(normalized_attempt_id) is None
         or isinstance(sequence, bool)
         or not isinstance(sequence, int)
@@ -71,22 +64,15 @@ def _dispatch_receipt(
     try:
         normalized_expiry = float(expires_at)
     except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "vector_index_replay_receipt_invalid"
-        ) from exc
-    if (
-        not math.isfinite(normalized_expiry)
-        or normalized_expiry <= 0
-    ):
+        raise ValueError("vector_index_replay_receipt_invalid") from exc
+    if not math.isfinite(normalized_expiry) or normalized_expiry <= 0:
         raise ValueError("vector_index_replay_receipt_invalid")
     return _DispatchReceipt(
         job_id=normalized_job_id,
         attempt_id=normalized_attempt_id,
         sequence=sequence,
         phase=normalized_phase,
-        audience=canonicalize_vector_index_worker_audience(
-            audience
-        ),
+        audience=canonicalize_vector_index_worker_audience(audience),
         expires_at=normalized_expiry,
     )
 
@@ -134,17 +120,8 @@ class InMemoryVectorIndexReplayGuard:
         )
         key = (receipt.job_id, receipt.attempt_id)
         with self._lock:
-            high_watermark = self._high_watermarks.get(
-                receipt.job_id
-            )
-            if (
-                key in self._consumed
-                or (
-                    high_watermark is not None
-                    and receipt.sequence
-                    <= high_watermark.sequence
-                )
-            ):
+            high_watermark = self._high_watermarks.get(receipt.job_id)
+            if key in self._consumed or (high_watermark is not None and receipt.sequence <= high_watermark.sequence):
                 raise ValueError("vector_index_task_replay_detected")
             self._consumed.add(key)
             self._high_watermarks[receipt.job_id] = receipt
@@ -177,38 +154,23 @@ class SqliteVectorIndexReplayGuard:
         self,
         path: str | Path,
         *,
-        receipt_retention_seconds: float = (
-            _DEFAULT_RECEIPT_RETENTION_SECONDS
-        ),
+        receipt_retention_seconds: float = (_DEFAULT_RECEIPT_RETENTION_SECONDS),
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._path = Path(path)
-        if (
-            not self._path.is_absolute()
-            or not self._path.name
-        ):
-            raise RuntimeError(
-                "vector_index_replay_ledger_path_invalid"
-            )
+        if not self._path.is_absolute() or not self._path.name:
+            raise RuntimeError("vector_index_replay_ledger_path_invalid")
         if self._path.resolve(strict=False) != self._path:
-            raise RuntimeError(
-                "vector_index_replay_ledger_unsafe"
-            )
+            raise RuntimeError("vector_index_replay_ledger_unsafe")
         try:
             retention = float(receipt_retention_seconds)
         except (TypeError, ValueError) as exc:
-            raise RuntimeError(
-                "vector_index_replay_retention_invalid"
-            ) from exc
+            raise RuntimeError("vector_index_replay_retention_invalid") from exc
         if (
             not math.isfinite(retention)
-            or not _MIN_RECEIPT_RETENTION_SECONDS
-            <= retention
-            <= _MAX_RECEIPT_RETENTION_SECONDS
+            or not _MIN_RECEIPT_RETENTION_SECONDS <= retention <= _MAX_RECEIPT_RETENTION_SECONDS
         ):
-            raise RuntimeError(
-                "vector_index_replay_retention_invalid"
-            )
+            raise RuntimeError("vector_index_replay_retention_invalid")
         self._receipt_retention_seconds = retention
         self._clock = clock
         self._parent_identity: tuple[int, int] | None = None
@@ -291,19 +253,9 @@ class SqliteVectorIndexReplayGuard:
     def _directory_open_flags() -> int:
         no_follow = getattr(os, "O_NOFOLLOW", None)
         directory = getattr(os, "O_DIRECTORY", None)
-        if (
-            not isinstance(no_follow, int)
-            or no_follow == 0
-            or not isinstance(directory, int)
-            or directory == 0
-        ):
+        if not isinstance(no_follow, int) or no_follow == 0 or not isinstance(directory, int) or directory == 0:
             raise RuntimeError("vector_index_replay_ledger_unsafe")
-        return (
-            os.O_RDONLY
-            | no_follow
-            | directory
-            | int(getattr(os, "O_CLOEXEC", 0))
-        )
+        return os.O_RDONLY | no_follow | directory | int(getattr(os, "O_CLOEXEC", 0))
 
     @staticmethod
     def _validate_directory_metadata(
@@ -313,24 +265,13 @@ class SqliteVectorIndexReplayGuard:
     ) -> None:
         effective_uid = getattr(os, "geteuid", lambda: -1)()
         mode = metadata.st_mode
-        if (
-            not stat.S_ISDIR(mode)
-            or metadata.st_uid not in {0, effective_uid}
-        ):
+        if not stat.S_ISDIR(mode) or metadata.st_uid not in {0, effective_uid}:
             raise RuntimeError("vector_index_replay_ledger_unsafe")
         if direct_parent:
-            if (
-                mode & (stat.S_IRWXG | stat.S_IRWXO)
-                or mode & stat.S_IRWXU != stat.S_IRWXU
-            ):
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+            if mode & (stat.S_IRWXG | stat.S_IRWXO) or mode & stat.S_IRWXU != stat.S_IRWXU:
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             return
-        if (
-            mode & (stat.S_IWGRP | stat.S_IWOTH)
-            and not mode & stat.S_ISVTX
-        ):
+        if mode & (stat.S_IWGRP | stat.S_IWOTH) and not mode & stat.S_ISVTX:
             raise RuntimeError("vector_index_replay_ledger_unsafe")
 
     def _open_parent_chain(self, *, create: bool) -> int:
@@ -338,9 +279,7 @@ class SqliteVectorIndexReplayGuard:
         try:
             descriptor = os.open("/", flags)
         except OSError as exc:
-            raise RuntimeError(
-                "vector_index_replay_ledger_unavailable"
-            ) from exc
+            raise RuntimeError("vector_index_replay_ledger_unavailable") from exc
         parts = self._path.parent.parts[1:]
         try:
             if not parts:
@@ -362,9 +301,7 @@ class SqliteVectorIndexReplayGuard:
                     )
                 except FileNotFoundError:
                     if not create:
-                        raise RuntimeError(
-                            "vector_index_replay_ledger_unavailable"
-                        ) from None
+                        raise RuntimeError("vector_index_replay_ledger_unavailable") from None
                     try:
                         os.mkdir(
                             component,
@@ -396,18 +333,14 @@ class SqliteVectorIndexReplayGuard:
                 int(descriptor_metadata.st_dev),
                 int(descriptor_metadata.st_ino),
             ):
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             return descriptor
         except RuntimeError:
             os.close(descriptor)
             raise
         except OSError as exc:
             os.close(descriptor)
-            raise RuntimeError(
-                "vector_index_replay_ledger_unsafe"
-            ) from exc
+            raise RuntimeError("vector_index_replay_ledger_unsafe") from exc
 
     def _open_parent_verified(self) -> int:
         descriptor = self._open_parent_chain(create=False)
@@ -417,13 +350,8 @@ class SqliteVectorIndexReplayGuard:
                 int(metadata.st_dev),
                 int(metadata.st_ino),
             )
-            if (
-                self._parent_identity is None
-                or identity != self._parent_identity
-            ):
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+            if self._parent_identity is None or identity != self._parent_identity:
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             return descriptor
         except Exception:
             os.close(descriptor)
@@ -456,11 +384,7 @@ class SqliteVectorIndexReplayGuard:
         if create:
             flags |= os.O_CREAT
         owns_parent_descriptor = parent_descriptor is None
-        parent = (
-            self._open_parent_verified()
-            if parent_descriptor is None
-            else parent_descriptor
-        )
+        parent = self._open_parent_verified() if parent_descriptor is None else parent_descriptor
         try:
             descriptor = os.open(
                 self._path.name,
@@ -471,9 +395,7 @@ class SqliteVectorIndexReplayGuard:
         except OSError as exc:
             if owns_parent_descriptor:
                 os.close(parent)
-            raise RuntimeError(
-                "vector_index_replay_ledger_unavailable"
-            ) from exc
+            raise RuntimeError("vector_index_replay_ledger_unavailable") from exc
         try:
             metadata = os.fstat(descriptor)
             if create:
@@ -486,9 +408,7 @@ class SqliteVectorIndexReplayGuard:
                         getattr(os, "geteuid", lambda: -1)(),
                     }
                 ):
-                    raise RuntimeError(
-                        "vector_index_replay_ledger_unsafe"
-                    )
+                    raise RuntimeError("vector_index_replay_ledger_unsafe")
                 os.fchmod(descriptor, 0o600)
                 metadata = os.fstat(descriptor)
             self._validate_file_metadata(metadata)
@@ -496,13 +416,8 @@ class SqliteVectorIndexReplayGuard:
                 int(metadata.st_dev),
                 int(metadata.st_ino),
             )
-            if (
-                self._identity is not None
-                and identity != self._identity
-            ):
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+            if self._identity is not None and identity != self._identity:
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             path_metadata = os.stat(
                 self._path.name,
                 dir_fd=parent,
@@ -512,9 +427,7 @@ class SqliteVectorIndexReplayGuard:
                 int(path_metadata.st_dev),
                 int(path_metadata.st_ino),
             ) != identity:
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             return descriptor
         except Exception:
             os.close(descriptor)
@@ -544,15 +457,9 @@ class SqliteVectorIndexReplayGuard:
         )
         connection: sqlite3.Connection | None = None
         try:
-            descriptor_path = (
-                Path("/proc/self/fd")
-                / str(parent_descriptor)
-                / self._path.name
-            )
+            descriptor_path = Path("/proc/self/fd") / str(parent_descriptor) / self._path.name
             if not Path("/proc/self/fd").is_dir():
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             connection = sqlite3.connect(
                 f"{descriptor_path.as_uri()}?mode=rw",
                 timeout=5.0,
@@ -562,20 +469,9 @@ class SqliteVectorIndexReplayGuard:
             self._assert_path_identity(
                 parent_descriptor=parent_descriptor,
             )
-            database_path = str(
-                connection.execute(
-                    "PRAGMA database_list"
-                ).fetchone()[2]
-                or ""
-            )
-            if (
-                not database_path
-                or Path(database_path).resolve(strict=True)
-                != self._path
-            ):
-                raise RuntimeError(
-                    "vector_index_replay_ledger_unsafe"
-                )
+            database_path = str(connection.execute("PRAGMA database_list").fetchone()[2] or "")
+            if not database_path or Path(database_path).resolve(strict=True) != self._path:
+                raise RuntimeError("vector_index_replay_ledger_unsafe")
             connection.execute("PRAGMA trusted_schema=OFF")
             yield connection
         finally:
@@ -604,16 +500,10 @@ class SqliteVectorIndexReplayGuard:
         try:
             now = float(self._clock())
         except (TypeError, ValueError) as exc:
-            raise RuntimeError(
-                "vector_index_replay_clock_invalid"
-            ) from exc
+            raise RuntimeError("vector_index_replay_clock_invalid") from exc
         if not math.isfinite(now) or now < 0:
-            raise RuntimeError(
-                "vector_index_replay_clock_invalid"
-            )
-        receipt_cutoff = (
-            now - self._receipt_retention_seconds
-        )
+            raise RuntimeError("vector_index_replay_clock_invalid")
+        receipt_cutoff = now - self._receipt_retention_seconds
         try:
             with self._connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -653,18 +543,11 @@ class SqliteVectorIndexReplayGuard:
                     or repeated_attempt is not None
                     or (
                         current is not None
-                        and (
-                            receipt.attempt_id
-                            == str(current[0])
-                            or receipt.sequence
-                            <= int(current[1])
-                        )
+                        and (receipt.attempt_id == str(current[0]) or receipt.sequence <= int(current[1]))
                     )
                 ):
                     connection.execute("ROLLBACK")
-                    raise ValueError(
-                        "vector_index_task_replay_detected"
-                    )
+                    raise ValueError("vector_index_task_replay_detected")
                 try:
                     connection.execute(
                         """
@@ -718,9 +601,7 @@ class SqliteVectorIndexReplayGuard:
                     )
                 except sqlite3.IntegrityError as exc:
                     connection.execute("ROLLBACK")
-                    raise ValueError(
-                        "vector_index_task_replay_detected"
-                    ) from exc
+                    raise ValueError("vector_index_task_replay_detected") from exc
                 self._assert_path_identity()
                 connection.execute("COMMIT")
                 self._assert_path_identity()
@@ -729,9 +610,7 @@ class SqliteVectorIndexReplayGuard:
         except RuntimeError:
             raise
         except sqlite3.Error as exc:
-            raise RuntimeError(
-                "vector_index_replay_ledger_unavailable"
-            ) from exc
+            raise RuntimeError("vector_index_replay_ledger_unavailable") from exc
 
 
 def build_vector_index_replay_guard(
@@ -740,28 +619,16 @@ def build_vector_index_replay_guard(
     """Build the production replay guard from the Worker environment."""
 
     values = os.environ if source is None else source
-    path = str(
-        values.get("ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE")
-        or _DEFAULT_LEDGER_PATH
-    ).strip()
-    if (
-        not path
-        or "\x00" in path
-        or not Path(path).is_absolute()
-    ):
+    path = str(values.get("ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE") or _DEFAULT_LEDGER_PATH).strip()
+    if not path or "\x00" in path or not Path(path).is_absolute():
         raise RuntimeError("vector_index_replay_ledger_path_invalid")
     retention_value = str(
-        values.get(
-            "ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS"
-        )
-        or _DEFAULT_RECEIPT_RETENTION_SECONDS
+        values.get("ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS") or _DEFAULT_RECEIPT_RETENTION_SECONDS
     ).strip()
     try:
         retention_seconds = float(retention_value)
     except (TypeError, ValueError) as exc:
-        raise RuntimeError(
-            "vector_index_replay_retention_invalid"
-        ) from exc
+        raise RuntimeError("vector_index_replay_retention_invalid") from exc
     return SqliteVectorIndexReplayGuard(
         path,
         receipt_retention_seconds=retention_seconds,

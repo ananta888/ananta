@@ -114,11 +114,7 @@ def test_impact_digest_is_stable_across_revocation_status_transition() -> None:
         tenant_id=scoped_principal.tenant_id,
         owner_subject=scoped_principal.subject,
         nodes=(root, child),
-        edges=(
-            SpeechLineageEdge(
-                "evidence", root.digest, "manifest", child.digest, "included_in"
-            ),
-        ),
+        edges=(SpeechLineageEdge("evidence", root.digest, "manifest", child.digest, "included_in"),),
     )
 
     before = service.impact(
@@ -162,16 +158,18 @@ def test_domain_rollback_does_not_publish_lineage_outbox_or_edges() -> None:
             raise RuntimeError("injected domain rollback")
 
     with Session(engine) as session:
-        assert session.exec(
-            select(SpeechLineageOutboxDB).where(
-                SpeechLineageOutboxDB.tenant_id == principal(prefix).tenant_id
-            )
-        ).all() == []
-        assert session.exec(
-            select(SpeechLineageNodeDB).where(
-                SpeechLineageNodeDB.tenant_id == principal(prefix).tenant_id
-            )
-        ).all() == []
+        assert (
+            session.exec(
+                select(SpeechLineageOutboxDB).where(SpeechLineageOutboxDB.tenant_id == principal(prefix).tenant_id)
+            ).all()
+            == []
+        )
+        assert (
+            session.exec(
+                select(SpeechLineageNodeDB).where(SpeechLineageNodeDB.tenant_id == principal(prefix).tenant_id)
+            ).all()
+            == []
+        )
 
 
 class _CrashAfterGraphWrite(SpeechEvidenceLineageRepository):
@@ -191,11 +189,7 @@ def test_outbox_crash_rolls_back_partial_graph_and_restart_recovers_exactly_once
             tenant_id=principal(prefix).tenant_id,
             owner_subject=principal(prefix).subject,
             nodes=(root, target),
-            edges=(
-                SpeechLineageEdge(
-                    "evidence", root.digest, "manifest", target.digest, "included_in"
-                ),
-            ),
+            edges=(SpeechLineageEdge("evidence", root.digest, "manifest", target.digest, "included_in"),),
             now_ms=1_000_000,
         )
         session.commit()
@@ -208,31 +202,37 @@ def test_outbox_crash_rolls_back_partial_graph_and_restart_recovers_exactly_once
         )
     with Session(engine) as session:
         event = session.exec(
-            select(SpeechLineageOutboxDB).where(
-                SpeechLineageOutboxDB.event_digest == event_digest
-            )
+            select(SpeechLineageOutboxDB).where(SpeechLineageOutboxDB.event_digest == event_digest)
         ).one()
         assert event.state == "pending" and event.attempt_count == 0
-        assert session.exec(
-            select(SpeechLineageNodeDB).where(
-                SpeechLineageNodeDB.tenant_id == principal(prefix).tenant_id
-            )
-        ).all() == []
-        assert session.exec(
-            select(SpeechLineageEdgeDB).where(
-                SpeechLineageEdgeDB.tenant_id == principal(prefix).tenant_id
-            )
-        ).all() == []
+        assert (
+            session.exec(
+                select(SpeechLineageNodeDB).where(SpeechLineageNodeDB.tenant_id == principal(prefix).tenant_id)
+            ).all()
+            == []
+        )
+        assert (
+            session.exec(
+                select(SpeechLineageEdgeDB).where(SpeechLineageEdgeDB.tenant_id == principal(prefix).tenant_id)
+            ).all()
+            == []
+        )
 
     restarted = SpeechEvidenceLineageRepository()
-    assert restarted.recover_pending(
-        tenant_id=principal(prefix).tenant_id,
-        owner_subject=principal(prefix).subject,
-    ) == 1
-    assert restarted.recover_pending(
-        tenant_id=principal(prefix).tenant_id,
-        owner_subject=principal(prefix).subject,
-    ) == 0
+    assert (
+        restarted.recover_pending(
+            tenant_id=principal(prefix).tenant_id,
+            owner_subject=principal(prefix).subject,
+        )
+        == 1
+    )
+    assert (
+        restarted.recover_pending(
+            tenant_id=principal(prefix).tenant_id,
+            owner_subject=principal(prefix).subject,
+        )
+        == 0
+    )
     page = restarted.traverse(
         tenant_id=principal(prefix).tenant_id,
         owner_subject=principal(prefix).subject,

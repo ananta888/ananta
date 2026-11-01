@@ -41,6 +41,7 @@ def test_keycloak_mini_import_e2e_offline(tmp_path: Path) -> None:
     citation = format_citation(descriptor=descriptor, snapshot=snapshot, output_format="long")
     assert "snapshot_id=" in citation["long"]
     # stable hash for same imported content
-    again = KeycloakDocsFetcher(snapshot_store=SourceSnapshotStore(root=tmp_path)).fetch(descriptor=descriptor, dry_run=False)
+    again = KeycloakDocsFetcher(snapshot_store=SourceSnapshotStore(root=tmp_path)).fetch(
+        descriptor=descriptor, dry_run=False
+    )
     assert again["snapshot"]["content_hash"] == snapshot["content_hash"]
-

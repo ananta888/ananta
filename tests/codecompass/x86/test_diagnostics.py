@@ -26,7 +26,6 @@ from agent.codecompass.x86.diagnostics import (
     UNSUPPORTED_X86_PROFILE,
     VALID_REASON_CODES,
     VALID_SEVERITIES,
-    X86Diagnostic,
     x86_diag_dict,
     x86_diagnostic,
 )
@@ -79,8 +78,10 @@ def test_x86_diagnostic_default_severity_is_error():
 
 def test_x86_diagnostic_includes_provenance():
     diag = x86_diagnostic(
-        "address_unresolved", "can't map 0x401014",
-        path="/tmp/x.bin", line=42,
+        "address_unresolved",
+        "can't map 0x401014",
+        path="/tmp/x.bin",
+        line=42,
     )
     assert diag.provenance["path"] == "/tmp/x.bin"
     assert diag.provenance["line"] == 42
@@ -91,9 +92,7 @@ def test_x86_diagnostic_invalid_severity_falls_back_to_error():
     assert diag.severity == "error"
 
 
-@pytest.mark.parametrize(
-    "severity", ["error", "warning", "info", "degraded"]
-)
+@pytest.mark.parametrize("severity", ["error", "warning", "info", "degraded"])
 def test_x86_diagnostic_accepts_all_valid_severities(severity):
     diag = x86_diagnostic("cfg_incomplete", "x", severity=severity)
     assert diag.severity == severity

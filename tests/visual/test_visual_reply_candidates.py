@@ -1,4 +1,5 @@
 """Tests for multi-candidate _spawn_visual_reply and _visual_session_settings."""
+
 from __future__ import annotations
 
 import importlib
@@ -28,12 +29,16 @@ def reset_visual_state():
 
 
 def _set_pug_settings(settings: dict) -> None:
-    from client_surfaces.operator_tui.config.user_config_manager import get_manager
     from client_surfaces.operator_tui.chat_state import make_session
+    from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
     mgr = get_manager()
     sess = make_session(
-        session_id="ananta-visual", name="Visual Snake Log",
-        icon="🐍", group="Konfiguration", settings=settings,
+        session_id="ananta-visual",
+        name="Visual Snake Log",
+        icon="🐍",
+        group="Konfiguration",
+        settings=settings,
     )
     mgr.save({"chat_sessions": [sess], "chat_active_session_id": ""})
     mgr.load()
@@ -92,6 +97,7 @@ def test_spawn_visual_reply_skips_when_pug_disabled(app, reset_visual_state, mon
     )
 
     from agent.routes.snakes_execution_routes import _spawn_visual_reply
+
     _spawn_visual_reply("/teams | h:Teams")
 
     # No AI message appended
@@ -101,6 +107,7 @@ def test_spawn_visual_reply_skips_when_pug_disabled(app, reset_visual_state, mon
 def test_spawn_visual_reply_skips_when_snapshot_unchanged(app, reset_visual_state, monkeypatch):
     """When the snapshot equals _visual_last_snapshot, early-return before any API call."""
     import agent.routes.snakes_execution_routes as ser
+
     ser._visual_last_snapshot = "/same | h:Same"
     _set_pug_settings({"predictive_guide_enabled": True})
 
@@ -111,6 +118,7 @@ def test_spawn_visual_reply_skips_when_snapshot_unchanged(app, reset_visual_stat
     )
 
     from agent.routes.snakes_execution_routes import _spawn_visual_reply
+
     _spawn_visual_reply("/same | h:Same")
 
     assert not called
@@ -119,7 +127,9 @@ def test_spawn_visual_reply_skips_when_snapshot_unchanged(app, reset_visual_stat
 def test_spawn_visual_reply_respects_throttle(app, reset_visual_state, monkeypatch):
     """When _visual_last_reply_at is recent, skip even if snapshot differs."""
     import time
+
     import agent.routes.snakes_execution_routes as ser
+
     ser._visual_last_snapshot = "/old"
     ser._visual_last_reply_at = time.time() - 1.0  # only 1s ago, throttle = 25s
     _set_pug_settings({"predictive_guide_enabled": True})
@@ -131,6 +141,7 @@ def test_spawn_visual_reply_respects_throttle(app, reset_visual_state, monkeypat
     )
 
     from agent.routes.snakes_execution_routes import _spawn_visual_reply
+
     _spawn_visual_reply("/new | h:New")
 
     assert not called
@@ -149,13 +160,7 @@ def test_spawn_visual_reply_uses_candidates_prompt_for_n_gt_1(app, reset_visual_
         if messages:
             captured_prompts.append(messages[0].get("content") or "")
         return {
-            "choices": [
-                {
-                    "message": {
-                        "content": '__CANDIDATES__: [{"label":"primary","bubble":"test","steps":[]}]'
-                    }
-                }
-            ]
+            "choices": [{"message": {"content": '__CANDIDATES__: [{"label":"primary","bubble":"test","steps":[]}]'}}]
         }
 
     # The visual-guide service early-returns when background threads are
@@ -181,8 +186,10 @@ def test_spawn_visual_reply_uses_candidates_prompt_for_n_gt_1(app, reset_visual_
     )
 
     from agent.routes import snakes_execution_routes as ser
+
     ser._visual_last_reply_at = 0.0
     from agent.routes.snakes_execution_routes import _spawn_visual_reply
+
     _spawn_visual_reply("/teams | h:Teams")
 
     assert captured_prompts, "LLM was not called"
@@ -198,11 +205,7 @@ def test_spawn_visual_reply_uses_guide_prompt_for_single_candidate(app, reset_vi
     def _fake_chat_call(messages, **_):
         if messages:
             captured_prompts.append(messages[0].get("content") or "")
-        return {
-            "choices": [
-                {"message": {"content": "Hier ist ein Hinweis."}}
-            ]
-        }
+        return {"choices": [{"message": {"content": "Hier ist ein Hinweis."}}]}
 
     monkeypatch.setattr(
         "agent.services.visual_guide.service._background_threads_disabled",
@@ -223,8 +226,10 @@ def test_spawn_visual_reply_uses_guide_prompt_for_single_candidate(app, reset_vi
     )
 
     from agent.routes import snakes_execution_routes as ser
+
     ser._visual_last_reply_at = 0.0
     from agent.routes.snakes_execution_routes import _spawn_visual_reply
+
     _spawn_visual_reply("/chats | h:Chats")
 
     assert captured_prompts

@@ -114,8 +114,7 @@ class CodeCompassArchitectureSliceService:
             "edges": applied["edges"],
             "summaries": [item["short_summary"] for item in nodes if item.get("short_summary")],
             "evidence": [
-                {"path": item.get("path") or "", "source_refs": item.get("source_refs") or []}
-                for item in nodes
+                {"path": item.get("path") or "", "source_refs": item.get("source_refs") or []} for item in nodes
             ],
             "budgets": applied["budget"],
             "truncated": bool(applied["truncated"]),
@@ -184,13 +183,10 @@ class CodeCompassArchitectureSliceService:
             if relevance <= 0:
                 continue
             path = str(node.get("path") or "").replace("\\", "/").lower()
-            broad_codecompass_overview = (
-                "codecompass" in tokens
-                and not (tokens & {"x86", "malware", "binary", "disassembly"})
+            broad_codecompass_overview = "codecompass" in tokens and not (
+                tokens & {"x86", "malware", "binary", "disassembly"}
             )
-            if broad_codecompass_overview and path.startswith(
-                ("agent/codecompass/x86", "frontend-angular/")
-            ):
+            if broad_codecompass_overview and path.startswith(("agent/codecompass/x86", "frontend-angular/")):
                 continue
             if path.startswith(("artifacts/", "tests/", "docs/", "reference_sources/")):
                 relevance *= 0.2
@@ -206,9 +202,7 @@ class CodeCompassArchitectureSliceService:
                 )
             ):
                 relevance *= 2.0
-            if "codecompass" in tokens and path.startswith(
-                _CODECOMPASS_OVERVIEW_ENTRYPOINTS
-            ):
+            if "codecompass" in tokens and path.startswith(_CODECOMPASS_OVERVIEW_ENTRYPOINTS):
                 relevance += 18.0
             scored.append((relevance + level_bonus, node))
         scored.sort(key=lambda item: (-item[0], item[1].get("id")))
@@ -219,9 +213,7 @@ class CodeCompassArchitectureSliceService:
         return sorted(
             nodes,
             key=lambda node: (
-                -{"system": 5, "subsystem": 4, "component": 3, "file": 1}.get(
-                    str(node.get("level")), 0
-                ),
+                -{"system": 5, "subsystem": 4, "component": 3, "file": 1}.get(str(node.get("level")), 0),
                 str(node.get("id") or ""),
             ),
         )

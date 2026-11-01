@@ -57,8 +57,12 @@ def _is_quarantined(entry: MemoryEntryDB) -> bool:
 
 class MemoryEntryRepository:
     def get_by_namespace(
-        self, namespace: MemoryNamespace, scope: MemoryScope, *,
-        sensitivity_ceiling: MemorySensitivity = MemorySensitivity.internal, limit: int = 100,
+        self,
+        namespace: MemoryNamespace,
+        scope: MemoryScope,
+        *,
+        sensitivity_ceiling: MemorySensitivity = MemorySensitivity.internal,
+        limit: int = 100,
     ) -> List[MemoryEntryDB]:
         """Strict path: hard SQL namespace predicates, no fallback to legacy rows."""
         namespace.key(scope)
@@ -77,13 +81,19 @@ class MemoryEntryRepository:
                     continue
             except (TypeError, ValueError):
                 continue
-            if (not _is_expired(row) and
-                    (row.memory_metadata.get("memory_quarantine") or {}).get("state", "active") == "active"):
+            if (
+                not _is_expired(row)
+                and (row.memory_metadata.get("memory_quarantine") or {}).get("state", "active") == "active"
+            ):
                 result.append(row)
         return result
 
     def migrate_security_metadata(
-        self, *, limit: int = 1000, after_id: str | None = None, dry_run: bool = False,
+        self,
+        *,
+        limit: int = 1000,
+        after_id: str | None = None,
+        dry_run: bool = False,
         batch_id: str | None = None,
         admit_namespaces: bool = False,
     ) -> dict:
@@ -91,7 +101,10 @@ class MemoryEntryRepository:
         from agent.repositories.memory_migration import MemoryMetadataMigrationRepository
 
         return MemoryMetadataMigrationRepository(_engine()).migrate(
-            limit=limit, after_id=after_id, dry_run=dry_run, batch_id=batch_id,
+            limit=limit,
+            after_id=after_id,
+            dry_run=dry_run,
+            batch_id=batch_id,
             admit_namespaces=admit_namespaces,
         )
 

@@ -78,15 +78,9 @@ class JavaSemanticAdapter:
     def __init__(
         self,
         *,
-        symbol_identity: (
-            SemanticSymbolIdentityPort
-            | LegacySemanticSymbolIdentityPort
-            | None
-        ) = None,
+        symbol_identity: (SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort | None) = None,
     ) -> None:
-        self._symbol_identity = (
-            symbol_identity or DeterministicSemanticSymbolIdentityFactory()
-        )
+        self._symbol_identity = symbol_identity or DeterministicSemanticSymbolIdentityFactory()
 
     def detect(self, path: str, content: str) -> bool:
         del content
@@ -203,12 +197,8 @@ class JavaSemanticAdapter:
                 symbol_kind="module",
                 canonical_id=canonical_module_id,
                 local_qualifier=module_name,
-                provenance_line_start=int(
-                    imported.get("line_start") or 1
-                ),
-                provenance_column_start=int(
-                    imported.get("column_start") or 1
-                ),
+                provenance_line_start=int(imported.get("line_start") or 1),
+                provenance_column_start=int(imported.get("column_start") or 1),
             )
             if module_id not in module_node_ids:
                 nodes.append(
@@ -220,9 +210,7 @@ class JavaSemanticAdapter:
                         symbol=module_name,
                         attributes={
                             **imported,
-                            **semantic_identity_attributes(
-                                canonical_module_id
-                            ),
+                            **semantic_identity_attributes(canonical_module_id),
                         },
                         provenance=Provenance(
                             file=path,
@@ -249,29 +237,21 @@ class JavaSemanticAdapter:
         local_type_candidates: dict[str, set[str]] = {}
         for item in parsed.get("types") or []:
             type_name = str(item.get("qualified_name") or item["name"])
-            canonical_type_id = (
-                f"semantic:java:{item['kind']}:{type_name}"
-            )
+            canonical_type_id = f"semantic:java:{item['kind']}:{type_name}"
             type_id = self._local_id(
                 path=path,
                 symbol_kind="type",
                 canonical_id=canonical_type_id,
                 local_qualifier=f"{item['kind']}:{type_name}",
                 provenance_line_start=int(item["line_start"]),
-                provenance_column_start=int(
-                    item.get("column_start") or 1
-                ),
+                provenance_column_start=int(item.get("column_start") or 1),
             )
-            type_entries.append(
-                (item, type_name, canonical_type_id, type_id)
-            )
+            type_entries.append((item, type_name, canonical_type_id, type_id))
             for alias in {str(item["name"]), type_name}:
                 local_type_candidates.setdefault(alias, set()).add(type_id)
 
         local_type_by_name = {
-            alias: next(iter(candidates))
-            for alias, candidates in local_type_candidates.items()
-            if len(candidates) == 1
+            alias: next(iter(candidates)) for alias, candidates in local_type_candidates.items() if len(candidates) == 1
         }
 
         for item, type_name, canonical_type_id, type_id in type_entries:
@@ -304,37 +284,27 @@ class JavaSemanticAdapter:
             ).as_record()
             nodes.append(type_node)
             for prop in item.get("properties") or []:
-                canonical_prop_id = (
-                    f"{canonical_type_id}:property:{prop['name']}"
-                )
+                canonical_prop_id = f"{canonical_type_id}:property:{prop['name']}"
                 prop_id = self._local_id(
                     path=path,
                     symbol_kind="property",
                     canonical_id=canonical_prop_id,
-                    local_qualifier=(
-                        f"{type_name}.property:{prop['name']}"
-                    ),
+                    local_qualifier=(f"{type_name}.property:{prop['name']}"),
                     provenance_line_start=int(prop["line_start"]),
-                    provenance_column_start=int(
-                        prop.get("column_start") or 1
-                    ),
+                    provenance_column_start=int(prop.get("column_start") or 1),
                 )
                 nodes.append(
                     SemanticNode(
                         id=prop_id,
                         kind="semantic_node",
                         semantic_kind=(
-                            "optional_absence"
-                            if prop.get("nullability") == "optional_absence"
-                            else "property"
+                            "optional_absence" if prop.get("nullability") == "optional_absence" else "property"
                         ),
                         language="java",
                         symbol=f"{item['name']}.{prop['name']}",
                         attributes={
                             **prop,
-                            **semantic_identity_attributes(
-                                canonical_prop_id
-                            ),
+                            **semantic_identity_attributes(canonical_prop_id),
                         },
                         provenance=Provenance(
                             file=path,
@@ -349,20 +319,14 @@ class JavaSemanticAdapter:
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=prop_id, edge_type="declares").as_record())
             for enum_value in item.get("enum_values") or []:
-                canonical_value_id = (
-                    f"{canonical_type_id}:enum:{enum_value}"
-                )
+                canonical_value_id = f"{canonical_type_id}:enum:{enum_value}"
                 value_id = self._local_id(
                     path=path,
                     symbol_kind="enum_value",
                     canonical_id=canonical_value_id,
-                    local_qualifier=(
-                        f"{type_name}.enum:{enum_value}"
-                    ),
+                    local_qualifier=(f"{type_name}.enum:{enum_value}"),
                     provenance_line_start=int(item["line_start"]),
-                    provenance_column_start=int(
-                        item.get("column_start") or 1
-                    ),
+                    provenance_column_start=int(item.get("column_start") or 1),
                 )
                 nodes.append(
                     SemanticNode(
@@ -373,9 +337,7 @@ class JavaSemanticAdapter:
                         symbol=f"{item['name']}.{enum_value}",
                         attributes={
                             "name": enum_value,
-                            **semantic_identity_attributes(
-                                canonical_value_id
-                            ),
+                            **semantic_identity_attributes(canonical_value_id),
                         },
                         provenance=Provenance(
                             file=path,
@@ -390,9 +352,7 @@ class JavaSemanticAdapter:
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=value_id, edge_type="declares").as_record())
             for method in item.get("methods") or []:
-                canonical_method_id = (
-                    f"{canonical_type_id}:method:{method['name']}"
-                )
+                canonical_method_id = f"{canonical_type_id}:method:{method['name']}"
                 method_qualifier = self._method_qualifier(
                     type_name=type_name,
                     method=method,
@@ -403,9 +363,7 @@ class JavaSemanticAdapter:
                     canonical_id=canonical_method_id,
                     local_qualifier=method_qualifier,
                     provenance_line_start=int(method["line_start"]),
-                    provenance_column_start=int(
-                        method.get("column_start") or 1
-                    ),
+                    provenance_column_start=int(method.get("column_start") or 1),
                 )
                 nodes.append(
                     SemanticNode(
@@ -416,9 +374,7 @@ class JavaSemanticAdapter:
                         symbol=f"{item['name']}.{method['name']}",
                         attributes={
                             **method,
-                            **semantic_identity_attributes(
-                                canonical_method_id
-                            ),
+                            **semantic_identity_attributes(canonical_method_id),
                         },
                         provenance=Provenance(
                             file=path,
@@ -433,20 +389,14 @@ class JavaSemanticAdapter:
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=method_id, edge_type="declares").as_record())
                 for thrown in method.get("throws") or []:
-                    canonical_thrown_id = (
-                        f"{canonical_method_id}:throws:{thrown}"
-                    )
+                    canonical_thrown_id = f"{canonical_method_id}:throws:{thrown}"
                     thrown_id = self._local_id(
                         path=path,
                         symbol_kind="exception",
                         canonical_id=canonical_thrown_id,
-                        local_qualifier=(
-                            f"{method_qualifier}:throws:{thrown}"
-                        ),
+                        local_qualifier=(f"{method_qualifier}:throws:{thrown}"),
                         provenance_line_start=int(method["line_start"]),
-                        provenance_column_start=int(
-                            method.get("column_start") or 1
-                        ),
+                        provenance_column_start=int(method.get("column_start") or 1),
                     )
                     nodes.append(
                         SemanticNode(
@@ -457,9 +407,7 @@ class JavaSemanticAdapter:
                             symbol=thrown,
                             attributes={
                                 "throws": thrown,
-                                **semantic_identity_attributes(
-                                    canonical_thrown_id
-                                ),
+                                **semantic_identity_attributes(canonical_thrown_id),
                             },
                             provenance=Provenance(
                                 file=path,
@@ -475,14 +423,10 @@ class JavaSemanticAdapter:
                     edges.append(SemanticEdge(source_id=method_id, target_id=thrown_id, edge_type="throws").as_record())
             if item.get("parent_type"):
                 parent_name = str(item["parent_type"])
-                parent_id = local_type_by_name.get(parent_name) or (
-                    f"semantic:java:class:{parent_name}"
-                )
+                parent_id = local_type_by_name.get(parent_name) or (f"semantic:java:class:{parent_name}")
                 edges.append(SemanticEdge(source_id=parent_id, target_id=type_id, edge_type="declares").as_record())
             for base_type in item.get("extends") or []:
-                target_id = local_type_by_name.get(str(base_type)) or (
-                    f"semantic:java:type:{base_type}"
-                )
+                target_id = local_type_by_name.get(str(base_type)) or (f"semantic:java:type:{base_type}")
                 edges.append(
                     SemanticEdge(
                         source_id=type_id,
@@ -491,9 +435,7 @@ class JavaSemanticAdapter:
                     ).as_record()
                 )
             for interface_type in item.get("implements") or []:
-                target_id = local_type_by_name.get(
-                    str(interface_type)
-                ) or f"semantic:java:type:{interface_type}"
+                target_id = local_type_by_name.get(str(interface_type)) or f"semantic:java:type:{interface_type}"
                 edges.append(
                     SemanticEdge(
                         source_id=type_id,
@@ -543,10 +485,7 @@ class JavaSemanticAdapter:
         )
         method_kind = str(method.get("kind") or "method")
         type_parameters = str(method.get("type_parameters") or "").strip()
-        return (
-            f"{type_name}.{method_kind}:{method['name']}"
-            f"{type_parameters}({parameter_types})"
-        )
+        return f"{type_name}.{method_kind}:{method['name']}{type_parameters}({parameter_types})"
 
     def _parse_imports(self, content: str) -> list[dict]:
         imports = []
@@ -556,10 +495,7 @@ class JavaSemanticAdapter:
                     "name": match.group("name"),
                     "kind": "static_import" if match.group("static") else "import",
                     "line_start": content.count("\n", 0, match.start()) + 1,
-                    "column_start": (
-                        match.start()
-                        - content.rfind("\n", 0, match.start())
-                    ),
+                    "column_start": (match.start() - content.rfind("\n", 0, match.start())),
                 }
             )
         return imports
@@ -581,10 +517,7 @@ class JavaSemanticAdapter:
                 "name": name,
                 "kind": kind,
                 "line_start": start_line,
-                "column_start": (
-                    match.start()
-                    - content.rfind("\n", 0, match.start())
-                ),
+                "column_start": (match.start() - content.rfind("\n", 0, match.start())),
                 "line_end": end_line,
                 "properties": [],
                 "methods": [],
@@ -632,9 +565,7 @@ class JavaSemanticAdapter:
         start_offset: int,
     ) -> list[dict]:
         props = []
-        for order, (part, relative_offset) in enumerate(
-            _split_top_level_commas_with_offsets(components)
-        ):
+        for order, (part, relative_offset) in enumerate(_split_top_level_commas_with_offsets(components)):
             tokens = part.strip().split()
             annotations = [token for token in tokens if token.startswith("@")]
             tokens = [token for token in tokens if not token.startswith("@")]
@@ -652,13 +583,8 @@ class JavaSemanticAdapter:
                     "annotations": annotations,
                     "nullability": nullability.state,
                     "warnings": list(nullability.warnings),
-                    "line_start": (
-                        content.count("\n", 0, absolute_offset) + 1
-                    ),
-                    "column_start": (
-                        absolute_offset
-                        - content.rfind("\n", 0, absolute_offset)
-                    ),
+                    "line_start": (content.count("\n", 0, absolute_offset) + 1),
+                    "column_start": (absolute_offset - content.rfind("\n", 0, absolute_offset)),
                 }
             )
         return props
@@ -689,13 +615,8 @@ class JavaSemanticAdapter:
                     "annotations": annotations,
                     "nullability": nullability.state,
                     "warnings": list(nullability.warnings),
-                    "line_start": (
-                        body_line_offset + body[: match.start()].count("\n")
-                    ),
-                    "column_start": (
-                        block_offset
-                        - block.rfind("\n", 0, block_offset)
-                    ),
+                    "line_start": (body_line_offset + body[: match.start()].count("\n")),
+                    "column_start": (block_offset - block.rfind("\n", 0, block_offset)),
                 }
             )
         return props
@@ -721,24 +642,23 @@ class JavaSemanticAdapter:
                 continue
             throws_raw = [item.strip() for item in (match.group("throws") or "").split(",") if item.strip()]
             classified_throws = [_classify_throw(exc) for exc in throws_raw]
-            methods.append({
-                "name": match.group("name"),
-                "return_type": return_type,
-                "parameters": self._parse_parameters(match.group("params") or ""),
-                "throws": throws_raw,
-                "throws_classified": classified_throws,
-                "visibility": match.group("visibility") or "package",
-                "static": bool(match.group("static")),
-                "final": bool(match.group("final")),
-                "annotations": re.findall(r"@\w+", match.group("annotations") or ""),
-                "side_effects": ["unknown_side_effect"],
-                "contracts": {"preconditions": [], "postconditions": [], "invariants": []},
-                "line_start": body_line_offset + body[: match.start()].count("\n"),
-                "column_start": (
-                    block_offset
-                    - block.rfind("\n", 0, block_offset)
-                ),
-            })
+            methods.append(
+                {
+                    "name": match.group("name"),
+                    "return_type": return_type,
+                    "parameters": self._parse_parameters(match.group("params") or ""),
+                    "throws": throws_raw,
+                    "throws_classified": classified_throws,
+                    "visibility": match.group("visibility") or "package",
+                    "static": bool(match.group("static")),
+                    "final": bool(match.group("final")),
+                    "annotations": re.findall(r"@\w+", match.group("annotations") or ""),
+                    "side_effects": ["unknown_side_effect"],
+                    "contracts": {"preconditions": [], "postconditions": [], "invariants": []},
+                    "line_start": body_line_offset + body[: match.start()].count("\n"),
+                    "column_start": (block_offset - block.rfind("\n", 0, block_offset)),
+                }
+            )
         return methods
 
     def _parse_parameters(self, params: str) -> list[dict]:
@@ -776,7 +696,7 @@ class JavaSemanticAdapter:
             elif content[index] == "}":
                 depth -= 1
                 if depth == 0:
-                    return content[: index].count("\n") + 1
+                    return content[:index].count("\n") + 1
         return content.count("\n") + 1
 
     def _preceding_annotations(self, lines: list[str], start_line: int) -> list[str]:
@@ -789,14 +709,26 @@ class JavaSemanticAdapter:
 
 
 _CHECKED_EXCEPTIONS = {
-    "Exception", "IOException", "SQLException", "ParseException", "ClassNotFoundException",
-    "InterruptedException", "CloneNotSupportedException", "ReflectiveOperationException",
+    "Exception",
+    "IOException",
+    "SQLException",
+    "ParseException",
+    "ClassNotFoundException",
+    "InterruptedException",
+    "CloneNotSupportedException",
+    "ReflectiveOperationException",
 }
 
 _UNCHECKED_EXCEPTIONS = {
-    "RuntimeException", "NullPointerException", "IllegalArgumentException",
-    "IllegalStateException", "IndexOutOfBoundsException", "UnsupportedOperationException",
-    "ArithmeticException", "ClassCastException", "ConcurrentModificationException",
+    "RuntimeException",
+    "NullPointerException",
+    "IllegalArgumentException",
+    "IllegalStateException",
+    "IndexOutOfBoundsException",
+    "UnsupportedOperationException",
+    "ArithmeticException",
+    "ClassCastException",
+    "ConcurrentModificationException",
 }
 
 _UNSUPPORTED_CONTROL_FLOW_RE = re.compile(r"\b(break|continue|synchronized|goto)\b")

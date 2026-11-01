@@ -93,10 +93,7 @@ class WorkerInProcessOpenMetricsPort:
                 key: SeriesKey = (series_name, labels)
                 for boundary in self._buckets:
                     bucket_labels = tuple(sorted((*labels, ("le", _number(boundary)))))
-                    lines.append(
-                        f"{name}_bucket{_labels(bucket_labels)} "
-                        f"{counts.get((key, boundary), 0)}"
-                    )
+                    lines.append(f"{name}_bucket{_labels(bucket_labels)} {counts.get((key, boundary), 0)}")
                 infinite_labels = tuple(sorted((*labels, ("le", "+Inf"))))
                 lines.append(f"{name}_bucket{_labels(infinite_labels)} {total}")
                 lines.append(f"{name}_sum{_labels(labels)} {_number(sums[key])}")

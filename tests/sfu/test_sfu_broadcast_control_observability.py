@@ -19,7 +19,6 @@ from agent.services.sfu_receiver_quality_ingestion_service import SfuReceiverQua
 from agent.services.sfu_runtime_observation_service import SfuRuntimeObservationService
 from agent.services.turn_accounting_service import TurnAccountingService
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

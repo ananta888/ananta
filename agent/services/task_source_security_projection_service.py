@@ -32,9 +32,7 @@ def redact_task_source_security_metadata(value: Any) -> Any:
     if isinstance(value, list):
         return [redact_task_source_security_metadata(item) for item in value]
     if isinstance(value, tuple):
-        return tuple(
-            redact_task_source_security_metadata(item) for item in value
-        )
+        return tuple(redact_task_source_security_metadata(item) for item in value)
     return value
 
 

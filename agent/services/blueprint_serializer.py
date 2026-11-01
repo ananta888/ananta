@@ -22,7 +22,9 @@ def _serialize_blueprint(
 ) -> dict:
     blueprint_dict = blueprint.model_dump()
     blueprint_roles = roles if roles is not None else _repos().blueprint_role_repo.get_by_blueprint(blueprint.id)
-    blueprint_artifacts = artifacts if artifacts is not None else _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+    blueprint_artifacts = (
+        artifacts if artifacts is not None else _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+    )
     blueprint_dict["roles"] = [role.model_dump() for role in blueprint_roles]
     blueprint_dict["artifacts"] = [artifact.model_dump() for artifact in blueprint_artifacts]
     # WFG-033: include the persisted workflow block. The
@@ -266,11 +268,18 @@ def _catalog_safety_review_stance(artifacts: list[BlueprintArtifactDB]) -> str:
 
 
 def _governance_profile_from_work_profile(work_profile: dict[str, Any]) -> dict[str, str]:
-    risk_profiles = {str(item).strip().lower() for item in (work_profile.get("risk_profiles") or []) if str(item).strip()}
+    risk_profiles = {
+        str(item).strip().lower() for item in (work_profile.get("risk_profiles") or []) if str(item).strip()
+    }
     policy_profiles = work_profile.get("policy_profiles") or []
-    strict_policy = any(str((item.get("payload") or {}).get("security_level") or "").strip().lower() == "strict" for item in policy_profiles)
+    strict_policy = any(
+        str((item.get("payload") or {}).get("security_level") or "").strip().lower() == "strict"
+        for item in policy_profiles
+    )
     review_gate = any(bool((item.get("payload") or {}).get("review_required", False)) for item in policy_profiles)
-    verification_required = any(bool((item.get("payload") or {}).get("verification_required", False)) for item in policy_profiles)
+    verification_required = any(
+        bool((item.get("payload") or {}).get("verification_required", False)) for item in policy_profiles
+    )
 
     if strict_policy or "strict" in risk_profiles:
         label = "Strict review profile"

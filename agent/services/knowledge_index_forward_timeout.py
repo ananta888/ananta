@@ -26,11 +26,7 @@ from ananta_contracts.knowledge_index_execution import (
 
 def _validated_execution_job(task: Mapping[str, Any]):
     worker_context = task.get("worker_execution_context")
-    bound_job = (
-        worker_context.get("knowledge_index_job")
-        if isinstance(worker_context, Mapping)
-        else None
-    )
+    bound_job = worker_context.get("knowledge_index_job") if isinstance(worker_context, Mapping) else None
     if not isinstance(bound_job, Mapping):
         raise ValueError("knowledge_index_execution_job_invalid")
 
@@ -57,19 +53,12 @@ def resolve_knowledge_index_forward_budget_seconds(
 ) -> int | None:
     """Return the exact transport budget from a fully parsed persisted job."""
 
-    if (
-        str(task.get("task_kind") or "").strip().lower()
-        != "codecompass_index_build"
-    ):
+    if str(task.get("task_kind") or "").strip().lower() != "codecompass_index_build":
         return None
     if str(dispatch_phase or "").strip().lower() != "execute":
         return None
     worker_context = task.get("worker_execution_context")
-    bound_job = (
-        worker_context.get("knowledge_index_job")
-        if isinstance(worker_context, Mapping)
-        else None
-    )
+    bound_job = worker_context.get("knowledge_index_job") if isinstance(worker_context, Mapping) else None
     if not isinstance(bound_job, Mapping):
         raise ValueError("knowledge_index_execution_binding_missing")
     bound_schema = str(bound_job.get("schema") or "").strip()
@@ -80,37 +69,22 @@ def resolve_knowledge_index_forward_budget_seconds(
     if bound_schema != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA:
         raise ValueError("knowledge_index_execution_binding_schema_unknown")
     parsed_job = _validated_execution_job(task)
-    full_budget_seconds = (
-        parsed_job.resources.max_runtime_seconds
-        + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
-    )
+    full_budget_seconds = parsed_job.resources.max_runtime_seconds + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
     manifest = bound_job.get(SOURCE_ACCESS_MANIFEST_FIELD)
     if not isinstance(manifest, Mapping):
         return full_budget_seconds
-    grant_expires_epoch_ms = manifest.get(
-        "grant_expires_at_epoch_ms"
-    )
+    grant_expires_epoch_ms = manifest.get("grant_expires_at_epoch_ms")
     if grant_expires_epoch_ms is None:
         return full_budget_seconds
-    if (
-        isinstance(grant_expires_epoch_ms, bool)
-        or not isinstance(grant_expires_epoch_ms, int)
-    ):
-        raise ValueError(
-            "knowledge_index_exact_retry_authority_window_invalid"
-        )
-    remaining_authority_ms = (
-        min(
-            parsed_job.assignment.lease_expires_epoch_ms,
-            grant_expires_epoch_ms,
-        )
-        - int(time.time() * 1000)
-    )
+    if isinstance(grant_expires_epoch_ms, bool) or not isinstance(grant_expires_epoch_ms, int):
+        raise ValueError("knowledge_index_exact_retry_authority_window_invalid")
+    remaining_authority_ms = min(
+        parsed_job.assignment.lease_expires_epoch_ms,
+        grant_expires_epoch_ms,
+    ) - int(time.time() * 1000)
     remaining_budget_seconds = remaining_authority_ms // 1000
     if remaining_budget_seconds < 1:
-        raise ValueError(
-            KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
-        )
+        raise ValueError(KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON)
     return min(full_budget_seconds, remaining_budget_seconds)
 
 

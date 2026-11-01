@@ -9,15 +9,14 @@ Security invariants:
 - Rejects requests from non-loopback IPs.
 - Returns minimal HTML pages — never embeds token values.
 """
+
 from __future__ import annotations
 
 import http.server
 import queue
-import socket
 import threading
 import urllib.parse
 from typing import Optional
-
 
 _SUCCESS_HTML = """\
 <!DOCTYPE html>

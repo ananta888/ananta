@@ -3,11 +3,12 @@
 Warum wurde welcher Worker/Expert gewählt?
 Jede Delegation erzeugt einen unveränderlichen DelegationTrace.
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # Valid reasons for not choosing a worker candidate
@@ -25,7 +26,7 @@ REASON_NOT_CHOSEN_VALUES = frozenset(
 @dataclass
 class WorkerAlternative:
     worker_id: str
-    reason_not_chosen: str   # "missing_capability" | "denied_provider" | "too_risky" | "unavailable" | "lower_score"
+    reason_not_chosen: str  # "missing_capability" | "denied_provider" | "too_risky" | "unavailable" | "lower_score"
     score: float | None
 
     def as_dict(self) -> dict[str, Any]:
@@ -45,8 +46,8 @@ class DelegationTrace:
     chosen_expert_id: str | None
     selection_reason: str
     policy_scope_id: str | None
-    context_provided: list[str]        # artifact_ids passed to the worker
-    tools_granted: list[str]           # always explicit, never implicit
+    context_provided: list[str]  # artifact_ids passed to the worker
+    tools_granted: list[str]  # always explicit, never implicit
     alternatives_considered: list[WorkerAlternative]
     created_at: float
 
@@ -97,7 +98,7 @@ class DelegationTraceService:
     ) -> DelegationTrace:
         """Create a DelegationTrace."""
         alts: list[WorkerAlternative] = []
-        for alt in (alternatives or []):
+        for alt in alternatives or []:
             if isinstance(alt, dict):
                 alts.append(_build_alternative(alt))
             elif isinstance(alt, WorkerAlternative):

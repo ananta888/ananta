@@ -90,10 +90,7 @@ def _contains_forbidden_data(value: Any, *, key: str = "") -> bool:
         if not normalized.endswith(_SAFE_SUFFIXES):
             return True
     if isinstance(value, Mapping):
-        return any(
-            _contains_forbidden_data(item, key=str(item_key))
-            for item_key, item in value.items()
-        )
+        return any(_contains_forbidden_data(item, key=str(item_key)) for item_key, item in value.items())
     if isinstance(value, (list, tuple)):
         return any(_contains_forbidden_data(item) for item in value)
     return isinstance(value, (bytes, bytearray, memoryview))
@@ -256,11 +253,7 @@ class MailTaskService:
         normalized: dict[str, str] = {}
         for key, item in raw.items():
             field = str(key or "").strip().lower()
-            if (
-                not field.endswith("_ref")
-                or not field.replace("_", "").isalnum()
-                or "credential" in field
-            ):
+            if not field.endswith("_ref") or not field.replace("_", "").isalnum() or "credential" in field:
                 raise ValueError("mail_task_policy_ref_field_invalid")
             normalized[field] = _safe_reference(str(item or ""), field=field)
         if _contains_forbidden_data(normalized):
@@ -294,10 +287,7 @@ class MailTaskService:
             return None
         verification = dict(raw.get("verification_status") or {})
         result = verification.get("mail_task_result")
-        control = dict(
-            dict(raw.get("worker_execution_context") or {}).get("mail_task_control")
-            or {}
-        )
+        control = dict(dict(raw.get("worker_execution_context") or {}).get("mail_task_control") or {})
         lease = dict(control.get("lease") or {})
         view: dict[str, Any] = {
             "job_id": envelope.get("job_id"),
@@ -375,10 +365,7 @@ class MailTaskService:
             raise ValueError("mail_task_idempotency_key_invalid")
         refs = self._normalize_policy_refs(policy_refs)
         operation_reference_values = self._normalize_operation_refs(operation_refs)
-        if (
-            normalized_operation in {"body", "mutation", "migration", "cutover"}
-            and not operation_reference_values
-        ):
+        if normalized_operation in {"body", "mutation", "migration", "cutover"} and not operation_reference_values:
             raise ValueError("mail_task_operation_ref_required")
         deadline = int(deadline_seconds)
         attempts = int(max_attempts)
@@ -386,18 +373,22 @@ class MailTaskService:
             raise ValueError("mail_task_deadline_invalid")
         if attempts < 1 or attempts > 5:
             raise ValueError("mail_task_retry_budget_invalid")
-        normalized_priority = str(
-            priority
-            or {
-                "cutover": "critical",
-                "mutation": "high",
-                "body": "high",
-                "discovery": "medium",
-                "migration": "medium",
-                "sync": "low",
-                "diagnose": "low",
-            }[normalized_operation]
-        ).strip().lower()
+        normalized_priority = (
+            str(
+                priority
+                or {
+                    "cutover": "critical",
+                    "mutation": "high",
+                    "body": "high",
+                    "discovery": "medium",
+                    "migration": "medium",
+                    "sync": "low",
+                    "diagnose": "low",
+                }[normalized_operation]
+            )
+            .strip()
+            .lower()
+        )
         if normalized_priority not in {"low", "medium", "high", "critical"}:
             raise ValueError("mail_task_priority_invalid")
         intent = {
@@ -409,13 +400,16 @@ class MailTaskService:
             "policy_refs": refs,
         }
         request_fingerprint = _digest(intent)
-        job_id = "mail-task-" + _digest(
-            {
-                "account_ref": account,
-                "workspace_scope": scope.to_dict(),
-                "idempotency_key": key,
-            }
-        )[:32]
+        job_id = (
+            "mail-task-"
+            + _digest(
+                {
+                    "account_ref": account,
+                    "workspace_scope": scope.to_dict(),
+                    "idempotency_key": key,
+                }
+            )[:32]
+        )
         with self._lock:
             existing = self.get_task(job_id)
             if existing is not None:
@@ -425,9 +419,7 @@ class MailTaskService:
             if normalized_operation == "sync":
                 active_sync = self._active_for_account(account, operation="sync")
                 if active_sync:
-                    coalesced = self.get_task(
-                        str(self._envelope(active_sync[0]).get("job_id") or "")
-                    )
+                    coalesced = self.get_task(str(self._envelope(active_sync[0]).get("job_id") or ""))
                     if coalesced is not None:
                         return {**coalesced, "coalesced": True}
             now = float(self._clock())
@@ -451,10 +443,7 @@ class MailTaskService:
                 task_id=job_id,
                 status="todo",
                 title=f"Mail {normalized_operation}: {_digest(account)[:12]}",
-                description=(
-                    "Hub-owned, worker-delegated mail operation. "
-                    "The envelope contains references only."
-                ),
+                description=("Hub-owned, worker-delegated mail operation. The envelope contains references only."),
                 priority=normalized_priority,
                 created_by=str(actor or "mail-control"),
                 source="mail_control",
@@ -532,12 +521,7 @@ class MailTaskService:
         if not envelope:
             raise ValueError("mail_task_not_found")
         if str(raw.get("status") or "").lower() not in _TERMINAL_STATUSES:
-            control = dict(
-                dict(raw.get("worker_execution_context") or {}).get(
-                    "mail_task_control"
-                )
-                or {}
-            )
+            control = dict(dict(raw.get("worker_execution_context") or {}).get("mail_task_control") or {})
             lease = dict(control.get("lease") or {})
             if int(lease.get("fencing_token") or 0) > 0:
                 self._leases().release(
@@ -569,13 +553,8 @@ class MailTaskService:
     ) -> int:
         self._require_hub()
         account = _safe_reference(account_ref, field="account_ref")
-        normalized_operation = (
-            str(operation).strip().lower() if operation is not None else None
-        )
-        if (
-            normalized_operation is not None
-            and normalized_operation not in MAIL_OPERATIONS
-        ):
+        normalized_operation = str(operation).strip().lower() if operation is not None else None
+        if normalized_operation is not None and normalized_operation not in MAIL_OPERATIONS:
             raise ValueError("mail_task_operation_invalid")
         rows = self._active_for_account(
             account,
@@ -690,14 +669,10 @@ class MailTaskService:
         if provider and provider not in MAIL_PROVIDERS:
             raise ValueError("mail_task_result_provider_invalid")
         reason = str(payload.get("reason_code") or "")
-        if reason and (
-            not reason.startswith("mail_") or not reason.replace("_", "").isalnum()
-        ):
+        if reason and (not reason.startswith("mail_") or not reason.replace("_", "").isalnum()):
             raise ValueError("mail_task_result_reason_invalid")
         refs = payload.get("result_refs")
-        if not isinstance(refs, list) or any(
-            _REFERENCE.fullmatch(str(item or "").strip()) is None for item in refs
-        ):
+        if not isinstance(refs, list) or any(_REFERENCE.fullmatch(str(item or "").strip()) is None for item in refs):
             raise ValueError("mail_task_result_refs_invalid")
         counters = payload.get("counters")
         if not isinstance(counters, Mapping) or any(
@@ -719,18 +694,12 @@ class MailTaskService:
         fencing = payload.get("lease_fencing_token")
         if isinstance(fencing, bool) or not isinstance(fencing, int) or fencing < 1:
             raise ValueError("mail_task_result_fencing_invalid")
-        control = dict(
-            dict(raw.get("worker_execution_context") or {}).get(
-                "mail_task_control"
-            )
-            or {}
-        )
+        control = dict(dict(raw.get("worker_execution_context") or {}).get("mail_task_control") or {})
         lease = dict(control.get("lease") or {})
         if (
             str(lease.get("job_id") or "") != job_id
             or int(lease.get("fencing_token") or 0) != fencing
-            or float(lease.get("expires_at") or 0.0)
-            <= float(self._clock())
+            or float(lease.get("expires_at") or 0.0) <= float(self._clock())
         ):
             raise ValueError("mail_task_result_lease_stale")
         if _contains_forbidden_data(payload):

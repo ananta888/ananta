@@ -37,7 +37,9 @@ def test_freecad_runtime_views_and_execution_stay_structured() -> None:
     )
     export_view = format_export_plan(client.request_export_plan(fmt="step", target_path="/tmp/out.step"))
     macro_view = format_macro_plan(client.request_macro_plan(objective="reduce weight"))
-    inspection_view = format_inspection_result({"document_name": "Doc", "object_count": 2, "visible_count": 1, "types": ["Body"], "warnings": []})
+    inspection_view = format_inspection_result(
+        {"document_name": "Doc", "object_count": 2, "visible_count": 1, "types": ["Body"], "warnings": []}
+    )
     progress = build_operation_state(status="running", progress_step=4)
 
     assert blocked["status"] == "blocked"

@@ -24,20 +24,14 @@ def _execution() -> dict:
 def test_projection_requires_refresh_immutable_content_and_revocation() -> None:
     execution = _execution()
 
-    assert projection_passed(
-        execution, expected_immutable_ref="git-commit:" + "a" * 40
-    )
+    assert projection_passed(execution, expected_immutable_ref="git-commit:" + "a" * 40)
 
     execution["revoked_index_reason"] = None
-    assert not projection_passed(
-        execution, expected_immutable_ref="git-commit:" + "a" * 40
-    )
+    assert not projection_passed(execution, expected_immutable_ref="git-commit:" + "a" * 40)
 
 
 def test_scope_assessment_does_not_call_broad_oauth_grant_least_privilege() -> None:
-    assessment = oauth_scope_assessment(
-        frozenset({"repo", "workflow", "gist"}), visibility="public"
-    )
+    assessment = oauth_scope_assessment(frozenset({"repo", "workflow", "gist"}), visibility="public")
 
     assert assessment["required_repository_scope_present"] is True
     assert assessment["minimal_for_visibility"] is False
@@ -45,9 +39,7 @@ def test_scope_assessment_does_not_call_broad_oauth_grant_least_privilege() -> N
 
 
 def test_scope_assessment_accepts_minimal_public_repository_grant() -> None:
-    assessment = oauth_scope_assessment(
-        frozenset({"public_repo"}), visibility="public"
-    )
+    assessment = oauth_scope_assessment(frozenset({"public_repo"}), visibility="public")
 
     assert assessment["required_repository_scope_present"] is True
     assert assessment["minimal_for_visibility"] is True

@@ -10,12 +10,8 @@ UNSLOTH_STUDIO_UPSTREAM_CONTRACT_VERSION = "unsloth.studio.api.2026-07.v1"
 UNSLOTH_STUDIO_PROBE_SCHEMA_VERSION = "ananta.unsloth-studio-probe.v1"
 UNSLOTH_MCP_PROTOCOL_VERSION = "2025-06-18"
 
-_TOKEN_FIELDS = frozenset(
-    {"access_token", "refresh_token", "token_type", "must_change_password"}
-)
-_AUTH_STATUS_FIELDS = frozenset(
-    {"initialized", "default_username", "requires_password_change"}
-)
+_TOKEN_FIELDS = frozenset({"access_token", "refresh_token", "token_type", "must_change_password"})
+_AUTH_STATUS_FIELDS = frozenset({"initialized", "default_username", "requires_password_change"})
 _HEALTH_REQUIRED_FIELDS = frozenset(
     {
         "status",
@@ -60,9 +56,7 @@ def validate_studio_token(value: Mapping[str, Any]) -> dict[str, Any]:
     data = _closed_mapping(value, _TOKEN_FIELDS, "Studio token")
     access_token = _bounded_token(data.get("access_token"), "access_token")
     refresh_token = _bounded_token(data.get("refresh_token"), "refresh_token")
-    if data.get("token_type") != "bearer" or not isinstance(
-        data.get("must_change_password"), bool
-    ):
+    if data.get("token_type") != "bearer" or not isinstance(data.get("must_change_password"), bool):
         raise IncompatibleUnslothStudioContract("Studio token metadata is incompatible")
     return {
         "access_token": access_token,
@@ -95,9 +89,8 @@ def validate_studio_health(
     if not isinstance(value, Mapping):
         raise IncompatibleUnslothStudioContract("Studio health must be an object")
     fields = set(value)
-    if (
-        not _HEALTH_REQUIRED_FIELDS.issubset(fields)
-        or not fields.issubset(_HEALTH_REQUIRED_FIELDS | _HEALTH_OPTIONAL_FIELDS)
+    if not _HEALTH_REQUIRED_FIELDS.issubset(fields) or not fields.issubset(
+        _HEALTH_REQUIRED_FIELDS | _HEALTH_OPTIONAL_FIELDS
     ):
         raise IncompatibleUnslothStudioContract("Studio health fields are incompatible")
     data = dict(value)
@@ -159,10 +152,7 @@ def compose_studio_probe(
     expected_studio_version: str,
 ) -> dict[str, Any]:
     auth = validate_auth_status(auth_status)
-    if (
-        auth["initialized"] is not True
-        or auth["requires_password_change"] is not False
-    ):
+    if auth["initialized"] is not True or auth["requires_password_change"] is not False:
         raise IncompatibleUnslothStudioContract("Studio authentication is not production-ready")
     probe = validate_studio_health(
         health,
@@ -192,7 +182,8 @@ def validate_mcp_tools_list(
     required_tool_schemas: Mapping[
         str,
         Mapping[str, Any],
-    ] | None = None,
+    ]
+    | None = None,
 ) -> dict[str, Any]:
     data = _closed_mapping(
         value,
@@ -215,10 +206,7 @@ def validate_mcp_tools_list(
         if not isinstance(item, Mapping):
             raise IncompatibleUnslothStudioContract("MCP tool descriptor is incompatible")
         fields = set(item)
-        if (
-            not {"name", "inputSchema"}.issubset(fields)
-            or not fields.issubset(_MCP_TOOL_FIELDS)
-        ):
+        if not {"name", "inputSchema"}.issubset(fields) or not fields.issubset(_MCP_TOOL_FIELDS):
             raise IncompatibleUnslothStudioContract("MCP tool descriptor fields are incompatible")
         name = _bounded_identifier(item.get("name"), "MCP tool name")
         schema = item.get("inputSchema")
@@ -258,20 +246,15 @@ def _validate_required_mcp_tool_schema(
         or set(upstream_properties) != set(expected_properties)
         or set(upstream_required) != set(expected_required)
     ):
-        raise IncompatibleUnslothStudioContract(
-            "MCP input schema is incompatible"
-        )
+        raise IncompatibleUnslothStudioContract("MCP input schema is incompatible")
     for name, expected_property in expected_properties.items():
         upstream_property = upstream_properties.get(name)
         if (
             not isinstance(expected_property, Mapping)
             or not isinstance(upstream_property, Mapping)
-            or upstream_property.get("type")
-            != expected_property.get("type")
+            or upstream_property.get("type") != expected_property.get("type")
         ):
-            raise IncompatibleUnslothStudioContract(
-                "MCP input schema is incompatible"
-            )
+            raise IncompatibleUnslothStudioContract("MCP input schema is incompatible")
 
 
 def validate_mcp_call_result(
@@ -303,12 +286,7 @@ def _closed_mapping(value: Any, fields: frozenset[str], name: str) -> dict[str, 
 
 
 def _bounded_token(value: Any, name: str) -> str:
-    if (
-        not isinstance(value, str)
-        or not 16 <= len(value) <= 4096
-        or "\r" in value
-        or "\n" in value
-    ):
+    if not isinstance(value, str) or not 16 <= len(value) <= 4096 or "\r" in value or "\n" in value:
         raise IncompatibleUnslothStudioContract(f"Studio {name} is invalid")
     return value
 
@@ -327,10 +305,7 @@ def _bounded_identifier(value: Any, name: str) -> str:
     if (
         not isinstance(value, str)
         or not 1 <= len(value) <= 128
-        or any(
-            not (character.isalnum() or character in {"_", "-", ".", ":"})
-            for character in value
-        )
+        or any(not (character.isalnum() or character in {"_", "-", ".", ":"}) for character in value)
     ):
         raise IncompatibleUnslothStudioContract(f"{name} is invalid")
     return value
@@ -339,10 +314,6 @@ def _bounded_identifier(value: Any, name: str) -> str:
 def _bounded_optional_text(value: Any, name: str, *, maximum: int) -> str | None:
     if value is None:
         return None
-    if (
-        not isinstance(value, str)
-        or len(value) > maximum
-        or any(not character.isprintable() for character in value)
-    ):
+    if not isinstance(value, str) or len(value) > maximum or any(not character.isprintable() for character in value):
         raise IncompatibleUnslothStudioContract(f"Studio {name} is invalid")
     return value

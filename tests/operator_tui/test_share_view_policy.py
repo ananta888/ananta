@@ -1,15 +1,14 @@
 """SS05.02: Tests für View-Share Policy und Redaction."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from client_surfaces.operator_tui.share_view_policy import (
     ViewSharePolicy,
+    apply_redaction,
     build_default_policy,
     build_policy_from_session_permissions,
-    apply_redaction,
-    check_snapshot,
     check_and_redact_snapshot,
+    check_snapshot,
 )
 
 

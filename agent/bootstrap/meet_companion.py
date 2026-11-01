@@ -6,8 +6,9 @@ from agent.services.meet_companion_task_grants import MeetCompanionTaskGrants
 
 
 def configure_companion_task_grants(app, authority, issuer):
-    flag = app.config.get("ANANTA_MEET_COMPANION_TASK_GRANTS_ENABLED",
-                          os.environ.get("ANANTA_MEET_COMPANION_TASK_GRANTS_ENABLED", "0"))
+    flag = app.config.get(
+        "ANANTA_MEET_COMPANION_TASK_GRANTS_ENABLED", os.environ.get("ANANTA_MEET_COMPANION_TASK_GRANTS_ENABLED", "0")
+    )
     if str(flag).lower() not in {"1", "true"}:
         return
     if app.config.get("ROLE") != "hub" or authority is None or issuer is None:
@@ -17,8 +18,9 @@ def configure_companion_task_grants(app, authority, issuer):
 
 
 def configure_companion_task_tools(app, authority):
-    flag = app.config.get("ANANTA_MEET_COMPANION_TASK_TOOLS_ENABLED",
-                          os.environ.get("ANANTA_MEET_COMPANION_TASK_TOOLS_ENABLED", "0"))
+    flag = app.config.get(
+        "ANANTA_MEET_COMPANION_TASK_TOOLS_ENABLED", os.environ.get("ANANTA_MEET_COMPANION_TASK_TOOLS_ENABLED", "0")
+    )
     if str(flag).lower() not in {"1", "true"}:
         return
     if app.config.get("ROLE") != "hub" or "meet_companion_task_grants" not in app.extensions:
@@ -38,17 +40,25 @@ def configure_companion_task_tools(app, authority):
     attempts = SqlCompanionToolAttempts(engine)
     attempts.initialize()
     app.extensions["meet_companion_task_tools"] = MeetCompanionTaskTools(
-        authority, HubCompanionToolPolicy(app, get_operation_registry_service(), get_operation_policy_service(),
-                                         observer=get_operation_policy_observability_service()),
-        HubCompanionToolExecution(app, get_mcp_registry_service()), sources, get_hub_evidence_registry_service(),
+        authority,
+        HubCompanionToolPolicy(
+            app,
+            get_operation_registry_service(),
+            get_operation_policy_service(),
+            observer=get_operation_policy_observability_service(),
+        ),
+        HubCompanionToolExecution(app, get_mcp_registry_service()),
+        sources,
+        get_hub_evidence_registry_service(),
         attempts=attempts,
     )
     configure_companion_model_runs(app, authority, app.extensions["meet_companion_task_tools"], engine)
 
 
 def configure_companion_model_runs(app, authority, tools, database):
-    flag = app.config.get("ANANTA_MEET_COMPANION_MODEL_RUNS_ENABLED",
-                          os.environ.get("ANANTA_MEET_COMPANION_MODEL_RUNS_ENABLED", "0"))
+    flag = app.config.get(
+        "ANANTA_MEET_COMPANION_MODEL_RUNS_ENABLED", os.environ.get("ANANTA_MEET_COMPANION_MODEL_RUNS_ENABLED", "0")
+    )
     if str(flag).lower() not in {"1", "true"}:
         return
     if app.config.get("ROLE") != "hub" or app.extensions.get("meet_companion_task_tools") is not tools:
@@ -64,8 +74,12 @@ def configure_companion_model_runs(app, authority, tools, database):
     sources = SqlCompanionToolSources(database, maximum=128_000)
     sources.initialize()
     app.extensions["meet_companion_model_runs"] = MeetCompanionModelRuns(
-        authority, HubCompanionModelPolicy(app), MeetCompanionModelInputs(tools.registry, tools.sources, tools.policy),
-        sources, tools.registry, attempts=tools.attempts,
+        authority,
+        HubCompanionModelPolicy(app),
+        MeetCompanionModelInputs(tools.registry, tools.sources, tools.policy),
+        sources,
+        tools.registry,
+        attempts=tools.attempts,
     )
     grants = app.extensions.get("meet_companion_task_grants")
     if grants is not None:
@@ -77,4 +91,5 @@ def configure_companion_model_runs(app, authority, tools, database):
     cleanup_repository = SqlCompanionRunCleanup(database)
     authority.tasks.run_cleanup = MeetCompanionRunCleanup(cleanup_repository, tools.registry)
     app.extensions["meet_companion_run_reconciliation"] = MeetCompanionRunReconciliation(
-        cleanup_repository, authority.tasks.run_cleanup)
+        cleanup_repository, authority.tasks.run_cleanup
+    )

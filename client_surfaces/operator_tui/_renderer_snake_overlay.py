@@ -14,56 +14,41 @@ import os
 import re
 import time
 from time import monotonic
-from textwrap import shorten
 from typing import TYPE_CHECKING
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
-from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
-from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
-from client_surfaces.operator_tui.chat_long_message import (
-    compact_chat_message_text,
-    get_render_mode,
-    is_showing_chat_long_message,
-    long_message_history_rows,
-    should_use_middle_view_for_message,
-)
 from client_surfaces.operator_tui.chat_state import get_active_channel
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
-from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
-from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
-from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
+from client_surfaces.operator_tui.keybindings_config import display_for_action
+from client_surfaces.operator_tui.models import OperatorState
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine, SplashState
-
-
-
+    pass
 
 
 # === Cross-module imports (resolve symbols from other sub-modules) ===
-from client_surfaces.operator_tui import _renderer_layout as _rl_x
 from client_surfaces.operator_tui._renderer_layout import (
-    _share_only_nav_mode,
-    _RIGHT_PANEL_MIN_WIDTH,
     _RIGHT_PANEL_MAX_WIDTH,
+    _RIGHT_PANEL_MIN_WIDTH,
+    _share_only_nav_mode,
 )
-from client_surfaces.operator_tui import _renderer_utils as _ru_x
-from client_surfaces.operator_tui._renderer_utils import (_highlight_line_range, _overlay_at_visible_col, _overlay_frame_preview, _overlay_text, _visible_char_at, _overlay_snake_score_header, _snake_palette)
+from client_surfaces.operator_tui._renderer_utils import (
+    _highlight_line_range,
+    _overlay_at_visible_col,
+    _overlay_frame_preview,
+    _overlay_snake_score_header,
+    _overlay_text,
+    _snake_palette,
+    _visible_char_at,
+)
+
 # === Module-level state (constants) ===
 
 # === Functions extracted from the original renderer.py ===
 
+
 def _snake_right_panel_width(width: int) -> int:
     return max(_RIGHT_PANEL_MIN_WIDTH, min(_RIGHT_PANEL_MAX_WIDTH, max(34, width // 3)))
-
 
 
 def _latest_ai_message_text(game: dict) -> tuple[str, str] | None:
@@ -93,10 +78,8 @@ def _latest_ai_message_text(game: dict) -> tuple[str, str] | None:
     return None
 
 
-
 def _ansi_color(text: str, color: tuple[int, int, int]) -> str:
     return f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{text}\x1b[0m"
-
 
 
 def _wrapped_cell(item, play_width: int, rows: list[str]) -> tuple[int, int]:
@@ -246,7 +229,7 @@ def _overlay_snake_hud(
         out = _overlay_snake_score_header(out, game, width=width, row=body_s)
     if (width < 40 or body_h < 18) and body_s < len(out):
         warn = "Terminal zu klein für Snake"
-        out[body_s] = _overlay_text(out[body_s:body_s + 1], x=2, y=0, text=warn, color=(255, 80, 80))[0]
+        out[body_s] = _overlay_text(out[body_s : body_s + 1], x=2, y=0, text=warn, color=(255, 80, 80))[0]
     return out
 
 
@@ -302,9 +285,7 @@ def _overlay_fullscreen_snake(
         _overlay_snake_body(out, snake, pal, play_width)
         out = _overlay_snake_trail_message(out, snapshot, game, snake, pal, width)
 
-    return _overlay_snake_hud(
-        out, game, width=width, body_s=body_s, body_h=body_e - body_s, split_view=width >= 100
-    )
+    return _overlay_snake_hud(out, game, width=width, body_s=body_s, body_h=body_e - body_s, split_view=width >= 100)
 
 
 def _reserve_snake_right_dock(lines: list[str], *, split_col: int, width: int) -> list[str]:
@@ -316,7 +297,6 @@ def _reserve_snake_right_dock(lines: list[str], *, split_col: int, width: int) -
     for idx, line in enumerate(out):
         out[idx] = _overlay_at_visible_col(line, split_col, blank)
     return out
-
 
 
 def _overlay_snake_paused(lines: list[str], *, width: int, height: int) -> list[str]:
@@ -332,7 +312,6 @@ def _overlay_snake_paused(lines: list[str], *, width: int, height: int) -> list[
     return out
 
 
-
 def _overlay_snake_paused_at(lines: list[str], *, width: int, center_y: int) -> list[str]:
     """Render PAUSED overlay at an explicit center row (for body-relative positioning)."""
     out = list(lines)
@@ -344,7 +323,6 @@ def _overlay_snake_paused_at(lines: list[str], *, width: int, center_y: int) -> 
     hx = max(0, (width // 2) - len(hint) // 2)
     _overlay_text(out, x=hx, y=min(cy + 1, len(out) - 1), text=hint, color=(160, 160, 160))
     return out
-
 
 
 def _overlay_snake_ai_panel(
@@ -367,9 +345,8 @@ def _overlay_snake_ai_panel(
 
     # Header
     snakes_raw = game.get("snakes")
-    ai_snap: dict[str, object] = {}
     if isinstance(snakes_raw, dict):
-        ai_snap = dict(snakes_raw.get("s-ai") or {})
+        dict(snakes_raw.get("s-ai") or {})
     depth = str(game.get("tutor_depth_mode") or "overview")
     tutorial_mode = bool(game.get("tutorial_mode"))
     paused = bool(game.get("paused"))
@@ -385,7 +362,13 @@ def _overlay_snake_ai_panel(
     chat_focus = isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus"))
     active_marker = "◉" if not chat_focus else "○"
     tutorial_enabled = bool(game.get("tutorial_mode"))
-    status_parts = [f"{active_marker} tutor-ai", depth, f"score:{score}", f"best:{max(score, high)}", f"spd:{speed_level}/5"]
+    status_parts = [
+        f"{active_marker} tutor-ai",
+        depth,
+        f"score:{score}",
+        f"best:{max(score, high)}",
+        f"spd:{speed_level}/5",
+    ]
     llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
     if llm_status.get("reachable"):
         status_parts.append(f"● {str(llm_status.get('model') or 'LM')[:16]}")
@@ -407,13 +390,15 @@ def _overlay_snake_ai_panel(
     artifact_chat_status = game.get("artifact_chat_state") if isinstance(game.get("artifact_chat_state"), dict) else {}
     active_target = artifact_chat_status.get("active_target") if isinstance(artifact_chat_status, dict) else None
     if isinstance(active_target, dict):
-        target_label = str(active_target.get("label") or active_target.get("path") or active_target.get("id") or "artifact")
-        panel_lines.append(f"\x1b[38;2;120;120;120mtarget: {target_label[:panel_width - 8]}\x1b[0m")
+        target_label = str(
+            active_target.get("label") or active_target.get("path") or active_target.get("id") or "artifact"
+        )
+        panel_lines.append(f"\x1b[38;2;120;120;120mtarget: {target_label[: panel_width - 8]}\x1b[0m")
     question_status = str(game.get("tutor_ask_question") or "")
     if question_status and not bool(game.get("tutor_ask_answered")):
-        panel_lines.append(f"\x1b[38;2;180;220;255mask: loading {question_status[:panel_width - 13]}\x1b[0m")
+        panel_lines.append(f"\x1b[38;2;180;220;255mask: loading {question_status[: panel_width - 13]}\x1b[0m")
     elif question_status:
-        panel_lines.append(f"\x1b[38;2;180;220;255mask: ready {question_status[:panel_width - 11]}\x1b[0m")
+        panel_lines.append(f"\x1b[38;2;180;220;255mask: ready {question_status[: panel_width - 11]}\x1b[0m")
     if paused:
         panel_lines.append("\x1b[38;2;255;200;80mpaused\x1b[0m")
     panel_lines.append("─" * panel_width)
@@ -425,12 +410,8 @@ def _overlay_snake_ai_panel(
     panel_lines.append(
         f"\x1b[38;2;120;180;255mAI-Chat [{display_for_action('toggle_chat_panel', 'Ctrl+G')}]: {chat_state}\x1b[0m"
     )
-    panel_lines.append(
-        f"\x1b[38;2;90;90;90mChat-Fokus [{display_for_action('chat_focus', 'Ctrl+E')}]\x1b[0m"
-    )
-    panel_lines.append(
-        f"\x1b[38;2;90;90;90mCopy Status [{display_for_action('copy_ai_status', 'Ctrl+I')}]\x1b[0m"
-    )
+    panel_lines.append(f"\x1b[38;2;90;90;90mChat-Fokus [{display_for_action('chat_focus', 'Ctrl+E')}]\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;90;90;90mCopy Status [{display_for_action('copy_ai_status', 'Ctrl+I')}]\x1b[0m")
     panel_lines.append("─" * panel_width)
     ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
     runtime_status = str(game.get("ai_snake_runtime_status") or "idle")
@@ -439,8 +420,8 @@ def _overlay_snake_ai_panel(
     chat_backend = str(game.get("chat_backend") or "ananta-worker")
     chat_model = str(game.get("chat_backend_model") or "-")
     panel_lines.append(f"\x1b[38;2;180;220;255mSteuerung: mode={ai_mode} runtime={runtime_status}\x1b[0m")
-    panel_lines.append(f"\x1b[38;2;120;120;120mProvider: {provider}/{model[:max(6, panel_width - 14)]}\x1b[0m")
-    panel_lines.append(f"\x1b[38;2;120;120;120mChat: {chat_backend}/{chat_model[:max(6, panel_width - 10)]}\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;120;120;120mProvider: {provider}/{model[: max(6, panel_width - 14)]}\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;120;120;120mChat: {chat_backend}/{chat_model[: max(6, panel_width - 10)]}\x1b[0m")
     panel_lines.append("─" * panel_width)
     panel_lines.append("\x1b[38;2;255;205;130mAI-Snake Verlauf:\x1b[0m")
     monitor_log = game.get("ai_snake_monitor_log")
@@ -453,7 +434,7 @@ def _overlay_snake_ai_panel(
             if isinstance(created_at, (int, float)):
                 ts = time.strftime("%H:%M", time.localtime(float(created_at)))
             label = str(item.get("label") or item.get("event") or "event")
-            panel_lines.append(f"\x1b[38;2;160;190;230m{ts} {label[:max(4, panel_width - 6)]}\x1b[0m")
+            panel_lines.append(f"\x1b[38;2;160;190;230m{ts} {label[: max(4, panel_width - 6)]}\x1b[0m")
     else:
         panel_lines.append("\x1b[38;2;120;120;120m--:-- warte auf Heuristik-Events\x1b[0m")
 
@@ -498,12 +479,10 @@ def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str
     return out
 
 
-
 def _display_message_for_snake(value: str) -> str:
     # Display-only mapping: keep stored/copied text unchanged.
     normalized = value.replace("\r\n", "\n").replace("\r", "\n")
     return normalized.replace("\n", "⏎")
-
 
 
 def _overlay_snake_message_effect(
@@ -575,7 +554,6 @@ def _overlay_snake_message_effect(
     return out
 
 
-
 def _message_trail_positions(
     *,
     snake: list[object],
@@ -603,8 +581,8 @@ def _message_trail_positions(
     if len(snake) >= 2 and isinstance(snake[-1], (list, tuple)) and isinstance(snake[-2], (list, tuple)):
         if len(snake[-1]) == 2 and len(snake[-2]) == 2:
             tx2, ty2 = int(snake[-2][0]) % w, int(snake[-2][1]) % h
-            dx = (tx - tx2)
-            dy = (ty - ty2)
+            dx = tx - tx2
+            dy = ty - ty2
             if dx > 1:
                 dx = -1
             elif dx < -1:
@@ -623,4 +601,3 @@ def _message_trail_positions(
         ty = (ty + dy) % h
         positions.append((tx, ty))
     return positions
-

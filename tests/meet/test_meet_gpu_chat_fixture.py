@@ -4,8 +4,8 @@ from uuid import uuid4
 
 from agent.services.meet_turn_service import HubMediaTasks
 from tests.meet.test_meet_chat_admission import session
-from tests.test_meet_media import turn
 from tests.meet.test_meet_media_gpu import seed_gpu_chat_parent
+from tests.test_meet_media import turn
 
 
 def test_gpu_chat_fixture_creates_a_real_authoritative_parent_before_media_ingestion(app):

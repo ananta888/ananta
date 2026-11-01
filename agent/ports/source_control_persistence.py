@@ -29,9 +29,7 @@ from ananta_contracts.source_control import (
 
 
 class SourceCatalogRepositoryPort(Protocol):
-    def save_connection(
-        self, contract: SourceConnection
-    ) -> SourceConnectionRecord: ...
+    def save_connection(self, contract: SourceConnection) -> SourceConnectionRecord: ...
 
     def get_connection(
         self,
@@ -53,9 +51,7 @@ class SourceCatalogRepositoryPort(Protocol):
         expected_lock_version: int,
     ) -> SourceConnectionRecord: ...
 
-    def append_revision(
-        self, contract: SourceRevision
-    ) -> SourceRevisionRecord: ...
+    def append_revision(self, contract: SourceRevision) -> SourceRevisionRecord: ...
 
     def get_revision(
         self,
@@ -114,19 +110,13 @@ class SourceGrantRepositoryPort(Protocol):
         reason_code: str,
     ) -> SourceAccessGrantRecord: ...
 
-    def list_grant_audit(
-        self, *, grant_id: str
-    ) -> tuple[SourceAccessGrantAuditRecord, ...]: ...
+    def list_grant_audit(self, *, grant_id: str) -> tuple[SourceAccessGrantAuditRecord, ...]: ...
 
 
 class SourceIndexLifecycleRepositoryPort(Protocol):
-    def save_index_binding(
-        self, record: KnowledgeIndexBindingRecord
-    ) -> KnowledgeIndexBindingRecord: ...
+    def save_index_binding(self, record: KnowledgeIndexBindingRecord) -> KnowledgeIndexBindingRecord: ...
 
-    def save_index_run_binding(
-        self, record: KnowledgeIndexRunBindingRecord
-    ) -> KnowledgeIndexRunBindingRecord: ...
+    def save_index_run_binding(self, record: KnowledgeIndexRunBindingRecord) -> KnowledgeIndexRunBindingRecord: ...
 
     def complete_index_run(
         self,
@@ -190,10 +180,7 @@ class SourceIndexLifecycleRepositoryPort(Protocol):
         current_policy_snapshot_digest: str,
     ) -> ActivationReconciliationResult: ...
 
-    def list_activation_events(
-        self, *, active_index_id: str
-    ) -> tuple[ActiveKnowledgeIndexEventRecord, ...]: ...
-
+    def list_activation_events(self, *, active_index_id: str) -> tuple[ActiveKnowledgeIndexEventRecord, ...]: ...
 
 
 __all__ = [

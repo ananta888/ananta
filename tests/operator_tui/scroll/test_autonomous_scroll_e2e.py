@@ -17,7 +17,12 @@ def _run(cmd: str, mode: str = "autonomous_e2e", state: dict | None = None) -> d
     d = TuiActionDispatcher()
     d.set_tui_state(state or {})
     result = d.dispatch(ActionRequest(action_id=decision.action_id, args=decision.normalized_args, source="test"))
-    return {"ok": result.is_ok(), "action_id": decision.action_id, "changed": result.changed_state_summary, "marker": result.control_result_marker}
+    return {
+        "ok": result.is_ok(),
+        "action_id": decision.action_id,
+        "changed": result.changed_state_summary,
+        "marker": result.control_result_marker,
+    }
 
 
 def test_focus_chat_succeeds():

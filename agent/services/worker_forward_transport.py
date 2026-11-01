@@ -58,9 +58,7 @@ class WorkerTransportDeadline:
 
     expires_at_monotonic: float
     budget_seconds: int
-    connect_timeout_seconds: float = (
-        DEFAULT_WORKER_CONNECT_TIMEOUT_SECONDS
-    )
+    connect_timeout_seconds: float = DEFAULT_WORKER_CONNECT_TIMEOUT_SECONDS
     _monotonic_clock: Callable[[], float] = field(
         default=time.monotonic,
         repr=False,
@@ -74,8 +72,7 @@ class WorkerTransportDeadline:
             or self.budget_seconds < 1
             or not math.isfinite(self.expires_at_monotonic)
             or not math.isfinite(self.connect_timeout_seconds)
-            or not 0 < self.connect_timeout_seconds
-            <= MAX_WORKER_CONNECT_TIMEOUT_SECONDS
+            or not 0 < self.connect_timeout_seconds <= MAX_WORKER_CONNECT_TIMEOUT_SECONDS
             or not callable(self._monotonic_clock)
         ):
             raise ValueError("worker_forward_transport_deadline_invalid")
@@ -86,9 +83,7 @@ class WorkerTransportDeadline:
         budget_seconds: int,
         *,
         monotonic_clock: Callable[[], float] = time.monotonic,
-        connect_timeout_seconds: float = (
-            DEFAULT_WORKER_CONNECT_TIMEOUT_SECONDS
-        ),
+        connect_timeout_seconds: float = (DEFAULT_WORKER_CONNECT_TIMEOUT_SECONDS),
     ) -> "WorkerTransportDeadline":
         if isinstance(budget_seconds, bool) or not isinstance(
             budget_seconds,
@@ -162,10 +157,7 @@ def _accepts_transport_deadline(forwarder: Callable[..., Any]) -> bool:
         return False
     return bool(
         "transport_deadline" in signature.parameters
-        or any(
-            parameter.kind is inspect.Parameter.VAR_KEYWORD
-            for parameter in signature.parameters.values()
-        )
+        or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values())
     )
 
 
@@ -188,9 +180,7 @@ def invoke_worker_forwarder(
             token=token,
         )
     if not _accepts_transport_deadline(forwarder):
-        raise WorkerForwardPermanentTransportError(
-            "worker_forward_deadline_transport_unsupported"
-        )
+        raise WorkerForwardPermanentTransportError("worker_forward_deadline_transport_unsupported")
     transport_deadline.require_remaining_seconds()
     return forwarder(
         worker_url,

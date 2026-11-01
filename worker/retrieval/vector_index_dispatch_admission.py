@@ -52,20 +52,11 @@ class HubVectorIndexDispatchAdmissionClient:
             canonicalize_vector_index_worker_audience,
         )
 
-        self._hub_url = canonicalize_vector_index_worker_audience(
-            hub_url
-        )
-        self._worker_url = canonicalize_vector_index_worker_audience(
-            worker_url
-        )
+        self._hub_url = canonicalize_vector_index_worker_audience(hub_url)
+        self._worker_url = canonicalize_vector_index_worker_audience(worker_url)
         self._worker_id = str(worker_id or "").strip()
-        if (
-            not self._worker_id
-            or len(self._worker_id.encode("utf-8")) > 256
-        ):
-            raise RuntimeError(
-                "vector_index_dispatch_worker_id_invalid"
-            )
+        if not self._worker_id or len(self._worker_id.encode("utf-8")) > 256:
+            raise RuntimeError("vector_index_dispatch_worker_id_invalid")
         self._token_provider = token_provider
         self._timeout_seconds = max(
             0.5,
@@ -83,17 +74,13 @@ class HubVectorIndexDispatchAdmissionClient:
         worker_audience: str,
     ) -> None:
         if worker_audience != self._worker_url:
-            raise RuntimeError(
-                "vector_index_dispatch_admission_audience_mismatch"
-            )
+            raise RuntimeError("vector_index_dispatch_admission_audience_mismatch")
         expected_job_id = str(job_id)
         expected_attempt_id = str(attempt_id)
         expected_phase = str(phase)
         token = str(self._token_provider() or "").strip()
         if len(token.encode("utf-8")) < 32:
-            raise RuntimeError(
-                "vector_index_dispatch_worker_identity_unavailable"
-            )
+            raise RuntimeError("vector_index_dispatch_worker_identity_unavailable")
         post = self._post
         if post is None:
             import requests
@@ -121,29 +108,17 @@ class HubVectorIndexDispatchAdmissionClient:
                 allow_redirects=False,
                 stream=True,
             )
-            status_code = int(
-                getattr(response, "status_code", 500) or 500
-            )
+            status_code = int(getattr(response, "status_code", 500) or 500)
             if 300 <= status_code < 400:
                 close = getattr(response, "close", None)
                 if callable(close):
                     close()
-                raise RuntimeError(
-                    "vector_index_dispatch_admission_redirect"
-                )
+                raise RuntimeError("vector_index_dispatch_admission_redirect")
             body = self._bounded_json(response)
-            payload = (
-                body.get("data")
-                if isinstance(body, Mapping)
-                else None
-            )
+            payload = body.get("data") if isinstance(body, Mapping) else None
             if status_code >= 400:
                 reason = (
-                    str(
-                        (payload or {}).get("reason_code")
-                        or ""
-                    ).strip()
-                    or "vector_index_dispatch_admission_denied"
+                    str((payload or {}).get("reason_code") or "").strip() or "vector_index_dispatch_admission_denied"
                 )
                 raise RuntimeError(reason)
             expected_payload = {
@@ -164,32 +139,19 @@ class HubVectorIndexDispatchAdmissionClient:
                 or set(payload) != _SUCCESS_DATA_FIELDS
                 or dict(payload) != expected_payload
             ):
-                raise RuntimeError(
-                    "vector_index_dispatch_admission_response_invalid"
-                )
+                raise RuntimeError("vector_index_dispatch_admission_response_invalid")
         except RuntimeError:
             raise
         except Exception as exc:
-            raise RuntimeError(
-                "vector_index_dispatch_admission_unavailable"
-            ) from exc
+            raise RuntimeError("vector_index_dispatch_admission_unavailable") from exc
 
     @staticmethod
     def _bounded_json(response: Any) -> Any:
         try:
             headers = getattr(response, "headers", None)
-            declared = (
-                headers.get("Content-Length")
-                if isinstance(headers, Mapping)
-                else None
-            )
-            if (
-                declared is not None
-                and int(declared) > _MAX_RESPONSE_BYTES
-            ):
-                raise RuntimeError(
-                    "vector_index_dispatch_admission_response_too_large"
-                )
+            declared = headers.get("Content-Length") if isinstance(headers, Mapping) else None
+            if declared is not None and int(declared) > _MAX_RESPONSE_BYTES:
+                raise RuntimeError("vector_index_dispatch_admission_response_too_large")
             chunks: list[bytes] = []
             total = 0
             iterator = getattr(response, "iter_content", None)
@@ -203,38 +165,28 @@ class HubVectorIndexDispatchAdmissionClient:
             )
             for chunk in values:
                 if not isinstance(chunk, bytes):
-                    raise RuntimeError(
-                        "vector_index_dispatch_admission_response_invalid"
-                    )
+                    raise RuntimeError("vector_index_dispatch_admission_response_invalid")
                 total += len(chunk)
                 if total > _MAX_RESPONSE_BYTES:
-                    raise RuntimeError(
-                        "vector_index_dispatch_admission_response_too_large"
-                    )
+                    raise RuntimeError("vector_index_dispatch_admission_response_too_large")
                 chunks.append(chunk)
             return json.loads(b"".join(chunks))
         except (TypeError, ValueError, UnicodeError) as exc:
-            raise RuntimeError(
-                "vector_index_dispatch_admission_response_invalid"
-            ) from exc
+            raise RuntimeError("vector_index_dispatch_admission_response_invalid") from exc
         finally:
             close = getattr(response, "close", None)
             if callable(close):
                 close()
 
 
-def build_vector_index_dispatch_admission_client(
-) -> HubVectorIndexDispatchAdmissionClient:
+def build_vector_index_dispatch_admission_client() -> HubVectorIndexDispatchAdmissionClient:
     from agent.auth import resolve_configured_agent_token
     from agent.config import settings
 
     return HubVectorIndexDispatchAdmissionClient(
         hub_url=str(settings.hub_url or ""),
         worker_id=str(settings.agent_name or ""),
-        worker_url=str(
-            settings.agent_url
-            or f"http://localhost:{settings.port}"
-        ),
+        worker_url=str(settings.agent_url or f"http://localhost:{settings.port}"),
         token_provider=resolve_configured_agent_token,
     )
 

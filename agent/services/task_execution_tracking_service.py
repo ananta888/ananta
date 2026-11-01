@@ -106,7 +106,11 @@ class TaskExecutionTrackingService:
                 "details": {"reason": "worker_job_terminal_but_task_active"},
             }
 
-        if task_status not in _TASK_TERMINAL_STATUSES and job_status in _JOB_ACTIVE_STATUSES and age_seconds >= stale_after_seconds:
+        if (
+            task_status not in _TASK_TERMINAL_STATUSES
+            and job_status in _JOB_ACTIVE_STATUSES
+            and age_seconds >= stale_after_seconds
+        ):
             return {
                 "issue_code": "stuck_execution",
                 "task_id": task.get("id"),
@@ -139,7 +143,12 @@ class TaskExecutionTrackingService:
         }
 
         issues: list[dict] = []
-        counts = {"missing_worker_job": 0, "terminal_job_mismatch": 0, "task_status_lags_worker_job": 0, "stuck_execution": 0}
+        counts = {
+            "missing_worker_job": 0,
+            "terminal_job_mismatch": 0,
+            "task_status_lags_worker_job": 0,
+            "stuck_execution": 0,
+        }
         for task in task_items:
             worker_job_id = str(task.get("current_worker_job_id") or "").strip()
             if not worker_job_id:
@@ -192,13 +201,9 @@ class TaskExecutionTrackingService:
                     {
                         "issue_code": issue_code,
                         "task_id": task.id,
-                        "worker_job_id": issue.get(
-                            "worker_job_id"
-                        ),
+                        "worker_job_id": issue.get("worker_job_id"),
                         "skipped": True,
-                        "reason_code": (
-                            "recovery_execution_requires_lease_reconciliation"
-                        ),
+                        "reason_code": ("recovery_execution_requires_lease_reconciliation"),
                         "recovery_role": recovery_role,
                     }
                 )
@@ -277,7 +282,7 @@ class TaskExecutionTrackingService:
         # Keep telemetry structurally present for downstream diagnostics even
         # when worker/orchestrator did not return a cli_result payload.
         cli_result = proposal.get("cli_result")
-        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         llm_profile_policy = dict(cfg.get("llm_profile_policy") or {})
         allow_synthetic_fallback = bool(llm_profile_policy.get("allow_synthetic_fallback", False))
         if not isinstance(cli_result, dict) and allow_synthetic_fallback:
@@ -331,12 +336,16 @@ class TaskExecutionTrackingService:
             "propose_backend": str(proposal.get("backend") or ""),
             "propose_model": str(proposal.get("model") or ""),
             "selected_strategy": str(((routing.get("propose_strategy_meta") or {}).get("selected_strategy") or "")),
-            "effective_strategy_mode": str(((routing.get("propose_strategy_meta") or {}).get("effective_strategy_mode") or "")),
+            "effective_strategy_mode": str(
+                ((routing.get("propose_strategy_meta") or {}).get("effective_strategy_mode") or "")
+            ),
             "inference_provider": str(routing.get("inference_provider") or ""),
             "inference_model": str(routing.get("inference_model") or ""),
             "updated_at": time.time(),
         }
-        selected_strategy = str(((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get("selected_strategy") or "").strip()
+        selected_strategy = str(
+            ((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get("selected_strategy") or ""
+        ).strip()
         trace_meta = dict(proposal.get("trace") or {}) if isinstance(proposal.get("trace"), dict) else {}
         trace_id = str(trace_meta.get("trace_id") or "").strip() or None
         flow_reason = str(proposal.get("reason") or "").strip()
@@ -370,7 +379,11 @@ class TaskExecutionTrackingService:
                 actor_role="hub",
                 details={
                     "selected_strategy": selected_strategy,
-                    "effective_strategy_mode": (((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get("effective_strategy_mode")),
+                    "effective_strategy_mode": (
+                        ((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get(
+                            "effective_strategy_mode"
+                        )
+                    ),
                     "selection_reason": "policy_orchestrator_selection",
                 },
             )
@@ -407,13 +420,10 @@ class TaskExecutionTrackingService:
                 get_recovery_research_workspace_artifact_service,
             )
 
-            return (
-                get_recovery_research_workspace_artifact_service()
-                .materialize_claim(
-                    tid=tid,
-                    task=dict(task or {}),
-                    research_artifact=research_artifact,
-                )
+            return get_recovery_research_workspace_artifact_service().materialize_claim(
+                tid=tid,
+                task=dict(task or {}),
+                research_artifact=research_artifact,
             )
         report_markdown = str(research_artifact.get("report_markdown") or "").strip()
         if not report_markdown:
@@ -443,7 +453,8 @@ class TaskExecutionTrackingService:
                 "source_count": len(sources),
                 "has_citations": bool(citations),
                 "citation_count": len(citations),
-                "trace_bundle_ref": str(((research_artifact.get("trace") or {}).get("trace_bundle_id") or "")).strip() or None,
+                "trace_bundle_ref": str(((research_artifact.get("trace") or {}).get("trace_bundle_id") or "")).strip()
+                or None,
             },
         }
 
@@ -470,9 +481,9 @@ class TaskExecutionTrackingService:
                         worker_job_id=worker_job_id,
                         title=task.get("title") or task.get("description"),
                         output=output,
-                        artifact_refs=list(artifact_refs or [
-                            {"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}
-                        ]),
+                        artifact_refs=list(
+                            artifact_refs or [{"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}]
+                        ),
                         retrieval_tags=[
                             value
                             for value in [
@@ -568,9 +579,12 @@ class TaskExecutionTrackingService:
             "output": output,
             "exit_code": exit_code,
             "backend": proposal_meta.get("backend"),
-            "execution_backend": ((proposal_meta.get("routing") or {}).get("execution_backend")) or proposal_meta.get("backend"),
-            "inference_provider": ((proposal_meta.get("routing") or {}).get("inference_provider")) or cost_summary.get("inference_provider"),
-            "inference_model": ((proposal_meta.get("routing") or {}).get("inference_model")) or cost_summary.get("inference_model"),
+            "execution_backend": ((proposal_meta.get("routing") or {}).get("execution_backend"))
+            or proposal_meta.get("backend"),
+            "inference_provider": ((proposal_meta.get("routing") or {}).get("inference_provider"))
+            or cost_summary.get("inference_provider"),
+            "inference_model": ((proposal_meta.get("routing") or {}).get("inference_model"))
+            or cost_summary.get("inference_model"),
             "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
             "retries_used": retries_used,
             "retry_history": list(retry_history or []),
@@ -700,7 +714,9 @@ class TaskExecutionTrackingService:
 
     @staticmethod
     def _derive_execution_scope_summary(history: list[dict]) -> dict:
-        allocated = next((item for item in reversed(history) if item.get("event_type") == "execution_scope_allocated"), None)
+        allocated = next(
+            (item for item in reversed(history) if item.get("event_type") == "execution_scope_allocated"), None
+        )
         released = next((item for item in reversed(history) if item.get("event_type") == "workspace_released"), None)
         if not allocated and not released:
             return {}
@@ -724,9 +740,7 @@ class TaskExecutionTrackingService:
         if fallback:
             mode = "hub_as_worker_fallback"
             fallback_reason = (
-                fallback.get("fallback_reason")
-                or fallback_details.get("fallback_reason")
-                or "fallback_applied"
+                fallback.get("fallback_reason") or fallback_details.get("fallback_reason") or "fallback_applied"
             )
         return {
             "execution_mode": mode,

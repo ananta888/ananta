@@ -24,11 +24,15 @@ NOW = 1_750_000_000_000
 
 def request(*, corridor=None, **overrides):
     values = {
-        "tenant_ref": "tenant-a", "room_ref": "sfu-0123456789abcdef0123456789abcdef",
-        "subscriber_ref": "subscriber-a", "subscription_ref": "subscription-a",
+        "tenant_ref": "tenant-a",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "subscriber_ref": "subscriber-a",
+        "subscription_ref": "subscription-a",
         "publication_ref": "publication-a",
         "allowed_layer_corridor": corridor or LayerCorridor(LayerPoint(0, 0), LayerPoint(3, 3)),
-        "route_epoch": 7, "key_epoch": 11, "issued_at_ms": NOW,
+        "route_epoch": 7,
+        "key_epoch": 11,
+        "issued_at_ms": NOW,
     }
     values.update(overrides)
     return LayerTransitionProfileRequest(**values)
@@ -50,9 +54,17 @@ def test_issued_profile_is_deterministic_signed_bounded_and_schema_valid():
 def test_stale_route_key_and_expired_profiles_are_rejected_locally():
     policy = SfuLayerTransitionProfilePolicy(SIGNER, CONFIG)
     profile = policy.issue(request())
-    assert policy.validate_scope(profile, route_epoch=8, key_epoch=11, now_ms=NOW + 1) == "transition_profile_stale_route_epoch"
-    assert policy.validate_scope(profile, route_epoch=7, key_epoch=12, now_ms=NOW + 1) == "transition_profile_stale_key_epoch"
-    assert policy.validate_scope(profile, route_epoch=7, key_epoch=11, now_ms=NOW + 15_000) == "transition_profile_expired"
+    assert (
+        policy.validate_scope(profile, route_epoch=8, key_epoch=11, now_ms=NOW + 1)
+        == "transition_profile_stale_route_epoch"
+    )
+    assert (
+        policy.validate_scope(profile, route_epoch=7, key_epoch=12, now_ms=NOW + 1)
+        == "transition_profile_stale_key_epoch"
+    )
+    assert (
+        policy.validate_scope(profile, route_epoch=7, key_epoch=11, now_ms=NOW + 15_000) == "transition_profile_expired"
+    )
 
 
 def test_downshift_dwell_is_faster_and_upshift_requests_only_bounded_keyframes():
@@ -60,30 +72,60 @@ def test_downshift_dwell_is_faster_and_upshift_requests_only_bounded_keyframes()
     controller = BoundedLocalLayerTransitionController()
     state = LocalLayerTransitionState(current=LayerPoint(2, 2))
     started = controller.step(
-        profile, state, desired=LayerPoint(0, 0), quality_score=200,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 1,
+        profile,
+        state,
+        desired=LayerPoint(0, 0),
+        quality_score=200,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 1,
     )
     down = controller.step(
-        profile, started.state, desired=LayerPoint(0, 0), quality_score=200,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 1_001,
+        profile,
+        started.state,
+        desired=LayerPoint(0, 0),
+        quality_score=200,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 1_001,
     )
     assert down.action == "downshift" and not down.request_keyframe
     up_started = controller.step(
-        profile, down.state, desired=LayerPoint(2, 2), quality_score=900,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 2_501,
+        profile,
+        down.state,
+        desired=LayerPoint(2, 2),
+        quality_score=900,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 2_501,
     )
     up = controller.step(
-        profile, up_started.state, desired=LayerPoint(2, 2), quality_score=900,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 7_501,
+        profile,
+        up_started.state,
+        desired=LayerPoint(2, 2),
+        quality_score=900,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 7_501,
     )
     assert up.action == "upshift" and up.request_keyframe
     retry = controller.step(
-        profile, up.state, desired=LayerPoint(2, 2), quality_score=900,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 8_501,
+        profile,
+        up.state,
+        desired=LayerPoint(2, 2),
+        quality_score=900,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 8_501,
     )
     limited = controller.step(
-        profile, retry.state, desired=LayerPoint(2, 2), quality_score=900,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 9_501,
+        profile,
+        retry.state,
+        desired=LayerPoint(2, 2),
+        quality_score=900,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 9_501,
     )
     assert retry.request_keyframe is True
     assert limited.request_keyframe is False
@@ -98,8 +140,13 @@ def test_single_layer_profile_disables_transitions_and_keyframe_retries():
     assert profile.strategy["layer_changes_enabled"] is False
     assert profile.strategy["transitions_per_minute_max"] == 0
     result = BoundedLocalLayerTransitionController().step(
-        profile, LocalLayerTransitionState(current=point), desired=point, quality_score=1000,
-        route_epoch=7, key_epoch=11, now_ms=NOW + 1,
+        profile,
+        LocalLayerTransitionState(current=point),
+        desired=point,
+        quality_score=1000,
+        route_epoch=7,
+        key_epoch=11,
+        now_ms=NOW + 1,
     )
     assert result.reason_code == "transition_single_layer_hold"
 

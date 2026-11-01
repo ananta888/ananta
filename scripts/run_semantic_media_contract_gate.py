@@ -28,9 +28,7 @@ DOMAINS = frozenset(
     {"envelope", "permission", "contract", "lease", "scene", "speech", "evidence", "reconciliation", "training"}
 )
 REQUIRED_CASES = frozenset({"valid", "unknown-field"})
-REQUIRED_GOLDEN_CASES = frozenset(
-    {"valid", "maximum-bound", "unknown-field", "integer-overflow", "stale-time"}
-)
+REQUIRED_GOLDEN_CASES = frozenset({"valid", "maximum-bound", "unknown-field", "integer-overflow", "stale-time"})
 RUNTIME_COMMANDS: Mapping[str, Sequence[str]] = {
     "python": (
         sys.executable,
@@ -138,9 +136,7 @@ def validate_catalog(
         raise ProgramEvidenceError("contract_vectors_incomplete")
     vector_ids: set[str] = set()
     for vector in vectors:
-        if not isinstance(vector, Mapping) or set(vector) != {
-            "id", "input", "canonical_json", "sha256", "purpose"
-        }:
+        if not isinstance(vector, Mapping) or set(vector) != {"id", "input", "canonical_json", "sha256", "purpose"}:
             raise ProgramEvidenceError("contract_vector_shape_invalid")
         vector_id = str(vector["id"])
         if vector_id in vector_ids:
@@ -153,10 +149,7 @@ def validate_catalog(
             ensure_ascii=False,
             allow_nan=False,
         )
-        if (
-            rendered_vector != vector["canonical_json"]
-            or canonical_sha256(vector["input"]) != vector["sha256"]
-        ):
+        if rendered_vector != vector["canonical_json"] or canonical_sha256(vector["input"]) != vector["sha256"]:
             raise ProgramEvidenceError("contract_vector_canonical_mismatch")
         if vector["purpose"] != "canonical-json-and-hash":
             raise ProgramEvidenceError("contract_vector_purpose_invalid")
@@ -236,7 +229,11 @@ def validate_domain_vectors(vectors: Mapping[str, Any]) -> dict[str, int]:
     non_finite = 0
     for row in rows:
         if not isinstance(row, Mapping) or set(row) != {
-            "name", "allowed_fields", "integer_rule", "time_rule", "vectors"
+            "name",
+            "allowed_fields",
+            "integer_rule",
+            "time_rule",
+            "vectors",
         }:
             raise ProgramEvidenceError("contract_domain_vector_row_invalid")
         name = str(row["name"])
@@ -266,9 +263,7 @@ def validate_domain_vectors(vectors: Mapping[str, Any]) -> dict[str, int]:
         ):
             raise ProgramEvidenceError("contract_domain_vector_integer_rule_invalid")
         time_rule = row["time_rule"]
-        if not isinstance(time_rule, Mapping) or set(time_rule) != {
-            "field", "mode", "max_delta_ms"
-        }:
+        if not isinstance(time_rule, Mapping) or set(time_rule) != {"field", "mode", "max_delta_ms"}:
             raise ProgramEvidenceError("contract_domain_vector_time_rule_invalid")
         time_field = time_rule.get("field")
         mode = time_rule.get("mode")
@@ -295,9 +290,12 @@ def validate_domain_vectors(vectors: Mapping[str, Any]) -> dict[str, int]:
             case_names.add(case_name)
             payload = case["input"]
             expected = case["expected"]
-            if not isinstance(payload, Mapping) or not isinstance(expected, Mapping) or set(expected) != {
-                "accepted", "reason_code"
-            } or type(expected.get("accepted")) is not bool:
+            if (
+                not isinstance(payload, Mapping)
+                or not isinstance(expected, Mapping)
+                or set(expected) != {"accepted", "reason_code"}
+                or type(expected.get("accepted")) is not bool
+            ):
                 raise ProgramEvidenceError("contract_domain_vector_case_invalid")
             if any(isinstance(value, (dict, list)) for value in payload.values()):
                 raise ProgramEvidenceError("contract_domain_vector_not_minimal")

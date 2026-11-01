@@ -10,17 +10,16 @@ Acceptance criteria covered:
 * no hallucinated recommendations: ``missing_test_coverage`` only fires
   for an actual untested node
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_knowledge_gaps import (
     KNOWLEDGE_GAPS_SCHEMA_VERSION,
     find_knowledge_gaps,
 )
-from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 
 
 def _empty_store(tmp_path: Path) -> CodeCompassGraphStore:
@@ -33,20 +32,33 @@ def _empty_store(tmp_path: Path) -> CodeCompassGraphStore:
 def _store_with_untested_hotspot(tmp_path: Path) -> CodeCompassGraphStore:
     s = CodeCompassGraphStore(index_path=tmp_path / "index.json")
     records = [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:hot", "kind": "symbol_function", "name": "hot", "file": "hot.py"},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:hot",
+            "kind": "symbol_function",
+            "name": "hot",
+            "file": "hot.py",
+        },
     ]
     for i in range(4):
-        records.append({
-            "_provenance": {"output_kind": "graph_nodes"},
-            "id": f"f:caller{i}", "kind": "symbol_function",
-            "name": f"caller{i}", "file": f"caller{i}.py",
-        })
-        records.append({
-            "_provenance": {"output_kind": "graph_edges"},
-            "source": f"f:caller{i}", "target": "f:hot",
-            "type": "calls", "confidence": 1.0,
-        })
+        records.append(
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": f"f:caller{i}",
+                "kind": "symbol_function",
+                "name": f"caller{i}",
+                "file": f"caller{i}.py",
+            }
+        )
+        records.append(
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": f"f:caller{i}",
+                "target": "f:hot",
+                "type": "calls",
+                "confidence": 1.0,
+            }
+        )
     s.rebuild_from_output_records(manifest_hash="m", records=records)
     s._cached_payload = None
     return s
@@ -78,20 +90,55 @@ def test_no_hallucinated_recommendations(tmp_path):
     """If a hotspot is covered by a 'covers' edge, it must NOT appear in missing_test_coverage."""
     s = CodeCompassGraphStore(index_path=tmp_path / "i.json")
     records = [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:hot", "kind": "symbol_function", "name": "hot", "file": "hot.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:c1", "kind": "symbol_function", "name": "c1", "file": "c1.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:c2", "kind": "symbol_function", "name": "c2", "file": "c2.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:t1", "kind": "symbol_function", "name": "t1", "file": "t1.py"},
-        {"_provenance": {"output_kind": "graph_edges"},
-         "source": "f:c1", "target": "f:hot", "type": "calls", "confidence": 1.0},
-        {"_provenance": {"output_kind": "graph_edges"},
-         "source": "f:c2", "target": "f:hot", "type": "calls", "confidence": 1.0},
-        {"_provenance": {"output_kind": "graph_edges"},
-         "source": "f:t1", "target": "f:hot", "type": "covers", "confidence": 1.0},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:hot",
+            "kind": "symbol_function",
+            "name": "hot",
+            "file": "hot.py",
+        },
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:c1",
+            "kind": "symbol_function",
+            "name": "c1",
+            "file": "c1.py",
+        },
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:c2",
+            "kind": "symbol_function",
+            "name": "c2",
+            "file": "c2.py",
+        },
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:t1",
+            "kind": "symbol_function",
+            "name": "t1",
+            "file": "t1.py",
+        },
+        {
+            "_provenance": {"output_kind": "graph_edges"},
+            "source": "f:c1",
+            "target": "f:hot",
+            "type": "calls",
+            "confidence": 1.0,
+        },
+        {
+            "_provenance": {"output_kind": "graph_edges"},
+            "source": "f:c2",
+            "target": "f:hot",
+            "type": "calls",
+            "confidence": 1.0,
+        },
+        {
+            "_provenance": {"output_kind": "graph_edges"},
+            "source": "f:t1",
+            "target": "f:hot",
+            "type": "covers",
+            "confidence": 1.0,
+        },
     ]
     s.rebuild_from_output_records(manifest_hash="m", records=records)
     s._cached_payload = None
@@ -106,8 +153,13 @@ def test_isolated_node_detected(tmp_path):
     s.rebuild_from_output_records(
         manifest_hash="m",
         records=[
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "f:orphan", "kind": "symbol_function", "name": "orphan", "file": "o.py"},
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "f:orphan",
+                "kind": "symbol_function",
+                "name": "orphan",
+                "file": "o.py",
+            },
         ],
     )
     s._cached_payload = None

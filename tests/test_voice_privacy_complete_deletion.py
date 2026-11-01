@@ -327,14 +327,10 @@ def test_profile_delete_removes_all_hub_voice_references_and_replay_cleans_new_r
                 )
             ).all()
             assert all(
-                record.operation.startswith("voice_privacy.delete:")
-                or PROFILE_ID not in str(record.result_metadata)
+                record.operation.startswith("voice_privacy.delete:") or PROFILE_ID not in str(record.result_metadata)
                 for record in surviving_idempotency
             )
-            assert not any(
-                record.operation.startswith("voice_privacy.delete:")
-                for record in surviving_idempotency
-            )
+            assert not any(record.operation.startswith("voice_privacy.delete:") for record in surviving_idempotency)
             tombstone = session.exec(select(VoiceDeletionTombstoneDB)).one()
             assert not hasattr(tombstone, "tenant_id")
             assert not hasattr(tombstone, "owner_subject")
@@ -352,9 +348,7 @@ def test_profile_delete_removes_all_hub_voice_references_and_replay_cleans_new_r
                 "status",
             }
             assert PROFILE_ID not in str(deletion_audit.details)
-            privacy_details = {
-                key: value for key, value in deletion_audit.details.items() if key != "_event"
-            }
+            privacy_details = {key: value for key, value in deletion_audit.details.items() if key != "_event"}
             assert SUBJECT not in str(privacy_details)
 
         assert _privacy_cache_gc.call_count >= 1

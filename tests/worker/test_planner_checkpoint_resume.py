@@ -18,4 +18,3 @@ def test_checkpoint_resume_restores_last_consistent_state(tmp_path) -> None:
     assert restored is not None
     assert restored["completed_steps"] == ["s1"]
     assert restored["policy_snapshot_ref"] == "policy:1"
-

@@ -65,7 +65,10 @@ def _worker_task(raw: Mapping[str, Any], now_ms: int) -> None:
     }
     payload.update({key: value for key, value in raw.items() if key not in {"deadline_ms", "expires_at_ms"}})
     handler = SemanticComputeWorkerHandler(
-        executor=_Executor(), publisher=_Publisher(), lease_guard=_LeaseGuard(), clock_ms=lambda: now_ms,
+        executor=_Executor(),
+        publisher=_Publisher(),
+        lease_guard=_LeaseGuard(),
+        clock_ms=lambda: now_ms,
     )
     handler.handle(payload)
 
@@ -115,10 +118,7 @@ def _reason(exc: BaseException) -> str:
 
 
 def _admit(domain: str, raw: Mapping[str, Any], now_ms: int) -> tuple[bool, str]:
-    normalized = {
-        key: (float("nan") if value == "__NON_FINITE__" else value)
-        for key, value in raw.items()
-    }
+    normalized = {key: (float("nan") if value == "__NON_FINITE__" else value) for key, value in raw.items()}
     try:
         WORKER_ADAPTERS[domain](normalized, now_ms)
     except (TypeError, ValueError, RuntimeError) as exc:

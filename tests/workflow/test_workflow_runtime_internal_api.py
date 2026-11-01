@@ -279,9 +279,7 @@ def test_strict_worker_route_passes_authenticated_identity_to_gateway(
                     "worker-1": {
                         "worker_url": "http://worker-1:5000",
                         "registration_token": bootstrap,
-                        "service_token_sha256": hashlib.sha256(
-                            worker_token.encode("utf-8")
-                        ).hexdigest(),
+                        "service_token_sha256": hashlib.sha256(worker_token.encode("utf-8")).hexdigest(),
                         "session_signing_key_sha256": hashlib.sha256(
                             b"worker-one-session-signing-key-0123456789abcdef"
                         ).hexdigest(),

@@ -1,10 +1,13 @@
 """Tests für heuristic_dsl.v2 JSON-Schema — Validierung von DSL-Beispielen."""
+
 import json
 import pathlib
+
 import pytest
 
 try:
     import jsonschema
+
     HAS_JSONSCHEMA = True
 except ImportError:
     HAS_JSONSCHEMA = False
@@ -109,6 +112,7 @@ def test_invalid_observe_source_rejected(dsl_schema):
 
 
 # ── Drei Beispiel-Heuristiken ─────────────────────────────────────────────────
+
 
 @pytest.mark.skipif(not HAS_JSONSCHEMA, reason="jsonschema not installed")
 def test_example_mouse_follow_artifact(dsl_schema):
@@ -223,10 +227,12 @@ def test_match_expression_all_any(dsl_schema):
     doc["match"] = {
         "any": [
             {"eq": ["tui.focus", "BODY"]},
-            {"all": [
-                {"gt": ["tui.semantic.entity_count", 0]},
-                {"lt": ["tui.semantic.entity_count", 100]},
-            ]},
+            {
+                "all": [
+                    {"gt": ["tui.semantic.entity_count", 0]},
+                    {"lt": ["tui.semantic.entity_count", 100]},
+                ]
+            },
         ]
     }
     validate_dsl(doc, dsl_schema)

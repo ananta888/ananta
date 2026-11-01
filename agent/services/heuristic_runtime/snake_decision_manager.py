@@ -16,10 +16,10 @@ TUI fallback commands:
   FollowWithDistanceCommand — deterministic follow without LLM
   LurkNearCommand          — deterministic lurk without LLM
 """
+
 from __future__ import annotations
 
 import time
-import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,28 +29,30 @@ from agent.repositories.heuristic_lease_repo import HeuristicLeaseRepository
 from agent.services.heuristic_runtime.chain import RuleChain
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
-from agent.services.heuristic_runtime.decision_trace import DecisionTrace, DecisionMetricsAccumulator
+from agent.services.heuristic_runtime.decision_trace import DecisionMetricsAccumulator, DecisionTrace
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicRegistry, get_heuristic_registry
 from agent.services.heuristic_runtime.lease_reevaluation_service import LeaseReevaluationService, ReevalOutcome
 from agent.services.heuristic_runtime.snake_rules import build_snake_rule_chain
-from agent.services.heuristic_runtime.state_machine import SnakeStateMachine, FallbackActiveState
+from agent.services.heuristic_runtime.state_machine import SnakeStateMachine
 
 try:
-    from agent.services.heuristic_runtime.dsl.loader import DslLoader, DslLoadError
-    from agent.services.heuristic_runtime.dsl.validator import DslValidator
     from agent.services.heuristic_runtime.dsl.evaluator import DslEvaluator
+    from agent.services.heuristic_runtime.dsl.loader import DslLoader, DslLoadError  # noqa: F401 — availability probe
+    from agent.services.heuristic_runtime.dsl.validator import DslValidator
     from agent.services.heuristic_runtime.motion_planner import MotionPlanner
+
     _DSL_RUNTIME_AVAILABLE = True
 except ImportError:
     _DSL_RUNTIME_AVAILABLE = False
 
 _AI_TIMEOUT_SECONDS = 2.5
-_LURK_IDLE_SECONDS = 3.0        # cursor stable for this long → enter lurk
+_LURK_IDLE_SECONDS = 3.0  # cursor stable for this long → enter lurk
 _LURK_UPDATE_INTERVAL_MS = 500  # max 1 position update per this interval in lurk mode
-_LURK_THRESHOLD_PX = 5          # cursor delta below this is considered "stable"
+_LURK_THRESHOLD_PX = 5  # cursor delta below this is considered "stable"
 
 
 # ── Lurk state manager (T04.04) ───────────────────────────────────────────────
+
 
 @dataclass
 class LurkStateManager:
@@ -59,6 +61,7 @@ class LurkStateManager:
     idle_since: timestamp when cursor last had a significant move.
     last_lurk_update: timestamp of the last lurk position update emitted.
     """
+
     idle_since: float | None = None
     last_lurk_update: float = 0.0
     lurk_update_interval_ms: float = _LURK_UPDATE_INTERVAL_MS
@@ -98,23 +101,24 @@ class LurkStateManager:
 
 # ── Fallback commands ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class FollowWithDistanceCommand:
     """Deterministic follow: move toward active artifact, maintain configured distance."""
+
     dx: int = 1
     dy: int = 0
     follow_distance: int = 4
     strategy_id: str = "follow_with_distance"
 
     def to_decision_result(self) -> DecisionResult:
-        return DecisionResult.heuristic_follow(
-            dx=self.dx, dy=self.dy, strategy_id=self.strategy_id
-        )
+        return DecisionResult.heuristic_follow(dx=self.dx, dy=self.dy, strategy_id=self.strategy_id)
 
 
 @dataclass
 class LurkNearCommand:
     """Deterministic lurk: stay near last known artifact, patrol slowly."""
+
     lurk_zone_radius: int = 3
     strategy_id: str = "lurk_near"
 
@@ -123,6 +127,7 @@ class LurkNearCommand:
 
 
 # ── Manager ───────────────────────────────────────────────────────────────────
+
 
 class SnakeDecisionManager:
     def __init__(
@@ -265,7 +270,9 @@ class SnakeDecisionManager:
             eval_result = self._dsl_evaluator.evaluate(dsl, ctx)
             if not eval_result.matched:
                 return None
-            decision = self._dsl_evaluator.to_decision_result(eval_result, strategy_id=getattr(heuristic, "heuristic_id", None))
+            decision = self._dsl_evaluator.to_decision_result(
+                eval_result, strategy_id=getattr(heuristic, "heuristic_id", None)
+            )
             # Motion Planner wenn target_cell/bbox vorhanden
             target_cell = eval_result.action.get("target_cell")
             target_bbox = eval_result.action.get("target_bbox")
@@ -276,6 +283,7 @@ class SnakeDecisionManager:
                 )
                 plan = self._motion_planner.plan(eval_result.action, snake_head)
                 from agent.services.heuristic_runtime.decision_result import SuggestedMotion
+
                 decision.suggested_motion = SuggestedMotion(dx=plan.dx, dy=plan.dy)
             return decision
         except Exception:

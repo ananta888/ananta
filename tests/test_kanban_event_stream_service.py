@@ -53,9 +53,7 @@ def test_event_contract_is_versioned_strict_and_payload_bounded() -> None:
         KanbanEvent.model_validate(
             {
                 **wire,
-                "payload": {
-                    f"field_{index}": index for index in range(9)
-                },
+                "payload": {f"field_{index}": index for index in range(9)},
             }
         )
 
@@ -153,6 +151,4 @@ def test_client_cursor_ahead_is_a_gap_with_encoded_snapshot_reference() -> None:
 
     assert replay.gap_reason == "client_sequence_ahead"
     assert replay.snapshot_required is True
-    assert replay.snapshot_url == (
-        "/api/v1/kanban/boards/goal%3Aalpha/snapshot"
-    )
+    assert replay.snapshot_url == ("/api/v1/kanban/boards/goal%3Aalpha/snapshot")

@@ -1,19 +1,19 @@
 """Tests for LLMResponseNormalizer — FA-T010."""
 
-import pytest
 from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import ProposeContext
+import pytest
+
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from worker.core.propose import (
-    ProposeStrategyResult,
-    ExecutableProposal,
-    PatchProposalArtifact,
-    FileProposalArtifact,
-    PlannerProposalArtifact,
-    STATUS_EXECUTABLE,
     STATUS_ADVISORY,
+    STATUS_EXECUTABLE,
+    ExecutableProposal,
+    FileProposalArtifact,
+    PatchProposalArtifact,
+    PlannerProposalArtifact,
 )
+from worker.core.propose_orchestrator import ProposeContext
 
 
 class TestLLMResponseNormalizer:

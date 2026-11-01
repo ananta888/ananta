@@ -67,7 +67,7 @@ class AgentRegistryService:
             "max_runtime_seconds": max(30, min(int(raw_limits.get("max_runtime_seconds") or 900), 86400)),
             "max_workspace_mb": max(64, min(int(raw_limits.get("max_workspace_mb") or 1024), 65536)),
         }
-        if 'native_result_store_binding_id' in raw_limits:
+        if "native_result_store_binding_id" in raw_limits:
             from ananta_contracts.native_result_maintenance import (
                 MAINTENANCE_CAPABILITY,
                 RESULT_STORE_BINDING_LIMIT,
@@ -77,9 +77,9 @@ class AgentRegistryService:
             try:
                 binding = require_result_store_identifier(raw_limits[RESULT_STORE_BINDING_LIMIT])
             except ValueError:
-                return None, 'native_result_store_binding_invalid', 400
-            if role != 'worker' or not {MAINTENANCE_CAPABILITY, 'workflow.adapter.native'} <= set(capabilities):
-                return None, 'native_result_store_registration_scope_invalid', 400
+                return None, "native_result_store_binding_invalid", 400
+            if role != "worker" or not {MAINTENANCE_CAPABILITY, "workflow.adapter.native"} <= set(capabilities):
+                return None, "native_result_store_registration_scope_invalid", 400
             execution_limits[RESULT_STORE_BINDING_LIMIT] = binding
         strategy_mode = str(data.get("strategy_mode") or raw_limits.get("strategy_mode") or "").strip().lower() or None
         if strategy_mode:
@@ -87,7 +87,7 @@ class AgentRegistryService:
         runtime_targets = list(data.get("runtime_targets") or [])
         # Simple validation: must be list of dicts
         if not isinstance(runtime_targets, list):
-             return None, "invalid_runtime_targets_format", 400
+            return None, "invalid_runtime_targets_format", 400
 
         normalized = {
             **data,
@@ -166,11 +166,7 @@ class AgentRegistryService:
             elif "shellgpt" in name_lower:
                 kind = WorkerKind.shellgpt
 
-        health = (
-            RuntimeHealthState.ready
-            if agent.status == "online"
-            else RuntimeHealthState.unavailable
-        )
+        health = RuntimeHealthState.ready if agent.status == "online" else RuntimeHealthState.unavailable
 
         return WorkerCandidate(
             worker_id=agent.url,
@@ -180,9 +176,7 @@ class AgentRegistryService:
             roles=list(agent.worker_roles or []),
             max_parallel_tasks=max(1, int((agent.execution_limits or {}).get("max_parallel_tasks") or 1)),
             runtime_target_ids=[
-                rt.get("runtime_target_id")
-                for rt in (agent.runtime_targets or [])
-                if rt.get("runtime_target_id")
+                rt.get("runtime_target_id") for rt in (agent.runtime_targets or []) if rt.get("runtime_target_id")
             ],
             health_state=health,
             validation_errors=list(agent.validation_errors or []),
@@ -202,9 +196,7 @@ class AgentRegistryService:
         if status == "online" and current_load >= max_parallel:
             status = "busy"
         available_for_routing = (
-            status in {"online", "degraded"}
-            and bool(agent.registration_validated)
-            and current_load < max_parallel
+            status in {"online", "degraded"} and bool(agent.registration_validated) and current_load < max_parallel
         )
         return AgentDirectoryEntryContract(
             name=agent.name,
@@ -217,7 +209,7 @@ class AgentRegistryService:
                 max_parallel_tasks=max_parallel,
                 max_runtime_seconds=max(30, int(execution_limits.get("max_runtime_seconds") or 900)),
                 max_workspace_mb=max(64, int(execution_limits.get("max_workspace_mb") or 1024)),
-                native_result_store_binding_id=execution_limits.get('native_result_store_binding_id'),
+                native_result_store_binding_id=execution_limits.get("native_result_store_binding_id"),
             ),
             status=status,
             registration_validated=bool(agent.registration_validated),
@@ -276,10 +268,7 @@ class AgentRegistryService:
             "registration_mode": "hub_owned_worker_directory",
             "liveness_source": "agent_registry_and_health_checks",
             "offline_timeout_seconds": int(
-                getattr(current_app.config, "get", lambda *_: None)(
-                    "AGENT_OFFLINE_TIMEOUT", 0
-                )
-                or 0
+                getattr(current_app.config, "get", lambda *_: None)("AGENT_OFFLINE_TIMEOUT", 0) or 0
             ),
         }
 

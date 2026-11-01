@@ -45,37 +45,37 @@ class ConfiguredProfileModelInventoryAdapter:
             routing = self._routing_loader()
             for assignment in routing.assignments:
                 if assignment.profile_id:
-                    consumers_by_profile.setdefault(
-                        assignment.profile_id, set()
-                    ).add(assignment.consumer_id)
-        return ModelInventorySnapshot(models=tuple(
-            self._descriptor(profile, consumers_by_profile)
-            for profile in loaded.profiles
-        ))
+                    consumers_by_profile.setdefault(assignment.profile_id, set()).add(assignment.consumer_id)
+        return ModelInventorySnapshot(
+            models=tuple(self._descriptor(profile, consumers_by_profile) for profile in loaded.profiles)
+        )
 
     def _descriptor(self, profile, consumers_by_profile) -> ModelInventoryDescriptor:
-        claims_by_id = {item.capability_id: item for item in (
-            ModelCapabilityClaim(
-                capability_id="tools",
-                value="supported" if (
-                    profile.supports_tools or profile.supports_prompt_json_tools()
-                ) else "unsupported",
-                evidence=ModelMetadataEvidence.DECLARED,
-                source_id=self.source_id,
-            ),
-            ModelCapabilityClaim(
-                capability_id="json",
-                value="supported" if profile.supports_json else "unsupported",
-                evidence=ModelMetadataEvidence.DECLARED,
-                source_id=self.source_id,
-            ),
-            ModelCapabilityClaim(
-                capability_id="streaming",
-                value="supported" if profile.supports_streaming else "unsupported",
-                evidence=ModelMetadataEvidence.DECLARED,
-                source_id=self.source_id,
-            ),
-        )}
+        claims_by_id = {
+            item.capability_id: item
+            for item in (
+                ModelCapabilityClaim(
+                    capability_id="tools",
+                    value="supported"
+                    if (profile.supports_tools or profile.supports_prompt_json_tools())
+                    else "unsupported",
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                ),
+                ModelCapabilityClaim(
+                    capability_id="json",
+                    value="supported" if profile.supports_json else "unsupported",
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                ),
+                ModelCapabilityClaim(
+                    capability_id="streaming",
+                    value="supported" if profile.supports_streaming else "unsupported",
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                ),
+            )
+        }
         for raw in profile.capability_claims:
             claim = ModelCapabilityClaim.model_validate(raw)
             claims_by_id[claim.capability_id] = claim
@@ -84,32 +84,38 @@ class ConfiguredProfileModelInventoryAdapter:
         unavailable = not profile.enabled or profile.release_state in {"unavailable", "disabled"}
         facts = [
             ModelMetadataFact(
-                fact_id="model_role", value=profile.model_role,
+                fact_id="model_role",
+                value=profile.model_role,
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
             ModelMetadataFact(
-                fact_id="quality_class", value=profile.quality_class,
+                fact_id="quality_class",
+                value=profile.quality_class,
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
             ModelMetadataFact(
-                fact_id="cost_class", value=profile.cost_class,
+                fact_id="cost_class",
+                value=profile.cost_class,
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
             ModelMetadataFact(
-                fact_id="release_state", value=profile.release_state,
+                fact_id="release_state",
+                value=profile.release_state,
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
             ModelMetadataFact(
-                fact_id="trust_class", value=profile.trust_class,
+                fact_id="trust_class",
+                value=profile.trust_class,
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
             ModelMetadataFact(
-                fact_id="safety_modified", value=str(profile.safety_modified).lower(),
+                fact_id="safety_modified",
+                value=str(profile.safety_modified).lower(),
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
@@ -121,16 +127,18 @@ class ConfiguredProfileModelInventoryAdapter:
             ("context.verified_tokens", profile.verified_context_tokens),
         ):
             if value is not None:
-                facts.append(ModelMetadataFact(
-                    fact_id=fact_id,
-                    value=str(value),
-                    evidence=(
-                        ModelMetadataEvidence.BENCHMARK
-                        if fact_id == "context.verified_tokens"
-                        else ModelMetadataEvidence.DECLARED
-                    ),
-                    source_id=self.source_id,
-                ))
+                facts.append(
+                    ModelMetadataFact(
+                        fact_id=fact_id,
+                        value=str(value),
+                        evidence=(
+                            ModelMetadataEvidence.BENCHMARK
+                            if fact_id == "context.verified_tokens"
+                            else ModelMetadataEvidence.DECLARED
+                        ),
+                        source_id=self.source_id,
+                    )
+                )
         return ModelInventoryDescriptor(
             provider_id=profile.provider_id,
             model_id=profile.model,
@@ -146,18 +154,14 @@ class ConfiguredProfileModelInventoryAdapter:
             configured=True,
             listing_supported=False,
             context_window=profile.context_tokens,
-            quantization=(
-                str(profile.extra.get("quantization") or "").strip() or None
-            ),
+            quantization=(str(profile.extra.get("quantization") or "").strip() or None),
             input_modalities=tuple(profile.input_modalities),
             output_modalities=tuple(profile.output_modalities),
             price_input_per_million=profile.price_input_per_million,
             price_output_per_million=profile.price_output_per_million,
             capabilities=claims,
             metadata_facts=tuple(facts),
-            used_by_consumers=tuple(sorted(
-                consumers_by_profile.get(profile.profile_id, set())
-            )),
+            used_by_consumers=tuple(sorted(consumers_by_profile.get(profile.profile_id, set()))),
         )
 
 

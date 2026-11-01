@@ -26,7 +26,12 @@ class Memberships:
     def __init__(self, participants: list[str]) -> None:
         self.rows = {
             participant: SfuMembership(
-                "tenant-a", "session-a", participant, "participant", 1, frozenset({"chat", "view_tui"}),
+                "tenant-a",
+                "session-a",
+                participant,
+                "participant",
+                1,
+                frozenset({"chat", "view_tui"}),
             )
             for participant in participants
         }
@@ -86,8 +91,19 @@ def test_default_profile_is_legacy_safe_and_contains_no_data_destination_limit()
 
 @pytest.mark.parametrize(
     ("count", "admitted"),
-    [(0, True), (1, True), (7, True), (8, True), (9, False), (10, False),
-     (25, False), (50, False), (100, False), (250, False), (251, False)],
+    [
+        (0, True),
+        (1, True),
+        (7, True),
+        (8, True),
+        (9, False),
+        (10, False),
+        (25, False),
+        (50, False),
+        (100, False),
+        (250, False),
+        (251, False),
+    ],
 )
 def test_legacy_boundary_counts(count: int, admitted: bool):
     profile = SfuBroadcastCapacityProfileResolver(DEFAULT_PROFILE, DEFAULT_LIVEKIT).resolve()
@@ -115,9 +131,13 @@ def test_candidate_requires_versioned_gate_approval_and_cas(tmp_path: Path):
     def approved(raw):
         unapproved(raw)
         raw["activation"] = {
-            "state": "candidate", "gate_id": "SFB-GATE-009", "gate_passed": True,
-            "candidate_cap": 10, "approval_id": "approval-cap-10",
-            "expected_previous_revision": 1, "approved_revision": 2,
+            "state": "candidate",
+            "gate_id": "SFB-GATE-009",
+            "gate_passed": True,
+            "candidate_cap": 10,
+            "approval_id": "approval-cap-10",
+            "expected_previous_revision": 1,
+            "approved_revision": 2,
         }
 
     profile, livekit = _profile_files(tmp_path, approved)
@@ -128,9 +148,13 @@ def test_versioned_rollback_restores_legacy_cap(tmp_path: Path):
     def rollback(raw):
         raw["profile_revision"] = 3
         raw["activation"] = {
-            "state": "rollback", "gate_id": "SFB-GATE-009", "gate_passed": True,
-            "candidate_cap": 10, "approval_id": "approval-cap-10",
-            "expected_previous_revision": 2, "approved_revision": 2,
+            "state": "rollback",
+            "gate_id": "SFB-GATE-009",
+            "gate_passed": True,
+            "candidate_cap": 10,
+            "approval_id": "approval-cap-10",
+            "expected_previous_revision": 2,
+            "approved_revision": 2,
         }
 
     profile, livekit = _profile_files(tmp_path, rollback)
@@ -147,7 +171,10 @@ def test_oversize_join_is_rejected_before_token_and_without_partial_state():
     with pytest.raises(SfuAdmissionError, match="capacity_cap_exceeded"):
         _join(service, participants[8], revision)
     state = service.read_state(
-        session_id="session-a", membership_epoch=1, actor_id=participants[8], tenant_id="tenant-a",
+        session_id="session-a",
+        membership_epoch=1,
+        actor_id=participants[8],
+        tenant_id="tenant-a",
     )
     assert state["revision"] == revision and state["joined"] is False
 

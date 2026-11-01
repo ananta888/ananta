@@ -4,17 +4,18 @@ EW-T043: OpenAI-compatible /v1/chat/completions facade.
 EW-T044: Ananta-native ExecutionEnvelope RPC endpoint.
 EW-T048: API exposure policy + self-loop guard (hop count).
 """
+
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
-
+from pydantic import BaseModel, field_validator
 
 # ── API exposure policy (EW-T048) ─────────────────────────────────────────────
+
 
 class ApiExposureMode(str, Enum):
     disabled = "disabled"
@@ -29,6 +30,7 @@ class ApiExposurePolicy:
     Disabled by default — must be explicitly enabled in config.
     Self-calls tracked via X-Ananta-Instance-ID and hop count.
     """
+
     mode: ApiExposureMode = ApiExposureMode.disabled
     instance_id: str = ""
     max_hops: int = 3
@@ -59,6 +61,7 @@ class ApiExposurePolicy:
 
 # ── OpenAI-compatible facade (EW-T043) ───────────────────────────────────────
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -66,9 +69,10 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     """Subset of OpenAI /v1/chat/completions request schema. EW-T043."""
+
     model: str = "ananta-worker"
     messages: list[ChatMessage]
-    capability_token: str = ""    # Ananta capability token required
+    capability_token: str = ""  # Ananta capability token required
     stream: bool = False
     max_tokens: int | None = None
 
@@ -94,10 +98,17 @@ class OpenAIChatFacade:
     Rejects requests that cannot be mapped to a valid ExecutionEnvelope.
     """
 
-    MAPPABLE_USE_CASES = frozenset({
-        "code_review", "bug_fix", "explain_code", "write_tests",
-        "summarize", "diagnose", "plan_task",
-    })
+    MAPPABLE_USE_CASES = frozenset(
+        {
+            "code_review",
+            "bug_fix",
+            "explain_code",
+            "write_tests",
+            "summarize",
+            "diagnose",
+            "plan_task",
+        }
+    )
 
     def __init__(self, policy: ApiExposurePolicy) -> None:
         self._policy = policy
@@ -110,9 +121,7 @@ class OpenAIChatFacade:
         caller_instance_id: str = "",
     ) -> ChatFacadeResult:
         # Policy check
-        allowed, reason = self._policy.check_request(
-            hop_count=hop_count, caller_instance_id=caller_instance_id
-        )
+        allowed, reason = self._policy.check_request(hop_count=hop_count, caller_instance_id=caller_instance_id)
         if not allowed:
             return ChatFacadeResult(allowed=False, reason_code=reason)
 
@@ -121,13 +130,12 @@ class OpenAIChatFacade:
             return ChatFacadeResult(allowed=False, reason_code="missing_capability_token")
 
         # Map use-case from last user message
-        last_user = next(
-            (m.content for m in reversed(request.messages) if m.role == "user"), ""
-        )
+        last_user = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
         use_case = self._classify_use_case(last_user)
         if not use_case:
             return ChatFacadeResult(
-                allowed=False, reason_code="unmappable_chat_request",
+                allowed=False,
+                reason_code="unmappable_chat_request",
                 error="chat request cannot be mapped to a governed ExecutionEnvelope",
             )
 
@@ -153,6 +161,7 @@ class OpenAIChatFacade:
 
 # ── Native RPC endpoint (EW-T044) ─────────────────────────────────────────────
 
+
 class WorkerRPCMode(str, Enum):
     sync = "sync"
     async_job = "async_job"
@@ -160,7 +169,8 @@ class WorkerRPCMode(str, Enum):
 
 class WorkerRPCRequest(BaseModel):
     """Ananta-native RPC request. EW-T044."""
-    envelope: dict[str, Any]      # serialized ExecutionEnvelope
+
+    envelope: dict[str, Any]  # serialized ExecutionEnvelope
     mode: WorkerRPCMode = WorkerRPCMode.sync
     job_id: str = ""
 
@@ -201,9 +211,7 @@ class WorkerRPCEndpoint:
         caller_instance_id: str = "",
     ) -> WorkerRPCResponse:
         # Policy check
-        allowed, reason = self._policy.check_request(
-            hop_count=hop_count, caller_instance_id=caller_instance_id
-        )
+        allowed, reason = self._policy.check_request(hop_count=hop_count, caller_instance_id=caller_instance_id)
         if not allowed:
             return WorkerRPCResponse(accepted=False, reason_code=reason)
 
@@ -214,13 +222,17 @@ class WorkerRPCEndpoint:
             job_id = request.job_id or f"job-{int(time.time() * 1000)}"
             self._jobs[job_id] = {"task_id": task_id, "status": "queued"}
             return WorkerRPCResponse(
-                accepted=True, reason_code="job_queued",
-                task_id=task_id, job_id=job_id,
+                accepted=True,
+                reason_code="job_queued",
+                task_id=task_id,
+                job_id=job_id,
             )
 
         # Sync mode — envelope is validated; actual execution is caller's responsibility
         return WorkerRPCResponse(
-            accepted=True, reason_code="rpc_ok", task_id=task_id,
+            accepted=True,
+            reason_code="rpc_ok",
+            task_id=task_id,
         )
 
     def job_status(self, job_id: str) -> dict[str, Any] | None:

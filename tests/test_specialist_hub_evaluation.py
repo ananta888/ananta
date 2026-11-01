@@ -21,12 +21,20 @@ def evaluation(app, tmp_path):
     reader, repo, principal, job, dataset, *_ = _admitted.__wrapped__(app, tmp_path)
     manifest, _partitions = split_examples(gate_examples(45), seed=11)
     spec = SpecialistTrainingTaskFamilyStrategy(GATE).job_request(
-        dataset_id=dataset.id, base_model="local/base", method="lora", backend="mock",
-        manifest=manifest, benchmark_version="bench-v1",
+        dataset_id=dataset.id,
+        base_model="local/base",
+        method="lora",
+        backend="mock",
+        manifest=manifest,
+        benchmark_version="bench-v1",
         extra={"expected_dataset_version": dataset.version},
     )
-    spec.update(job_type="evaluate_lora", adapter_id="adapter-one", expected_adapter_sha256="a" * 64,
-                scorer_name="specialist_decision")
+    spec.update(
+        job_type="evaluate_lora",
+        adapter_id="adapter-one",
+        expected_adapter_sha256="a" * 64,
+        scorer_name="specialist_decision",
+    )
     command = CreateTrainingJobCommand.from_mapping(spec)
     pin = job.request_spec[BINDING_KEY]
     job.request_spec = {**command.request_spec, BINDING_KEY: pin}
@@ -49,9 +57,11 @@ def evaluation(app, tmp_path):
             pytest.fail("completed evaluation must not be cancelled")
 
     runner = HubSpecialistEvaluation(
-        principal=principal, repository=repo,
-        submission=HubSpecialistJobSubmission(control=CompletedControl(), principal=principal,
-                                             job_type="evaluate_lora"),
+        principal=principal,
+        repository=repo,
+        submission=HubSpecialistJobSubmission(
+            control=CompletedControl(), principal=principal, job_type="evaluate_lora"
+        ),
         predictions=reader,
     )
     return runner, command, repo, principal, job, calls
@@ -105,8 +115,10 @@ def test_receipt_role_must_match_persistent_evaluation_dataset_purpose(evaluatio
     runner, command, repo, principal, job, _calls = evaluation
     dataset = repo.get_dataset(principal, job.dataset_id)
     dataset.split_manifest = {
-        "execution_purpose": "specialist_evaluation", "evaluation_partition": "validation",
-        "specialist_manifest_digest": "c" * 64, "holdout_digest": "d" * 64,
+        "execution_purpose": "specialist_evaluation",
+        "evaluation_partition": "validation",
+        "specialist_manifest_digest": "c" * 64,
+        "holdout_digest": "d" * 64,
     }
     dataset = repo.save_dataset(dataset, expected_version=dataset.version)
     command.request_spec["expected_dataset_version"] = dataset.version

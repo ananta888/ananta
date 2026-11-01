@@ -37,9 +37,7 @@ from worker.planning.organization_category_research_prompts import (
     repair_prompt as build_repair_prompt,
 )
 
-PLANNING_RESEARCH_EXECUTE_COMMAND = (
-    "__ANANTA_EXECUTE_ORGANIZATION_CATEGORY_RESEARCH__"
-)
+PLANNING_RESEARCH_EXECUTE_COMMAND = "__ANANTA_EXECUTE_ORGANIZATION_CATEGORY_RESEARCH__"
 _SOURCE_REF = re.compile(r"^SRC_[0-9]{4}$")
 _RUN_REF = re.compile(r"^RUN_[0-9]{4}$")
 
@@ -77,9 +75,7 @@ class OrganizationCategoryResearchTaskHandler:
         output_validator: Callable[..., tuple[dict[str, Any] | None, list[str]]] = validate_research_output,
     ) -> None:
         self._cli_runner = cli_runner
-        self._bundle_access = (
-            bundle_access or get_task_context_bundle_access_service()
-        )
+        self._bundle_access = bundle_access or get_task_context_bundle_access_service()
         self._cli_invoker = cli_invoker
         self._finalizer = finalizer
         self._agent_config = dict(agent_config or {})
@@ -120,15 +116,9 @@ class OrganizationCategoryResearchTaskHandler:
         request_data = kwargs.get("request_data")
         command = str(getattr(request_data, "command", None) or "").strip()
         if not command:
-            command = str(
-                self._mapping(task.get("last_proposal")).get("command") or ""
-            ).strip()
+            command = str(self._mapping(task.get("last_proposal")).get("command") or "").strip()
         if command != PLANNING_RESEARCH_EXECUTE_COMMAND:
-            return self._denied(
-                OrganizationCategoryResearchExecutionError(
-                    "category_research_execute_command_invalid"
-                )
-            )
+            return self._denied(OrganizationCategoryResearchExecutionError("category_research_execute_command_invalid"))
         try:
             prepared = self._prepare(task=task, task_id=task_id)
         except OrganizationCategoryResearchExecutionError as exc:
@@ -139,9 +129,7 @@ class OrganizationCategoryResearchTaskHandler:
             agent_cfg=self._agent_config,
             source="organization_category_research_execute",
         )
-        explicit_fields = set(
-            getattr(request_data, "model_fields_set", set()) or set()
-        )
+        explicit_fields = set(getattr(request_data, "model_fields_set", set()) or set())
         timeout = int(execution_policy.timeout_seconds)
         if "timeout" not in explicit_fields:
             timeout = max(timeout, 300)
@@ -205,9 +193,7 @@ class OrganizationCategoryResearchTaskHandler:
         duration_ms = max(0, int((self._clock() - started_at) * 1000))
         if candidate is None:
             public_error = {
-                "reason_code": issues[0]
-                if issues
-                else "category_research_output_invalid",
+                "reason_code": issues[0] if issues else "category_research_output_invalid",
                 "issues": issues[:30],
                 "stderr": str(stderr or "")[-1000:],
             }
@@ -247,51 +233,30 @@ class OrganizationCategoryResearchTaskHandler:
         if not task_id or str(task.get("task_kind") or "") != "planning_research":
             self._fail("category_research_worker_task_invalid")
         worker_context = self._mapping(task.get("worker_execution_context"))
-        admission = self._mapping(
-            worker_context.get("hub_research_dispatch_admission")
-        )
-        source_policy = self._mapping(
-            worker_context.get("source_context_policy")
-        )
-        source_manifest = self._mapping(
-            worker_context.get("source_context_bundle_manifest")
-        )
-        destination = self._mapping(
-            worker_context.get("research_destination_binding")
-        )
-        research_binding = self._mapping(
-            worker_context.get("planning_research_binding")
-        )
+        admission = self._mapping(worker_context.get("hub_research_dispatch_admission"))
+        source_policy = self._mapping(worker_context.get("source_context_policy"))
+        source_manifest = self._mapping(worker_context.get("source_context_bundle_manifest"))
+        destination = self._mapping(worker_context.get("research_destination_binding"))
+        research_binding = self._mapping(worker_context.get("planning_research_binding"))
         parent_task_id = str(task.get("parent_task_id") or "").strip()
         worker_job_id = str(task.get("current_worker_job_id") or "").strip()
-        origin_bundle_id = str(
-            worker_context.get("origin_context_bundle_id") or ""
-        ).strip()
-        origin_digest = str(
-            source_policy.get("context_bundle_digest") or ""
-        ).strip()
+        origin_bundle_id = str(worker_context.get("origin_context_bundle_id") or "").strip()
+        origin_digest = str(source_policy.get("context_bundle_digest") or "").strip()
         if (
             admission.get("schema") != "organization_research_worker_admission.v1"
-            or source_policy.get("schema")
-            != "organization_research_source_context_policy.v1"
-            or destination.get("schema")
-            != "organization_research_destination_binding.v1"
-            or source_manifest.get("schema")
-            != "organization_research_context_manifest.v1"
+            or source_policy.get("schema") != "organization_research_source_context_policy.v1"
+            or destination.get("schema") != "organization_research_destination_binding.v1"
+            or source_manifest.get("schema") != "organization_research_context_manifest.v1"
             or str(admission.get("parent_task_id") or "") != parent_task_id
             or str(admission.get("worker_job_id") or "") != worker_job_id
-            or str(admission.get("origin_context_bundle_id") or "")
-            != origin_bundle_id
-            or str(source_policy.get("context_bundle_id") or "")
-            != origin_bundle_id
+            or str(admission.get("origin_context_bundle_id") or "") != origin_bundle_id
+            or str(source_policy.get("context_bundle_id") or "") != origin_bundle_id
             or str(source_manifest.get("id") or "") != origin_bundle_id
             or str(source_manifest.get("task_id") or "") != parent_task_id
             or str(source_policy.get("llm_scope") or "") != "local_only"
             or str(destination.get("llm_scope") or "") != "local_only"
-            or str(destination.get("provider_location") or "")
-            != "local_container"
-            or str(admission.get("destination_binding_digest") or "")
-            != str(destination.get("binding_digest") or "")
+            or str(destination.get("provider_location") or "") != "local_container"
+            or str(admission.get("destination_binding_digest") or "") != str(destination.get("binding_digest") or "")
             or not origin_digest
         ):
             self._fail("category_research_worker_binding_invalid")
@@ -304,71 +269,48 @@ class OrganizationCategoryResearchTaskHandler:
                 task_id=task_id,
             )
         except ContextBundleTaskAccessError as exc:
-            raise OrganizationCategoryResearchExecutionError(
-                str(exc.reason_code)
-            ) from exc
+            raise OrganizationCategoryResearchExecutionError(str(exc.reason_code)) from exc
         if bundle is None:
             self._fail("category_research_context_bundle_missing")
 
         bundle_metadata = self._mapping(self._value(bundle, "bundle_metadata"))
-        dispatch_metadata = self._mapping(
-            bundle_metadata.get("hub_research_dispatch")
-        )
+        dispatch_metadata = self._mapping(bundle_metadata.get("hub_research_dispatch"))
         if (
-            dispatch_metadata.get("schema")
-            != "organization_research_delegated_context.v1"
-            or str(dispatch_metadata.get("payload_digest") or "")
-            != str(admission.get("payload_digest") or "")
-            or str(dispatch_metadata.get("worker_job_id") or "")
-            != worker_job_id
-            or str(dispatch_metadata.get("origin_context_bundle_id") or "")
-            != origin_bundle_id
-            or str(dispatch_metadata.get("origin_context_bundle_digest") or "")
-            != origin_digest
+            dispatch_metadata.get("schema") != "organization_research_delegated_context.v1"
+            or str(dispatch_metadata.get("payload_digest") or "") != str(admission.get("payload_digest") or "")
+            or str(dispatch_metadata.get("worker_job_id") or "") != worker_job_id
+            or str(dispatch_metadata.get("origin_context_bundle_id") or "") != origin_bundle_id
+            or str(dispatch_metadata.get("origin_context_bundle_digest") or "") != origin_digest
             or str(dispatch_metadata.get("destination_binding_digest") or "")
             != str(destination.get("binding_digest") or "")
         ):
             self._fail("category_research_context_lineage_invalid")
 
-        original_metadata = {
-            key: value
-            for key, value in bundle_metadata.items()
-            if key != "hub_research_dispatch"
-        }
+        original_metadata = {key: value for key, value in bundle_metadata.items() if key != "hub_research_dispatch"}
         reconstructed_digest = context_bundle_integrity_digest(
             SimpleNamespace(
                 id=origin_bundle_id,
-                retrieval_run_id=str(
-                    source_manifest.get("retrieval_run_id") or ""
-                ),
+                retrieval_run_id=str(source_manifest.get("retrieval_run_id") or ""),
                 task_id=parent_task_id,
                 bundle_type=str(source_manifest.get("bundle_type") or ""),
                 context_text=str(self._value(bundle, "context_text") or ""),
                 chunks=list(self._value(bundle, "chunks") or []),
-                token_estimate=int(
-                    self._value(bundle, "token_estimate") or 0
-                ),
+                token_estimate=int(self._value(bundle, "token_estimate") or 0),
                 bundle_metadata=original_metadata,
             )
         )
         if reconstructed_digest != origin_digest:
             self._fail("category_research_context_digest_mismatch")
 
-        source_catalog_id = str(
-            research_binding.get("source_catalog_id") or ""
-        ).strip()
-        source_catalog_hash = str(
-            research_binding.get("source_catalog_hash") or ""
-        ).strip()
+        source_catalog_id = str(research_binding.get("source_catalog_id") or "").strip()
+        source_catalog_hash = str(research_binding.get("source_catalog_hash") or "").strip()
         if (
             not source_catalog_id
             or not source_catalog_hash
             or source_catalog_id != str(source_policy.get("source_catalog_id") or "")
-            or source_catalog_hash
-            != str(source_policy.get("source_catalog_hash") or "")
+            or source_catalog_hash != str(source_policy.get("source_catalog_hash") or "")
             or source_catalog_id != str(bundle_metadata.get("catalog_id") or "")
-            or source_catalog_hash
-            != str(bundle_metadata.get("catalog_hash") or "")
+            or source_catalog_hash != str(bundle_metadata.get("catalog_hash") or "")
         ):
             self._fail("category_research_source_catalog_binding_invalid")
 
@@ -382,34 +324,13 @@ class OrganizationCategoryResearchTaskHandler:
             pattern=_RUN_REF,
             reason_code="category_research_run_allowlist_invalid",
         )
-        if (
-            set(allowed_source_refs)
-            != {
-                str(value)
-                for value in list(
-                    research_binding.get("allowed_source_refs") or []
-                )
-            }
-            or set(allowed_run_refs)
-            != {
-                str(value)
-                for value in list(
-                    research_binding.get("allowed_run_refs") or []
-                )
-            }
-        ):
+        if set(allowed_source_refs) != {
+            str(value) for value in list(research_binding.get("allowed_source_refs") or [])
+        } or set(allowed_run_refs) != {str(value) for value in list(research_binding.get("allowed_run_refs") or [])}:
             self._fail("category_research_assignment_allowlist_mismatch")
-        chunks = [
-            dict(value)
-            for value in list(self._value(bundle, "chunks") or [])
-            if isinstance(value, Mapping)
-        ]
+        chunks = [dict(value) for value in list(self._value(bundle, "chunks") or []) if isinstance(value, Mapping)]
         chunk_refs = {
-            str(
-                value.get("source_id")
-                or self._mapping(value.get("metadata")).get("source_id")
-                or ""
-            )
+            str(value.get("source_id") or self._mapping(value.get("metadata")).get("source_id") or "")
             for value in chunks
         }
         chunk_refs.discard("")
@@ -420,11 +341,7 @@ class OrganizationCategoryResearchTaskHandler:
             if isinstance(value, Mapping)
         }
         catalog_refs.discard("")
-        if (
-            not chunks
-            or chunk_refs != set(allowed_source_refs)
-            or catalog_refs != set(allowed_source_refs)
-        ):
+        if not chunks or chunk_refs != set(allowed_source_refs) or catalog_refs != set(allowed_source_refs):
             self._fail("category_research_source_projection_mismatch")
 
         backend = str(destination.get("provider_id") or "").strip().lower()
@@ -443,9 +360,7 @@ class OrganizationCategoryResearchTaskHandler:
             source_catalog_hash=source_catalog_hash,
             allowed_source_refs=allowed_source_refs,
             allowed_run_refs=allowed_run_refs,
-            repository_revision=str(
-                bundle_metadata.get("repository_revision") or ""
-            ),
+            repository_revision=str(bundle_metadata.get("repository_revision") or ""),
         )
         return _PreparedExecution(
             task_id=task_id,
@@ -571,10 +486,7 @@ class OrganizationCategoryResearchTaskHandler:
         if finalizer is None:
             from agent.services.service_registry import get_core_services
 
-            finalizer = (
-                get_core_services()
-                .task_execution_service.finalize_task_execution_response
-            )
+            finalizer = get_core_services().task_execution_service.finalize_task_execution_response
         return finalizer(
             tid=prepared.task_id,
             task=dict(task),
@@ -622,10 +534,7 @@ class OrganizationCategoryResearchTaskHandler:
         if not isinstance(values, list) or not values:
             raise OrganizationCategoryResearchExecutionError(reason_code)
         normalized = tuple(str(value or "").strip() for value in values)
-        if (
-            len(set(normalized)) != len(normalized)
-            or any(pattern.fullmatch(value) is None for value in normalized)
-        ):
+        if len(set(normalized)) != len(normalized) or any(pattern.fullmatch(value) is None for value in normalized):
             raise OrganizationCategoryResearchExecutionError(reason_code)
         return normalized
 

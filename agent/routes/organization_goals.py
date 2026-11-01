@@ -62,9 +62,7 @@ def create_organization_goal(organization_id: str):
 
 
 def _service() -> OrganizationGoalApplicationService:
-    return current_app.extensions.get(
-        "organization_goal_application_service"
-    ) or OrganizationGoalApplicationService()
+    return current_app.extensions.get("organization_goal_application_service") or OrganizationGoalApplicationService()
 
 
 def _credential_type() -> str:

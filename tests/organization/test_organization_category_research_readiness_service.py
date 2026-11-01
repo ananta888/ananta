@@ -58,9 +58,7 @@ class _CatalogAuthority:
             repository_revision=kwargs["repository_revision"],
             manifest_hash=kwargs["manifest_hash"],
             source_allowlist_version=kwargs["source_allowlist_version"],
-            source_refs=(
-                SimpleNamespace(source_id="TEST_SOURCE_REF", scope=kwargs["source_scope"]),
-            ),
+            source_refs=(SimpleNamespace(source_id="TEST_SOURCE_REF", scope=kwargs["source_scope"]),),
         )
 
 
@@ -120,9 +118,7 @@ class _MaterializingCatalogContext:
                 "schema": "source_catalog.v2",
                 "source_catalog_id": resolved.catalog_id,
                 "source_catalog_hash": resolved.catalog_hash,
-                "sources": _catalog_task()["verification_status"]["source_catalog"][
-                    "sources"
-                ],
+                "sources": _catalog_task()["verification_status"]["source_catalog"]["sources"],
             },
             retrieval_run=retrieval,
             context_bundle=bundle,
@@ -415,9 +411,7 @@ def test_readiness_rejects_terminal_goal_cross_team_slot_and_foreign_source_scop
         role_slot_id="slot-1",
         catalog_task_id="catalog-task-1",
     )
-    assert {row["reason_code"] for row in terminal["blockers"]} == {
-        "category_research_goal_not_ready"
-    }
+    assert {row["reason_code"] for row in terminal["blockers"]} == {"category_research_goal_not_ready"}
     assert terminal["checks"]["goal"] == {"ready": False, "status": "failed"}
 
     cross_team = service.evaluate(
@@ -428,14 +422,10 @@ def test_readiness_rejects_terminal_goal_cross_team_slot_and_foreign_source_scop
         role_slot_id="slot-1",
         catalog_task_id="catalog-task-1",
     )
-    assert "category_research_team_not_active" in {
-        row["reason_code"] for row in cross_team["blockers"]
-    }
+    assert "category_research_team_not_active" in {row["reason_code"] for row in cross_team["blockers"]}
 
     foreign_catalog = _catalog_task()
-    foreign_catalog["verification_status"]["source_catalog"]["sources"][0]["source_ref"][
-        "scope"
-    ] = "repository"
+    foreign_catalog["verification_status"]["source_catalog"]["sources"][0]["source_ref"]["scope"] = "repository"
     foreign_authority = _CatalogAuthority()
     foreign_service = OrganizationCategoryResearchReadinessService(
         session_factory=lambda: Session(engine),
@@ -450,9 +440,7 @@ def test_readiness_rejects_terminal_goal_cross_team_slot_and_foreign_source_scop
         role_slot_id="slot-1",
         catalog_task_id="catalog-task-1",
     )
-    assert "category_research_source_catalog_unavailable" in {
-        row["reason_code"] for row in wrong_scope["blockers"]
-    }
+    assert "category_research_source_catalog_unavailable" in {row["reason_code"] for row in wrong_scope["blockers"]}
     assert foreign_authority.calls == []
 
 
@@ -462,9 +450,7 @@ def test_start_persists_authoritative_context_and_destination_policy(engine) -> 
         source_catalog_authority=authority,  # type: ignore[arg-type]
         source_catalog_context=_MaterializingCatalogContext(authority),  # type: ignore[arg-type]
         task_reader=lambda _task_id: _catalog_task(),
-        uow_factory=lambda: PlanningControlUnitOfWork(
-            session_factory=lambda: Session(engine)
-        ),
+        uow_factory=lambda: PlanningControlUnitOfWork(session_factory=lambda: Session(engine)),
     )
     binding = {
         "catalog_task_id": "catalog-task-1",
@@ -497,15 +483,9 @@ def test_start_persists_authoritative_context_and_destination_policy(engine) -> 
         ]
         assert task.assigned_agent_url == "http://worker.test"
         worker_context = dict(task.worker_execution_context or {})
-        assignment_binding = dict(
-            worker_context["planning_research_assignment"]
-        )
-        organization_routing = dict(
-            worker_context["organization_routing"]
-        )
-        research_binding = dict(
-            worker_context["planning_research_binding"]
-        )
+        assignment_binding = dict(worker_context["planning_research_assignment"])
+        organization_routing = dict(worker_context["organization_routing"])
+        research_binding = dict(worker_context["planning_research_binding"])
         source_policy = dict(worker_context["source_context_policy"])
         assert task.context_bundle_id == worker_context["context_bundle_id"]
         assert worker_context["llm_scope"] == "local_only"
@@ -513,27 +493,15 @@ def test_start_persists_authoritative_context_and_destination_policy(engine) -> 
         assert research_binding["allowed_run_refs"] == ["RUN_0001"]
         assert research_binding["llm_scope"] == "local_only"
         assert research_binding["context_bundle_id"] == task.context_bundle_id
-        assert research_binding["context_bundle_digest"] == source_policy[
-            "context_bundle_digest"
-        ]
-        assert source_policy["mode"] == (
-            "authoritative_source_catalog_bundle"
-        )
-        assert source_policy["destination_policy"] == research_binding[
-            "destination_policy"
-        ]
+        assert research_binding["context_bundle_digest"] == source_policy["context_bundle_digest"]
+        assert source_policy["mode"] == ("authoritative_source_catalog_bundle")
+        assert source_policy["destination_policy"] == research_binding["destination_policy"]
         assert assignment_binding["assignment_id"] == "assignment-1"
         assert assignment_binding["agent_url"] == "http://worker.test"
         assert len(assignment_binding["binding_digest"]) == 64
-        assert organization_routing["selected_assignment_id"] == (
-            "assignment-1"
-        )
-        assert organization_routing["selected_agent_id"] == (
-            "http://worker.test"
-        )
-        assert organization_routing["assignment_binding_digest"] == (
-            assignment_binding["binding_digest"]
-        )
+        assert organization_routing["selected_assignment_id"] == ("assignment-1")
+        assert organization_routing["selected_agent_id"] == ("http://worker.test")
+        assert organization_routing["assignment_binding_digest"] == (assignment_binding["binding_digest"])
         agent = session.get(AgentInfoDB, "http://worker.test")
         assert agent is not None
         agent.execution_limits = {"max_concurrent_tasks": 1}
@@ -555,12 +523,8 @@ def test_start_persists_authoritative_context_and_destination_policy(engine) -> 
         )
         session.commit()
 
-    assignment_guard = OrganizationResearchAssignmentBindingService(
-        session_factory=lambda: Session(engine)
-    )
-    assert assignment_guard.resolve_worker(task_payload) == (
-        "http://worker.test"
-    )
+    assignment_guard = OrganizationResearchAssignmentBindingService(session_factory=lambda: Session(engine))
+    assert assignment_guard.resolve_worker(task_payload) == ("http://worker.test")
     assignment_guard.verify_dispatch(
         task=task_payload,
         worker_url="http://worker.test",
@@ -656,9 +620,7 @@ def test_start_revalidates_active_eligible_assignment_before_task_write(engine) 
         source_catalog_authority=authority,  # type: ignore[arg-type]
         source_catalog_context=_MaterializingCatalogContext(authority),  # type: ignore[arg-type]
         task_reader=lambda _task_id: _catalog_task(),
-        uow_factory=lambda: PlanningControlUnitOfWork(
-            session_factory=lambda: Session(engine)
-        ),
+        uow_factory=lambda: PlanningControlUnitOfWork(session_factory=lambda: Session(engine)),
     )
     binding = {
         "catalog_task_id": "catalog-task-1",
@@ -700,9 +662,7 @@ def test_start_revalidates_catalog_authority_before_task_write(engine) -> None:
         source_catalog_authority=authority,  # type: ignore[arg-type]
         source_catalog_context=_MaterializingCatalogContext(authority),  # type: ignore[arg-type]
         task_reader=lambda _task_id: _catalog_task(),
-        uow_factory=lambda: PlanningControlUnitOfWork(
-            session_factory=lambda: Session(engine)
-        ),
+        uow_factory=lambda: PlanningControlUnitOfWork(session_factory=lambda: Session(engine)),
     )
     binding = {
         "catalog_task_id": "catalog-task-1",

@@ -75,9 +75,7 @@ class VramAdmissionPolicy:
     def from_environment(cls) -> "VramAdmissionPolicy":
         profile = str(os.getenv("ANANTA_LORA_TRAINING_GPU_PROFILE", "")).strip().lower()
         if not profile:
-            resource_profile = str(
-                os.getenv("ANANTA_LORA_TRAINING_RESOURCE_PROFILE", "")
-            ).strip().lower()
+            resource_profile = str(os.getenv("ANANTA_LORA_TRAINING_RESOURCE_PROFILE", "")).strip().lower()
             if resource_profile in {"mock", "cpu"}:
                 profile = "none"
             elif resource_profile == "nvidia":
@@ -158,18 +156,12 @@ class VramAdmissionPolicy:
                     "vram_profile_parameter_rejected",
                     f"{field} exceeds the {self.profile} bound of {maximum}",
                 )
-        if (
-            self.max_lora_dropout is not None
-            and float(configuration.lora_dropout) > self.max_lora_dropout
-        ):
+        if self.max_lora_dropout is not None and float(configuration.lora_dropout) > self.max_lora_dropout:
             raise VramAdmissionError(
                 "vram_profile_parameter_rejected",
                 f"lora_dropout exceeds the {self.profile} bound of {self.max_lora_dropout}",
             )
-        if (
-            self.max_target_modules is not None
-            and len(configuration.target_modules) > self.max_target_modules
-        ):
+        if self.max_target_modules is not None and len(configuration.target_modules) > self.max_target_modules:
             raise VramAdmissionError(
                 "vram_profile_parameter_rejected",
                 f"target_modules exceeds the {self.profile} bound of {self.max_target_modules}",

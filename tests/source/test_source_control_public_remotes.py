@@ -15,7 +15,14 @@ from agent.db_models.source_control_public_remote import (
 from agent.repositories.source_control_public_remote_repository import (
     SQLSourceControlPublicRemoteRepository,
 )
+from agent.routes.source_control_public_remotes import (
+    create_source_control_public_remotes_blueprint,
+)
 from agent.services.git_remote_policy_service import GitRemoteAccessPolicy
+from agent.services.project_access_authority import (
+    AuthorizedProjectScope,
+    ProjectCapability,
+)
 from agent.services.source_control_public_remote_contracts import (
     PublicRemoteSelection,
     SourceControlPublicRemoteContractError,
@@ -24,14 +31,7 @@ from agent.services.source_control_public_remote_service import (
     SourceControlPublicRemoteError,
     SourceControlPublicRemoteService,
 )
-from agent.routes.source_control_public_remotes import (
-    create_source_control_public_remotes_blueprint,
-)
 from agent.services.user_session_tokens import issue_user_access_token
-from agent.services.project_access_authority import (
-    AuthorizedProjectScope,
-    ProjectCapability,
-)
 
 _COMMIT = "a" * 40
 _PUBLIC_IP = "93.184.216.34"
@@ -235,13 +235,9 @@ def test_validate_and_create_persist_only_hashed_handle_and_opaque_id() -> None:
     assert transport.authorizations[0].lfs_mode == "disabled"
 
     with Session(engine) as session:
-        handle = session.exec(
-            select(SourceControlPublicRemoteValidationDB)
-        ).one()
+        handle = session.exec(select(SourceControlPublicRemoteValidationDB)).one()
         remote = session.exec(select(SourceControlPublicRemoteDB)).one()
-        audits = session.exec(
-            select(SourceControlPublicRemoteAuditDB)
-        ).all()
+        audits = session.exec(select(SourceControlPublicRemoteAuditDB)).all()
     assert handle.handle_digest != validation["validation_handle"]
     assert handle.remote_id == created["remote_id"]
     assert not hasattr(remote, "remote_url")
@@ -279,14 +275,8 @@ def test_expired_handle_is_rejected_and_audited() -> None:
         )
 
     with Session(engine) as session:
-        audits = session.exec(
-            select(SourceControlPublicRemoteAuditDB)
-        ).all()
-    assert any(
-        item.decision == "deny"
-        and item.reason_code == "public_remote_validation_expired"
-        for item in audits
-    )
+        audits = session.exec(select(SourceControlPublicRemoteAuditDB)).all()
+    assert any(item.decision == "deny" and item.reason_code == "public_remote_validation_expired" for item in audits)
 
 
 def test_feature_flag_defaults_to_fail_closed_service_behavior() -> None:
@@ -327,14 +317,11 @@ def test_public_remote_route_binds_normal_admin_token_project_selector() -> None
     app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _PublicRemoteRouteService()
-    app.register_blueprint(
-        create_source_control_public_remotes_blueprint(service)
-    )
+    app.register_blueprint(create_source_control_public_remotes_blueprint(service))
     token = issue_user_access_token(username="admin", role="admin")
 
     response = app.test_client().post(
-        "/api/source-control/v1/public-remotes/validate"
-        "?project_id=project-example",
+        "/api/source-control/v1/public-remotes/validate?project_id=project-example",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "provider": "github_public",
@@ -361,9 +348,7 @@ def test_public_remote_route_requires_project_selector() -> None:
     app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _PublicRemoteRouteService()
-    app.register_blueprint(
-        create_source_control_public_remotes_blueprint(service)
-    )
+    app.register_blueprint(create_source_control_public_remotes_blueprint(service))
     token = issue_user_access_token(username="admin", role="admin")
 
     response = app.test_client().post(

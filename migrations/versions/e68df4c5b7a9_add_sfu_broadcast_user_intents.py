@@ -4,9 +4,8 @@ Revision ID: e68df4c5b7a9
 Revises: d57cf3b4e6f8
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "e68df4c5b7a9"
 down_revision = "d57cf3b4e6f8"
@@ -88,9 +87,7 @@ def upgrade() -> None:
             "quality_preference IS NULL OR quality_preference IN ('auto','low','medium','high')",
             name="ck_sfu_command_audit_quality",
         ),
-        sa.ForeignKeyConstraint(
-            ["intent_id"], ["sfu_broadcast_user_intents.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["intent_id"], ["sfu_broadcast_user_intents.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("operation_id"),
     )
     op.create_index(

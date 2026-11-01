@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from ananta_contracts.model_intelligence import ArtifactRef
 from agent.services.model_intelligence_metrics_adapter import InProcessOpenMetricsAdapter
 from agent.services.model_intelligence_observability import (
     HmacModelIntelligenceCorrelationService,
@@ -28,6 +27,7 @@ from agent.services.model_intelligence_security_policy import (
     RetentionClass,
     RetentionState,
 )
+from ananta_contracts.model_intelligence import ArtifactRef
 from worker.model_intelligence.metrics import WorkerModelIntelligenceMetrics
 from worker.model_intelligence.openmetrics import WorkerInProcessOpenMetricsPort
 
@@ -163,7 +163,7 @@ def test_hub_openmetrics_adapter_accumulates_counters_and_renders_histograms() -
 
     assert 'model_intelligence_jobs_total{analysis_kind="analysis.static"' in output
     assert "} 2" in output
-    assert 'model_intelligence_job_duration_seconds_bucket{' in output
+    assert "model_intelligence_job_duration_seconds_bucket{" in output
     assert 'le="+Inf"' in output
     assert output.endswith("# EOF\n")
 

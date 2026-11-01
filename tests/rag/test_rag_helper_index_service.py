@@ -51,7 +51,9 @@ def test_rag_helper_index_service_exposes_profile_catalog():
     assert any(item["name"] == "deep_code" for item in profiles)
     assert any(item["name"] == "subtask_bugfix_local" for item in profiles)
     assert any(item["name"] == "subtask_architecture_review" for item in profiles)
-    assert any(item["name"] == "spring-large-project-profile-ultra-backend-java-xml-overview-no-resume" for item in profiles)
+    assert any(
+        item["name"] == "spring-large-project-profile-ultra-backend-java-xml-overview-no-resume" for item in profiles
+    )
 
 
 def test_rag_helper_index_service_can_suggest_subtask_profile():
@@ -215,9 +217,7 @@ def test_source_records_can_build_worker_outputs_without_hub_projection_persiste
         knowledge_index_repository=ForbiddenControlPlaneRepository(),
         knowledge_index_run_repository=ForbiddenControlPlaneRepository(),
     )
-    service._knowledge_output_root = (
-        lambda *, source_scope: tmp_path / "worker" / source_scope
-    )
+    service._knowledge_output_root = lambda *, source_scope: tmp_path / "worker" / source_scope
 
     knowledge_index, run = service.index_source_records(
         source_scope="repo_path",
@@ -270,9 +270,7 @@ def test_source_records_persist_hub_projection_by_default(tmp_path):
         knowledge_index_repository=index_repository,
         knowledge_index_run_repository=run_repository,
     )
-    service._knowledge_output_root = (
-        lambda *, source_scope: tmp_path / "hub" / source_scope
-    )
+    service._knowledge_output_root = lambda *, source_scope: tmp_path / "hub" / source_scope
 
     knowledge_index, run = service.index_source_records(
         source_scope="repo_path",
@@ -283,9 +281,7 @@ def test_source_records_persist_hub_projection_by_default(tmp_path):
 
     assert knowledge_index.status == "completed"
     assert run.status == "completed"
-    assert index_repository.get_calls == [
-        ("repo_path", "hub-owned-source")
-    ]
+    assert index_repository.get_calls == [("repo_path", "hub-owned-source")]
     assert len(index_repository.saved) == 3
     assert len(run_repository.saved) == 2
 
@@ -378,9 +374,7 @@ def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):
     # The graph export is Worker execution: the Worker composition binds its
     # CodeCompass bridge to the Hub-owned RepositoryGraphOutputBuilderPort.
     service = RagHelperIndexService().with_repository_graph_builder(RepositoryCodeCompassBridge())
-    service._knowledge_output_root = (
-        lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
-    )
+    service._knowledge_output_root = lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
     records = [
         {
             "id": "src/payments.py",
@@ -430,16 +424,12 @@ def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):
         "semantic_nodes.jsonl",
         "semantic_edges.jsonl",
     ):
-        assert (first_output / filename).read_bytes() == (
-            second_output / filename
-        ).read_bytes()
+        assert (first_output / filename).read_bytes() == (second_output / filename).read_bytes()
 
 
 def test_repo_graph_export_fails_closed_without_a_composed_graph_builder(tmp_path):
     service = RagHelperIndexService()
-    service._knowledge_output_root = (
-        lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
-    )
+    service._knowledge_output_root = lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
 
     knowledge_index, run = service.index_source_records(
         source_scope="repo_path",
@@ -561,5 +551,6 @@ def test_index_repo_path_rejects_outside_repo(tmp_path):
     service._repo_root = lambda: tmp_path
 
     import pytest
+
     with pytest.raises(ValueError, match="path_outside_repo"):
         service.index_repo_path("/etc/passwd", created_by="tester")

@@ -41,10 +41,9 @@ import sys
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_FLOOR
+from decimal import ROUND_FLOOR, Decimal
 from pathlib import Path
 from typing import Any
-
 
 INPUT_SCHEMA = "ananta.sfu-broadcast-capacity-evidence-bundle.v1"
 OUTPUT_SCHEMA = "ananta.sfu-broadcast-capacity-profiles.v1"
@@ -78,9 +77,7 @@ MAXIMUM_RECORDS_PER_ENVIRONMENT = 2048
 
 _DIGEST_RE = re.compile(r"^(?:sha256:)?([0-9a-fA-F]{64})$")
 _LABEL_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
-_NON_PRODUCTION_KEYS = frozenset(
-    {"fixture", "test_fixture", "mock", "mocked", "synthetic", "simulated"}
-)
+_NON_PRODUCTION_KEYS = frozenset({"fixture", "test_fixture", "mock", "mocked", "synthetic", "simulated"})
 
 
 class EvidenceError(ValueError):
@@ -174,9 +171,7 @@ def apply_conservative_reserve(receiver_tier: int, reserve_percent: float) -> in
     _validate_non_negative_finite(reserve_percent, "invalid_reserve_percent")
     if reserve_percent >= 100.0:
         raise EvidenceError("invalid_reserve_percent")
-    retained = Decimal(receiver_tier) * (
-        Decimal("1") - (Decimal(str(reserve_percent)) / Decimal("100"))
-    )
+    retained = Decimal(receiver_tier) * (Decimal("1") - (Decimal(str(reserve_percent)) / Decimal("100")))
     return int(retained.to_integral_value(rounding=ROUND_FLOOR))
 
 
@@ -194,9 +189,7 @@ def derive_candidate_from_verified_measurements(
     direct_pair = [m for m in measurements if m.transport_mode == "direct_pair"]
     if len(direct_pair) != 1:
         raise EvidenceError("direct_pair_regression_missing_or_ambiguous")
-    if not measurement_is_safe(
-        direct_pair[0], maximum_variance_percent=maximum_variance_percent
-    ):
+    if not measurement_is_safe(direct_pair[0], maximum_variance_percent=maximum_variance_percent):
         raise EvidenceError("direct_pair_regression_failed")
 
     direct_tier = contiguous_safe_tier(
@@ -263,15 +256,11 @@ def derive_capacity_profiles(
             raise EvidenceError("non_production_evidence_rejected")
         if document.get("schema") != INPUT_SCHEMA:
             raise EvidenceError("unsupported_evidence_bundle_schema")
-        policy = _require_mapping(
-            document.get("attestation_policy", {}), "invalid_attestation_policy"
-        )
+        policy = _require_mapping(document.get("attestation_policy", {}), "invalid_attestation_policy")
         signature_required = policy.get("signature_required", False)
         if not isinstance(signature_required, bool):
             raise EvidenceError("invalid_signature_policy")
-        environments = _require_list(
-            document.get("environments"), "environments_missing"
-        )
+        environments = _require_list(document.get("environments"), "environments_missing")
         if not environments:
             raise EvidenceError("verified_environment_evidence_missing")
         if len(environments) > MAXIMUM_ENVIRONMENTS:
@@ -285,21 +274,15 @@ def derive_capacity_profiles(
 
     for raw_environment in environments:
         topology = _safe_label(raw_environment, "topology")
-        infrastructure_profile = _safe_label(
-            raw_environment, "infrastructure_profile"
-        )
+        infrastructure_profile = _safe_label(raw_environment, "infrastructure_profile")
         environment_key = (topology, infrastructure_profile)
         if environment_key in seen_environments:
             return blocked_capacity_catalog("duplicate_environment_evidence")
         seen_environments.add(environment_key)
         try:
-            environment = _require_mapping(
-                raw_environment, "environment_not_an_object"
-            )
+            environment = _require_mapping(raw_environment, "environment_not_an_object")
             _validate_label(topology, "invalid_topology")
-            _validate_label(
-                infrastructure_profile, "invalid_infrastructure_profile"
-            )
+            _validate_label(infrastructure_profile, "invalid_infrastructure_profile")
             if _contains_non_production_marker(environment):
                 raise EvidenceError("non_production_evidence_rejected")
             digests = _normalise_digests(environment.get("digests"))
@@ -334,9 +317,7 @@ def derive_capacity_profiles(
             )
 
     candidates.sort(key=lambda item: (item["topology"], item["infrastructure_profile"]))
-    blocked_environments.sort(
-        key=lambda item: (item["topology"], item["infrastructure_profile"])
-    )
+    blocked_environments.sort(key=lambda item: (item["topology"], item["infrastructure_profile"]))
     if not candidates:
         status = "blocked"
         blocking_reasons = ["no_derivable_capacity_candidate"]
@@ -456,9 +437,7 @@ def read_bounded_json(path: Path) -> Mapping[str, Any]:
     try:
         parsed = json.loads(
             payload.decode("utf-8"),
-            parse_constant=lambda _value: (_ for _ in ()).throw(
-                ValueError("non-finite JSON number")
-            ),
+            parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("non-finite JSON number")),
         )
     except (UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise EvidenceError("evidence_bundle_invalid_json") from exc
@@ -471,16 +450,17 @@ def atomic_write_json(path: Path, document: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_symlink():
         raise EvidenceError("output_symlink_rejected")
-    payload = json.dumps(
-        document,
-        sort_keys=True,
-        indent=2,
-        ensure_ascii=True,
-        allow_nan=False,
-    ) + "\n"
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    payload = (
+        json.dumps(
+            document,
+            sort_keys=True,
+            indent=2,
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        + "\n"
     )
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     temporary_path = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
@@ -557,26 +537,16 @@ def _parse_measurements(
         status_value = record.get("status")
         if status_value not in ("passed", "failed"):
             raise EvidenceError("invalid_measurement_status")
-        quality = _require_mapping(
-            record.get("quality"), "measurement_quality_missing"
-        )
+        quality = _require_mapping(record.get("quality"), "measurement_quality_missing")
         parsed.append(
             VerifiedMeasurement(
                 transport_mode=mode,
                 receiver_tier=tier,
                 passed=status_value == "passed",
-                complete=_require_boolean(
-                    record.get("complete"), "measurement_completeness_missing"
-                ),
-                repetitions=_require_integer(
-                    record.get("repetitions"), "measurement_repetitions_missing"
-                ),
-                variance_percent=_require_number(
-                    record.get("variance_percent"), "measurement_variance_missing"
-                ),
-                thresholds_passed=_require_boolean(
-                    quality.get("thresholds_passed"), "threshold_result_missing"
-                ),
+                complete=_require_boolean(record.get("complete"), "measurement_completeness_missing"),
+                repetitions=_require_integer(record.get("repetitions"), "measurement_repetitions_missing"),
+                variance_percent=_require_number(record.get("variance_percent"), "measurement_variance_missing"),
+                thresholds_passed=_require_boolean(quality.get("thresholds_passed"), "threshold_result_missing"),
                 resource_limits_observed=_require_boolean(
                     quality.get("resource_limits_observed"),
                     "resource_limit_result_missing",
@@ -585,9 +555,7 @@ def _parse_measurements(
                     quality.get("security_controls_preserved"),
                     "security_result_missing",
                 ),
-                soak_stable=_require_boolean(
-                    quality.get("soak_stable"), "soak_result_missing"
-                ),
+                soak_stable=_require_boolean(quality.get("soak_stable"), "soak_result_missing"),
             )
         )
     return parsed
@@ -608,9 +576,7 @@ def _validate_real_record(
         or execution.get("real_processes") is not True
     ):
         raise EvidenceError("real_execution_attestation_missing")
-    verification = _require_mapping(
-        record.get("verification"), "evidence_verification_missing"
-    )
+    verification = _require_mapping(record.get("verification"), "evidence_verification_missing")
     if (
         verification.get("status") != "verified"
         or verification.get("complete") is not True
@@ -625,9 +591,7 @@ def _validate_real_record(
     if actual_digests != dict(expected_digests):
         raise EvidenceError("evidence_digest_mismatch")
     if signature_required:
-        signature = _require_mapping(
-            verification.get("signature"), "required_signature_missing"
-        )
+        signature = _require_mapping(verification.get("signature"), "required_signature_missing")
         if signature.get("status") != "verified":
             raise EvidenceError("required_signature_not_verified")
 
@@ -674,15 +638,11 @@ def _is_truthy_marker(value: Any) -> bool:
     return True
 
 
-def _validate_production_controls(
-    reserve_percent: float, maximum_variance_percent: float
-) -> None:
+def _validate_production_controls(reserve_percent: float, maximum_variance_percent: float) -> None:
     _validate_non_negative_finite(reserve_percent, "invalid_reserve_percent")
     if not MINIMUM_PRODUCTION_RESERVE_PERCENT <= reserve_percent < 100.0:
         raise EvidenceError("production_reserve_below_minimum")
-    _validate_non_negative_finite(
-        maximum_variance_percent, "invalid_variance_limit"
-    )
+    _validate_non_negative_finite(maximum_variance_percent, "invalid_variance_limit")
     if maximum_variance_percent > MAXIMUM_PRODUCTION_VARIANCE_PERCENT:
         raise EvidenceError("production_variance_limit_too_high")
 
@@ -747,18 +707,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         type=Path,
-        default=repository_root
-        / "config/generated/sfu_broadcast_capacity_profiles.json",
+        default=repository_root / "config/generated/sfu_broadcast_capacity_profiles.json",
     )
     parser.add_argument(
         "--gate-report-output",
         type=Path,
-        default=repository_root
-        / "artifacts/test-gates/sfu-broadcast-capacity-derivation.json",
+        default=repository_root / "artifacts/test-gates/sfu-broadcast-capacity-derivation.json",
     )
-    parser.add_argument(
-        "--reserve-percent", type=float, default=DEFAULT_RESERVE_PERCENT
-    )
+    parser.add_argument("--reserve-percent", type=float, default=DEFAULT_RESERVE_PERCENT)
     parser.add_argument(
         "--maximum-variance-percent",
         type=float,

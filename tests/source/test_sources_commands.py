@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.models import OperatorState
+import json
+
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
-import json
+from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.models import OperatorState
 
 
 def _descriptor() -> dict:
@@ -61,7 +62,7 @@ def test_sources_commands_list_refresh_snapshots_cite(monkeypatch, tmp_path) -> 
 
     refreshed = execute_command(":sources refresh keycloak-official-docs --dry-run", listed.state)
     assert refreshed.handled is True
-    assert "\"status\": \"planned\"" in refreshed.message
+    assert '"status": "planned"' in refreshed.message
 
     snaps = execute_command(":sources snapshots keycloak-official-docs", refreshed.state)
     assert snaps.handled is True
@@ -96,11 +97,11 @@ def test_sources_pack_commands_list_show_bootstrap(monkeypatch, tmp_path) -> Non
 
     bootstrap = execute_command(":sources pack bootstrap ananta-dev-default --dry-run", show.state)
     assert bootstrap.handled is True
-    assert "\"status\": \"planned\"" in bootstrap.message
+    assert '"status": "planned"' in bootstrap.message
 
     query = execute_command(":sources pack query ananta-dev-default how to build eclipse plugin?", bootstrap.state)
     assert query.handled is True
-    assert "\"source_references\"" in query.message
+    assert '"source_references"' in query.message
 
 
 def test_sources_import_open_notebook_command(monkeypatch, tmp_path) -> None:
@@ -133,9 +134,7 @@ def test_sources_chat_command(monkeypatch) -> None:
                 "source_id": "open-notebook-1",
                 "answer": "grounded",
                 "context_hash": "hash",
-                "source_references": [
-                    {"title": "Source", "extensions": {"citation_label": "Source citation"}}
-                ],
+                "source_references": [{"title": "Source", "extensions": {"citation_label": "Source citation"}}],
             }
 
     monkeypatch.setattr(chat_module, "get_source_chat_service", lambda: _Chat())

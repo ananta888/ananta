@@ -1,4 +1,5 @@
 """HDE-014: intent aliases, negative examples and usage metadata."""
+
 import pytest
 
 from agent.services.dynamic_tool_registry_service import DynamicToolRegistryService

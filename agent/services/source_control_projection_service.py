@@ -8,7 +8,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _CURSOR = re.compile(r"^[A-Za-z0-9_-]{1,512}$")
 
@@ -98,13 +97,9 @@ class SourceControlProjection:
             "etag": self.etag,
             "connection": dict(self.connection),
             "revision": dict(self.revision) if self.revision is not None else None,
-            "admission": dict(self.admission)
-            if self.admission is not None
-            else None,
+            "admission": dict(self.admission) if self.admission is not None else None,
             "index": dict(self.index) if self.index is not None else None,
-            "active_index": dict(self.active_index)
-            if self.active_index is not None
-            else None,
+            "active_index": dict(self.active_index) if self.active_index is not None else None,
             "stale": self.stale,
             "grants": [dict(grant) for grant in self.grants],
             "health": dict(self.health),
@@ -150,9 +145,7 @@ class SourceControlProjectionService:
             filters=normalized_filters,
         )
         visible = tuple(
-            self._project(record, principal)
-            for record in page.records
-            if self._can_view(record, principal)
+            self._project(record, principal) for record in page.records if self._can_view(record, principal)
         )
         if page.next_cursor is not None and not _CURSOR.fullmatch(page.next_cursor):
             raise SourceControlProjectionError("repository_cursor_invalid")
@@ -194,10 +187,7 @@ class SourceControlProjectionService:
         record: SourceControlAggregateRecord,
         principal: SourceControlPrincipal,
     ) -> bool:
-        if (
-            record.tenant_id != principal.tenant_id
-            or record.project_id != principal.project_id
-        ):
+        if record.tenant_id != principal.tenant_id or record.project_id != principal.project_id:
             return False
         return bool(
             {"admin", "project_owner"} & principal.roles
@@ -218,11 +208,7 @@ class SourceControlProjectionService:
             principal=principal,
             stale=stale,
         )
-        connection = {
-            key: value
-            for key, value in record.connection.items()
-            if key != "tenant_id"
-        }
+        connection = {key: value for key, value in record.connection.items() if key != "tenant_id"}
         connection["project_id"] = record.project_id
         payload_for_etag = {
             "connection_id": record.connection_id,
@@ -263,18 +249,9 @@ class SourceControlProjectionService:
 
 def _derive_stale(record: SourceControlAggregateRecord) -> bool:
     revision_id = str((record.revision or {}).get("source_revision_id") or "")
-    active_revision_id = str(
-        (record.active_index or {}).get("source_revision_id") or ""
-    )
+    active_revision_id = str((record.active_index or {}).get("source_revision_id") or "")
     policy_changed = bool((record.index or {}).get("policy_changed", False))
-    return bool(
-        revision_id
-        and (
-            not active_revision_id
-            or active_revision_id != revision_id
-            or policy_changed
-        )
-    )
+    return bool(revision_id and (not active_revision_id or active_revision_id != revision_id or policy_changed))
 
 
 def _derive_next_actions(
@@ -284,10 +261,7 @@ def _derive_next_actions(
     stale: bool,
 ) -> tuple[str, ...]:
     capabilities = record.capabilities
-    mutator = bool(
-        {"admin", "project_owner"} & principal.roles
-        or principal.subject_id == record.owner_id
-    )
+    mutator = bool({"admin", "project_owner"} & principal.roles or principal.subject_id == record.owner_id)
     actions: list[str] = []
     connection_state = str(record.connection.get("state") or "")
     admission_state = str((record.admission or {}).get("state") or "")
@@ -297,17 +271,10 @@ def _derive_next_actions(
     if (
         "scan" in capabilities
         and connection_state == "active"
-        and (
-            record.revision is None
-            or admission_state in {"pending", "blocked"}
-        )
+        and (record.revision is None or admission_state in {"pending", "blocked"})
     ):
         actions.append("scan")
-    if (
-        "index" in capabilities
-        and admission_state == "admitted"
-        and (stale or index_status in {"", "failed"})
-    ):
+    if "index" in capabilities and admission_state == "admitted" and (stale or index_status in {"", "failed"}):
         actions.append("index")
     if (
         mutator
@@ -320,9 +287,7 @@ def _derive_next_actions(
         actions.append("grant")
     if mutator and "disable" in capabilities and connection_state == "active":
         actions.append("disable")
-    if mutator and "rollback" in capabilities and bool(
-        (record.index or {}).get("rollback_candidate", False)
-    ):
+    if mutator and "rollback" in capabilities and bool((record.index or {}).get("rollback_candidate", False)):
         actions.append("rollback")
     return tuple(actions)
 

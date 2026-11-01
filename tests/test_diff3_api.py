@@ -1,4 +1,5 @@
 """Tests for the Three-Way Flex Diff API (T01-T03)."""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ def client():
     from flask import Flask
 
     from agent.routes.diff3 import _SESSIONS, diff3_bp
+
     _SESSIONS.clear()
     app = Flask(__name__)
     app.register_blueprint(diff3_bp)
@@ -23,6 +25,7 @@ def client():
 
 def _post_json(client, url, data=None):
     return client.post(url, data=json.dumps(data or {}), content_type="application/json")
+
 
 def _put_json(client, url, data=None):
     return client.put(url, data=json.dumps(data or {}), content_type="application/json")
@@ -51,6 +54,7 @@ def test_diff3_git_content_requires_auth_when_hub_auth_is_enabled():
 
 
 # ── T01: Session model / interaction flow ────────────────────────────────────
+
 
 class TestSessionFlow:
     def test_create_session_defaults(self, client):
@@ -137,14 +141,16 @@ class TestSessionFlow:
 
 # ── T02: Panel configuration ──────────────────────────────────────────────────
 
+
 class TestPanelConfiguration:
     def _sid(self, client) -> str:
         return _post_json(client, "/api/diff3/sessions").get_json()["session_id"]
 
     def test_set_panel_current_diff(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/A",
-                         {"source_kind": "current_diff", "render_mode": "unified"})
+        resp = _put_json(
+            client, f"/api/diff3/sessions/{sid}/panels/A", {"source_kind": "current_diff", "render_mode": "unified"}
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         panel_a = next(p for p in data["panels"] if p["panel_id"] == "A")
@@ -153,8 +159,9 @@ class TestPanelConfiguration:
 
     def test_set_panel_current_diff_summary_mode(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/B",
-                         {"source_kind": "current_diff", "render_mode": "summary"})
+        resp = _put_json(
+            client, f"/api/diff3/sessions/{sid}/panels/B", {"source_kind": "current_diff", "render_mode": "summary"}
+        )
         assert resp.status_code == 200
         panel_b = next(p for p in resp.get_json()["panels"] if p["panel_id"] == "B")
         assert panel_b["render_mode"] == "summary"
@@ -171,8 +178,11 @@ class TestPanelConfiguration:
 
     def test_set_panel_output_artifact(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/B",
-                         {"source_kind": "output_artifact", "output_artifact_id": "out-abc123"})
+        resp = _put_json(
+            client,
+            f"/api/diff3/sessions/{sid}/panels/B",
+            {"source_kind": "output_artifact", "output_artifact_id": "out-abc123"},
+        )
         assert resp.status_code == 200
         panel_b = next(p for p in resp.get_json()["panels"] if p["panel_id"] == "B")
         assert panel_b["source_left"]["source_kind"] == "goal_output_artifact"
@@ -180,14 +190,12 @@ class TestPanelConfiguration:
 
     def test_set_panel_output_artifact_missing_id(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/B",
-                         {"source_kind": "output_artifact"})
+        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/B", {"source_kind": "output_artifact"})
         assert resp.status_code == 400
 
     def test_set_panel_ai_mode(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/C",
-                         {"source_kind": "ai", "ai_mode": "review"})
+        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/C", {"source_kind": "ai", "ai_mode": "review"})
         assert resp.status_code == 200
         data = resp.get_json()
         ai_state = data["extensions"].get("ai_panel_state")
@@ -197,33 +205,30 @@ class TestPanelConfiguration:
 
     def test_set_panel_ai_invalid_mode(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/C",
-                         {"source_kind": "ai", "ai_mode": "teleport"})
+        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/C", {"source_kind": "ai", "ai_mode": "teleport"})
         assert resp.status_code == 400
 
     def test_set_panel_empty(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/A",
-                         {"source_kind": "empty"})
+        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/A", {"source_kind": "empty"})
         assert resp.status_code == 200
         panel_a = next(p for p in resp.get_json()["panels"] if p["panel_id"] == "A")
         assert panel_a["panel_type"] == "empty"
 
     def test_invalid_panel_id(self, client):
         sid = self._sid(client)
-        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/X",
-                         {"source_kind": "empty"})
+        resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/X", {"source_kind": "empty"})
         assert resp.status_code == 400
 
     def test_all_three_panels_configurable(self, client):
         sid = self._sid(client)
         for pid, sk in [("A", "current_diff"), ("B", "current_diff"), ("C", "empty")]:
-            resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/{pid}",
-                             {"source_kind": sk})
+            resp = _put_json(client, f"/api/diff3/sessions/{sid}/panels/{pid}", {"source_kind": sk})
             assert resp.status_code == 200
 
 
 # ── T03: AI mode behavior ─────────────────────────────────────────────────────
+
 
 class TestAiMode:
     def _sid(self, client) -> str:
@@ -252,8 +257,7 @@ class TestAiMode:
     def test_run_ai_returns_response(self, client):
         sid = self._sid(client)
         # Set up a panel first
-        _put_json(client, f"/api/diff3/sessions/{sid}/panels/A",
-                  {"source_kind": "current_diff"})
+        _put_json(client, f"/api/diff3/sessions/{sid}/panels/A", {"source_kind": "current_diff"})
         resp = _post_json(client, f"/api/diff3/sessions/{sid}/ai/run", {"mode": "review"})
         assert resp.status_code == 200
         data = resp.get_json()
@@ -291,31 +295,28 @@ class TestAiMode:
         assert "ai_last_response" in session["extensions"]
 
     def test_fallback_on_unknown_session(self, client):
-        resp = _post_json(client, "/api/diff3/sessions/no-such-session/ai/run",
-                          {"mode": "review"})
+        resp = _post_json(client, "/api/diff3/sessions/no-such-session/ai/run", {"mode": "review"})
         assert resp.status_code == 404
 
     def test_three_way_full_flow(self, client):
         """T01-T03 full integration: create → configure panels → run AI."""
         # Create
-        sid = _post_json(client, "/api/diff3/sessions",
-                         {"layout_mode": "equal"}).get_json()["session_id"]
+        sid = _post_json(client, "/api/diff3/sessions", {"layout_mode": "equal"}).get_json()["session_id"]
         # Panel A: git diff
-        _put_json(client, f"/api/diff3/sessions/{sid}/panels/A",
-                  {"source_kind": "current_diff", "render_mode": "unified"})
+        _put_json(
+            client, f"/api/diff3/sessions/{sid}/panels/A", {"source_kind": "current_diff", "render_mode": "unified"}
+        )
         # Panel B: summary
-        _put_json(client, f"/api/diff3/sessions/{sid}/panels/B",
-                  {"source_kind": "current_diff", "render_mode": "summary"})
+        _put_json(
+            client, f"/api/diff3/sessions/{sid}/panels/B", {"source_kind": "current_diff", "render_mode": "summary"}
+        )
         # Panel C: AI
-        _put_json(client, f"/api/diff3/sessions/{sid}/panels/C",
-                  {"source_kind": "ai", "ai_mode": "review"})
+        _put_json(client, f"/api/diff3/sessions/{sid}/panels/C", {"source_kind": "ai", "ai_mode": "review"})
         # Set focus C
-        focus = _put_json(client, f"/api/diff3/sessions/{sid}/focus",
-                          {"panel_id": "C"}).get_json()
+        focus = _put_json(client, f"/api/diff3/sessions/{sid}/focus", {"panel_id": "C"}).get_json()
         assert focus["active_panel"] == "C"
         # Run AI
-        run_resp = _post_json(client, f"/api/diff3/sessions/{sid}/ai/run",
-                              {"mode": "review"})
+        run_resp = _post_json(client, f"/api/diff3/sessions/{sid}/ai/run", {"mode": "review"})
         assert run_resp.status_code == 200
         ai_result = run_resp.get_json()["ai_result"]
         assert ai_result["response"]["schema"] == "ai_diff_response.v1"

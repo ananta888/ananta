@@ -193,10 +193,10 @@ class EvidenceMemory:
                 return "[Abgebrochen]"
             summary = first_choice_content(response_data)
             if summary:
-                return f"[Zusammenfassung von {path}]\n{summary[:options.max_summary_chars]}"
+                return f"[Zusammenfassung von {path}]\n{summary[: options.max_summary_chars]}"
         except Exception as _exc:
             _log.warning("summarize_file failed for %s: %s", path, _exc)
-        return content[:options.max_summary_chars]  # fallback: truncated raw content
+        return content[: options.max_summary_chars]  # fallback: truncated raw content
 
     def _summary_completion(self, summary_prompt: str) -> dict[str, Any]:
         messages = [{"role": "user", "content": summary_prompt}]
@@ -302,7 +302,8 @@ class EvidenceMemory:
             return
         messages = self._state.messages
         messages[:] = [
-            msg for msg in messages
+            msg
+            for msg in messages
             if not (msg.get("role") == "user" and str(msg.get("content") or "").startswith(_EVIDENCE_MESSAGE_PREFIX))
         ]
         messages.append({"role": "user", "content": evidence_text})

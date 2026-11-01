@@ -130,9 +130,9 @@ class CliBackendContext:
         lambda: __import__("agent.services.tools._evidence", fromlist=["build_tool_result"]).build_tool_result
     )
     workspace_path_resolver = _ServiceProperty(
-        lambda: __import__(
-            "agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]
-        ).resolve_workspace_path
+        lambda: (
+            __import__("agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]).resolve_workspace_path
+        )
     )
     workspace_path_error_type = _ServiceProperty(
         lambda: __import__("agent.services.tools.repo_tools", fromlist=["WorkspacePathError"]).WorkspacePathError
@@ -150,16 +150,20 @@ class CliBackendContext:
         ).TokenBudgetService()
     )
     terminal_bridge_factory = _ServiceProperty(
-        lambda: __import__(
-            "agent.services.terminal_bridge",
-            fromlist=["build_terminal_bridge"],
-        ).build_terminal_bridge
+        lambda: (
+            __import__(
+                "agent.services.terminal_bridge",
+                fromlist=["build_terminal_bridge"],
+            ).build_terminal_bridge
+        )
     )
     model_inventory_snapshot_factory = _ServiceProperty(
-        lambda: __import__(
-            "agent.services.model_inventory_service",
-            fromlist=["ModelInventorySnapshot"],
-        ).ModelInventorySnapshot
+        lambda: (
+            __import__(
+                "agent.services.model_inventory_service",
+                fromlist=["ModelInventorySnapshot"],
+            ).ModelInventorySnapshot
+        )
     )
     lmstudio_request_registry_helpers = _ServiceProperty(
         lambda: __import__(

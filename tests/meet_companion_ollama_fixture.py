@@ -22,15 +22,33 @@ def provider_command(name, network, models, store):
     models = validate_model(models)
     library_path = "/usr/lib/wsl/lib:" + str(validate_driver_store(store))
     bindings = driver_bindings(store)
-    args = ["create", "--name", name, "--network", network, "--pull=never", "--read-only",
-            "--user=1000:1000", "--cap-drop=ALL", "--security-opt=no-new-privileges",
-            "--memory=4g", "--pids-limit=256", "--tmpfs=/tmp:rw,size=256m,mode=1777",
-            "--tmpfs=/home/ubuntu/.ollama:rw,size=4m,mode=1777", "--device=/dev/dxg",
-            "--mount", f"type=bind,src={models},dst=/models,readonly",
-            "--env=LD_LIBRARY_PATH=" + library_path, "--env=OLLAMA_MODELS=/models",
-            "--env=OLLAMA_HOST=0.0.0.0:11434", "--env=OLLAMA_NO_CLOUD=true",
-            "--env=OLLAMA_MAX_LOADED_MODELS=1", "--env=OLLAMA_NUM_PARALLEL=1",
-            "--env=OLLAMA_CONTEXT_LENGTH=2048", "--entrypoint=timeout"]
+    args = [
+        "create",
+        "--name",
+        name,
+        "--network",
+        network,
+        "--pull=never",
+        "--read-only",
+        "--user=1000:1000",
+        "--cap-drop=ALL",
+        "--security-opt=no-new-privileges",
+        "--memory=4g",
+        "--pids-limit=256",
+        "--tmpfs=/tmp:rw,size=256m,mode=1777",
+        "--tmpfs=/home/ubuntu/.ollama:rw,size=4m,mode=1777",
+        "--device=/dev/dxg",
+        "--mount",
+        f"type=bind,src={models},dst=/models,readonly",
+        "--env=LD_LIBRARY_PATH=" + library_path,
+        "--env=OLLAMA_MODELS=/models",
+        "--env=OLLAMA_HOST=0.0.0.0:11434",
+        "--env=OLLAMA_NO_CLOUD=true",
+        "--env=OLLAMA_MAX_LOADED_MODELS=1",
+        "--env=OLLAMA_NUM_PARALLEL=1",
+        "--env=OLLAMA_CONTEXT_LENGTH=2048",
+        "--entrypoint=timeout",
+    ]
     for binding in bindings:
         args.extend(["--mount", binding])
     return args + [OLLAMA_IMAGE, "--signal=TERM", "--kill-after=5", "360", "/bin/ollama", "serve"]
@@ -48,8 +66,7 @@ class CompanionOllamaFixture:
         connection = http.client.HTTPConnection(*self.address, timeout=timeout)
         try:
             body = None if payload is None else json.dumps(payload).encode()
-            connection.request("GET" if body is None else "POST", path, body,
-                               {"Content-Type": "application/json"})
+            connection.request("GET" if body is None else "POST", path, body, {"Content-Type": "application/json"})
             response = connection.getresponse()
             raw = response.read(65_537)
             if response.status != 200 or len(raw) > 65_536:
@@ -72,8 +89,7 @@ class CompanionOllamaFixture:
             self.created = True
             self.command(*self.arguments)
             self.command("start", self.name)
-            networks = json.loads(self.command("inspect", self.name, "--format",
-                                                "{{json .NetworkSettings.Networks}}"))
+            networks = json.loads(self.command("inspect", self.name, "--format", "{{json .NetworkSettings.Networks}}"))
             if set(networks) != {self.network}:
                 raise ValueError("test_ollama_network_changed")
             address = ipaddress.IPv4Address(networks[self.network]["IPAddress"])
@@ -84,14 +100,15 @@ class CompanionOllamaFixture:
             while True:
                 try:
                     models = self.request("/api/tags", timeout=1).get("models", [])
-                    if not any(model.get("name") == "qwen2.5:1.5b" and model.get("digest") == MODEL_DIGEST
-                               for model in models):
+                    if not any(
+                        model.get("name") == "qwen2.5:1.5b" and model.get("digest") == MODEL_DIGEST for model in models
+                    ):
                         raise ValueError("test_ollama_model_pin_mismatch")
                     return self
                 except (OSError, http.client.HTTPException):
                     if time.monotonic() >= deadline:
                         raise ValueError("test_ollama_start_timeout") from None
-                    time.sleep(.1)
+                    time.sleep(0.1)
         except BaseException:
             self.close()
             raise

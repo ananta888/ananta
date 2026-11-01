@@ -4,13 +4,12 @@ HCCA-005 — Tests for CCRStore and CCREntry.
 All classes live in agent.services.context_compression.ccr_store which
 already exists, so these tests should pass immediately.
 """
-from __future__ import annotations
 
-import time
+from __future__ import annotations
 
 import pytest
 
-from agent.services.context_compression.ccr_store import CCRStore, CCREntry
+from agent.services.context_compression.ccr_store import CCREntry, CCRStore
 
 
 class TestCCRStore:
@@ -78,7 +77,7 @@ class TestCCRStore:
         deep_path = tmp_path / "deep" / "nested" / "ccr"
         assert not deep_path.exists()
 
-        store = CCRStore(store_path=deep_path)
+        CCRStore(store_path=deep_path)
         assert deep_path.exists()
 
     def test_entry_fields_populated(self, tmp_path):

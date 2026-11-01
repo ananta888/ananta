@@ -60,8 +60,12 @@ def capabilities():
     blocked = _enforce_openai_compat_policy()
     if blocked:
         return blocked
-    policy = get_exposure_policy_service().resolve_openai_compat_policy(current_app.config.get("AGENT_CONFIG", {}) or {})
-    adapters = get_core_services().integration_registry_service.list_exposure_adapters(cfg=current_app.config.get("AGENT_CONFIG", {}) or {})
+    policy = get_exposure_policy_service().resolve_openai_compat_policy(
+        current_app.config.get("AGENT_CONFIG", {}) or {}
+    )
+    adapters = get_core_services().integration_registry_service.list_exposure_adapters(
+        cfg=current_app.config.get("AGENT_CONFIG", {}) or {}
+    )
     adapter_entry = next((item for item in adapters if item.get("adapter") == "openai_compat"), None)
     payload = {
         "object": "ananta.openai_compat.capabilities",
@@ -77,10 +81,15 @@ def capabilities():
         "adapter_registry": adapter_entry or {},
     }
     if policy.get("emit_audit_events", True):
-        log_audit("openai_compat_capabilities_read", {"auth_source": get_exposure_policy_service().resolve_auth_source(
-            is_agent_auth=bool(getattr(g, "auth_payload", None)),
-            is_user_auth=bool(getattr(g, "user", None)),
-        )})
+        log_audit(
+            "openai_compat_capabilities_read",
+            {
+                "auth_source": get_exposure_policy_service().resolve_auth_source(
+                    is_agent_auth=bool(getattr(g, "auth_payload", None)),
+                    is_user_auth=bool(getattr(g, "user", None)),
+                )
+            },
+        )
     return payload
 
 

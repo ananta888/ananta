@@ -44,15 +44,11 @@ class _ExportPort:
     def __init__(self, *, consent: bool = True) -> None:
         self.consent = consent
 
-    def verify_export_consent(
-        self, record, *, export_consent_digest, export_consent_epoch
-    ):
+    def verify_export_consent(self, record, *, export_consent_digest, export_consent_epoch):
         del record, export_consent_digest, export_consent_epoch
         return self.consent
 
-    def encrypt_export(
-        self, record, *, destination_ref, export_consent_digest, export_consent_epoch
-    ):
+    def encrypt_export(self, record, *, destination_ref, export_consent_digest, export_consent_epoch):
         del record, export_consent_digest, export_consent_epoch
         return SpeechAdapterExportReceipt(
             export_id="speech-export-test",
@@ -91,10 +87,7 @@ class _Keys:
 
 class _Consents:
     def verify(self, **scope):
-        if (
-            scope["export_consent_digest"] != digest("export-consent")
-            or scope["export_consent_epoch"] != 7
-        ):
+        if scope["export_consent_digest"] != digest("export-consent") or scope["export_consent_epoch"] != 7:
             return None
         return SpeechAdapterExportConsentBinding(
             consent_id="export-consent-test",
@@ -233,17 +226,18 @@ def test_registration_failure_keeps_atomic_registry_audit_and_recoverable_lineag
             )
         ).all()
         audit_rows = session.exec(
-            select(SemanticMediaAuditOutboxDB).where(
-                SemanticMediaAuditOutboxDB.transition == "evaluated"
-            )
+            select(SemanticMediaAuditOutboxDB).where(SemanticMediaAuditOutboxDB.transition == "evaluated")
         ).all()
     assert adapter is not None
     assert len(pending) == 1
     assert len(audit_rows) == 1
-    assert SpeechEvidenceLineageRepository().recover_pending(
-        tenant_id="tenant-test",
-        owner_subject="owner-test",
-    ) == 1
+    assert (
+        SpeechEvidenceLineageRepository().recover_pending(
+            tenant_id="tenant-test",
+            owner_subject="owner-test",
+        )
+        == 1
+    )
     graph = SpeechEvidenceLineageRepository().traverse(
         tenant_id="tenant-test",
         owner_subject="owner-test",
@@ -258,6 +252,7 @@ def test_registration_failure_keeps_atomic_registry_audit_and_recoverable_lineag
         "evaluation",
         "adapter",
     }
+
 
 def test_revoke_is_idempotent_and_stale_other_transition_is_rejected(tmp_path) -> None:
     audit_repository = InMemorySemanticMediaAuditRepository()
@@ -299,8 +294,7 @@ def test_revoke_is_idempotent_and_stale_other_transition_is_rejected(tmp_path) -
         rows = session.exec(
             select(SemanticMediaAuditOutboxDB).where(
                 SemanticMediaAuditOutboxDB.tenant_digest == audit.digest("tenant", "tenant-test"),
-                SemanticMediaAuditOutboxDB.scope_digest
-                == audit.digest("scope", "semantic-media-session:pair-test"),
+                SemanticMediaAuditOutboxDB.scope_digest == audit.digest("scope", "semantic-media-session:pair-test"),
             )
         ).all()
     assert len(rows) == 3

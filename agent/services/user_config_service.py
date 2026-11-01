@@ -5,6 +5,7 @@ Config Graph Editor writes to. Other services (HybridOrchestrator,
 RestrictedInferenceConfigService, ...) should obtain the global config
 from here rather than reading user.json directly.
 """
+
 from __future__ import annotations
 
 import json

@@ -5,11 +5,8 @@ from pathlib import Path
 
 import jsonschema
 
-
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA = json.loads(
-    (ROOT / "schemas/webrtc/sfu_broadcast_user_intent.v1.json").read_text()
-)
+SCHEMA = json.loads((ROOT / "schemas/webrtc/sfu_broadcast_user_intent.v1.json").read_text())
 FIXTURES = ROOT / "tests/fixtures/contracts/sfu_broadcast_user_intent"
 
 

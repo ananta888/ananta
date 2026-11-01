@@ -52,8 +52,8 @@ class WikiCodeCompassBridge:
         links_path: Path | None = None,
     ) -> dict[str, Any]:
         output_dir.mkdir(parents=True, exist_ok=True)
-        index_path       = output_dir / "index.jsonl"
-        details_path     = output_dir / "details.jsonl"
+        index_path = output_dir / "index.jsonl"
+        details_path = output_dir / "details.jsonl"
         graph_nodes_path = output_dir / "graph_nodes.jsonl"
         graph_edges_path = output_dir / "graph_edges.jsonl"
 
@@ -61,28 +61,35 @@ class WikiCodeCompassBridge:
         seen_nodes: set[str] = set()
 
         with (
-            index_path.open("w", encoding="utf-8")       as idx_fh,
-            details_path.open("w", encoding="utf-8")     as det_fh,
+            index_path.open("w", encoding="utf-8") as idx_fh,
+            details_path.open("w", encoding="utf-8") as det_fh,
             graph_nodes_path.open("w", encoding="utf-8") as node_fh,
             graph_edges_path.open("w", encoding="utf-8") as edge_fh,
         ):
+
             def _write_node(node_id: str, kind: str, title: str, extra: dict | None = None) -> None:
                 nonlocal node_count
                 if node_id in seen_nodes:
                     return
                 seen_nodes.add(node_id)
-                node_fh.write(json.dumps(
-                    {"node_id": node_id, "kind": kind, "title": title, **(extra or {})},
-                    ensure_ascii=False,
-                ) + "\n")
+                node_fh.write(
+                    json.dumps(
+                        {"node_id": node_id, "kind": kind, "title": title, **(extra or {})},
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 node_count += 1
 
             def _write_edge(from_id: str, to_id: str, relation: str) -> None:
                 nonlocal edge_count
-                edge_fh.write(json.dumps(
-                    {"from": from_id, "to": to_id, "relation": relation},
-                    ensure_ascii=False,
-                ) + "\n")
+                edge_fh.write(
+                    json.dumps(
+                        {"from": from_id, "to": to_id, "relation": relation},
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 edge_count += 1
 
             # ── Records → index + details + structural nodes/edges ──────────
@@ -90,9 +97,9 @@ class WikiCodeCompassBridge:
                 if str(record.get("kind") or "") != "wiki_section_chunk":
                     continue
 
-                article_title   = str(record.get("article_title") or "")
-                section_title   = str(record.get("section_title") or "")
-                chunk_id        = str(record.get("chunk_id") or "")
+                article_title = str(record.get("article_title") or "")
+                section_title = str(record.get("section_title") or "")
+                chunk_id = str(record.get("chunk_id") or "")
                 wiki_article_id = str(record.get("wiki_article_id") or article_title)
 
                 # index record (all fields except heavy ones already stripped upstream)
@@ -100,15 +107,21 @@ class WikiCodeCompassBridge:
                 index_count += 1
 
                 # detail record (content for retrieval display)
-                det_fh.write(json.dumps({
-                    "kind":            "wiki_detail",
-                    "wiki_article_id": wiki_article_id,
-                    "article_title":   article_title,
-                    "section_title":   section_title,
-                    "chunk_id":        chunk_id,
-                    "content":         record.get("content"),
-                    "language":        record.get("language"),
-                }, ensure_ascii=False) + "\n")
+                det_fh.write(
+                    json.dumps(
+                        {
+                            "kind": "wiki_detail",
+                            "wiki_article_id": wiki_article_id,
+                            "article_title": article_title,
+                            "section_title": section_title,
+                            "chunk_id": chunk_id,
+                            "content": record.get("content"),
+                            "language": record.get("language"),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 detail_count += 1
 
                 if not include_graph:
@@ -116,16 +129,14 @@ class WikiCodeCompassBridge:
 
                 article_node = f"article:{wiki_article_id}"
                 section_node = f"section:{wiki_article_id}:{section_title}"
-                chunk_node   = f"chunk:{chunk_id}"
+                chunk_node = f"chunk:{chunk_id}"
 
                 _write_node(article_node, "wiki_article", article_title)
-                _write_node(section_node, "wiki_section", section_title,
-                            {"article_node": article_node})
-                _write_node(chunk_node,   "wiki_chunk",   chunk_id,
-                            {"section_node": section_node})
+                _write_node(section_node, "wiki_section", section_title, {"article_node": article_node})
+                _write_node(chunk_node, "wiki_chunk", chunk_id, {"section_node": section_node})
 
                 _write_edge(article_node, section_node, "contains_section")
-                _write_edge(section_node, chunk_node,   "contains_chunk")
+                _write_edge(section_node, chunk_node, "contains_chunk")
 
             # ── Inter-article link edges from links file ─────────────────────
             link_edge_count = 0
@@ -163,21 +174,25 @@ class WikiCodeCompassBridge:
 
         logger.info(
             "wiki_codecompass_bridge: index=%d detail=%d nodes=%d edges=%d (structural=%d link=%d)",
-            index_count, detail_count, node_count, edge_count,
-            edge_count - link_edge_count, link_edge_count,
+            index_count,
+            detail_count,
+            node_count,
+            edge_count,
+            edge_count - link_edge_count,
+            link_edge_count,
         )
 
         return {
             "source_scope": "wiki",
-            "index_record_count":    index_count,
-            "detail_record_count":   detail_count,
-            "node_count":            node_count,
+            "index_record_count": index_count,
+            "detail_record_count": detail_count,
+            "node_count": node_count,
             "relation_record_count": edge_count,
-            "link_edge_count":       link_edge_count,
+            "link_edge_count": link_edge_count,
             "file_count": 4,
             "partitioned_outputs": {
-                "index":       str(index_path),
-                "details":     str(details_path),
+                "index": str(index_path),
+                "details": str(details_path),
                 "graph_nodes": str(graph_nodes_path),
                 "graph_edges": str(graph_edges_path),
             },

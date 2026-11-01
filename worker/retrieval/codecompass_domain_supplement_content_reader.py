@@ -47,9 +47,7 @@ class DomainSupplementLogicalContentReader:
         self,
         connection: sqlite3.Connection,
         *,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> DomainSupplementContent:
         _checkpoint(execution_deadline)
         digest = hashlib.sha256()
@@ -67,17 +65,11 @@ class DomainSupplementLogicalContentReader:
             _checkpoint(execution_deadline)
             domain_count += 1
             if domain_count > self._max_domains:
-                raise ValueError(
-                    "codecompass_domain_supplement_domain_limit_exceeded"
-                )
+                raise ValueError("codecompass_domain_supplement_domain_limit_exceeded")
             semantic_node_count += int(domain["semantic_node_count"])
             semantic_edge_count += int(domain["semantic_edge_count"])
             declaration_edge_count += int(domain["declaration_edge_count"])
-            digest.update(
-                _canonical_json_bytes(
-                    codecompass_domain_supplement_logical_domain(domain)
-                )
-            )
+            digest.update(_canonical_json_bytes(codecompass_domain_supplement_logical_domain(domain)))
             digest.update(b"\n")
             for payload_kind in DOMAIN_SUPPLEMENT_PAYLOAD_KINDS:
                 if is_published:
@@ -99,9 +91,7 @@ class DomainSupplementLogicalContentReader:
                     _checkpoint(execution_deadline)
                     raw_payload_bytes += len(raw)
                     if raw_payload_bytes > self._max_raw_bytes:
-                        raise ValueError(
-                            "codecompass_domain_supplement_raw_budget_exceeded"
-                        )
+                        raise ValueError("codecompass_domain_supplement_raw_budget_exceeded")
                     chunk_header = codecompass_domain_supplement_logical_chunk_header(
                         domain_key=str(domain["domain_key"]),
                         payload_kind=payload_kind,
@@ -127,9 +117,7 @@ class DomainSupplementLogicalContentReader:
         cls,
         connection: sqlite3.Connection,
         *,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> Iterator[dict[str, Any]]:
         published = cls._has_column(connection, "domains", "complete")
         if published:
@@ -158,8 +146,7 @@ class DomainSupplementLogicalContentReader:
             return
 
         for row in connection.execute(
-            "SELECT domain_key, domain_kind, domain_label, source_file_count "
-            "FROM domains ORDER BY domain_key"
+            "SELECT domain_key, domain_kind, domain_label, source_file_count FROM domains ORDER BY domain_key"
         ):
             _checkpoint(execution_deadline)
             domain_key = str(row[0])
@@ -192,9 +179,7 @@ class DomainSupplementLogicalContentReader:
         *,
         domain_key: str,
         payload_kind: str,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> tuple[int, int]:
         count = 0
         byte_count = 0
@@ -253,9 +238,7 @@ class DomainSupplementLogicalContentReader:
         *,
         domain_key: str,
         payload_kind: str,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> Iterator[tuple[int, bytes, int]]:
         for row in connection.execute(
             "SELECT chunk_ordinal, row_count, raw_size, raw_sha256, payload_zlib "
@@ -290,10 +273,7 @@ class DomainSupplementLogicalContentReader:
         table: str,
         column: str,
     ) -> bool:
-        return any(
-            str(row[1]) == column
-            for row in connection.execute(f"PRAGMA table_info({table})")
-        )
+        return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
 
 
 __all__ = ["DomainSupplementLogicalContentReader"]

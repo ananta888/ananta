@@ -127,9 +127,7 @@ class SpeechEvidencePeerRevocationService:
         if requested_action not in {"delete", "stop_use"}:
             raise SpeechEvidenceRevocationError("speech_evidence_revocation_action_invalid")
         now = int(self._clock_ms())
-        revocation_id = hashlib.sha256(
-            f"{pair_id}\0{sender_id}\0{audience_id}\0{idempotency_key}".encode()
-        ).hexdigest()
+        revocation_id = hashlib.sha256(f"{pair_id}\0{sender_id}\0{audience_id}\0{idempotency_key}".encode()).hexdigest()
         with self._lock:
             existing = self._records.get(revocation_id)
             if existing is not None:

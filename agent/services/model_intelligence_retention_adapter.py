@@ -13,13 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from ananta_contracts.model_intelligence import ArtifactRef
 from agent.services.model_intelligence_security_policy import (
     ModelIntelligenceRetentionDecision,
     ModelIntelligenceRetentionRecord,
     RetentionClass,
     RetentionState,
 )
+from ananta_contracts.model_intelligence import ArtifactRef
 
 
 class ModelIntelligenceRetentionStoreError(RuntimeError):

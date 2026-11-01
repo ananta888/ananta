@@ -73,8 +73,12 @@ def _normalize_config(agent_cfg: dict | None) -> dict[str, Any]:
             minimum=1,
             maximum=5,
         ),
-        "max_tasks": _bounded_int(raw.get("max_tasks"), default=int(_DEFAULT_CONFIG["max_tasks"]), minimum=1, maximum=20),
-        "max_steps": _bounded_int(raw.get("max_steps"), default=int(_DEFAULT_CONFIG["max_steps"]), minimum=1, maximum=200),
+        "max_tasks": _bounded_int(
+            raw.get("max_tasks"), default=int(_DEFAULT_CONFIG["max_tasks"]), minimum=1, maximum=20
+        ),
+        "max_steps": _bounded_int(
+            raw.get("max_steps"), default=int(_DEFAULT_CONFIG["max_steps"]), minimum=1, maximum=200
+        ),
         "enforce_artifacts": bool(raw.get("enforce_artifacts", _DEFAULT_CONFIG["enforce_artifacts"])),
         "default_executor_kind": _normalize_executor_kind(raw.get("default_executor_kind")),
         "execution_mode": _normalize_execution_mode(raw.get("execution_mode")),
@@ -91,14 +95,28 @@ def _slug(value: str, *, fallback: str) -> str:
     return normalized or fallback
 
 
-def _default_expected_artifacts(*, task_kind: str | None, expected_output_schema: dict[str, Any] | None) -> list[dict[str, Any]]:
-    artifacts: list[dict[str, Any]] = [{"kind": "task_output", "required": True, "description": "Primary task output artifact."}]
+def _default_expected_artifacts(
+    *, task_kind: str | None, expected_output_schema: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = [
+        {"kind": "task_output", "required": True, "description": "Primary task output artifact."}
+    ]
     kind = str(task_kind or "").strip().lower()
     if kind in {"coding", "testing", "verification"}:
-        artifacts.append({"kind": "patch_artifact", "required": True, "description": "Patch or code delta produced by execution."})
-        artifacts.append({"kind": "verification_artifact", "required": True, "description": "Verification evidence for the change."})
+        artifacts.append(
+            {"kind": "patch_artifact", "required": True, "description": "Patch or code delta produced by execution."}
+        )
+        artifacts.append(
+            {"kind": "verification_artifact", "required": True, "description": "Verification evidence for the change."}
+        )
     if expected_output_schema:
-        artifacts.append({"kind": "structured_output", "required": True, "description": "Structured output matching expected_output_schema."})
+        artifacts.append(
+            {
+                "kind": "structured_output",
+                "required": True,
+                "description": "Structured output matching expected_output_schema.",
+            }
+        )
     return artifacts
 
 
@@ -167,7 +185,9 @@ class WorkerTodoPlannerService:
                 task_kind=task_kind,
                 expected_output_schema=dict(expected_output_schema or {}),
             ),
-            "acceptance_criteria": _default_acceptance_criteria(expected_output_schema=dict(expected_output_schema or {})),
+            "acceptance_criteria": _default_acceptance_criteria(
+                expected_output_schema=dict(expected_output_schema or {})
+            ),
             "metadata": {
                 "source": "hub_deterministic_seed",
                 "task_kind": str(task_kind or "").strip().lower() or None,
@@ -282,17 +302,18 @@ class WorkerTodoPlannerService:
     def _resolve_llm_config(self, *, planner_cfg: dict[str, Any], agent_cfg: dict | None) -> dict[str, Any]:
         llm_cfg = (agent_cfg or {}).get("llm_config")
         llm_cfg = llm_cfg if isinstance(llm_cfg, dict) else {}
-        provider = str(
-            planner_cfg.get("provider")
-            or llm_cfg.get("provider")
-            or (agent_cfg or {}).get("default_provider")
-            or ""
-        ).strip().lower()
+        provider = (
+            str(
+                planner_cfg.get("provider")
+                or llm_cfg.get("provider")
+                or (agent_cfg or {}).get("default_provider")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
         model = str(
-            planner_cfg.get("model")
-            or llm_cfg.get("model")
-            or (agent_cfg or {}).get("default_model")
-            or ""
+            planner_cfg.get("model") or llm_cfg.get("model") or (agent_cfg or {}).get("default_model") or ""
         ).strip()
         base_url = str(planner_cfg.get("base_url") or llm_cfg.get("base_url") or "").strip() or None
         api_key = str(planner_cfg.get("api_key") or llm_cfg.get("api_key") or "").strip() or None
@@ -347,7 +368,7 @@ class WorkerTodoPlannerService:
         llm = self._resolve_llm_config(planner_cfg=planner_cfg, agent_cfg=agent_cfg)
         task_id = str(subtask_id or todo_contract.get("task_id") or "")
         goal_id = str((parent_task or {}).get("goal_id") or todo_contract.get("goal_id") or "")
-        source_model = f"{llm.get('provider','?')}/{llm.get('model','?')}"
+        source_model = f"{llm.get('provider', '?')}/{llm.get('model', '?')}"
         if not llm.get("provider") or not llm.get("model"):
             return None, "planner_llm_not_configured", None
         prompt = self._build_planner_prompt(
@@ -376,8 +397,11 @@ class WorkerTodoPlannerService:
                 raw_tasks = parsed if isinstance(parsed, list) else parsed.get("tasks")
                 if not isinstance(raw_tasks, list):
                     proposal = self._make_proposal_artifact(
-                        raw_text=last_raw, task_id=task_id, goal_id=goal_id,
-                        source_model=source_model, parse_status="malformed_json",
+                        raw_text=last_raw,
+                        task_id=task_id,
+                        goal_id=goal_id,
+                        source_model=source_model,
+                        parse_status="malformed_json",
                         parse_error="planner_llm_invalid_shape",
                     )
                     return None, "planner_llm_invalid_shape", proposal
@@ -389,14 +413,20 @@ class WorkerTodoPlannerService:
                 )
                 if not normalized:
                     proposal = self._make_proposal_artifact(
-                        raw_text=last_raw, task_id=task_id, goal_id=goal_id,
-                        source_model=source_model, parse_status="parsed",
+                        raw_text=last_raw,
+                        task_id=task_id,
+                        goal_id=goal_id,
+                        source_model=source_model,
+                        parse_status="parsed",
                         parse_error="planner_llm_empty_after_normalization",
                     )
                     return None, "planner_llm_empty_after_normalization", proposal
                 proposal = self._make_proposal_artifact(
-                    raw_text=last_raw, task_id=task_id, goal_id=goal_id,
-                    source_model=source_model, parse_status="parsed",
+                    raw_text=last_raw,
+                    task_id=task_id,
+                    goal_id=goal_id,
+                    source_model=source_model,
+                    parse_status="parsed",
                     parsed_items=normalized,
                 )
                 return normalized, None, proposal
@@ -405,10 +435,21 @@ class WorkerTodoPlannerService:
             except Exception as exc:  # noqa: BLE001
                 last_error = f"planner_llm_call_failed:{exc}"
         # Parse failed — determine parse_status from error type
-        ps = "markdown_fenced" if last_raw.strip().startswith("```") else ("natural_language" if last_raw.strip() and not last_raw.strip().startswith("{") and not last_raw.strip().startswith("[") else "failed")
+        ps = (
+            "markdown_fenced"
+            if last_raw.strip().startswith("```")
+            else (
+                "natural_language"
+                if last_raw.strip() and not last_raw.strip().startswith("{") and not last_raw.strip().startswith("[")
+                else "failed"
+            )
+        )
         proposal = self._make_proposal_artifact(
-            raw_text=last_raw, task_id=task_id, goal_id=goal_id,
-            source_model=source_model, parse_status=ps,
+            raw_text=last_raw,
+            task_id=task_id,
+            goal_id=goal_id,
+            source_model=source_model,
+            parse_status=ps,
             parse_error=last_error,
         )
         return None, last_error or "planner_llm_failed", proposal
@@ -424,6 +465,7 @@ class WorkerTodoPlannerService:
         contract_json = json.dumps(todo_contract, ensure_ascii=False, indent=2)
         try:
             from agent.services.system_prompt_catalog import get_system_prompt
+
             tpl = get_system_prompt("system.worker_todo_planner", "")
         except Exception:
             tpl = ""
@@ -488,11 +530,17 @@ class WorkerTodoPlannerService:
                     {
                         "kind": kind,
                         "required": bool(artifact.get("required", True)),
-                        **({"description": str(artifact.get("description")).strip()} if str(artifact.get("description") or "").strip() else {}),
+                        **(
+                            {"description": str(artifact.get("description")).strip()}
+                            if str(artifact.get("description") or "").strip()
+                            else {}
+                        ),
                     }
                 )
             if not expected_artifacts:
-                expected_artifacts = [dict(entry) for entry in list(fallback_expected_artifacts or []) if isinstance(entry, dict)]
+                expected_artifacts = [
+                    dict(entry) for entry in list(fallback_expected_artifacts or []) if isinstance(entry, dict)
+                ]
             normalized.append(
                 {
                     "id": _slug(task_id, fallback=f"todo-{idx}"),
@@ -502,7 +550,11 @@ class WorkerTodoPlannerService:
                     "priority": _safe_priority(item.get("priority")),
                     "risk": _safe_risk(item.get("risk")),
                     "depends_on": depends_on[:10],
-                    "allowed_tools": [str(tool).strip() for tool in list(item.get("allowed_tools") or default_allowed_tools) if str(tool).strip()],
+                    "allowed_tools": [
+                        str(tool).strip()
+                        for tool in list(item.get("allowed_tools") or default_allowed_tools)
+                        if str(tool).strip()
+                    ],
                     "expected_artifacts": expected_artifacts,
                     "acceptance_criteria": acceptance[:10],
                     "metadata": {
@@ -524,4 +576,3 @@ worker_todo_planner_service = WorkerTodoPlannerService()
 
 def get_worker_todo_planner_service() -> WorkerTodoPlannerService:
     return worker_todo_planner_service
-

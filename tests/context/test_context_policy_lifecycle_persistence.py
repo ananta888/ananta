@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.db_models.context_policy_lifecycle import (
     ContextPolicyLifecycleAuditDB,
@@ -30,7 +30,6 @@ from ananta_contracts.source_control import (
     GrantTransformation,
 )
 
-
 NOW = "2026-01-01T00:00:00+00:00"
 
 
@@ -46,9 +45,7 @@ class _Preview:
             reason_codes=("default_deny",),
             matched_rule_path=(),
             approval_requirement=None,
-            policy_digest=derive_context_policy_digest(
-                policy_document
-            ),
+            policy_digest=derive_context_policy_digest(policy_document),
         )
 
 
@@ -189,21 +186,23 @@ def test_activation_supersedes_prior_snapshot_and_replay_is_stable(
     )
 
     assert replay == first_active
-    assert service.active(
-        actor=_actor(),
-        policy_id="policy-alpha",
-    ) == second_active
-    assert service.detail(
-        actor=_actor(),
-        policy_id="policy-alpha",
-        version=1,
-    ).state == "superseded"
+    assert (
+        service.active(
+            actor=_actor(),
+            policy_id="policy-alpha",
+        )
+        == second_active
+    )
+    assert (
+        service.detail(
+            actor=_actor(),
+            policy_id="policy-alpha",
+            version=1,
+        ).state
+        == "superseded"
+    )
     with Session(engine) as session:
-        active_rows = session.exec(
-            select(ContextPolicyVersionDB).where(
-                ContextPolicyVersionDB.state == "active"
-            )
-        ).all()
+        active_rows = session.exec(select(ContextPolicyVersionDB).where(ContextPolicyVersionDB.state == "active")).all()
     assert len(active_rows) == 1
 
 
@@ -293,11 +292,14 @@ def test_rollback_creates_new_draft_without_mutating_history(
     assert rolled_back.version == 3
     assert rolled_back.state == "draft"
     assert rolled_back.document == active.document
-    assert service.detail(
-        actor=_actor(),
-        policy_id="policy-alpha",
-        version=2,
-    ) == second
+    assert (
+        service.detail(
+            actor=_actor(),
+            policy_id="policy-alpha",
+            version=2,
+        )
+        == second
+    )
     first_page, cursor = service.versions(
         actor=_actor(),
         policy_id="policy-alpha",

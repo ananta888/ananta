@@ -63,7 +63,12 @@ def _do_executemany(cursor, statement, parameters, context):
 
 def install() -> None:
     global _installed
-    if _installed or os.environ.get("ANANTA_TEST_SQLITE_LOCK_RETRY", "1").strip().lower() in {"0", "false", "no", "off"}:
+    if _installed or os.environ.get("ANANTA_TEST_SQLITE_LOCK_RETRY", "1").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
         return
     event.listen(Engine, "do_execute", _do_execute)
     event.listen(Engine, "do_executemany", _do_executemany)

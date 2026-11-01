@@ -24,7 +24,9 @@ class FakeHttpResponse:
 
 
 class FakeOpener:
-    def __init__(self, responses: list[FakeHttpResponse] | None = None, *, http_error: error.HTTPError | None = None) -> None:
+    def __init__(
+        self, responses: list[FakeHttpResponse] | None = None, *, http_error: error.HTTPError | None = None
+    ) -> None:
         self.responses = list(responses or [])
         self.http_error = http_error
         self.requests = []
@@ -64,7 +66,10 @@ def test_http_transport_maps_approval_required_error() -> None:
         hdrs=None,
         fp=io.BytesIO(json.dumps({"reason": "approval_required"}).encode("utf-8")),
     )
-    transport = HttpJsonTransport(BlenderAddonSettings(endpoint="https://hub.local", transport_mode="http"), opener=FakeOpener(http_error=http_error))
+    transport = HttpJsonTransport(
+        BlenderAddonSettings(endpoint="https://hub.local", transport_mode="http"),
+        opener=FakeOpener(http_error=http_error),
+    )
 
     response = transport.send("execute_action", {"action": "rename"})
 

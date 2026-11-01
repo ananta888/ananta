@@ -20,8 +20,7 @@ class KnowledgeExpertBenchmarkGate:
             "promotion",
             "latency_metrics",
         } or (
-            config.get("schema") != "ananta.knowledge-expert-benchmark-config.v1"
-            or config.get("version") != "1.0.0"
+            config.get("schema") != "ananta.knowledge-expert-benchmark-config.v1" or config.get("version") != "1.0.0"
         ):
             raise ValueError("knowledge_expert_benchmark_config_invalid")
         self._variants = tuple(str(value) for value in config.get("required_variants") or ())

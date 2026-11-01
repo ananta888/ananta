@@ -13,7 +13,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-
 revision: str = "6e05f6a7b8c9"
 down_revision: str | Sequence[str] | None = "5df4e5f6a7b8"
 branch_labels: str | Sequence[str] | None = None
@@ -32,12 +31,18 @@ def upgrade() -> None:
             sa.Column("fencing_token", sa.Integer(), nullable=False),
             sa.Column("purged_at", sa.Float(), nullable=False),
             sa.Column("deny_until", sa.Float(), nullable=False),
-            sa.CheckConstraint("final_version > 0 AND fencing_token > 0", name="ck_sfu_audience_tombstone_fence_version"),
+            sa.CheckConstraint(
+                "final_version > 0 AND fencing_token > 0", name="ck_sfu_audience_tombstone_fence_version"
+            ),
             sa.CheckConstraint("deny_until >= purged_at", name="ck_sfu_audience_tombstone_ttl"),
             sa.PrimaryKeyConstraint("id"),
         )
-        op.create_index("ix_sfu_audience_tombstone_retention", "sfu_audience_snapshot_tombstones", ["deny_until", "purged_at"])
-        op.create_index("ix_sfu_audience_snapshot_tombstones_scope_digest", "sfu_audience_snapshot_tombstones", ["scope_digest"])
+        op.create_index(
+            "ix_sfu_audience_tombstone_retention", "sfu_audience_snapshot_tombstones", ["deny_until", "purged_at"]
+        )
+        op.create_index(
+            "ix_sfu_audience_snapshot_tombstones_scope_digest", "sfu_audience_snapshot_tombstones", ["scope_digest"]
+        )
 
     if "sfu_audience_retention_fences" not in existing:
         op.create_table(
@@ -79,13 +84,17 @@ def upgrade() -> None:
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.Column("tombstoned_at", sa.Float(), nullable=True),
             sa.CheckConstraint("membership_epoch > 0 AND key_epoch > 0", name="ck_sfu_group_key_epochs"),
-            sa.CheckConstraint("previous_key_epoch >= 0 AND previous_key_epoch < key_epoch", name="ck_sfu_group_key_transition"),
+            sa.CheckConstraint(
+                "previous_key_epoch >= 0 AND previous_key_epoch < key_epoch", name="ck_sfu_group_key_transition"
+            ),
             sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_group_key_fence_version"),
             sa.CheckConstraint("package_count >= 0 AND total_package_bytes >= 0", name="ck_sfu_group_key_bounds"),
             sa.CheckConstraint("distribution_mode = 'bounded_rewrap'", name="ck_sfu_group_key_distribution_mode"),
             sa.CheckConstraint("status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_group_key_status"),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint("tenant_id", "room_id", "publication_id", "key_epoch", name="uq_sfu_group_key_authorization_epoch"),
+            sa.UniqueConstraint(
+                "tenant_id", "room_id", "publication_id", "key_epoch", name="uq_sfu_group_key_authorization_epoch"
+            ),
         )
         op.create_index(
             "uq_sfu_group_key_authorization_active",
@@ -95,9 +104,27 @@ def upgrade() -> None:
             sqlite_where=sa.text("status = 'active'"),
             postgresql_where=sa.text("status = 'active'"),
         )
-        op.create_index("ix_sfu_group_key_authorization_expiry", "sfu_broadcast_group_key_authorizations", ["status", "expires_at_ms", "updated_at"])
-        for name in ("tenant_id", "session_id", "room_id", "publication_id", "publisher_digest", "membership_epoch", "key_epoch", "status", "fencing_token", "version", "expires_at_ms"):
-            op.create_index(f"ix_sfu_broadcast_group_key_authorizations_{name}", "sfu_broadcast_group_key_authorizations", [name])
+        op.create_index(
+            "ix_sfu_group_key_authorization_expiry",
+            "sfu_broadcast_group_key_authorizations",
+            ["status", "expires_at_ms", "updated_at"],
+        )
+        for name in (
+            "tenant_id",
+            "session_id",
+            "room_id",
+            "publication_id",
+            "publisher_digest",
+            "membership_epoch",
+            "key_epoch",
+            "status",
+            "fencing_token",
+            "version",
+            "expires_at_ms",
+        ):
+            op.create_index(
+                f"ix_sfu_broadcast_group_key_authorizations_{name}", "sfu_broadcast_group_key_authorizations", [name]
+            )
 
     if "sfu_broadcast_group_key_packages" not in existing:
         op.create_table(
@@ -122,13 +149,27 @@ def upgrade() -> None:
             sa.Column("acknowledged_at", sa.Float(), nullable=True),
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.CheckConstraint("membership_epoch > 0 AND key_epoch > 0", name="ck_sfu_group_key_package_epochs"),
-            sa.CheckConstraint("package_bytes > 0 AND version > 0 AND fencing_token > 0", name="ck_sfu_group_key_package_bounds"),
-            sa.CheckConstraint("status IN ('delivered','acknowledged','revoked','expired','tombstoned')", name="ck_sfu_group_key_package_status"),
-            sa.ForeignKeyConstraint(["authorization_id"], ["sfu_broadcast_group_key_authorizations.id"], name="fk_sfu_group_key_package_authorization", ondelete="CASCADE"),
+            sa.CheckConstraint(
+                "package_bytes > 0 AND version > 0 AND fencing_token > 0", name="ck_sfu_group_key_package_bounds"
+            ),
+            sa.CheckConstraint(
+                "status IN ('delivered','acknowledged','revoked','expired','tombstoned')",
+                name="ck_sfu_group_key_package_status",
+            ),
+            sa.ForeignKeyConstraint(
+                ["authorization_id"],
+                ["sfu_broadcast_group_key_authorizations.id"],
+                name="fk_sfu_group_key_package_authorization",
+                ondelete="CASCADE",
+            ),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("authorization_id", "recipient_digest", name="uq_sfu_group_key_package_recipient"),
         )
-        op.create_index("ix_sfu_group_key_package_delivery", "sfu_broadcast_group_key_packages", ["tenant_id", "session_id", "recipient_digest", "status", "expires_at_ms"])
+        op.create_index(
+            "ix_sfu_group_key_package_delivery",
+            "sfu_broadcast_group_key_packages",
+            ["tenant_id", "session_id", "recipient_digest", "status", "expires_at_ms"],
+        )
         for name in ("authorization_id", "tenant_id", "session_id", "recipient_digest", "status", "expires_at_ms"):
             op.create_index(f"ix_sfu_broadcast_group_key_packages_{name}", "sfu_broadcast_group_key_packages", [name])
 
@@ -146,9 +187,17 @@ def upgrade() -> None:
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.CheckConstraint("operation IN ('prepare','deliver')", name="ck_sfu_group_key_receipt_operation"),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint("tenant_id", "actor_digest", "operation", "idempotency_key_digest", name="uq_sfu_group_key_receipt_idempotency"),
+            sa.UniqueConstraint(
+                "tenant_id",
+                "actor_digest",
+                "operation",
+                "idempotency_key_digest",
+                name="uq_sfu_group_key_receipt_idempotency",
+            ),
         )
-        op.create_index("ix_sfu_group_key_receipt_expiry", "sfu_broadcast_group_key_receipts", ["expires_at_ms", "created_at"])
+        op.create_index(
+            "ix_sfu_group_key_receipt_expiry", "sfu_broadcast_group_key_receipts", ["expires_at_ms", "created_at"]
+        )
         for name in ("tenant_id", "actor_digest", "operation", "expires_at_ms"):
             op.create_index(f"ix_sfu_broadcast_group_key_receipts_{name}", "sfu_broadcast_group_key_receipts", [name])
 
@@ -175,7 +224,9 @@ def upgrade() -> None:
             sa.CheckConstraint("membership_epoch > 0 AND identity_epoch > 0", name="ck_sfu_vendor_identity_epochs"),
             sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_vendor_identity_fence_version"),
             sa.CheckConstraint("expires_at > issued_at", name="ck_sfu_vendor_identity_ttl"),
-            sa.CheckConstraint("status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_vendor_identity_status"),
+            sa.CheckConstraint(
+                "status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_vendor_identity_status"
+            ),
             sa.PrimaryKeyConstraint("id"),
         )
         op.create_index(
@@ -186,8 +237,21 @@ def upgrade() -> None:
             sqlite_where=sa.text("status = 'active'"),
             postgresql_where=sa.text("status = 'active'"),
         )
-        op.create_index("ix_sfu_vendor_identity_expiry", "sfu_broadcast_vendor_identities", ["status", "expires_at", "updated_at"])
-        for name in ("tenant_id", "room_id", "membership_digest", "membership_epoch", "identity_epoch", "status", "fencing_token", "version", "expires_at", "updated_at"):
+        op.create_index(
+            "ix_sfu_vendor_identity_expiry", "sfu_broadcast_vendor_identities", ["status", "expires_at", "updated_at"]
+        )
+        for name in (
+            "tenant_id",
+            "room_id",
+            "membership_digest",
+            "membership_epoch",
+            "identity_epoch",
+            "status",
+            "fencing_token",
+            "version",
+            "expires_at",
+            "updated_at",
+        ):
             op.create_index(f"ix_sfu_broadcast_vendor_identities_{name}", "sfu_broadcast_vendor_identities", [name])
 
     if "sfu_broadcast_destination_handles" not in existing:
@@ -212,15 +276,46 @@ def upgrade() -> None:
             sa.Column("revoked_at", sa.Float(), nullable=True),
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
-            sa.CheckConstraint("membership_epoch > 0 AND identity_epoch > 0 AND route_epoch > 0 AND key_epoch > 0", name="ck_sfu_destination_epochs"),
+            sa.CheckConstraint(
+                "membership_epoch > 0 AND identity_epoch > 0 AND route_epoch > 0 AND key_epoch > 0",
+                name="ck_sfu_destination_epochs",
+            ),
             sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_destination_fence_version"),
-            sa.CheckConstraint("status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_destination_status"),
-            sa.ForeignKeyConstraint(["identity_id"], ["sfu_broadcast_vendor_identities.id"], name="fk_sfu_destination_identity", ondelete="CASCADE"),
+            sa.CheckConstraint(
+                "status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_destination_status"
+            ),
+            sa.ForeignKeyConstraint(
+                ["identity_id"],
+                ["sfu_broadcast_vendor_identities.id"],
+                name="fk_sfu_destination_identity",
+                ondelete="CASCADE",
+            ),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint("identity_id", "route_digest", "publication_digest", "audience_digest", "route_epoch", "key_epoch", name="uq_sfu_destination_authorized_intent"),
+            sa.UniqueConstraint(
+                "identity_id",
+                "route_digest",
+                "publication_digest",
+                "audience_digest",
+                "route_epoch",
+                "key_epoch",
+                name="uq_sfu_destination_authorized_intent",
+            ),
         )
-        op.create_index("ix_sfu_destination_expiry", "sfu_broadcast_destination_handles", ["status", "expires_at", "updated_at"])
-        for name in ("identity_id", "tenant_id", "room_id", "route_digest", "publication_digest", "audience_digest", "status", "fencing_token", "expires_at", "updated_at"):
+        op.create_index(
+            "ix_sfu_destination_expiry", "sfu_broadcast_destination_handles", ["status", "expires_at", "updated_at"]
+        )
+        for name in (
+            "identity_id",
+            "tenant_id",
+            "room_id",
+            "route_digest",
+            "publication_digest",
+            "audience_digest",
+            "status",
+            "fencing_token",
+            "expires_at",
+            "updated_at",
+        ):
             op.create_index(f"ix_sfu_broadcast_destination_handles_{name}", "sfu_broadcast_destination_handles", [name])
 
 

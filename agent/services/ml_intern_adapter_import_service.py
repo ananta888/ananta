@@ -74,9 +74,7 @@ class MlInternAdapterImportService:
         self._security = security or MlInternArtifactSecurityService(storage_root=storage_root)
         self._id_factory = id_factory or (lambda: f"imp-{uuid.uuid4().hex}")
         self._clock = clock or time.time
-        self._transaction = InterProcessFileTransaction(
-            Path(storage_root) / ".adapter-import-registry.lock"
-        )
+        self._transaction = InterProcessFileTransaction(Path(storage_root) / ".adapter-import-registry.lock")
 
     def import_archive(
         self,
@@ -414,8 +412,7 @@ class MlInternAdapterImportService:
             artifact_relative = str(record.get("artifact_relative") or "")
             artifact_path = self._security.resolve_relative(artifact_relative)
             tombstone_relative = (
-                f"tenants/{token.tenant_key}/adapter-compensation/"
-                f"{_compensation_digest(token.nonce)[:32]}"
+                f"tenants/{token.tenant_key}/adapter-compensation/{_compensation_digest(token.nonce)[:32]}"
             )
             tombstone_path = self._security.resolve_relative(tombstone_relative)
             moved = False
@@ -517,10 +514,7 @@ class MlInternAdapterImportService:
         inspected = self._security.validate_adapter_tree(adapter_root)
         config = inspected["config"]
         configured_base = str(
-            config.get("base_model_name_or_path")
-            or config.get("base_model")
-            or config.get("base_model_id")
-            or ""
+            config.get("base_model_name_or_path") or config.get("base_model") or config.get("base_model_id") or ""
         ).strip()
         if not configured_base:
             raise AdapterImportError("adapter_base_model_missing", "adapter config has no base-model binding")

@@ -75,9 +75,7 @@ class SqlBusinessControllingProfileRepository:
                     )
                 ).first()
                 if concurrent is None:
-                    raise BusinessControllingProfilePersistenceError(
-                        "controlling_profile_identity_conflict"
-                    ) from None
+                    raise BusinessControllingProfilePersistenceError("controlling_profile_identity_conflict") from None
                 self._assert_profile_identity(concurrent, tenant_id, project_id, payload)
         return profile
 
@@ -128,9 +126,7 @@ class SqlBusinessControllingProfileRepository:
                     )
                 ).first()
                 if concurrent is None:
-                    raise BusinessControllingProfilePersistenceError(
-                        "controlling_mapping_identity_conflict"
-                    ) from None
+                    raise BusinessControllingProfilePersistenceError("controlling_mapping_identity_conflict") from None
                 self._assert_mapping_identity(concurrent, tenant_id, project_id, confirmation, mapping)
         return confirmation
 

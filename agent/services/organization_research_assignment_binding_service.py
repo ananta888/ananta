@@ -24,9 +24,7 @@ from agent.services.organization_assignment_eligibility_service import (
     OrganizationAssignmentEligibilityService,
 )
 
-_ASSIGNMENT_BINDING_SCHEMA = (
-    "organization_category_research_assignment_binding.v1"
-)
+_ASSIGNMENT_BINDING_SCHEMA = "organization_category_research_assignment_binding.v1"
 _ROUTING_SCHEMA = "organization_routing_decision.v1"
 _ACTIVE_TASK_STATUSES = ("assigned", "in_progress")
 _ACTIVE_JOB_STATUSES = ("delegated", "running")
@@ -51,9 +49,7 @@ class OrganizationResearchAssignmentBindingService:
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._session_factory = session_factory or self._default_session
-        self._eligibility = (
-            eligibility or OrganizationAssignmentEligibilityService()
-        )
+        self._eligibility = eligibility or OrganizationAssignmentEligibilityService()
         self._clock = clock
 
     @staticmethod
@@ -118,15 +114,9 @@ class OrganizationResearchAssignmentBindingService:
             if authoritative is None:
                 self._fail("category_research_assignment_task_not_found")
 
-            worker_context = dict(
-                authoritative.worker_execution_context or {}
-            )
-            binding = self._mapping(
-                worker_context.get("planning_research_assignment")
-            )
-            routing = self._mapping(
-                worker_context.get("organization_routing")
-            )
+            worker_context = dict(authoritative.worker_execution_context or {})
+            binding = self._mapping(worker_context.get("planning_research_assignment"))
+            routing = self._mapping(worker_context.get("organization_routing"))
             self._verify_persisted_binding(
                 authoritative,
                 binding=binding,
@@ -143,71 +133,46 @@ class OrganizationResearchAssignmentBindingService:
                 OrganizationTeamLinkDB.tenant_id == tenant_id,
                 OrganizationTeamLinkDB.project_id == project_id,
                 OrganizationTeamLinkDB.organization_id == organization_id,
-                OrganizationTeamLinkDB.unit_id
-                == str(authoritative.unit_id or ""),
-                OrganizationTeamLinkDB.team_id
-                == str(authoritative.team_id or ""),
+                OrganizationTeamLinkDB.unit_id == str(authoritative.unit_id or ""),
+                OrganizationTeamLinkDB.team_id == str(authoritative.team_id or ""),
             )
             slot_statement = select(OrganizationRoleSlotDB).where(
                 OrganizationRoleSlotDB.tenant_id == tenant_id,
                 OrganizationRoleSlotDB.project_id == project_id,
                 OrganizationRoleSlotDB.organization_id == organization_id,
-                OrganizationRoleSlotDB.unit_id
-                == str(authoritative.unit_id or ""),
-                OrganizationRoleSlotDB.id
-                == str(authoritative.role_slot_id or ""),
+                OrganizationRoleSlotDB.unit_id == str(authoritative.unit_id or ""),
+                OrganizationRoleSlotDB.id == str(authoritative.role_slot_id or ""),
             )
-            assignment_statement = select(
-                OrganizationRoleAssignmentDB
-            ).where(
-                OrganizationRoleAssignmentDB.id
-                == str(binding.get("assignment_id") or ""),
+            assignment_statement = select(OrganizationRoleAssignmentDB).where(
+                OrganizationRoleAssignmentDB.id == str(binding.get("assignment_id") or ""),
                 OrganizationRoleAssignmentDB.tenant_id == tenant_id,
                 OrganizationRoleAssignmentDB.project_id == project_id,
-                OrganizationRoleAssignmentDB.organization_id
-                == organization_id,
-                OrganizationRoleAssignmentDB.role_slot_id
-                == str(authoritative.role_slot_id or ""),
+                OrganizationRoleAssignmentDB.organization_id == organization_id,
+                OrganizationRoleAssignmentDB.role_slot_id == str(authoritative.role_slot_id or ""),
                 OrganizationRoleAssignmentDB.agent_url == agent_url,
             )
-            agent_statement = select(AgentInfoDB).where(
-                AgentInfoDB.url == agent_url
-            )
+            agent_statement = select(AgentInfoDB).where(AgentInfoDB.url == agent_url)
             if self._supports_row_lock(session):
-                organization_statement = (
-                    organization_statement.with_for_update()
-                )
+                organization_statement = organization_statement.with_for_update()
                 team_statement = team_statement.with_for_update()
                 slot_statement = slot_statement.with_for_update()
                 assignment_statement = assignment_statement.with_for_update()
                 agent_statement = agent_statement.with_for_update()
 
-            organization = session.exec(
-                organization_statement
-            ).one_or_none()
+            organization = session.exec(organization_statement).one_or_none()
             team = session.exec(team_statement).one_or_none()
             slot = session.exec(slot_statement).one_or_none()
-            assignment = session.exec(
-                assignment_statement
-            ).one_or_none()
+            assignment = session.exec(assignment_statement).one_or_none()
             agent = session.exec(agent_statement).one_or_none()
-            if (
-                organization is None
-                or str(organization.lifecycle or "") != "active"
-            ):
+            if organization is None or str(organization.lifecycle or "") != "active":
                 self._fail("category_research_organization_not_active")
-            if str(organization.effective_limit_profile_hash or "") != str(
-                binding.get("effective_policy_hash") or ""
-            ):
+            if str(organization.effective_limit_profile_hash or "") != str(binding.get("effective_policy_hash") or ""):
                 self._fail("category_research_assignment_policy_changed")
             if team is None or str(team.lifecycle or "") != "active":
                 self._fail("category_research_team_not_active")
             if slot is None or str(slot.lifecycle or "") != "active":
                 self._fail("category_research_role_slot_not_active")
-            if (
-                assignment is None
-                or str(assignment.lifecycle or "") != "active"
-            ):
+            if assignment is None or str(assignment.lifecycle or "") != "active":
                 self._fail("category_research_assignment_not_active")
 
             active_tasks = list(
@@ -220,54 +185,32 @@ class OrganizationResearchAssignmentBindingService:
                 ).all()
             )
             referenced_job_ids = {
-                str(row.current_worker_job_id or "")
-                for row in active_tasks
-                if str(row.current_worker_job_id or "")
+                str(row.current_worker_job_id or "") for row in active_tasks if str(row.current_worker_job_id or "")
             }
             slot_policy = dict(slot.assignment_policy or {})
             required_capabilities = {
-                str(value).strip()
-                for value in list(
-                    authoritative.required_capabilities or []
-                )
-                if str(value).strip()
+                str(value).strip() for value in list(authoritative.required_capabilities or []) if str(value).strip()
             } | {
                 str(value).strip()
-                for value in list(
-                    slot_policy.get("required_capabilities") or []
-                )
+                for value in list(slot_policy.get("required_capabilities") or [])
                 if str(value).strip()
             }
             if sorted(required_capabilities) != sorted(
-                str(value)
-                for value in list(
-                    binding.get("required_capabilities") or []
-                )
+                str(value) for value in list(binding.get("required_capabilities") or [])
             ):
-                self._fail(
-                    "category_research_assignment_capabilities_changed"
-                )
+                self._fail("category_research_assignment_capabilities_changed")
             eligibility = self._eligibility.evaluate(
                 agent=agent,
                 required_capabilities=required_capabilities,
                 forbidden_capabilities={
                     str(value).strip()
-                    for value in list(
-                        slot_policy.get("forbidden_capabilities") or []
-                    )
+                    for value in list(slot_policy.get("forbidden_capabilities") or [])
                     if str(value).strip()
                 },
                 capacity_used=len(active_tasks),
                 principal_kind_allowed="agent"
-                in {
-                    str(value).strip()
-                    for value in list(
-                        slot_policy.get("principal_kinds") or []
-                    )
-                },
-                write_access_required=bool(
-                    slot_policy.get("write_access_required", False)
-                ),
+                in {str(value).strip() for value in list(slot_policy.get("principal_kinds") or [])},
+                write_access_required=bool(slot_policy.get("write_access_required", False)),
             )
             if not eligibility.allowed:
                 self._fail("category_research_assignment_ineligible")
@@ -296,9 +239,7 @@ class OrganizationResearchAssignmentBindingService:
         referenced_job_ids: set[str],
     ) -> None:
         worker_job_id = str(dispatch.get("worker_job_id") or "")
-        job_statement = select(WorkerJobDB).where(
-            WorkerJobDB.id == worker_job_id
-        )
+        job_statement = select(WorkerJobDB).where(WorkerJobDB.id == worker_job_id)
         if self._supports_row_lock(session):
             job_statement = job_statement.with_for_update()
         job = session.exec(job_statement).one_or_none()
@@ -306,12 +247,10 @@ class OrganizationResearchAssignmentBindingService:
         if (
             job is None
             or str(job.parent_task_id or "") != str(task.id or "")
-            or str(job.subtask_id or "")
-            != str(dispatch.get("subtask_id") or "")
+            or str(job.subtask_id or "") != str(dispatch.get("subtask_id") or "")
             or str(job.worker_url or "") != agent_url
             or str(dispatch.get("worker_url") or "") != agent_url
-            or str(job.context_bundle_id or "")
-            != str(dispatch.get("context_bundle_id") or "")
+            or str(job.context_bundle_id or "") != str(dispatch.get("context_bundle_id") or "")
             or str(job.status or "") != "delegated"
             or str(job.selected_worker_id or agent_url) != agent_url
             or float(job.created_at or 0) > now + 30
@@ -329,15 +268,9 @@ class OrganizationResearchAssignmentBindingService:
                 .order_by(WorkerJobDB.created_at, WorkerJobDB.id)
             ).all()
         )
-        pending_jobs = [
-            row
-            for row in active_jobs
-            if str(row.id or "") not in referenced_job_ids
-        ]
+        pending_jobs = [row for row in active_jobs if str(row.id or "") not in referenced_job_ids]
         available = max(0, int(capacity_limit) - active_task_count)
-        admitted_ids = {
-            str(row.id) for row in pending_jobs[:available]
-        }
+        admitted_ids = {str(row.id) for row in pending_jobs[:available]}
         if worker_job_id not in referenced_job_ids | admitted_ids:
             self._fail("category_research_assignment_capacity_exhausted")
 
@@ -348,10 +281,8 @@ class OrganizationResearchAssignmentBindingService:
                 or str(lease.status or "") != "active"
                 or lease.released_at is not None
                 or float(lease.deadline_at or 0) <= now
-                or str(lease.worker_job_id or "")
-                not in {"", worker_job_id}
-                or str(lease.parent_task_id or "")
-                not in {"", str(task.id or "")}
+                or str(lease.worker_job_id or "") not in {"", worker_job_id}
+                or str(lease.parent_task_id or "") not in {"", str(task.id or "")}
             ):
                 self._fail("category_research_worker_slot_lease_invalid")
 
@@ -365,47 +296,27 @@ class OrganizationResearchAssignmentBindingService:
     ) -> None:
         assignment_id = str(binding.get("assignment_id") or "")
         agent_url = str(binding.get("agent_url") or "")
-        binding_payload = {
-            key: value
-            for key, value in dict(binding).items()
-            if key != "binding_digest"
-        }
-        routing_payload = {
-            key: value
-            for key, value in dict(routing).items()
-            if key != "decision_hash"
-        }
+        binding_payload = {key: value for key, value in dict(binding).items() if key != "binding_digest"}
+        routing_payload = {key: value for key, value in dict(routing).items() if key != "decision_hash"}
         if (
             binding.get("schema") != _ASSIGNMENT_BINDING_SCHEMA
             or routing.get("schema") != _ROUTING_SCHEMA
             or not assignment_id
             or not agent_url
             or str(task.assigned_agent_url or "") != agent_url
-            or str(binding.get("tenant_id") or "")
-            != str(task.tenant_id or "")
-            or str(binding.get("project_id") or "")
-            != str(task.project_id or "")
-            or str(binding.get("organization_id") or "")
-            != str(task.organization_id or "")
-            or str(binding.get("goal_id") or "")
-            != str(task.goal_id or "")
-            or str(binding.get("unit_id") or "")
-            != str(task.unit_id or "")
-            or str(binding.get("team_id") or "")
-            != str(task.team_id or "")
-            or str(binding.get("role_slot_id") or "")
-            != str(task.role_slot_id or "")
-            or str(binding.get("binding_digest") or "")
-            != cls._digest(binding_payload)
+            or str(binding.get("tenant_id") or "") != str(task.tenant_id or "")
+            or str(binding.get("project_id") or "") != str(task.project_id or "")
+            or str(binding.get("organization_id") or "") != str(task.organization_id or "")
+            or str(binding.get("goal_id") or "") != str(task.goal_id or "")
+            or str(binding.get("unit_id") or "") != str(task.unit_id or "")
+            or str(binding.get("team_id") or "") != str(task.team_id or "")
+            or str(binding.get("role_slot_id") or "") != str(task.role_slot_id or "")
+            or str(binding.get("binding_digest") or "") != cls._digest(binding_payload)
             or str(routing.get("selected_agent_id") or "") != agent_url
-            or str(routing.get("selected_assignment_id") or "")
-            != assignment_id
-            or str(routing.get("selected_team_id") or "")
-            != str(task.team_id or "")
-            or str(routing.get("selected_role_slot_id") or "")
-            != str(task.role_slot_id or "")
-            or str(routing.get("assignment_binding_digest") or "")
-            != str(binding.get("binding_digest") or "")
+            or str(routing.get("selected_assignment_id") or "") != assignment_id
+            or str(routing.get("selected_team_id") or "") != str(task.team_id or "")
+            or str(routing.get("selected_role_slot_id") or "") != str(task.role_slot_id or "")
+            or str(routing.get("assignment_binding_digest") or "") != str(binding.get("binding_digest") or "")
             or str(routing.get("decision_hash") or "")
             != cls._digest(
                 {

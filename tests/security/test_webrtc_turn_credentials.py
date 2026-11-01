@@ -82,19 +82,13 @@ def test_refresh_is_scope_bound_single_use_and_old_hook_credential_observes_over
             bundle.credential_id,
             dataclasses.replace(request, room_ref="room-b", refresh_count=1),
         )
-    refreshed = service.refresh(
-        bundle.credential_id, dataclasses.replace(request, refresh_count=1)
-    )
+    refreshed = service.refresh(bundle.credential_id, dataclasses.replace(request, refresh_count=1))
     with pytest.raises(WebrtcTurnCredentialError, match="refresh_inactive"):
-        service.refresh(
-            bundle.credential_id, dataclasses.replace(request, refresh_count=1)
-        )
+        service.refresh(bundle.credential_id, dataclasses.replace(request, refresh_count=1))
     assert service.validate_authorization_hook(bundle, request)
     now[0] = 1100
     assert not service.validate_authorization_hook(bundle, request)
-    assert service.validate_authorization_hook(
-        refreshed, dataclasses.replace(request, refresh_count=1)
-    )
+    assert service.validate_authorization_hook(refreshed, dataclasses.replace(request, refresh_count=1))
 
 
 def test_emergency_signing_key_rotation_invalidates_refresh_fail_closed():
@@ -103,6 +97,4 @@ def test_emergency_signing_key_rotation_invalidates_refresh_fail_closed():
     keys.emergency_rotate(TurnSigningKey("kid-2", b"n" * 32))
     now[0] = 1090
     with pytest.raises(WebrtcTurnCredentialError, match="refresh_scope_mismatch"):
-        service.refresh(
-            bundle.credential_id, dataclasses.replace(request, refresh_count=1)
-        )
+        service.refresh(bundle.credential_id, dataclasses.replace(request, refresh_count=1))

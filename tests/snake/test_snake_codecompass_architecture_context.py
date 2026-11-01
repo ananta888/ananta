@@ -7,40 +7,42 @@ def test_architecture_prefill_projects_hierarchical_slice() -> None:
     def loader(**_kwargs):
         return {
             "status": "ok",
-            "data": {"architecture": {
-                "schema": "codecompass.hierarchical-architecture-context.v1",
-                "levels": ["system", "subsystem", "component", "file", "symbol"],
-                "nodes": [
-                    {
-                        "id": "system",
-                        "level": "system",
-                        "title": "Ananta",
-                        "path": ".",
-                        "short_summary": "Repository root.",
-                        "handle": "hac:revision:system",
-                    },
-                    {
-                        "id": "component:retrieval",
-                        "level": "component",
-                        "title": "Retrieval",
-                        "path": "agent/services",
-                        "short_summary": "Builds grounded context.",
-                        "handle": "hac:revision:component:retrieval",
-                    },
-                ],
-                "edges": [{
-                    "source": "system",
-                    "target": "component:retrieval",
-                    "type": "contains",
-                }],
-                "truncated": False,
-                "warnings": [],
-            }},
+            "data": {
+                "architecture": {
+                    "schema": "codecompass.hierarchical-architecture-context.v1",
+                    "levels": ["system", "subsystem", "component", "file", "symbol"],
+                    "nodes": [
+                        {
+                            "id": "system",
+                            "level": "system",
+                            "title": "Ananta",
+                            "path": ".",
+                            "short_summary": "Repository root.",
+                            "handle": "hac:revision:system",
+                        },
+                        {
+                            "id": "component:retrieval",
+                            "level": "component",
+                            "title": "Retrieval",
+                            "path": "agent/services",
+                            "short_summary": "Builds grounded context.",
+                            "handle": "hac:revision:component:retrieval",
+                        },
+                    ],
+                    "edges": [
+                        {
+                            "source": "system",
+                            "target": "component:retrieval",
+                            "type": "contains",
+                        }
+                    ],
+                    "truncated": False,
+                    "warnings": [],
+                }
+            },
         }
 
-    text, trace = SnakeCodeCompassArchitectureContextService().build(
-        "Erkläre CodeCompass", loader=loader
-    )
+    text, trace = SnakeCodeCompassArchitectureContextService().build("Erkläre CodeCompass", loader=loader)
 
     assert "Hierarchischer Architektur-Kontext" in text
     assert "[component] Retrieval" in text
@@ -72,6 +74,4 @@ def test_architecture_prefill_degrades_without_graph() -> None:
     assert text == ""
     assert trace["status"] == "degraded"
     assert trace["reason"] == "architecture_graph_unavailable"
-    assert trace["resolution_diagnostics"] == [
-        {"knowledge_index_id": "idx-1", "reason": "graph_file_missing"}
-    ]
+    assert trace["resolution_diagnostics"] == [{"knowledge_index_id": "idx-1", "reason": "graph_file_missing"}]

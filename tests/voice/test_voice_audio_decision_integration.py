@@ -16,6 +16,7 @@ profile's calibration used the other speakers), and ``VOICE_AUDIO_DECISION_IT_CO
 Stream sessions need a VAD model on the server (``--decision-vad-model``; for a self-started server
 ``VOICE_AUDIO_DECISION_IT_VAD_MODEL``); a server without one answers ``not_configured`` -> SKIPPED.
 """
+
 from __future__ import annotations
 
 import io
@@ -87,8 +88,21 @@ def server():
         pytest.skip("no real whisper-server/model available (set VOICE_AUDIO_DECISION_IT_* to run)")
     key = secrets.token_urlsafe(24)
     port = _free_port()
-    command = [binary, "-m", model, "--host", "127.0.0.1", "--port", str(port), "--decision-profiles", profiles,
-               "--decision-api-key", key, "--decision-workers", "2"]
+    command = [
+        binary,
+        "-m",
+        model,
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--decision-profiles",
+        profiles,
+        "--decision-api-key",
+        key,
+        "--decision-workers",
+        "2",
+    ]
     vad_model = os.environ.get("VOICE_AUDIO_DECISION_IT_VAD_MODEL", "").strip()
     if vad_model and Path(vad_model).is_file():
         command += ["--decision-vad-model", vad_model]
@@ -238,8 +252,14 @@ def test_calibrated_ok_command_is_a_policy_checked_proposal(server):
     assert hub.action is expected
 
     flow = run_audio_decision_command(
-        _provider(*server), filename="command.wav", content=clip, profile="speech-commands-en",
-        field_name="command", language="en", fallback="transcribe", policy=policy,
+        _provider(*server),
+        filename="command.wav",
+        content=clip,
+        profile="speech-commands-en",
+        field_name="command",
+        language="en",
+        fallback="transcribe",
+        policy=policy,
     ).as_response()
     assert flow["decision_kind"] == "proposal" and flow["hub_action"] == expected.value
     assert flow["action"]["type"] == action.action_type and flow["grants_permission"] is False

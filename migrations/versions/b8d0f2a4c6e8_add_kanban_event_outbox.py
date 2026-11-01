@@ -10,7 +10,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "b8d0f2a4c6e8"
 down_revision: str | None = "a7c9e1f3b5d7"
 branch_labels: str | Sequence[str] | None = None
@@ -88,4 +87,3 @@ def downgrade() -> None:
         op.drop_table("kanban_event_outbox")
     if "kanban_board_sequences" in tables:
         op.drop_table("kanban_board_sequences")
-

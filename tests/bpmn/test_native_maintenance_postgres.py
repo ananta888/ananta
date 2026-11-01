@@ -22,7 +22,7 @@ from tests.bpmn.test_result_maintenance_cadence import policy
 
 def test_postgres_parallel_cadence_hubs_reserve_one_exact_run(pg_native):
     connections = engines(pg_native)
-    schedule, = configured_maintenance_schedules(policy())
+    (schedule,) = configured_maintenance_schedules(policy())
     start = Barrier(2, timeout=5)
 
     def reserve(engine):
@@ -34,7 +34,7 @@ def test_postgres_parallel_cadence_hubs_reserve_one_exact_run(pg_native):
             a, b = pool.map(reserve, connections)
         assert a == b
         with Session(pg_native.engine) as session:
-            row, = session.exec(select(NativeMaintenanceCadenceDB)).all()
+            (row,) = session.exec(select(NativeMaintenanceCadenceDB)).all()
             assert row.ordinal == 1 and row.current_run_id == a.run_id
     finally:
         for connection in connections:
@@ -43,19 +43,21 @@ def test_postgres_parallel_cadence_hubs_reserve_one_exact_run(pg_native):
 
 def test_postgres_maintenance_uses_hub_fence_without_claiming_bpmn_definition(pg_native):
     connections = engines(pg_native)
-    schedule, = configured_maintenance_schedules(policy())
-    request = maintenance_request(schedule, 'postgres-maintenance-control-run')
+    (schedule,) = configured_maintenance_schedules(policy())
+    request = maintenance_request(schedule, "postgres-maintenance-control-run")
     assert not is_bpmn_plan(request.plan)
-    keys = HmacKeyRing({'synthetic': b'synthetic-maintenance-control-key'}, active_key_id='synthetic')
-    leases = [BpmnRunLeaseService(checkpoints=SQLAlchemyCheckpointStore(connection), keys=keys, clock=lambda: 100)
-              for connection in connections]
+    keys = HmacKeyRing({"synthetic": b"synthetic-maintenance-control-key"}, active_key_id="synthetic")
+    leases = [
+        BpmnRunLeaseService(checkpoints=SQLAlchemyCheckpointStore(connection), keys=keys, clock=lambda: 100)
+        for connection in connections
+    ]
     try:
         with leases[0].acquire(request) as first:
             assert first is not None
             first.ensure_valid()
-            with pytest.raises(OptimisticConcurrencyError, match='control_lease_held'):
+            with pytest.raises(OptimisticConcurrencyError, match="control_lease_held"):
                 with leases[1].acquire(request):
-                    pytest.fail('Parallel Hub acquired the active maintenance Run fence')
+                    pytest.fail("Parallel Hub acquired the active maintenance Run fence")
         with leases[1].acquire(request) as successor:
             assert successor.fencing_token > first.fencing_token
     finally:

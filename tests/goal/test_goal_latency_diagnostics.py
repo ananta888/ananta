@@ -1,9 +1,9 @@
 from scripts.goal_latency_diagnostics import (
-    _summarize_llm_call_profile,
-    _classify_idle_reason_from_history,
-    _build_reason_breakdown,
     _REASON_CATEGORIES,
     PhaseDurations,
+    _build_reason_breakdown,
+    _classify_idle_reason_from_history,
+    _summarize_llm_call_profile,
 )
 
 
@@ -96,8 +96,15 @@ class TestBuildReasonBreakdown:
             assert cat in breakdown, f"category '{cat}' must always be present"
 
     def test_unknown_not_silently_omitted(self):
-        phases = [PhaseDurations(queued_to_assigned=5.0, assigned_to_propose_done=None,
-                                 propose_to_execute_done=None, execute_to_terminal=None, total=None)]
+        phases = [
+            PhaseDurations(
+                queued_to_assigned=5.0,
+                assigned_to_propose_done=None,
+                propose_to_execute_done=None,
+                execute_to_terminal=None,
+                total=None,
+            )
+        ]
         histories = [[{"event_type": "task_created"}]]  # no classifiable event
         breakdown = _build_reason_breakdown(phases, histories)
         assert "unknown" in breakdown
@@ -105,10 +112,20 @@ class TestBuildReasonBreakdown:
 
     def test_reason_time_accumulates(self):
         phases = [
-            PhaseDurations(queued_to_assigned=10.0, assigned_to_propose_done=None,
-                           propose_to_execute_done=None, execute_to_terminal=None, total=None),
-            PhaseDurations(queued_to_assigned=5.0, assigned_to_propose_done=None,
-                           propose_to_execute_done=None, execute_to_terminal=None, total=None),
+            PhaseDurations(
+                queued_to_assigned=10.0,
+                assigned_to_propose_done=None,
+                propose_to_execute_done=None,
+                execute_to_terminal=None,
+                total=None,
+            ),
+            PhaseDurations(
+                queued_to_assigned=5.0,
+                assigned_to_propose_done=None,
+                propose_to_execute_done=None,
+                execute_to_terminal=None,
+                total=None,
+            ),
         ]
         histories = [
             [{"event_type": "autopilot_strategy_attempt"}],

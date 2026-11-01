@@ -172,9 +172,9 @@ class TurnObserverIdentityService:
         idempotency_key: str,
     ) -> bytes:
         document = self._command_document(operation, command, actor, idempotency_key)
-        return b"ananta.turn-observer-proof.v1\0" + json.dumps(
-            document, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")
+        return b"ananta.turn-observer-proof.v1\0" + json.dumps(document, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
 
     def enroll(
         self,
@@ -194,12 +194,15 @@ class TurnObserverIdentityService:
         now = self._clock()
         self._consume_rate(actor, source_ref, now)
         public_key, public_fingerprint = self._verify_proof("enroll", command, actor, idempotency_key)
-        credential_id = "turn-observer-credential-" + hashlib.sha256(
-            f"{command.pool_id}\0{command.instance_id}\0{public_fingerprint}".encode()
-        ).hexdigest()[:32]
-        identity_id = "turn-observer-" + hashlib.sha256(
-            f"{command.pool_id}\0{command.instance_id}".encode()
-        ).hexdigest()[:32]
+        credential_id = (
+            "turn-observer-credential-"
+            + hashlib.sha256(f"{command.pool_id}\0{command.instance_id}\0{public_fingerprint}".encode()).hexdigest()[
+                :32
+            ]
+        )
+        identity_id = (
+            "turn-observer-" + hashlib.sha256(f"{command.pool_id}\0{command.instance_id}".encode()).hexdigest()[:32]
+        )
         identity = TurnObserverIdentityDB(
             id=identity_id,
             pool_id=command.pool_id,
@@ -214,7 +217,9 @@ class TurnObserverIdentityService:
         )
         credential = self._credential(identity_id, credential_id, command, public_fingerprint, now)
         result = self._result(identity, "turn_observer_enrolled")
-        mutation = self._mutation(identity, "enroll", actor, key_digest, request_digest, result, command.expected_version, now)
+        mutation = self._mutation(
+            identity, "enroll", actor, key_digest, request_digest, result, command.expected_version, now
+        )
         try:
             self._repository.create(identity, credential, mutation)
         except TurnObserverIdentityRepositoryError as exc:
@@ -242,9 +247,12 @@ class TurnObserverIdentityService:
             raise TurnObserverIdentityError("turn_observer_identity_inactive", 409)
         if identity.version != command.expected_version:
             raise TurnObserverIdentityError("turn_observer_version_conflict", 409)
-        credential_id = "turn-observer-credential-" + hashlib.sha256(
-            f"{identity.id}\0{public_fingerprint}\0{command.expected_version}".encode()
-        ).hexdigest()[:32]
+        credential_id = (
+            "turn-observer-credential-"
+            + hashlib.sha256(f"{identity.id}\0{public_fingerprint}\0{command.expected_version}".encode()).hexdigest()[
+                :32
+            ]
+        )
         credential = self._credential(identity.id, credential_id, command, public_fingerprint, now)
         projected = TurnObserverIdentityResult(
             identity.id,
@@ -258,7 +266,9 @@ class TurnObserverIdentityService:
             "turn_observer_rotated",
             False,
         )
-        mutation = self._mutation(identity, "rotate", actor, key_digest, request_digest, projected, command.expected_version, now)
+        mutation = self._mutation(
+            identity, "rotate", actor, key_digest, request_digest, projected, command.expected_version, now
+        )
         try:
             updated = self._repository.rotate(
                 identity=identity,
@@ -313,7 +323,9 @@ class TurnObserverIdentityService:
             "turn_observer_revoked",
             True,
         )
-        mutation = self._mutation(identity, "revoke", actor, key_digest, request_digest, projected, expected_version, now)
+        mutation = self._mutation(
+            identity, "revoke", actor, key_digest, request_digest, projected, expected_version, now
+        )
         try:
             updated = self._repository.revoke(
                 identity=identity,
@@ -347,7 +359,11 @@ class TurnObserverIdentityService:
             raise TurnObserverIdentityError("turn_observer_identity_inactive", 403)
         now = self._clock()
         credential_ids = [identity.active_credential_id]
-        if identity.previous_credential_id and identity.rotation_overlap_until and identity.rotation_overlap_until > now:
+        if (
+            identity.previous_credential_id
+            and identity.rotation_overlap_until
+            and identity.rotation_overlap_until > now
+        ):
             credential_ids.append(identity.previous_credential_id)
         for credential_id in credential_ids:
             credential = self._repository.credential(credential_id)
@@ -376,7 +392,9 @@ class TurnObserverIdentityService:
             raw_key = base64.b64decode(command.public_key_b64, validate=True)
             public_key = Ed25519PublicKey.from_public_bytes(raw_key)
             signature = base64.b64decode(command.proof_signature_b64, validate=True)
-            public_key.verify(signature, self.proof_payload(operation, command, actor=actor, idempotency_key=idempotency_key))
+            public_key.verify(
+                signature, self.proof_payload(operation, command, actor=actor, idempotency_key=idempotency_key)
+            )
         except (ValueError, InvalidSignature) as exc:
             raise TurnObserverIdentityError("turn_observer_proof_invalid", 403) from exc
         fingerprint = "sha256:" + hashlib.sha256(raw_key).hexdigest()
@@ -388,7 +406,11 @@ class TurnObserverIdentityService:
         for value in (command.pool_id, command.instance_id, command.region, actor, command.reason_code):
             if not self._safe(value):
                 raise TurnObserverIdentityError("turn_observer_enrollment_request_invalid")
-        if not self._idempotency(idempotency_key) or isinstance(command.expected_version, bool) or command.expected_version < 0:
+        if (
+            not self._idempotency(idempotency_key)
+            or isinstance(command.expected_version, bool)
+            or command.expected_version < 0
+        ):
             raise TurnObserverIdentityError("turn_observer_enrollment_request_invalid")
         if command.ca_fingerprint not in self._policy.allowed_ca_fingerprints:
             raise TurnObserverIdentityError("turn_observer_ca_denied", 403)

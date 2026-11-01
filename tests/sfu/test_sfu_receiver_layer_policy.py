@@ -17,13 +17,23 @@ FULL = LayerCorridor(LayerPoint(0, 0), LayerPoint(3, 3))
 
 def request(**overrides):
     values = {
-        "tenant_ref": "tenant-a", "room_ref": "sfu-0123456789abcdef0123456789abcdef",
-        "subscriber_ref": "subscriber-a", "subscription_ref": "subscription-a",
-        "publication_ref": "publication-a", "media_kind": "video",
-        "hub_corridor": FULL, "publication_corridor": FULL, "e2ee_corridor": FULL,
-        "codec_corridor": FULL, "cost_corridor": FULL, "capacity_corridor": FULL,
-        "viewport_class": "large", "user_intent": "detail", "quality_class": "good",
-        "last_observation_sequence": 41, "issued_at_ms": 1_750_000_000_000,
+        "tenant_ref": "tenant-a",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "subscriber_ref": "subscriber-a",
+        "subscription_ref": "subscription-a",
+        "publication_ref": "publication-a",
+        "media_kind": "video",
+        "hub_corridor": FULL,
+        "publication_corridor": FULL,
+        "e2ee_corridor": FULL,
+        "codec_corridor": FULL,
+        "cost_corridor": FULL,
+        "capacity_corridor": FULL,
+        "viewport_class": "large",
+        "user_intent": "detail",
+        "quality_class": "good",
+        "last_observation_sequence": 41,
+        "issued_at_ms": 1_750_000_000_000,
     }
     values.update(overrides)
     return ReceiverLayerPolicyRequest(**values)
@@ -42,19 +52,31 @@ def test_identical_normalized_subscription_input_is_signed_deterministically():
 
 def test_cost_capacity_and_user_intent_can_only_narrow_authorized_layers():
     constrained = LayerCorridor(LayerPoint(0, 0), LayerPoint(1, 1))
-    result = SfuReceiverLayerPolicy(SIGNER).decide(request(
-        cost_corridor=constrained, capacity_corridor=constrained, user_intent="detail",
-    )).payload()
+    result = (
+        SfuReceiverLayerPolicy(SIGNER)
+        .decide(
+            request(
+                cost_corridor=constrained,
+                capacity_corridor=constrained,
+                user_intent="detail",
+            )
+        )
+        .payload()
+    )
     assert result["allowed_layer_corridor"]["maximum"] == {"spatial_id": 1, "temporal_id": 1}
 
 
 def test_weak_receiver_is_subscription_local_and_does_not_change_another_decision():
     policy = SfuReceiverLayerPolicy(SIGNER)
     strong_before = policy.decide(request(subscription_ref="subscription-strong")).payload()
-    weak = policy.decide(request(
-        subscription_ref="subscription-weak", subscriber_ref="subscriber-weak",
-        quality_class="unknown", viewport_class="thumbnail",
-    )).payload()
+    weak = policy.decide(
+        request(
+            subscription_ref="subscription-weak",
+            subscriber_ref="subscriber-weak",
+            quality_class="unknown",
+            viewport_class="thumbnail",
+        )
+    ).payload()
     strong_after = policy.decide(request(subscription_ref="subscription-strong")).payload()
     assert weak["allowed_layer_corridor"]["maximum"] == {"spatial_id": 0, "temporal_id": 0}
     assert strong_after == strong_before

@@ -67,11 +67,7 @@ def normalize_runtime_endpoint_descriptor(
     ):
         raise ValueError("runtime_endpoint_capabilities_invalid")
     capabilities = {key: bool(raw_capabilities[key]) for key in sorted(capability_names)}
-    primary_api = (
-        capabilities["openai_chat"]
-        or capabilities["openai_responses"]
-        or capabilities["anthropic_messages"]
-    )
+    primary_api = capabilities["openai_chat"] or capabilities["openai_responses"] or capabilities["anthropic_messages"]
     if (
         (capabilities["streaming"] and not primary_api)
         or (capabilities["tools"] and not primary_api)
@@ -90,11 +86,7 @@ def normalize_runtime_endpoint_descriptor(
     limits: dict[str, int] = {}
     for name, (minimum, maximum) in expected_limits.items():
         value = raw_limits.get(name)
-        if (
-            not isinstance(value, int)
-            or isinstance(value, bool)
-            or not minimum <= value <= maximum
-        ):
+        if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
             raise ValueError("runtime_endpoint_limits_invalid")
         limits[name] = value
     return {

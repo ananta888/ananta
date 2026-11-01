@@ -90,11 +90,7 @@ def create_source_control_workspace_registrations_blueprint(
     @_access_guard
     @_boundary
     def list_workspace_folders():
-        return _success(
-            service.list_folders(
-                principal=_scoped_principal()
-            )
-        )
+        return _success(service.list_folders(principal=_scoped_principal()))
 
     @blueprint.post("/workspace-folders/validate")
     @check_auth
@@ -138,9 +134,7 @@ def create_source_control_workspace_registrations_blueprint(
     @_boundary
     def disable_workspace(workspace_id: str):
         if _json_object():
-            raise SourceControlWorkspaceRegistrationError(
-                "workspace_disable_payload_invalid"
-            )
+            raise SourceControlWorkspaceRegistrationError("workspace_disable_payload_invalid")
         result = service.disable(
             principal=_scoped_principal(),
             workspace_id=workspace_id,
@@ -168,11 +162,7 @@ def _access_guard(function: Callable):
                 reason_code=exc.reason_code,
             )
             return _error(exc.reason_code, exc.status_code)
-        action = (
-            SourceControlAction.list
-            if request.method == "GET"
-            else SourceControlAction.refresh
-        )
+        action = SourceControlAction.list if request.method == "GET" else SourceControlAction.refresh
         denied = authorize_route_request(
             action=action,
             resource_kind="registered_workspace",
@@ -193,9 +183,7 @@ def _project_principal():
             "query_fields_forbidden",
             status_code=400,
         )
-    return bind_source_control_project_selector(
-        str(request.args.get("project_id") or "")
-    )
+    return bind_source_control_project_selector(str(request.args.get("project_id") or ""))
 
 
 def _scoped_principal():
@@ -211,18 +199,14 @@ def _scoped_principal():
 def _json_object() -> Mapping[str, object]:
     payload = request.get_json(silent=True)
     if not isinstance(payload, Mapping):
-        raise SourceControlWorkspaceRegistrationError(
-            "workspace_registration_payload_invalid"
-        )
+        raise SourceControlWorkspaceRegistrationError("workspace_registration_payload_invalid")
     return dict(payload)
 
 
 def _idempotency_key() -> str:
     value = str(request.headers.get("Idempotency-Key") or "").strip()
     if _IDEMPOTENCY.fullmatch(value) is None:
-        raise SourceControlWorkspaceRegistrationError(
-            "idempotency_key_required"
-        )
+        raise SourceControlWorkspaceRegistrationError("idempotency_key_required")
     return value
 
 

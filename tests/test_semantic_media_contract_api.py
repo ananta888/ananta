@@ -29,7 +29,8 @@ class FakeService:
         self.error: SemanticContractServiceError | None = None
         self.execution = FakeExecutionService()
 
-    def establish_membership(self, *args, **kwargs): pass
+    def establish_membership(self, *args, **kwargs):
+        pass
 
     def create_offer(self, principal, **kwargs):
         self.calls.append(("create", principal, kwargs))
@@ -124,7 +125,9 @@ def setup(monkeypatch):
 
 def create_body():
     return {
-        "session_id": "session-a", "epoch": 1, "policy_version": "policy-v1",
+        "session_id": "session-a",
+        "epoch": 1,
+        "policy_version": "policy-v1",
         "consent_version": 1,
         "proposal": {"profile": "balanced", "delay_ms": 5_000},
     }
@@ -143,7 +146,8 @@ def test_capability_composition_is_required_and_bootstrap_installs_it(monkeypatc
     missing_client = missing_app.test_client()
     missing_client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
     unavailable = missing_client.post(
-        "/v1/semantic-media/contracts", json=create_body(),
+        "/v1/semantic-media/contracts",
+        json=create_body(),
         headers={"Idempotency-Key": "missing-composition-1"},
     )
     assert unavailable.status_code == 503
@@ -161,7 +165,8 @@ def test_capability_composition_is_required_and_bootstrap_installs_it(monkeypatc
     client = bootstrapped.test_client()
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
     denied = client.post(
-        "/v1/semantic-media/contracts", json=create_body(),
+        "/v1/semantic-media/contracts",
+        json=create_body(),
         headers={"Idempotency-Key": "bootstrapped-missing-grant-1"},
     )
     assert denied.status_code == 403
@@ -171,14 +176,16 @@ def test_capability_composition_is_required_and_bootstrap_installs_it(monkeypatc
 def test_create_offer_supports_legacy_optional_fields_and_idempotent_replay(monkeypatch) -> None:
     client, fake = setup(monkeypatch)
     response = client.post(
-        "/v1/semantic-media/contracts", json=create_body(),
+        "/v1/semantic-media/contracts",
+        json=create_body(),
         headers={"Idempotency-Key": "create-key-0001"},
     )
     assert response.status_code == 201
     assert fake.calls[0][2]["advertisements"] == []
     fake.replayed = True
     replay = client.post(
-        "/v1/semantic-media/contracts/offers", json=create_body(),
+        "/v1/semantic-media/contracts/offers",
+        json=create_body(),
         headers={"Idempotency-Key": "create-key-0001"},
     )
     assert replay.status_code == 201
@@ -188,15 +195,18 @@ def test_create_offer_supports_legacy_optional_fields_and_idempotent_replay(monk
 def test_unknown_fields_missing_idempotency_and_request_size_fail_closed(monkeypatch) -> None:
     client, _ = setup(monkeypatch)
     unknown = client.post(
-        "/v1/semantic-media/contracts", json={**create_body(), "scheduler_winner": "browser"},
+        "/v1/semantic-media/contracts",
+        json={**create_body(), "scheduler_winner": "browser"},
         headers={"Idempotency-Key": "create-key-0001"},
     )
     assert unknown.status_code == 400 and unknown.json["error"]["code"] == "unknown_field"
     missing = client.post("/v1/semantic-media/contracts", json=create_body())
     assert missing.status_code == 400 and missing.json["error"]["code"] == "idempotency_key_invalid"
     oversized = client.post(
-        "/v1/semantic-media/contracts", data=b"{" + b" " * (129 * 1024) + b"}",
-        content_type="application/json", headers={"Idempotency-Key": "create-key-0001"},
+        "/v1/semantic-media/contracts",
+        data=b"{" + b" " * (129 * 1024) + b"}",
+        content_type="application/json",
+        headers={"Idempotency-Key": "create-key-0001"},
     )
     assert oversized.status_code == 413
 
@@ -205,19 +215,22 @@ def test_mutations_require_revision_and_propagate_stale_and_revoke_race(monkeypa
     client, fake = setup(monkeypatch)
     body = {"session_id": "session-a", "epoch": 1, "consent_version": 1}
     missing = client.post(
-        "/v1/semantic-media/contracts/contract-a/revoke", json=body,
+        "/v1/semantic-media/contracts/contract-a/revoke",
+        json=body,
         headers={"Idempotency-Key": "revoke-key-0001"},
     )
     assert missing.status_code == 428
     response = client.post(
-        "/v1/semantic-media/contracts/contract-a/revoke", json=body,
+        "/v1/semantic-media/contracts/contract-a/revoke",
+        json=body,
         headers={"Idempotency-Key": "revoke-key-0001", "If-Match": '"2"'},
     )
     assert response.status_code == 200
     assert fake.calls[-1][2]["expected_revision"] == 2
     fake.error = SemanticContractServiceError("stale_revision", status_code=412)
     stale = client.post(
-        "/v1/semantic-media/contracts/contract-a/revoke", json=body,
+        "/v1/semantic-media/contracts/contract-a/revoke",
+        json=body,
         headers={"Idempotency-Key": "revoke-key-0002", "If-Match": '"2"'},
     )
     assert stale.status_code == 412 and stale.json["error"]["code"] == "stale_revision"
@@ -237,13 +250,16 @@ def test_detail_list_pagination_and_foreign_resource_not_found(monkeypatch) -> N
 
 def test_candidate_registration_advertisement_and_claims_are_authenticated_hub_apis(monkeypatch) -> None:
     client, fake = setup(monkeypatch)
-    key = client.post("/v1/semantic-media/compute/candidate-keys", json={
-        "session_id": "session-a",
-        "epoch": 1,
-        "key_id": "cap-" + "a" * 32,
-        "public_key_b64": "A" * 43 + "=",
-        "expires_at_ms": int(time.time() * 1000) + 60_000,
-    })
+    key = client.post(
+        "/v1/semantic-media/compute/candidate-keys",
+        json={
+            "session_id": "session-a",
+            "epoch": 1,
+            "key_id": "cap-" + "a" * 32,
+            "public_key_b64": "A" * 43 + "=",
+            "expires_at_ms": int(time.time() * 1000) + 60_000,
+        },
+    )
     assert key.status_code == 201
     advertisement = {
         "schema": "ananta.semantic-capability-advertisement.v1",
@@ -255,8 +271,12 @@ def test_candidate_registration_advertisement_and_claims_are_authenticated_hub_a
         "roles": ["executor"],
         "task_types": ["visual_extract"],
         "resource_profile": {
-            "cpu": "medium", "memory": "medium", "gpu": "unknown",
-            "codec": "unknown", "battery": "mains", "network": "normal",
+            "cpu": "medium",
+            "memory": "medium",
+            "gpu": "unknown",
+            "codec": "unknown",
+            "battery": "mains",
+            "network": "normal",
         },
         "measurements_expires_at_ms": int(time.time() * 1000) + 50_000,
         "expires_at_ms": int(time.time() * 1000) + 50_000,
@@ -307,7 +327,9 @@ def test_explanations_are_redacted_and_suggestions_cannot_mutate_authority(monke
     assert explanation.json["explanation"]["authoritative_source"] == "hub"
     assert "media" not in explanation.json["explanation"]
     suggestion_body = {
-        "session_id": "session-a", "epoch": 1, "expected_revision": 1,
+        "session_id": "session-a",
+        "epoch": 1,
+        "expected_revision": 1,
         "expected_digest": "a" * 64,
         "suggestion": {"profile": "conservative", "rationale": "Reduce load"},
     }

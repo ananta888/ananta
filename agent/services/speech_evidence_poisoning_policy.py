@@ -82,9 +82,7 @@ class SpeechEvidencePoisoningPolicy:
                 (item.lineage_digest, item.model_digest, item.validator_set_digest),
                 [],
             ).append(item.candidate_id)
-        collapsed = tuple(
-            sorted(candidate_id for rows in groups.values() for candidate_id in sorted(rows)[1:])
-        )
+        collapsed = tuple(sorted(candidate_id for rows in groups.values() for candidate_id in sorted(rows)[1:]))
         if collapsed:
             reasons.append("speech_evidence_correlated_votes_collapsed")
         contributor_to_groups: dict[str, set[tuple[str, str, str]]] = {}
@@ -105,9 +103,7 @@ class SpeechEvidencePoisoningPolicy:
             "candidate_ids": sorted(item.candidate_id for item in signals),
             "collapsed_candidate_ids": list(collapsed),
         }
-        digest = hashlib.sha256(
-            json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        digest = hashlib.sha256(json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         return SpeechEvidencePoisoningDecision(
             state=state,
             reason_codes=unique_reasons,

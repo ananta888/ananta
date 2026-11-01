@@ -22,8 +22,7 @@ class MailContentGrantVerifier(Protocol):
     def verify(
         self,
         request: MailContentAccessRequest,
-    ) -> MailProviderResult[VerifiedMailContentAccess]:
-        ...
+    ) -> MailProviderResult[VerifiedMailContentAccess]: ...
 
 
 class MailBodyService:

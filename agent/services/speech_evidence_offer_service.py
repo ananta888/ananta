@@ -487,9 +487,7 @@ class SpeechEvidenceOfferService:
         if message.header.protocol_version != OFFER_PROTOCOL_VERSION or not previews:
             raise SpeechEvidenceOfferError("speech_evidence_offer_preview_required", status_code=422)
         speaker_id = consent.speaker_id or (
-            message.header.sender_id
-            if payload.get("direction") == "sender_to_receiver"
-            else message.header.audience_id
+            message.header.sender_id if payload.get("direction") == "sender_to_receiver" else message.header.audience_id
         )
         expected_speaker = speech_evidence_speaker_scope_digest(
             pair_id=message.header.pair_id,
@@ -516,8 +514,7 @@ class SpeechEvidenceOfferService:
             or any(
                 row.preview_version != GROUP_PREVIEW_VERSION
                 or row.group_id != group_preview_group_id(row.source_group_digest, row.revision)
-                or row.resolution_digest
-                != group_preview_resolution_digest(row.source_group_digest, row.revision)
+                or row.resolution_digest != group_preview_resolution_digest(row.source_group_digest, row.revision)
                 or not _comparison_projection_valid(row)
                 for row in record.group_previews
             )
@@ -583,11 +580,7 @@ def _previews(payload: Mapping[str, object]) -> tuple[SpeechEvidenceGroupPreview
     if not isinstance(raw, list) or not raw:
         raise SpeechEvidenceOfferError("speech_evidence_offer_preview_required", status_code=422)
     try:
-        previews = tuple(
-            SpeechEvidenceGroupPreview.from_mapping(value)
-            for value in raw
-            if isinstance(value, Mapping)
-        )
+        previews = tuple(SpeechEvidenceGroupPreview.from_mapping(value) for value in raw if isinstance(value, Mapping))
     except (KeyError, TypeError, ValueError) as exc:
         raise SpeechEvidenceOfferError("speech_evidence_offer_preview_invalid", status_code=422) from exc
     if len(previews) != len(raw):

@@ -32,26 +32,26 @@ Policy kann pro Projekt das Risiko-Level einzelner Gate-Typen erhöhen, nicht se
 ```python
 @dataclass
 class ApprovalRequest:
-    gate_id: str          # uuid, unveränderlich
+    gate_id: str  # uuid, unveränderlich
     run_id: str
-    gate_type: str        # aus Gate-Typen-Tabelle
-    risk_level: str       # "low" | "medium" | "high" | "critical"
-    required_role: str    # "operator" | "maintainer" | "owner"
-    reason: str           # maschinenlesbare Begründung (kein freier Text)
+    gate_type: str  # aus Gate-Typen-Tabelle
+    risk_level: str  # "low" | "medium" | "high" | "critical"
+    required_role: str  # "operator" | "maintainer" | "owner"
+    reason: str  # maschinenlesbare Begründung (kein freier Text)
     artifacts: list[str]  # artifact_ids die der Approval-Empfänger einsehen kann
-    expires_at: float     # unix timestamp — Ablaufdatum der Anfrage
+    expires_at: float  # unix timestamp — Ablaufdatum der Anfrage
     created_at: float
-    created_by: str       # worker_id oder "hub"
+    created_by: str  # worker_id oder "hub"
 ```
 
 ```python
 @dataclass
 class ApprovalRecord:
     gate_id: str
-    decision: str         # "approved" | "denied"
-    decided_by: str       # Nutzer-ID
+    decision: str  # "approved" | "denied"
+    decided_by: str  # Nutzer-ID
     decided_at: float
-    reason: str | None    # optionale Begründung des Operators
+    reason: str | None  # optionale Begründung des Operators
     # ApprovalRecord ist unveränderlich nach Erstellung
 ```
 

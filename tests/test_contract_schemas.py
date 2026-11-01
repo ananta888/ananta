@@ -1,13 +1,19 @@
 import json
 import os
 from pathlib import Path
+
 from agent.services.system_contract_service import SystemContractService
 
 # We use the same baseline directory pattern but for schemas
 BASELINE_DIR = Path(__file__).parent / "baselines" / "schemas"
 
+
 def get_update_baselines():
-    return os.environ.get("ANANTA_UPDATE_BASELINES", "false").lower() == "true" or os.environ.get("GENERATE_BASELINES") == "1"
+    return (
+        os.environ.get("ANANTA_UPDATE_BASELINES", "false").lower() == "true"
+        or os.environ.get("GENERATE_BASELINES") == "1"
+    )
+
 
 def test_verify_contract_schemas():
     """
@@ -59,6 +65,7 @@ def test_verify_contract_schemas():
 
     if error_msg:
         assert False, "\n".join(error_msg)
+
 
 if __name__ == "__main__":
     # Allow running directly to update baselines

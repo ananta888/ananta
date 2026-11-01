@@ -73,9 +73,7 @@ class WebrtcGroupKeyAuthorizationService:
         if previous_epoch >= epoch or previous_epoch < 0:
             raise GroupKeyAuthorizationError("epoch_transition_invalid")
         if membership_epoch is not None and (
-            not isinstance(membership_epoch, int)
-            or isinstance(membership_epoch, bool)
-            or membership_epoch < 1
+            not isinstance(membership_epoch, int) or isinstance(membership_epoch, bool) or membership_epoch < 1
         ):
             raise GroupKeyAuthorizationError("membership_epoch_invalid")
         now_ms = int(self._clock() * 1000)

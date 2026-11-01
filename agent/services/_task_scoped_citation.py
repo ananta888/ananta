@@ -68,22 +68,17 @@ def extract_retrieval_trace_link(context_payload: dict | None) -> dict[str, str 
     metadata = dict(payload.get("bundle_metadata") or {})
     retrieval_trace = dict(metadata.get("retrieval_trace") or {})
     selection_trace = dict(metadata.get("selection_trace") or {})
-    trace_id = str(
-        retrieval_trace.get("trace_id")
-        or selection_trace.get("retrieval_trace_id")
-        or selection_trace.get("trace_id")
-        or ""
-    ).strip() or None
-    context_hash = str(
-        retrieval_trace.get("context_hash")
-        or metadata.get("context_hash")
-        or ""
-    ).strip() or None
-    manifest_hash = str(
-        retrieval_trace.get("manifest_hash")
-        or metadata.get("manifest_hash")
-        or ""
-    ).strip() or None
+    trace_id = (
+        str(
+            retrieval_trace.get("trace_id")
+            or selection_trace.get("retrieval_trace_id")
+            or selection_trace.get("trace_id")
+            or ""
+        ).strip()
+        or None
+    )
+    context_hash = str(retrieval_trace.get("context_hash") or metadata.get("context_hash") or "").strip() or None
+    manifest_hash = str(retrieval_trace.get("manifest_hash") or metadata.get("manifest_hash") or "").strip() or None
     return {
         "retrieval_trace_id": trace_id,
         "retrieval_context_hash": context_hash,
@@ -105,16 +100,12 @@ def build_source_catalog_from_execution_context(
     selected: list[dict[str, Any]] = []
     for chunk in chunks:
         metadata = dict(chunk.get("metadata") or {})
-        identity_verification = dict(
-            metadata.get("source_id_verification") or {}
-        )
+        identity_verification = dict(metadata.get("source_id_verification") or {})
         identity_verified = (
             metadata.get("source_id_verified") is True
             and identity_verification.get("verified") is True
-            and str(identity_verification.get("status") or "")
-            == "verified"
-            and str(identity_verification.get("reason_code") or "")
-            == "source_id_verified"
+            and str(identity_verification.get("status") or "") == "verified"
+            and str(identity_verification.get("reason_code") or "") == "source_id_verified"
         )
         if not identity_verified:
             # The normalized retrieval contract is the Hub verification
@@ -132,51 +123,21 @@ def build_source_catalog_from_execution_context(
                 # identity-less provenance row would turn an otherwise valid
                 # catalog into a degraded one.
                 "source_id": str(
-                    (
-                        chunk.get("source_id")
-                        or metadata.get("source_id")
-                        or metadata.get("registry_source_id")
-                        or ""
-                    )
+                    (chunk.get("source_id") or metadata.get("source_id") or metadata.get("registry_source_id") or "")
                     if identity_verified
                     else ""
                 ),
-                "source_version": str(
-                    chunk.get("source_version")
-                    or metadata.get("source_version")
-                    or ""
-                ),
-                "tenant_id": str(
-                    chunk.get("tenant_id")
-                    or metadata.get("tenant_id")
-                    or ""
-                ),
-                "scope": str(
-                    chunk.get("scope")
-                    or metadata.get("scope")
-                    or metadata.get("source_scope")
-                    or ""
-                ),
-                "provenance_digest": str(
-                    chunk.get("provenance_digest")
-                    or metadata.get("provenance_digest")
-                    or ""
-                ),
-                "provenance": (
-                    dict(source_provenance)
-                    if isinstance(source_provenance, dict)
-                    else {}
-                ),
+                "source_version": str(chunk.get("source_version") or metadata.get("source_version") or ""),
+                "tenant_id": str(chunk.get("tenant_id") or metadata.get("tenant_id") or ""),
+                "scope": str(chunk.get("scope") or metadata.get("scope") or metadata.get("source_scope") or ""),
+                "provenance_digest": str(chunk.get("provenance_digest") or metadata.get("provenance_digest") or ""),
+                "provenance": (dict(source_provenance) if isinstance(source_provenance, dict) else {}),
                 "path": str(chunk.get("source") or metadata.get("file") or ""),
                 "record_id": str(metadata.get("record_id") or chunk.get("record_id") or ""),
                 # Never substitute a record ID or path for a content digest.
                 # Missing provider content hashes remain a fail-closed
                 # rejection in SourceCatalogService.
-                "content_hash": str(
-                    chunk.get("content_hash")
-                    or metadata.get("content_hash")
-                    or ""
-                ),
+                "content_hash": str(chunk.get("content_hash") or metadata.get("content_hash") or ""),
                 "channel": str(metadata.get("channel") or metadata.get("engine") or ""),
                 "kind": str(metadata.get("record_kind") or metadata.get("kind") or ""),
                 "manifest_hash": str(metadata.get("source_manifest_hash") or ""),
@@ -192,8 +153,7 @@ def build_source_catalog_from_execution_context(
         selection_trace = dict(bundle_metadata.get("selection_trace") or {})
         if selection_trace:
             retrieval_trace = {
-                "trace_id": selection_trace.get("retrieval_trace_id")
-                or selection_trace.get("trace_id"),
+                "trace_id": selection_trace.get("retrieval_trace_id") or selection_trace.get("trace_id"),
                 "context_hash": selection_trace.get("context_hash"),
                 "manifest_hash": selection_trace.get("manifest_hash"),
                 "tenant_id": selection_trace.get("tenant_id"),
@@ -218,16 +178,8 @@ def render_citation_contract_prompt(
     *,
     run_evidence_context: dict | None = None,
 ) -> str:
-    catalog = (
-        dict(source_catalog)
-        if isinstance(source_catalog, dict)
-        else {}
-    )
-    sources = [
-        dict(item)
-        for item in list(catalog.get("sources") or [])
-        if isinstance(item, dict)
-    ]
+    catalog = dict(source_catalog) if isinstance(source_catalog, dict) else {}
+    sources = [dict(item) for item in list(catalog.get("sources") or []) if isinstance(item, dict)]
     run_records: list[dict[str, Any]] = []
     if run_evidence_context is not None:
         from ananta_contracts.recovery_run_evidence import (
@@ -236,14 +188,9 @@ def render_citation_contract_prompt(
 
         validated_context = validate_recovery_tool_run_context(
             run_evidence_context,
-            task_id=str(
-                run_evidence_context.get("task_id") or ""
-            ),
+            task_id=str(run_evidence_context.get("task_id") or ""),
         )
-        run_records = [
-            dict(value)
-            for value in validated_context["records"]
-        ]
+        run_records = [dict(value) for value in validated_context["records"]]
     if not sources and not run_records:
         return ""
     preview = []

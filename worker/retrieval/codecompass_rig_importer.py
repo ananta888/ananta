@@ -8,6 +8,7 @@ loads the normalized nodes/edges into the CodeCompass graph store.
 The CLI is *validate/dry-run by default*. Persistent writes go through
 the Hub task flow (CCRIG-DD-009).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,9 +21,7 @@ from typing import Any
 
 from agent.services.tools.graph_evidence import (
     enforce_import_invariants,
-    validate_repository_intelligence_snapshot,
 )
-
 
 SCHEMA_VERSION = "codecompass.repository-intelligence.v1"
 SUPPORTED_SCHEMA_VERSIONS = frozenset({SCHEMA_VERSION})
@@ -70,13 +69,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _content_hash(payload: dict[str, Any]) -> str:
-    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False,
-                      separators=(",", ":"))
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
-def _normalize_to_rig_nodes_edges(snapshot: dict[str, Any]) -> tuple[tuple[dict[str, Any], ...],
-                                                                    tuple[dict[str, Any], ...]]:
+def _normalize_to_rig_nodes_edges(
+    snapshot: dict[str, Any],
+) -> tuple[tuple[dict[str, Any], ...], tuple[dict[str, Any], ...]]:
     """Flatten snapshot entities+edges into rig_nodes/rig_edges arrays.
 
     IDs are kept verbatim from the snapshot. No synthetic IDs are
@@ -96,24 +95,28 @@ def _normalize_to_rig_nodes_edges(snapshot: dict[str, Any]) -> tuple[tuple[dict[
         for ent in entities.get(entities_key) or []:
             if not isinstance(ent, dict):
                 continue
-            nodes.append({
-                "id": ent.get("id"),
-                "kind": kind,
-                "attrs": {k: v for k, v in ent.items() if k != "id"},
-                "provenance": snapshot.get("extractor"),
-            })
+            nodes.append(
+                {
+                    "id": ent.get("id"),
+                    "kind": kind,
+                    "attrs": {k: v for k, v in ent.items() if k != "id"},
+                    "provenance": snapshot.get("extractor"),
+                }
+            )
 
     edges_out: list[dict[str, Any]] = []
     for edge in snapshot.get("edges") or []:
         if not isinstance(edge, dict):
             continue
-        edges_out.append({
-            "from_id": edge.get("from_id"),
-            "to_id": edge.get("to_id"),
-            "kind": edge.get("kind"),
-            "evidence": edge.get("evidence"),
-            "trust": edge.get("trust"),
-        })
+        edges_out.append(
+            {
+                "from_id": edge.get("from_id"),
+                "to_id": edge.get("to_id"),
+                "kind": edge.get("kind"),
+                "evidence": edge.get("evidence"),
+                "trust": edge.get("trust"),
+            }
+        )
 
     return tuple(nodes), tuple(edges_out)
 
@@ -150,10 +153,12 @@ def import_snapshot_file(
             content_hash=None,
             rig_nodes=(),
             rig_edges=(),
-            failures=({
-                "reason": "schema_version_unsupported",
-                "detail": f"got {schema_version!r}, expected one of {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
-            },),
+            failures=(
+                {
+                    "reason": "schema_version_unsupported",
+                    "detail": f"got {schema_version!r}, expected one of {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
+                },
+            ),
             diagnostics=diagnostics,
         )
 
@@ -186,8 +191,7 @@ def import_snapshot_file(
                 content_hash=content_hash,
                 rig_nodes=rig_nodes,
                 rig_edges=rig_edges,
-                failures=({"reason": "missing_index_path",
-                           "detail": "--write-index requires --index-path"},),
+                failures=({"reason": "missing_index_path", "detail": "--write-index requires --index-path"},),
                 diagnostics=diagnostics,
             )
         payload = {
@@ -204,8 +208,7 @@ def import_snapshot_file(
             },
         }
         index_path.parent.mkdir(parents=True, exist_ok=True)
-        index_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                              encoding="utf-8")
+        index_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return ImportResult(
         ok=True,
@@ -229,15 +232,21 @@ def main(argv: list[str] | None = None) -> int:
         write_index=args.write_index,
         index_path=args.index_path,
     )
-    print(json.dumps({
-        "ok": result.ok,
-        "snapshot_id": result.snapshot_id,
-        "content_hash": result.content_hash,
-        "rig_node_count": len(result.rig_nodes),
-        "rig_edge_count": len(result.rig_edges),
-        "failures": list(result.failures),
-        "diagnostics": result.diagnostics,
-    }, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "ok": result.ok,
+                "snapshot_id": result.snapshot_id,
+                "content_hash": result.content_hash,
+                "rig_node_count": len(result.rig_nodes),
+                "rig_edge_count": len(result.rig_edges),
+                "failures": list(result.failures),
+                "diagnostics": result.diagnostics,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0 if result.ok else 1
 
 

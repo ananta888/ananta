@@ -4,27 +4,32 @@ Proves that project evolution (adding features, patching files) flows through
 the correct normalization paths, and that all executable paths require
 artifact collection and verification.
 """
+
 from __future__ import annotations
 
 import hashlib
 import uuid
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from worker.core.propose import ExecutableProposal, STATUS_EXECUTABLE, STATUS_ADVISORY
-from worker.core.propose import FileProposalArtifact, PatchProposalArtifact
-from worker.core.propose_orchestrator import ProposeContext
-from worker.core.propose_orchestrator import ProposeStrategyOrchestrator
-from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
-from worker.core.template_propose_handler import TemplateProposeHandler
+import pytest
+
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
-from agent.services.task_handler_registry import TaskHandlerRegistry
-from agent.services.propose_policy import ProposePolicy
 from agent.services.planning_utils import parse_followup_analysis
-from worker.core.artifact_manifest import build_artifact_manifest, write_manifest
-from agent.services.worker_output_collector_service import get_worker_output_collector_service
+from agent.services.propose_policy import ProposePolicy
 from agent.services.task_completion_policy_service import get_task_completion_policy_service
+from agent.services.task_handler_registry import TaskHandlerRegistry
+from agent.services.worker_output_collector_service import get_worker_output_collector_service
+from worker.core.artifact_manifest import build_artifact_manifest, write_manifest
+from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
+from worker.core.propose import (
+    STATUS_ADVISORY,
+    STATUS_EXECUTABLE,
+    ExecutableProposal,
+    FileProposalArtifact,
+    PatchProposalArtifact,
+)
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
 
 
 @pytest.fixture
@@ -91,18 +96,20 @@ class TestEvolutionExecutableRequiresArtifacts:
         artifacts = []
         for f in ["app.py", "requirements.txt", "auth.py"]:
             content = (ws / f).read_text()
-            artifacts.append({
-                "artifact_id": f"art-{uuid.uuid4().hex[:8]}",
-                "kind": "generated_file",
-                "relative_path": f,
-                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
-                "size_bytes": len(content.encode()),
-                "classification": "internal",
-                "operation": "created",
-                "required": True,
-                "verification_status": "pending",
-                "metadata": {},
-            })
+            artifacts.append(
+                {
+                    "artifact_id": f"art-{uuid.uuid4().hex[:8]}",
+                    "kind": "generated_file",
+                    "relative_path": f,
+                    "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                    "size_bytes": len(content.encode()),
+                    "classification": "internal",
+                    "operation": "created",
+                    "required": True,
+                    "verification_status": "pending",
+                    "metadata": {},
+                }
+            )
 
         manifest = build_artifact_manifest(
             goal_id="goal-evo-001",
@@ -154,8 +161,13 @@ class TestEvolutionExecutableRequiresArtifacts:
             for i, (f, c) in enumerate([("app.py", "# app"), ("auth.py", "# auth")])
         ]
         manifest = build_artifact_manifest(
-            goal_id="g", task_id="t", execution_id="e", trace_id="tr",
-            workspace_root=ws, worker_id="w", artifacts=artifacts,
+            goal_id="g",
+            task_id="t",
+            execution_id="e",
+            trace_id="tr",
+            workspace_root=ws,
+            worker_id="w",
+            artifacts=artifacts,
         )
         manifest_dir = ws / ".ananta" / "handoff" / "e"
         manifest_dir.mkdir(parents=True)
@@ -167,7 +179,10 @@ class TestEvolutionExecutableRequiresArtifacts:
 
         collector = get_worker_output_collector_service()
         collection = collector.collect(
-            task_id="t", goal_id="g", execution_id="e", trace_id="tr",
+            task_id="t",
+            goal_id="g",
+            execution_id="e",
+            trace_id="tr",
             workspace_root=ws,
             manifest_relative_path=".ananta/handoff/e/artifact_manifest.v1.json",
             allow_synthesized_fallback=False,

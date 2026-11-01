@@ -1,7 +1,17 @@
 from sqlmodel import Session, delete, select
 
 from agent.database import engine
-from agent.db_models import AgentInfoDB, GoalDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
+from agent.db_models import (
+    AgentInfoDB,
+    GoalDB,
+    RoleDB,
+    TaskDB,
+    TeamDB,
+    TeamMemberDB,
+    TeamTypeDB,
+    TeamTypeRoleLink,
+    TemplateDB,
+)
 from agent.repository import agent_repo, role_repo, team_repo, team_type_repo
 from tests.support import admin_login_token as _login_admin
 

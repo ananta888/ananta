@@ -75,11 +75,14 @@ def test_reconciliation_rolls_back_when_audit_command_cannot_be_staged(monkeypat
     )
     with pytest.raises(SemanticMediaAuditError, match="audit_outbox_unavailable"):
         repository.create_job(spec, now_ms=1_000_000)
-    assert repository.get_job(
-        tenant_id=spec.tenant_id,
-        owner_subject=spec.owner_subject,
-        job_id=spec.job_id,
-    ) is None
+    assert (
+        repository.get_job(
+            tenant_id=spec.tenant_id,
+            owner_subject=spec.owner_subject,
+            job_id=spec.job_id,
+        )
+        is None
+    )
 
 
 def test_adaptation_decision_rolls_back_when_audit_command_cannot_be_staged(monkeypatch) -> None:
@@ -171,10 +174,7 @@ def test_retention_commits_ciphertext_tombstone_and_content_free_audit_together(
         ).one()
         commands = session.exec(
             select(SemanticMediaAuditOutboxDB)
-            .where(
-                SemanticMediaAuditOutboxDB.job_ref
-                == audit.digest("job", record.evidence_id)
-            )
+            .where(SemanticMediaAuditOutboxDB.job_ref == audit.digest("job", record.evidence_id))
             .order_by(SemanticMediaAuditOutboxDB.created_at_ms, SemanticMediaAuditOutboxDB.id)
         ).all()
     assert evidence is not None and evidence.state == "deleted" and not evidence.ciphertext

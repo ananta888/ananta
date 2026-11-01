@@ -25,8 +25,7 @@ class RecoverySourceCallbackDeliveryPort(Protocol):
         *,
         old_status: str | None,
         event_type: str,
-    ) -> RecoverySourceCallbackDelivery:
-        ...
+    ) -> RecoverySourceCallbackDelivery: ...
 
 
 class TaskRuntimeRecoverySourceCallbackDelivery:
@@ -56,7 +55,5 @@ class TaskRuntimeRecoverySourceCallbackDelivery:
         return RecoverySourceCallbackDelivery(
             delivered=False,
             callback_required=True,
-            reason_code=(
-                "recovery_source_callback_invalid_delivery_result"
-            ),
+            reason_code=("recovery_source_callback_invalid_delivery_result"),
         )

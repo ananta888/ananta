@@ -4,7 +4,11 @@ from random import random
 
 from agent.services.worker_routing_policy_utils import (
     derive_required_capabilities as _derive_required_capabilities,
-    derive_research_specialization,
+)
+from agent.services.worker_routing_policy_utils import (
+    derive_research_specialization,  # noqa: F401 — re-exported via __init__
+)
+from agent.services.worker_routing_policy_utils import (
     normalize_capabilities as _normalize_capabilities,
 )
 
@@ -62,9 +66,7 @@ SECURITY_LEVEL_RANK = {
     "critical": 4,
 }
 
-_ALL_REQUIRED_CAPABILITY_TASK_KINDS = frozenset(
-    {"vector_index_operation"}
-)
+_ALL_REQUIRED_CAPABILITY_TASK_KINDS = frozenset({"vector_index_operation"})
 
 
 def normalize_capabilities(capabilities: list[str] | None) -> list[str]:
@@ -133,7 +135,9 @@ def choose_worker_for_task(
         if step_required:
             required_capabilities = step_required
             workflow_provided_required = _normalize_capabilities(step_required)
-    normalized_required = _normalize_capabilities(required_capabilities) or derive_required_capabilities(task, task_kind)
+    normalized_required = _normalize_capabilities(required_capabilities) or derive_required_capabilities(
+        task, task_kind
+    )
     kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
     preferred_roles = list(TASK_KIND_ROLE_PREFERENCES.get(kind, []))
     # WFG-009: when a workflow step is present, role preferences are
@@ -142,16 +146,12 @@ def choose_worker_for_task(
     # planner+reviewer workers (not just the task_kind default).
     workflow_role = str((resolved_step or {}).get("role") or "").strip().lower()
     if workflow_role:
-        role_targets = WORKFLOW_ROLE_TO_WORKER_ROLES.get(
-            workflow_role, WORKFLOW_ROLE_TO_WORKER_ROLES["default"]
-        )
+        role_targets = WORKFLOW_ROLE_TO_WORKER_ROLES.get(workflow_role, WORKFLOW_ROLE_TO_WORKER_ROLES["default"])
         for role in role_targets:
             if role not in preferred_roles:
                 preferred_roles.append(role)
     required_security = _security_level(task or {})
-    require_complete_capability_set = (
-        kind in _ALL_REQUIRED_CAPABILITY_TASK_KINDS
-    )
+    require_complete_capability_set = kind in _ALL_REQUIRED_CAPABILITY_TASK_KINDS
 
     ranked: list[tuple[float, dict, list[str], list[str], float, float, str]] = []
     for worker in workers:
@@ -200,7 +200,9 @@ def choose_worker_for_task(
             + (worker_security * 2.0)
             - (load_penalty * 30.0)
         )
-        ranked.append((score, worker, matched_caps, matched_roles, load_penalty, success_signal, _security_label(worker_security)))
+        ranked.append(
+            (score, worker, matched_caps, matched_roles, load_penalty, success_signal, _security_label(worker_security))
+        )
 
     if resolved_step and workflow_provided_required:
         # WFG-009: when a workflow step lists required_capabilities,
@@ -229,7 +231,7 @@ def choose_worker_for_task(
                     f"workflow_step_id:{resolved_step.get('step_id') or ''}",
                     f"workflow_step_role:{workflow_role}",
                     f"workflow_task_kind:{kind}",
-                    f"routing_origin:workflow_role_mapping",
+                    "routing_origin:workflow_role_mapping",
                 ]
                 if resolved_step
                 else []
@@ -273,10 +275,7 @@ def choose_worker_for_task(
             reasons=[
                 "required_capability_set_not_satisfied",
                 f"task_kind:{kind}",
-                (
-                    "required_capabilities:"
-                    + ",".join(normalized_required)
-                ),
+                ("required_capabilities:" + ",".join(normalized_required)),
             ],
             matched_capabilities=[],
             matched_roles=[],
@@ -395,7 +394,9 @@ def _quality_signals(worker: dict) -> tuple[float, float]:
     routing = dict(worker.get("routing_signals") or {})
     metrics = dict(worker.get("metrics") or {})
     success_rate = _clamp_01(routing.get("success_rate", worker.get("success_rate", metrics.get("success_rate", 0.5))))
-    quality_rate = _clamp_01(routing.get("quality_rate", worker.get("quality_rate", metrics.get("quality_rate", success_rate))))
+    quality_rate = _clamp_01(
+        routing.get("quality_rate", worker.get("quality_rate", metrics.get("quality_rate", success_rate)))
+    )
     return success_rate, quality_rate
 
 

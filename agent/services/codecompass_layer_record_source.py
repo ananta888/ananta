@@ -106,5 +106,6 @@ def layer_record_source(knowledge_index: Any) -> LayerRecordSource | None:
     from worker.incremental_index.head_registry import LayerHeadRegistry
     from worker.incremental_index.layer_store import ArtifactLayerStore
 
-    return LayerRecordSource(root=root, profile_id=profile_id, layers=ArtifactLayerStore(root),
-                             heads=LayerHeadRegistry(root))
+    return LayerRecordSource(
+        root=root, profile_id=profile_id, layers=ArtifactLayerStore(root), heads=LayerHeadRegistry(root)
+    )

@@ -19,9 +19,7 @@ SCHEMA_ROOT = ROOT / "schemas" / "model-intelligence"
 
 
 def _validate(name: str, payload: dict) -> None:
-    schema = json.loads(
-        (SCHEMA_ROOT / name).read_text(encoding="utf-8")
-    )
+    schema = json.loads((SCHEMA_ROOT / name).read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     assert list(Draft202012Validator(schema).iter_errors(payload)) == []
 
@@ -71,6 +69,4 @@ def test_completion_roundtrip_embeds_canonical_artifact_ref() -> None:
         ),
     )
 
-    assert completion.to_wire()["artifacts"][0]["schema"] == (
-        "ananta.model-intelligence.artifact-ref.v1"
-    )
+    assert completion.to_wire()["artifacts"][0]["schema"] == ("ananta.model-intelligence.artifact-ref.v1")

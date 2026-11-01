@@ -4,7 +4,6 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-
 _ALLOWED_TASK_KINDS = {"coding", "testing", "review", "research", "planning", "ops", "analysis", "doc"}
 _ALLOWED_RISK_LEVELS = {"low", "medium", "high", "critical"}
 _SOFTWARE_HINTS = ("software", "project", "java", "angular", "frontend", "backend", "api", "service", "app")
@@ -34,11 +33,19 @@ def _normalize_learning_loop_config(value: dict | None) -> dict[str, Any]:
         "lookback_runs": _bounded_int(payload.get("lookback_runs"), default=120, minimum=10, maximum=1000),
         "min_runs": _bounded_int(payload.get("min_runs"), default=8, minimum=1, maximum=200),
         "min_failures": _bounded_int(payload.get("min_failures"), default=3, minimum=1, maximum=200),
-        "min_parse_success_rate": _bounded_float(payload.get("min_parse_success_rate"), default=0.7, minimum=0.0, maximum=1.0),
-        "min_validation_success_rate": _bounded_float(payload.get("min_validation_success_rate"), default=0.7, minimum=0.0, maximum=1.0),
-        "min_materialization_success_rate": _bounded_float(payload.get("min_materialization_success_rate"), default=0.6, minimum=0.0, maximum=1.0),
+        "min_parse_success_rate": _bounded_float(
+            payload.get("min_parse_success_rate"), default=0.7, minimum=0.0, maximum=1.0
+        ),
+        "min_validation_success_rate": _bounded_float(
+            payload.get("min_validation_success_rate"), default=0.7, minimum=0.0, maximum=1.0
+        ),
+        "min_materialization_success_rate": _bounded_float(
+            payload.get("min_materialization_success_rate"), default=0.6, minimum=0.0, maximum=1.0
+        ),
         "max_repair_rate": _bounded_float(payload.get("max_repair_rate"), default=0.4, minimum=0.0, maximum=1.0),
-        "candidate_activation_threshold": _bounded_float(payload.get("candidate_activation_threshold"), default=0.75, minimum=0.0, maximum=1.0),
+        "candidate_activation_threshold": _bounded_float(
+            payload.get("candidate_activation_threshold"), default=0.75, minimum=0.0, maximum=1.0
+        ),
         "rollback_threshold": _bounded_float(payload.get("rollback_threshold"), default=0.55, minimum=0.0, maximum=1.0),
         "freeze_minutes": _bounded_int(payload.get("freeze_minutes"), default=120, minimum=1, maximum=10080),
         "canary_window_runs": _bounded_int(payload.get("canary_window_runs"), default=10, minimum=1, maximum=200),
@@ -72,11 +79,15 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
             continue
         runtime_profiles[str(profile_id)] = {
             "timeout_seconds": _bounded_int(raw_profile.get("timeout_seconds"), default=120, minimum=5, maximum=900),
-            "max_output_tokens": _bounded_int(raw_profile.get("max_output_tokens"), default=512, minimum=128, maximum=2048),
+            "max_output_tokens": _bounded_int(
+                raw_profile.get("max_output_tokens"), default=512, minimum=128, maximum=2048
+            ),
             "retry_attempts": _bounded_int(raw_profile.get("retry_attempts"), default=2, minimum=1, maximum=5),
             "retry_backoff_seconds": float(raw_profile.get("retry_backoff_seconds") or 1.0),
             "segmented_planning_enabled": bool(raw_profile.get("segmented_planning_enabled", False)),
-            "segment_context_chars": _bounded_int(raw_profile.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
+            "segment_context_chars": _bounded_int(
+                raw_profile.get("segment_context_chars"), default=2400, minimum=600, maximum=12000
+            ),
             "max_segments": _bounded_int(raw_profile.get("max_segments"), default=3, minimum=1, maximum=8),
             "preferred_output_format": (
                 str(raw_profile.get("preferred_output_format") or "json").strip().lower()
@@ -95,25 +106,39 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
         "timeout_seconds": _bounded_int(payload.get("timeout_seconds"), default=45, minimum=5, maximum=900),
         "max_output_tokens": _bounded_int(payload.get("max_output_tokens"), default=512, minimum=128, maximum=2048),
         "segmented_planning_enabled": bool(payload.get("segmented_planning_enabled", False)),
-        "segment_context_chars": _bounded_int(payload.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
+        "segment_context_chars": _bounded_int(
+            payload.get("segment_context_chars"), default=2400, minimum=600, maximum=12000
+        ),
         "max_segments": _bounded_int(payload.get("max_segments"), default=3, minimum=1, maximum=8),
         "preferred_output_format": (
             str(payload.get("preferred_output_format") or "json").strip().lower()
             if str(payload.get("preferred_output_format") or "json").strip().lower() in _ALLOWED_OUTPUT_FORMATS
             else "json"
         ),
-        "selective_repair_rounds": _bounded_int(payload.get("selective_repair_rounds"), default=2, minimum=0, maximum=4),
-        "validation_profiles": dict(payload.get("validation_profiles") or {}) if isinstance(payload.get("validation_profiles"), dict) else {},
-        "team_overrides": dict(payload.get("team_overrides") or {}) if isinstance(payload.get("team_overrides"), dict) else {},
-        "planner_prompt_evolution": dict(payload.get("planner_prompt_evolution") or {}) if isinstance(payload.get("planner_prompt_evolution"), dict) else {},
-        "learning_loop": _normalize_learning_loop_config(payload.get("learning_loop") if isinstance(payload.get("learning_loop"), dict) else {}),
+        "selective_repair_rounds": _bounded_int(
+            payload.get("selective_repair_rounds"), default=2, minimum=0, maximum=4
+        ),
+        "validation_profiles": dict(payload.get("validation_profiles") or {})
+        if isinstance(payload.get("validation_profiles"), dict)
+        else {},
+        "team_overrides": dict(payload.get("team_overrides") or {})
+        if isinstance(payload.get("team_overrides"), dict)
+        else {},
+        "planner_prompt_evolution": dict(payload.get("planner_prompt_evolution") or {})
+        if isinstance(payload.get("planner_prompt_evolution"), dict)
+        else {},
+        "learning_loop": _normalize_learning_loop_config(
+            payload.get("learning_loop") if isinstance(payload.get("learning_loop"), dict) else {}
+        ),
         "default_runtime_profile": str(payload.get("default_runtime_profile") or "").strip() or None,
         "runtime_profiles": runtime_profiles,
     }
 
 
 def select_planning_agent_candidate(*, agents: list[dict], planning_policy: dict[str, Any]) -> dict[str, Any] | None:
-    allowed_roles = set(str(item or "").strip().lower() for item in list(planning_policy.get("allowed_planner_roles") or []))
+    allowed_roles = set(
+        str(item or "").strip().lower() for item in list(planning_policy.get("allowed_planner_roles") or [])
+    )
     allow_remote = bool(planning_policy.get("allow_remote_planners", False))
     ranked: list[dict[str, Any]] = []
     for agent in agents:
@@ -126,9 +151,7 @@ def select_planning_agent_candidate(*, agents: list[dict], planning_policy: dict
         if "plan.propose" not in capabilities and "planning" not in capabilities:
             continue
         url = str(agent.get("url") or "")
-        if not allow_remote and url and not (
-            "localhost" in url or "127.0.0.1" in url or ".local" in url
-        ):
+        if not allow_remote and url and not ("localhost" in url or "127.0.0.1" in url or ".local" in url):
             continue
         ranked.append(
             {
@@ -158,9 +181,23 @@ def build_plan_proposal(
         title_lower = title.lower()
         if is_software_project and task_kind == "coding":
             if "backend" in title_lower or "java" in title_lower:
-                return [{"kind": "directory", "required": True, "relative_path": "backend", "description": "Java backend project"}]
+                return [
+                    {
+                        "kind": "directory",
+                        "required": True,
+                        "relative_path": "backend",
+                        "description": "Java backend project",
+                    }
+                ]
             if "frontend" in title_lower or "angular" in title_lower:
-                return [{"kind": "directory", "required": True, "relative_path": "frontend", "description": "Angular frontend project"}]
+                return [
+                    {
+                        "kind": "directory",
+                        "required": True,
+                        "relative_path": "frontend",
+                        "description": "Angular frontend project",
+                    }
+                ]
             return [{"kind": "workspace_change", "required": True, "description": f"software-step-{index}"}]
         if task_kind in {"coding", "testing", "ops"}:
             return [{"kind": "workspace_change", "required": True, "description": f"task-{index}-output"}]
@@ -188,7 +225,9 @@ def build_plan_proposal(
                 if dep_index >= 1:
                     mapped_depends_on.append(f"N{dep_index}")
         title = str(subtask.get("title") or f"Step {index}")[:200]
-        expected_artifacts = [dict(item) for item in list(subtask.get("expected_artifacts") or []) if isinstance(item, dict)]
+        expected_artifacts = [
+            dict(item) for item in list(subtask.get("expected_artifacts") or []) if isinstance(item, dict)
+        ]
         if not expected_artifacts:
             expected_artifacts = _default_artifacts(index=index, task_kind=task_kind, title=title)
         verification_spec = dict(subtask.get("verification_spec") or {})
@@ -201,12 +240,17 @@ def build_plan_proposal(
                 "description": str(subtask.get("description") or subtask.get("title") or "")[:2000],
                 "task_kind": task_kind,
                 "depends_on": mapped_depends_on,
-                "required_capabilities": [str(item).strip().lower() for item in list(subtask.get("required_capabilities") or []) if str(item).strip()],
+                "required_capabilities": [
+                    str(item).strip().lower()
+                    for item in list(subtask.get("required_capabilities") or [])
+                    if str(item).strip()
+                ],
                 "risk_level": risk_level,
                 "verification_spec": verification_spec,
                 "expected_artifacts": expected_artifacts,
                 "artifact_trace_id": f"A{index}",
-                "suggested_worker_profile": str(subtask.get("suggested_worker_profile") or "planner").strip().lower() or "planner",
+                "suggested_worker_profile": str(subtask.get("suggested_worker_profile") or "planner").strip().lower()
+                or "planner",
             }
         )
     return {
@@ -222,14 +266,12 @@ def build_plan_proposal(
         "assumptions": [],
         "clarifying_questions": [],
         "nodes": nodes,
-        "dependencies": [{"from": dep, "to": node["node_key"]} for node in nodes for dep in list(node.get("depends_on") or [])],
+        "dependencies": [
+            {"from": dep, "to": node["node_key"]} for node in nodes for dep in list(node.get("depends_on") or [])
+        ],
         "risks": [],
         "required_capabilities": sorted(
-            {
-                str(item).strip().lower()
-                for item in (required_capabilities or [])
-                if str(item).strip()
-            }
+            {str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()}
         ),
         "acceptance_criteria": [],
         "estimated_complexity": "medium",
@@ -244,7 +286,9 @@ class ProposalValidationResult:
     normalized_payload: dict[str, Any]
 
 
-def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilities: set[str] | None = None) -> ProposalValidationResult:
+def validate_plan_proposal_payload(
+    payload: dict[str, Any], *, known_capabilities: set[str] | None = None
+) -> ProposalValidationResult:
     known_caps = {str(item).strip().lower() for item in (known_capabilities or set()) if str(item).strip()}
     errors: list[str] = []
     normalized = dict(payload or {})
@@ -259,7 +303,9 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
     seen: set[str] = set()
     dep_edges: list[tuple[str, str]] = []
     normalized_nodes: list[dict[str, Any]] = []
-    requires_artifact_expectations = bool(((normalized.get("goal_contract_requirements") or {}).get("requires_artifact_expectations")))
+    requires_artifact_expectations = bool(
+        ((normalized.get("goal_contract_requirements") or {}).get("requires_artifact_expectations"))
+    )
     missing_artifact_nodes: list[str] = []
     for node in nodes:
         node_key = str((node or {}).get("node_key") or "").strip()
@@ -280,8 +326,14 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
         depends_on = [str(dep).strip() for dep in list((node or {}).get("depends_on") or []) if str(dep).strip()]
         for dep in depends_on:
             dep_edges.append((dep, node_key))
-        required = [str(cap).strip().lower() for cap in list((node or {}).get("required_capabilities") or []) if str(cap).strip()]
-        expected_artifacts = [dict(item) for item in list((node or {}).get("expected_artifacts") or []) if isinstance(item, dict)]
+        required = [
+            str(cap).strip().lower()
+            for cap in list((node or {}).get("required_capabilities") or [])
+            if str(cap).strip()
+        ]
+        expected_artifacts = [
+            dict(item) for item in list((node or {}).get("expected_artifacts") or []) if isinstance(item, dict)
+        ]
         verification_spec = dict((node or {}).get("verification_spec") or {})
         if expected_artifacts and not verification_spec.get("expected_artifacts"):
             verification_spec["expected_artifacts"] = expected_artifacts
@@ -329,7 +381,9 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
         errors.append("dependency_cycle_detected")
 
     normalized["nodes"] = normalized_nodes
-    normalized["dependencies"] = [{"from": dep, "to": target} for dep, target in dep_edges if dep in node_keys and target in node_keys]
+    normalized["dependencies"] = [
+        {"from": dep, "to": target} for dep, target in dep_edges if dep in node_keys and target in node_keys
+    ]
     if missing_artifact_nodes:
         normalized["repair_hints"] = {
             "reason": "missing_artifact_expectations",

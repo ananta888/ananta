@@ -15,9 +15,7 @@ from .errors import BackupError
 from .restore_service import RestoreRequest, RestoreService
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_COMPOSE = (
-    _REPOSITORY_ROOT / "docker" / "compose-next" / "compose.dev.ollama.yml"
-)
+_DEFAULT_COMPOSE = _REPOSITORY_ROOT / "docker" / "compose-next" / "compose.dev.ollama.yml"
 _DEFAULT_ENV = _REPOSITORY_ROOT / ".env"
 
 
@@ -68,9 +66,7 @@ def backup_main(argv: Sequence[str] | None = None) -> int:
     os.umask(0o077)
     arguments = backup_parser().parse_args(argv)
     try:
-        service = BackupService(
-            ComposeAdapter(arguments.compose_file, arguments.env_file)
-        )
+        service = BackupService(ComposeAdapter(arguments.compose_file, arguments.env_file))
         result = service.run(
             BackupRequest(
                 wsl_target=arguments.wsl_target,
@@ -107,9 +103,7 @@ def restore_main(argv: Sequence[str] | None = None) -> int:
     try:
         result = RestoreService(
             postgres_drill_factory=IsolatedPostgresRestoreDrill,
-            forbidden_live_roots=(
-                _REPOSITORY_ROOT,
-            ),
+            forbidden_live_roots=(_REPOSITORY_ROOT,),
         ).run(
             RestoreRequest(
                 package=arguments.package,

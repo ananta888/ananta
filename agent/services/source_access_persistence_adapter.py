@@ -37,9 +37,7 @@ class SQLSourceAccessEnforcementAdapter:
         clock=lambda: datetime.now(timezone.utc),
     ) -> None:
         self._engine = engine
-        self._allow_legacy_reusable_grants = bool(
-            allow_legacy_reusable_grants
-        )
+        self._allow_legacy_reusable_grants = bool(allow_legacy_reusable_grants)
         self._clock = clock
 
     def bind_execution_policy(
@@ -52,9 +50,7 @@ class SQLSourceAccessEnforcementAdapter:
         grant_lock_version: int = 1,
     ) -> None:
         if consumption_mode not in {"reusable", "one_time"}:
-            raise PersistentSourceAccessAdapterError(
-                "grant_consumption_mode_invalid"
-            )
+            raise PersistentSourceAccessAdapterError("grant_consumption_mode_invalid")
         now = self._aware_now()
         with Session(self._engine) as session:
             existing = session.get(
@@ -64,15 +60,11 @@ class SQLSourceAccessEnforcementAdapter:
             if existing is not None:
                 if (
                     existing.grant_digest != grant_digest
-                    or existing.destination_digest
-                    != destination_digest
+                    or existing.destination_digest != destination_digest
                     or existing.consumption_mode != consumption_mode
-                    or existing.grant_lock_version
-                    != int(grant_lock_version)
+                    or existing.grant_lock_version != int(grant_lock_version)
                 ):
-                    raise PersistentSourceAccessAdapterError(
-                        "grant_execution_policy_conflict"
-                    )
+                    raise PersistentSourceAccessAdapterError("grant_execution_policy_conflict")
                 return
             session.add(
                 SourceAccessGrantExecutionPolicyDB(
@@ -101,9 +93,7 @@ class SQLSourceAccessEnforcementAdapter:
             return None
         with Session(self._engine) as session:
             grant_row = session.exec(
-                select(SourceAccessGrantDB).where(
-                    SourceAccessGrantDB.grant_id == grant_id
-                )
+                select(SourceAccessGrantDB).where(SourceAccessGrantDB.grant_id == grant_id)
             ).first()
             if grant_row is None:
                 return None
@@ -122,23 +112,16 @@ class SQLSourceAccessEnforcementAdapter:
                     consumption_mode="reusable",
                     concurrency_version=max(
                         1,
-                        int(
-                            getattr(grant_row, "lock_version", None)
-                            or getattr(grant_row, "version", 1)
-                        ),
+                        int(getattr(grant_row, "lock_version", None) or getattr(grant_row, "version", 1)),
                     ),
                 )
             if (
                 policy.grant_digest != grant_digest
-                or policy.destination_digest
-                != request.destination_digest
+                or policy.destination_digest != request.destination_digest
                 or policy.grant_lock_version
                 != max(
                     1,
-                    int(
-                        getattr(grant_row, "lock_version", None)
-                        or getattr(grant_row, "version", 1)
-                    ),
+                    int(getattr(grant_row, "lock_version", None) or getattr(grant_row, "version", 1)),
                 )
             ):
                 return None
@@ -160,10 +143,7 @@ class SQLSourceAccessEnforcementAdapter:
             with Session(self._engine) as session:
                 policy = session.exec(
                     select(SourceAccessGrantExecutionPolicyDB)
-                    .where(
-                        SourceAccessGrantExecutionPolicyDB.grant_id
-                        == str(grant_id)
-                    )
+                    .where(SourceAccessGrantExecutionPolicyDB.grant_id == str(grant_id))
                     .with_for_update()
                 ).first()
                 if (
@@ -178,9 +158,7 @@ class SQLSourceAccessEnforcementAdapter:
                 ):
                     return False
                 grant_row = session.exec(
-                    select(SourceAccessGrantDB)
-                    .where(SourceAccessGrantDB.grant_id == str(grant_id))
-                    .with_for_update()
+                    select(SourceAccessGrantDB).where(SourceAccessGrantDB.grant_id == str(grant_id)).with_for_update()
                 ).first()
                 if (
                     grant_row is None
@@ -237,33 +215,24 @@ class SQLSourceAccessEnforcementAdapter:
         with Session(self._engine) as session:
             policy = session.exec(
                 select(SourceAccessGrantExecutionPolicyDB)
-                .where(
-                    SourceAccessGrantExecutionPolicyDB.grant_id
-                    == str(grant_id)
-                )
+                .where(SourceAccessGrantExecutionPolicyDB.grant_id == str(grant_id))
                 .with_for_update()
             ).first()
             if (
                 policy is None
                 or policy.consumption_mode != "one_time"
-                or policy.concurrency_version
-                != int(expected_policy_version)
+                or policy.concurrency_version != int(expected_policy_version)
             ):
                 return False
             grant_row = session.exec(
-                select(SourceAccessGrantDB)
-                .where(SourceAccessGrantDB.grant_id == str(grant_id))
-                .with_for_update()
+                select(SourceAccessGrantDB).where(SourceAccessGrantDB.grant_id == str(grant_id)).with_for_update()
             ).first()
             if (
                 grant_row is None
                 or policy.grant_lock_version
                 != max(
                     1,
-                    int(
-                        getattr(grant_row, "lock_version", None)
-                        or getattr(grant_row, "version", 1)
-                    ),
+                    int(getattr(grant_row, "lock_version", None) or getattr(grant_row, "version", 1)),
                 )
                 or self._grant_row_inactive_or_expired(
                     grant_row,
@@ -273,17 +242,10 @@ class SQLSourceAccessEnforcementAdapter:
                 return False
             consumption = session.exec(
                 select(SourceAccessGrantConsumptionDB)
-                .where(
-                    SourceAccessGrantConsumptionDB.grant_id
-                    == str(grant_id)
-                )
+                .where(SourceAccessGrantConsumptionDB.grant_id == str(grant_id))
                 .with_for_update()
             ).first()
-            if (
-                consumption is None
-                or int(consumption.expected_version) + 1
-                != int(expected_policy_version)
-            ):
+            if consumption is None or int(consumption.expected_version) + 1 != int(expected_policy_version):
                 return False
             return hmac.compare_digest(
                 str(consumption.consumption_digest),
@@ -307,20 +269,14 @@ class SQLSourceAccessEnforcementAdapter:
             policy_version=row.policy_version,
             policy_snapshot_digest=row.policy_snapshot_digest,
             state=row.state,
-            issued_at=datetime.fromtimestamp(
-                row.issued_at_epoch, tz=timezone.utc
-            ),
-            expires_at=datetime.fromtimestamp(
-                row.expires_at_epoch, tz=timezone.utc
-            ),
+            issued_at=datetime.fromtimestamp(row.issued_at_epoch, tz=timezone.utc),
+            expires_at=datetime.fromtimestamp(row.expires_at_epoch, tz=timezone.utc),
         )
 
     def _aware_now(self) -> datetime:
         value = self._clock()
         if not isinstance(value, datetime) or value.tzinfo is None:
-            raise PersistentSourceAccessAdapterError(
-                "grant_adapter_clock_must_be_aware"
-            )
+            raise PersistentSourceAccessAdapterError("grant_adapter_clock_must_be_aware")
         return value.astimezone(timezone.utc)
 
     @staticmethod

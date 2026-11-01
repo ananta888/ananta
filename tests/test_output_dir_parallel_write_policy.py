@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from flask import Flask
 
@@ -121,6 +119,7 @@ def test_workspace_service_accepts_absolute_project_workspaces_path_when_root_di
         )
     assert str(resolved) == requested
 
+
 def test_stale_lock_recovery_records_audit_event():
     svc = OutputDirLockService()
     ok1, lease1, _ = svc.acquire(output_dir="/tmp/ananta-lock-stale", owner="task-a", ttl_seconds=1)
@@ -128,8 +127,9 @@ def test_stale_lock_recovery_records_audit_event():
     assert lease1 is not None
     # force stale by mutating the lease expiry
     from agent.services.output_dir_lock_service import OutputDirLockLease
-    old = svc._leases[svc.canonical_output_dir('/tmp/ananta-lock-stale')]
-    svc._leases[svc.canonical_output_dir('/tmp/ananta-lock-stale')] = OutputDirLockLease(
+
+    old = svc._leases[svc.canonical_output_dir("/tmp/ananta-lock-stale")]
+    svc._leases[svc.canonical_output_dir("/tmp/ananta-lock-stale")] = OutputDirLockLease(
         lock_id=old.lock_id,
         output_dir=old.output_dir,
         owner=old.owner,

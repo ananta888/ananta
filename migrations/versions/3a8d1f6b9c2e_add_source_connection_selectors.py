@@ -10,7 +10,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "3a8d1f6b9c2e"
 down_revision: str | Sequence[str] | None = "2f7c9e1a4b6d"
 branch_labels: str | Sequence[str] | None = None
@@ -30,9 +29,7 @@ def upgrade() -> None:
         sa.Column("project_id", sa.String(128), nullable=False),
         sa.Column("owner_id", sa.String(128), nullable=False),
         sa.Column("public_connector_type", sa.String(32), nullable=False),
-        sa.Column(
-            "implementation_connector_type", sa.String(32), nullable=False
-        ),
+        sa.Column("implementation_connector_type", sa.String(32), nullable=False),
         sa.Column("selector_kind", sa.String(16), nullable=False),
         sa.Column("selector_id", sa.String(192), nullable=False),
         sa.Column("relative_path", sa.String(512), nullable=True),

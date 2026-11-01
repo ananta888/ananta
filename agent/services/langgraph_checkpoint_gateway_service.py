@@ -223,11 +223,7 @@ class LangGraphCheckpointGatewayService:
             status = "running"
         elif command.command_type in {"edit", "request_changes"}:
             checkpoint_payload = state.business_data.get(_STATE_KEY)
-            pending_writes = (
-                checkpoint_payload.get("pending_writes")
-                if isinstance(checkpoint_payload, Mapping)
-                else ()
-            )
+            pending_writes = checkpoint_payload.get("pending_writes") if isinstance(checkpoint_payload, Mapping) else ()
             if pending_writes:
                 raise LangGraphCheckpointGatewayError(
                     "langgraph_plan_edit_pending_writes_denied",
@@ -401,9 +397,7 @@ class LangGraphCheckpointGatewayService:
         checkpoint_id = _config_checkpoint_id(config)
         history = self._history(binding)
         checkpoint = (
-            self._by_graph_checkpoint_id(history, checkpoint_id)
-            if checkpoint_id
-            else _latest_graph_checkpoint(history)
+            self._by_graph_checkpoint_id(history, checkpoint_id) if checkpoint_id else _latest_graph_checkpoint(history)
         )
         head_revision = history[-1].revision if history else 0
         return {
@@ -512,10 +506,13 @@ class LangGraphCheckpointGatewayService:
             if latest_graph is not None
             else None
         )
-        checkpoint_order = max(
-            (_graph_checkpoint_order(value) for value in history),
-            default=0,
-        ) + 1
+        checkpoint_order = (
+            max(
+                (_graph_checkpoint_order(value) for value in history),
+                default=0,
+            )
+            + 1
+        )
         stored_config = _checkpoint_config(incoming_config, graph_checkpoint_id, current_revision + 1)
         state = WorkflowState(
             business_data={
@@ -574,9 +571,7 @@ class LangGraphCheckpointGatewayService:
             )
         requested_id = _config_checkpoint_id(config)
         target = (
-            self._by_graph_checkpoint_id(history, requested_id)
-            if requested_id
-            else _latest_graph_checkpoint(history)
+            self._by_graph_checkpoint_id(history, requested_id) if requested_id else _latest_graph_checkpoint(history)
         )
         if target is None:
             self._deny("langgraph_checkpoint_not_found", 404)
@@ -760,10 +755,7 @@ def _graph_checkpoint_id(checkpoint: SignedCheckpoint) -> str:
 
 def _graph_checkpoint_order(checkpoint: SignedCheckpoint) -> int:
     try:
-        return int(
-            checkpoint.state.runtime_metadata.get("langgraph_checkpoint_order")
-            or checkpoint.revision
-        )
+        return int(checkpoint.state.runtime_metadata.get("langgraph_checkpoint_order") or checkpoint.revision)
     except (TypeError, ValueError):
         return int(checkpoint.revision)
 

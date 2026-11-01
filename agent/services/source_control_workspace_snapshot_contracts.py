@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import BinaryIO, Mapping, Protocol, runtime_checkable
 
-
 MAX_SNAPSHOT_FILES = 2_000
 MAX_SNAPSHOT_FILE_BYTES = 20 * 1024 * 1024
 MAX_SNAPSHOT_TOTAL_BYTES = 200 * 1024 * 1024
@@ -53,9 +52,7 @@ class WorkspaceSnapshotLimits:
                 self.max_depth,
             )
         ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_limits_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_limits_invalid")
 
 
 @runtime_checkable
@@ -85,14 +82,10 @@ class BrowserFolderSnapshotRequest:
             or len(name.encode("utf-8")) > 237
             or name.casefold().startswith(".ananta-snapshot-")
         ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_display_name_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_display_name_invalid")
         key = str(idempotency_key or "").strip()
         if _IDEMPOTENCY_KEY.fullmatch(key) is None:
-            raise WorkspaceSnapshotContractError(
-                "idempotency_key_required"
-            )
+            raise WorkspaceSnapshotContractError("idempotency_key_required")
         return cls(display_name=name, idempotency_key=key)
 
     def __repr__(self) -> str:
@@ -114,16 +107,12 @@ class BrowserSnapshotRelativePath:
         limits: WorkspaceSnapshotLimits,
     ) -> "BrowserSnapshotRelativePath":
         if not isinstance(filename, str):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_relative_path_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_relative_path_invalid")
         raw = filename
         try:
             encoded = raw.encode("utf-8", errors="strict")
         except UnicodeError as exc:
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_relative_path_invalid"
-            ) from exc
+            raise WorkspaceSnapshotContractError("workspace_snapshot_relative_path_invalid") from exc
         if (
             not raw
             or len(encoded) > limits.max_relative_path_bytes
@@ -132,18 +121,14 @@ class BrowserSnapshotRelativePath:
             or raw.startswith("/")
             or raw.endswith("/")
         ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_relative_path_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_relative_path_invalid")
         raw_parts = raw.split("/")
         if (
             len(raw_parts) < 2
             or len(raw_parts) - 1 > limits.max_depth
             or any(part in {"", ".", ".."} for part in raw_parts)
         ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_relative_path_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_relative_path_invalid")
         normalized = tuple(
             _validated_component(
                 part,
@@ -151,18 +136,11 @@ class BrowserSnapshotRelativePath:
             )
             for part in raw_parts
         )
-        if any(
-            part.casefold() in _RESERVED_PATH_COMPONENTS
-            for part in normalized
-        ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_reserved_path_denied"
-            )
+        if any(part.casefold() in _RESERVED_PATH_COMPONENTS for part in normalized):
+            raise WorkspaceSnapshotContractError("workspace_snapshot_reserved_path_denied")
         pure = PurePosixPath(*normalized)
         if pure.is_absolute():
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_relative_path_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_relative_path_invalid")
         relative_parts = normalized[1:]
         relative_path = "/".join(relative_parts)
         return cls(
@@ -188,18 +166,12 @@ class StagedSnapshotFile:
             not self.relative_path
             or self.byte_size < 1
             or _DIGEST.fullmatch(self.content_digest) is None
-            or re.fullmatch(r"[a-z0-9+_-]{1,32}|unknown", self.file_type)
-            is None
+            or re.fullmatch(r"[a-z0-9+_-]{1,32}|unknown", self.file_type) is None
         ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_manifest_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_manifest_invalid")
 
     def __repr__(self) -> str:
-        return (
-            "StagedSnapshotFile(path=<redacted>, "
-            f"byte_size={self.byte_size})"
-        )
+        return f"StagedSnapshotFile(path=<redacted>, byte_size={self.byte_size})"
 
 
 @dataclass(frozen=True, repr=False)
@@ -214,19 +186,14 @@ class StagedSnapshotManifest:
             or self.total_bytes != sum(item.byte_size for item in self.files)
             or _DIGEST.fullmatch(self.manifest_digest) is None
         ):
-            raise WorkspaceSnapshotContractError(
-                "workspace_snapshot_manifest_invalid"
-            )
+            raise WorkspaceSnapshotContractError("workspace_snapshot_manifest_invalid")
 
     @property
     def file_count(self) -> int:
         return len(self.files)
 
     def __repr__(self) -> str:
-        return (
-            "StagedSnapshotManifest(files=<redacted>, "
-            f"file_count={self.file_count}, total_bytes={self.total_bytes})"
-        )
+        return f"StagedSnapshotManifest(files=<redacted>, file_count={self.file_count}, total_bytes={self.total_bytes})"
 
 
 @dataclass(frozen=True)
@@ -273,11 +240,7 @@ class WorkspaceSnapshotResult:
             state=str(payload["state"]),
             file_count=_strict_int(payload["file_count"]),
             total_bytes=_strict_int(payload["total_bytes"]),
-            replayed=(
-                replayed
-                if replayed is not None
-                else _strict_bool(payload["replayed"])
-            ),
+            replayed=(replayed if replayed is not None else _strict_bool(payload["replayed"])),
         )
 
     def to_public(self) -> Mapping[str, object]:
@@ -305,8 +268,7 @@ def _validated_component(value: object, *, reason_code: str) -> str:
         or _WINDOWS_RESERVED.fullmatch(normalized) is not None
         or len(normalized.encode("utf-8")) > 255
         or any(
-            not character.isprintable()
-            or unicodedata.category(character) in {"Cc", "Cf", "Cs"}
+            not character.isprintable() or unicodedata.category(character) in {"Cc", "Cf", "Cs"}
             for character in normalized
         )
     ):

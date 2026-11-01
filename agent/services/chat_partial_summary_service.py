@@ -4,6 +4,7 @@ Summarizes a user-selected slice of chat messages. Tries the configured
 LLM backend first; falls back to a deterministic extractive summary so the
 feature works offline (method is reported so the UI can show which one ran).
 """
+
 from __future__ import annotations
 
 import logging

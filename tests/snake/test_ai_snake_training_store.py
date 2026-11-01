@@ -7,7 +7,6 @@ from client_surfaces.operator_tui.ai_snake_training_store import (
     build_training_bundle,
     compact_training_data,
     data_path_status,
-    data_show_status,
     delete_events,
     delete_patterns,
     ensure_training_layout,
@@ -105,7 +104,12 @@ def test_ai_data_export_status_warns_private_local(monkeypatch, tmp_path) -> Non
                 "conditions": {"field": "privacy_class", "op": "eq", "value": "private_local"},
                 "predicted_intent": "notes_resume",
                 "confidence": 0.3,
-                "evidence": {"source_event_ids": ["evt-1"], "sample_size": 1, "counter_refs": [], "privacy_class": "private_local"},
+                "evidence": {
+                    "source_event_ids": ["evt-1"],
+                    "sample_size": 1,
+                    "counter_refs": [],
+                    "privacy_class": "private_local",
+                },
                 "counters": {"hits": 1, "misses": 0, "positives": 1, "negatives": 0},
                 "last_seen_at": "2026-01-01T00:00:00Z",
                 "expires_at": "2030-01-01T00:00:00Z",
@@ -131,7 +135,12 @@ def test_default_export_excludes_sensitive_blocked_patterns(monkeypatch, tmp_pat
                 "conditions": {"field": "privacy_class", "op": "eq", "value": "sensitive_blocked"},
                 "predicted_intent": "unknown",
                 "confidence": 0.1,
-                "evidence": {"source_event_ids": ["evt-1"], "sample_size": 1, "counter_refs": [], "privacy_class": "sensitive_blocked"},
+                "evidence": {
+                    "source_event_ids": ["evt-1"],
+                    "sample_size": 1,
+                    "counter_refs": [],
+                    "privacy_class": "sensitive_blocked",
+                },
                 "counters": {"hits": 1, "misses": 0, "positives": 0, "negatives": 1},
                 "last_seen_at": "2026-01-01T00:00:00Z",
                 "expires_at": "2030-01-01T00:00:00Z",
@@ -141,7 +150,12 @@ def test_default_export_excludes_sensitive_blocked_patterns(monkeypatch, tmp_pat
             }
         ]
     )
-    payload = json.loads(execute_command(":ai data export --stdout --format json", OperatorState(endpoint="http://localhost:5000", header_logo_game={})).message)
+    payload = json.loads(
+        execute_command(
+            ":ai data export --stdout --format json",
+            OperatorState(endpoint="http://localhost:5000", header_logo_game={}),
+        ).message
+    )
     assert payload["patterns"] == []
     assert int(payload["privacy_manifest"]["sensitive_blocked"]) == 0
 
@@ -185,7 +199,9 @@ def test_ai_data_export_to_file_and_compact(monkeypatch, tmp_path) -> None:
 def test_ai_data_delete_and_reset_commands(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     paths = ensure_training_layout()
-    append_behavior_event(event_type="section_visit", value_norm="dashboard", refs=["section:dashboard"], privacy_class="public_ui")
+    append_behavior_event(
+        event_type="section_visit", value_norm="dashboard", refs=["section:dashboard"], privacy_class="public_ui"
+    )
     save_patterns(
         [
             {

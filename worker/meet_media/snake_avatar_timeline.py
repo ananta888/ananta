@@ -140,8 +140,9 @@ class SpeechMediaTimeline:
             first += count
         return result
 
-    def measure_drift(self, *, anchor_us, video_started_us, audio_pushed_us, segments=None, push_lead_us=0,
-                      video_lead_us=0):
+    def measure_drift(
+        self, *, anchor_us, video_started_us, audio_pushed_us, segments=None, push_lead_us=0, video_lead_us=0
+    ):
         """Drift of each published clip against the audio window it renders.
 
         ``anchor_us`` is the monotonic time at which sample 0 starts playing.

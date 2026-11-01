@@ -8,6 +8,7 @@ These tests verify that:
 - unknown modes are rejected
 - as_dict() is safe to surface
 """
+
 from __future__ import annotations
 
 import base64
@@ -23,10 +24,10 @@ from worker.retrieval.vector_encoding import (
     VectorEncodingProfile,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_encoder(mode: str = "off") -> VectorEncoder:
     return VectorEncoder(VectorEncodingProfile(mode=mode))
@@ -39,6 +40,7 @@ def _sample_vector(n: int = 8) -> list[float]:
 # ---------------------------------------------------------------------------
 # TQ-025-001  payload is valid base64, no plaintext leakage
 # ---------------------------------------------------------------------------
+
 
 def test_encoded_vector_payload_is_base64_opaque():
     """Payload must be a valid base64 string; raw float text must not appear."""
@@ -60,6 +62,7 @@ def test_encoded_vector_payload_is_base64_opaque():
 # TQ-025-002  metadata does not contain raw float values as plaintext
 # ---------------------------------------------------------------------------
 
+
 def test_encoded_vector_metadata_no_raw_values():
     """Metadata dict must not embed the original float array as JSON text."""
     encoder = _make_encoder("int8")
@@ -68,14 +71,13 @@ def test_encoded_vector_metadata_no_raw_values():
 
     metadata_json = json.dumps(ev.metadata)
     for f in vector:
-        assert str(f) not in metadata_json, (
-            f"Raw float value {f!r} leaked into metadata: {metadata_json}"
-        )
+        assert str(f) not in metadata_json, f"Raw float value {f!r} leaked into metadata: {metadata_json}"
 
 
 # ---------------------------------------------------------------------------
 # TQ-025-003  non-finite values raise VectorEncodingError
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("bad_value", [math.nan, math.inf, -math.inf])
 def test_encode_non_finite_raises(bad_value):
@@ -88,6 +90,7 @@ def test_encode_non_finite_raises(bad_value):
 # ---------------------------------------------------------------------------
 # TQ-025-004  zero-length vector encodes cleanly
 # ---------------------------------------------------------------------------
+
 
 def test_encode_empty_vector_returns_empty_payload():
     """Encoding an empty vector must not raise; payload must be decodeable."""
@@ -106,6 +109,7 @@ def test_encode_empty_vector_returns_empty_payload():
 # ---------------------------------------------------------------------------
 # TQ-025-005  tampered payload does not expose sensitive exception info
 # ---------------------------------------------------------------------------
+
 
 def test_decode_tampered_payload_raises_or_degrades():
     """A base64-encoded garbage payload must not surface sensitive internals.
@@ -141,6 +145,7 @@ def test_decode_tampered_payload_raises_or_degrades():
 # TQ-025-006  profile hash is stable across calls
 # ---------------------------------------------------------------------------
 
+
 def test_profile_hash_stable_across_calls():
     """config_hash() must return the same value on every call — no randomness."""
     profile = VectorEncodingProfile(mode="int8", seed=42)
@@ -152,6 +157,7 @@ def test_profile_hash_stable_across_calls():
 # TQ-025-007  different modes produce different hashes
 # ---------------------------------------------------------------------------
 
+
 def test_profile_hash_differs_for_different_modes():
     """Distinct encoding modes must produce distinct config hashes."""
     modes = ["off", "float32", "float16", "int8", "symmetric4bit"]
@@ -162,6 +168,7 @@ def test_profile_hash_differs_for_different_modes():
 # ---------------------------------------------------------------------------
 # TQ-025-008  seed in metadata is an integer, not a secret string
 # ---------------------------------------------------------------------------
+
 
 def test_seed_in_metadata_not_sensitive_data():
     """The turboquant seed recorded in metadata must be an int, not a secret key."""
@@ -177,6 +184,7 @@ def test_seed_in_metadata_not_sensitive_data():
 # ---------------------------------------------------------------------------
 # TQ-025-009  as_dict() does not include the raw float array
 # ---------------------------------------------------------------------------
+
 
 def test_payload_redaction_safe():
     """EncodedVector.as_dict() must not contain a 'raw_vector' or 'floats' key."""
@@ -205,6 +213,7 @@ def test_payload_redaction_safe():
 # ---------------------------------------------------------------------------
 # TQ-025-010  unknown mode rejected at profile construction
 # ---------------------------------------------------------------------------
+
 
 def test_vector_encoding_profile_rejects_unknown_modes():
     """VectorEncodingProfile must raise VectorEncodingError for unknown modes."""

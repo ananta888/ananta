@@ -46,11 +46,7 @@ def _require_active(
     *,
     required_scope: str,
 ) -> RegisteredGitAuthorization:
-    if (
-        record is None
-        or record.authorization_state != "active"
-        or required_scope not in record.granted_scopes
-    ):
+    if record is None or record.authorization_state != "active" or required_scope not in record.granted_scopes:
         raise SourceConnectorError("authorization_required")
     return record
 
@@ -62,16 +58,9 @@ def _require_plan_binding(
     try:
         authorization.validate()
     except Exception:
-        raise SourceConnectorError(
-            "git_transport_authorization_invalid"
-        ) from None
-    if (
-        authorization.canonical_url != record.remote_url
-        or authorization.credential_ref != record.credential_ref
-    ):
-        raise SourceConnectorError(
-            "git_transport_authorization_invalid"
-        )
+        raise SourceConnectorError("git_transport_authorization_invalid") from None
+    if authorization.canonical_url != record.remote_url or authorization.credential_ref != record.credential_ref:
+        raise SourceConnectorError("git_transport_authorization_invalid")
 
 
 class HubGitHubRepositoryEndpointProvider:
@@ -224,9 +213,7 @@ class HubGitContentProvider:
             try:
                 return self._payloads.inventory(
                     request=request,
-                    authorization_binding_digest=authorization_binding_digest(
-                        record
-                    ),
+                    authorization_binding_digest=authorization_binding_digest(record),
                 )
             except GitConnectorProviderError as exc:
                 raise SourceConnectorError(exc.reason_code) from None
@@ -246,9 +233,7 @@ class HubGitContentProvider:
                 self._payloads.persist(
                     request=request,
                     materialization=materialized,
-                    authorization_binding_digest=authorization_binding_digest(
-                        record
-                    ),
+                    authorization_binding_digest=authorization_binding_digest(record),
                 )
                 return materialized.metrics
             except GitConnectorProviderError as exc:
@@ -291,14 +276,11 @@ class HubGitContentProvider:
         record = self._registry.resolve_connection(
             scope=getattr(request, "scope"),
             connection_ref=getattr(request, "connection_ref"),
-            repository_identifier=getattr(
-                request, "repository_identifier"
-            ),
+            repository_identifier=getattr(request, "repository_identifier"),
         )
         required_scope = (
             "contents:read"
-            if record is not None
-            and record.authorization_kind.startswith("github_")
+            if record is not None and record.authorization_kind.startswith("github_")
             else "repository:read"
         )
         return _require_active(record, required_scope=required_scope)

@@ -13,7 +13,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Callable
 
-
 _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS: dict[str, tuple[str, frozenset[str]]] = {
     "visual_process_assistant_retrieval": (
         "ananta.visual_process_assistant.retrieval_result.v1",
@@ -113,8 +112,7 @@ def _accept_visual_process_assistant_result(
         )
 
         visual_process_assistant_service = (
-            current_task_scoped_forwarding_dependencies()
-            .results.visual_process_assistant_service
+            current_task_scoped_forwarding_dependencies().results.visual_process_assistant_service
         )
     accepted = visual_process_assistant_service().accept_worker_result(
         task_id=tid,
@@ -139,9 +137,9 @@ def _accept_local_runtime_capability_result(
         LocalRuntimeCapabilityResultIngestor,
     )
 
-    accepted = LocalRuntimeCapabilityResultIngestor(
-        local_runtime_capability_cache()
-    ).accept(task=task, response=response)
+    accepted = LocalRuntimeCapabilityResultIngestor(local_runtime_capability_cache()).accept(
+        task=task, response=response
+    )
     return {"local_runtime_capability_refresh": accepted} if accepted is not None else {}
 
 

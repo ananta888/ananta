@@ -151,14 +151,10 @@ def _is_admin(identity: Mapping[str, Any]) -> bool:
 def _is_global_admin(identity: Mapping[str, Any]) -> bool:
     roles = identity.get("roles")
     values = (
-        {str(value).strip().lower() for value in roles}
-        if isinstance(roles, (list, tuple, set, frozenset))
-        else set()
+        {str(value).strip().lower() for value in roles} if isinstance(roles, (list, tuple, set, frozenset)) else set()
     )
     role = str(identity.get("role") or "").strip().lower()
-    return role in {"superadmin", "system_admin"} or bool(
-        values & {"superadmin", "system_admin"}
-    )
+    return role in {"superadmin", "system_admin"} or bool(values & {"superadmin", "system_admin"})
 
 
 def _safe_reason_code(error: Exception) -> str:

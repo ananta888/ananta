@@ -93,11 +93,14 @@ def test_persistent_sync_store_cas_and_private_atomic_file(tmp_path) -> None:
         query_fingerprint="fingerprint-1",
     )
     assert loaded == _checkpoint()
-    assert store.apply_and_commit(
-        expected_revision=0,
-        checkpoint=_checkpoint(2),
-        delta=_delta(),
-    ) is False
+    assert (
+        store.apply_and_commit(
+            expected_revision=0,
+            checkpoint=_checkpoint(2),
+            delta=_delta(),
+        )
+        is False
+    )
     assert path.stat().st_mode & 0o777 == 0o600
 
 

@@ -92,4 +92,3 @@ def test_collect_signals_from_execution_history():
     assert len(records) == 1
     assert records[0]["task_id"] == "task-4"
     assert records[0]["action_type"] == "shell_command"
-

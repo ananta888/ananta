@@ -106,15 +106,7 @@ class SqlOrganizationTopologyLifecycleService:
             .with_for_update()
         ).all()
         team_ids = tuple(sorted({row.team_id for row in links}))
-        teams = (
-            session.exec(
-                select(TeamDB)
-                .where(TeamDB.id.in_(team_ids))
-                .with_for_update()
-            ).all()
-            if team_ids
-            else []
-        )
+        teams = session.exec(select(TeamDB).where(TeamDB.id.in_(team_ids)).with_for_update()).all() if team_ids else []
 
         for row in units:
             row.lifecycle = "active"
@@ -176,10 +168,7 @@ class SqlOrganizationTopologyLifecycleService:
             assignments = [
                 row
                 for row in suspended_assignments
-                if dict(row.assignment_metadata or {}).get(
-                    _ASSIGNMENT_SUSPENDED_BY_KEY
-                )
-                == _ORGANIZATION_PAUSE_MARKER
+                if dict(row.assignment_metadata or {}).get(_ASSIGNMENT_SUSPENDED_BY_KEY) == _ORGANIZATION_PAUSE_MARKER
             ]
             for row in assignments:
                 row.lifecycle = "active"
@@ -201,11 +190,7 @@ class SqlOrganizationTopologyLifecycleService:
                 organization_id=organization_id,
                 lifecycle="draining",
                 assignment_lifecycle="suspended",
-                assignment_suspension_marker=(
-                    _ORGANIZATION_PAUSE_MARKER
-                    if target == "paused"
-                    else None
-                ),
+                assignment_suspension_marker=(_ORGANIZATION_PAUSE_MARKER if target == "paused" else None),
                 now=now,
                 action="pause" if target == "paused" else "complete",
             )
@@ -282,9 +267,7 @@ class SqlOrganizationTopologyLifecycleService:
             row.ended_at = now if assignment_lifecycle == "ended" else None
             metadata = dict(row.assignment_metadata or {})
             if assignment_lifecycle == "suspended" and assignment_suspension_marker:
-                metadata[_ASSIGNMENT_SUSPENDED_BY_KEY] = (
-                    assignment_suspension_marker
-                )
+                metadata[_ASSIGNMENT_SUSPENDED_BY_KEY] = assignment_suspension_marker
             elif assignment_lifecycle == "ended":
                 metadata.pop(_ASSIGNMENT_SUSPENDED_BY_KEY, None)
             row.assignment_metadata = metadata
@@ -382,13 +365,9 @@ class SqlOrganizationTopologyLifecycleService:
                 .where(model.organization_id == organization_id)
             )
             if included_lifecycles is not None:
-                statement = statement.where(
-                    model.lifecycle.in_(included_lifecycles)
-                )
+                statement = statement.where(model.lifecycle.in_(included_lifecycles))
             elif excluded_lifecycle is not None:
-                statement = statement.where(
-                    model.lifecycle != excluded_lifecycle
-                )
+                statement = statement.where(model.lifecycle != excluded_lifecycle)
             return statement.with_for_update()
 
         units = list(session.exec(scoped(OrganizationUnitDB)).all())
@@ -397,13 +376,7 @@ class SqlOrganizationTopologyLifecycleService:
         relations = list(session.exec(scoped(OrganizationRelationDB)).all())
         team_ids = tuple(sorted({row.team_id for row in links}))
         teams = (
-            list(
-                session.exec(
-                    select(TeamDB)
-                    .where(TeamDB.id.in_(team_ids))
-                    .with_for_update()
-                ).all()
-            )
+            list(session.exec(select(TeamDB).where(TeamDB.id.in_(team_ids)).with_for_update()).all())
             if team_ids
             else []
         )

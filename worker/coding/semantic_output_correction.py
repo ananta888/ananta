@@ -99,6 +99,7 @@ def _embedding_provider_config(policy: dict[str, Any]) -> dict[str, Any]:
         from agent.services.embedding_provider_config_service import (
             EmbeddingProviderConfigService,
         )
+
         svc = EmbeddingProviderConfigService(global_config=provider_cfg)
         return svc.resolve_for_build("semantic_output_correction")
     except Exception:
@@ -158,7 +159,9 @@ def correct_semantic_enum_fields(
     active_fields = {
         field_name: dict(field_cfg)
         for field_name, field_cfg in fields_cfg.items()
-        if isinstance(field_cfg, dict) and bool(field_cfg.get("enabled", True)) and list(field_cfg.get("candidates") or [])
+        if isinstance(field_cfg, dict)
+        and bool(field_cfg.get("enabled", True))
+        and list(field_cfg.get("candidates") or [])
     }
     if not active_fields:
         return dict(payload or {}), None
@@ -175,7 +178,9 @@ def correct_semantic_enum_fields(
         raw_value = str(working_payload.get(field_name) or "").strip().lower()
         if not raw_value:
             continue
-        candidates = [str(item).strip().lower() for item in list(field_cfg.get("candidates") or []) if str(item).strip()]
+        candidates = [
+            str(item).strip().lower() for item in list(field_cfg.get("candidates") or []) if str(item).strip()
+        ]
         if not candidates:
             continue
         value_index[field_name] = len(values)
@@ -202,7 +207,9 @@ def correct_semantic_enum_fields(
         if field_name not in value_index:
             continue
         source_index = value_index[field_name]
-        candidates = [str(item).strip().lower() for item in list(field_cfg.get("candidates") or []) if str(item).strip()]
+        candidates = [
+            str(item).strip().lower() for item in list(field_cfg.get("candidates") or []) if str(item).strip()
+        ]
         source_value = str(working_payload.get(field_name) or "").strip().lower()
         if source_value in set(candidates):
             field_reports.append(
@@ -219,7 +226,9 @@ def correct_semantic_enum_fields(
         scored: list[tuple[str, dict[str, float]]] = []
         for candidate_offset, candidate in enumerate(candidates, start=1):
             vector_index = source_index + candidate_offset
-            candidate_vector = [float(item) for item in list(vectors[vector_index] if vector_index < len(vectors) else [])]
+            candidate_vector = [
+                float(item) for item in list(vectors[vector_index] if vector_index < len(vectors) else [])
+            ]
             scored.append(
                 (
                     candidate,

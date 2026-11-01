@@ -58,8 +58,7 @@ class KnowledgeHygieneAssignment:
             project_id=str(raw.get("project_id") or ""),
             assignment_digest=str(raw.get("assignment_digest") or ""),
             source_bindings=tuple(
-                SourceRevisionBinding.from_mapping(item)
-                for item in raw.get("source_bindings") or ()
+                SourceRevisionBinding.from_mapping(item) for item in raw.get("source_bindings") or ()
             ),
             allowed_operations=tuple(str(item) for item in raw.get("allowed_operations") or ()),
             profile_name=str(raw.get("profile_name") or ""),

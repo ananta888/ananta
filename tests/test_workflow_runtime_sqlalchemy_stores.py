@@ -1404,16 +1404,8 @@ def test_sql_concurrent_profile_reservations_consume_exactly_one_slot(
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(reserve, range(2)))
 
-    successes = [
-        (index, value)
-        for index, value in results
-        if not isinstance(value, ProviderBudgetError)
-    ]
-    failures = [
-        value
-        for _index, value in results
-        if isinstance(value, ProviderBudgetError)
-    ]
+    successes = [(index, value) for index, value in results if not isinstance(value, ProviderBudgetError)]
+    failures = [value for _index, value in results if isinstance(value, ProviderBudgetError)]
     assert len(successes) == 1
     assert len(failures) == 1
     assert failures[0].reason_code in {
@@ -1463,9 +1455,7 @@ def test_sql_scoped_node_budget_is_atomic_concurrent_and_replay_safe(
 
     def reserve(index: int):
         try:
-            snapshot = SQLAlchemyProviderBudgetStore(
-                runtime_engine
-            ).reserve(
+            snapshot = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
                 tenant_id="tenant-a",
                 run_id="scoped-provider-run",
                 policy_version="policy-v1",
@@ -1482,16 +1472,8 @@ def test_sql_scoped_node_budget_is_atomic_concurrent_and_replay_safe(
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(reserve, range(2)))
 
-    successes = [
-        (index, value)
-        for index, value in results
-        if not isinstance(value, ProviderBudgetError)
-    ]
-    failures = [
-        value
-        for _index, value in results
-        if isinstance(value, ProviderBudgetError)
-    ]
+    successes = [(index, value) for index, value in results if not isinstance(value, ProviderBudgetError)]
+    failures = [value for _index, value in results if isinstance(value, ProviderBudgetError)]
     assert len(successes) == 1
     assert len(failures) == 1
     assert failures[0].reason_code in {
@@ -1673,9 +1655,7 @@ def test_gateway_profile_sequence_persists_across_sql_store_instances(
         step_id="step-1",
         plan_hash="a" * 64,
         policy_version="policy-v1",
-        allowed_provider_bindings=tuple(
-            entry.binding_authorization for entry in plan
-        ),
+        allowed_provider_bindings=tuple(entry.binding_authorization for entry in plan),
         provider_attempt_plan=plan,
         budgets={
             "attempts": 1,

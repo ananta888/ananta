@@ -14,8 +14,8 @@ from sqlmodel import Session
 from agent.db_models import OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
 from agent.models.meet_session_observation import validate_observation
 from agent.services.meet_contract import MeetError
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER
 from tests.meet.test_meet_machine_principal_sql import start_principal
+from tests.meet_dialog_lifecycle_fixture import PUBLISHER
 
 
 @pytest.mark.timeout(45)

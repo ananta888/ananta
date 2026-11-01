@@ -70,7 +70,10 @@ class JmapBlobService:
             return MailProviderResult(ok=False, reason_code="jmap_blob_id_missing")
         if size > self._maximum_blob_bytes:
             return MailProviderResult(ok=False, reason_code="jmap_blob_too_large")
-        if not any(content_type == value or (value.endswith("/") and content_type.startswith(value)) for value in self._allowed_types):
+        if not any(
+            content_type == value or (value.endswith("/") and content_type.startswith(value))
+            for value in self._allowed_types
+        ):
             return MailProviderResult(ok=False, reason_code="jmap_blob_content_type_forbidden")
         try:
             endpoint = self._endpoint_policy.expand_template(

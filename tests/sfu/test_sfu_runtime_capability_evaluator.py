@@ -7,7 +7,6 @@ from agent.services.sfu_runtime_capability_evaluator import (
     SfuRuntimeObservationTrust,
 )
 
-
 NOW = 1_700_000_000_000
 CONFIG_DIGEST = "sha256:" + "a" * 64
 IMAGE_DIGEST = "sha256:" + "b" * 64
@@ -15,9 +14,10 @@ IMAGE_DIGEST = "sha256:" + "b" * 64
 
 def document(*, measured_at=NOW, receiver_limit=500, cpu_ratio=0.2):
     capabilities = [{"name": "route_epoch_fencing", "state": "supported"}]
-    capability_digest = "sha256:" + hashlib.sha256(
-        json.dumps(capabilities, sort_keys=True, separators=(",", ":")).encode("ascii")
-    ).hexdigest()
+    capability_digest = (
+        "sha256:"
+        + hashlib.sha256(json.dumps(capabilities, sort_keys=True, separators=(",", ":")).encode("ascii")).hexdigest()
+    )
     return {
         "schema_version": "sfu_runtime_observation.v2",
         "producer_mode": "livekit_control_api",
@@ -105,4 +105,3 @@ def test_stale_or_pressure_observation_becomes_unknown_and_zero_capacity():
     assert stale.effective_receiver_limit == 0
     assert "sfu_runtime_observation_stale" in stale.reason_codes
     assert "sfu_runtime_observation_pressure_exceeded" in stale.reason_codes
-

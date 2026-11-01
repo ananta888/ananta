@@ -85,11 +85,7 @@ def test_id_only_record_keeps_exact_empty_path_locator(tmp_path):
         output_dir=str(output_dir),
         status="completed",
     )
-    service = KnowledgeIndexRetrievalService(
-        knowledge_index_repository=SimpleNamespace(
-            list_completed=lambda: [index]
-        )
-    )
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=lambda: [index]))
 
     records = service.search_records(
         "organization source catalog",
@@ -107,16 +103,17 @@ def test_id_only_record_keeps_exact_empty_path_locator(tmp_path):
         "path": None,
         "line_start": None,
         "line_end": None,
-        "content_hash": hashlib.sha256(
-            records[0]["content"].encode("utf-8")
-        ).hexdigest(),
+        "content_hash": hashlib.sha256(records[0]["content"].encode("utf-8")).hexdigest(),
     }
-    assert len(
-        service.load_bound_records(
-            knowledge_index=index,
-            bindings=[binding],
+    assert (
+        len(
+            service.load_bound_records(
+                knowledge_index=index,
+                bindings=[binding],
+            )
         )
-    ) == 1
+        == 1
+    )
 
 
 def test_knowledge_index_retrieval_service_can_filter_by_artifact_id(tmp_path):
@@ -175,14 +172,15 @@ def test_artifact_allow_list_excludes_non_artifact_source_scopes(tmp_path):
             )
         ]
     )
-    service = KnowledgeIndexRetrievalService(
-        knowledge_index_repository=repository
-    )
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
 
-    assert service.search(
-        "private timeout",
-        artifact_ids={"artifact-1"},
-    ) == []
+    assert (
+        service.search(
+            "private timeout",
+            artifact_ids={"artifact-1"},
+        )
+        == []
+    )
 
 
 def test_v2_non_artifact_retrieval_is_scoped_to_projected_allowed_indices(
@@ -245,9 +243,7 @@ def test_v2_non_artifact_retrieval_is_scoped_to_projected_allowed_indices(
         projection_state="pending",
     )
     service = KnowledgeIndexRetrievalService(
-        knowledge_index_repository=SimpleNamespace(
-            list_completed=lambda: [provisional, projected_b, projected_a]
-        )
+        knowledge_index_repository=SimpleNamespace(list_completed=lambda: [provisional, projected_b, projected_a])
     )
 
     assert service.search("private timeout") == []
@@ -258,9 +254,7 @@ def test_v2_non_artifact_retrieval_is_scoped_to_projected_allowed_indices(
     )
 
     assert chunks
-    assert {
-        chunk.metadata["knowledge_index_id"] for chunk in chunks
-    } == {"idx-a"}
+    assert {chunk.metadata["knowledge_index_id"] for chunk in chunks} == {"idx-a"}
 
 
 def test_knowledge_index_retrieval_prefers_structured_symbol_hits(tmp_path):
@@ -605,9 +599,7 @@ def test_file_kind_buckets_follow_canonical_registry_families_and_selectors():
     registry = load_file_type_support_registry(Path(__file__).resolve().parents[2])
     scorer = KnowledgeIndexRecordScorer(FileTypeClassifier(registry))
 
-    assert {descriptor.family for descriptor in registry.descriptors} <= set(
-        scorer.FILE_KIND_BY_FAMILY
-    )
+    assert {descriptor.family for descriptor in registry.descriptors} <= set(scorer.FILE_KIND_BY_FAMILY)
     assert scorer.file_kind_bucket("Sources/Account.swift") == "code"
     assert scorer.file_kind_bucket("frontend/UserCard.vue") == "code"
     assert scorer.file_kind_bucket("scripts/deploy.ps1") == "code"

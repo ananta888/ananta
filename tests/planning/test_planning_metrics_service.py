@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from agent.services.planning_metrics_service import PlanningMetricsService
 from agent.services.model_response_behavior_aggregation_service import ModelResponseBehaviorAggregationService
+from agent.services.planning_metrics_service import PlanningMetricsService
 
 
 class _RunRepo:
@@ -41,10 +41,34 @@ def test_planning_metrics_service_reports_quality_and_trend(monkeypatch):
 
     reg = _Registry(
         [
-            _run(created_at=1.0, parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0),
-            _run(created_at=2.0, parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0),
-            _run(created_at=3.0, parse_mode="strict_json", repair_needed=False, validation_success=True, generated_task_count=2),
-            _run(created_at=4.0, parse_mode="strict_json", repair_needed=False, validation_success=True, generated_task_count=2),
+            _run(
+                created_at=1.0,
+                parse_mode="parse_failed",
+                repair_needed=True,
+                validation_success=False,
+                generated_task_count=0,
+            ),
+            _run(
+                created_at=2.0,
+                parse_mode="parse_failed",
+                repair_needed=True,
+                validation_success=False,
+                generated_task_count=0,
+            ),
+            _run(
+                created_at=3.0,
+                parse_mode="strict_json",
+                repair_needed=False,
+                validation_success=True,
+                generated_task_count=2,
+            ),
+            _run(
+                created_at=4.0,
+                parse_mode="strict_json",
+                repair_needed=False,
+                validation_success=True,
+                generated_task_count=2,
+            ),
         ]
     )
     monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
@@ -63,8 +87,15 @@ def test_behavior_aggregation_filters_by_profile_and_prompt_version(monkeypatch)
 
     reg = _Registry(
         [
-            _run(planning_profile="lmstudio_laptop", prompt_version_id="p1", parse_mode="strict_json", repair_needed=False),
-            _run(planning_profile="other_profile", prompt_version_id="p2", parse_mode="parse_failed", repair_needed=True),
+            _run(
+                planning_profile="lmstudio_laptop",
+                prompt_version_id="p1",
+                parse_mode="strict_json",
+                repair_needed=False,
+            ),
+            _run(
+                planning_profile="other_profile", prompt_version_id="p2", parse_mode="parse_failed", repair_needed=True
+            ),
         ]
     )
     monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)

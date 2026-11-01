@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from agent.services.embedded_tool_session_service import (
     REASON_INVALID_TARGET,
     REASON_LAUNCH_FAILED,
@@ -16,13 +14,14 @@ from agent.services.embedded_tool_session_service import (
     EmbeddedToolSessionService,
     TuiToolPolicy,
 )
-from agent.services.tui_tool_registry import TuiToolRegistry, _GLOBAL_DEFAULT_CONFIG
-
+from agent.services.tui_tool_registry import _GLOBAL_DEFAULT_CONFIG, TuiToolRegistry
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 class _FakeSession:
     """Minimal ManagedLiveTerminalSession stand-in."""
+
     def __init__(self):
         self.calls: list[dict] = []
         self.closed = False
@@ -49,7 +48,10 @@ class _FakeSessionService:
 
 
 def _make_service(tmp_path=None, *, raises=False):
-    import json, pathlib, tempfile
+    import json
+    import pathlib
+    import tempfile
+
     td = tmp_path or pathlib.Path(tempfile.mkdtemp())
     raw = dict(_GLOBAL_DEFAULT_CONFIG)
     (td / "tui-tools.json").write_text(json.dumps(raw))
@@ -58,13 +60,18 @@ def _make_service(tmp_path=None, *, raises=False):
         project_config_path=str(td / "tui-tools.json"),
     )
     fake_svc = _FakeSessionService(raises=raises)
-    return EmbeddedToolSessionService(
-        session_service=fake_svc,
-        registry=registry,
-    ), fake_svc, td
+    return (
+        EmbeddedToolSessionService(
+            session_service=fake_svc,
+            registry=registry,
+        ),
+        fake_svc,
+        td,
+    )
 
 
 # ── launch_editor — happy path ────────────────────────────────────────────────
+
 
 def test_launch_editor_creates_session(tmp_path):
     svc, fake, _ = _make_service(tmp_path)
@@ -116,6 +123,7 @@ def test_launch_editor_with_explicit_editor(tmp_path):
 
 
 # ── launch_editor — policy enforcement ───────────────────────────────────────
+
 
 def test_launch_editor_hub_denied_by_default(tmp_path):
     svc, _, _ = _make_service(tmp_path)
@@ -175,6 +183,7 @@ def test_launch_editor_invalid_target_rejected(tmp_path):
 
 # ── launch_editor — path validation ──────────────────────────────────────────
 
+
 def test_launch_editor_rejects_path_outside_workspace(tmp_path):
     svc, _, _ = _make_service(tmp_path)
     result = svc.launch_editor("s12", "/etc/passwd", workspace=str(tmp_path))
@@ -191,6 +200,7 @@ def test_launch_editor_rejects_path_traversal(tmp_path):
 
 # ── launch_editor — launch failure ───────────────────────────────────────────
 
+
 def test_launch_editor_reports_launch_failure(tmp_path):
     svc, _, _ = _make_service(tmp_path, raises=True)
     target = tmp_path / "f.py"
@@ -201,6 +211,7 @@ def test_launch_editor_reports_launch_failure(tmp_path):
 
 
 # ── launch_tool — happy path ──────────────────────────────────────────────────
+
 
 def test_launch_tool_creates_session(tmp_path):
     svc, fake, _ = _make_service(tmp_path)
@@ -227,6 +238,7 @@ def test_launch_tool_metadata_stored(tmp_path):
 
 # ── launch_tool — policy enforcement ─────────────────────────────────────────
 
+
 def test_launch_tool_hub_denied_by_default(tmp_path):
     svc, _, _ = _make_service(tmp_path)
     result = svc.launch_tool("t4", "git_ui", workspace=str(tmp_path), target_type=TARGET_HUB)
@@ -248,6 +260,7 @@ def test_launch_tool_unknown_tool_rejected(tmp_path):
 
 
 # ── close and list ────────────────────────────────────────────────────────────
+
 
 def test_close_removes_metadata(tmp_path):
     svc, _, _ = _make_service(tmp_path)

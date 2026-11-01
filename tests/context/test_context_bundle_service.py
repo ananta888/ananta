@@ -1,11 +1,11 @@
 """Tests for ContextBundler — FA-T012."""
 
-import pytest
 from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import ProposeContext
+import pytest
+
 from agent.services.context_bundle_service import ContextBundler
-from agent.services.propose_policy_service import ProposePolicyService
+from worker.core.propose_orchestrator import ProposeContext
 
 
 class TestContextBundler:
@@ -40,4 +40,3 @@ class TestContextBundler:
     def test_bundle_policy_included(self, context):
         prompt = ContextBundler.bundle(context, "tool_calling_llm")
         assert "allow_legacy_sgpt" in prompt
-

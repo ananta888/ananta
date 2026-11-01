@@ -31,21 +31,12 @@ class GoalRepository:
 
     def save(self, goal: GoalDB):
         with Session(_engine()) as session:
-            statement = select(GoalDB).where(
-                GoalDB.id == str(goal.id)
-            )
-            if (
-                str(_engine().dialect.name or "").lower()
-                == "postgresql"
-            ):
+            statement = select(GoalDB).where(GoalDB.id == str(goal.id))
+            if str(_engine().dialect.name or "").lower() == "postgresql":
                 statement = statement.with_for_update()
             existing = session.exec(statement).one_or_none()
             candidate = goal.model_copy(deep=True)
-            if (
-                existing is not None
-                and str(existing.status or "").strip().lower()
-                in _TERMINAL_GOAL_STATUSES
-            ):
+            if existing is not None and str(existing.status or "").strip().lower() in _TERMINAL_GOAL_STATUSES:
                 # Detached/stale Goal objects may add harmless metadata, but
                 # can never resurrect or rewrite terminal lifecycle state.
                 candidate.status = existing.status

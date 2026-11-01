@@ -1,4 +1,5 @@
 """TuiDiffFocusStrategy — implements snake_tui_diff_focus_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, UiMotionPort

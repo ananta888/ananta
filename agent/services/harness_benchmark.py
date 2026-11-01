@@ -14,8 +14,17 @@ from dataclasses import dataclass, field
 from ananta_contracts.harness_genome import content_digest
 from ananta_contracts.harness_metrics import finite_number, freeze_metrics
 
-TASK_CLASSES = ("coding", "rag", "tool", "mcp", "planning", "delegation", "long_context", "failure_recovery",
-                "security")
+TASK_CLASSES = (
+    "coding",
+    "rag",
+    "tool",
+    "mcp",
+    "planning",
+    "delegation",
+    "long_context",
+    "failure_recovery",
+    "security",
+)
 QUALITY_METRICS = ("task_correctness", "benchmark_score")
 RESOURCE_METRICS = ("token_input", "token_output", "total_token_cost", "latency_p95", "context_peak_tokens")
 
@@ -40,8 +49,13 @@ class BenchmarkTask:
 
     def to_mapping(self) -> dict:
         self.assert_valid()
-        return {"task_id": self.task_id, "task_class": self.task_class, "dataset_version": self.dataset_version,
-                "holdout": self.holdout, "required_metrics": list(self.required_metrics)}
+        return {
+            "task_id": self.task_id,
+            "task_class": self.task_class,
+            "dataset_version": self.dataset_version,
+            "holdout": self.holdout,
+            "required_metrics": list(self.required_metrics),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,4 +130,5 @@ class BenchmarkRegistry:
 
     def measures_quality_and_resources(self, metrics: Mapping[str, float]) -> bool:
         return any(metric in metrics for metric in QUALITY_METRICS) and any(
-            metric in metrics for metric in RESOURCE_METRICS)
+            metric in metrics for metric in RESOURCE_METRICS
+        )

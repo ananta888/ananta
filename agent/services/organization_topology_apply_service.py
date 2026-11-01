@@ -48,7 +48,6 @@ from agent.services.organization_topology_patch_contracts import (
 )
 from agent.services.organization_topology_patch_evaluator import (
     OrganizationTopologyPatchEvaluator,
-    TopologyPatchEvaluation,
 )
 from agent.services.organization_topology_patch_reader import SqlOrganizationPatchReadAdapter
 from agent.services.organization_topology_patch_stager import OrganizationTopologyPatchStager

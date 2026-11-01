@@ -1,4 +1,5 @@
 """WorkerHandoffService — materializes handoff files before worker execution."""
+
 from __future__ import annotations
 
 import json
@@ -61,7 +62,9 @@ class WorkerHandoffService:
 
         log.info(
             "WorkerHandoffService: created handoff dir %s for execution %s task %s",
-            handoff_dir, execution_id, task_id,
+            handoff_dir,
+            execution_id,
+            task_id,
         )
 
         return {

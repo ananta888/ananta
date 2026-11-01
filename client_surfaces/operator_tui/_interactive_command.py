@@ -74,7 +74,9 @@ def handle_enter_key(tui: InteractiveOperatorTui) -> None:
         template_selection = tui._template_nav_item_for_nav_index(tui.state.selected_index)
         if template_selection is not None:
             item_index, item = template_selection
-            next_state = tui.state.with_updates(focus=FocusPane.CONTENT, selected_index=item_index, section_id="templates")
+            next_state = tui.state.with_updates(
+                focus=FocusPane.CONTENT, selected_index=item_index, section_id="templates"
+            )
             tui._set_state(next_state)
             if not tui._open_template_editor_for_selected():
                 tui._run_command(":inspect")
@@ -174,7 +176,7 @@ def command_backspace(tui: InteractiveOperatorTui) -> None:
     if cursor <= 0:
         tui._sync_command_line_state()
         return
-    tui._command_buffer = tui._command_buffer[:cursor - 1] + tui._command_buffer[cursor:]
+    tui._command_buffer = tui._command_buffer[: cursor - 1] + tui._command_buffer[cursor:]
     tui._command_cursor = max(0, cursor - 1)
     tui._command_history_index = None
     tui._sync_command_line_state()
@@ -185,7 +187,7 @@ def command_delete(tui: InteractiveOperatorTui) -> None:
     if cursor >= len(tui._command_buffer):
         tui._sync_command_line_state()
         return
-    tui._command_buffer = tui._command_buffer[:cursor] + tui._command_buffer[cursor + 1:]
+    tui._command_buffer = tui._command_buffer[:cursor] + tui._command_buffer[cursor + 1 :]
     tui._command_history_index = None
     tui._sync_command_line_state()
 
@@ -224,6 +226,7 @@ def command_history_move(tui: InteractiveOperatorTui, delta: int) -> None:
 def input_history_config(tui: InteractiveOperatorTui) -> dict[str, Any]:
     try:
         from client_surfaces.operator_tui.config.user_config_manager import load_user_config
+
         return load_user_config()
     except Exception:
         return {}
@@ -247,6 +250,7 @@ def apply_input_history_to_game(tui: InteractiveOperatorTui, game: dict[str, Any
             saved = cfg.get("chat_input_history", [])
             if isinstance(saved, list) and saved:
                 from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
                 chat = get_chat_state(game)
                 existing = list(chat.get("chat_input_history") or [])
                 for entry in reversed(saved):
@@ -267,6 +271,7 @@ def save_command_to_history(tui: InteractiveOperatorTui, text: str) -> None:
         max_entries = int(cfg.get("input_history_max_entries", 100))
         history = list(tui._command_history)[-max_entries:]
         from client_surfaces.operator_tui.config.user_config_manager import save_user_config
+
         save_user_config({"command_input_history": history})
     except Exception:
         pass
@@ -285,6 +290,7 @@ def save_chat_to_history(tui: InteractiveOperatorTui, text: str) -> None:
             current = current + [text]
         current = current[-max_entries:]
         from client_surfaces.operator_tui.config.user_config_manager import save_user_config
+
         save_user_config({"chat_input_history": current})
     except Exception:
         pass
@@ -317,7 +323,9 @@ def open_command_mode(tui: InteractiveOperatorTui) -> None:
     tui._command_history_index = None
     tui._command_saved_draft = ""
     game["command_input_cursor"] = tui._command_cursor
-    tui._set_state(tui.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line=tui._command_buffer))
+    tui._set_state(
+        tui.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line=tui._command_buffer)
+    )
 
 
 def exit_command_mode_for_global_shortcut(tui: InteractiveOperatorTui) -> None:

@@ -56,6 +56,7 @@ class FakeRevocationService:
 
         return Result()
 
+
 def _setup(monkeypatch):
     app = Flask(__name__)
     app.config["TESTING"] = True
@@ -80,9 +81,7 @@ def test_grant_and_get_are_authenticated_and_closed(monkeypatch) -> None:
     assert granted.status_code == 201
     assert granted.json["data"]["consent"]["grants"]["training"] is False
     assert fake.calls[-1][0] == "grant"
-    fetched = client.get(
-        "/v1/voice/speech-evidence-consents/consent-api"
-    )
+    fetched = client.get("/v1/voice/speech-evidence-consents/consent-api")
     assert fetched.status_code == 200 and fake.calls[-1][0] == "get"
 
 

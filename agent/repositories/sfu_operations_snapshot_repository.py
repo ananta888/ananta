@@ -29,7 +29,6 @@ from agent.repositories.sfu_hub_control_validation import (
     _safe_ref,
 )
 
-
 _LAYERS = ("none", "low", "medium", "high")
 
 
@@ -65,12 +64,8 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
             or not 1 <= max_snapshots <= 64
             or len(snapshot.records) > self._max_records
         ):
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_snapshot_invalid", 503
-            )
-        documents = [
-            _operations_record_document(record) for record in snapshot.records
-        ]
+            raise SfuBroadcastOperationsError("sfu_operations_snapshot_invalid", 503)
+        documents = [_operations_record_document(record) for record in snapshot.records]
         digest = hashlib.sha256(
             json.dumps(
                 {"version": snapshot.version, "records": documents},
@@ -79,26 +74,16 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
                 ensure_ascii=True,
             ).encode("utf-8")
         ).hexdigest()
-        snapshot_id = "sfu-ops-" + hashlib.sha256(
-            snapshot.version.encode("utf-8")
-        ).hexdigest()[:32]
+        snapshot_id = "sfu-ops-" + hashlib.sha256(snapshot.version.encode("utf-8")).hexdigest()[:32]
         try:
             with Session(self._engine) as db:
                 current = db.exec(
-                    select(SfuOperationsSnapshotDB).where(
-                        SfuOperationsSnapshotDB.snapshot_version
-                        == snapshot.version
-                    )
+                    select(SfuOperationsSnapshotDB).where(SfuOperationsSnapshotDB.snapshot_version == snapshot.version)
                 ).first()
                 if current is not None:
-                    if (
-                        current.snapshot_digest == digest
-                        and current.record_count == len(documents)
-                    ):
+                    if current.snapshot_digest == digest and current.record_count == len(documents):
                         return "replayed"
-                    raise SfuBroadcastOperationsError(
-                        "sfu_operations_snapshot_version_conflict", 409
-                    )
+                    raise SfuBroadcastOperationsError("sfu_operations_snapshot_version_conflict", 409)
                 db.add(
                     SfuOperationsSnapshotDB(
                         id=snapshot_id,
@@ -118,21 +103,15 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
                             **document,
                         )
                     )
-                self._purge_snapshots(
-                    db, now=now, max_snapshots=max_snapshots
-                )
+                self._purge_snapshots(db, now=now, max_snapshots=max_snapshots)
                 db.commit()
                 return "saved"
         except SfuBroadcastOperationsError:
             raise
         except IntegrityError as exc:
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_snapshot_version_conflict", 409
-            ) from exc
+            raise SfuBroadcastOperationsError("sfu_operations_snapshot_version_conflict", 409) from exc
         except SQLAlchemyError as exc:
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastOperationsError("sfu_operations_store_unavailable", 503) from exc
 
     def load(
         self,
@@ -145,49 +124,29 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
         if (
             isinstance(max_records, bool)
             or not 1 <= max_records <= self._max_records
-            or (
-                snapshot_version is not None
-                and not _safe_ref(snapshot_version)
-            )
+            or (snapshot_version is not None and not _safe_ref(snapshot_version))
         ):
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_snapshot_query_invalid", 503
-            )
+            raise SfuBroadcastOperationsError("sfu_operations_snapshot_query_invalid", 503)
         try:
             with Session(self._engine) as db:
-                statement = select(SfuOperationsSnapshotDB).where(
-                    SfuOperationsSnapshotDB.retain_until > now
-                )
+                statement = select(SfuOperationsSnapshotDB).where(SfuOperationsSnapshotDB.retain_until > now)
                 if snapshot_version is None:
-                    statement = statement.order_by(
-                        SfuOperationsSnapshotDB.created_at.desc()
-                    )
+                    statement = statement.order_by(SfuOperationsSnapshotDB.created_at.desc())
                 else:
-                    statement = statement.where(
-                        SfuOperationsSnapshotDB.snapshot_version
-                        == snapshot_version
-                    )
+                    statement = statement.where(SfuOperationsSnapshotDB.snapshot_version == snapshot_version)
                 header = db.exec(statement).first()
                 if header is None:
                     if snapshot_version is not None:
-                        raise SfuBroadcastOperationsError(
-                            "sfu_operations_cursor_stale", 409
-                        )
-                    raise SfuBroadcastOperationsError(
-                        "sfu_operations_snapshot_missing", 503
-                    )
+                        raise SfuBroadcastOperationsError("sfu_operations_cursor_stale", 409)
+                    raise SfuBroadcastOperationsError("sfu_operations_snapshot_missing", 503)
                 records = select(SfuOperationsSnapshotRecordDB).where(
                     SfuOperationsSnapshotRecordDB.snapshot_id == header.id
                 )
                 if scope is not None:
                     if scope.tenant_refs is not None:
-                        records = records.where(
-                            SfuOperationsSnapshotRecordDB.tenant_ref.in_(scope.tenant_refs)
-                        )
+                        records = records.where(SfuOperationsSnapshotRecordDB.tenant_ref.in_(scope.tenant_refs))
                     if scope.region_refs is not None:
-                        records = records.where(
-                            SfuOperationsSnapshotRecordDB.region.in_(scope.region_refs)
-                        )
+                        records = records.where(SfuOperationsSnapshotRecordDB.region.in_(scope.region_refs))
                     for column, value in (
                         (SfuOperationsSnapshotRecordDB.owner_subject, scope.owner_subject),
                         (SfuOperationsSnapshotRecordDB.room_ref, scope.room_ref),
@@ -195,13 +154,9 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
                     ):
                         if value is not None:
                             records = records.where(column == value)
-                rows = db.exec(
-                    records.order_by(SfuOperationsSnapshotRecordDB.ordinal).limit(max_records)
-                ).all()
+                rows = db.exec(records.order_by(SfuOperationsSnapshotRecordDB.ordinal).limit(max_records)).all()
                 if scope is None and len(rows) != min(header.record_count, max_records):
-                    raise SfuBroadcastOperationsError(
-                        "sfu_operations_snapshot_incomplete", 503
-                    )
+                    raise SfuBroadcastOperationsError("sfu_operations_snapshot_incomplete", 503)
                 return SfuBroadcastOperationsSnapshot(
                     header.snapshot_version,
                     tuple(_operations_record(row) for row in rows),
@@ -209,9 +164,7 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
         except SfuBroadcastOperationsError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastOperationsError("sfu_operations_store_unavailable", 503) from exc
 
     def purge(self, *, now: float | None = None, limit: int = 128) -> int:
         timestamp = _finite_time(
@@ -219,18 +172,14 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
             "sfu_operations_clock_invalid",
         )
         if not 1 <= limit <= 1_000:
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_purge_limit_invalid", 503
-            )
+            raise SfuBroadcastOperationsError("sfu_operations_purge_limit_invalid", 503)
         try:
             with Session(self._engine) as db:
                 ids = [
                     row.id
                     for row in db.exec(
                         select(SfuOperationsSnapshotDB)
-                        .where(
-                            SfuOperationsSnapshotDB.retain_until <= timestamp
-                        )
+                        .where(SfuOperationsSnapshotDB.retain_until <= timestamp)
                         .order_by(SfuOperationsSnapshotDB.retain_until)
                         .limit(limit)
                     ).all()
@@ -239,13 +188,9 @@ class SqlSfuBroadcastOperationsSnapshotRepository:
                 db.commit()
                 return len(ids)
         except SQLAlchemyError as exc:
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastOperationsError("sfu_operations_store_unavailable", 503) from exc
 
-    def _purge_snapshots(
-        self, db: Session, *, now: float, max_snapshots: int
-    ) -> None:
+    def _purge_snapshots(self, db: Session, *, now: float, max_snapshots: int) -> None:
         expired = [
             row.id
             for row in db.exec(
@@ -275,14 +220,9 @@ def _operations_record_document(
     if (
         not isinstance(distribution, dict)
         or set(distribution) - set(_LAYERS)
-        or any(
-            type(value) is not int or value < 0
-            for value in distribution.values()
-        )
+        or any(type(value) is not int or value < 0 for value in distribution.values())
     ):
-        raise SfuBroadcastOperationsError(
-            "sfu_operations_snapshot_record_invalid", 503
-        )
+        raise SfuBroadcastOperationsError("sfu_operations_snapshot_record_invalid", 503)
     for name in (
         "tenant_ref",
         "region",
@@ -291,18 +231,14 @@ def _operations_record_document(
         "receiver_ref",
     ):
         if not _safe_ref(values[name]):
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_snapshot_record_invalid", 503
-            )
+            raise SfuBroadcastOperationsError("sfu_operations_snapshot_record_invalid", 503)
     if (
         isinstance(values["observed_at_seconds"], bool)
         or not isinstance(values["observed_at_seconds"], (int, float))
         or not math.isfinite(float(values["observed_at_seconds"]))
         or values["observed_at_seconds"] < 0
     ):
-        raise SfuBroadcastOperationsError(
-            "sfu_operations_snapshot_record_invalid", 503
-        )
+        raise SfuBroadcastOperationsError("sfu_operations_snapshot_record_invalid", 503)
     for name in (
         "cohort_size",
         "queue_depth",
@@ -311,9 +247,7 @@ def _operations_record_document(
         "turn_bytes_per_second",
     ):
         if type(values[name]) is not int or values[name] < 0:
-            raise SfuBroadcastOperationsError(
-                "sfu_operations_snapshot_record_invalid", 503
-            )
+            raise SfuBroadcastOperationsError("sfu_operations_snapshot_record_invalid", 503)
     for layer in _LAYERS:
         values[f"layer_{layer}_count"] = distribution.get(layer, 0)
     return values
@@ -359,16 +293,8 @@ def _operations_record(
 def _delete_snapshots(db: Session, ids: list[str]) -> None:
     if not ids:
         return
-    db.exec(
-        sa.delete(SfuOperationsSnapshotRecordDB).where(
-            SfuOperationsSnapshotRecordDB.snapshot_id.in_(ids)
-        )
-    )
-    db.exec(
-        sa.delete(SfuOperationsSnapshotDB).where(
-            SfuOperationsSnapshotDB.id.in_(ids)
-        )
-    )
+    db.exec(sa.delete(SfuOperationsSnapshotRecordDB).where(SfuOperationsSnapshotRecordDB.snapshot_id.in_(ids)))
+    db.exec(sa.delete(SfuOperationsSnapshotDB).where(SfuOperationsSnapshotDB.id.in_(ids)))
 
 
 __all__ = [

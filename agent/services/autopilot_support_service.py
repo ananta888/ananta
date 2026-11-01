@@ -76,12 +76,10 @@ class AutopilotSupportService:
         all_workers = [a for a in repos.agent_repo.get_all() if (a.role or "").lower() == "worker"]
         workers_online_count = len([w for w in all_workers if w.status == "online"])
         workers = [
-            w for w in all_workers
+            w
+            for w in all_workers
             if w.status == "online"
-            or (
-                w.registration_validated
-                and (now - float(getattr(w, "last_seen", 0) or 0)) < grace_seconds
-            )
+            or (w.registration_validated and (now - float(getattr(w, "last_seen", 0) or 0)) < grace_seconds)
         ]
         for worker in workers:
             status = str(getattr(worker, "status", "") or "").strip().lower()

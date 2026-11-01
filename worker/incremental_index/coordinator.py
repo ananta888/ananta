@@ -12,7 +12,7 @@ from worker.incremental_index.dependency_impact import DependencyImpactAnalyzer
 from worker.incremental_index.effective_view import overlay_records
 from worker.incremental_index.head_registry import LayerHeadRegistry
 from worker.incremental_index.layer_store import ArtifactLayerStore
-from worker.incremental_index.snapshot_diff import SnapshotDiffResult, diff_snapshots
+from worker.incremental_index.snapshot_diff import diff_snapshots
 
 
 class IncrementalIndexCoordinator:
@@ -67,7 +67,9 @@ class IncrementalIndexCoordinator:
         diff = plan["changeset"]
         if decision["decision_type"] == "noop":
             return {"status": "noop", "head": self.heads.get_head(profile_id)}
-        kinds = list(artifact_kinds or decision.get("affected_artifact_kinds") or ["graph", "chunks", "embeddings", "fts"])
+        kinds = list(
+            artifact_kinds or decision.get("affected_artifact_kinds") or ["graph", "chunks", "embeddings", "fts"]
+        )
         head = self.heads.get_head(profile_id)
         effective_layers: dict[str, str] = dict((head or {}).get("base_layer_set") or {})
         for delta in list((head or {}).get("ordered_delta_sets") or []):

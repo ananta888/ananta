@@ -21,28 +21,30 @@ _BPMN_NS = {
 _BPMN_TARGET_NS = "http://bpmn.io/schema/bpmn"
 
 _VALID_FLOW_ELEMENT_TYPES = {
-    "startEvent", "endEvent", "intermediateThrowEvent", "intermediateCatchEvent",
-    "userTask", "serviceTask", "scriptTask", "manualTask", "task",
-    "exclusiveGateway", "inclusiveGateway", "parallelGateway", "eventBasedGateway",
+    "startEvent",
+    "endEvent",
+    "intermediateThrowEvent",
+    "intermediateCatchEvent",
+    "userTask",
+    "serviceTask",
+    "scriptTask",
+    "manualTask",
+    "task",
+    "exclusiveGateway",
+    "inclusiveGateway",
+    "parallelGateway",
+    "eventBasedGateway",
 }
 
 
 def _xml_escape(value: str) -> str:
-    return (
-        value.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def _render_bpmn_element(elem: dict) -> str:
     etype = _as_str(elem.get("type"), field="elements[].type")
     if etype not in _VALID_FLOW_ELEMENT_TYPES:
-        raise NotationRenderError(
-            f"element type {etype!r} must be one of "
-            f"{sorted(_VALID_FLOW_ELEMENT_TYPES)}"
-        )
+        raise NotationRenderError(f"element type {etype!r} must be one of {sorted(_VALID_FLOW_ELEMENT_TYPES)}")
     eid = _as_str(elem.get("id"), field="elements[].id")
     _check_identifier(eid, field="elements[].id")
     name = elem.get("name")
@@ -67,11 +69,7 @@ def _render_bpmn_flow(flow: dict) -> str:
             f'<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">'
             f"{_xml_escape(cond.strip())}</bpmn:conditionExpression>"
         )
-    attrs = (
-        f' id="{_xml_escape(fid)}"'
-        f' sourceRef="{_xml_escape(src)}"'
-        f' targetRef="{_xml_escape(tgt)}"'
-    )
+    attrs = f' id="{_xml_escape(fid)}" sourceRef="{_xml_escape(src)}" targetRef="{_xml_escape(tgt)}"'
     if isinstance(name, str) and name:
         attrs += f' name="{_xml_escape(name)}"'
     return f"    <bpmn:sequenceFlow{attrs}>{body}</bpmn:sequenceFlow>"
@@ -82,7 +80,7 @@ def _render_diagram_shape(elem_id: str, *, x: int, y: int) -> str:
         f'      <bpmndi:BPMNShape id="{_xml_escape(elem_id)}_di" '
         f'bpmnElement="{_xml_escape(elem_id)}">\n'
         f'        <dc:Bounds x="{x}" y="{y}" width="100" height="80" />\n'
-        f'      </bpmndi:BPMNShape>'
+        f"      </bpmndi:BPMNShape>"
     )
 
 
@@ -92,7 +90,7 @@ def _render_diagram_edge(flow_id: str) -> str:
         f'bpmnElement="{_xml_escape(flow_id)}">\n'
         f'        <di:waypoint x="150" y="120" />\n'
         f'        <di:waypoint x="280" y="120" />\n'
-        f'      </bpmndi:BPMNEdge>'
+        f"      </bpmndi:BPMNEdge>"
     )
 
 
@@ -118,16 +116,11 @@ def _validate_flow_elements(elements: list[dict]) -> list[str]:
         seen.add(eid)
         element_ids.append(eid)
         if etype not in _VALID_FLOW_ELEMENT_TYPES:
-            raise NotationRenderError(
-                f"element type {etype!r} must be one of "
-                f"{sorted(_VALID_FLOW_ELEMENT_TYPES)}"
-            )
+            raise NotationRenderError(f"element type {etype!r} must be one of {sorted(_VALID_FLOW_ELEMENT_TYPES)}")
         if etype == "startEvent":
             start_count += 1
     if start_count != 1:
-        raise NotationRenderError(
-            f"process must contain exactly one startEvent, found {start_count}"
-        )
+        raise NotationRenderError(f"process must contain exactly one startEvent, found {start_count}")
     return element_ids
 
 
@@ -142,13 +135,9 @@ def _validate_flows(flows: list[dict], known_ids: set[str]) -> None:
         src = _as_str(flow.get("sourceRef"), field="flows[].sourceRef")
         tgt = _as_str(flow.get("targetRef"), field="flows[].targetRef")
         if src not in known_ids:
-            raise NotationRenderError(
-                f"flow {fid!r} sourceRef {src!r} references unknown element"
-            )
+            raise NotationRenderError(f"flow {fid!r} sourceRef {src!r} references unknown element")
         if tgt not in known_ids:
-            raise NotationRenderError(
-                f"flow {fid!r} targetRef {tgt!r} references unknown element"
-            )
+            raise NotationRenderError(f"flow {fid!r} targetRef {tgt!r} references unknown element")
 
 
 def _render_bpmn_process(params: dict[str, Any]) -> tuple[str, str]:
@@ -180,8 +169,7 @@ def _render_bpmn_process(params: dict[str, Any]) -> tuple[str, str]:
     lines.append("  </bpmn:process>")
 
     lines.append("  <bpmndi:BPMNDiagram id=" + '"BPMNDiagram_1">')
-    lines.append('    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="' +
-                 _xml_escape(process_id) + '">')
+    lines.append('    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="' + _xml_escape(process_id) + '">')
     x = 160
     y = 120
     for idx, eid in enumerate(element_ids):
@@ -227,9 +215,7 @@ def _render_bpmn_pool_lane(params: dict[str, Any]) -> tuple[str, str]:
         ref_set: set[str] = set()
         for ref in refs:
             if not isinstance(ref, str):
-                raise NotationRenderError(
-                    f"lane {lid!r} flow_node_refs entries must be strings"
-                )
+                raise NotationRenderError(f"lane {lid!r} flow_node_refs entries must be strings")
             ref_set.add(ref)
         lane_refs.append(ref_set)
 
@@ -238,19 +224,13 @@ def _render_bpmn_pool_lane(params: dict[str, Any]) -> tuple[str, str]:
     for ref_set in lane_refs:
         for ref in ref_set:
             if ref not in element_set:
-                raise NotationRenderError(
-                    f"lane flow_node_ref {ref!r} references unknown element"
-                )
+                raise NotationRenderError(f"lane flow_node_ref {ref!r} references unknown element")
             if ref in union:
-                raise NotationRenderError(
-                    f"element {ref!r} assigned to multiple lanes"
-                )
+                raise NotationRenderError(f"element {ref!r} assigned to multiple lanes")
             union.add(ref)
     if union != element_set:
         missing = element_set - union
-        raise NotationRenderError(
-            f"elements not assigned to any lane: {sorted(missing)}"
-        )
+        raise NotationRenderError(f"elements not assigned to any lane: {sorted(missing)}")
 
     lines: list[str] = [_definitions_open(definitions_id)]
     proc_open = f'  <bpmn:process id="{_xml_escape(process_id)}" isExecutable="true"'
@@ -258,16 +238,13 @@ def _render_bpmn_pool_lane(params: dict[str, Any]) -> tuple[str, str]:
         proc_open += f' name="{_xml_escape(process_name)}"'
     proc_open += ">"
     lines.append(proc_open)
-    lines.append("    <bpmn:laneSet id=\"LaneSet_1\">")
+    lines.append('    <bpmn:laneSet id="LaneSet_1">')
     for lane in lanes:
         lid = _as_str(lane.get("id"), field="lanes[].id")
         lname = _as_str(lane.get("name", lid), field="lanes[].name")
-        lines.append(f'      <bpmn:lane id="{_xml_escape(lid)}" '
-                     f'name="{_xml_escape(lname)}">')
-        for ref in _as_list(lane.get("flow_node_refs", []),
-                            field="lanes[].flow_node_refs"):
-            lines.append(f'        <bpmn:flowNodeRef>{_xml_escape(ref)}'
-                         f'</bpmn:flowNodeRef>')
+        lines.append(f'      <bpmn:lane id="{_xml_escape(lid)}" name="{_xml_escape(lname)}">')
+        for ref in _as_list(lane.get("flow_node_refs", []), field="lanes[].flow_node_refs"):
+            lines.append(f"        <bpmn:flowNodeRef>{_xml_escape(ref)}</bpmn:flowNodeRef>")
         lines.append("      </bpmn:lane>")
     lines.append("    </bpmn:laneSet>")
     for elem in elements:
@@ -277,8 +254,7 @@ def _render_bpmn_pool_lane(params: dict[str, Any]) -> tuple[str, str]:
     lines.append("  </bpmn:process>")
 
     lines.append('  <bpmndi:BPMNDiagram id="BPMNDiagram_1">')
-    lines.append('    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="' +
-                 _xml_escape(process_id) + '">')
+    lines.append('    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="' + _xml_escape(process_id) + '">')
     y_base = 120
     for li, lane in enumerate(lanes):
         lid = _as_str(lane.get("id"), field="lanes[].id")
@@ -288,13 +264,10 @@ def _render_bpmn_pool_lane(params: dict[str, Any]) -> tuple[str, str]:
             f'bpmnElement="{_xml_escape(lid)}" isHorizontal="true">\n'
             f'        <dc:Bounds x="120" y="{y_base + li * 140}" '
             f'width="900" height="120" />\n'
-            f'      </bpmndi:BPMNShape>'
+            f"      </bpmndi:BPMNShape>"
         )
-        for idx, ref in enumerate(_as_list(lane.get("flow_node_refs", []),
-                                           field="lanes[].flow_node_refs")):
-            lines.append(_render_diagram_shape(
-                ref, x=160 + idx * 140, y=y_base + li * 140 + 20
-            ))
+        for idx, ref in enumerate(_as_list(lane.get("flow_node_refs", []), field="lanes[].flow_node_refs")):
+            lines.append(_render_diagram_shape(ref, x=160 + idx * 140, y=y_base + li * 140 + 20))
     for flow in flows:
         fid = _as_str(flow.get("id"), field="flows[].id")
         lines.append(_render_diagram_edge(fid))

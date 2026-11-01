@@ -6,11 +6,11 @@
 - Lokaler Chat bleibt bedienbar
 - Bei Verbindungsverlust: letzter Snapshot sichtbar, Status disconnected/stale
 """
+
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 
 @dataclass
@@ -130,8 +130,14 @@ def render_shared_viewer_lines(viewer_state: SharedViewerState, *, width: int = 
 def is_viewer_action_blocked(action: str) -> bool:
     """Read-only: alle mutativen Aktionen werden blockiert."""
     blocked = {
-        "goal_create", "goal_delete", "task_create", "task_delete",
-        "artifact_write", "artifact_delete", "config_write",
-        "snake_command", "execute",
+        "goal_create",
+        "goal_delete",
+        "task_create",
+        "task_delete",
+        "artifact_write",
+        "artifact_delete",
+        "config_write",
+        "snake_command",
+        "execute",
     }
     return action in blocked

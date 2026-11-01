@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from rag_helper.domain.csharp_records import (
     CSharpConstructorDetailRecord,
@@ -12,7 +12,6 @@ from rag_helper.domain.csharp_records import (
     RelationRecord,
 )
 from rag_helper.extractors.csharp_ast_helpers import (
-    children_of_type,
     extract_attributes,
     extract_identifier,
     extract_method_calls,
@@ -210,51 +209,59 @@ def extract_method(
             ctx.same_file_types,
             using_namespaces=ctx.using_namespaces,
         ):
-            relations.append(make_relation(
-                file=ctx.rel_path,
-                source_id=method_id,
-                source_kind="cs_method",
-                source_name=f"{class_name}.{name}",
-                relation="uses_type",
-                target=raw_type,
-                target_resolved=resolved_target,
-            ))
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=method_id,
+                    source_kind="cs_method",
+                    source_name=f"{class_name}.{name}",
+                    relation="uses_type",
+                    target=raw_type,
+                    target_resolved=resolved_target,
+                )
+            )
     if return_type:
         for resolved_target in resolved_return_types or [return_type]:
-            relations.append(make_relation(
-                file=ctx.rel_path,
-                source_id=method_id,
-                source_kind="cs_method",
-                source_name=f"{class_name}.{name}",
-                relation="returns",
-                target=return_type,
-                target_resolved=resolved_target,
-            ))
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=method_id,
+                    source_kind="cs_method",
+                    source_name=f"{class_name}.{name}",
+                    relation="returns",
+                    target=return_type,
+                    target_resolved=resolved_target,
+                )
+            )
     if ctx.relation_mode != "compact":
         for call in calls:
-            relations.append(make_relation(
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=method_id,
+                    source_kind="cs_method",
+                    source_name=f"{class_name}.{name}",
+                    relation="calls",
+                    target=call,
+                    target_resolved=None,
+                )
+            )
+    for call_target in resolved_call_targets:
+        relations.append(
+            make_relation(
                 file=ctx.rel_path,
                 source_id=method_id,
                 source_kind="cs_method",
                 source_name=f"{class_name}.{name}",
-                relation="calls",
-                target=call,
-                target_resolved=None,
-            ))
-    for call_target in resolved_call_targets:
-        relations.append(make_relation(
-            file=ctx.rel_path,
-            source_id=method_id,
-            source_kind="cs_method",
-            source_name=f"{class_name}.{name}",
-            relation="calls_probable_target",
-            target=call_target["call"],
-            target_resolved=call_target["target_resolved"],
-            extra={
-                "confidence": call_target["confidence"],
-                "heuristic": call_target["heuristic"],
-            },
-        ))
+                relation="calls_probable_target",
+                target=call_target["call"],
+                target_resolved=call_target["target_resolved"],
+                extra={
+                    "confidence": call_target["confidence"],
+                    "heuristic": call_target["heuristic"],
+                },
+            )
+        )
     return idx, detail, relations, {"is_trivial": is_trivial}
 
 
@@ -426,40 +433,46 @@ def extract_constructor(
             ctx.same_file_types,
             using_namespaces=ctx.using_namespaces,
         ):
-            relations.append(make_relation(
-                file=ctx.rel_path,
-                source_id=ctor_id,
-                source_kind="cs_constructor",
-                source_name=f"{class_name}.{name}",
-                relation="uses_type",
-                target=raw_type,
-                target_resolved=resolved_target,
-            ))
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=ctor_id,
+                    source_kind="cs_constructor",
+                    source_name=f"{class_name}.{name}",
+                    relation="uses_type",
+                    target=raw_type,
+                    target_resolved=resolved_target,
+                )
+            )
     if ctx.relation_mode != "compact":
         for call in calls:
-            relations.append(make_relation(
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=ctor_id,
+                    source_kind="cs_constructor",
+                    source_name=f"{class_name}.{name}",
+                    relation="calls",
+                    target=call,
+                    target_resolved=None,
+                )
+            )
+    for call_target in resolved_call_targets:
+        relations.append(
+            make_relation(
                 file=ctx.rel_path,
                 source_id=ctor_id,
                 source_kind="cs_constructor",
                 source_name=f"{class_name}.{name}",
-                relation="calls",
-                target=call,
-                target_resolved=None,
-            ))
-    for call_target in resolved_call_targets:
-        relations.append(make_relation(
-            file=ctx.rel_path,
-            source_id=ctor_id,
-            source_kind="cs_constructor",
-            source_name=f"{class_name}.{name}",
-            relation="calls_probable_target",
-            target=call_target["call"],
-            target_resolved=call_target["target_resolved"],
-            extra={
-                "confidence": call_target["confidence"],
-                "heuristic": call_target["heuristic"],
-            },
-        ))
+                relation="calls_probable_target",
+                target=call_target["call"],
+                target_resolved=call_target["target_resolved"],
+                extra={
+                    "confidence": call_target["confidence"],
+                    "heuristic": call_target["heuristic"],
+                },
+            )
+        )
     return idx, detail, relations
 
 
@@ -470,7 +483,9 @@ PARAM_PATTERN = re.compile(r"(?P<type>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?:<[^>]+>)
 def parse_parameter_bindings(parameters: list[str]) -> dict[str, str]:
     bindings: dict[str, str] = {}
     for parameter in parameters:
-        cleaned = " ".join(part for part in parameter.split() if part not in {"ref", "out", "in", "params", "scoped", "readonly"})
+        cleaned = " ".join(
+            part for part in parameter.split() if part not in {"ref", "out", "in", "params", "scoped", "readonly"}
+        )
         match = PARAM_PATTERN.search(cleaned.replace("...", "[]"))
         if match:
             bindings[match.group("name")] = match.group("type")
@@ -508,7 +523,9 @@ def resolve_call_targets(
             candidates = [f"{parameter_bindings[qualifier]}.{method_name}"]
         elif qualifier and qualifier[:1].isupper():
             heuristic = "qualifier_class_name"
-            resolved_class = f"{namespace_name}.{qualifier}" if namespace_name and qualifier in same_file_types else qualifier
+            resolved_class = (
+                f"{namespace_name}.{qualifier}" if namespace_name and qualifier in same_file_types else qualifier
+            )
             candidates = [f"{resolved_class}.{method_name}"]
         elif not qualifier:
             resolved_class = f"{namespace_name}.{class_name}" if namespace_name else class_name
@@ -520,10 +537,12 @@ def resolve_call_targets(
             if key in seen:
                 continue
             seen.add(key)
-            targets.append({
-                "call": call,
-                "target_resolved": candidate,
-                "confidence": confidence,
-                "heuristic": heuristic,
-            })
+            targets.append(
+                {
+                    "call": call,
+                    "target_resolved": candidate,
+                    "confidence": confidence,
+                    "heuristic": heuristic,
+                }
+            )
     return targets

@@ -2,6 +2,7 @@
 
 Extracted from config_graph_builder_service.py (VACGE-001/002, FSR-M09).
 """
+
 from __future__ import annotations
 
 import time
@@ -52,20 +53,49 @@ NODE_FALLBACK_CHAIN = "fallback_chain"
 NODE_PATH_CONFIG_BUNDLE = "path_config_bundle"
 NODE_CLONE_SOURCE = "clone_source"
 
-ALL_NODE_TYPES = frozenset({
-    NODE_SURFACE, NODE_GOAL_TEMPLATE, NODE_TASK_KIND, NODE_SUBTASK_STEP,
-    NODE_AGENT_PROFILE, NODE_ROLE, NODE_AGENT_INSTANCE, NODE_WORKER_BACKEND,
-    NODE_MODEL_PROVIDER, NODE_MODEL_PROFILE, NODE_EMBEDDING_MODEL,
-    NODE_RESTRICTED_INFERENCE_ROOT, NODE_RESTRICTED_INFERENCE_MODEL,
-    NODE_RESTRICTED_INFERENCE_TASK, NODE_CODECOMPASS_RANKING,
-    NODE_TOOL, NODE_TOOL_GROUP, NODE_POLICY,
-    NODE_PATH_RULE, NODE_CONTEXT_SOURCE, NODE_CODECOMPASS_PROFILE, NODE_RAG_PROFILE,
-    NODE_ARTIFACT_RULE, NODE_WRITE_RULE, NODE_VERIFICATION_RULE, NODE_HANDOFF_RULE,
-    NODE_INSTRUCTION_LAYER, NODE_RUNTIME_OVERRIDE, NODE_TRACE_EVENT,
-    NODE_HUB, NODE_WORKER_INSTANCE, NODE_WORKER_ADAPTER, NODE_TASKFLOW,
-    NODE_TASKFLOW_STEP, NODE_TEMPLATE_VARIANT, NODE_ROUTING_RULE,
-    NODE_FALLBACK_CHAIN, NODE_PATH_CONFIG_BUNDLE, NODE_CLONE_SOURCE,
-})
+ALL_NODE_TYPES = frozenset(
+    {
+        NODE_SURFACE,
+        NODE_GOAL_TEMPLATE,
+        NODE_TASK_KIND,
+        NODE_SUBTASK_STEP,
+        NODE_AGENT_PROFILE,
+        NODE_ROLE,
+        NODE_AGENT_INSTANCE,
+        NODE_WORKER_BACKEND,
+        NODE_MODEL_PROVIDER,
+        NODE_MODEL_PROFILE,
+        NODE_EMBEDDING_MODEL,
+        NODE_RESTRICTED_INFERENCE_ROOT,
+        NODE_RESTRICTED_INFERENCE_MODEL,
+        NODE_RESTRICTED_INFERENCE_TASK,
+        NODE_CODECOMPASS_RANKING,
+        NODE_TOOL,
+        NODE_TOOL_GROUP,
+        NODE_POLICY,
+        NODE_PATH_RULE,
+        NODE_CONTEXT_SOURCE,
+        NODE_CODECOMPASS_PROFILE,
+        NODE_RAG_PROFILE,
+        NODE_ARTIFACT_RULE,
+        NODE_WRITE_RULE,
+        NODE_VERIFICATION_RULE,
+        NODE_HANDOFF_RULE,
+        NODE_INSTRUCTION_LAYER,
+        NODE_RUNTIME_OVERRIDE,
+        NODE_TRACE_EVENT,
+        NODE_HUB,
+        NODE_WORKER_INSTANCE,
+        NODE_WORKER_ADAPTER,
+        NODE_TASKFLOW,
+        NODE_TASKFLOW_STEP,
+        NODE_TEMPLATE_VARIANT,
+        NODE_ROUTING_RULE,
+        NODE_FALLBACK_CHAIN,
+        NODE_PATH_CONFIG_BUNDLE,
+        NODE_CLONE_SOURCE,
+    }
+)
 
 # ── Edge types ────────────────────────────────────────────────────────────────
 EDGE_ACTIVATES = "activates"
@@ -103,19 +133,44 @@ EDGE_APPLIES_TO_PATH_BUNDLE = "applies_to_path_bundle"
 EDGE_USES_HUB_DEFAULT = "uses_hub_default"
 EDGE_OVERRIDES_HUB_DEFAULT = "overrides_hub_default"
 
-ALL_EDGE_TYPES = frozenset({
-    EDGE_ACTIVATES, EDGE_CONTAINS, EDGE_INHERITS_FROM, EDGE_OVERRIDES,
-    EDGE_USES_PROFILE, EDGE_USES_TEMPLATE, EDGE_CREATES_SUBTASK, EDGE_ASSIGNED_TO,
-    EDGE_MAY_CALL_TOOL, EDGE_BLOCKED_BY_POLICY, EDGE_REQUIRES_APPROVAL,
-    EDGE_USES_CONTEXT_SOURCE, EDGE_USES_MODEL, EDGE_USES_EMBEDDING_MODEL,
-    EDGE_USES_RESTRICTED_INFERENCE, EDGE_ROUTES_TO_BACKEND, EDGE_HANDS_OFF_TO,
-    EDGE_DEPENDS_ON, EDGE_VERIFIES_WITH, EDGE_READS_PATH, EDGE_WRITES_PATH,
-    EDGE_APPLIES_TO_PATH, EDGE_EMITS_TRACE, EDGE_EFFECTIVE_AFTER_MERGE,
-    EDGE_CONTROLS_WORKER, EDGE_ROUTES_TASK_TO_WORKER, EDGE_USES_TEMPLATE_VARIANT,
-    EDGE_EXECUTES_STEP, EDGE_HANDS_OFF_ARTIFACT_TO, EDGE_FALLS_BACK_TO,
-    EDGE_CLONED_FROM, EDGE_APPLIES_TO_PATH_BUNDLE, EDGE_USES_HUB_DEFAULT,
-    EDGE_OVERRIDES_HUB_DEFAULT,
-})
+ALL_EDGE_TYPES = frozenset(
+    {
+        EDGE_ACTIVATES,
+        EDGE_CONTAINS,
+        EDGE_INHERITS_FROM,
+        EDGE_OVERRIDES,
+        EDGE_USES_PROFILE,
+        EDGE_USES_TEMPLATE,
+        EDGE_CREATES_SUBTASK,
+        EDGE_ASSIGNED_TO,
+        EDGE_MAY_CALL_TOOL,
+        EDGE_BLOCKED_BY_POLICY,
+        EDGE_REQUIRES_APPROVAL,
+        EDGE_USES_CONTEXT_SOURCE,
+        EDGE_USES_MODEL,
+        EDGE_USES_EMBEDDING_MODEL,
+        EDGE_USES_RESTRICTED_INFERENCE,
+        EDGE_ROUTES_TO_BACKEND,
+        EDGE_HANDS_OFF_TO,
+        EDGE_DEPENDS_ON,
+        EDGE_VERIFIES_WITH,
+        EDGE_READS_PATH,
+        EDGE_WRITES_PATH,
+        EDGE_APPLIES_TO_PATH,
+        EDGE_EMITS_TRACE,
+        EDGE_EFFECTIVE_AFTER_MERGE,
+        EDGE_CONTROLS_WORKER,
+        EDGE_ROUTES_TASK_TO_WORKER,
+        EDGE_USES_TEMPLATE_VARIANT,
+        EDGE_EXECUTES_STEP,
+        EDGE_HANDS_OFF_ARTIFACT_TO,
+        EDGE_FALLS_BACK_TO,
+        EDGE_CLONED_FROM,
+        EDGE_APPLIES_TO_PATH_BUNDLE,
+        EDGE_USES_HUB_DEFAULT,
+        EDGE_OVERRIDES_HUB_DEFAULT,
+    }
+)
 
 # ── View IDs ──────────────────────────────────────────────────────────────────
 VIEW_PROFILE_ACTIVATION = "profile_activation_view"
@@ -141,13 +196,13 @@ VIEW_IDS = {
 # A "path character" describes the operational nature of a profile or rule —
 # independent of whether it uses LLM or deterministic processing.
 #
-PATH_CHARACTER_TEST        = "test"        # test design, TDD, coverage
-PATH_CHARACTER_ANALYSIS    = "analysis"    # repo analysis, review, diagnostics
-PATH_CHARACTER_OPS         = "ops"         # incident, admin repair
-PATH_CHARACTER_MAINTENANCE = "maintenance" # bug fix, patch, refactor
-PATH_CHARACTER_CREATIVE    = "creative"    # new project, feature, evolution
-PATH_CHARACTER_EXPLAIN     = "explain"     # explanation / chat surfaces
-PATH_CHARACTER_UNKNOWN     = "unknown"
+PATH_CHARACTER_TEST = "test"  # test design, TDD, coverage
+PATH_CHARACTER_ANALYSIS = "analysis"  # repo analysis, review, diagnostics
+PATH_CHARACTER_OPS = "ops"  # incident, admin repair
+PATH_CHARACTER_MAINTENANCE = "maintenance"  # bug fix, patch, refactor
+PATH_CHARACTER_CREATIVE = "creative"  # new project, feature, evolution
+PATH_CHARACTER_EXPLAIN = "explain"  # explanation / chat surfaces
+PATH_CHARACTER_UNKNOWN = "unknown"
 
 _ROLE_CHARACTER_RULES: list[tuple[tuple[str, ...], str]] = [
     (("test", "tdd", "verify", "coverage"), PATH_CHARACTER_TEST),
@@ -159,17 +214,18 @@ _ROLE_CHARACTER_RULES: list[tuple[tuple[str, ...], str]] = [
 ]
 
 PATH_CHARACTER_LABELS: dict[str, str] = {
-    PATH_CHARACTER_TEST:        "Testpfad",
-    PATH_CHARACTER_ANALYSIS:    "Analysepfad",
-    PATH_CHARACTER_OPS:         "Betriebspfad",
+    PATH_CHARACTER_TEST: "Testpfad",
+    PATH_CHARACTER_ANALYSIS: "Analysepfad",
+    PATH_CHARACTER_OPS: "Betriebspfad",
     PATH_CHARACTER_MAINTENANCE: "Wartungspfad",
-    PATH_CHARACTER_CREATIVE:    "Entwicklungspfad",
-    PATH_CHARACTER_EXPLAIN:     "Erklärpfad",
-    PATH_CHARACTER_UNKNOWN:     "Allgemein",
+    PATH_CHARACTER_CREATIVE: "Entwicklungspfad",
+    PATH_CHARACTER_EXPLAIN: "Erklärpfad",
+    PATH_CHARACTER_UNKNOWN: "Allgemein",
 }
 
 
 # ── Data model ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ConfigGraphNode:

@@ -24,9 +24,7 @@ def test_override_is_applied_immediately_and_after_registry_rebuild(
     app = Flask(__name__)
     initial_default = object()
     override = object()
-    app.extensions["core_services"] = _CoreServices(
-        knowledge=_KnowledgeServices(initial_default)
-    )
+    app.extensions["core_services"] = _CoreServices(knowledge=_KnowledgeServices(initial_default))
 
     service_registry.register_core_service_override(
         app,
@@ -38,9 +36,7 @@ def test_override_is_applied_immediately_and_after_registry_rebuild(
     assert immediate.knowledge.knowledge_index_job_service is override
 
     rebuilt_default = object()
-    rebuilt = _CoreServices(
-        knowledge=_KnowledgeServices(rebuilt_default)
-    )
+    rebuilt = _CoreServices(knowledge=_KnowledgeServices(rebuilt_default))
     monkeypatch.setattr(
         service_registry,
         "build_core_service_registry",

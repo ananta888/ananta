@@ -28,9 +28,7 @@ def test_versioned_matrix_contains_native_langgraph_and_temporal() -> None:
     assert by_id["langgraph"]["restrictions"]
     assert by_id["temporal"]["mode"] == "durable"
     assert by_id["temporal"]["health"]["status"] == "unavailable"
-    assert by_id["temporal"]["declared_health"]["reason_code"] == (
-        "runtime_health_not_observed"
-    )
+    assert by_id["temporal"]["declared_health"]["reason_code"] == ("runtime_health_not_observed")
 
 
 def test_observed_health_overrides_declaration_for_all_surface_consumers() -> None:
@@ -62,9 +60,7 @@ def test_hub_projection_reports_compatible_and_incompatible_reason_codes() -> No
             }
         )
     )
-    projection = service.hub_projection(
-        required_capabilities=("durability", "resume")
-    )
+    projection = service.hub_projection(required_capabilities=("durability", "resume"))
     by_id = {item["runtime_id"]: item for item in projection["runtimes"]}
 
     assert by_id["temporal"]["selection"] == {
@@ -161,7 +157,5 @@ def test_hub_surface_layer_does_not_import_runtime_implementations() -> None:
             elif isinstance(node, ast.Import):
                 imports.extend(alias.name for alias in node.names)
         assert not any(
-            module == prefix or module.startswith(prefix + ".")
-            for module in imports
-            for prefix in forbidden
+            module == prefix or module.startswith(prefix + ".") for module in imports for prefix in forbidden
         ), f"{path} imports a concrete runtime: {imports}"

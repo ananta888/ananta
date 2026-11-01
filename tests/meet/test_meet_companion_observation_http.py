@@ -29,8 +29,16 @@ def test_observation_http_binds_nonce_and_rejects_worker_phase_or_source_fields(
         client = HubDialogClient(assignment())
         result = client.call("observe", meet_session_id="ms_" + "a" * 32)
         assert result == {"schema": "ananta.meet-dialog-observed.v1", "nonce": requests[0]["nonce"]}
-        assert set(requests[0]) == {"schema", "action", "task_id", "lease_id", "runtime_id", "nonce", "sent_at",
-                                    "meet_session_id"}
+        assert set(requests[0]) == {
+            "schema",
+            "action",
+            "task_id",
+            "lease_id",
+            "runtime_id",
+            "nonce",
+            "sent_at",
+            "meet_session_id",
+        }
         for extra in ({"phase": "publishing"}, {"publications": ["camera"]}):
             with pytest.raises(ValueError, match="callback_invalid"):
                 client.call("observe", meet_session_id="ms_" + "a" * 32, **extra)

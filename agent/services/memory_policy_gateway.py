@@ -47,9 +47,13 @@ class MemoryPolicyDecision:
     audit_event_id: str | None = None
 
     def __post_init__(self):
-        if (type(self.allowed) is not bool or not isinstance(self.actor, MemoryActor)
-                or not isinstance(self.operation, MemoryOperation)
-                or self.target is not None and not isinstance(self.target, MemoryTarget)):
+        if (
+            type(self.allowed) is not bool
+            or not isinstance(self.actor, MemoryActor)
+            or not isinstance(self.operation, MemoryOperation)
+            or self.target is not None
+            and not isinstance(self.target, MemoryTarget)
+        ):
             raise ValueError("memory_decision_invalid")
         for value in (self.reason_code, self.rule_id):
             if not isinstance(value, str) or not re.fullmatch(r"[a-z][a-z0-9_.-]{1,100}", value):
@@ -66,8 +70,9 @@ class MemoryPolicyDecision:
         if self.trace_id is not None:
             require_memory_identifier(self.trace_id, "trace_id")
         if self.audit_event_id is not None and (
-                not isinstance(self.audit_event_id, str)
-                or re.fullmatch(r"memory-audit-[a-f0-9]{64}", self.audit_event_id) is None):
+            not isinstance(self.audit_event_id, str)
+            or re.fullmatch(r"memory-audit-[a-f0-9]{64}", self.audit_event_id) is None
+        ):
             raise ValueError("memory_audit_reference_invalid")
         if self.allowed and (self.target is None or self.reason_code != "memory_access_allowed"):
             raise ValueError("memory_decision_invalid")
@@ -86,30 +91,52 @@ class MemoryAccessError(ValueError):
 class MemoryPolicyGateway:
     """Evaluate immutable Hub grants. Inventory entries alone grant nothing."""
 
-    def __init__(self, *, policies: MemoryRunPolicyPort, audit: MemoryDecisionAuditPort,
-                 channels: MemoryChannelRegistryPort,
-                 clock: Callable[[], float] = time.time):
+    def __init__(
+        self,
+        *,
+        policies: MemoryRunPolicyPort,
+        audit: MemoryDecisionAuditPort,
+        channels: MemoryChannelRegistryPort,
+        clock: Callable[[], float] = time.time,
+    ):
         self._policies = policies
         self._audit = audit
         self._channels = channels
         self._clock = clock
 
-    def authorize(self, *, actor: MemoryActor, run_id: str, operation: MemoryOperation,
-                  target: MemoryTarget) -> MemoryPolicyDecision:
+    def authorize(
+        self, *, actor: MemoryActor, run_id: str, operation: MemoryOperation, target: MemoryTarget
+    ) -> MemoryPolicyDecision:
         return self._authorize(actor=actor, run_id=run_id, operation=operation, target=target)
 
-    def authorize_run(self, *, actor: MemoryActor, run_id: str, operation: MemoryOperation,
-                      channel_id: str, security: MemorySecurityMetadata) -> MemoryPolicyDecision:
+    def authorize_run(
+        self,
+        *,
+        actor: MemoryActor,
+        run_id: str,
+        operation: MemoryOperation,
+        channel_id: str,
+        security: MemorySecurityMetadata,
+    ) -> MemoryPolicyDecision:
         """Derive run namespace from Hub state; callers cannot choose task/workspace."""
         if security.scope != MemoryScope.run:
             raise MemoryAccessError("memory_run_scope_required")
-        return self.authorize_current(actor=actor, run_id=run_id, operation=operation,
-                                      channel_id=channel_id, security=security)
+        return self.authorize_current(
+            actor=actor, run_id=run_id, operation=operation, channel_id=channel_id, security=security
+        )
 
-    def authorize_current(self, *, actor: MemoryActor, run_id: str, operation: MemoryOperation,
-                          channel_id: str, security: MemorySecurityMetadata) -> MemoryPolicyDecision:
-        return self._authorize(actor=actor, run_id=run_id, operation=operation, target=None,
-                               channel_id=channel_id, security=security)
+    def authorize_current(
+        self,
+        *,
+        actor: MemoryActor,
+        run_id: str,
+        operation: MemoryOperation,
+        channel_id: str,
+        security: MemorySecurityMetadata,
+    ) -> MemoryPolicyDecision:
+        return self._authorize(
+            actor=actor, run_id=run_id, operation=operation, target=None, channel_id=channel_id, security=security
+        )
 
     def _authorize(self, *, actor, run_id, operation, target, channel_id=None, security=None, forced_denial=None):
         require_memory_identifier(run_id, "run_id")
@@ -143,9 +170,15 @@ class MemoryPolicyGateway:
         revision = policy.policy_revision if isinstance(policy, MemoryRunPolicy) else None
         expiry = policy.expires_at if isinstance(policy, MemoryRunPolicy) else None
         decision = MemoryPolicyDecision(
-            allowed=reason == "memory_access_allowed", reason_code=reason,
-            rule_id="memory.explicit-capability.v1", actor=actor, run_id=run_id,
-            operation=operation, target=target, policy_revision=revision, expires_at=expiry,
+            allowed=reason == "memory_access_allowed",
+            reason_code=reason,
+            rule_id="memory.explicit-capability.v1",
+            actor=actor,
+            run_id=run_id,
+            operation=operation,
+            target=target,
+            policy_revision=revision,
+            expires_at=expiry,
             policy_digest=policy.digest if isinstance(policy, MemoryRunPolicy) else None,
             trace_id=policy.trace_id if isinstance(policy, MemoryRunPolicy) else None,
         )
@@ -161,13 +194,17 @@ class MemoryPolicyGateway:
             # explicitly unverified; the productive SQL issuer returns its own link.
             if receipt is None:
                 return None
-            if (not isinstance(receipt, dict) or set(receipt) != {'event_id', 'event_hash', 'sequence'}
-                    or not isinstance(receipt['event_hash'], str)
-                    or re.fullmatch(r'[a-f0-9]{64}', receipt['event_hash']) is None
-                    or receipt['event_id'] != 'memory-audit-' + receipt['event_hash']
-                    or type(receipt['sequence']) is not int or receipt['sequence'] < 1):
-                raise ValueError('memory_audit_reference_invalid')
-            return receipt['event_id']
+            if (
+                not isinstance(receipt, dict)
+                or set(receipt) != {"event_id", "event_hash", "sequence"}
+                or not isinstance(receipt["event_hash"], str)
+                or re.fullmatch(r"[a-f0-9]{64}", receipt["event_hash"]) is None
+                or receipt["event_id"] != "memory-audit-" + receipt["event_hash"]
+                or type(receipt["sequence"]) is not int
+                or receipt["sequence"] < 1
+            ):
+                raise ValueError("memory_audit_reference_invalid")
+            return receipt["event_id"]
         except Exception as exc:
             raise MemoryAccessError("memory_audit_unavailable") from exc
 
@@ -181,10 +218,14 @@ class MemoryPolicyGateway:
             return "memory_namespace_mismatch"
         levels = tuple(MemorySensitivity)
         for grant in policy.capabilities:
-            if (grant.channel_id == target.channel_id and grant.scope == scope
-                    and operation in grant.operations and now < grant.expires_at
-                    and grant.namespace.key(scope) == target.namespace.key(scope)
-                    and levels.index(target.security.sensitivity) <= levels.index(grant.sensitivity_ceiling)):
+            if (
+                grant.channel_id == target.channel_id
+                and grant.scope == scope
+                and operation in grant.operations
+                and now < grant.expires_at
+                and grant.namespace.key(scope) == target.namespace.key(scope)
+                and levels.index(target.security.sensitivity) <= levels.index(grant.sensitivity_ceiling)
+            ):
                 return "memory_access_allowed"
         return "memory_capability_missing"
 
@@ -201,18 +242,30 @@ class MemoryPolicyGateway:
         return self.authorize(operation=MemoryOperation.delete, **request)
 
     def authorize_promote(
-        self, *, actor: MemoryActor, run_id: str, target: MemoryTarget, destination: MemoryTarget,
+        self,
+        *,
+        actor: MemoryActor,
+        run_id: str,
+        target: MemoryTarget,
+        destination: MemoryTarget,
     ) -> tuple[MemoryPolicyDecision, MemoryPolicyDecision]:
         transitions = {
-            MemoryScope.run: MemoryScope.task, MemoryScope.task: MemoryScope.goal,
-            MemoryScope.goal: MemoryScope.workspace, MemoryScope.conversation: MemoryScope.workspace,
+            MemoryScope.run: MemoryScope.task,
+            MemoryScope.task: MemoryScope.goal,
+            MemoryScope.goal: MemoryScope.workspace,
+            MemoryScope.conversation: MemoryScope.workspace,
             MemoryScope.workspace: MemoryScope.global_,
         }
         if not isinstance(target, MemoryTarget) or not isinstance(destination, MemoryTarget):
             raise MemoryAccessError("memory_target_invalid")
         if transitions.get(target.security.scope) != destination.security.scope:
-            self._authorize(actor=actor, run_id=run_id, operation=MemoryOperation.promote, target=target,
-                            forced_denial="memory_promotion_transition_invalid")
+            self._authorize(
+                actor=actor,
+                run_id=run_id,
+                operation=MemoryOperation.promote,
+                target=target,
+                forced_denial="memory_promotion_transition_invalid",
+            )
         source = self.authorize(actor=actor, run_id=run_id, operation=MemoryOperation.promote, target=target)
         dest = self.authorize(actor=actor, run_id=run_id, operation=MemoryOperation.append, target=destination)
         if source.policy_digest != dest.policy_digest:

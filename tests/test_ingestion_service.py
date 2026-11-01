@@ -48,9 +48,7 @@ def test_system_artifact_is_hidden_from_its_first_persisted_write(
             created_by="knowledge-index-worker",
             media_type="application/json",
             artifact_metadata={
-                "system_artifact_kind": (
-                    "knowledge_index_worker_output"
-                ),
+                "system_artifact_kind": ("knowledge_index_worker_output"),
                 "knowledge_index_job_id": "knowledge-index-example",
             },
             execution_checkpoint=crash_after_initial_write,
@@ -149,7 +147,7 @@ def test_ingestion_service_import_wiki_jsonl_normalizes_records_and_reports_issu
             [
                 '{"article_title":"Payment retries","section_title":"Timeout","language":"en","content":"Workers retry after timeout. Backoff applies."}',
                 '{"article_title":"Broken"}',
-                'not-json',
+                "not-json",
             ]
         )
         + "\n",

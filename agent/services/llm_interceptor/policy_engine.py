@@ -63,7 +63,9 @@ class PolicyEngine:
                 action="reduce_context",
                 reason_codes=reasons,
                 cloud_allowed=True,
-                context_mode=str(profile.get("cloud_context_default") or self.cfg.get("cloud_context_default") or "redacted_minimal"),
+                context_mode=str(
+                    profile.get("cloud_context_default") or self.cfg.get("cloud_context_default") or "redacted_minimal"
+                ),
             )
 
         reasons.append("local_allowed")
@@ -71,5 +73,9 @@ class PolicyEngine:
             action="allow",
             reason_codes=reasons,
             cloud_allowed=True,
-            context_mode=str(profile.get("local_context_default") or self.cfg.get("local_context_default") or "allowed_by_context_gate"),
+            context_mode=str(
+                profile.get("local_context_default")
+                or self.cfg.get("local_context_default")
+                or "allowed_by_context_gate"
+            ),
         )

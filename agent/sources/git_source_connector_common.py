@@ -17,10 +17,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol, TypeVar
 
 from agent.services.git_remote_policy_service import (
-    GitTransportAuthorization,
     GitRemoteAccessPolicyPort,
     GitRemotePolicyError,
     GitRemotePolicyRequest,
+    GitTransportAuthorization,
 )
 from agent.sources.source_connectors import (
     ConnectorHealth,
@@ -30,7 +30,6 @@ from agent.sources.source_connectors import (
     SourceInventory,
     SourceRevisionResolution,
 )
-
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 _COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -85,10 +84,7 @@ class GitSourceScope:
 
     @classmethod
     def from_descriptor(cls, descriptor: Mapping[str, Any]) -> "GitSourceScope":
-        values = {
-            name: str(descriptor.get(name) or "").strip()
-            for name in ("tenant_id", "project_id", "owner_id")
-        }
+        values = {name: str(descriptor.get(name) or "").strip() for name in ("tenant_id", "project_id", "owner_id")}
         if any(_IDENTIFIER.fullmatch(value) is None for value in values.values()):
             raise SourceConnectorError("source_scope_invalid")
         return cls(**values)
@@ -244,9 +240,7 @@ def _canonical_digest(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def git_source_revision_digest(
-    *, connector_type: str, source_id: str, commit_sha: str
-) -> str:
+def git_source_revision_digest(*, connector_type: str, source_id: str, commit_sha: str) -> str:
     return _canonical_digest(
         {
             "commit_sha": str(commit_sha).lower(),
@@ -283,10 +277,7 @@ def validate_requested_ref(value: str) -> bool:
         return False
     if any(ord(character) < 32 or ord(character) == 127 for character in ref):
         return False
-    return not any(
-        forbidden in ref
-        for forbidden in ("..", "@{", "\\", "//", "~", "^", ":", "?", "*", "[")
-    )
+    return not any(forbidden in ref for forbidden in ("..", "@{", "\\", "//", "~", "^", ":", "?", "*", "["))
 
 
 def _is_authorization_reason(reason_code: str) -> bool:
@@ -298,10 +289,7 @@ def _is_authorization_reason(reason_code: str) -> bool:
         or normalized.startswith("authorization_")
         or (
             "credential" in normalized
-            and any(
-                token in normalized
-                for token in ("inactive", "missing", "required", "status")
-            )
+            and any(token in normalized for token in ("inactive", "missing", "required", "status"))
         )
     )
 
@@ -346,9 +334,7 @@ class GitSourceConnectorBase(ABC):
         self,
         descriptor: Mapping[str, Any],
     ) -> SourceRevisionResolution:
-        content_request = self._resolve_content_request(
-            descriptor, prefer_stored=True
-        )
+        content_request = self._resolve_content_request(descriptor, prefer_stored=True)
         return self._revision_projection(descriptor, content_request)
 
     def assert_indexable(
@@ -360,16 +346,12 @@ class GitSourceConnectorBase(ABC):
         return self.resolve_revision(descriptor)
 
     def inventory(self, descriptor: Mapping[str, Any]) -> SourceInventory:
-        content_request = self._resolve_content_request(
-            descriptor, prefer_stored=True
-        )
+        content_request = self._resolve_content_request(descriptor, prefer_stored=True)
         self._require_transport_support(
             self._inventory_provider,
             content_request.transport_authorization,
         )
-        metrics = self._invoke_provider(
-            lambda: self._inventory_provider.inventory(content_request)
-        )
+        metrics = self._invoke_provider(lambda: self._inventory_provider.inventory(content_request))
         self._enforce_metrics(metrics)
         return SourceInventory(
             item_count=metrics.item_count,
@@ -398,9 +380,7 @@ class GitSourceConnectorBase(ABC):
             self._refresh_provider,
             content_request.transport_authorization,
         )
-        metrics = self._invoke_provider(
-            lambda: self._refresh_provider.fetch(content_request)
-        )
+        metrics = self._invoke_provider(lambda: self._refresh_provider.fetch(content_request))
         self._enforce_metrics(metrics)
         return {
             "source_id": source_id,
@@ -449,9 +429,7 @@ class GitSourceConnectorBase(ABC):
             raise SourceConnectorError(errors[0])
         scope = GitSourceScope.from_descriptor(descriptor)
         connection_ref = self._connection_ref(descriptor)
-        endpoint = self._invoke_provider(
-            lambda: self._resolve_endpoint(scope, descriptor)
-        )
+        endpoint = self._invoke_provider(lambda: self._resolve_endpoint(scope, descriptor))
         if endpoint.connection_ref != connection_ref:
             raise SourceConnectorError("provider_response_invalid")
         self._require_authorization(endpoint)
@@ -461,9 +439,7 @@ class GitSourceConnectorBase(ABC):
         )
         requested_ref = self._requested_ref(descriptor)
         source_id = str(descriptor.get("source_id") or "").strip()
-        stored_resolver = getattr(
-            self._inventory_provider, "resolve_stored_commit", None
-        )
+        stored_resolver = getattr(self._inventory_provider, "resolve_stored_commit", None)
         commit: GitCommitResolution | None = None
         if prefer_stored and callable(stored_resolver):
             try:
@@ -474,9 +450,7 @@ class GitSourceConnectorBase(ABC):
                             connector_type=self.connector_type,
                             source_id=source_id,
                             connection_ref=connection_ref,
-                            repository_identifier=self._repository_identifier(
-                                descriptor
-                            ),
+                            repository_identifier=self._repository_identifier(descriptor),
                             requested_ref=requested_ref,
                         )
                     )
@@ -523,9 +497,7 @@ class GitSourceConnectorBase(ABC):
         if state != "active":
             raise SourceConnectorError("authorization_required")
         scopes = frozenset(
-            str(scope or "").strip().lower()
-            for scope in endpoint.granted_scopes
-            if str(scope or "").strip()
+            str(scope or "").strip().lower() for scope in endpoint.granted_scopes if str(scope or "").strip()
         )
         if not self.required_scopes.issubset(scopes):
             raise SourceConnectorError("authorization_required")
@@ -552,9 +524,7 @@ class GitSourceConnectorBase(ABC):
                 raise SourceConnectorError("authorization_required") from None
             raise SourceConnectorError(exc.reason_code) from None
         if not hasattr(authorized, "canonical_url"):
-            raise SourceConnectorError(
-                "git_transport_authorization_missing"
-            )
+            raise SourceConnectorError("git_transport_authorization_missing")
         plan = GitTransportAuthorization.create(
             authorized=authorized,
             request=request,
@@ -582,9 +552,7 @@ class GitSourceConnectorBase(ABC):
             None,
         )
         if not callable(supports) or supports(authorization) is not True:
-            raise SourceConnectorError(
-                "git_transport_ip_pinning_unsupported"
-            )
+            raise SourceConnectorError("git_transport_ip_pinning_unsupported")
 
     def _revision_projection(
         self,
@@ -633,8 +601,7 @@ class GitSourceConnectorBase(ABC):
             or not isinstance(metrics.elapsed_seconds, (int, float))
             or not math.isfinite(float(metrics.elapsed_seconds))
             or float(metrics.elapsed_seconds) < 0
-            or _DIGEST.fullmatch(str(metrics.manifest_digest or "").strip())
-            is None
+            or _DIGEST.fullmatch(str(metrics.manifest_digest or "").strip()) is None
             or any(not isinstance(item, Mapping) for item in metrics.exclusions)
         ):
             raise SourceConnectorError("provider_response_invalid")

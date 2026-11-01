@@ -1,11 +1,9 @@
 """Tests für SemanticOverlay: Panel-Extraktion, Entity-Extraktion, Hashing."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from client_surfaces.operator_tui.semantic_overlay import (
     PanelBBox,
-    SemanticEntity,
     SemanticOverlay,
     build_from_operator_state,
 )
@@ -87,13 +85,7 @@ class TestBuildFromOperatorState:
         assert overlay.active_panel is None
 
     def test_snake_segments_become_entities(self) -> None:
-        state = {
-            "header_logo_game": {
-                "snakes": [
-                    {"body": [[10, 5], [9, 5], [8, 5]]}
-                ]
-            }
-        }
+        state = {"header_logo_game": {"snakes": [{"body": [[10, 5], [9, 5], [8, 5]]}]}}
         overlay = build_from_operator_state(state)
         kinds = [e.kind for e in overlay.entities]
         assert "snake_head" in kinds
@@ -124,13 +116,7 @@ class TestBuildFromOperatorState:
         assert body.h == 15
 
     def test_invalid_snake_segments_ignored(self) -> None:
-        state = {
-            "header_logo_game": {
-                "snakes": [
-                    {"body": [None, "bad", [1], [5, 3]]}
-                ]
-            }
-        }
+        state = {"header_logo_game": {"snakes": [{"body": [None, "bad", [1], [5, 3]]}]}}
         overlay = build_from_operator_state(state)
         # Only the valid segment [5, 3] should produce an entity
         snake_entities = [e for e in overlay.entities if "snake" in e.kind]

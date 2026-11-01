@@ -68,9 +68,12 @@ class ShareSecurityNegotiationService:
             "scope_id": session_id,
             "tenant_id": tenant_id,
         }
-        negotiation_id = "neg:" + hashlib.sha256(
-            json.dumps(transcript, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
-        ).hexdigest()
+        negotiation_id = (
+            "neg:"
+            + hashlib.sha256(
+                json.dumps(transcript, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+            ).hexdigest()
+        )
         expires_at_ms = self._expiry_ms(session_expires_at)
         common: dict[str, Any] = {
             "version": 1,
@@ -219,9 +222,7 @@ def get_share_security_negotiation_service() -> ShareSecurityNegotiationService:
         signing_key = hashlib.sha256(
             b"ananta.share.security-negotiation.v1\0" + str(settings.secret_key).encode("utf-8")
         ).digest()
-        _service = ShareSecurityNegotiationService(
-            WebrtcSecurityPolicy(signing_key, allow_downgrade=False)
-        )
+        _service = ShareSecurityNegotiationService(WebrtcSecurityPolicy(signing_key, allow_downgrade=False))
     return _service
 
 

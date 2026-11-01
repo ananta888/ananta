@@ -35,9 +35,12 @@ def sha(text):
 
 
 def manifest(files):
-    return {"snapshot_revision": sha(json.dumps(files, sort_keys=True)),
-            "files": [{"path": p, "content_sha256": sha(t), "byte_size": len(t), "outcome": "indexed"}
-                      for p, t in files.items()]}
+    return {
+        "snapshot_revision": sha(json.dumps(files, sort_keys=True)),
+        "files": [
+            {"path": p, "content_sha256": sha(t), "byte_size": len(t), "outcome": "indexed"} for p, t in files.items()
+        ],
+    }
 
 
 # --- FTS projection -----------------------------------------------------------------------
@@ -50,14 +53,24 @@ def layer(records):
 def row(record_id, path, content, *, symbol="", tombstone=False):
     if tombstone:
         return {"id": record_id, "tombstone": True, "operation": "tombstone", "path": path}
-    return {"id": record_id, "path": path, "symbol": symbol, "kind": "function", "start_line": 1, "end_line": 2,
-            "content": content, "content_hash": sha(content)}
+    return {
+        "id": record_id,
+        "path": path,
+        "symbol": symbol,
+        "kind": "function",
+        "start_line": 1,
+        "end_line": 2,
+        "content": content,
+        "content_hash": sha(content),
+    }
 
 
 def test_projection_rebuilds_then_applies_only_appended_layers(tmp_path):
-    layers = {"base": layer([row("1", "a.py", "alpha beta"), row("2", "b.py", "beta gamma")]),
-              "d1": layer([row("2", "b.py", "", tombstone=True), row("3", "c.py", "gamma delta")]),
-              "compact": layer([row("1", "a.py", "alpha beta"), row("3", "c.py", "gamma delta")])}
+    layers = {
+        "base": layer([row("1", "a.py", "alpha beta"), row("2", "b.py", "beta gamma")]),
+        "d1": layer([row("2", "b.py", "", tombstone=True), row("3", "c.py", "gamma delta")]),
+        "compact": layer([row("1", "a.py", "alpha beta"), row("3", "c.py", "gamma delta")]),
+    }
     index = LayerSearchIndex(tmp_path / "p.sqlite")
     assert index.sync(generation=1, chain=["base"], load_layer=layers.get) == "rebuilt"
     assert index.sync(generation=1, chain=["base"], load_layer=layers.get) == "current"
@@ -91,10 +104,20 @@ def test_a_missing_layer_is_an_error(tmp_path):
 
 def test_the_policy_admits_valid_pointers_and_denies_forged_ones():
     policy = KnowledgeIndexConsumptionPolicy()
-    good = SimpleNamespace(id="p", status="completed", source_scope="repo_path", index_metadata={
-        "codecompass_layer_head": {"schema": "ananta.codecompass_layer_pointer.v1", "profile_id": PROFILE}})
-    forged = SimpleNamespace(id="p", status="completed", source_scope="repo_path",
-                             index_metadata={"codecompass_layer_head": {"schema": "other", "profile_id": PROFILE}})
+    good = SimpleNamespace(
+        id="p",
+        status="completed",
+        source_scope="repo_path",
+        index_metadata={
+            "codecompass_layer_head": {"schema": "ananta.codecompass_layer_pointer.v1", "profile_id": PROFILE}
+        },
+    )
+    forged = SimpleNamespace(
+        id="p",
+        status="completed",
+        source_scope="repo_path",
+        index_metadata={"codecompass_layer_head": {"schema": "other", "profile_id": PROFILE}},
+    )
     assert policy.evaluate(good).reason_code == "codecompass_layer_head_pointer"
     assert policy.evaluate(forged).allowed is False
 
@@ -153,8 +176,12 @@ def hub(tmp_path):
     app.config["ROLE"] = "hub"
     app.queue, app.pointers = Queue(), PointerRepository()
     initialize_codecompass_layers(
-        app, environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
-        data_dir=tmp_path, task_queue=app.queue, evidence=Evidence(), pointer_repository=app.pointers,
+        app,
+        environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
+        data_dir=tmp_path,
+        task_queue=app.queue,
+        evidence=Evidence(),
+        pointer_repository=app.pointers,
     )
     root = tmp_path / "codecompass_layers"
     app.snapshots, app.contents = SnapshotManifestStore(root), ContentBlobStore(root)
@@ -169,12 +196,18 @@ def publish(hub, files, key):
     service = hub.extensions["codecompass_layer_service"]
     head = service.show_head(PROFILE)
     plan = service.plan_update(profile_id=PROFILE, to_snapshot_ref=snapshot["snapshot_revision"])
-    service.apply_update(plan=plan, profile_ref={"profile_id": PROFILE}, profile_id=PROFILE,
-                         expected_generation=int((head or {}).get("generation") or 0), idempotency_key=key)
+    service.apply_update(
+        plan=plan,
+        profile_ref={"profile_id": PROFILE},
+        profile_id=PROFILE,
+        expected_generation=int((head or {}).get("generation") or 0),
+        idempotency_key=key,
+    )
     task = hub.queue.tasks[-1]
     view = {"task_kind": TASK_KIND, "worker_execution_context": task["extra_fields"]["worker_execution_context"]}
     result = CodeCompassLayerJobHandler(GatewayClient(hub.extensions["codecompass_layer_job_gateway"])).execute(
-        task=view, tid=task["task_id"])
+        task=view, tid=task["task_id"]
+    )
     with hub.app_context():
         return service.admit_result(result)
 
@@ -224,7 +257,9 @@ def test_identifiers_are_matched_as_phrases_before_common_words(tmp_path):
     from agent.services.codecompass_layer_search_index import identifier_phrases
 
     assert identifier_phrases("was ist HANDLER_ONLY_TASK_KINDS und rag-helper, RagHelper") == [
-        '"handler only task kinds"', '"rag helper"']
+        '"handler only task kinds"',
+        '"rag helper"',
+    ]
     index = LayerSearchIndex(tmp_path / "p.sqlite")
     noise = [row(str(n), f"misc/f{n}.py", "handler for the task, only some kinds " * 5) for n in range(50)]
     target = row("t", "agent/orchestrator.py", "HANDLER_ONLY_TASK_KINDS = frozenset()")

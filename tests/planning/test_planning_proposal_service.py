@@ -50,8 +50,24 @@ def test_validate_plan_proposal_payload_rejects_duplicate_and_unknown_dependency
         "trace_id": "T1",
         "summary": "test",
         "nodes": [
-            {"node_key": "N1", "title": "A", "description": "a", "task_kind": "coding", "depends_on": [], "required_capabilities": [], "risk_level": "medium"},
-            {"node_key": "N1", "title": "B", "description": "b", "task_kind": "coding", "depends_on": ["N9"], "required_capabilities": [], "risk_level": "medium"},
+            {
+                "node_key": "N1",
+                "title": "A",
+                "description": "a",
+                "task_kind": "coding",
+                "depends_on": [],
+                "required_capabilities": [],
+                "risk_level": "medium",
+            },
+            {
+                "node_key": "N1",
+                "title": "B",
+                "description": "b",
+                "task_kind": "coding",
+                "depends_on": ["N9"],
+                "required_capabilities": [],
+                "risk_level": "medium",
+            },
         ],
     }
     result = validate_plan_proposal_payload(payload, known_capabilities={"coding"})
@@ -67,7 +83,13 @@ def test_build_plan_proposal_and_validate_happy_path() -> None:
         summary="Implement helper with tests",
         subtasks=[
             {"title": "Implement helper", "description": "code", "task_kind": "coding", "risk_level": "medium"},
-            {"title": "Write tests", "description": "tests", "task_kind": "testing", "depends_on": ["1"], "risk_level": "high"},
+            {
+                "title": "Write tests",
+                "description": "tests",
+                "task_kind": "testing",
+                "depends_on": ["1"],
+                "risk_level": "high",
+            },
         ],
     )
     result = validate_plan_proposal_payload(payload, known_capabilities={"coding", "testing"})

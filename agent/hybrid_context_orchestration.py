@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable
 from types import SimpleNamespace
+from typing import Any, Callable
 
 
 def collect_context_chunks(
@@ -18,9 +18,7 @@ def collect_context_chunks(
     # semantic results are filtered downstream by the DomainScopeFilter.
     chunks: list[Any] = []
     if quotas.get("repository_map", 0) > 0:
-        chunks.extend(
-            repository_engine.search(query, top_k=quotas["repository_map"], allowed_paths=allowed_paths)
-        )
+        chunks.extend(repository_engine.search(query, top_k=quotas["repository_map"], allowed_paths=allowed_paths))
     if quotas.get("codecompass_vector", 0) > 0 and codecompass_vector_service is not None:
         rows = codecompass_vector_service.search(
             query=query,
@@ -31,9 +29,7 @@ def collect_context_chunks(
     if quotas.get("semantic_search", 0) > 0:
         chunks.extend(semantic_engine.search(query, top_k=quotas["semantic_search"]))
     if quotas.get("agentic_search", 0) > 0:
-        chunks.extend(
-            agentic_engine.search(query, top_k=quotas["agentic_search"], allowed_paths=allowed_paths)
-        )
+        chunks.extend(agentic_engine.search(query, top_k=quotas["agentic_search"], allowed_paths=allowed_paths))
     return chunks
 
 

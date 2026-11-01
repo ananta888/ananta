@@ -26,7 +26,11 @@ class _FlakySurface:
         return WindowHealth(state=self._state, backend=self.backend_name)
 
     def health(self) -> WindowHealth:
-        return WindowHealth(state=self._state, backend=self.backend_name, pid=(777 if self._state == ExternalWindowState.ACTIVE else None))
+        return WindowHealth(
+            state=self._state,
+            backend=self.backend_name,
+            pid=(777 if self._state == ExternalWindowState.ACTIVE else None),
+        )
 
 
 def test_external_window_recovery_restart_after_failed_open() -> None:

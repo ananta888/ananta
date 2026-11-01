@@ -83,15 +83,11 @@ def test_blender_client_surface_hides_system_managed_artifacts(
     client,
     admin_auth_header,
 ) -> None:
-    public = artifact_repo.save(
-        ArtifactDB(id="blender-public-artifact", artifact_metadata={})
-    )
+    public = artifact_repo.save(ArtifactDB(id="blender-public-artifact", artifact_metadata={}))
     hidden = artifact_repo.save(
         ArtifactDB(
             id="blender-hidden-worker-output",
-            artifact_metadata={
-                "system_artifact_kind": "knowledge_index_worker_output"
-            },
+            artifact_metadata={"system_artifact_kind": "knowledge_index_worker_output"},
         )
     )
 

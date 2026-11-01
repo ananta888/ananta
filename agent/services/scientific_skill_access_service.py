@@ -61,7 +61,9 @@ def _same_scope(principal: HubSourcePrincipal, binding: SourceObjectBinding) -> 
     return bool(
         binding.exists
         and binding.is_scoped
-        and (principal.is_admin or (principal.tenant_id, principal.project_id) == (binding.tenant_id, binding.project_id))
+        and (
+            principal.is_admin or (principal.tenant_id, principal.project_id) == (binding.tenant_id, binding.project_id)
+        )
     )
 
 

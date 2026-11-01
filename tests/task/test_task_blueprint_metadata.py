@@ -82,10 +82,12 @@ def test_materialize_from_plan_node_propagates_goal_context_text(monkeypatch) ->
     monkeypatch.setattr(
         lifecycle_service,
         "goal_repo",
-        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(
-            execution_preferences={},
-            goal="Implement the Fibonacci sequence",
-        )),
+        SimpleNamespace(
+            get_by_id=lambda _goal_id: SimpleNamespace(
+                execution_preferences={},
+                goal="Implement the Fibonacci sequence",
+            )
+        ),
     )
 
     node = SimpleNamespace(
@@ -156,10 +158,12 @@ def test_materialize_from_plan_node_propagates_goal_output_dir_to_workspace_cont
     monkeypatch.setattr(
         lifecycle_service,
         "goal_repo",
-        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(
-            execution_preferences={"output_dir": "/tmp/project-out"},
-            goal="Write fibonacci.py",
-        )),
+        SimpleNamespace(
+            get_by_id=lambda _goal_id: SimpleNamespace(
+                execution_preferences={"output_dir": "/tmp/project-out"},
+                goal="Write fibonacci.py",
+            )
+        ),
     )
 
     node = SimpleNamespace(
@@ -195,15 +199,17 @@ def test_materialize_from_plan_node_propagates_rag_sources_to_research_context_i
     monkeypatch.setattr(
         lifecycle_service,
         "goal_repo",
-        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(
-            execution_preferences={
-                "rag_sources": {
-                    "knowledge_collection_ids": ["col-1", "col-2"],
-                    "artifact_ids": ["art-1"],
-                }
-            },
-            goal="Implement feature",
-        )),
+        SimpleNamespace(
+            get_by_id=lambda _goal_id: SimpleNamespace(
+                execution_preferences={
+                    "rag_sources": {
+                        "knowledge_collection_ids": ["col-1", "col-2"],
+                        "artifact_ids": ["art-1"],
+                    }
+                },
+                goal="Implement feature",
+            )
+        ),
     )
 
     node = SimpleNamespace(

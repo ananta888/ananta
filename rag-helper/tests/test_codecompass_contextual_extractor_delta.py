@@ -43,9 +43,7 @@ def test_markdown_tables_and_normalized_provenance_are_structural_and_stable() -
     assert "never-copy-this" not in json.dumps((index, details, relations, stats))
     assert "secret-table-value" not in json.dumps((index, details, relations, stats))
 
-    _, shifted_details, _, _ = DocumentationExtractor().parse(
-        "docs/components.md", "\n\n" + source
-    )
+    _, shifted_details, _, _ = DocumentationExtractor().parse("docs/components.md", "\n\n" + source)
     shifted_table = next(record for record in shifted_details if record["kind"] == "md_table")
     assert shifted_table["record_id"] == table["record_id"]
     assert shifted_table["line_start"] == table["line_start"] + 2
@@ -53,14 +51,7 @@ def test_markdown_tables_and_normalized_provenance_are_structural_and_stable() -
 
 
 def test_embedded_mermaid_uses_diagram_extractor_and_document_line_coordinates() -> None:
-    source = (
-        "# Flow\n"
-        "\n"
-        "```mermaid\n"
-        "flowchart TD\n"
-        "A[Start] --> B[Done]\n"
-        "```\n"
-    )
+    source = "# Flow\n\n```mermaid\nflowchart TD\nA[Start] --> B[Done]\n```\n"
     index, details, relations, stats = DocumentationExtractor().parse("docs/flow.md", source)
     embedded_file = next(record for record in details if record["kind"] == "mermaid_file")
     nodes = [record for record in details if record["kind"] == "mermaid_node"]
@@ -96,9 +87,7 @@ def test_planning_todo_json_emits_tasks_decisions_and_acceptance_without_secret_
         },
         indent=2,
     )
-    index, details, relations, stats = JsonDocumentExtractor().parse(
-        "todos/todo.contextual-editor.json", source
-    )
+    index, details, relations, stats = JsonDocumentExtractor().parse("todos/todo.contextual-editor.json", source)
     task = next(record for record in details if record["kind"] == "todo_task")
     decision = next(record for record in details if record["kind"] == "todo_decision")
     acceptance = next(record for record in details if record["kind"] == "todo_acceptance")
@@ -128,9 +117,7 @@ def test_json_schema_emits_pointer_id_and_ref_records_with_normalized_ranges() -
         },
         indent=2,
     )
-    index, details, relations, stats = JsonDocumentExtractor().parse(
-        "schemas/order.schema.json", source
-    )
+    index, details, relations, stats = JsonDocumentExtractor().parse("schemas/order.schema.json", source)
 
     kinds = {record["kind"] for record in details}
     assert {"json_schema_pointer", "json_schema_id", "json_schema_ref"} <= kinds
@@ -163,19 +150,18 @@ def test_python_test_cases_and_fixture_relations_are_derived_from_ast_only() -> 
     _, details, relations, _ = TextFileExtractor().parse("tests/test_api.py", source)
     fixture = next(record for record in details if record.get("record_kind") == "fixture")
     test_case = next(record for record in details if record.get("record_kind") == "test_case")
-    fixture_relations = [
-        record for record in relations if record.get("record_kind") == "fixture_relation"
-    ]
+    fixture_relations = [record for record in relations if record.get("record_kind") == "fixture_relation"]
 
     assert fixture["name"] == "client"
     assert (test_case["line_start"], test_case["line_end"]) == (8, 9)
     assert {record["target"] for record in fixture_relations} == {"client", "tmp_path"}
-    assert next(record for record in fixture_relations if record["target"] == "client")[
-        "resolution_status"
-    ] == "resolved"
-    assert next(record for record in fixture_relations if record["target"] == "tmp_path")[
-        "resolution_status"
-    ] == "unresolved"
+    assert (
+        next(record for record in fixture_relations if record["target"] == "client")["resolution_status"] == "resolved"
+    )
+    assert (
+        next(record for record in fixture_relations if record["target"] == "tmp_path")["resolution_status"]
+        == "unresolved"
+    )
     assert all(record["source_kind"] == "python_function" for record in fixture_relations)
     assert all(record["target"] != "value" for record in fixture_relations)
 
@@ -189,13 +175,9 @@ def test_typescript_test_cases_and_destructured_fixtures_are_structural_records(
         "  await expect(page).toHaveTitle(/Editor/);\n"
         "});\n"
     )
-    _, details, relations, stats = TextFileExtractor().parse(
-        "frontend/editor.spec.ts", source
-    )
+    _, details, relations, stats = TextFileExtractor().parse("frontend/editor.spec.ts", source)
     test_case = next(record for record in details if record.get("record_kind") == "test_case")
-    fixtures = [
-        record for record in relations if record.get("record_kind") == "fixture_relation"
-    ]
+    fixtures = [record for record in relations if record.get("record_kind") == "fixture_relation"]
 
     assert test_case["kind"] == "typescript_call"
     assert test_case["name"] == "opens editor"

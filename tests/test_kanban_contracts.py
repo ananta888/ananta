@@ -17,4 +17,3 @@ def test_contracts_are_strict_and_scope_safe() -> None:
             column_id="in_progress",
             position=0,
         )
-

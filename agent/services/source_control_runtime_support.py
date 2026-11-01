@@ -1,5 +1,4 @@
-"""Shared wire projection, digests, cursors and scope helpers of the Source Control API runtime.
-"""
+"""Shared wire projection, digests, cursors and scope helpers of the Source Control API runtime."""
 
 from __future__ import annotations
 
@@ -18,7 +17,6 @@ from agent.services.source_control_projection_service import (
 from agent.services.source_index_lifecycle_service import (
     SourceIndexLifecycleScope,
 )
-
 
 # Keep the established log channel of the API runtime module.
 _LOG = logging.getLogger("agent.services.source_control_api_runtime")
@@ -50,9 +48,7 @@ def wire(value: object) -> Any:
         return wire(model_dump(mode="json", by_alias=True))
     if is_dataclass(value):
         return wire(asdict(value))
-    raise SourceControlApiRuntimeError(
-        "source_control_projection_invalid", status_code=500
-    )
+    raise SourceControlApiRuntimeError("source_control_projection_invalid", status_code=500)
 
 
 def wire_digest(value: object) -> str:
@@ -69,9 +65,7 @@ def wire_digest(value: object) -> str:
 def iso_timestamp(epoch: float | None) -> str | None:
     if epoch is None:
         return None
-    return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat().replace(
-        "+00:00", "Z"
-    )
+    return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def encode_cursor(value: str) -> str:
@@ -110,12 +104,8 @@ def lifecycle_scope(value: object) -> SourceIndexLifecycleScope:
     )
 
 
-def operation_key(
-    namespace: str, tenant_id: str, idempotency_key: str
-) -> str:
-    digest = hashlib.sha256(
-        f"{namespace}\0{tenant_id}\0{idempotency_key}".encode("utf-8")
-    ).hexdigest()
+def operation_key(namespace: str, tenant_id: str, idempotency_key: str) -> str:
+    digest = hashlib.sha256(f"{namespace}\0{tenant_id}\0{idempotency_key}".encode("utf-8")).hexdigest()
     return f"{namespace}_{digest}"
 
 

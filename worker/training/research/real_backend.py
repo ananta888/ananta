@@ -272,9 +272,7 @@ class LocalResearchBackend:
         if rl_config.reward.provider == "exact_match_v1":
             provider = ExactMatchReward(case_sensitive=True)
         elif rl_config.reward.provider == "numeric_tolerance_v1":
-            provider = NumericToleranceReward(
-                tolerance=float(assignment.parameters.get("reward_tolerance", 0.0))
-            )
+            provider = NumericToleranceReward(tolerance=float(assignment.parameters.get("reward_tolerance", 0.0)))
         else:
             raise ValueError("research_reward_provider_unsupported")
         records = self._workspace.read_dataset(assignment.dataset_manifest)["train"]

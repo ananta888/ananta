@@ -179,15 +179,17 @@ from agent.services.context_compression import build_compression_adapter, Compre
 
 adapter = build_compression_adapter(config)
 
-result = adapter.compress(CompressionRequest(
-    content=rag_output,
-    content_type="rag_results",
-    task_intent="general",
-    budget_tokens=800,
-))
+result = adapter.compress(
+    CompressionRequest(
+        content=rag_output,
+        content_type="rag_results",
+        task_intent="general",
+        budget_tokens=800,
+    )
+)
 
 context_text = result.content  # may be original if passthrough
-ccr_ref = result.ccr_ref       # empty string if nothing stored
+ccr_ref = result.ccr_ref  # empty string if nothing stored
 ```
 
 To retrieve the original later:
@@ -196,10 +198,12 @@ To retrieve the original later:
 from agent.services.context_compression import CCRRetrievalTool, CCRRetrievalRequest
 
 retrieval_tool = CCRRetrievalTool(ccr_store=adapter.ccr_store)
-retrieval_result = retrieval_tool.retrieve(CCRRetrievalRequest(
-    ref=ccr_ref,
-    requester_id="worker-abc123",
-))
+retrieval_result = retrieval_tool.retrieve(
+    CCRRetrievalRequest(
+        ref=ccr_ref,
+        requester_id="worker-abc123",
+    )
+)
 if retrieval_result.found:
     full_content = retrieval_result.content
 ```
@@ -212,14 +216,11 @@ if retrieval_result.found:
 compression_config = {
     # Master switch — set to False to disable entirely
     "enabled": True,
-
     # Operating mode: "off" | "passthrough_with_metrics" | "compress" | "compress_aggressive"
     "mode": "passthrough_with_metrics",
-
     # Which adapter to use when mode requires compression
     # "passthrough" | "ananta_smart_compressor" | "external_headroom"
     "adapter": "ananta_smart_compressor",
-
     # Policy engine settings
     "policy": {
         "never_compress_types": [
@@ -229,12 +230,15 @@ compression_config = {
             "secret",
             "approval_prompt",
         ],
-        "protect_task_intents": [
-            "debug", "fix", "review", "security_audit", "test_failure"
-        ],
+        "protect_task_intents": ["debug", "fix", "review", "security_audit", "test_failure"],
         "compressible_types": [
-            "tool_output", "json", "log", "search_results",
-            "rag_results", "old_chat_summary", "codecompass_symbol_list",
+            "tool_output",
+            "json",
+            "log",
+            "search_results",
+            "rag_results",
+            "old_chat_summary",
+            "codecompass_symbol_list",
         ],
         # Minimum estimated tokens before compression is even considered
         "max_input_tokens_before_considering": 1200,
@@ -245,7 +249,6 @@ compression_config = {
         # QualityGuard minimum score (0.0–1.0)
         "min_quality_score": 0.7,
     },
-
     # CCR Store settings
     "ccr_store": {
         # Local filesystem path for the store (required when compression is active)
@@ -257,7 +260,6 @@ compression_config = {
         # Run SecretRedactor before storing originals
         "redact_secrets": True,
     },
-
     # A/B router for phased rollout experiments
     "ab_router": {
         "enabled": False,
@@ -268,16 +270,14 @@ compression_config = {
         # Seed for deterministic routing hash
         "seed": 42,
     },
-
     # External Headroom adapter — disabled by default
     "external_headroom": {
         "enabled": False,
-        "transport": "cli",         # "cli" | "http"
-        "command": ["headroom"],    # CLI transport: subprocess command
-        "base_url": "",             # HTTP transport: endpoint URL
+        "transport": "cli",  # "cli" | "http"
+        "command": ["headroom"],  # CLI transport: subprocess command
+        "base_url": "",  # HTTP transport: endpoint URL
         "timeout_seconds": 20.0,
     },
-
     # CompressionTracker settings
     "tracking": {
         "emit_to_log": True,

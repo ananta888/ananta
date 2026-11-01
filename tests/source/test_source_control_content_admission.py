@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from sqlmodel import Session, SQLModel, create_engine, select
 from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
 
 import agent.services.source_control_content_admission as content_admission
 from agent.db_models.source_control import (
@@ -17,7 +17,6 @@ from agent.services.source_control_content_admission import (
     SourceControlContentAdmissionService,
 )
 
-
 _TENANT = "tenant-content"
 _PROJECT = "project-content"
 _ACTOR = "content-owner"
@@ -32,9 +31,7 @@ def _service() -> tuple[object, SourceControlContentAdmissionService]:
     SQLModel.metadata.create_all(engine)
     service = SourceControlContentAdmissionService(
         engine=engine,
-        idempotency=SQLSourceControlOperationStore(
-            engine, clock=lambda: 1_800_000_000.0
-        ),
+        idempotency=SQLSourceControlOperationStore(engine, clock=lambda: 1_800_000_000.0),
         clock=lambda: 1_800_000_000.0,
     )
     return engine, service

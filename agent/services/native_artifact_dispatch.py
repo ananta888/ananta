@@ -28,9 +28,15 @@ class NativeArtifactDispatch:
 
 def native_dispatch_binding_digest(*, command, authority):
     """Content digest of the Hub-issued dispatch identity, not an evidence ID."""
-    return native_context_digest({
-        "schema": "ananta.native-dispatch-binding.v1", "command_digest": native_context_digest(command.to_dict()),
-        "assignment_id": authority.assignment_id, "assignment_revision": authority.assignment_revision,
-        "worker_id": authority.worker_id, "worker_url": authority.worker_url,
-        "attempt_id": command.attempt_id, "fencing_token": command.fencing_token,
-    })
+    return native_context_digest(
+        {
+            "schema": "ananta.native-dispatch-binding.v1",
+            "command_digest": native_context_digest(command.to_dict()),
+            "assignment_id": authority.assignment_id,
+            "assignment_revision": authority.assignment_revision,
+            "worker_id": authority.worker_id,
+            "worker_url": authority.worker_url,
+            "attempt_id": command.attempt_id,
+            "fencing_token": command.fencing_token,
+        }
+    )

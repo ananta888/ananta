@@ -3,13 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 HERMES_ALLOWED_CAPABILITIES: tuple[str, ...] = (
     "planning",
     "summarize",
     "research_limited",
-    "review",        # canonical public name (HF-T002)
-    "code_review",   # alias — kept for backwards compat (HF-T002)
+    "review",  # canonical public name (HF-T002)
+    "code_review",  # alias — kept for backwards compat (HF-T002)
     "patch_propose",
 )
 
@@ -37,6 +36,7 @@ def normalize_capability(capability: str) -> str:
     """Map legacy/alias capability names to their canonical form."""
     normalized = str(capability or "").strip().lower()
     return _CAPABILITY_ALIASES.get(normalized, normalized)
+
 
 HERMES_ALLOWED_TASK_KINDS: tuple[str, ...] = (
     "plan_only",

@@ -67,15 +67,19 @@ def _router_for_approval_required() -> DomainActionRouter:
 
 
 def _route_with_approval(approval: dict[str, Any] | None) -> dict[str, Any]:
-    return _router_for_approval_required().route(
-        domain_id="example",
-        capability_id="example.script.execute",
-        action_id="execute",
-        execution_mode="execute",
-        context_summary={"context_hash": "ctx-123"},
-        actor_metadata={"role": "operator"},
-        approval=approval,
-    ).as_dict()
+    return (
+        _router_for_approval_required()
+        .route(
+            domain_id="example",
+            capability_id="example.script.execute",
+            action_id="execute",
+            execution_mode="execute",
+            context_summary={"context_hash": "ctx-123"},
+            actor_metadata={"role": "operator"},
+            approval=approval,
+        )
+        .as_dict()
+    )
 
 
 def test_approval_binding_rejects_missing_malformed_or_wrong_action() -> None:

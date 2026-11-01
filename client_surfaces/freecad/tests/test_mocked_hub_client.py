@@ -22,7 +22,9 @@ def test_mocked_hub_client_health_capabilities_and_goal_submit() -> None:
 
 
 def test_denied_and_approval_required_states_do_not_enable_local_execution() -> None:
-    denied = describe_policy_response({"status": "policy_denied", "reason": "blocked_by_policy"}, capability_id="freecad.macro.execute")
+    denied = describe_policy_response(
+        {"status": "policy_denied", "reason": "blocked_by_policy"}, capability_id="freecad.macro.execute"
+    )
     pending = {"state": "pending", "approval_id": "APR-1"}
 
     assert denied["ui_state"] == "denied"

@@ -31,11 +31,7 @@ class DendriticSafetensorsPackIo:
         if not 1 <= len(state) <= 256:
             raise ValueError("dendritic_state_size_invalid")
         if any(
-            not isinstance(key, str)
-            or not key.startswith("memory.")
-            or ".." in key
-            or len(key) > 192
-            for key in state
+            not isinstance(key, str) or not key.startswith("memory.") or ".." in key or len(key) > 192 for key in state
         ):
             raise ValueError("dendritic_state_key_invalid")
 

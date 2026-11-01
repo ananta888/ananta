@@ -1,4 +1,5 @@
 """Debug API: GET /debug/llm-requests, GET /debug/llm-requests/{trace_id}, GET /goals/{id}/prompt-traces. PTI-015, PTI-016, PTI-017."""
+
 from __future__ import annotations
 
 import logging
@@ -61,6 +62,7 @@ def _trace_to_list_item(trace) -> dict:
 
 def _trace_to_detail(trace, *, include_raw: bool = False) -> dict:
     from agent.services.prompt_trace_access_policy import get_trace_access_policy
+
     policy = get_trace_access_policy()
 
     detail: dict = {

@@ -32,14 +32,34 @@ def test_action_budget_enforced():
 def test_download_policy_whitelist_and_bounded_dir(tmp_path):
     svc = BrowserPolicyService()
     c_white = _contract(download_policy="whitelist", download_allowlist=["example.com"])
-    assert svc.enforce_download_policy(download_url="https://example.com/file", output_path=str(tmp_path / "a.txt"), contract=c_white).allow is True
-    assert svc.enforce_download_policy(download_url="https://evil.com/file", output_path=str(tmp_path / "a.txt"), contract=c_white).allow is False
+    assert (
+        svc.enforce_download_policy(
+            download_url="https://example.com/file", output_path=str(tmp_path / "a.txt"), contract=c_white
+        ).allow
+        is True
+    )
+    assert (
+        svc.enforce_download_policy(
+            download_url="https://evil.com/file", output_path=str(tmp_path / "a.txt"), contract=c_white
+        ).allow
+        is False
+    )
 
     out_dir = tmp_path / "out"
     out_dir.mkdir()
     c_bound = _contract(download_policy="bounded_output_dir", output_dir=str(out_dir))
-    assert svc.enforce_download_policy(download_url="https://example.com/f", output_path=str(out_dir / "ok.txt"), contract=c_bound).allow is True
-    assert svc.enforce_download_policy(download_url="https://example.com/f", output_path=str(tmp_path / "outside.txt"), contract=c_bound).allow is False
+    assert (
+        svc.enforce_download_policy(
+            download_url="https://example.com/f", output_path=str(out_dir / "ok.txt"), contract=c_bound
+        ).allow
+        is True
+    )
+    assert (
+        svc.enforce_download_policy(
+            download_url="https://example.com/f", output_path=str(tmp_path / "outside.txt"), contract=c_bound
+        ).allow
+        is False
+    )
 
 
 def test_auth_policy_opt_in_required():

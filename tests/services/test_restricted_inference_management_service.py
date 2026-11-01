@@ -157,9 +157,7 @@ def test_management_transport_rejects_nonallowlisted_endpoint_and_weak_token() -
     with pytest.raises(RestrictedInferenceManagementError) as endpoint_error:
         RestrictedInferenceManagementService(
             inference_endpoint=INFERENCE_ENDPOINT,
-            allowed_endpoints=(
-                "http://other-worker:8091/internal/v1/restricted-inference",
-            ),
+            allowed_endpoints=("http://other-worker:8091/internal/v1/restricted-inference",),
             bearer_token=TEST_TOKEN,
         )
     assert endpoint_error.value.reason_code == "worker_not_allowlisted"
@@ -190,9 +188,7 @@ def test_management_transport_disables_proxies_and_installs_redirect_guard(monke
         bearer_token=TEST_TOKEN,
     )
 
-    proxy_handlers = [
-        handler for handler in handlers if isinstance(handler, urllib.request.ProxyHandler)
-    ]
+    proxy_handlers = [handler for handler in handlers if isinstance(handler, urllib.request.ProxyHandler)]
     assert len(proxy_handlers) == 1
     assert proxy_handlers[0].proxies == {}
     assert any(type(handler).__name__ == "_NoRedirectHandler" for handler in handlers)

@@ -22,14 +22,17 @@ class WorkflowExecutionAdapter:
             return {"status": "blocked", "error": "unknown_workflow"}
 
         policy = decide_workflow_policy(descriptor, approved=approved)
-        log_audit("workflow_policy_decision", {
-            "workflow_id": workflow_id,
-            "provider": descriptor.provider,
-            "decision": policy.get("decision"),
-            "task_id": payload.get("task_id"),
-            "goal_id": payload.get("goal_id"),
-            "trace_id": payload.get("trace_id"),
-        })
+        log_audit(
+            "workflow_policy_decision",
+            {
+                "workflow_id": workflow_id,
+                "provider": descriptor.provider,
+                "decision": policy.get("decision"),
+                "task_id": payload.get("task_id"),
+                "goal_id": payload.get("goal_id"),
+                "trace_id": payload.get("trace_id"),
+            },
+        )
         if policy.get("decision") != "allow":
             return {"status": "blocked", "policy": policy}
 
@@ -48,39 +51,53 @@ class WorkflowExecutionAdapter:
             "dry_run": bool(payload.get("dry_run", True)),
             "correlation_id": correlation_id,
         }
-        log_audit("workflow_execution_started", {
-            "workflow_id": workflow_id,
-            "provider": descriptor.provider,
-            "correlation_id": correlation_id,
-            "task_id": payload.get("task_id"),
-            "goal_id": payload.get("goal_id"),
-            "trace_id": payload.get("trace_id"),
-        })
+        log_audit(
+            "workflow_execution_started",
+            {
+                "workflow_id": workflow_id,
+                "provider": descriptor.provider,
+                "correlation_id": correlation_id,
+                "task_id": payload.get("task_id"),
+                "goal_id": payload.get("goal_id"),
+                "trace_id": payload.get("trace_id"),
+            },
+        )
 
         try:
             result = dict(provider.execute(request) or {})
         except Exception as exc:  # noqa: BLE001
             redacted = redact({"error": str(exc)})
-            log_audit("workflow_execution_failed", {
-                "workflow_id": workflow_id,
-                "provider": descriptor.provider,
-                "correlation_id": correlation_id,
+            log_audit(
+                "workflow_execution_failed",
+                {
+                    "workflow_id": workflow_id,
+                    "provider": descriptor.provider,
+                    "correlation_id": correlation_id,
+                    "details": redacted,
+                },
+            )
+            return {
+                "status": "degraded",
+                "error": "execution_exception",
                 "details": redacted,
-            })
-            return {"status": "degraded", "error": "execution_exception", "details": redacted, "correlation_id": correlation_id}
+                "correlation_id": correlation_id,
+            }
 
         result.setdefault("correlation_id", correlation_id)
         result["provider"] = descriptor.provider
         result["workflow_id"] = workflow_id
         result["input_payload"] = redact(request.get("input_payload") or {})
 
-        log_audit("workflow_execution_finished", {
-            "workflow_id": workflow_id,
-            "provider": descriptor.provider,
-            "correlation_id": correlation_id,
-            "status": result.get("status"),
-            "task_id": payload.get("task_id"),
-            "goal_id": payload.get("goal_id"),
-            "trace_id": payload.get("trace_id"),
-        })
+        log_audit(
+            "workflow_execution_finished",
+            {
+                "workflow_id": workflow_id,
+                "provider": descriptor.provider,
+                "correlation_id": correlation_id,
+                "status": result.get("status"),
+                "task_id": payload.get("task_id"),
+                "goal_id": payload.get("goal_id"),
+                "trace_id": payload.get("trace_id"),
+            },
+        )
         return result

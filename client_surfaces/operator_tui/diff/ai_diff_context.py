@@ -24,7 +24,9 @@ def build_ai_diff_context_envelope(
     resolve = resolver or DiffSourceResolver(goal_artifact_service=service)
     extensions = dict(diff3_state.get("extensions") or {})
     ai_state = dict(extensions.get("ai_panel_state") or {})
-    selected_panels = [str(item) for item in list(ai_state.get("selected_panels") or ["A", "B"]) if str(item) in {"A", "B", "C"}]
+    selected_panels = [
+        str(item) for item in list(ai_state.get("selected_panels") or ["A", "B"]) if str(item) in {"A", "B", "C"}
+    ]
     selected_hunks = [str(item) for item in list(ai_state.get("selected_hunks") or []) if str(item).strip()]
     rows = [dict(item) for item in list(diff3_state.get("panels") or [])]
     by_panel = {str(item.get("panel_id") or ""): item for item in rows}
@@ -98,4 +100,3 @@ def build_ai_diff_context_envelope(
         "context_budget_chars": max_context_chars,
         "created_at": _now_iso(),
     }
-

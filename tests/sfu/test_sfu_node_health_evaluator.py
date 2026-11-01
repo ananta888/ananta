@@ -50,24 +50,18 @@ def probe(**changes):
 
 def test_success_threshold_stale_partial_and_self_report_are_fail_closed():
     clock = Clock()
-    evaluator = SfuNodeHealthEvaluator(
-        SfuNodeHealthPolicy(success_threshold=2, failure_threshold=2), clock=clock
-    )
+    evaluator = SfuNodeHealthEvaluator(SfuNodeHealthPolicy(success_threshold=2, failure_threshold=2), clock=clock)
     first = evaluator.evaluate(observation(), probe())
     assert first.overall is SfuNodeHealthStatus.UNKNOWN
     ready = evaluator.evaluate(observation(), probe(), first.history)
     assert ready.overall is SfuNodeHealthStatus.HEALTHY
     assert ready.admission_allowed is True
 
-    partial = evaluator.evaluate(
-        observation(media_ready=None), probe(), ready.history
-    )
+    partial = evaluator.evaluate(observation(media_ready=None), probe(), ready.history)
     assert partial.overall is SfuNodeHealthStatus.UNKNOWN
     assert partial.media_readiness.reason_code == "sfu_health_media_signal_missing"
 
-    contradicted = evaluator.evaluate(
-        observation(control_ready=False), probe(), ready.history
-    )
+    contradicted = evaluator.evaluate(observation(control_ready=False), probe(), ready.history)
     assert contradicted.admission_allowed is False
     assert "sfu_health_self_report_contradicted" in contradicted.reason_codes
 
@@ -89,16 +83,12 @@ def test_network_partition_flapping_restart_and_recovery_use_fake_clock():
     healthy = evaluator.evaluate(observation(), probe())
     assert healthy.admission_allowed
 
-    first_failure = evaluator.evaluate(
-        observation(), probe(completed_at=101.0), healthy.history
-    )
+    first_failure = evaluator.evaluate(observation(), probe(completed_at=101.0), healthy.history)
     assert first_failure.admission_allowed is False
     assert first_failure.overall is SfuNodeHealthStatus.UNHEALTHY
     assert first_failure.history.flap_cooldown_until == 110.0
 
-    recovered_during_cooldown = evaluator.evaluate(
-        observation(), probe(), first_failure.history
-    )
+    recovered_during_cooldown = evaluator.evaluate(observation(), probe(), first_failure.history)
     assert recovered_during_cooldown.overall is SfuNodeHealthStatus.DEGRADED
     clock.now = 111.0
     recovered = evaluator.evaluate(
@@ -117,9 +107,7 @@ def test_network_partition_flapping_restart_and_recovery_use_fake_clock():
 
 
 def test_drain_revoke_incompatibility_and_unknown_never_admit():
-    evaluator = SfuNodeHealthEvaluator(
-        SfuNodeHealthPolicy(success_threshold=1), clock=lambda: 100.0
-    )
+    evaluator = SfuNodeHealthEvaluator(SfuNodeHealthPolicy(success_threshold=1), clock=lambda: 100.0)
     for candidate in (
         observation(drain_state="draining"),
         observation(revoked=True),

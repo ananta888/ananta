@@ -87,12 +87,16 @@ class SemanticAdapterRegistry:
         limits: ParserLimits | None = None,
         telemetry: FileTypeTelemetryPort | None = None,
     ) -> None:
-        configured = tuple(adapters) if adapters is not None else (
-            PythonSemanticAdapter(),
-            JavaSemanticAdapter(),
-            TypeScriptSemanticAdapter(),
-            *default_symbol_adapters(),
-            *default_static_symbol_adapters(),
+        configured = (
+            tuple(adapters)
+            if adapters is not None
+            else (
+                PythonSemanticAdapter(),
+                JavaSemanticAdapter(),
+                TypeScriptSemanticAdapter(),
+                *default_symbol_adapters(),
+                *default_static_symbol_adapters(),
+            )
         )
         self._adapters = tuple(sorted(configured, key=lambda item: item.language))
         self._limits = limits or ParserLimits.from_environment()
@@ -109,9 +113,7 @@ class SemanticAdapterRegistry:
                 normalized = _normalize_extension(extension)
                 if normalized in self._by_extension:
                     other = self._by_extension[normalized]
-                    raise ValueError(
-                        f"duplicate_semantic_adapter_extension:{normalized}:{other.language}:{language}"
-                    )
+                    raise ValueError(f"duplicate_semantic_adapter_extension:{normalized}:{other.language}:{language}")
                 self._by_extension[normalized] = adapter
             self._by_language[language] = adapter
 
@@ -426,9 +428,7 @@ class SemanticAdapterRegistry:
             # declaration twice against limits and telemetry.
             return len(symbols) + import_count
         return import_count + sum(
-            len(value)
-            for key in ("types", "functions")
-            if isinstance((value := result.get(key)), list)
+            len(value) for key in ("types", "functions") if isinstance((value := result.get(key)), list)
         )
 
     @staticmethod

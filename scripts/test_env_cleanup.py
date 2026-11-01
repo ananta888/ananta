@@ -50,7 +50,9 @@ def _env_value(name: str, default: str = "") -> str:
     return str(os.getenv(name) or _DOTENV.get(name) or default).strip()
 
 
-def req(base: str, method: str, path: str, body: Any | None = None, token: str | None = None, timeout: int = 60) -> dict:
+def req(
+    base: str, method: str, path: str, body: Any | None = None, token: str | None = None, timeout: int = 60
+) -> dict:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -120,7 +122,9 @@ def _restart_agent_containers(
     while pending and time.monotonic() < deadline:
         for container_name in list(pending):
             running = _docker_inspect_value(container_name, "{{.State.Running}}")
-            health = _docker_inspect_value(container_name, "{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}")
+            health = _docker_inspect_value(
+                container_name, "{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}"
+            )
             summary["health"][container_name] = {"running": running, "health": health}
             if running == "true" and health in {"healthy", "running"}:
                 pending.discard(container_name)
@@ -523,8 +527,12 @@ def cleanup_test_environment(
             report_targets[key].extend(values)
     explicit = explicit_targets or {}
     targets = {
-        "template_names": _unique_strings(report_targets["template_names"] + list(explicit.get("template_names") or [])),
-        "blueprint_names": _unique_strings(report_targets["blueprint_names"] + list(explicit.get("blueprint_names") or [])),
+        "template_names": _unique_strings(
+            report_targets["template_names"] + list(explicit.get("template_names") or [])
+        ),
+        "blueprint_names": _unique_strings(
+            report_targets["blueprint_names"] + list(explicit.get("blueprint_names") or [])
+        ),
         "team_names": _unique_strings(report_targets["team_names"] + list(explicit.get("team_names") or [])),
         "goal_ids": _unique_strings(report_targets["goal_ids"] + list(explicit.get("goal_ids") or [])),
         "team_ids": _unique_strings(report_targets["team_ids"] + list(explicit.get("team_ids") or [])),
@@ -539,7 +547,9 @@ def cleanup_test_environment(
     )
 
     user = str(admin_user or _env_value("E2E_ADMIN_USER") or _env_value("INITIAL_ADMIN_USER") or "").strip()
-    password = str(admin_password or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or "").strip()
+    password = str(
+        admin_password or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or ""
+    ).strip()
     if not user or not password:
         user, password = get_admin_from_hub_container(hub_container)
     token = login_token(hub_base_url, user, password)
@@ -557,7 +567,9 @@ def cleanup_test_environment(
     }
 
     try:
-        summary["autopilot"]["stop_before"] = req(hub_base_url, "POST", "/tasks/autopilot/stop", body={}, token=token, timeout=30)
+        summary["autopilot"]["stop_before"] = req(
+            hub_base_url, "POST", "/tasks/autopilot/stop", body={}, token=token, timeout=30
+        )
     except Exception as exc:
         summary["autopilot"]["stop_before_error"] = str(exc)
     try:
@@ -646,9 +658,7 @@ def cleanup_test_environment(
                 continue
             for key in aggregate_goal_cleanup:
                 aggregate_goal_cleanup[key].extend(list(cleaned.get(key) or []))
-        summary["goal_cleanup"] = {
-            key: _unique_strings(values) for key, values in aggregate_goal_cleanup.items()
-        }
+        summary["goal_cleanup"] = {key: _unique_strings(values) for key, values in aggregate_goal_cleanup.items()}
 
     for team in matched_teams:
         team_id = str(team.get("id") or "")
@@ -679,7 +689,9 @@ def cleanup_test_environment(
             summary.setdefault("delete_errors", []).append({"kind": "template", "id": template_id, "error": str(exc)})
 
     try:
-        summary["autopilot"]["stop_after"] = req(hub_base_url, "POST", "/tasks/autopilot/stop", body={}, token=token, timeout=30)
+        summary["autopilot"]["stop_after"] = req(
+            hub_base_url, "POST", "/tasks/autopilot/stop", body={}, token=token, timeout=30
+        )
     except Exception as exc:
         summary["autopilot"]["stop_after_error"] = str(exc)
 
@@ -696,12 +708,16 @@ def cleanup_test_environment(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Cleanup test-created UI/live-click resources without touching Ollama volumes.")
+    parser = argparse.ArgumentParser(
+        description="Cleanup test-created UI/live-click resources without touching Ollama volumes."
+    )
     parser.add_argument("--hub-base-url", default=DEFAULT_HUB_BASE_URL)
     parser.add_argument("--hub-container", default=DEFAULT_HUB_CONTAINER)
     parser.add_argument("--agent-container", action="append", default=[])
     parser.add_argument("--admin-user", default=_env_value("E2E_ADMIN_USER", _env_value("INITIAL_ADMIN_USER", "admin")))
-    parser.add_argument("--admin-password", default=_env_value("E2E_ADMIN_PASSWORD", _env_value("INITIAL_ADMIN_PASSWORD", "")))
+    parser.add_argument(
+        "--admin-password", default=_env_value("E2E_ADMIN_PASSWORD", _env_value("INITIAL_ADMIN_PASSWORD", ""))
+    )
     parser.add_argument("--report-file", action="append", default=[])
     parser.add_argument("--cleanup-live-prefixes", action="store_true")
     args = parser.parse_args()

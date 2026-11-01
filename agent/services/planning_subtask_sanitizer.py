@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-from agent.services.verification_policy_service import default_verification_spec
 from agent.services.worker_routing_policy_utils import (
     derive_required_capabilities,
     extract_blueprint_role_defaults,
@@ -59,8 +58,7 @@ def sanitize_blueprint_provenance(subtask: dict[str, Any]) -> dict[str, str]:
     role_hints = list(subtask.get("blueprint_role_template_hints") or [])
     primary_hint = role_hints[0] if role_hints and isinstance(role_hints[0], dict) else {}
     blueprint_role_name = (
-        str(subtask.get("blueprint_role_name") or "").strip()
-        or str(primary_hint.get("role_name") or "").strip()
+        str(subtask.get("blueprint_role_name") or "").strip() or str(primary_hint.get("role_name") or "").strip()
     )
     template_name = (
         str(subtask.get("template_name") or "").strip()
@@ -115,7 +113,9 @@ def sanitize_llm_subtask_policy_hints(subtask: dict[str, Any]) -> tuple[dict[str
     warnings: list[str] = []
     task_kind = str(out.get("task_kind") or "").strip().lower() or infer_subtask_task_kind(out)
     allowed_caps = _ALLOWED_CAPS_BY_KIND.get(task_kind, {"analysis", "doc"})
-    requested_caps = [str(item).strip().lower() for item in list(out.get("required_capabilities") or []) if str(item).strip()]
+    requested_caps = [
+        str(item).strip().lower() for item in list(out.get("required_capabilities") or []) if str(item).strip()
+    ]
     filtered_caps = [cap for cap in requested_caps if cap in allowed_caps]
     if requested_caps and len(filtered_caps) != len(requested_caps):
         warnings.append("capability_escalation_blocked")
@@ -157,11 +157,7 @@ def merge_verification_defaults(
         if gate and gate not in gates:
             gates.append(gate)
     if gates:
-        existing_gates = [
-            str(item).strip()
-            for item in list(merged.get("required_gates") or [])
-            if str(item).strip()
-        ]
+        existing_gates = [str(item).strip() for item in list(merged.get("required_gates") or []) if str(item).strip()]
         for gate in gates:
             if gate not in existing_gates:
                 existing_gates.append(gate)

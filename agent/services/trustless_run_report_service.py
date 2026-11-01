@@ -3,11 +3,12 @@
 Menschenlesbarer Bericht ohne blindes Modell-Vertrauen.
 Unterscheidet Modellbehauptungen ("model claims:") und belegte Evidence ("verified:").
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 _FINAL_RESULT_VALUES = frozenset(("completed", "failed", "cancelled", "blocked"))
@@ -20,16 +21,16 @@ class TrustlessRunReport:
     goal: str
     created_at: float
     selected_expert_or_worker: str
-    policy_snapshot_ref: str | None        # snapshot_id
-    context_sources: list[str]             # short descriptions
-    tool_calls_summary: list[str]          # "tool_name: status" per call
-    blocked_actions: list[str]             # what was blocked and why
-    artifacts_produced: list[str]          # artifact_id list
+    policy_snapshot_ref: str | None  # snapshot_id
+    context_sources: list[str]  # short descriptions
+    tool_calls_summary: list[str]  # "tool_name: status" per call
+    blocked_actions: list[str]  # what was blocked and why
+    artifacts_produced: list[str]  # artifact_id list
     approval_gates_triggered: list[str]
     test_results_summary: str | None
-    final_result: str                      # "completed" | "failed" | "cancelled" | "blocked"
+    final_result: str  # "completed" | "failed" | "cancelled" | "blocked"
     open_risks: list[str]
-    evidence_refs: list[str]               # external artifact refs for verification
+    evidence_refs: list[str]  # external artifact refs for verification
 
     def as_dict(self) -> dict[str, Any]:
         return {

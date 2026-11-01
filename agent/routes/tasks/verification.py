@@ -30,9 +30,7 @@ def task_verification(tid: str):
             "task_id": tid,
             "verification_spec": records or {},
             "verification_status": (
-                get_task_read_projection_service().verification_detail(
-                    task.get("verification_status")
-                )
+                get_task_read_projection_service().verification_detail(task.get("verification_status"))
             ),
         }
     )

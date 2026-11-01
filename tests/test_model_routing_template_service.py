@@ -42,7 +42,10 @@ def test_templates_are_secret_free_drafts_at_the_current_revision():
     catalog = service.catalog(configuration_revision=7)
 
     assert [item.template_id for item in catalog.templates] == [
-        "local-only", "local-first-cloud-fallback", "cloud-only", "cli-first",
+        "local-only",
+        "local-first-cloud-fallback",
+        "cloud-only",
+        "cli-first",
     ]
     assert all(item.configuration.revision == 7 for item in catalog.templates)
     serialized = catalog.model_dump_json(by_alias=True)
@@ -52,18 +55,14 @@ def test_templates_are_secret_free_drafts_at_the_current_revision():
 
 def test_local_only_never_references_cloud_and_local_first_orders_cloud_last():
     service = ModelRoutingTemplateService(
-        consumers=ModelConsumerRegistry((
-            ModelConsumerRegistry.defaults().require("task.coding"),
-        )),
+        consumers=ModelConsumerRegistry((ModelConsumerRegistry.defaults().require("task.coding"),)),
         profiles=(
             _profile("local-code", role="coder"),
             _profile("local-code-secondary", role="coder"),
             _profile("cloud-code", role="coder", cloud=True, provider="openrouter"),
         ),
     )
-    templates = {
-        item.template_id: item for item in service.catalog(configuration_revision=2).templates
-    }
+    templates = {item.template_id: item for item in service.catalog(configuration_revision=2).templates}
 
     local_ids = {
         candidate.profile_id
@@ -79,9 +78,7 @@ def test_local_only_never_references_cloud_and_local_first_orders_cloud_last():
 
 def test_unavailable_template_is_explicit_instead_of_inventing_cli_profiles():
     service = ModelRoutingTemplateService(
-        consumers=ModelConsumerRegistry((
-            ModelConsumerRegistry.defaults().require("task.coding"),
-        )),
+        consumers=ModelConsumerRegistry((ModelConsumerRegistry.defaults().require("task.coding"),)),
         profiles=(_profile("local-code", role="coder"),),
     )
 
@@ -102,9 +99,7 @@ def test_templates_ignore_consumers_owned_by_specialized_runtime_domains():
     )
 
     template = service.catalog(configuration_revision=0).templates[0]
-    assigned_consumers = {
-        assignment.consumer_id for assignment in template.configuration.assignments
-    }
+    assigned_consumers = {assignment.consumer_id for assignment in template.configuration.assignments}
     issue_references = {issue.reference for issue in template.issues}
 
     assert "knowledge.embedding" not in assigned_consumers

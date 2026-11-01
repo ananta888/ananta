@@ -3,30 +3,23 @@
 Each agent role has an allowed action set. Actions outside it are blocked
 before reaching the PolicyEngine.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
-
+from dataclasses import dataclass
 
 _DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
-    "citizen":  frozenset({"move", "eat", "rest", "give", "harvest",
-                            "communicate", "vote", "noop", "work", "trade"}),
-    "hunter":   frozenset({"move", "eat", "rest", "attack", "harvest",
-                            "communicate", "vote", "noop", "work", "explore"}),
-    "farmer":   frozenset({"move", "eat", "rest", "harvest", "give",
-                            "communicate", "vote", "noop", "work", "trade"}),
-    "merchant": frozenset({"move", "eat", "rest", "trade", "give", "take",
-                            "communicate", "vote", "noop", "work"}),
-    "medic":    frozenset({"move", "eat", "rest", "heal", "give",
-                            "communicate", "vote", "noop", "work"}),
-    "builder":  frozenset({"move", "eat", "rest", "build", "harvest", "give",
-                            "communicate", "vote", "noop", "work"}),
-    "explorer": frozenset({"move", "eat", "rest", "explore", "harvest",
-                            "communicate", "vote", "noop", "attack"}),
-    "ruler":    frozenset({"move", "eat", "rest", "attack", "give", "take",
-                            "communicate", "vote", "propose_law", "noop", "work"}),
-    "_any":     frozenset({"noop", "rest", "communicate", "vote"}),
+    "citizen": frozenset({"move", "eat", "rest", "give", "harvest", "communicate", "vote", "noop", "work", "trade"}),
+    "hunter": frozenset({"move", "eat", "rest", "attack", "harvest", "communicate", "vote", "noop", "work", "explore"}),
+    "farmer": frozenset({"move", "eat", "rest", "harvest", "give", "communicate", "vote", "noop", "work", "trade"}),
+    "merchant": frozenset({"move", "eat", "rest", "trade", "give", "take", "communicate", "vote", "noop", "work"}),
+    "medic": frozenset({"move", "eat", "rest", "heal", "give", "communicate", "vote", "noop", "work"}),
+    "builder": frozenset({"move", "eat", "rest", "build", "harvest", "give", "communicate", "vote", "noop", "work"}),
+    "explorer": frozenset({"move", "eat", "rest", "explore", "harvest", "communicate", "vote", "noop", "attack"}),
+    "ruler": frozenset(
+        {"move", "eat", "rest", "attack", "give", "take", "communicate", "vote", "propose_law", "noop", "work"}
+    ),
+    "_any": frozenset({"noop", "rest", "communicate", "vote"}),
 }
 
 

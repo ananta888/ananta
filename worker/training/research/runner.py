@@ -41,22 +41,24 @@ class ResearchStageRunner:
         attempt = require_id(attempt_id, "attempt_id")
         output = self._backend.execute(run_spec=spec.to_dict(), stage=parsed_stage.to_dict(), attempt_id=attempt)
         content_digest = hashlib.sha256(output.content).hexdigest()
-        manifest = ResearchArtifactManifestV1.from_mapping({
-            "schema": "ananta.research-training-artifact.v1",
-            "tenant_id": spec.tenant_id,
-            "run_id": require_id(run_id, "run_id"),
-            "stage_id": parsed_stage.stage_id,
-            "attempt_id": attempt,
-            "artifact_kind": output.artifact_kind,
-            "artifact_digest": content_digest,
-            "size_bytes": len(output.content),
-            "parent_artifact_digests": list(parent_artifact_digests),
-            "recipe_digest": spec.recipe.digest,
-            "dataset_digest": spec.dataset_manifest_digest,
-            "executable": output.executable,
-            "source_refs": list(source_refs),
-            "run_refs": list(run_refs),
-        })
+        manifest = ResearchArtifactManifestV1.from_mapping(
+            {
+                "schema": "ananta.research-training-artifact.v1",
+                "tenant_id": spec.tenant_id,
+                "run_id": require_id(run_id, "run_id"),
+                "stage_id": parsed_stage.stage_id,
+                "attempt_id": attempt,
+                "artifact_kind": output.artifact_kind,
+                "artifact_digest": content_digest,
+                "size_bytes": len(output.content),
+                "parent_artifact_digests": list(parent_artifact_digests),
+                "recipe_digest": spec.recipe.digest,
+                "dataset_digest": spec.dataset_manifest_digest,
+                "executable": output.executable,
+                "source_refs": list(source_refs),
+                "run_refs": list(run_refs),
+            }
+        )
         return {
             "schema": "ananta.research-training-worker-result.v1",
             "stage_id": parsed_stage.stage_id,

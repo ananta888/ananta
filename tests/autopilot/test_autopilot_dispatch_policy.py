@@ -13,36 +13,53 @@ from tests.knowledge.knowledge_index_execution_test_support import (
 def test_native_routing_requires_strict_registered_adapter_and_keeps_the_chosen_recipient():
     from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
 
-    task = SimpleNamespace(assigned_agent_url=None, task_kind="tool_task",
-                           worker_execution_context={"runtime_path": "native_graph_node"})
-    eligible = SimpleNamespace(name="native", url="http://native:8080", role="worker",
-                               registration_validated=True,
-                               registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
-                               capabilities=["workflow.adapter.native"],
-                               authorized_capabilities=["workflow.adapter.native"])
-    hub = SimpleNamespace(url="http://hub", role="hub", authorized_capabilities=["workflow.adapter.native"],
-                          registration_validated=True, registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE)
-    unregistered = SimpleNamespace(url="http://unregistered", role="worker",
-                                   capabilities=["workflow.adapter.native"], registration_validated=False)
+    task = SimpleNamespace(
+        assigned_agent_url=None, task_kind="tool_task", worker_execution_context={"runtime_path": "native_graph_node"}
+    )
+    eligible = SimpleNamespace(
+        name="native",
+        url="http://native:8080",
+        role="worker",
+        registration_validated=True,
+        registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
+        capabilities=["workflow.adapter.native"],
+        authorized_capabilities=["workflow.adapter.native"],
+    )
+    hub = SimpleNamespace(
+        url="http://hub",
+        role="hub",
+        authorized_capabilities=["workflow.adapter.native"],
+        registration_validated=True,
+        registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
+    )
+    unregistered = SimpleNamespace(
+        url="http://unregistered", role="worker", capabilities=["workflow.adapter.native"], registration_validated=False
+    )
     target, cursor, assigned, reason = resolve_target_worker_for_task(
-        task=task, workers=[hub, unregistered, eligible], worker_cursor=0)
+        task=task, workers=[hub, unregistered, eligible], worker_cursor=0
+    )
     assert target is eligible and cursor == 1 and assigned and reason is None
     task.assigned_agent_url = hub.url
     target, cursor, assigned, reason = resolve_target_worker_for_task(
-        task=task, workers=[hub, eligible], worker_cursor=1)
+        task=task, workers=[hub, eligible], worker_cursor=1
+    )
     assert target is None and cursor == 1 and not assigned
     assert reason == "native_assigned_worker_unavailable"
 
 
 def test_native_routing_never_uses_advertisement_as_registered_authority():
     task = SimpleNamespace(assigned_agent_url=None, worker_execution_context={"runtime_path": "native_graph_node"})
-    worker = SimpleNamespace(role="worker", url="http://ordinary", capabilities=["workflow.adapter.native"],
-                             authorized_capabilities=[], registration_validated=True,
-                             registration_provenance="strict_registration_keyring_v1")
+    worker = SimpleNamespace(
+        role="worker",
+        url="http://ordinary",
+        capabilities=["workflow.adapter.native"],
+        authorized_capabilities=[],
+        registration_validated=True,
+        registration_provenance="strict_registration_keyring_v1",
+    )
     target, cursor, assigned, reason = resolve_target_worker_for_task(task=task, workers=[worker], worker_cursor=0)
     assert target is None and cursor == 0 and not assigned
     assert reason == "native_worker_unavailable"
-
 
 
 def test_effective_concurrency_fail_closed_when_missing_cap():
@@ -54,53 +71,66 @@ def test_effective_concurrency_requested_above_cap_is_capped():
 
 
 def test_effective_concurrency_worker_limited():
-    assert resolve_effective_concurrency(
-        requested_max_concurrency=8,
-        security_policy={"max_concurrency_cap": 6},
-        online_worker_capacity=2,
-        runtime_capacity=6,
-        ollama_capacity=6,
-    ) == 2
+    assert (
+        resolve_effective_concurrency(
+            requested_max_concurrency=8,
+            security_policy={"max_concurrency_cap": 6},
+            online_worker_capacity=2,
+            runtime_capacity=6,
+            ollama_capacity=6,
+        )
+        == 2
+    )
 
 
 def test_effective_concurrency_ollama_limited():
-    assert resolve_effective_concurrency(
-        requested_max_concurrency=8,
-        security_policy={"max_concurrency_cap": 6},
-        online_worker_capacity=6,
-        runtime_capacity=6,
-        ollama_capacity=2,
-    ) == 2
+    assert (
+        resolve_effective_concurrency(
+            requested_max_concurrency=8,
+            security_policy={"max_concurrency_cap": 6},
+            online_worker_capacity=6,
+            runtime_capacity=6,
+            ollama_capacity=2,
+        )
+        == 2
+    )
 
 
 def test_effective_concurrency_invalid_inputs_fail_closed():
-    assert resolve_effective_concurrency(
-        requested_max_concurrency="invalid",  # type: ignore[arg-type]
-        security_policy={"max_concurrency_cap": "invalid"},
-        online_worker_capacity=0,
-        runtime_capacity=-1,
-        ollama_capacity=None,
-    ) == 1
+    assert (
+        resolve_effective_concurrency(
+            requested_max_concurrency="invalid",  # type: ignore[arg-type]
+            security_policy={"max_concurrency_cap": "invalid"},
+            online_worker_capacity=0,
+            runtime_capacity=-1,
+            ollama_capacity=None,
+        )
+        == 1
+    )
 
 
 def test_dispatch_timeout_uses_bound_knowledge_index_runtime_budget():
     task = SimpleNamespace(**build_execution_task(max_runtime_seconds=900))
 
-    assert resolve_dispatch_hard_timeout(
-        tasks=[task],
-        security_policy={"propose_timeout": 120, "execute_timeout": 45},
-    ) == 1080
+    assert (
+        resolve_dispatch_hard_timeout(
+            tasks=[task],
+            security_policy={"propose_timeout": 120, "execute_timeout": 45},
+        )
+        == 1080
+    )
 
 
 def test_dispatch_timeout_does_not_truncate_long_bound_v2_budget():
-    task = SimpleNamespace(
-        **build_execution_task(max_runtime_seconds=7_200)
-    )
+    task = SimpleNamespace(**build_execution_task(max_runtime_seconds=7_200))
 
-    assert resolve_dispatch_hard_timeout(
-        tasks=[task],
-        security_policy={"propose_timeout": 120, "execute_timeout": 45},
-    ) == 7_380
+    assert (
+        resolve_dispatch_hard_timeout(
+            tasks=[task],
+            security_policy={"propose_timeout": 120, "execute_timeout": 45},
+        )
+        == 7_380
+    )
 
 
 def test_dispatch_timeout_ignores_untrusted_job_shapes():
@@ -114,10 +144,13 @@ def test_dispatch_timeout_ignores_untrusted_job_shapes():
         },
     )
 
-    assert resolve_dispatch_hard_timeout(
-        tasks=[task],
-        security_policy={"propose_timeout": 120, "execute_timeout": 45},
-    ) == 195
+    assert (
+        resolve_dispatch_hard_timeout(
+            tasks=[task],
+            security_policy={"propose_timeout": 120, "execute_timeout": 45},
+        )
+        == 195
+    )
 
 
 def test_resolve_target_worker_filters_hub_self_when_disabled():
@@ -236,13 +269,19 @@ def test_bound_knowledge_index_fails_closed_when_destination_worker_is_absent():
 def test_layer_builds_go_only_to_workers_with_the_handler():
     hub = SimpleNamespace(url="http://localhost:5000", capabilities=["coding"])
     plain = SimpleNamespace(url="http://ai-agent-beta:5000", capabilities=["coding", "retrieval"])
-    layered = SimpleNamespace(url="http://ai-agent-alpha:5000",
-                              capabilities=["retrieval", "index_write", "codecompass_layer_build"])
-    task = SimpleNamespace(task_kind="codecompass_layer_build", assigned_agent_url=None,
-                           _hub_can_be_worker=True, _local_worker_url="http://localhost:5000")
+    layered = SimpleNamespace(
+        url="http://ai-agent-alpha:5000", capabilities=["retrieval", "index_write", "codecompass_layer_build"]
+    )
+    task = SimpleNamespace(
+        task_kind="codecompass_layer_build",
+        assigned_agent_url=None,
+        _hub_can_be_worker=True,
+        _local_worker_url="http://localhost:5000",
+    )
     for cursor in range(4):
         target, _cursor, assigned, reason = resolve_target_worker_for_task(
-            task=task, workers=[hub, plain, layered], worker_cursor=cursor)
+            task=task, workers=[hub, plain, layered], worker_cursor=cursor
+        )
         assert target is layered and assigned is True and reason is None
     missing = resolve_target_worker_for_task(task=task, workers=[hub, plain], worker_cursor=0)
     assert missing[0] is None and missing[3] == "required_capability_unavailable"
@@ -263,6 +302,10 @@ def test_supervisor_waits_at_least_the_model_propose_timeout():
     assert resolve_dispatch_hard_timeout(tasks=[], security_policy=policy) == 300 + 45 + 30
     assert resolve_security_policy(agent_config={}, security_level="safe")["propose_timeout"] == 120
     explicit = resolve_security_policy(
-        agent_config={"task_propose_timeout_seconds": 300,
-                      "autopilot_security_policies": {"safe": {"propose_timeout": 90}}}, security_level="safe")
+        agent_config={
+            "task_propose_timeout_seconds": 300,
+            "autopilot_security_policies": {"safe": {"propose_timeout": 90}},
+        },
+        security_level="safe",
+    )
     assert explicit["propose_timeout"] == 90  # an explicit policy value still wins

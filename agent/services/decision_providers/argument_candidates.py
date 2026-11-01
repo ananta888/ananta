@@ -33,12 +33,14 @@ _QUOTED = re.compile(r"[\"'`„“]([^\"'`„“]{2,80})[\"'`“”]")
 _HANDLE = re.compile(r"\b[a-z]{2,6}:[A-Za-z0-9_.:/-]{3,}")
 _WORD = re.compile(r"[A-Za-zÄÖÜäöüß0-9_]{3,}")
 _CAMEL = re.compile(r"[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])")
-_STOP = frozenset("""
+_STOP = frozenset(
+    """
 the and for with what where which when how does this that from into über und oder der die das den dem des ein
 eine einer einem wie wird werden wo was ist sind im in an auf mit von zu zum zur bitte mal zeig zeige gib erklär
 erkläre show tell find explain please code datei file function funktion klasse class definiert defined gibt
 kannst can could would should ich du mir mich uns es sie er wir ihr alle alles welche welcher welches
-""".split())
+""".split()
+)
 
 
 @dataclass(frozen=True)
@@ -71,8 +73,9 @@ class PromptSpanCandidates:
         found: list[str] = []
         found += [m.group(1).strip() for m in _QUOTED.finditer(prompt)]
         found += _HANDLE.findall(prompt) + _PATH.findall(prompt)
-        found += [t for t in _IDENT.findall(prompt)
-                  if ("_" in t or "." in t or re.search(r"[a-z][A-Z]", t)) and len(t) >= 3]
+        found += [
+            t for t in _IDENT.findall(prompt) if ("_" in t or "." in t or re.search(r"[a-z][A-Z]", t)) and len(t) >= 3
+        ]
         words = _words(prompt)
         found += words
         found += [f"{a} {b}" for a, b in zip(words, words[1:])]
@@ -126,6 +129,7 @@ class SymbolIndexCandidates:
             for index in indices:
                 if hits.get(index, 0.0) < score:
                     hits[index] = score
+
         add(self._exact.get(word, ()), 3.0)
         add(self._parts.get(word, ()), 2.0)
         if len(word) >= 4:
@@ -154,8 +158,10 @@ class SymbolIndexCandidates:
         for word in dict.fromkeys(words):
             for index, score in self._word_hits(word).items():
                 per_name.setdefault(index, []).append(score)
-        scored = sorted(((sum(sorted(v, reverse=True)[:3]), -len(self._names[i]), self._names[i])
-                         for i, v in per_name.items()), reverse=True)
+        scored = sorted(
+            ((sum(sorted(v, reverse=True)[:3]), -len(self._names[i]), self._names[i]) for i, v in per_name.items()),
+            reverse=True,
+        )
         return [Candidate(name, "path" if "/" in name else "symbol") for _s, _l, name in scored[: self._limit]]
 
 
@@ -184,7 +190,9 @@ class CompositeCandidates:
 
 _DEFINITIONS = re.compile(
     r"^\s*(?:export\s+)?(?:async\s+)?(?:def|class|function|interface|struct|enum|trait|fn|func|type)\s+"
-    r"([A-Za-z_][A-Za-z0-9_]*)", re.MULTILINE)
+    r"([A-Za-z_][A-Za-z0-9_]*)",
+    re.MULTILINE,
+)
 
 
 def symbol_names(files: Iterable[tuple[str, str]]) -> list[str]:

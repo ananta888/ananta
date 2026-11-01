@@ -40,13 +40,7 @@ def cache_recovery_outcome(
         return
     now = time.time()
     with RECOVERY_OUTCOME_CACHE_LOCK:
-        expired = [
-            key
-            for key, (stored_at, _value) in (
-                RECOVERY_OUTCOME_CACHE.items()
-            )
-            if now - stored_at > 1800.0
-        ]
+        expired = [key for key, (stored_at, _value) in (RECOVERY_OUTCOME_CACHE.items()) if now - stored_at > 1800.0]
         for key in expired:
             RECOVERY_OUTCOME_CACHE.pop(key, None)
         while len(RECOVERY_OUTCOME_CACHE) >= 256:

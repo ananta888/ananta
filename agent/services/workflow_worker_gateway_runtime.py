@@ -45,9 +45,7 @@ class _AnantaRegistryWorkflowToolDescriptorAdapter:
             if normalized in self._COMPATIBILITY_READ_TOOLS:
                 return WorkflowToolDescriptor(normalized, "read")
             return None
-        side_effect_class = self._SIDE_EFFECT_CLASS_BY_CATEGORY.get(
-            str(spec.category)
-        )
+        side_effect_class = self._SIDE_EFFECT_CLASS_BY_CATEGORY.get(str(spec.category))
         if side_effect_class is None:
             return None
         return WorkflowToolDescriptor(normalized, side_effect_class)
@@ -125,15 +123,9 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                 ledger=SQLAlchemySideEffectLedger(engine),
                 provider_budgets=SQLAlchemyProviderBudgetStore(engine),
                 events=configure_workflow_telemetry(SQLAlchemyEventStore(engine)),
-                authorization_revalidator=SQLAlchemyWorkflowAuthorizationGrantService(
-                    engine
-                ),
-                tool_approvals=_ApprovalRequestToolApprovalAdapter(
-                    get_approval_request_service()
-                ),
-                tool_descriptors=_AnantaRegistryWorkflowToolDescriptorAdapter(
-                    get_ananta_tool_registry_service()
-                ),
+                authorization_revalidator=SQLAlchemyWorkflowAuthorizationGrantService(engine),
+                tool_approvals=_ApprovalRequestToolApprovalAdapter(get_approval_request_service()),
+                tool_descriptors=_AnantaRegistryWorkflowToolDescriptorAdapter(get_ananta_tool_registry_service()),
                 assignments=get_workflow_worker_assignment_store(),
                 context_bundles=HubNativeContextBundleReader(engine=engine),
                 pi_evidence=read_pi_worker_evidence,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 
 from agent.services.visual_guide.models import VisualGuideDecision, VisualGuideRequest
 from agent.services.visual_guide.rule_engine import RuleEngine

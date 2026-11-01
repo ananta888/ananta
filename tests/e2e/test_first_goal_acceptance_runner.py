@@ -15,7 +15,13 @@ def _load_runner():
 
 def test_report_contains_learning_metrics():
     mod = _load_runner()
-    r = mod.RunReport(run_index=1, final_goal_status="completed", planning_run_id="pr1", planning_parse_mode="strict_json", planning_repair_attempt_count=1)
+    r = mod.RunReport(
+        run_index=1,
+        final_goal_status="completed",
+        planning_run_id="pr1",
+        planning_parse_mode="strict_json",
+        planning_repair_attempt_count=1,
+    )
     summary = mod.aggregate([r])
     assert "completed_runs" in summary
     assert "early_analysis_runs" in summary

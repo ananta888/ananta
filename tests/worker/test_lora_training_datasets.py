@@ -77,9 +77,7 @@ def test_validator_admits_embedding_sentence_pairs(
         ],
     )
 
-    verified = DatasetValidator(tmp_path).validate(
-        _manifest(train, validation)
-    )
+    verified = DatasetValidator(tmp_path).validate(_manifest(train, validation))
 
     assert verified.train_records == 1
     assert verified.validation_records == 1

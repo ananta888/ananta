@@ -12,12 +12,8 @@ from typing import Any
 
 KNOWLEDGE_INDEX_DISPATCH_SCHEMA = "ananta.knowledge_index_dispatch.v1"
 KNOWLEDGE_INDEX_TASK_KIND = "codecompass_index_build"
-KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON = (
-    "knowledge_index_worker_dispatch_result_pending"
-)
-KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE = (
-    "KnowledgeIndexWorkerDispatchResultPendingError"
-)
+KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON = "knowledge_index_worker_dispatch_result_pending"
+KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE = "KnowledgeIndexWorkerDispatchResultPendingError"
 KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS = 409
 SOURCE_ACCESS_MANIFEST_FIELD = "source_access_enforcement_manifest"
 MAX_KNOWLEDGE_INDEX_DISPATCH_BYTES = 32 * 1024

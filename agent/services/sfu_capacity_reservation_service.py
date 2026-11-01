@@ -135,10 +135,7 @@ class SfuCapacityReservationService:
                 raise SfuCapacityReservationError("sfu_capacity_placement_owner_mismatch")
             if request.runtime_instance_id is not None:
                 raise SfuCapacityReservationError("sfu_capacity_native_node_selection_forbidden")
-        elif (
-            request.runtime_control_mode
-            == RuntimeControlModeV1.AUTHENTICATED_RUNTIME_EXTENSION.value
-        ):
+        elif request.runtime_control_mode == RuntimeControlModeV1.AUTHENTICATED_RUNTIME_EXTENSION.value:
             if request.placement_owner not in {
                 "authenticated_runtime_extension",
                 "hub_cluster_only",

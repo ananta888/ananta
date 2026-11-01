@@ -1,7 +1,7 @@
 import json
 import os
 from functools import lru_cache
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import jsonschema
 
@@ -23,10 +23,10 @@ class PatternService:
             self._catalog = {}
             return
 
-        with open(self.catalog_path, 'r') as f:
+        with open(self.catalog_path, "r") as f:
             data = json.load(f)
             # Assuming the catalog is a list of patterns
-            self._catalog = {pattern['pattern_id']: pattern for pattern in data}
+            self._catalog = {pattern["pattern_id"]: pattern for pattern in data}
 
     def get(self, pattern_id: str) -> Optional[dict]:
         return self._catalog.get(pattern_id)
@@ -35,9 +35,9 @@ class PatternService:
         filtered_patterns = []
         for pattern in self._catalog.values():
             match = True
-            if category and pattern.get('category') != category:
+            if category and pattern.get("category") != category:
                 match = False
-            if language and pattern.get('language') != language:
+            if language and pattern.get("language") != language:
                 match = False
             if match:
                 filtered_patterns.append(pattern)
@@ -57,25 +57,23 @@ class PatternService:
 
 @lru_cache(maxsize=1)
 def get_pattern_service() -> PatternService:
-    catalog_path = os.environ.get("ANANTA_PATTERN_CATALOG_PATH",
-                                  "./schemas/patterns/pattern_catalog.v1.json")
+    catalog_path = os.environ.get("ANANTA_PATTERN_CATALOG_PATH", "./schemas/patterns/pattern_catalog.v1.json")
     schema_path = os.environ.get("ANANTA_PATTERN_SCHEMA_PATH", "./schemas/patterns/pattern.schema.v1.json")
 
     # Ensure the schema file exists before trying to load it
     if not os.path.exists(schema_path):
         raise FileNotFoundError(f"Pattern schema file not found at {schema_path}")
 
-    with open(schema_path, 'r') as f:
+    with open(schema_path, "r") as f:
         pattern_schema = json.load(f)
-    
+
     # jsonschema.Draft7Validator is appropriate for '$schema': 'http://json-schema.org/draft-07/schema#'
     validator = jsonschema.Draft7Validator(pattern_schema)
     return PatternService(catalog_path, validator)
 
 
-
 # Example usage for testing and demonstration outside the main application flow
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Create a dummy schema and catalog for local testing
     dummy_schema_path = "./schemas/patterns/pattern.schema.v1.json"
     dummy_catalog_path = "./schemas/patterns/pattern_catalog.v1.json"
@@ -85,27 +83,45 @@ if __name__ == '__main__':
 
     # Write a minimal schema if it doesn't exist (for isolated run. This is a fallback)
     if not os.path.exists(dummy_schema_path):
-        with open(dummy_schema_path, 'w') as f:
-            f.write(json.dumps({
-                "$schema": "http://json-schema.org/draft-07/schema#",
-                "title": "Dummy Pattern Schema",
-                "type": "object",
-                "properties": {
-                    "pattern_id": {"type": "string"},
-                    "version": {"type": "string"},
-                    "category": {"type": "string"},
-                    "language": {"type": "string"},
-                    "title": {"type": "string"},
-                    "description": {"type": "string"},
-                    "parameters": {"type": "array"},
-                    "required_artifacts": {"type": "array"},
-                    "steps": {"type": "array"},
-                    "invariants": {"type": "array"},
-                    "acceptance_gates": {"type": "array"},
-                    "examples": {"type": "array"}
-                },
-                "required": ["pattern_id", "version", "category", "language", "title", "description", "parameters", "required_artifacts", "steps", "invariants", "acceptance_gates", "examples"]
-            }, indent=2))
+        with open(dummy_schema_path, "w") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "title": "Dummy Pattern Schema",
+                        "type": "object",
+                        "properties": {
+                            "pattern_id": {"type": "string"},
+                            "version": {"type": "string"},
+                            "category": {"type": "string"},
+                            "language": {"type": "string"},
+                            "title": {"type": "string"},
+                            "description": {"type": "string"},
+                            "parameters": {"type": "array"},
+                            "required_artifacts": {"type": "array"},
+                            "steps": {"type": "array"},
+                            "invariants": {"type": "array"},
+                            "acceptance_gates": {"type": "array"},
+                            "examples": {"type": "array"},
+                        },
+                        "required": [
+                            "pattern_id",
+                            "version",
+                            "category",
+                            "language",
+                            "title",
+                            "description",
+                            "parameters",
+                            "required_artifacts",
+                            "steps",
+                            "invariants",
+                            "acceptance_gates",
+                            "examples",
+                        ],
+                    },
+                    indent=2,
+                )
+            )
 
     # Write a dummy catalog file
     dummy_catalog_content = [
@@ -121,7 +137,7 @@ if __name__ == '__main__':
             "steps": [],
             "invariants": [],
             "acceptance_gates": [],
-            "examples": []
+            "examples": [],
         },
         {
             "pattern_id": "test_pattern_2",
@@ -135,7 +151,7 @@ if __name__ == '__main__':
             "steps": [],
             "invariants": [],
             "acceptance_gates": [],
-            "examples": []
+            "examples": [],
         },
         {
             "pattern_id": "test_pattern_3",
@@ -149,11 +165,11 @@ if __name__ == '__main__':
             "steps": [],
             "invariants": [],
             "acceptance_gates": [],
-            "examples": []
-        }
+            "examples": [],
+        },
     ]
 
-    with open(dummy_catalog_path, 'w') as f:
+    with open(dummy_catalog_path, "w") as f:
         json.dump(dummy_catalog_content, f, indent=2)
 
     service = get_pattern_service()
@@ -189,4 +205,3 @@ if __name__ == '__main__':
     # Clean up dummy files
     # os.remove(dummy_catalog_path)
     # os.remove(dummy_schema_path)
-

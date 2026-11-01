@@ -29,4 +29,6 @@ def test_fixture_import_to_retrieval_is_offline_and_grounded(tmp_path):
     )
     assert chunks
     assert all(chunk.metadata["source_type"] == "open_notebook" for chunk in chunks)
-    assert all(chunk.metadata.get("snapshot_id") for chunk in chunks if chunk.metadata["record_kind"] == "primary_source")
+    assert all(
+        chunk.metadata.get("snapshot_id") for chunk in chunks if chunk.metadata["record_kind"] == "primary_source"
+    )

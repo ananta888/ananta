@@ -4,11 +4,11 @@ Nutzt ai_snake_context.py und ai_snake_observation.py als Basis.
 Schema: schemas/heuristic/decision_context.v1.json
 Schema v2: schemas/heuristic/decision_context.v2.json
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,12 +26,12 @@ class DecisionContext:
     policy_state: str | None = None
     query: str | None = None
     # v2: TUI snapshot references (optional, rückwärtskompatibel)
-    tui_snapshot_ref: str | None = None   # screen_hash des aktuellen Snapshots
-    tui_delta_ref: str | None = None      # "prev_hash:curr_hash" kompakt
-    semantic_hash: str | None = None      # Hash des SemanticOverlay
-    semantic_panel: str | None = None     # aktives Panel aus SemanticOverlay
-    snake_head_x: int | None = None       # aktuelle Snake-Head X Position (optional, v2+)
-    snake_head_y: int | None = None       # aktuelle Snake-Head Y Position (optional, v2+)
+    tui_snapshot_ref: str | None = None  # screen_hash des aktuellen Snapshots
+    tui_delta_ref: str | None = None  # "prev_hash:curr_hash" kompakt
+    semantic_hash: str | None = None  # Hash des SemanticOverlay
+    semantic_panel: str | None = None  # aktives Panel aus SemanticOverlay
+    snake_head_x: int | None = None  # aktuelle Snake-Head X Position (optional, v2+)
+    snake_head_y: int | None = None  # aktuelle Snake-Head Y Position (optional, v2+)
 
     @property
     def context_hash(self) -> str:
@@ -97,26 +97,22 @@ def build_from_tui_state(
     active_task_id = str(state.get("active_task_id") or "").strip() or None
     active_panel = str(state.get("active_panel") or "").strip() or None
 
-    selected_artifacts = [
-        str(r).strip() for r in (state.get("selected_artifacts") or [])
-        if str(r).strip()
-    ][:5]
+    selected_artifacts = [str(r).strip() for r in (state.get("selected_artifacts") or []) if str(r).strip()][:5]
 
-    allowed_scopes = [
-        str(s).strip() for s in (state.get("allowed_source_scopes") or [])
-        if str(s).strip()
-    ]
+    allowed_scopes = [str(s).strip() for s in (state.get("allowed_source_scopes") or []) if str(s).strip()]
 
     recent_events: list[dict[str, Any]] = []
     if observation_buffer is not None and hasattr(observation_buffer, "events"):
         for ev in observation_buffer.events()[-20:]:
-            recent_events.append({
-                "event_id": ev.event_id,
-                "kind": ev.kind,
-                "normalized_value": str(ev.normalized_value or "")[:200],
-                "ref_id": ev.ref_id,
-                "timestamp": ev.timestamp,
-            })
+            recent_events.append(
+                {
+                    "event_id": ev.event_id,
+                    "kind": ev.kind,
+                    "normalized_value": str(ev.normalized_value or "")[:200],
+                    "ref_id": ev.ref_id,
+                    "timestamp": ev.timestamp,
+                }
+            )
 
     policy_state = str(state.get("policy_state") or "").strip() or None
     snake_head_x, snake_head_y = _extract_snake_head(state)
@@ -153,16 +149,10 @@ def build_from_chat_state(
         ai_status=ai_status,
         active_goal_id=str(state.get("active_goal_id") or "").strip() or None,
         active_task_id=str(state.get("active_task_id") or "").strip() or None,
-        selected_artifacts=[
-            str(r).strip() for r in (state.get("selected_artifacts") or [])
-            if str(r).strip()
-        ][:5],
+        selected_artifacts=[str(r).strip() for r in (state.get("selected_artifacts") or []) if str(r).strip()][:5],
         active_panel=str(state.get("active_panel") or "").strip() or None,
         recent_events=[],
-        allowed_source_scopes=[
-            str(s).strip() for s in (state.get("allowed_source_scopes") or [])
-            if str(s).strip()
-        ],
+        allowed_source_scopes=[str(s).strip() for s in (state.get("allowed_source_scopes") or []) if str(s).strip()],
         policy_state=str(state.get("policy_state") or "").strip() or None,
         query=str(state.get("query") or "").strip() or None,
     )

@@ -8,6 +8,7 @@ ASH-011: fingerprint = SHA-256 over (domain, base_heuristic_ref, action_kind, pa
 ASH-012: extended metrics block (trace_count, evidence_count, dominant_fallback_reason, …).
 ASH-014: expires_at = saved_at + candidate_ttl_days * 86400 (default: 14 days).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,21 +17,19 @@ import os
 import time
 import uuid
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from agent.services.heuristic_runtime.decision_trace import DecisionTrace
 from agent.services.heuristic_runtime.proposal_validator import HeuristicProposal
 
-
-_DEFAULT_BASE_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics")
-)
+_DEFAULT_BASE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics"))
 _DEFAULT_TTL_DAYS = 14
 _PROVENANCE_MAX = 20
 
 
 # ── Fingerprint ───────────────────────────────────────────────────────────────
+
 
 def compute_candidate_fingerprint(
     domain: str,
@@ -57,6 +56,7 @@ def compute_candidate_fingerprint(
 
 # ── Result ────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ProposalGenerationResult:
     proposal: HeuristicProposal
@@ -66,6 +66,7 @@ class ProposalGenerationResult:
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
+
 
 class ProposalService:
     def __init__(self, base_path: str | None = None, ttl_days: int = _DEFAULT_TTL_DAYS) -> None:
@@ -112,8 +113,7 @@ class ProposalService:
         trace_evidence = [t.event_id for t in traces[:_PROVENANCE_MAX]]
 
         ttl_expired_count = sum(
-            1 for t in traces
-            if t.fallback_reason and ("ttl" in t.fallback_reason or "expired" in t.fallback_reason)
+            1 for t in traces if t.fallback_reason and ("ttl" in t.fallback_reason or "expired" in t.fallback_reason)
         )
         ai_timeout_count = sum(1 for t in traces if t.fallback_reason == "ai_timeout")
         no_trigger_match_count = sum(1 for t in traces if t.fallback_reason == "no_trigger_match")
@@ -126,9 +126,7 @@ class ProposalService:
             rationale_parts.append(f"{ai_timeout_count} AI timeout events detected.")
         rationale = " ".join(rationale_parts)[:500]
 
-        expected_improvement = (
-            f"Reduce {dominant_fallback} events by ≥20% over next 50 decisions."
-        )
+        expected_improvement = f"Reduce {dominant_fallback} events by ≥20% over next 50 decisions."
 
         risks = [
             f"New heuristic may over-generalise for domain {domain}.",
@@ -202,8 +200,9 @@ class ProposalService:
             domain=proposal.domain,
             base_heuristic_ref=proposal.base_heuristic_ref,
             action_kind=action_kind,
-            parameters={k: v for k, v in params.items()
-                        if k not in ("trace_evidence", "rationale", "risks", "required_tests")},
+            parameters={
+                k: v for k, v in params.items() if k not in ("trace_evidence", "rationale", "risks", "required_tests")
+            },
         )
 
         # ASH-011: check for duplicate fingerprint
@@ -233,10 +232,10 @@ class ProposalService:
 
         data: dict[str, Any] = proposal.to_dict()
         data["saved_at"] = saved_at
-        data["expires_at"] = expires_at          # ASH-014
+        data["expires_at"] = expires_at  # ASH-014
         data["status"] = "candidate"
-        data["fingerprint"] = fingerprint        # ASH-011
-        data["metrics"] = metrics                # ASH-012
+        data["fingerprint"] = fingerprint  # ASH-011
+        data["metrics"] = metrics  # ASH-012
 
         filename = f"{proposal.proposal_id}.json"
         file_path = os.path.join(candidates_dir, filename)
@@ -275,9 +274,7 @@ class ProposalService:
         metrics["evidence_count"] = int(metrics.get("evidence_count", 1)) + 1
         # Merge new provenance IDs (keep max PROVENANCE_MAX)
         existing_ids: list[str] = list(metrics.get("provenance_trace_ids") or [])
-        new_ids: list[str] = list(
-            (proposal.parameters or {}).get("trace_evidence", [])
-        )
+        new_ids: list[str] = list((proposal.parameters or {}).get("trace_evidence", []))
         merged = existing_ids + [i for i in new_ids if i not in existing_ids]
         if len(merged) > _PROVENANCE_MAX:
             merged = merged[-_PROVENANCE_MAX:]  # keep most recent

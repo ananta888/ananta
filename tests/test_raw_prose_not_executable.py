@@ -3,21 +3,22 @@
 Proves that plain natural language, markdown, and partially-structured text cannot
 bypass the validation layer and become executable command/tool_calls.
 """
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import ProposeContext
+import pytest
+
+from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from worker.core.propose import (
-    ExecutableProposal,
-    ProposeStrategyResult,
-    validate_executable_proposal,
     STATUS_ADVISORY,
     STATUS_DECLINED,
     STATUS_EXECUTABLE,
+    ExecutableProposal,
+    validate_executable_proposal,
 )
-from agent.services.llm_response_normalizer import LLMResponseNormalizer
+from worker.core.propose_orchestrator import ProposeContext
 
 
 def _context() -> ProposeContext:
@@ -46,9 +47,7 @@ class TestNormalizerProseFallback:
     @pytest.mark.parametrize("prose", [s for s in PROSE_SAMPLES if s.strip()])
     def test_prose_becomes_advisory_not_executable(self, normalizer, prose):
         result = normalizer.normalize(prose, _context())
-        assert result.status != STATUS_EXECUTABLE, (
-            f"Prose incorrectly became executable: {prose[:80]!r}"
-        )
+        assert result.status != STATUS_EXECUTABLE, f"Prose incorrectly became executable: {prose[:80]!r}"
         assert result.status == STATUS_ADVISORY
 
     def test_prose_advisory_has_no_executable_proposal(self, normalizer):
@@ -63,8 +62,10 @@ class TestNormalizerProseFallback:
         assert result.proposal is None
 
     def test_json_without_command_or_tool_calls_is_declined(self):
-        from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
         import json
+
+        from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
+
         ctx = Mock(spec=ProposeContext)
         ctx.goal_id = "g1"
         ctx.task_id = "t1"
@@ -128,6 +129,7 @@ class TestToolCallingRejectsProse:
 
     def test_tool_calls_missing_name_rejected(self, monkeypatch):
         from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
+
         ctx = Mock(spec=ProposeContext)
         ctx.tool_definitions_resolver.return_value = [{"name": "write_file"}]
         ctx.goal_id = "g1"

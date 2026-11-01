@@ -21,16 +21,34 @@ def secured(app):
     from agent.repositories.memory import _engine
 
     with Session(_engine()) as session:
-        session.add(ProjectDB(tenant_id=ACTOR.tenant_id, project_id=NAMESPACE.workspace_id,
-                              name="Synthetic memory project", created_by_subject_id=ACTOR.subject))
+        session.add(
+            ProjectDB(
+                tenant_id=ACTOR.tenant_id,
+                project_id=NAMESPACE.workspace_id,
+                name="Synthetic memory project",
+                created_by_subject_id=ACTOR.subject,
+            )
+        )
         session.commit()
         for goal_id in (NAMESPACE.goal_id, "changed-goal"):
-            session.add(GoalDB(id=goal_id, goal="Synthetic memory goal", tenant_id=ACTOR.tenant_id,
-                               project_id=NAMESPACE.workspace_id))
+            session.add(
+                GoalDB(
+                    id=goal_id,
+                    goal="Synthetic memory goal",
+                    tenant_id=ACTOR.tenant_id,
+                    project_id=NAMESPACE.workspace_id,
+                )
+            )
         session.commit()
-    task_repo.save(TaskDB(id=NAMESPACE.task_id, title="Synthetic memory task", tenant_id=ACTOR.tenant_id,
-                         project_id=NAMESPACE.workspace_id,
-                         goal_id=NAMESPACE.goal_id))
+    task_repo.save(
+        TaskDB(
+            id=NAMESPACE.task_id,
+            title="Synthetic memory task",
+            tenant_id=ACTOR.tenant_id,
+            project_id=NAMESPACE.workspace_id,
+            goal_id=NAMESPACE.goal_id,
+        )
+    )
     repository = MemoryEntryRepository()
     gate, policies, audit = gateway(policy((grant(channel="hub-result-memory", scope=MemoryScope.task),)))
     service = ResultMemoryService(memory_entry_repository=repository, memory_gateway=gate)
@@ -38,9 +56,16 @@ def secured(app):
 
 
 def write(service, **changes):
-    request = dict(task_id=NAMESPACE.task_id, goal_id=NAMESPACE.goal_id, trace_id=None, worker_job_id=None,
-                   title="Synthetic result", output="Changed code and tests passed",
-                   memory_actor=ACTOR, memory_run_id=NAMESPACE.run_id)
+    request = dict(
+        task_id=NAMESPACE.task_id,
+        goal_id=NAMESPACE.goal_id,
+        trace_id=None,
+        worker_job_id=None,
+        title="Synthetic result",
+        output="Changed code and tests passed",
+        memory_actor=ACTOR,
+        memory_run_id=NAMESPACE.run_id,
+    )
     request.update(changes)
     return service.record_worker_result_memory(**request)
 
@@ -62,18 +87,25 @@ def read(service):
 
 def seed(repository, namespace, *, scope=MemoryScope.task, sensitivity=MemorySensitivity.internal, **changes):
     metadata = {
-        "memory_namespace": asdict(namespace), "memory_security_schema": "ananta.memory-security.v1",
+        "memory_namespace": asdict(namespace),
+        "memory_security_schema": "ananta.memory-security.v1",
         "memory_security": MemorySecurityMetadata(scope=scope, sensitivity=sensitivity).to_mapping(),
     }
     metadata.update(changes)
-    return repository.save(MemoryEntryDB(task_id=namespace.task_id, goal_id=namespace.goal_id,
-                                         content="synthetic canary", memory_metadata=metadata))
+    return repository.save(
+        MemoryEntryDB(
+            task_id=namespace.task_id, goal_id=namespace.goal_id, content="synthetic canary", memory_metadata=metadata
+        )
+    )
 
 
 def test_guarded_write_persists_authoritative_namespace_and_read_returns_only_that_task(secured):
     service, repository, _policies, _audit = secured
-    entry = write(service, approved=True, metadata={"memory_namespace": {"tenant_id": "forged"},
-                                                  "memory_security": {"scope": "global"}})
+    entry = write(
+        service,
+        approved=True,
+        metadata={"memory_namespace": {"tenant_id": "forged"}, "memory_security": {"scope": "global"}},
+    )
     assert entry.memory_metadata["memory_namespace"] == asdict(NAMESPACE)
     assert entry.memory_metadata["memory_security"]["trust_level"] == "untrusted"
     assert entry.memory_metadata["memory_security"]["scope"] == "task"
@@ -182,8 +214,12 @@ def test_auto_tree_ingest_needs_separate_tree_grant_and_cannot_use_approval_flag
 
     _service, repository, _policies, _audit = secured
     gate, *_ = gateway(policy((grant(channel="hub-result-memory", scope=MemoryScope.task),)))
-    service = ResultMemoryService(memory_entry_repository=repository, memory_gateway=gate, auto_ingest_tree=True,
-                                  memory_tree_ingestion_service=SimpleNamespace(_store=MemoryTreeStoreService()))
+    service = ResultMemoryService(
+        memory_entry_repository=repository,
+        memory_gateway=gate,
+        auto_ingest_tree=True,
+        memory_tree_ingestion_service=SimpleNamespace(_store=MemoryTreeStoreService()),
+    )
     assert write(service, approved=True) is not None
     with Session(_engine()) as session:
         assert session.exec(select(MemoryTreeChunkDB)).all() == []
@@ -192,11 +228,17 @@ def test_auto_tree_ingest_needs_separate_tree_grant_and_cannot_use_approval_flag
 def test_legacy_write_cannot_spoof_new_security_namespace(secured):
     _service, repository, _policies, _audit = secured
     legacy = ResultMemoryService(memory_entry_repository=repository)
-    entry = write(legacy, memory_actor=None, memory_run_id=None, metadata={
-        "memory_namespace": asdict(NAMESPACE), "memory_security_schema": "ananta.memory-security.v1",
-        "memory_security": {"scope": "global", "trust_level": "source_verified"},
-        "memory_policy_digest": "a" * 64,
-    })
+    entry = write(
+        legacy,
+        memory_actor=None,
+        memory_run_id=None,
+        metadata={
+            "memory_namespace": asdict(NAMESPACE),
+            "memory_security_schema": "ananta.memory-security.v1",
+            "memory_security": {"scope": "global", "trust_level": "source_verified"},
+            "memory_policy_digest": "a" * 64,
+        },
+    )
     assert entry is None
     assert repository.get_by_namespace(NAMESPACE, MemoryScope.task) == []
 
@@ -204,10 +246,18 @@ def test_legacy_write_cannot_spoof_new_security_namespace(secured):
 def test_migration_is_bounded_conservative_and_idempotent(secured):
     _service, repository, _policies, _audit = secured
     for identifier in ("migration-first", "migration-second"):
-        repository.save(MemoryEntryDB(id=identifier, task_id=NAMESPACE.task_id, memory_metadata={
-            "memory_scope": "global", "approved": True, "source_refs": ["synthetic-tool"],
-            "memory_namespace": asdict(NAMESPACE),
-        }))
+        repository.save(
+            MemoryEntryDB(
+                id=identifier,
+                task_id=NAMESPACE.task_id,
+                memory_metadata={
+                    "memory_scope": "global",
+                    "approved": True,
+                    "source_refs": ["synthetic-tool"],
+                    "memory_namespace": asdict(NAMESPACE),
+                },
+            )
+        )
     first = repository.migrate_security_metadata(limit=1)
     assert first == {"scanned": 1, "updated": 1, "next_cursor": "migration-first"}
     second = repository.migrate_security_metadata(limit=1, after_id=first["next_cursor"])
@@ -224,9 +274,15 @@ def test_migration_is_bounded_conservative_and_idempotent(secured):
 def test_invalid_new_security_metadata_rolls_back_migration_batch(secured):
     _service, repository, _policies, _audit = secured
     repository.save(MemoryEntryDB(id="migration-first", memory_metadata={"approved": True}))
-    repository.save(MemoryEntryDB(id="migration-second", memory_metadata={
-        "memory_security_schema": "ananta.memory-security.v1", "memory_security": {"scope": "invalid"},
-    }))
+    repository.save(
+        MemoryEntryDB(
+            id="migration-second",
+            memory_metadata={
+                "memory_security_schema": "ananta.memory-security.v1",
+                "memory_security": {"scope": "invalid"},
+            },
+        )
+    )
     with pytest.raises(ValueError):
         repository.migrate_security_metadata()
     assert repository.get_by_id("migration-first").memory_metadata == {"approved": True}
@@ -236,13 +292,20 @@ def test_migration_dry_run_reports_changes_and_unclassified_rows_without_writing
     _service, repository, _policies, _audit = secured
     original = {"approved": True, "memory_scope": "global", "source_refs": ["synthetic-tool"]}
     repository.save(MemoryEntryDB(id="migration-first", memory_metadata=original))
-    repository.save(MemoryEntryDB(id="migration-second", memory_metadata={
-        "memory_security_schema": "ananta.memory-security.v1", "memory_security": {"scope": "invalid"},
-    }))
+    repository.save(
+        MemoryEntryDB(
+            id="migration-second",
+            memory_metadata={
+                "memory_security_schema": "ananta.memory-security.v1",
+                "memory_security": {"scope": "invalid"},
+            },
+        )
+    )
     preview = repository.migrate_security_metadata(dry_run=True)
     assert preview["updated"] == 0 and preview["would_update"] == 1
-    assert preview["unclassified"] == [{"entry_id": "migration-second",
-                                        "reason_code": "memory_security_metadata_invalid"}]
+    assert preview["unclassified"] == [
+        {"entry_id": "migration-second", "reason_code": "memory_security_metadata_invalid"}
+    ]
     assert preview["dry_run"] and not preview["production_release_evidence"]
     assert repository.get_by_id("migration-first").memory_metadata == original
     assert repository.migrate_security_metadata(dry_run=True) == preview
@@ -302,8 +365,9 @@ def test_migration_batch_reuse_unknown_rollback_and_dry_run(secured):
 def test_namespace_admission_uses_actual_sql_owner_and_never_legacy_labels(secured):
     _service, repository, _policies, _audit = secured
     original = {"memory_scope": "global", "approved": True, "memory_namespace": {"tenant_id": "forged"}}
-    entry = repository.save(MemoryEntryDB(id="admit-legacy", task_id=NAMESPACE.task_id,
-                                         goal_id=NAMESPACE.goal_id, memory_metadata=original))
+    entry = repository.save(
+        MemoryEntryDB(id="admit-legacy", task_id=NAMESPACE.task_id, goal_id=NAMESPACE.goal_id, memory_metadata=original)
+    )
     assert repository.get_by_namespace(NAMESPACE, MemoryScope.task) == []
     preview = repository.migrate_security_metadata(dry_run=True, admit_namespaces=True)
     assert preview["would_update"] == 1 and preview["unclassified"] == []
@@ -323,8 +387,14 @@ def test_namespace_admission_uses_actual_sql_owner_and_never_legacy_labels(secur
 def test_unowned_or_mismatched_legacy_memory_is_quarantined_by_admission(secured):
     _service, repository, _policies, _audit = secured
     repository.save(MemoryEntryDB(id="orphan-memory", memory_metadata={"approved": True}))
-    repository.save(MemoryEntryDB(id="mismatched-goal-memory", task_id=NAMESPACE.task_id,
-                                 goal_id="foreign-goal", memory_metadata={"approved": True}))
+    repository.save(
+        MemoryEntryDB(
+            id="mismatched-goal-memory",
+            task_id=NAMESPACE.task_id,
+            goal_id="foreign-goal",
+            memory_metadata={"approved": True},
+        )
+    )
     preview = repository.migrate_security_metadata(dry_run=True, admit_namespaces=True)
     assert len(preview["unclassified"]) == 2
     assert all(row["reason_code"] == "memory_owner_namespace_unclassified" for row in preview["unclassified"])

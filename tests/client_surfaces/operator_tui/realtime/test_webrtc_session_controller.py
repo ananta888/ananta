@@ -42,14 +42,16 @@ class TestWebRtcSessionController(unittest.TestCase):
             session_id="s1",
         )
         ctrl.start_session(oidc_subject_hash="subject-hash", session_nonce="nonce")
-        ctrl._handle_signal(SignalingMessage(
-            type="join",
-            session_id="s1",
-            sender_id="peer-1",
-            recipient_id="python-controller",
-            payload={},
-            session_nonce="wrong",
-        ))
+        ctrl._handle_signal(
+            SignalingMessage(
+                type="join",
+                session_id="s1",
+                sender_id="peer-1",
+                recipient_id="python-controller",
+                payload={},
+                session_nonce="wrong",
+            )
+        )
         self.assertIn("nonce", ctrl.get_status()["error"])
         self.assertIsNone(ctrl.get_status()["peer_id"])
 
@@ -60,14 +62,16 @@ class TestWebRtcSessionController(unittest.TestCase):
             session_id="s1",
         )
         ctrl.start_session(oidc_subject_hash="subject-hash", session_nonce="nonce")
-        ctrl._handle_signal(SignalingMessage(
-            type="join",
-            session_id="other",
-            sender_id="peer-1",
-            recipient_id="python-controller",
-            payload={},
-            session_nonce="nonce",
-        ))
+        ctrl._handle_signal(
+            SignalingMessage(
+                type="join",
+                session_id="other",
+                sender_id="peer-1",
+                recipient_id="python-controller",
+                payload={},
+                session_nonce="nonce",
+            )
+        )
         self.assertIn("session_id", ctrl.get_status()["error"])
         self.assertIsNone(ctrl.get_status()["peer_id"])
 
@@ -79,22 +83,26 @@ class TestWebRtcSessionController(unittest.TestCase):
             session_id="s1",
         )
         ctrl.start_session(oidc_subject_hash="subject-hash", session_nonce="nonce")
-        ctrl._handle_signal(SignalingMessage(
-            type="join",
-            session_id="s1",
-            sender_id="peer-1",
-            recipient_id="python-controller",
-            payload={},
-            session_nonce="nonce",
-        ))
-        ctrl._handle_signal(SignalingMessage(
-            type="offer",
-            session_id="s1",
-            sender_id="peer-1",
-            recipient_id="python-controller",
-            payload={"offer_id": "offer-1"},
-            session_nonce="nonce",
-        ))
+        ctrl._handle_signal(
+            SignalingMessage(
+                type="join",
+                session_id="s1",
+                sender_id="peer-1",
+                recipient_id="python-controller",
+                payload={},
+                session_nonce="nonce",
+            )
+        )
+        ctrl._handle_signal(
+            SignalingMessage(
+                type="offer",
+                session_id="s1",
+                sender_id="peer-1",
+                recipient_id="python-controller",
+                payload={"offer_id": "offer-1"},
+                session_nonce="nonce",
+            )
+        )
         ctrl.accept_artifact("offer-1")
         self.assertEqual(fake.sent[-1].session_id, "s1")
         self.assertEqual(fake.sent[-1].recipient_id, "peer-1")

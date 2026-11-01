@@ -40,21 +40,29 @@ def _reason(error: urllib.error.HTTPError) -> str:
 
 
 class HubToolGatewayClient:
-    def __init__(self, *, hub_url: str, headers: Mapping[str, str],
-                 opener: Callable[..., Any] = urllib.request.urlopen, timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        *,
+        hub_url: str,
+        headers: Mapping[str, str],
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        timeout: float = 60.0,
+    ) -> None:
         self._hub = str(hub_url or "").rstrip("/")
         self._headers = {**dict(headers), "Content-Type": "application/json"}
         self._opener = opener
         self._timeout = float(timeout)
 
-    def execute(self, *, task_id: str, tool_name: str, arguments: Mapping[str, Any],
-                tool_call_id: str) -> dict[str, Any]:
+    def execute(
+        self, *, task_id: str, tool_name: str, arguments: Mapping[str, Any], tool_call_id: str
+    ) -> dict[str, Any]:
         if not task_id:
             return _error(tool_name, tool_call_id, "hub_gateway_task_required")
         if not self._hub.startswith(("http://", "https://")):
             return _error(tool_name, tool_call_id, "hub_gateway_url_invalid")
-        url = self._hub + GATEWAY_PATH.format(task_id=urllib.parse.quote(task_id, safe=""),
-                                              tool_name=urllib.parse.quote(tool_name, safe=""))
+        url = self._hub + GATEWAY_PATH.format(
+            task_id=urllib.parse.quote(task_id, safe=""), tool_name=urllib.parse.quote(tool_name, safe="")
+        )
         body = json.dumps({"arguments": dict(arguments), "tool_call_id": tool_call_id}).encode("utf-8")
         request = urllib.request.Request(url, data=body, headers=self._headers, method="POST")
         try:

@@ -1,4 +1,5 @@
 """Thin HTTP client for CLI commands against the Ananta Hub."""
+
 from __future__ import annotations
 
 import os
@@ -20,6 +21,7 @@ def _base_url() -> str:
 def _load_dotenv_fallback() -> dict[str, str]:
     """Lädt .env aus dem Repo-Root als Fallback wenn Env-Vars fehlen."""
     from pathlib import Path
+
     env_file = Path(__file__).parent.parent.parent / ".env"
     if not env_file.exists():
         return {}

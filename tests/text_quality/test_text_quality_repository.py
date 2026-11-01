@@ -74,4 +74,3 @@ def test_evaluation_save_is_idempotent_by_identity(monkeypatch):
     first = repo.save(TextQualityEvaluationDB(id="eval-one", **fields))
     second = repo.save(TextQualityEvaluationDB(id="eval-two", **fields))
     assert first.id == second.id
-

@@ -171,17 +171,11 @@ class BusinessControllingWorkbenchService:
         requested_statistics = request_payload.get("statistics_enabled") is True
         requested_explanations = request_payload.get("explanations_enabled") is True
         if requested_statistics:
-            catalog_entry_id = str(
-                request_payload.get("statistical_catalog_entry_id") or ""
-            )
+            catalog_entry_id = str(request_payload.get("statistical_catalog_entry_id") or "")
             if not state.catalog_entry_enabled(catalog_entry_id):
-                raise BusinessControllingWorkbenchError(
-                    "controlling_statistics_runtime_disabled"
-                )
+                raise BusinessControllingWorkbenchError("controlling_statistics_runtime_disabled")
         if requested_explanations and not state.explanations_enabled:
-            raise BusinessControllingWorkbenchError(
-                "controlling_explanations_runtime_disabled"
-            )
+            raise BusinessControllingWorkbenchError("controlling_explanations_runtime_disabled")
         run = self._analysis.execute(
             tenant_id=tenant_id,
             project_id=project_id,
@@ -243,9 +237,7 @@ class BusinessControllingWorkbenchService:
         )
         projection = {
             "schema": "ananta.business-controlling-export.v1",
-            "tenant_scope_digest": _digest(
-                {"tenant_id": tenant_id, "project_id": project_id}
-            ),
+            "tenant_scope_digest": _digest({"tenant_id": tenant_id, "project_id": project_id}),
             "finding_count": len(findings),
             "findings": [
                 {
@@ -273,9 +265,7 @@ class BusinessControllingWorkbenchService:
         _scope(tenant_id, project_id)
         state = self._runtime_control.snapshot()
         if not state.global_enabled:
-            raise BusinessControllingWorkbenchError(
-                "controlling_runtime_disabled"
-            )
+            raise BusinessControllingWorkbenchError("controlling_runtime_disabled")
         return state
 
 
@@ -307,9 +297,7 @@ class JsonBusinessControllingFindingStore:
             }
             if existing is not None:
                 if not _same_run_identity(existing, stored):
-                    raise BusinessControllingWorkbenchError(
-                        "controlling_run_identity_conflict"
-                    )
+                    raise BusinessControllingWorkbenchError("controlling_run_identity_conflict")
                 return {key: value for key, value in run.items() if key != "findings"}
             runs[run_id] = stored
             self._write_unlocked(state)
@@ -341,12 +329,8 @@ class JsonBusinessControllingFindingStore:
         expected_revision: int,
     ) -> Mapping[str, object]:
         _scope(tenant_id, project_id)
-        if disposition not in {
-            item.value for item in FindingDisposition if item is not FindingDisposition.OPEN
-        }:
-            raise BusinessControllingWorkbenchError(
-                "controlling_disposition_invalid"
-            )
+        if disposition not in {item.value for item in FindingDisposition if item is not FindingDisposition.OPEN}:
+            raise BusinessControllingWorkbenchError("controlling_disposition_invalid")
         with self._exclusive_state() as state:
             for run in state["runs"].values():
                 if run["tenant_id"] != tenant_id or run["project_id"] != project_id:
@@ -355,9 +339,7 @@ class JsonBusinessControllingFindingStore:
                     if finding["finding_id"] != finding_id:
                         continue
                     if finding["revision"] != expected_revision:
-                        raise BusinessControllingWorkbenchError(
-                            "controlling_disposition_revision_conflict"
-                        )
+                        raise BusinessControllingWorkbenchError("controlling_disposition_revision_conflict")
                     updated = {
                         **finding,
                         "disposition": disposition,
@@ -378,9 +360,7 @@ class JsonBusinessControllingFindingStore:
         try:
             value = json.loads(self._path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise BusinessControllingWorkbenchError(
-                "controlling_store_unreadable"
-            ) from exc
+            raise BusinessControllingWorkbenchError("controlling_store_unreadable") from exc
         if (
             not isinstance(value, dict)
             or set(value) != {"schema", "runs"}
@@ -409,9 +389,7 @@ class JsonBusinessControllingFindingStore:
         except OSError as exc:
             if temporary_path is not None:
                 Path(temporary_path).unlink(missing_ok=True)
-            raise BusinessControllingWorkbenchError(
-                "controlling_store_write_failed"
-            ) from exc
+            raise BusinessControllingWorkbenchError("controlling_store_write_failed") from exc
 
     class _StateContext:
         def __init__(self, owner: "JsonBusinessControllingFindingStore", exclusive: bool) -> None:
@@ -465,18 +443,14 @@ def _validate_run(run: Mapping[str, object]) -> None:
             "disposition",
             "revision",
         }:
-            raise BusinessControllingWorkbenchError(
-                "controlling_finding_shape_invalid"
-            )
+            raise BusinessControllingWorkbenchError("controlling_finding_shape_invalid")
         if (
             _IDENTIFIER.fullmatch(str(finding["finding_id"])) is None
             or _DIGEST.fullmatch(str(finding["evidence_digest"])) is None
             or finding["disposition"] != FindingDisposition.OPEN.value
             or finding["revision"] != 0
         ):
-            raise BusinessControllingWorkbenchError(
-                "controlling_finding_shape_invalid"
-            )
+            raise BusinessControllingWorkbenchError("controlling_finding_shape_invalid")
     _deny_sensitive_fields(run)
 
 
@@ -484,9 +458,7 @@ def _deny_sensitive_fields(value: object) -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
             if str(key).casefold() in _FORBIDDEN_FIELDS:
-                raise BusinessControllingWorkbenchError(
-                    "controlling_sensitive_field_denied"
-                )
+                raise BusinessControllingWorkbenchError("controlling_sensitive_field_denied")
             _deny_sensitive_fields(item)
     elif isinstance(value, (list, tuple)):
         for item in value:
@@ -517,31 +489,16 @@ def _same_run_identity(
         "confidence",
         "evidence_digest",
     )
-    old_by_id = {
-        str(item.get("finding_id")): item
-        for item in old_findings
-        if isinstance(item, Mapping)
-    }
-    new_by_id = {
-        str(item.get("finding_id")): item
-        for item in new_findings
-        if isinstance(item, Mapping)
-    }
+    old_by_id = {str(item.get("finding_id")): item for item in old_findings if isinstance(item, Mapping)}
+    new_by_id = {str(item.get("finding_id")): item for item in new_findings if isinstance(item, Mapping)}
     return set(old_by_id) == set(new_by_id) and all(
-        all(
-            old_by_id[finding_id].get(field)
-            == new_by_id[finding_id].get(field)
-            for field in immutable_fields
-        )
+        all(old_by_id[finding_id].get(field) == new_by_id[finding_id].get(field) for field in immutable_fields)
         for finding_id in old_by_id
     )
 
 
 def _scope(tenant_id: str, project_id: str) -> None:
-    if (
-        _IDENTIFIER.fullmatch(tenant_id) is None
-        or _IDENTIFIER.fullmatch(project_id) is None
-    ):
+    if _IDENTIFIER.fullmatch(tenant_id) is None or _IDENTIFIER.fullmatch(project_id) is None:
         raise BusinessControllingWorkbenchError("controlling_scope_invalid")
 
 

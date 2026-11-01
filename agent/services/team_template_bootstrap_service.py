@@ -5,6 +5,7 @@ in-process specs. No blueprint coupling. Idempotent on retry
 (integrity-error retry loop). Migrated from team_blueprint_service.py
 (WFG-029 split) without behaviour change.
 """
+
 from __future__ import annotations
 
 import time
@@ -75,8 +76,10 @@ def _ensure_default_templates_once(
             template = templates_by_name.get(spec.name)
             if template is None:
                 template = TemplateDB(
-                    name=spec.name, description=spec.description,
-                    prompt_template=spec.prompt_template, is_seed=True,
+                    name=spec.name,
+                    description=spec.description,
+                    prompt_template=spec.prompt_template,
+                    is_seed=True,
                 )
                 session.add(template)
                 session.flush()
@@ -85,7 +88,7 @@ def _ensure_default_templates_once(
             # Only overwrite seed templates; user-created templates (is_seed=False) are preserved.
             if not getattr(template, "is_seed", True):
                 continue
-            changed = (template.description != spec.description or template.prompt_template != spec.prompt_template)
+            changed = template.description != spec.description or template.prompt_template != spec.prompt_template
             if changed or not getattr(template, "is_seed", True):
                 template.description = spec.description
                 template.prompt_template = spec.prompt_template

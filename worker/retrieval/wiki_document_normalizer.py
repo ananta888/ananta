@@ -5,7 +5,9 @@ import json
 from typing import Any
 
 
-def normalize_wiki_records_for_retrieval(*, records: list[dict[str, Any]], source_id: str, source_format: str) -> list[dict[str, Any]]:
+def normalize_wiki_records_for_retrieval(
+    *, records: list[dict[str, Any]], source_id: str, source_format: str
+) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for index, record in enumerate(list(records or []), start=1):
         if not isinstance(record, dict):
@@ -41,7 +43,9 @@ def normalize_wiki_records_for_retrieval(*, records: list[dict[str, Any]], sourc
                     "source_id": source_id,
                     "format": source_format,
                     "revision": str(record.get("revision") or record.get("import_revision") or "").strip() or None,
-                    "namespace": int(record.get("namespace")) if str(record.get("namespace") or "").strip().isdigit() else None,
+                    "namespace": int(record.get("namespace"))
+                    if str(record.get("namespace") or "").strip().isdigit()
+                    else None,
                 },
                 "metadata": {
                     "wiki_article_id": str(record.get("wiki_article_id") or "").strip() or None,
@@ -53,4 +57,3 @@ def normalize_wiki_records_for_retrieval(*, records: list[dict[str, Any]], sourc
             }
         )
     return normalized
-

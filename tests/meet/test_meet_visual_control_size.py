@@ -8,8 +8,8 @@ import pytest
 
 from agent.services.meet_authorization_client import validate_authorization
 from ananta_contracts.meet_dialog import MAX_VISUAL_CONTROL_BYTES, parse, parse_visual_control
-from tests.test_meet_dialog_authority import fixture
 from tests.meet.test_meet_receive_capability import receipt
+from tests.test_meet_dialog_authority import fixture
 
 
 def test_full_nineteen_publisher_four_source_receipt_fits_only_negotiated_response_limit():

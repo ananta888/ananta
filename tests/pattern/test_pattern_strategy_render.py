@@ -17,11 +17,9 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import os
 import py_compile
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -30,7 +28,6 @@ from agent.services.pattern_template_renderer import (
     PatternTemplateRenderer,
     TemplateFile,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PY_TMPL_DIR = REPO_ROOT / "config" / "patterns" / "templates" / "python" / "strategy"
@@ -98,10 +95,7 @@ def test_python_strategy_templates_render_and_compile(tmp_path: Path) -> None:
         py_compile.compile(str(f), doraise=True)
         tree = ast.parse(f.read_text(encoding="utf-8"))
         # Sanity: at least one top-level class or function.
-        assert any(
-            isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
-            for node in tree.body
-        )
+        assert any(isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)
 
     # Smoke-import each .py file in isolation, then exec the
     # primary/secondary classes to assert their runtime behaviour
@@ -177,7 +171,7 @@ def test_typescript_strategy_templates_render_with_expected_types(tmp_path: Path
         pytest.skip("TypeScript strategy templates not present")
     r = PatternTemplateRenderer()
     templates = _load_templates(TS_TMPL_DIR)
-    manifest = r.render(pattern_plan=PLAN, templates=templates, target_root=str(tmp_path))
+    r.render(pattern_plan=PLAN, templates=templates, target_root=str(tmp_path))
     ts_files = list(tmp_path.glob("*.ts"))
     assert ts_files, "no .ts files rendered"
     combined = "\n".join(f.read_text(encoding="utf-8") for f in ts_files)
@@ -186,7 +180,5 @@ def test_typescript_strategy_templates_render_with_expected_types(tmp_path: Path
     # No unrendered placeholders
     assert "${" not in combined
     # Vitest test file must import describe/it/expect
-    test_combined = "\n".join(
-        f.read_text(encoding="utf-8") for f in ts_files if f.name.endswith(".test.ts")
-    )
+    test_combined = "\n".join(f.read_text(encoding="utf-8") for f in ts_files if f.name.endswith(".test.ts"))
     assert "from 'vitest'" in test_combined

@@ -35,8 +35,7 @@ def _has_governed_codecompass_binding(task: Mapping[str, Any]) -> bool:
     knowledge_index_job = worker_execution_context.get("knowledge_index_job")
     return bool(
         isinstance(knowledge_index_job, Mapping)
-        and knowledge_index_job.get("schema")
-        == "ananta.knowledge_index_execution_job.v2"
+        and knowledge_index_job.get("schema") == "ananta.knowledge_index_execution_job.v2"
     )
 
 
@@ -47,14 +46,11 @@ def _has_public_codecompass_v1_binding(
         return False
     worker_execution_context = task.get("worker_execution_context")
     knowledge_index_job = (
-        worker_execution_context.get("knowledge_index_job")
-        if isinstance(worker_execution_context, Mapping)
-        else None
+        worker_execution_context.get("knowledge_index_job") if isinstance(worker_execution_context, Mapping) else None
     )
     return bool(
         isinstance(knowledge_index_job, Mapping)
-        and knowledge_index_job.get("schema")
-        == "ananta.knowledge_index_job.v1"
+        and knowledge_index_job.get("schema") == "ananta.knowledge_index_job.v1"
     )
 
 
@@ -89,18 +85,12 @@ def _urls_resolve_same_runtime(
             or (
                 worker_address.version == 6
                 and worker_address.ipv4_mapped is not None
-                and (
-                    worker_address.ipv4_mapped.is_loopback
-                    or worker_address.ipv4_mapped.is_unspecified
-                )
+                and (worker_address.ipv4_mapped.is_loopback or worker_address.ipv4_mapped.is_unspecified)
             )
         )
     except ValueError:
         pass
-    return worker_port == self_port and (
-        worker_is_local
-        or worker_host == self_host
-    )
+    return worker_port == self_port and (worker_is_local or worker_host == self_host)
 
 
 def _permanent_codecompass_forwarding_error(
@@ -173,39 +163,23 @@ def _prepare_codecompass_worker_dispatch(
     )
 
     worker_context = task.get("worker_execution_context")
-    bound_job = (
-        worker_context.get("knowledge_index_job")
-        if isinstance(worker_context, Mapping)
-        else None
-    )
-    if (
-        not isinstance(bound_job, Mapping)
-        or bound_job.get("schema")
-        != "ananta.knowledge_index_execution_job.v2"
-    ):
-        raise _permanent_codecompass_forwarding_error(
-            "knowledge_index_execution_binding_missing"
-        )
+    bound_job = worker_context.get("knowledge_index_job") if isinstance(worker_context, Mapping) else None
+    if not isinstance(bound_job, Mapping) or bound_job.get("schema") != "ananta.knowledge_index_execution_job.v2":
+        raise _permanent_codecompass_forwarding_error("knowledge_index_execution_binding_missing")
     source_access_manifest = None
     if dispatch_phase == "execute":
         raw_manifest = bound_job.get(SOURCE_ACCESS_MANIFEST_FIELD)
         if not isinstance(raw_manifest, Mapping):
-            raise _permanent_codecompass_forwarding_error(
-                "knowledge_index_source_access_manifest_missing"
-            )
+            raise _permanent_codecompass_forwarding_error("knowledge_index_source_access_manifest_missing")
         source_access_manifest = dict(raw_manifest)
     try:
-        payload["knowledge_index_dispatch"] = (
-            build_knowledge_index_dispatch(
-                job_id=tid,
-                phase=dispatch_phase,
-                source_access_manifest=source_access_manifest,
-            )
+        payload["knowledge_index_dispatch"] = build_knowledge_index_dispatch(
+            job_id=tid,
+            phase=dispatch_phase,
+            source_access_manifest=source_access_manifest,
         )
     except ValueError as exc:
-        raise _permanent_codecompass_forwarding_error(
-            str(exc or "knowledge_index_dispatch_invalid")
-        ) from exc
+        raise _permanent_codecompass_forwarding_error(str(exc or "knowledge_index_dispatch_invalid")) from exc
 
 
 def _codecompass_execute_deadline(
@@ -225,19 +199,13 @@ def _codecompass_execute_deadline(
             dispatch_phase=dispatch_phase,
         )
     except ValueError as exc:
-        raise _permanent_codecompass_forwarding_error(
-            str(exc or "knowledge_index_resource_budget_invalid")
-        ) from exc
+        raise _permanent_codecompass_forwarding_error(str(exc or "knowledge_index_resource_budget_invalid")) from exc
 
 
 def _governed_source_control_index_job_service() -> Any:
-    service = current_app.extensions.get(
-        "source_control_governed_knowledge_index_job_service"
-    )
+    service = current_app.extensions.get("source_control_governed_knowledge_index_job_service")
     if service is None:
-        raise WorkerForwardingError(
-            "knowledge_index_dispatch_authorizer_unavailable"
-        )
+        raise WorkerForwardingError("knowledge_index_dispatch_authorizer_unavailable")
     return service
 
 
@@ -255,22 +223,13 @@ def _authorize_codecompass_worker_dispatch(
             current_task_scoped_forwarding_dependencies,
         )
 
-        index_job_service = (
-            current_task_scoped_forwarding_dependencies()
-            .index_jobs.governed_index_job_service
-        )
+        index_job_service = current_task_scoped_forwarding_dependencies().index_jobs.governed_index_job_service
     if registered_agent is None:
-        raise _permanent_codecompass_forwarding_error(
-            "assigned_worker_not_registered"
-        )
+        raise _permanent_codecompass_forwarding_error("assigned_worker_not_registered")
     if not getattr(registered_agent, "registration_validated", False):
-        raise _permanent_codecompass_forwarding_error(
-            "assigned_worker_registration_not_validated"
-        )
+        raise _permanent_codecompass_forwarding_error("assigned_worker_registration_not_validated")
     if str(getattr(registered_agent, "role", "")).strip().lower() != "worker":
-        raise _permanent_codecompass_forwarding_error(
-            "assigned_agent_is_not_worker"
-        )
+        raise _permanent_codecompass_forwarding_error("assigned_agent_is_not_worker")
     if str(getattr(registered_agent, "status", "")).strip().lower() not in {
         "online",
         "degraded",
@@ -292,27 +251,16 @@ def _authorize_codecompass_worker_dispatch(
 
     worker_execution_context = task.get("worker_execution_context")
     if not isinstance(worker_execution_context, Mapping):
-        raise _permanent_codecompass_forwarding_error(
-            "knowledge_index_execution_binding_missing"
-        )
-    destination_selection = worker_execution_context.get(
-        "destination_selection"
-    )
+        raise _permanent_codecompass_forwarding_error("knowledge_index_execution_binding_missing")
+    destination_selection = worker_execution_context.get("destination_selection")
     if not isinstance(destination_selection, Mapping) or not destination_selection:
-        raise _permanent_codecompass_forwarding_error(
-            "knowledge_index_destination_selection_missing"
-        )
+        raise _permanent_codecompass_forwarding_error("knowledge_index_destination_selection_missing")
     try:
-        authorized_context = (
-            index_job_service()
-            .authorize_bound_worker_dispatch(
-                job_id=tid,
-                authenticated_worker_id=str(
-                    registered_agent.name or registered_agent.url
-                ),
-                destination_selection=destination_selection,
-                dispatch_phase=dispatch_phase,
-            )
+        authorized_context = index_job_service().authorize_bound_worker_dispatch(
+            job_id=tid,
+            authenticated_worker_id=str(registered_agent.name or registered_agent.url),
+            destination_selection=destination_selection,
+            dispatch_phase=dispatch_phase,
         )
     except WorkerForwardingError:
         raise
@@ -328,9 +276,7 @@ def _authorize_codecompass_worker_dispatch(
             details={
                 "details": str(exc),
                 "reason_code": "knowledge_index_dispatch_preflight_unavailable",
-                "worker_url": str(
-                    getattr(registered_agent, "url", "") or ""
-                ),
+                "worker_url": str(getattr(registered_agent, "url", "") or ""),
             },
             status_code=503,
             retryable=True,

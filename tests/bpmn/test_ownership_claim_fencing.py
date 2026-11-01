@@ -39,9 +39,15 @@ def recipient(request, tmp_path):
 
 def claim(store, request, lease):
     return store.claim_fenced(
-        lease=lease, tenant_id=request.plan.tenant_id, workflow_id=request.plan.workflow_id,
-        run_id=request.run_id, step_id="work", owner_id="hub-owner", lease_seconds=60,
-        maximum_retries=2, now=100,
+        lease=lease,
+        tenant_id=request.plan.tenant_id,
+        workflow_id=request.plan.workflow_id,
+        run_id=request.run_id,
+        step_id="work",
+        owner_id="hub-owner",
+        lease_seconds=60,
+        maximum_retries=2,
+        now=100,
     )
 
 
@@ -87,9 +93,14 @@ def test_ownership_claim_cannot_broaden_recipient_workflow(recipient, field):
     with leases.acquire(request) as lease:
         with pytest.raises(OptimisticConcurrencyError, match="binding_mismatch"):
             values = dict(
-                tenant_id=request.plan.tenant_id, workflow_id=request.plan.workflow_id,
-                run_id=request.run_id, step_id="work", owner_id="hub-owner", lease_seconds=60,
-                maximum_retries=2, now=100,
+                tenant_id=request.plan.tenant_id,
+                workflow_id=request.plan.workflow_id,
+                run_id=request.run_id,
+                step_id="work",
+                owner_id="hub-owner",
+                lease_seconds=60,
+                maximum_retries=2,
+                now=100,
             )
             values[field] = "foreign"
             store.claim_fenced(lease=lease, **values)

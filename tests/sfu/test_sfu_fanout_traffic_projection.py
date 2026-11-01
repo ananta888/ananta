@@ -16,7 +16,6 @@ from agent.services.sfu_fanout_traffic_projection import (
     parse_sfu_fanout_traffic_projection_policy,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "config" / "sfu_fanout_traffic_projection.json"
 PARENT_SCHEMA_PATH = ROOT / "schemas" / "webrtc" / "datachannel_message.v1.json"
@@ -89,23 +88,13 @@ def test_projection_matrix_matches_complete_parent_registry_and_schema(policy, s
 
 def test_projection_is_disjoint_and_represents_every_closed_route_class(policy):
     kinds_by_class = {
-        route_class: {
-            rule.parent_message_kind
-            for rule in policy.classifications
-            if rule.route_class is route_class
-        }
+        route_class: {rule.parent_message_kind for rule in policy.classifications if rule.route_class is route_class}
         for route_class in SfuFanoutRouteClass
     }
 
     assert all(kinds_by_class.values())
     for parent_message_kind in policy.known_message_kinds:
-        assert (
-            sum(
-                parent_message_kind in message_kinds
-                for message_kinds in kinds_by_class.values()
-            )
-            == 1
-        )
+        assert sum(parent_message_kind in message_kinds for message_kinds in kinds_by_class.values()) == 1
 
 
 def test_protected_real_parent_kinds_are_never_shared(service, policy):
@@ -136,9 +125,7 @@ def test_protected_real_parent_kinds_are_never_shared(service, policy):
         "receiver_specific_residual",
     ],
 )
-def test_unregistered_protected_or_new_kinds_fail_closed(
-    service, policy, unregistered_protected_kind
-):
+def test_unregistered_protected_or_new_kinds_fail_closed(service, policy, unregistered_protected_kind):
     assert unregistered_protected_kind not in policy.known_message_kinds
 
     decision = service.classify(
@@ -157,9 +144,7 @@ def test_unregistered_protected_or_new_kinds_fail_closed(
     "unknown_kind",
     ["future_kind", "Control", " control", "control ", "", None],
 )
-def test_unknown_kinds_have_no_alias_or_normalization_fallback(
-    service, policy, unknown_kind
-):
+def test_unknown_kinds_have_no_alias_or_normalization_fallback(service, policy, unknown_kind):
     decision = service.classify(
         parent_message_kind=unknown_kind,
         parent_schema_version=policy.parent_contract.schema_version,
@@ -174,9 +159,7 @@ def test_unknown_kinds_have_no_alias_or_normalization_fallback(
     "unsupported_version",
     ["ananta.webrtc-datachannel.v2", "", None],
 )
-def test_known_kind_with_unknown_schema_version_fails_closed(
-    service, unsupported_version
-):
+def test_known_kind_with_unknown_schema_version_fails_closed(service, unsupported_version):
     decision = service.classify(
         parent_message_kind="control",
         parent_schema_version=unsupported_version,
@@ -192,10 +175,7 @@ def test_service_api_has_no_payload_input(service):
     parameters = inspect.signature(service.classify).parameters
 
     assert set(parameters) == {"parent_message_kind", "parent_schema_version"}
-    assert all(
-        parameter.kind is inspect.Parameter.KEYWORD_ONLY
-        for parameter in parameters.values()
-    )
+    assert all(parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters.values())
     with pytest.raises(TypeError):
         service.classify(
             parent_message_kind="control",
@@ -218,9 +198,7 @@ def test_service_api_has_no_payload_input(service):
             "fail_closed_defaults",
         ),
         (
-            lambda document: document["classifications"].append(
-                deepcopy(document["classifications"][0])
-            ),
+            lambda document: document["classifications"].append(deepcopy(document["classifications"][0])),
             "duplicate parent message kind",
         ),
         (
@@ -230,16 +208,12 @@ def test_service_api_has_no_payload_input(service):
             "does not match parent contract",
         ),
         (
-            lambda document: document["classifications"][0].update(
-                privacy_scope="authorized_receiver"
-            ),
+            lambda document: document["classifications"][0].update(privacy_scope="authorized_receiver"),
             "does not match its route class",
         ),
     ],
 )
-def test_policy_parser_rejects_unsafe_or_ambiguous_configuration(
-    raw_policy, mutation, error_match
-):
+def test_policy_parser_rejects_unsafe_or_ambiguous_configuration(raw_policy, mutation, error_match):
     mutation(raw_policy)
 
     with pytest.raises(TrafficProjectionPolicyError, match=error_match):

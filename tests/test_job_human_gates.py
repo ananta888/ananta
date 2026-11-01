@@ -1,15 +1,16 @@
 """Tests for Human Approval Gates (SECURITY-001/002)."""
+
 from __future__ import annotations
 
 import pytest
-from agent.caseflow.actions import CRITICAL_ACTIONS, ApprovalRequest
+
+from agent.caseflow.actions import CRITICAL_ACTIONS
+from agent.caseflow.discovery import DiscoveryResult, PolicyDenied, convert_result_to_case
 from agent.caseflow.policies import (
-    PolicyCheckResult,
     _hash_payload,
     check_policy,
     require_human_approval,
 )
-from agent.caseflow.discovery import PolicyDenied, convert_result_to_case, DiscoveryResult
 
 
 class TestCriticalActions:
@@ -41,10 +42,7 @@ class TestCriticalActions:
         assert result.error_code == "APPROVAL_REQUIRED"
 
     def test_convert_result_without_approval_denied(self):
-        dr = DiscoveryResult(
-            run_id="run-1", result_type="job_posting",
-            title="Job", source_name="test"
-        )
+        dr = DiscoveryResult(run_id="run-1", result_type="job_posting", title="Job", source_name="test")
         with pytest.raises(PolicyDenied) as exc_info:
             convert_result_to_case(dr, "job_application", approved_by="")
         assert exc_info.value.error_code == "APPROVAL_REQUIRED"

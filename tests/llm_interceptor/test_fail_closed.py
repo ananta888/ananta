@@ -26,7 +26,9 @@ def test_policy_engine_failure_denies_by_default():
     app = server.create_app()
     server._policy.evaluate = lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
     client = app.test_client()
-    resp = client.post("/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hi"}]})
+    resp = client.post(
+        "/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hi"}]}
+    )
     assert resp.status_code == 503
     assert resp.get_json()["error"]["code"] == "policy_engine_failed"
 
@@ -36,7 +38,9 @@ def test_redactor_failure_blocks_cloud_forwarding():
     app = server.create_app()
     server._redactor.redact_messages = lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom"))
     client = app.test_client()
-    resp = client.post("/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hi"}]})
+    resp = client.post(
+        "/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hi"}]}
+    )
     assert resp.status_code == 503
     assert resp.get_json()["error"]["code"] == "redaction_failed"
 
@@ -71,4 +75,3 @@ def test_context_gate_failure_drops_context_not_request():
     )
     assert resp.status_code == 200
     assert "context_snippets" not in seen["payload"]
-

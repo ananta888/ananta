@@ -39,12 +39,11 @@ class ProposeCollaborators:
 
     @classmethod
     def load(cls) -> "ProposeCollaborators":
-        from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
         from agent.services._task_scoped_citation import build_flow_metrics_payload, update_task_flow_metrics
         from agent.services._task_scoped_config_policy import (
             compact_research_context,
-            native_worker_runtime_enabled,
             has_native_opencode_runtime,
+            native_worker_runtime_enabled,
             normalize_temperature,
             resolve_interactive_context_profile,
             resolve_interactive_propose_timeout,
@@ -55,10 +54,11 @@ class ProposeCollaborators:
         from agent.services._task_scoped_runtime import (
             build_research_result,
             build_review_state,
+            build_task_propose_prompt,
             prepare_task_cli_session,
             routing_dimensions,
-            build_task_propose_prompt,
         )
+        from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
         return cls(
             route_response=TaskScopedRouteResponse,

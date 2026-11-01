@@ -110,21 +110,15 @@ class SourceControlGrantCatalogApi:
             try:
                 GrantOperation(operation)
             except ValueError as exc:
-                raise SourceControlApiRuntimeError(
-                    "grant_operation_filter_invalid"
-                ) from exc
+                raise SourceControlApiRuntimeError("grant_operation_filter_invalid") from exc
         if transformation is not None:
             try:
                 GrantTransformation(transformation)
             except ValueError as exc:
-                raise SourceControlApiRuntimeError(
-                    "grant_transformation_filter_invalid"
-                ) from exc
+                raise SourceControlApiRuntimeError("grant_transformation_filter_invalid") from exc
         presets = [
             preset
-            for preset in self._grant_service().list_presets(
-                actor=_grant_actor(actor)
-            )
+            for preset in self._grant_service().list_presets(actor=_grant_actor(actor))
             if (
                 not q
                 or q
@@ -137,36 +131,21 @@ class SourceControlGrantCatalogApi:
                     )
                 ).casefold()
             )
-            and (
-                operation is None
-                or preset.operation.value == operation
-            )
-            and (
-                transformation is None
-                or preset.transformation.value == transformation
-            )
+            and (operation is None or preset.operation.value == operation)
+            and (transformation is None or preset.transformation.value == transformation)
         ]
         after = _decode_grant_preset_cursor(cursor)
         start = 0
         if after is not None:
-            positions = {
-                preset.preset_id: index
-                for index, preset in enumerate(presets)
-            }
+            positions = {preset.preset_id: index for index, preset in enumerate(presets)}
             if after not in positions:
-                raise SourceControlApiRuntimeError(
-                    "grant_preset_cursor_invalid"
-                )
+                raise SourceControlApiRuntimeError("grant_preset_cursor_invalid")
             start = positions[after] + 1
         visible = presets[start : start + limit]
         has_more = start + limit < len(presets)
         return {
             "items": [wire(preset) for preset in visible],
-            "next_cursor": (
-                _encode_grant_preset_cursor(visible[-1].preset_id)
-                if has_more and visible
-                else None
-            ),
+            "next_cursor": (_encode_grant_preset_cursor(visible[-1].preset_id) if has_more and visible else None),
             "capabilities": _grant_preset_capabilities(actor.project_id),
         }
 
@@ -280,23 +259,17 @@ class SourceControlGrantCatalogApi:
 
     def _catalog_service(self):
         if self._catalogs is None:
-            raise SourceControlApiRuntimeError(
-                "source_control_catalog_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("source_control_catalog_unavailable", status_code=503)
         return self._catalogs
 
     def _grant_service(self):
         if self._grants is None:
-            raise SourceControlApiRuntimeError(
-                "source_control_grant_admin_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("source_control_grant_admin_unavailable", status_code=503)
         return self._grants
 
     def _index_access_service(self):
         if self._index_access is None:
-            raise SourceControlApiRuntimeError(
-                "source_control_index_access_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("source_control_index_access_unavailable", status_code=503)
         return self._index_access
 
 
@@ -310,9 +283,7 @@ def _grant_actor(value: object) -> GrantAdminActor:
     )
 
 
-def _require_project_scope(
-    *, actor: SourceControlPrincipal, project_id: str
-) -> None:
+def _require_project_scope(*, actor: SourceControlPrincipal, project_id: str) -> None:
     if project_id != actor.project_id:
         raise SourceControlApiRuntimeError(
             "source_control_project_scope_mismatch",
@@ -320,25 +291,17 @@ def _require_project_scope(
         )
 
 
-def _validate_grant_query(
-    *, cursor: str | None, filters: Mapping[str, str]
-) -> None:
+def _validate_grant_query(*, cursor: str | None, filters: Mapping[str, str]) -> None:
     if cursor is not None and len(cursor) > 512:
         raise SourceControlApiRuntimeError("grant_cursor_invalid")
     for key, value in filters.items():
         maximum = 128 if key == "q" else 255
         if len(value) > maximum:
-            raise SourceControlApiRuntimeError(
-                f"grant_{key}_filter_invalid"
-            )
+            raise SourceControlApiRuntimeError(f"grant_{key}_filter_invalid")
 
 
 def _encode_grant_preset_cursor(preset_id: str) -> str:
-    return (
-        base64.urlsafe_b64encode(preset_id.encode("ascii"))
-        .decode("ascii")
-        .rstrip("=")
-    )
+    return base64.urlsafe_b64encode(preset_id.encode("ascii")).decode("ascii").rstrip("=")
 
 
 def _decode_grant_preset_cursor(cursor: str | None) -> str | None:
@@ -349,13 +312,9 @@ def _decode_grant_preset_cursor(cursor: str | None) -> str | None:
         raw += "=" * (-len(raw) % 4)
         preset_id = base64.urlsafe_b64decode(raw).decode("ascii")
     except (ValueError, UnicodeDecodeError) as exc:
-        raise SourceControlApiRuntimeError(
-            "grant_preset_cursor_invalid"
-        ) from exc
+        raise SourceControlApiRuntimeError("grant_preset_cursor_invalid") from exc
     if not preset_id or len(preset_id) > 255:
-        raise SourceControlApiRuntimeError(
-            "grant_preset_cursor_invalid"
-        )
+        raise SourceControlApiRuntimeError("grant_preset_cursor_invalid")
     return preset_id
 
 
@@ -386,5 +345,3 @@ def _grant_capabilities(project_id: str) -> Mapping[str, object]:
         "destination_resolution": "server",
         "policy_resolution": "server",
     }
-
-

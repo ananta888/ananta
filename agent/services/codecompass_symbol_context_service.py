@@ -1,4 +1,5 @@
 """Build bounded symbol-level context from CodeCompass detail and relation outputs."""
+
 from __future__ import annotations
 
 import ast
@@ -7,7 +8,6 @@ import pathlib as _pl
 import re
 from dataclasses import dataclass
 from typing import Any
-
 
 _DETAIL_KINDS = (
     "python_function",
@@ -27,9 +27,34 @@ _RELATION_TYPES = (
 )
 
 _STOPWORDS = {
-    "bitte", "mir", "den", "die", "das", "der", "und", "oder", "wie", "was",
-    "ist", "sind", "im", "in", "mit", "von", "zu", "auf", "fuer", "für",
-    "erkläre", "erklaere", "code", "the", "and", "or", "what", "how",
+    "bitte",
+    "mir",
+    "den",
+    "die",
+    "das",
+    "der",
+    "und",
+    "oder",
+    "wie",
+    "was",
+    "ist",
+    "sind",
+    "im",
+    "in",
+    "mit",
+    "von",
+    "zu",
+    "auf",
+    "fuer",
+    "für",
+    "erkläre",
+    "erklaere",
+    "code",
+    "the",
+    "and",
+    "or",
+    "what",
+    "how",
 }
 
 
@@ -74,8 +99,7 @@ def _tokens(value: str) -> set[str]:
 
 def _symbol_text(record: dict[str, Any]) -> str:
     return " ".join(
-        str(record.get(key) or "")
-        for key in ("file", "name", "class_name", "kind", "target_resolved", "target")
+        str(record.get(key) or "") for key in ("file", "name", "class_name", "kind", "target_resolved", "target")
     )
 
 
@@ -100,7 +124,7 @@ def _read_range(repo_root: _pl.Path, path: str, line_start: int, line_end: int) 
         return ""
     start = max(1, int(line_start or 1))
     end = max(start, int(line_end or start))
-    excerpt = lines[start - 1:end]
+    excerpt = lines[start - 1 : end]
     return "\n".join(f"{idx}: {line}" for idx, line in enumerate(excerpt, start=start))
 
 
@@ -128,14 +152,16 @@ def _python_ast_records(
             if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             kind = "python_class" if isinstance(node, ast.ClassDef) else "python_function"
-            records.append({
-                "id": f"ast:{path}:{int(node.lineno)}:{node.name}",
-                "file": path,
-                "name": node.name,
-                "kind": kind,
-                "line": int(node.lineno),
-                "end_line": int(getattr(node, "end_lineno", node.lineno) or node.lineno),
-            })
+            records.append(
+                {
+                    "id": f"ast:{path}:{int(node.lineno)}:{node.name}",
+                    "file": path,
+                    "name": node.name,
+                    "kind": kind,
+                    "line": int(node.lineno),
+                    "end_line": int(getattr(node, "end_lineno", node.lineno) or node.lineno),
+                }
+            )
     return records
 
 
@@ -188,7 +214,10 @@ def build_codecompass_symbol_context(
 
     by_id = {str(record.get("id") or ""): record for record in detail_records if str(record.get("id") or "")}
     selected: dict[str, dict[str, Any]] = {}
-    for record in sorted(detail_records, key=lambda row: (-float(row.get("_cc_score") or 0.0), str(row.get("file") or ""), int(row.get("line") or 1))):
+    for record in sorted(
+        detail_records,
+        key=lambda row: (-float(row.get("_cc_score") or 0.0), str(row.get("file") or ""), int(row.get("line") or 1)),
+    ):
         record_id = str(record.get("id") or "")
         if record_id and record_id not in selected:
             selected[record_id] = {**record, "_cc_source": "codecompass_symbol"}
@@ -232,7 +261,10 @@ def build_codecompass_symbol_context(
         records.sort(key=lambda item: int(item.get("line") or 1))
 
     snippets: list[CodeCompassSymbolSnippet] = []
-    for record in sorted(selected.values(), key=lambda row: (-float(row.get("_cc_score") or 0.0), str(row.get("file") or ""), int(row.get("line") or 1))):
+    for record in sorted(
+        selected.values(),
+        key=lambda row: (-float(row.get("_cc_score") or 0.0), str(row.get("file") or ""), int(row.get("line") or 1)),
+    ):
         path = str(record.get("file") or "").strip()
         start = max(1, int(record.get("line") or 1))
         next_line = None

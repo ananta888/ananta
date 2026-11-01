@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 def tab_label_for_section(section_id: str) -> str:
     from client_surfaces.operator_tui.sections import get_section
+
     return get_section(section_id).title
 
 
@@ -123,7 +124,7 @@ def close_tab(state: "OperatorState", tab_id: str) -> "OperatorState":
     if idx is None:
         return state
 
-    new_tabs = tabs[:idx] + tabs[idx + 1:]
+    new_tabs = tabs[:idx] + tabs[idx + 1 :]
 
     if not new_tabs:
         dashboard = TuiTab(id="section:dashboard", kind="section", section_id="dashboard", label="Dashboard")  # type: ignore[arg-type]
@@ -196,6 +197,7 @@ def save_scroll_to_active_tab(state: "OperatorState", scroll_offset: int) -> "Op
 # Tab-bar rendering geometry — shared by renderer.py and region_index.py
 # ---------------------------------------------------------------------------
 
+
 class TabPosition:
     __slots__ = ("tab_id", "label_x1", "label_x2", "close_x", "y")
 
@@ -233,13 +235,15 @@ def tab_positions_for_render(state: "OperatorState", width: int, *, y: int = 9) 
             overflow_right = True
             break
 
-        positions.append(TabPosition(
-            tab_id=tab.id,
-            label_x1=x,
-            label_x2=close_x - 1,
-            close_x=close_x,
-            y=y,
-        ))
+        positions.append(
+            TabPosition(
+                tab_id=tab.id,
+                label_x1=x,
+                label_x2=close_x - 1,
+                close_x=close_x,
+                y=y,
+            )
+        )
         x += seg_w
         if i < len(visible) - 1:
             x += 1  # '│' separator

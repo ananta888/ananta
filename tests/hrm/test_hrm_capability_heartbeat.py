@@ -13,9 +13,7 @@ class _Publisher:
 
 def test_heartbeat_refreshes_only_the_capability_projection() -> None:
     publisher = _Publisher()
-    heartbeat = HrmCapabilityHeartbeat(
-        publisher, {"capability_digest": "sha256:test"}, interval_seconds=90
-    )
+    heartbeat = HrmCapabilityHeartbeat(publisher, {"capability_digest": "sha256:test"}, interval_seconds=90)
 
     heartbeat.refresh()
 

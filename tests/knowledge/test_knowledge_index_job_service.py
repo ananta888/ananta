@@ -277,10 +277,7 @@ def test_large_job_payload_is_artifact_first_and_worker_verifies_it() -> None:
     assert reference["size_bytes"] == len(store.content)
     assert reference["sha256"] == store.fingerprint
     assert envelope["idempotency_fingerprint"] != store.fingerprint
-    assert envelope["job_id"] == (
-        "knowledge-index-"
-        + envelope["idempotency_fingerprint"][:32]
-    )
+    assert envelope["job_id"] == ("knowledge-index-" + envelope["idempotency_fingerprint"][:32])
     assert captured["records"][0]["content"] == "x" * 150_000
     assert result["status"] == "completed"
 
@@ -378,16 +375,11 @@ def test_worker_result_validation_rejects_unbound_or_extended_payloads() -> None
         )
 
     result_schema = json.loads(
-        (
-            Path(__file__).resolve().parents[2]
-            / "schemas"
-            / "worker"
-            / "knowledge_index_job_result.v1.json"
-        ).read_text(encoding="utf-8")
+        (Path(__file__).resolve().parents[2] / "schemas" / "worker" / "knowledge_index_job_result.v1.json").read_text(
+            encoding="utf-8"
+        )
     )
-    assert list(
-        Draft202012Validator(result_schema).iter_errors(oversized_result)
-    )
+    assert list(Draft202012Validator(result_schema).iter_errors(oversized_result))
 
 
 def test_internal_payload_route_serves_only_integrity_checked_system_artifact(

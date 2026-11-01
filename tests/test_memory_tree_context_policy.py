@@ -8,20 +8,20 @@ Verifies that:
 - local workers can access more than external_cloud workers
 - ContextBundler memory_tree_view is correctly filtered
 """
-import pytest
+
 from unittest.mock import MagicMock
 
+from agent.services.context_bundle_service import ContextBundler
 from agent.services.task_context_policy_service import (
     _build_destination,
     _intent_to_tree_scope,
     filter_chunks_for_destination,
 )
-from agent.services.context_bundle_service import ContextBundler
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _chunk(sensitivity: str, content: str = "data") -> dict:
     return {
@@ -58,6 +58,7 @@ def _make_mt_result(chunks: list[dict]) -> MagicMock:
 # OHA-013: _build_destination
 # ---------------------------------------------------------------------------
 
+
 def test_build_destination_local_defaults():
     dest = _build_destination()
     assert dest["cloud_effective"] is False
@@ -83,6 +84,7 @@ def test_build_destination_cloud():
 # OHA-013: _intent_to_tree_scope
 # ---------------------------------------------------------------------------
 
+
 def test_tree_scope_architecture_intent():
     assert _intent_to_tree_scope("architecture_and_decision_context") == "global"
 
@@ -103,6 +105,7 @@ def test_tree_scope_default_is_source():
 # ---------------------------------------------------------------------------
 # OHA-013: filter_chunks_for_destination — local worker
 # ---------------------------------------------------------------------------
+
 
 def test_local_worker_allows_internal_high():
     local_dest = _build_destination()
@@ -135,6 +138,7 @@ def test_local_worker_allows_more_than_cloud():
 # ---------------------------------------------------------------------------
 # OHA-015: cloud-leak regression — external_cloud destination
 # ---------------------------------------------------------------------------
+
 
 def test_cloud_dest_denies_secret():
     cloud_dest = _build_destination(cloud_effective=True)
@@ -217,6 +221,7 @@ def test_denied_reasons_are_auditable():
 # OHA-014: ContextBundler with memory_tree_view
 # ---------------------------------------------------------------------------
 
+
 def test_build_bundle_without_memory_tree_view():
     bundle = ContextBundler.build_bundle(
         query="test",
@@ -229,10 +234,12 @@ def test_build_bundle_without_memory_tree_view():
 
 
 def test_build_bundle_with_memory_tree_view_local():
-    mt_result = _make_mt_result([
-        {"id": "mt-1", "content": "MemTree chunk 1", "metadata": {"sensitivity": "internal"}},
-        {"id": "mt-2", "content": "MemTree chunk 2", "metadata": {"sensitivity": "public"}},
-    ])
+    mt_result = _make_mt_result(
+        [
+            {"id": "mt-1", "content": "MemTree chunk 1", "metadata": {"sensitivity": "internal"}},
+            {"id": "mt-2", "content": "MemTree chunk 2", "metadata": {"sensitivity": "public"}},
+        ]
+    )
     bundle = ContextBundler.build_bundle(
         query="q",
         context_payload={"chunks": [], "context_text": None},
@@ -246,10 +253,12 @@ def test_build_bundle_with_memory_tree_view_local():
 
 def test_build_bundle_memory_tree_view_filters_secret_for_cloud():
     """Cloud-leak: secret MemoryTree chunks must not appear in bundle for cloud scope."""
-    mt_result = _make_mt_result([
-        {"id": "mt-secret", "content": "top secret", "metadata": {"sensitivity": "secret"}},
-        {"id": "mt-public", "content": "public info", "metadata": {"sensitivity": "public"}},
-    ])
+    mt_result = _make_mt_result(
+        [
+            {"id": "mt-secret", "content": "top secret", "metadata": {"sensitivity": "secret"}},
+            {"id": "mt-public", "content": "public info", "metadata": {"sensitivity": "public"}},
+        ]
+    )
     bundle = ContextBundler.build_bundle(
         query="q",
         context_payload={"chunks": [], "context_text": None},
@@ -264,9 +273,11 @@ def test_build_bundle_memory_tree_view_filters_secret_for_cloud():
 
 
 def test_build_bundle_memory_tree_view_with_summary_node():
-    mt_result = _make_mt_result([
-        {"id": "mt-1", "content": "data", "metadata": {"sensitivity": "public"}},
-    ])
+    mt_result = _make_mt_result(
+        [
+            {"id": "mt-1", "content": "data", "metadata": {"sensitivity": "public"}},
+        ]
+    )
     summary_node = MagicMock()
     summary_node.node_id = "node-123"
     summary_node.node_type = "source"
@@ -288,9 +299,11 @@ def test_build_bundle_memory_tree_view_with_summary_node():
 
 def test_build_bundle_policy_filter_counts_separate():
     """Standard chunks and MemoryTree chunks are counted separately in policy_filter."""
-    mt_result = _make_mt_result([
-        {"id": "mt-s", "content": "secret", "metadata": {"sensitivity": "secret"}},
-    ])
+    mt_result = _make_mt_result(
+        [
+            {"id": "mt-s", "content": "secret", "metadata": {"sensitivity": "secret"}},
+        ]
+    )
     bundle = ContextBundler.build_bundle(
         query="q",
         context_payload={
@@ -327,6 +340,7 @@ def test_existing_bundle_tests_still_pass():
 # OHA-013: build_context_policy includes retrieval_tree_scope + destination
 # ---------------------------------------------------------------------------
 
+
 def test_build_context_policy_includes_tree_scope(monkeypatch):
     """build_context_policy now returns retrieval_tree_scope in context_policy."""
     from agent.services.task_context_policy_service import TaskContextPolicyService
@@ -335,13 +349,17 @@ def test_build_context_policy_includes_tree_scope(monkeypatch):
 
     # Stub out the parts that need Flask app context / DB
     monkeypatch.setattr(svc, "resolve_context_bundle_policy", lambda: {})
-    monkeypatch.setattr(svc, "derive_task_neighborhood", lambda **kw: {
-        "depends_on_task_ids": [],
-        "dependent_task_ids": [],
-        "sibling_task_ids": [],
-        "completed_neighbor_task_ids": [],
-        "neighbor_task_ids": [],
-    })
+    monkeypatch.setattr(
+        svc,
+        "derive_task_neighborhood",
+        lambda **kw: {
+            "depends_on_task_ids": [],
+            "dependent_task_ids": [],
+            "sibling_task_ids": [],
+            "completed_neighbor_task_ids": [],
+            "neighbor_task_ids": [],
+        },
+    )
 
     parent_task = {"id": "t1", "goal_id": "g1"}
     ctx_policy, hints, _ = svc.build_context_policy(
@@ -358,14 +376,23 @@ def test_build_context_policy_destination_cloud(monkeypatch):
 
     svc = TaskContextPolicyService()
     monkeypatch.setattr(svc, "resolve_context_bundle_policy", lambda: {})
-    monkeypatch.setattr(svc, "derive_task_neighborhood", lambda **kw: {
-        "depends_on_task_ids": [], "dependent_task_ids": [],
-        "sibling_task_ids": [], "completed_neighbor_task_ids": [], "neighbor_task_ids": [],
-    })
+    monkeypatch.setattr(
+        svc,
+        "derive_task_neighborhood",
+        lambda **kw: {
+            "depends_on_task_ids": [],
+            "dependent_task_ids": [],
+            "sibling_task_ids": [],
+            "completed_neighbor_task_ids": [],
+            "neighbor_task_ids": [],
+        },
+    )
 
     cloud_dest = _build_destination(cloud_effective=True, external_effective=True)
     ctx_policy, _, _ = svc.build_context_policy(
-        parent_task={}, data=None, effective_task_kind="bugfix",
+        parent_task={},
+        data=None,
+        effective_task_kind="bugfix",
         destination=cloud_dest,
     )
     assert ctx_policy["destination"]["cloud_effective"] is True

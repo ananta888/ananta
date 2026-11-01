@@ -6,18 +6,18 @@ from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.governance_modes import governance_mode_catalog
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
+from agent.routes.operation_gate import operation_gate
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
+from agent.services.cli_session_service import get_cli_session_service
+from agent.services.config_profile_service import get_config_profile_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.platform_governance_service import get_platform_governance_service
-from agent.services.cli_session_service import get_cli_session_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
-from agent.services.config_profile_service import get_config_profile_service
-from agent.routes.operation_gate import operation_gate
 from agent.services.text_quality.config import text_quality_read_model
 from agent.tool_capabilities import build_capability_contract, describe_capabilities, resolve_allowed_tools
 
@@ -51,30 +51,176 @@ def _safe_model_profile_summary(profile) -> dict:
 
 def assistant_editable_settings_inventory() -> list[dict]:
     return [
-        {"key": "default_provider", "path": "config.default_provider", "type": "enum", "editable": True, "allowed_values": ["ollama", "lmstudio", "openai", "codex", "anthropic"], "endpoint": "POST /config"},
-        {"key": "default_model", "path": "config.default_model", "type": "string", "editable": True, "endpoint": "POST /config"},
-        {"key": "auth_provider", "path": "config.auth_provider", "type": "enum", "editable": True, "allowed_values": ["local", "oidc_bff"], "endpoint": "POST /config"},
-        {"key": "codex_cli", "path": "config.codex_cli", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "claude_cli", "path": "config.claude_cli", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "classroom", "path": "config.classroom", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "text_quality", "path": "config.text_quality", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "research_backend", "path": "config.research_backend", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "hub_copilot", "path": "config.hub_copilot", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "context_bundle_policy", "path": "config.context_bundle_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "artifact_flow", "path": "config.artifact_flow", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "cli_session_mode", "path": "config.cli_session_mode", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "opencode_runtime", "path": "config.opencode_runtime", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "worker_runtime", "path": "config.worker_runtime", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "propose_policy", "path": "config.propose_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "planning_policy", "path": "config.planning_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "role_model_overrides", "path": "config.role_model_overrides", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "template_model_overrides", "path": "config.template_model_overrides", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "task_kind_model_overrides", "path": "config.task_kind_model_overrides", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "template_agent_name", "path": "config.template_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
-        {"key": "team_agent_name", "path": "config.team_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
-        {"key": "template_variable_validation", "path": "config.template_variable_validation", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "quality_gates", "path": "config.quality_gates", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "exposure_policy", "path": "config.exposure_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {
+            "key": "default_provider",
+            "path": "config.default_provider",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["ollama", "lmstudio", "openai", "codex", "anthropic"],
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "default_model",
+            "path": "config.default_model",
+            "type": "string",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "auth_provider",
+            "path": "config.auth_provider",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["local", "oidc_bff"],
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "codex_cli",
+            "path": "config.codex_cli",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "claude_cli",
+            "path": "config.claude_cli",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "classroom",
+            "path": "config.classroom",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "text_quality",
+            "path": "config.text_quality",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "research_backend",
+            "path": "config.research_backend",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "hub_copilot",
+            "path": "config.hub_copilot",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "context_bundle_policy",
+            "path": "config.context_bundle_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "artifact_flow",
+            "path": "config.artifact_flow",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "cli_session_mode",
+            "path": "config.cli_session_mode",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "opencode_runtime",
+            "path": "config.opencode_runtime",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "worker_runtime",
+            "path": "config.worker_runtime",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "propose_policy",
+            "path": "config.propose_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "planning_policy",
+            "path": "config.planning_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "role_model_overrides",
+            "path": "config.role_model_overrides",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "template_model_overrides",
+            "path": "config.template_model_overrides",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "task_kind_model_overrides",
+            "path": "config.task_kind_model_overrides",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "template_agent_name",
+            "path": "config.template_agent_name",
+            "type": "string",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "team_agent_name",
+            "path": "config.team_agent_name",
+            "type": "string",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "template_variable_validation",
+            "path": "config.template_variable_validation",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "quality_gates",
+            "path": "config.quality_gates",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "exposure_policy",
+            "path": "config.exposure_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
         {
             "key": "platform_mode",
             "path": "config.platform_mode",
@@ -83,17 +229,87 @@ def assistant_editable_settings_inventory() -> list[dict]:
             "allowed_values": ["local-dev", "trusted-internal", "admin-only", "semi-public"],
             "endpoint": "POST /config",
         },
-        {"key": "terminal_policy", "path": "config.terminal_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "mutation_gate", "path": "config.mutation_gate", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "benchmark_retention", "path": "config.benchmark_retention", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "benchmark_identity_precedence", "path": "config.benchmark_identity_precedence", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "routing_fallback_policy", "path": "config.routing_fallback_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "result_memory_policy", "path": "config.result_memory_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "remote_federation_policy", "path": "config.remote_federation_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
-        {"key": "http_timeout", "path": "config.http_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},
-        {"key": "command_timeout", "path": "config.command_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},
-        {"key": "agent_offline_timeout", "path": "config.agent_offline_timeout", "type": "integer", "editable": True, "min": 10, "endpoint": "POST /config"},
-        {"key": "log_level", "path": "config.log_level", "type": "enum", "editable": True, "allowed_values": ["DEBUG", "INFO", "WARNING", "ERROR"], "endpoint": "POST /config"},
+        {
+            "key": "terminal_policy",
+            "path": "config.terminal_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "mutation_gate",
+            "path": "config.mutation_gate",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "benchmark_retention",
+            "path": "config.benchmark_retention",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "benchmark_identity_precedence",
+            "path": "config.benchmark_identity_precedence",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "routing_fallback_policy",
+            "path": "config.routing_fallback_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "result_memory_policy",
+            "path": "config.result_memory_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "remote_federation_policy",
+            "path": "config.remote_federation_policy",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "http_timeout",
+            "path": "config.http_timeout",
+            "type": "integer",
+            "editable": True,
+            "min": 1,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "command_timeout",
+            "path": "config.command_timeout",
+            "type": "integer",
+            "editable": True,
+            "min": 1,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "agent_offline_timeout",
+            "path": "config.agent_offline_timeout",
+            "type": "integer",
+            "editable": True,
+            "min": 10,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "log_level",
+            "path": "config.log_level",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["DEBUG", "INFO", "WARNING", "ERROR"],
+            "endpoint": "POST /config",
+        },
         {
             "key": "runtime_profile",
             "path": "config.runtime_profile",
@@ -112,10 +328,28 @@ def assistant_editable_settings_inventory() -> list[dict]:
         },
         {"key": "templates", "path": "templates", "type": "collection", "editable": True, "endpoint": "/templates"},
         {"key": "teams", "path": "teams", "type": "collection", "editable": True, "endpoint": "/teams"},
-        {"key": "team_types", "path": "teams.types", "type": "collection", "editable": True, "endpoint": "/teams/types"},
+        {
+            "key": "team_types",
+            "path": "teams.types",
+            "type": "collection",
+            "editable": True,
+            "endpoint": "/teams/types",
+        },
         {"key": "roles", "path": "teams.roles", "type": "collection", "editable": True, "endpoint": "/teams/roles"},
-        {"key": "autopilot", "path": "tasks.autopilot", "type": "object", "editable": True, "endpoint": "/tasks/autopilot/start|stop|tick"},
-        {"key": "auto_planner", "path": "tasks.auto_planner", "type": "object", "editable": True, "endpoint": "/tasks/auto-planner/configure"},
+        {
+            "key": "autopilot",
+            "path": "tasks.autopilot",
+            "type": "object",
+            "editable": True,
+            "endpoint": "/tasks/autopilot/start|stop|tick",
+        },
+        {
+            "key": "auto_planner",
+            "path": "tasks.auto_planner",
+            "type": "object",
+            "editable": True,
+            "endpoint": "/tasks/auto-planner/configure",
+        },
         {"key": "triggers", "path": "triggers", "type": "object", "editable": True, "endpoint": "/triggers/configure"},
     ]
 
@@ -128,7 +362,9 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
     risk_cfg = cfg.get("execution_risk_policy") if isinstance(cfg.get("execution_risk_policy"), dict) else {}
     mutation_gate_cfg = cfg.get("mutation_gate") if isinstance(cfg.get("mutation_gate"), dict) else {}
     platform_governance = get_platform_governance_service().build_policy_read_model(cfg)
-    exposure_policy = get_exposure_policy_service().normalize_exposure_policy(platform_governance.get("exposure_policy"))
+    exposure_policy = get_exposure_policy_service().normalize_exposure_policy(
+        platform_governance.get("exposure_policy")
+    )
     cli_session_mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
     return {
         "llm": {
@@ -169,16 +405,26 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "opencode_runtime": shared.opencode_runtime_settings_summary(cfg),
             "worker_runtime": shared.worker_runtime_settings_summary(cfg),
             "propose_policy": {
-                "context_compaction_enabled": bool(((cfg or {}).get("propose_policy") or {}).get("context_compaction_enabled", True))
+                "context_compaction_enabled": bool(
+                    ((cfg or {}).get("propose_policy") or {}).get("context_compaction_enabled", True)
+                )
                 if isinstance((cfg or {}).get("propose_policy"), dict)
                 else True,
-                "context_compaction_required": bool(((cfg or {}).get("propose_policy") or {}).get("context_compaction_required", False))
+                "context_compaction_required": bool(
+                    ((cfg or {}).get("propose_policy") or {}).get("context_compaction_required", False)
+                )
                 if isinstance((cfg or {}).get("propose_policy"), dict)
                 else False,
-                "context_compactor_fail_open": bool(((cfg or {}).get("propose_policy") or {}).get("context_compactor_fail_open", False))
+                "context_compactor_fail_open": bool(
+                    ((cfg or {}).get("propose_policy") or {}).get("context_compactor_fail_open", False)
+                )
                 if isinstance((cfg or {}).get("propose_policy"), dict)
                 else False,
-                "context_compactor_profile": str((((cfg or {}).get("propose_policy") or {}).get("context_compactor_profile") or "default")).strip().lower()
+                "context_compactor_profile": str(
+                    (((cfg or {}).get("propose_policy") or {}).get("context_compactor_profile") or "default")
+                )
+                .strip()
+                .lower()
                 if isinstance((cfg or {}).get("propose_policy"), dict)
                 else "default",
             },
@@ -233,7 +479,9 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "exposure_policy": exposure_policy,
             "platform_governance": platform_governance,
             "routing_fallback_policy": get_routing_decision_service().resolve_fallback_policy(cfg),
-            "result_memory_policy": normalize_result_memory_policy(cfg.get("result_memory_policy") if isinstance(cfg.get("result_memory_policy"), dict) else {}),
+            "result_memory_policy": normalize_result_memory_policy(
+                cfg.get("result_memory_policy") if isinstance(cfg.get("result_memory_policy"), dict) else {}
+            ),
             "remote_federation_policy": get_remote_federation_policy_service().resolve_policy(cfg),
         },
         "counts": {"teams": len(teams), "templates": len(templates)},
@@ -342,6 +590,7 @@ def get_config_profile(profile_id: str):
 def model_routing_read_model():
     """AMR-014: Read-model for current model routing state."""
     import os
+
     agent_cfg = dict(current_app.config.get("AGENT_CONFIG") or {})
     legacy_provider = str(agent_cfg.get("default_provider") or os.environ.get("DEFAULT_PROVIDER") or "lmstudio").strip()
     legacy_model = str(agent_cfg.get("default_model") or os.environ.get("DEFAULT_MODEL") or "auto").strip()
@@ -351,6 +600,7 @@ def model_routing_read_model():
 
     try:
         from agent.services.model_invocation_service import ModelInvocationService
+
         resolver = ModelInvocationService.default_instance()._get_resolver()
         if resolver is not None:
             profiles = list(resolver._all_enabled)
@@ -379,6 +629,7 @@ def model_routing_read_model():
 
     try:
         from agent.services.template_model_policy_service import TemplateModelPolicyService
+
         template_policies = [
             {"template_id": p.template_id, "profile_id": p.preferred_profile_id, "source": p.source}
             for p in TemplateModelPolicyService.build_from_app_config(agent_cfg).all_policies()
@@ -392,7 +643,8 @@ def model_routing_read_model():
         "legacy_active": profiles_info["status"] != "loaded",
         "deprecation_hint": (
             "Set MODEL_PROFILES_PATH to a model_profiles YAML/JSON file to enable profile-based routing."
-            if profiles_info["status"] != "loaded" else None
+            if profiles_info["status"] != "loaded"
+            else None
         ),
     }
 
@@ -401,6 +653,7 @@ def model_routing_read_model():
     if request.args.get("resolve") and resolver_info.get("status") == "ready":
         try:
             from agent.services.model_profile_resolver import RoutingContext
+
             model_role = str(request.args.get("model_role") or "any").strip()
             sample_result = resolver.resolve(RoutingContext(model_role=model_role))
             winner_info = {
@@ -413,20 +666,21 @@ def model_routing_read_model():
                     for d in (sample_result.decisions or [])
                 ],
                 "blocked_candidates": [
-                    {"profile_id": pid, "reason": reason}
-                    for pid, reason in (sample_result.blocked_candidates or [])
+                    {"profile_id": pid, "reason": reason} for pid, reason in (sample_result.blocked_candidates or [])
                 ],
             }
         except Exception as exc:
             winner_info = {"error": str(exc)}
 
-    return api_response(data={
-        "profiles": profiles_info,
-        "resolver": resolver_info,
-        "template_policies": template_policies,
-        "legacy": legacy_info,
-        "effective_winner": winner_info or None,
-    })
+    return api_response(
+        data={
+            "profiles": profiles_info,
+            "resolver": resolver_info,
+            "template_policies": template_policies,
+            "legacy": legacy_info,
+            "effective_winner": winner_info or None,
+        }
+    )
 
 
 @read_models_bp.route("/config/model-routing/profiles", methods=["GET"])
@@ -435,22 +689,25 @@ def model_routing_profiles():
     """Safe profile list for UI dropdowns."""
     try:
         from agent.services.model_invocation_service import ModelInvocationService
+
         resolver = ModelInvocationService.default_instance()._get_resolver()
         if resolver is None:
             return api_response(data={"profiles": [], "fallback_groups": {}, "status": "not_configured"})
-        return api_response(data={
-            "profiles": [_safe_model_profile_summary(p) for p in list(resolver._all_enabled)],
-            "fallback_groups": {
-                group_id: {
-                    "ordered_profiles": list(group.ordered_profiles),
-                    "max_total_retries": group.max_total_retries,
-                    "stop_on_policy_block": group.stop_on_policy_block,
-                    "stop_on_success": group.stop_on_success,
-                }
-                for group_id, group in getattr(resolver.rules, "fallback_groups", {}).items()
-            },
-            "status": "loaded",
-        })
+        return api_response(
+            data={
+                "profiles": [_safe_model_profile_summary(p) for p in list(resolver._all_enabled)],
+                "fallback_groups": {
+                    group_id: {
+                        "ordered_profiles": list(group.ordered_profiles),
+                        "max_total_retries": group.max_total_retries,
+                        "stop_on_policy_block": group.stop_on_policy_block,
+                        "stop_on_success": group.stop_on_success,
+                    }
+                    for group_id, group in getattr(resolver.rules, "fallback_groups", {}).items()
+                },
+                "status": "loaded",
+            }
+        )
     except Exception as exc:
         return api_response(status="error", message=f"model_routing_profiles_failed:{exc}", code=500)
 
@@ -461,7 +718,9 @@ def embedding_provider_diagnostics():
     """EPC-013: Return diagnostic status for all embedding provider scopes."""
     try:
         import dataclasses
+
         from agent.services.embedding_provider_config_service import EmbeddingProviderConfigService
+
         svc = EmbeddingProviderConfigService(
             global_config=dict(current_app.config.get("AGENT_CONFIG") or {}).get("embedding_provider") or {}
         )

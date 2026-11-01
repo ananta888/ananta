@@ -78,12 +78,15 @@ def test_operation_id_is_stable_and_ledger_makes_exactly_once_claim_decision(led
     event = side_effect_event(completed, correlation_id="corr", causation_id="command")
     assert event.event_type == "workflow.side_effect.completed"
     assert event.payload["operation_id"] == planned.operation_id
-    assert ledger.claim(
-        planned.operation_id,
-        expected_revision=completed.revision,
-        fencing_token=7,
-        attempt_id="attempt-1",
-    ).reason == "already_completed"
+    assert (
+        ledger.claim(
+            planned.operation_id,
+            expected_revision=completed.revision,
+            fencing_token=7,
+            attempt_id="attempt-1",
+        ).reason
+        == "already_completed"
+    )
     assert ledger.get(tenant_id="tenant-b", operation_id=planned.operation_id) is None
 
 
@@ -214,8 +217,11 @@ def test_completed_operation_can_be_compensated_with_an_auditable_result(ledger)
 
     assert compensated.status == "compensated"
     assert compensated.result_ref == "artifact://compensation-result"
-    assert side_effect_event(
-        compensated,
-        correlation_id="corr",
-        causation_id="compensation-command",
-    ).event_type == "workflow.side_effect.compensated"
+    assert (
+        side_effect_event(
+            compensated,
+            correlation_id="corr",
+            causation_id="compensation-command",
+        ).event_type
+        == "workflow.side_effect.compensated"
+    )

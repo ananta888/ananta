@@ -10,7 +10,6 @@ import re
 from collections.abc import Collection, Mapping
 from typing import Any
 
-
 CATEGORY_RESEARCH_RUN_SOURCE_ID = "RUN_0001"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -29,9 +28,7 @@ def _canonical_digest(value: Any) -> str:
             allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
-        raise OrganizationCategoryRunEvidenceError(
-            "category_run_evidence_not_json"
-        ) from exc
+        raise OrganizationCategoryRunEvidenceError("category_run_evidence_not_json") from exc
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -67,31 +64,17 @@ class OrganizationCategoryRunEvidenceService:
             "worker_id": str(worker_id or "").strip(),
         }
         if any(not value for value in bindings.values()):
-            raise OrganizationCategoryRunEvidenceError(
-                "category_run_evidence_binding_invalid"
-            )
+            raise OrganizationCategoryRunEvidenceError("category_run_evidence_binding_invalid")
 
-        normalized_refs = {
-            str(value or "").strip() for value in allowed_run_refs
-        }
+        normalized_refs = {str(value or "").strip() for value in allowed_run_refs}
         if normalized_refs != {CATEGORY_RESEARCH_RUN_SOURCE_ID}:
-            raise OrganizationCategoryRunEvidenceError(
-                "category_run_evidence_reservation_invalid"
-            )
+            raise OrganizationCategoryRunEvidenceError("category_run_evidence_reservation_invalid")
 
         output = str(raw_output or "")
-        digest = str(raw_output_digest or "").strip().lower().removeprefix(
-            "sha256:"
-        )
+        digest = str(raw_output_digest or "").strip().lower().removeprefix("sha256:")
         expected_digest = hashlib.sha256(output.encode("utf-8")).hexdigest()
-        if (
-            not output
-            or _SHA256.fullmatch(digest) is None
-            or not hmac.compare_digest(digest, expected_digest)
-        ):
-            raise OrganizationCategoryRunEvidenceError(
-                "category_run_evidence_output_digest_mismatch"
-            )
+        if not output or _SHA256.fullmatch(digest) is None or not hmac.compare_digest(digest, expected_digest):
+            raise OrganizationCategoryRunEvidenceError("category_run_evidence_output_digest_mismatch")
 
         artifacts = {
             str(key): str(value)

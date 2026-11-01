@@ -2,24 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services.admin_repair_taxonomy import (
-    ALLOWED_EVIDENCE_SOURCES,
-    KRITIS_HOOK_FIELDS,
-    PROBLEM_TAXONOMY,
-    SUPPORTED_PLATFORM_PROFILES,
-)
-from agent.services.admin_repair_normalizers import (
-    _normalize_evidence_sources,
-    _normalize_execution_scope,
-    _normalize_platform_target,
-    _normalize_targets,
-    _to_bool,
-)
 from agent.services.admin_repair_diagnosis import _build_diagnosis_artifact
-from agent.services.admin_repair_plan_builder import (
-    _build_repair_plan,
-    _build_rollback_and_caution_model,
-)
 from agent.services.admin_repair_execution import (
     _build_environment_summary,
     _build_execution_session_template,
@@ -29,12 +12,27 @@ from agent.services.admin_repair_execution import (
     _build_verification_phase,
     _resolve_platform_detection,
 )
+from agent.services.admin_repair_normalizers import (
+    _normalize_evidence_sources,
+    _normalize_execution_scope,
+    _normalize_targets,
+    _to_bool,
+)
+from agent.services.admin_repair_plan_builder import (
+    _build_repair_plan,
+    _build_rollback_and_caution_model,
+)
 from agent.services.admin_repair_presentation import (
     _build_cli_output_sections,
     _build_future_extension_boundaries,
     _build_golden_paths,
     _build_session_trail,
     _build_smoke_scenarios,
+)
+from agent.services.admin_repair_taxonomy import (
+    ALLOWED_EVIDENCE_SOURCES,
+    KRITIS_HOOK_FIELDS,
+    PROBLEM_TAXONOMY,
 )
 from agent.services.deterministic_repair_path_service import build_deterministic_repair_foundation_snapshot
 
@@ -147,7 +145,11 @@ def build_admin_repair_mode_data(mode_data: dict[str, Any]) -> dict[str, Any]:
 
 def render_admin_repair_goal(mode_data: dict[str, Any]) -> str:
     issue_symptom = str(mode_data.get("issue_symptom") or "unspecified_admin_issue")
-    platform = str((mode_data.get("platform_detection") or {}).get("platform_label") or mode_data.get("platform_target") or "Unknown")
+    platform = str(
+        (mode_data.get("platform_detection") or {}).get("platform_label")
+        or mode_data.get("platform_target")
+        or "Unknown"
+    )
     scope = str(mode_data.get("execution_scope") or "diagnosis_only")
     diagnosis_class = str((mode_data.get("diagnosis_artifact") or {}).get("problem_class") or "service_health")
     evidence_sources = list(mode_data.get("evidence_sources") or [])

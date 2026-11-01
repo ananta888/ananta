@@ -28,10 +28,7 @@ class FakeBridge:
 
 
 def test_codex_login_exposes_device_url_and_code_without_shell():
-    bridge = FakeBridge(
-        "Open https://auth.openai.com/codex/device\n"
-        "Enter this one-time code\nABCD-EFGHI\n"
-    )
+    bridge = FakeBridge("Open https://auth.openai.com/codex/device\nEnter this one-time code\nABCD-EFGHI\n")
     calls = []
 
     def factory(shell, *, argv):
@@ -45,9 +42,7 @@ def test_codex_login_exposes_device_url_and_code_without_shell():
 
     result = service.start("codex")
 
-    assert calls == [
-        ("/opt/codex", ["/opt/codex", "login", "--device-auth"])
-    ]
+    assert calls == [("/opt/codex", ["/opt/codex", "login", "--device-auth"])]
     assert result["status"] == "pending"
     assert result["verification_url"] == "https://auth.openai.com/codex/device"
     assert result["user_code"] == "ABCD-EFGHI"
@@ -65,9 +60,7 @@ def test_claude_login_accepts_browser_return_code():
     )
     started = service.start("claude_code")
 
-    result = service.submit_input(
-        "claude_code", started["session_id"], "browser-return-code"
-    )
+    result = service.submit_input("claude_code", started["session_id"], "browser-return-code")
 
     assert result["requires_input"] is True
     assert bridge.writes == ["browser-return-code\n"]

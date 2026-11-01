@@ -12,11 +12,9 @@ def _now_iso() -> str:
 
 
 class GithubWorkflowApiClient(Protocol):
-    def list_failed_workflow_runs(self, *, owner: str, repo: str, limit: int = 20) -> list[dict[str, Any]]:
-        ...
+    def list_failed_workflow_runs(self, *, owner: str, repo: str, limit: int = 20) -> list[dict[str, Any]]: ...
 
-    def list_failed_workflow_jobs(self, *, owner: str, repo: str, run_id: int) -> list[dict[str, Any]]:
-        ...
+    def list_failed_workflow_jobs(self, *, owner: str, repo: str, run_id: int) -> list[dict[str, Any]]: ...
 
 
 class GithubWorkflowFailureAdapter(HelpcenterSourceAdapter):
@@ -60,10 +58,7 @@ class GithubWorkflowFailureAdapter(HelpcenterSourceAdapter):
             source_ref = f"{source_ref}/jobs/{job_id}"
         title_suffix = f" / {job_name}" if job_name else ""
         summary = (
-            f"workflow={workflow_name} "
-            f"branch={branch or '-'} "
-            f"sha={commit_sha[:12] or '-'} "
-            f"conclusion={conclusion}"
+            f"workflow={workflow_name} branch={branch or '-'} sha={commit_sha[:12] or '-'} conclusion={conclusion}"
         )
         payload = {
             "message_id": f"gh-{self._owner}-{self._repo}-{run_id}-{job_id or 'run'}",

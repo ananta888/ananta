@@ -4,6 +4,7 @@ für das Heuristic-Runtime-System.
 Policy-Referenz: docs/security/heuristic-runtime-policy.md
 Schema:          schemas/worker/worker_role_config.v1.json
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,9 +13,9 @@ from typing import Any
 _FORBIDDEN_CONTROL_WORKERS = frozenset({"opencode", "open_code"})
 
 _DOMAIN_TTL_DEFAULTS: dict[str, dict[str, float]] = {
-    "snake_tui":       {"min": 1.0, "max": 60.0, "default": 7.0},
-    "snake_eclipse":   {"min": 1.0, "max": 60.0, "default": 7.0},
-    "chat_codecompass":{"min": 1.0, "max": 60.0, "default": 15.0},
+    "snake_tui": {"min": 1.0, "max": 60.0, "default": 7.0},
+    "snake_eclipse": {"min": 1.0, "max": 60.0, "default": 7.0},
+    "chat_codecompass": {"min": 1.0, "max": 60.0, "default": 15.0},
 }
 
 

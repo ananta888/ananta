@@ -1,27 +1,23 @@
 """Tests for ExecutableProposal and ProposeStrategyResult contracts. FA-T001."""
+
 from __future__ import annotations
 
 import pytest
 
 from worker.core.propose import (
+    STATUS_ADVISORY,
+    STATUS_DECLINED,
+    STATUS_EXECUTABLE,
     ExecutableProposal,
     ProposeStrategyResult,
-    STATUS_EXECUTABLE,
-    STATUS_DECLINED,
-    STATUS_ADVISORY,
-    STATUS_NEEDS_REVIEW,
-    STATUS_FAILED,
-    STATUS_POLICY_DENIED,
 )
-
 
 # ── ExecutableProposal ────────────────────────────────────────────────────────
 
+
 class TestExecutableProposal:
     def test_from_command_valid(self):
-        p = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="echo hello"
-        )
+        p = ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id="s1", command="echo hello")
         assert p.command == "echo hello"
         assert p.tool_calls == []
         assert p.proposal_id.startswith("prop-")
@@ -31,9 +27,7 @@ class TestExecutableProposal:
 
     def test_from_tool_calls_valid(self):
         tc = [{"type": "function", "function": {"name": "write_file", "arguments": "{}"}}]
-        p = ExecutableProposal.from_tool_calls(
-            goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=tc
-        )
+        p = ExecutableProposal.from_tool_calls(goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=tc)
         assert p.command is None
         assert len(p.tool_calls) == 1
         d = p.to_dict()
@@ -41,35 +35,45 @@ class TestExecutableProposal:
 
     def test_requires_command_or_tool_calls(self):
         with pytest.raises(ValueError, match="requires_command_or_tool_calls"):
-            ExecutableProposal(
-                proposal_id="p1", goal_id="g1", task_id="t1", strategy_id="s1"
-            )
+            ExecutableProposal(proposal_id="p1", goal_id="g1", task_id="t1", strategy_id="s1")
 
     def test_empty_tool_calls_rejected(self):
         with pytest.raises(ValueError, match="tool_calls_must_be_non_empty"):
-            ExecutableProposal.from_tool_calls(
-                goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=[]
-            )
+            ExecutableProposal.from_tool_calls(goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=[])
 
     def test_command_wrong_type_rejected(self):
         with pytest.raises(TypeError):
             ExecutableProposal(
-                proposal_id="p1", goal_id="g1", task_id="t1", strategy_id="s1",
+                proposal_id="p1",
+                goal_id="g1",
+                task_id="t1",
+                strategy_id="s1",
                 command=123,
             )
 
     def test_to_dict_contains_required_fields(self):
-        p = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="ls"
-        )
+        p = ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id="s1", command="ls")
         d = p.to_dict()
-        for key in ("proposal_id", "goal_id", "task_id", "strategy_id", "command", "tool_calls",
-                    "required_tools", "expected_artifacts", "safety_flags", "created_at"):
+        for key in (
+            "proposal_id",
+            "goal_id",
+            "task_id",
+            "strategy_id",
+            "command",
+            "tool_calls",
+            "required_tools",
+            "expected_artifacts",
+            "safety_flags",
+            "created_at",
+        ):
             assert key in d, f"missing key: {key}"
 
     def test_expected_artifacts_stored(self):
         p = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="make",
+            goal_id="g1",
+            task_id="t1",
+            strategy_id="s1",
+            command="make",
             expected_artifacts=[{"kind": "generated_file", "path": "app.py"}],
         )
         assert len(p.expected_artifacts) == 1
@@ -77,11 +81,10 @@ class TestExecutableProposal:
 
 # ── ProposeStrategyResult ─────────────────────────────────────────────────────
 
+
 class TestProposeStrategyResult:
     def _proposal(self) -> ExecutableProposal:
-        return ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="make"
-        )
+        return ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id="s1", command="make")
 
     def test_executable_result(self):
         p = self._proposal()

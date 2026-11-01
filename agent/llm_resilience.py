@@ -2,7 +2,6 @@ import collections as _collections
 import logging
 import time
 from collections import defaultdict
-from typing import Any
 
 CIRCUIT_BREAKER = {"failures": defaultdict(int), "last_failure": defaultdict(float), "open": defaultdict(bool)}
 _CB_DEFAULT_THRESHOLD = 5
@@ -19,6 +18,7 @@ _ERR_FAILURE_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collec
 def _cb_config() -> tuple[int, int]:
     try:
         from flask import current_app
+
         cfg = (current_app.config.get("AGENT_CONFIG") or {}).get("llm_config") or {}
         threshold = int(cfg.get("circuit_breaker_threshold") or _CB_DEFAULT_THRESHOLD)
         recovery = int(cfg.get("circuit_breaker_open_seconds") or _CB_DEFAULT_RECOVERY_TIME)
@@ -95,6 +95,7 @@ def get_provider_error_rate(provider: str, window_s: float = 60.0) -> dict:
 def _rl_config(provider: str) -> int:
     try:
         from flask import current_app
+
         cfg = (current_app.config.get("AGENT_CONFIG") or {}).get("llm_config") or {}
         rl = cfg.get("rate_limit_rpm") or 0
         rl_per = cfg.get(f"rate_limit_rpm_{provider}") or rl
@@ -116,7 +117,9 @@ def _check_rate_limit(provider: str) -> bool:
         if len(dq) >= rpm:
             logging.warning(
                 "rate_limit_exceeded provider=%s requests_in_window=%s limit_rpm=%s",
-                provider, len(dq), rpm,
+                provider,
+                len(dq),
+                rpm,
             )
             return False
         dq.append(now)

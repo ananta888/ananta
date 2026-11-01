@@ -30,4 +30,3 @@ class DispatchContext:
     update_local_task_status: Callable[..., None]
     dependencies: DispatchDependencies
     log: Any
-

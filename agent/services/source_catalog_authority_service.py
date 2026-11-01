@@ -102,13 +102,9 @@ class SourceCatalogAuthorityService:
             "source_catalog_allowlist_version_invalid",
         )
         scope = self._required(source_scope, "source_catalog_scope_required")
-        expected_organization = str(
-            expected_task_organization_id or ""
-        ).strip()
+        expected_organization = str(expected_task_organization_id or "").strip()
         if expected_organization and scope != f"organization:{expected_organization}":
-            raise SourceCatalogAuthorityError(
-                "source_catalog_task_organization_forbidden"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_task_organization_forbidden")
         sources_policy = self._normalized_policy(
             allowed_task_sources,
             "source_catalog_task_source_policy_required",
@@ -142,9 +138,7 @@ class SourceCatalogAuthorityService:
             # The Organization caller must prove current membership/grant at
             # its route/application boundary before enabling this mode.
             if organization_access_authorized is not True:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_organization_authority_required"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_organization_authority_required")
         elif owner != principal.subject_id:
             raise SourceCatalogAuthorityError("source_catalog_owner_forbidden")
         if task_source not in sources_policy:
@@ -192,31 +186,18 @@ class SourceCatalogAuthorityService:
         expected_tenant = str(expected_tenant_id or "").strip()
         expected_project = str(expected_project_id or "").strip()
         task_organization = str(task.get("organization_id") or "").strip()
-        expected_organization = str(
-            expected_organization_id or ""
-        ).strip()
+        expected_organization = str(expected_organization_id or "").strip()
 
         # A scoped task may never cross the authenticated tenant even when a
         # caller omitted an explicit expectation for legacy compatibility.
         if task_tenant and task_tenant != principal.tenant_id:
-            raise SourceCatalogAuthorityError(
-                "source_catalog_task_tenant_forbidden"
-            )
-        if expected_tenant and (
-            expected_tenant != principal.tenant_id
-            or task_tenant != expected_tenant
-        ):
-            raise SourceCatalogAuthorityError(
-                "source_catalog_task_tenant_forbidden"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_task_tenant_forbidden")
+        if expected_tenant and (expected_tenant != principal.tenant_id or task_tenant != expected_tenant):
+            raise SourceCatalogAuthorityError("source_catalog_task_tenant_forbidden")
         if expected_project and task_project != expected_project:
-            raise SourceCatalogAuthorityError(
-                "source_catalog_task_project_forbidden"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_task_project_forbidden")
         if expected_organization and task_organization != expected_organization:
-            raise SourceCatalogAuthorityError(
-                "source_catalog_task_organization_forbidden"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_task_organization_forbidden")
 
     @classmethod
     def _validate_catalog_projection(
@@ -236,9 +217,7 @@ class SourceCatalogAuthorityService:
         if str(catalog.get("source_catalog_hash") or "") != requested_catalog_hash:
             raise SourceCatalogAuthorityError("source_catalog_hash_mismatch")
         if requested_allowlist != requested_catalog_hash:
-            raise SourceCatalogAuthorityError(
-                "source_catalog_allowlist_version_mismatch"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_allowlist_version_mismatch")
         if str(catalog.get("catalog_state") or "") != "current":
             raise SourceCatalogAuthorityError("source_catalog_not_current")
         rejected_count = cls._count(
@@ -249,9 +228,10 @@ class SourceCatalogAuthorityService:
             raise SourceCatalogAuthorityError("source_catalog_contains_rejections")
         if str(catalog.get("retrieval_manifest_hash") or "") != requested_manifest:
             raise SourceCatalogAuthorityError("source_catalog_manifest_mismatch")
-        if not str(catalog.get("retrieval_trace_id") or "").strip() or not str(
-            catalog.get("retrieval_context_hash") or ""
-        ).strip():
+        if (
+            not str(catalog.get("retrieval_trace_id") or "").strip()
+            or not str(catalog.get("retrieval_context_hash") or "").strip()
+        ):
             raise SourceCatalogAuthorityError("source_catalog_trace_invalid")
 
         catalog_sources = catalog.get("sources")
@@ -267,10 +247,7 @@ class SourceCatalogAuthorityService:
         for raw_source in raw_sources:
             if not isinstance(raw_source, Mapping):
                 raise SourceCatalogAuthorityError("source_catalog_source_invalid")
-            if any(
-                raw_source.get(field) not in {None, ""}
-                for field in ("content", "text", "excerpt")
-            ):
+            if any(raw_source.get(field) not in {None, ""} for field in ("content", "text", "excerpt")):
                 raise SourceCatalogAuthorityError("source_catalog_content_forbidden")
 
         canonical_catalog = cls._canonical_catalog(
@@ -282,13 +259,9 @@ class SourceCatalogAuthorityService:
             raise SourceCatalogAuthorityError("source_catalog_payload_invalid")
         recomputed_hash = calculate_source_catalog_hash(canonical_catalog)
         if recomputed_hash != requested_catalog_hash:
-            raise SourceCatalogAuthorityError(
-                "source_catalog_hash_integrity_mismatch"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_hash_integrity_mismatch")
         if calculate_source_catalog_id(recomputed_hash) != requested_catalog_id:
-            raise SourceCatalogAuthorityError(
-                "source_catalog_id_integrity_mismatch"
-            )
+            raise SourceCatalogAuthorityError("source_catalog_id_integrity_mismatch")
         return raw_sources
 
     @staticmethod
@@ -306,35 +279,21 @@ class SourceCatalogAuthorityService:
         for raw_source in raw_sources:
             source = dict(raw_source)
             if str(source.get("task_id") or "") != task_id:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_source_task_mismatch"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_source_task_mismatch")
             if source.get("allowed_for_llm_scope") is not True:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_source_release_forbidden"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_source_release_forbidden")
             if str(source.get("manifest_hash") or "") != requested_manifest:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_source_manifest_mismatch"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_source_manifest_mismatch")
             try:
-                reference = SourceRef.from_mapping(
-                    dict(source.get("source_ref") or {})
-                )
+                reference = SourceRef.from_mapping(dict(source.get("source_ref") or {}))
             except (TypeError, ValueError) as exc:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_source_ref_invalid"
-                ) from exc
+                raise SourceCatalogAuthorityError("source_catalog_source_ref_invalid") from exc
             if reference.tenant_id != principal.tenant_id:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_tenant_forbidden"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_tenant_forbidden")
             if reference.scope != scope:
                 raise SourceCatalogAuthorityError("source_catalog_scope_forbidden")
             if reference.source_version != requested_revision:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_repository_revision_mismatch"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_repository_revision_mismatch")
             if any(
                 str(source.get(field) or "") != expected
                 for field, expected in (
@@ -345,14 +304,10 @@ class SourceCatalogAuthorityService:
                     ("provenance_digest", reference.provenance_digest),
                 )
             ):
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_source_ref_binding_mismatch"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_source_ref_binding_mismatch")
             key = (reference.source_id, reference.source_version)
             if key in seen:
-                raise SourceCatalogAuthorityError(
-                    "source_catalog_source_duplicate"
-                )
+                raise SourceCatalogAuthorityError("source_catalog_source_duplicate")
             seen.add(key)
             references.append(reference)
         references.sort(key=lambda item: (item.source_id, item.source_version))
@@ -372,12 +327,8 @@ class SourceCatalogAuthorityService:
             "catalog_id": projection.get("source_catalog_id"),
             "task_id": task_id,
             "retrieval_trace_id": projection.get("retrieval_trace_id"),
-            "retrieval_context_hash": projection.get(
-                "retrieval_context_hash"
-            ),
-            "retrieval_manifest_hash": projection.get(
-                "retrieval_manifest_hash"
-            ),
+            "retrieval_context_hash": projection.get("retrieval_context_hash"),
+            "retrieval_manifest_hash": projection.get("retrieval_manifest_hash"),
             "catalog_hash": projection.get("source_catalog_hash"),
             "catalog_state": projection.get("catalog_state"),
             "sources": list(sources),

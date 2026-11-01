@@ -19,6 +19,7 @@ Collaborators (composed by ``RunControlService``):
   - ``run_control_resource_ownership``: principal ownership index
   - ``run_control_read_model``: control-state projections
 """
+
 from __future__ import annotations
 
 import time
@@ -100,6 +101,7 @@ class RunControlService(RunControlTaskInterventionMixin):
     def _actor() -> str:
         try:
             from flask import g
+
             user = getattr(g, "user", {}) or {}
             return str(user.get("sub") or user.get("username") or "operator")
         except Exception:
@@ -411,23 +413,27 @@ class RunControlService(RunControlTaskInterventionMixin):
                 continue
             if instr.mode == "context_note_only":
                 continue
-            same = (instr.task_id and existing.task_id == instr.task_id) or \
-                   (instr.goal_id and existing.goal_id == instr.goal_id)
+            same = (instr.task_id and existing.task_id == instr.task_id) or (
+                instr.goal_id and existing.goal_id == instr.goal_id
+            )
             if same:
                 existing.status = "superseded"
         self._instructions[instr.instruction_id] = instr
         try:
-            log_audit("operator_instruction_created", {
-                "instruction_id": instr.instruction_id,
-                "task_id": instr.task_id,
-                "goal_id": instr.goal_id,
-                "run_id": instr.run_id,
-                "tenant_id": instr.tenant_id,
-                "subject_id": instr.subject_id,
-                "mode": instr.mode,
-                "instruction_class": instr.instruction_class,
-                "actor": instr.actor,
-            })
+            log_audit(
+                "operator_instruction_created",
+                {
+                    "instruction_id": instr.instruction_id,
+                    "task_id": instr.task_id,
+                    "goal_id": instr.goal_id,
+                    "run_id": instr.run_id,
+                    "tenant_id": instr.tenant_id,
+                    "subject_id": instr.subject_id,
+                    "mode": instr.mode,
+                    "instruction_class": instr.instruction_class,
+                    "actor": instr.actor,
+                },
+            )
         except Exception:
             pass
 
@@ -458,12 +464,10 @@ class RunControlService(RunControlTaskInterventionMixin):
         principal: RunControlPrincipal | None = None,
     ) -> list[OperatorInstruction]:
         result = [
-            i for i in self._instructions.values()
+            i
+            for i in self._instructions.values()
             if ((task_id and i.task_id == task_id) or (goal_id and i.goal_id == goal_id))
-            and (
-                principal is None
-                or (i.tenant_id, i.subject_id) == (principal.tenant_id, principal.subject_id)
-            )
+            and (principal is None or (i.tenant_id, i.subject_id) == (principal.tenant_id, principal.subject_id))
         ]
         return sorted(result, key=lambda i: i.created_at, reverse=True)
 
@@ -486,10 +490,7 @@ class RunControlService(RunControlTaskInterventionMixin):
         branch = self._branches.get(branch_id)
         branch_resource_mismatch = bool(
             branch is not None
-            and (
-                (cmd.task_id and branch.task_id != cmd.task_id)
-                or (cmd.goal_id and branch.goal_id != cmd.goal_id)
-            )
+            and ((cmd.task_id and branch.task_id != cmd.task_id) or (cmd.goal_id and branch.goal_id != cmd.goal_id))
         )
         if (
             branch is None
@@ -517,15 +518,18 @@ class RunControlService(RunControlTaskInterventionMixin):
         cmd.result = {"branch_id": branch_id, "new_status": "selected"}
         cmd.effective_at = time.time()
         try:
-            log_audit("branch_selected", {
-                "branch_id": branch_id,
-                "task_id": cmd.task_id,
-                "goal_id": cmd.goal_id,
-                "run_id": cmd.run_id,
-                "tenant_id": cmd.tenant_id,
-                "subject_id": cmd.subject_id,
-                "actor": cmd.requested_by,
-            })
+            log_audit(
+                "branch_selected",
+                {
+                    "branch_id": branch_id,
+                    "task_id": cmd.task_id,
+                    "goal_id": cmd.goal_id,
+                    "run_id": cmd.run_id,
+                    "tenant_id": cmd.tenant_id,
+                    "subject_id": cmd.subject_id,
+                    "actor": cmd.requested_by,
+                },
+            )
         except Exception:
             pass
 
@@ -578,12 +582,10 @@ class RunControlService(RunControlTaskInterventionMixin):
         principal: RunControlPrincipal | None = None,
     ) -> list[BranchCandidate]:
         result = [
-            b for b in self._branches.values()
+            b
+            for b in self._branches.values()
             if ((task_id and b.task_id == task_id) or (goal_id and b.goal_id == goal_id))
-            and (
-                principal is None
-                or (b.tenant_id, b.subject_id) == (principal.tenant_id, principal.subject_id)
-            )
+            and (principal is None or (b.tenant_id, b.subject_id) == (principal.tenant_id, principal.subject_id))
         ]
         return sorted(result, key=lambda b: b.created_at, reverse=True)
 
@@ -600,6 +602,7 @@ class RunControlService(RunControlTaskInterventionMixin):
             ApprovalDecisionError,
             get_approval_request_service,
         )
+
         service = get_approval_request_service()
         request_row = service.get_request(approval_id)
         resource_mismatch = bool(
@@ -615,9 +618,7 @@ class RunControlService(RunControlTaskInterventionMixin):
             RECOVERY_MATERIALIZE_TOOL,
         )
 
-        if str(getattr(request_row, "tool_name", "") or "") == (
-            RECOVERY_MATERIALIZE_TOOL
-        ):
+        if str(getattr(request_row, "tool_name", "") or "") == (RECOVERY_MATERIALIZE_TOOL):
             # Run-Control principals carry ownership, but no trusted
             # administrator claim. Recovery materialization therefore remains
             # on the dedicated admin-gated approval endpoint.
@@ -660,9 +661,7 @@ class RunControlService(RunControlTaskInterventionMixin):
         principal: RunControlPrincipal | None = None,
     ) -> dict[str, Any]:
         """Aggregate read model: task status + pending approvals + instruction + branches + command history."""
-        return self._read_model.get_control_state(
-            task_id=task_id, goal_id=goal_id, run_id=run_id, principal=principal
-        )
+        return self._read_model.get_control_state(task_id=task_id, goal_id=goal_id, run_id=run_id, principal=principal)
 
     def get_all_active_control_states(
         self,
@@ -680,9 +679,7 @@ class RunControlService(RunControlTaskInterventionMixin):
         limit: int = 50,
         principal: RunControlPrincipal | None = None,
     ) -> list[dict[str, Any]]:
-        return self._read_model.list_commands(
-            task_id=task_id, goal_id=goal_id, limit=limit, principal=principal
-        )
+        return self._read_model.list_commands(task_id=task_id, goal_id=goal_id, limit=limit, principal=principal)
 
     # ── Audit ──────────────────────────────────────────────────────────────────
 
@@ -692,18 +689,21 @@ class RunControlService(RunControlTaskInterventionMixin):
         if cmd.status == "rejected_by_policy":
             event = "run_command_rejected"
         try:
-            log_audit(event, {
-                "command_id": cmd.command_id,
-                "type": cmd.type,
-                "task_id": cmd.task_id,
-                "goal_id": cmd.goal_id,
-                "run_id": cmd.run_id,
-                "tenant_id": cmd.tenant_id,
-                "subject_id": cmd.subject_id,
-                "requested_by": cmd.requested_by,
-                "status": cmd.status,
-                "idempotency_key_ref": idempotency_key_ref(cmd.idempotency_key),
-            })
+            log_audit(
+                event,
+                {
+                    "command_id": cmd.command_id,
+                    "type": cmd.type,
+                    "task_id": cmd.task_id,
+                    "goal_id": cmd.goal_id,
+                    "run_id": cmd.run_id,
+                    "tenant_id": cmd.tenant_id,
+                    "subject_id": cmd.subject_id,
+                    "requested_by": cmd.requested_by,
+                    "status": cmd.status,
+                    "idempotency_key_ref": idempotency_key_ref(cmd.idempotency_key),
+                },
+            )
         except Exception:
             pass
 

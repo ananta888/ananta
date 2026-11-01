@@ -1,12 +1,13 @@
 """Tests for TrustlessRunReportService (TRANS-007)."""
+
 from __future__ import annotations
 
 from agent.services.trustless_run_report_service import TrustlessRunReport, TrustlessRunReportService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _svc() -> TrustlessRunReportService:
     return TrustlessRunReportService()
@@ -23,6 +24,7 @@ def _minimal_report(svc: TrustlessRunReportService, *, run_id: str = "run-trr-00
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_generate_minimal() -> None:
     """generate() must populate all mandatory fields even with minimal args."""

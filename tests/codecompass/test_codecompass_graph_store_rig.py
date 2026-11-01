@@ -12,12 +12,8 @@ Tests assert:
 4. The RIG slot never enters the symbolgraph ``node_index`` /
    ``outgoing_index`` / ``incoming_index`` (CCRIG-DD-006).
 """
+
 from __future__ import annotations
-
-import json
-from pathlib import Path
-
-import pytest
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 

@@ -1,4 +1,5 @@
 """X86CC-017, X86CC-018: Graph index and traversal extensions for x86."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -95,8 +96,11 @@ class X86CFGTraversal:
         warnings: list[str] = []
 
         cfg_edge_types = {
-            "cfg_fallthrough", "cfg_true", "cfg_false",
-            "cfg_jump", "cfg_indirect_jump",
+            "cfg_fallthrough",
+            "cfg_true",
+            "cfg_false",
+            "cfg_jump",
+            "cfg_indirect_jump",
         }
 
         def _dfs(node_id: str, depth: int) -> None:

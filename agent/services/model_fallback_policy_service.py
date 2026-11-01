@@ -4,6 +4,7 @@ The resolver owns candidate selection. This service owns retry semantics:
 which error classes may advance to the next candidate and how the decision is
 recorded. Security decisions remain resolver-owned and are never overridden.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,35 +16,40 @@ from ananta_contracts.model_recovery import (
     normalize_model_recovery_error_type,
 )
 
+FALLBACK_ERROR_TYPES = frozenset(
+    {
+        "provider_unavailable",
+        "connection_error",
+        "timeout",
+        "http_5xx",
+        "server_error",
+        "invalid_json_response",
+        "empty_content",
+        "schema_validation_failed",
+        "tool_not_allowed",
+        "tool_args_invalid",
+        "repeated_tool_failure",
+        "context_too_large",
+    }
+)
 
-FALLBACK_ERROR_TYPES = frozenset({
-    "provider_unavailable",
-    "connection_error",
-    "timeout",
-    "http_5xx",
-    "server_error",
-    "invalid_json_response",
-    "empty_content",
-    "schema_validation_failed",
-    "tool_not_allowed",
-    "tool_args_invalid",
-    "repeated_tool_failure",
-    "context_too_large",
-})
-
-TERMINAL_ERROR_TYPES = frozenset({
-    "policy_blocked",
-    "http_4xx",
-    "client_error",
-})
+TERMINAL_ERROR_TYPES = frozenset(
+    {
+        "policy_blocked",
+        "http_4xx",
+        "client_error",
+    }
+)
 
 # Retrying a request which is known to exceed the context window only repeats
 # the same deterministic failure.  The Hub must instead select a configured
 # context-recovery action (compaction, segmentation, approval, or stop).
-NON_RETRYABLE_SAME_PROFILE_ERROR_TYPES = frozenset({
-    "context_too_large",
-    *TERMINAL_ERROR_TYPES,
-})
+NON_RETRYABLE_SAME_PROFILE_ERROR_TYPES = frozenset(
+    {
+        "context_too_large",
+        *TERMINAL_ERROR_TYPES,
+    }
+)
 MAX_PROFILE_RETRY_BUDGET = 8
 
 
@@ -82,7 +88,13 @@ class ModelFallbackPolicyService:
         blocked_candidates: list[dict[str, Any]] | None = None,
     ) -> FallbackDecision:
         normalized = self.normalize_error_type(error_type)
-        if previous_profile and normalized in {"provider_unavailable", "timeout", "http_5xx", "server_error", "connection_error"}:
+        if previous_profile and normalized in {
+            "provider_unavailable",
+            "timeout",
+            "http_5xx",
+            "server_error",
+            "connection_error",
+        }:
             if self._health_cache is not None:
                 self._health_cache.mark_unavailable(previous_profile.provider_id)
 
@@ -131,10 +143,7 @@ class ModelFallbackPolicyService:
     def allows_same_profile_retry(cls, error_type: str | None) -> bool:
         """Return whether repeating the unchanged model request is safe."""
         normalized = cls.normalize_error_type(error_type)
-        return (
-            normalized in FALLBACK_ERROR_TYPES
-            and normalized not in NON_RETRYABLE_SAME_PROFILE_ERROR_TYPES
-        )
+        return normalized in FALLBACK_ERROR_TYPES and normalized not in NON_RETRYABLE_SAME_PROFILE_ERROR_TYPES
 
     def should_retry_profile(
         self,

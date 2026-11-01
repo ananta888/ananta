@@ -1,17 +1,15 @@
 """DeterministicHandlerStrategy — FA-T006 wrapper for TaskHandlerRegistry."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Dict
-
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import (
-    ProposeStrategyResult,
-    ExecutableProposal,
-    ProposalBase,
-)
+from typing import Any, Dict
 
 from agent.services.task_handler_registry import get_task_handler_registry
+from worker.core.propose import (
+    ExecutableProposal,
+    ProposeStrategyResult,
+)
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 
 
 def coerce_handler_response(response: Any) -> Dict[str, Any] | None:

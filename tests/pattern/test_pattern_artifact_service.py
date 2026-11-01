@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from agent.services.pattern_artifact_service import (
     PatternArtifactService,
-    make_plan_hash,
     get_pattern_artifact_service,
+    make_plan_hash,
 )
 
 

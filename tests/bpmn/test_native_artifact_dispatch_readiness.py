@@ -9,9 +9,10 @@ from tests.test_native_graph_runtime import plan, runtime
 def test_missing_declared_input_fails_without_queue_or_worker_execution():
     compiled = plan()
     first = compiled.nodes[0]
-    compiled = replace(compiled, nodes=tuple(
-        replace(node, input_artifacts=("report",)) if node == first else node for node in compiled.nodes
-    ))
+    compiled = replace(
+        compiled,
+        nodes=tuple(replace(node, input_artifacts=("report",)) if node == first else node for node in compiled.nodes),
+    )
     hub, queue, handler, *_ = runtime()
     request = NativeGraphRequest(compiled, "synthetic-missing-input", "synthetic-control")
     result = hub.start(request)

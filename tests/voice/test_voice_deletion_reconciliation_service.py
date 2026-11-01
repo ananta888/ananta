@@ -262,9 +262,7 @@ def test_reconciliation_deletes_pure_task_and_archive_scopes_by_pseudonymous_dig
                 task_kind="voice_transcription",
                 created_at=old_created_at,
                 updated_at=old_created_at,
-                worker_execution_context={
-                    "voice_transcription": {"deletion_scope_digest": "f" * 64}
-                },
+                worker_execution_context={"voice_transcription": {"deletion_scope_digest": "f" * 64}},
             )
         )
         session.commit()

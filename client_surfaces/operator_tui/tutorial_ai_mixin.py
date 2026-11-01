@@ -3,6 +3,7 @@
 State management, codecompass build orchestration, and coordination.
 AI engine, LLM interaction, and step definitions in sub-modules.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,27 +12,24 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from client_runtime import process
-
 from client_surfaces.operator_tui.tutorial_ai_engine import (
     TutorialAiEngineMixin,
     _load_codecompass_hints_from_dir,
     _load_rag_context_from_dir,
     _score_rag_record,
-    _TUTORIAL_AI_KNOWLEDGE,
-    _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT,
 )
 from client_surfaces.operator_tui.tutorial_steps import (
+    _record_tutorial_propose_event,
     _step_toward_cell,
     _tutorial_ai_target_cell,
     _tutorial_target_label,
-    _record_tutorial_propose_event,
 )
 
 if TYPE_CHECKING:
-    from concurrent.futures import Future
+    pass
 
 
 class TutorialAiMixin(TutorialAiEngineMixin):
@@ -98,7 +96,11 @@ class TutorialAiMixin(TutorialAiEngineMixin):
                 context_tokens.insert(0, f"target:{artifact_target.get('pane') or 'content'}")
         if self._tutorial_worker_target_hint:
             context_tokens.insert(0, f"target:{self._tutorial_worker_target_hint}")
-        local = snakes.get(str(self.state.header_logo_game.get("local_snake_id", "s1"))) if isinstance(self.state.header_logo_game, dict) else None
+        local = (
+            snakes.get(str(self.state.header_logo_game.get("local_snake_id", "s1")))
+            if isinstance(self.state.header_logo_game, dict)
+            else None
+        )
         local_head = None
         if isinstance(local, dict):
             local_snake = local.get("snake")
@@ -165,10 +167,14 @@ class TutorialAiMixin(TutorialAiEngineMixin):
             dist = abs(new_head[0] - target[0]) + abs(new_head[1] - target[1])
             if dist <= 1:
                 game["tutorial_ai_target_mode"] = "explain_target"
-                self._append_artifact_chat_ai_message(game=game, now=now, text="Ziel erreicht. Ich erkläre dieses Artefakt im Kontext.")
+                self._append_artifact_chat_ai_message(
+                    game=game, now=now, text="Ziel erreicht. Ich erkläre dieses Artefakt im Kontext."
+                )
 
         tip = self._tutorial_ai_tip(now=now)
-        target_label = self._tutorial_last_target or _tutorial_target_label(board_w=board_w, board_h=board_h, target=target)
+        target_label = self._tutorial_last_target or _tutorial_target_label(
+            board_w=board_w, board_h=board_h, target=target
+        )
         source_label = self._tutorial_last_source or "codecompass-rag"
         _record_tutorial_propose_event(
             game,
@@ -304,7 +310,12 @@ class TutorialAiMixin(TutorialAiEngineMixin):
         return None
 
     def _maybe_schedule_codecompass_rebuild(self, out_dir: Path) -> None:
-        auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {"1", "true", "yes", "on"}
+        auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         game = dict(self.state.header_logo_game or {})
         if not auto_enabled:
             game["codecompass_build_status"] = "ready"
@@ -318,14 +329,21 @@ class TutorialAiMixin(TutorialAiEngineMixin):
             game["codecompass_build_status"] = "stale"
             self._tutorial_codecompass_cache = (0.0, [])
             self._tutorial_rag_cache = (0.0, [])
-            self._codecompass_build_future = self._codecompass_build_executor.submit(self._build_codecompass_outputs_sync)
+            self._codecompass_build_future = self._codecompass_build_executor.submit(
+                self._build_codecompass_outputs_sync
+            )
             game["codecompass_build_status"] = "building"
         else:
             game["codecompass_build_status"] = "ready"
         self.state = self.state.with_updates(header_logo_game=game)
 
     def _ensure_codecompass_output_build_started(self) -> None:
-        auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {"1", "true", "yes", "on"}
+        auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if not auto_enabled:
             return
         if self._codecompass_build_future is not None and not self._codecompass_build_future.done():
@@ -450,18 +468,13 @@ class TutorialAiMixin(TutorialAiEngineMixin):
 
 from client_surfaces.operator_tui.tutorial_ai_engine import (
     _cosine_similarity as _cosine_similarity,
-    _embedding_vector_for_text as _embedding_vector_for_text,
-    _load_codecompass_hints_from_dir as _load_codecompass_hints_from_dir,
-    _load_rag_context_from_dir as _load_rag_context_from_dir,
-    _name_lookup_from_details as _name_lookup_from_details,
-    _score_rag_record as _score_rag_record,
-    _score_rag_record_with_embedding as _score_rag_record_with_embedding,
-    _TUTORIAL_AI_KNOWLEDGE as _TUTORIAL_AI_KNOWLEDGE,
-    _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT as _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT,
 )
-from client_surfaces.operator_tui.tutorial_steps import (
-    _record_tutorial_propose_event as _record_tutorial_propose_event,
-    _step_toward_cell as _step_toward_cell,
-    _tutorial_ai_target_cell as _tutorial_ai_target_cell,
-    _tutorial_target_label as _tutorial_target_label,
+from client_surfaces.operator_tui.tutorial_ai_engine import (
+    _embedding_vector_for_text as _embedding_vector_for_text,
+)
+from client_surfaces.operator_tui.tutorial_ai_engine import (
+    _name_lookup_from_details as _name_lookup_from_details,
+)
+from client_surfaces.operator_tui.tutorial_ai_engine import (
+    _score_rag_record_with_embedding as _score_rag_record_with_embedding,
 )

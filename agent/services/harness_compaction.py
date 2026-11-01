@@ -49,8 +49,9 @@ class CompactionResult:
 
 
 class ContextCompactor:
-    def compact(self, items: Sequence[ContextItem], *, budget_tokens: int,
-                droppable_kinds: Iterable[str] = DROPPABLE_KINDS) -> CompactionResult:
+    def compact(
+        self, items: Sequence[ContextItem], *, budget_tokens: int, droppable_kinds: Iterable[str] = DROPPABLE_KINDS
+    ) -> CompactionResult:
         if type(budget_tokens) is not int or budget_tokens < 1:
             raise ValueError("compaction_budget_invalid")
         droppable = frozenset(droppable_kinds)
@@ -63,20 +64,30 @@ class ContextCompactor:
         # Preserved items are never dropped: if they alone exceed the budget the
         # compactor fails closed (keeps everything) rather than forgetting state.
         if preserved_tokens > budget_tokens:
-            return CompactionResult(tuple(items), (), True, "compaction_preserved_exceeds_budget",
-                                    original_tokens, original_tokens,
-                                    {"preserved": len(preserved), "others": len(others)})
+            return CompactionResult(
+                tuple(items),
+                (),
+                True,
+                "compaction_preserved_exceeds_budget",
+                original_tokens,
+                original_tokens,
+                {"preserved": len(preserved), "others": len(others)},
+            )
 
         kept: list[ContextItem] = list(preserved)
         dropped: list[str] = []
         remaining = budget_tokens - preserved_tokens
         # Redundant/old work is removed outright; other items are kept newest-first
         # until the budget is exhausted, then the oldest of them is dropped too.
-        redundant = sorted((item for item in others if item.kind in droppable),
-                           key=lambda item: (item.created_at, item.item_id))
+        redundant = sorted(
+            (item for item in others if item.kind in droppable), key=lambda item: (item.created_at, item.item_id)
+        )
         dropped.extend(item.item_id for item in redundant)
-        keepable = sorted((item for item in others if item.kind not in droppable),
-                          key=lambda item: (item.created_at, item.item_id), reverse=True)
+        keepable = sorted(
+            (item for item in others if item.kind not in droppable),
+            key=lambda item: (item.created_at, item.item_id),
+            reverse=True,
+        )
         for item in keepable:
             if item.token_estimate <= remaining:
                 kept.append(item)
@@ -85,9 +96,15 @@ class ContextCompactor:
                 dropped.append(item.item_id)
         kept.sort(key=lambda item: (item.created_at, item.item_id))
         kept_tokens = sum(item.token_estimate for item in kept)
-        return CompactionResult(tuple(kept), tuple(dropped), False, None, kept_tokens, original_tokens,
-                                {"preserved": len(preserved), "redundant": len(redundant),
-                                 "budget_dropped": len(dropped) - len(redundant)})
+        return CompactionResult(
+            tuple(kept),
+            tuple(dropped),
+            False,
+            None,
+            kept_tokens,
+            original_tokens,
+            {"preserved": len(preserved), "redundant": len(redundant), "budget_dropped": len(dropped) - len(redundant)},
+        )
 
     @staticmethod
     def invariant_holds(items: Sequence[ContextItem], result: CompactionResult) -> bool:

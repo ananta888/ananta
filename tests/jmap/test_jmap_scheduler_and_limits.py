@@ -40,9 +40,7 @@ def test_scheduler_enforces_parallelism_backpressure_timeout_and_cancellation() 
         release.wait(timeout=2)
         return MailProviderResult(ok=True, reason_code="ok")
 
-    active = threading.Thread(
-        target=lambda: results.setdefault("active", scheduler.execute(active_work))
-    )
+    active = threading.Thread(target=lambda: results.setdefault("active", scheduler.execute(active_work)))
     active.start()
     assert entered.wait(timeout=1)
     cancellation = JmapCancellationToken()

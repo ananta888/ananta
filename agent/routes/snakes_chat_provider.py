@@ -27,11 +27,13 @@ def _resolve_central_ai_snake_model(config: dict[str, Any]):
 
     configured_backend = str(config.get("chat_backend") or "").strip().lower()
     try:
-        return resolve_explicit_hub_model(ModelRoutingDryRunCommand(
-            consumer_id="chat.ai_snake",
-            requires_streaming=True,
-            allow_cloud=configured_backend in {"openai", "codex", "openrouter"},
-        ))
+        return resolve_explicit_hub_model(
+            ModelRoutingDryRunCommand(
+                consumer_id="chat.ai_snake",
+                requires_streaming=True,
+                allow_cloud=configured_backend in {"openai", "codex", "openrouter"},
+            )
+        )
     except ModelRuntimeSelectionError:
         raise
     except Exception as exc:
@@ -74,9 +76,7 @@ def _resolve_ai_snake_chat_provider(
             normalized = base_url.rstrip("/")
             return normalized if normalized.endswith("/chat/completions") else f"{normalized}/chat/completions"
 
-        if configured_backend in {"openai", "codex"} or (
-            not configured_backend and (is_openai_url or is_openai_model)
-        ):
+        if configured_backend in {"openai", "codex"} or (not configured_backend and (is_openai_url or is_openai_model)):
             provider = "openai"
             api_base = bind_openai_credential_endpoint(
                 client_api_base=configured_api_base,
@@ -104,9 +104,5 @@ def _resolve_ai_snake_chat_provider(
             ).chat_completions_url
         elif configured_api_base:
             normalized = configured_api_base.rstrip("/")
-            api_base = (
-                normalized
-                if normalized.endswith("/chat/completions")
-                else f"{normalized}/chat/completions"
-            )
+            api_base = normalized if normalized.endswith("/chat/completions") else f"{normalized}/chat/completions"
     return provider, model, api_base

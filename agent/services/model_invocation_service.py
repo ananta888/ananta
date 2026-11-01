@@ -297,9 +297,11 @@ class ModelInvocationService:
             messages,
             tools=tools,
             response_validator=(
-                lambda payload: self._contract.validate_tool_response(payload, tools)
-                if bool(kwargs.get("retry_on_contract_error", False))
-                else None
+                lambda payload: (
+                    self._contract.validate_tool_response(payload, tools)
+                    if bool(kwargs.get("retry_on_contract_error", False))
+                    else None
+                )
             ),
             model=model,
             timeout=kwargs.get("timeout"),
@@ -384,13 +386,15 @@ class ModelInvocationService:
             messages,
             response_format={"type": "json_object"},
             response_validator=(
-                lambda payload: self._contract.validate_json_schema_response(
-                    payload,
-                    json_schema=json_schema,
-                    allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
+                lambda payload: (
+                    self._contract.validate_json_schema_response(
+                        payload,
+                        json_schema=json_schema,
+                        allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
+                    )
+                    if bool(kwargs.get("retry_on_contract_error", False))
+                    else None
                 )
-                if bool(kwargs.get("retry_on_contract_error", False))
-                else None
             ),
             model=model,
             timeout=kwargs.get("timeout"),
@@ -414,13 +418,15 @@ class ModelInvocationService:
             messages,
             response_format={"type": "json_object"},
             response_validator=(
-                lambda payload: self._contract.validate_json_schema_response(
-                    payload,
-                    json_schema=json_schema,
-                    allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
+                lambda payload: (
+                    self._contract.validate_json_schema_response(
+                        payload,
+                        json_schema=json_schema,
+                        allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
+                    )
+                    if bool(kwargs.get("retry_on_contract_error", False))
+                    else None
                 )
-                if bool(kwargs.get("retry_on_contract_error", False))
-                else None
             ),
             model=model,
             timeout=kwargs.get("timeout"),

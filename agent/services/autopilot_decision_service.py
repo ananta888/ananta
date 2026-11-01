@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from agent.common.utils.structured_action_utils import normalize_structured_action_payload, parse_structured_action_payload
-from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
+from agent.common.utils.structured_action_utils import (
+    normalize_structured_action_payload,
+    parse_structured_action_payload,
+)
 from agent.services.verification_policy_service import evaluate_quality_gates
+from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.utils import _extract_reason
 from ananta_contracts.model_recovery import (
     sanitize_terminal_model_recovery_signal,
@@ -49,7 +52,9 @@ class AutopilotDecisionService:
         if payload:
             normalized["command"] = payload.get("command")
             normalized["tool_calls"] = payload.get("tool_calls")
-            if payload.get("reason") and (not normalized.get("reason") or str(normalized.get("reason")).strip() == str(raw).strip()):
+            if payload.get("reason") and (
+                not normalized.get("reason") or str(normalized.get("reason")).strip() == str(raw).strip()
+            ):
                 normalized["reason"] = payload.get("reason")
             return normalized
         reason = _extract_reason(str(raw))
@@ -81,22 +86,14 @@ class AutopilotDecisionService:
             if profile:
                 snapshot["cli_result"] = {"llm_call_profile": profile}
         model_diagnostics = self._extract_model_diagnostics(normalized)
-        recovery_signal = sanitize_terminal_model_recovery_signal(
-            model_diagnostics.get("model_recovery_signal")
-        )
+        recovery_signal = sanitize_terminal_model_recovery_signal(model_diagnostics.get("model_recovery_signal"))
         if recovery_signal is not None:
             snapshot["model_recovery_signal"] = recovery_signal
-        if bool(
-            model_diagnostics.get(
-                "terminal_model_recovery_signal_seen"
-            )
-        ):
+        if bool(model_diagnostics.get("terminal_model_recovery_signal_seen")):
             snapshot["terminal_model_recovery_signal_seen"] = True
         if isinstance(model_diagnostics.get("fallback_decisions"), list):
             snapshot["fallback_decisions"] = [
-                dict(item)
-                for item in model_diagnostics["fallback_decisions"]
-                if isinstance(item, dict)
+                dict(item) for item in model_diagnostics["fallback_decisions"] if isinstance(item, dict)
             ][-32:]
         return snapshot
 
@@ -134,13 +131,8 @@ class AutopilotDecisionService:
         diagnostics: dict[str, Any] = {}
         for candidate in candidates:
             raw_signal = candidate.get("model_recovery_signal")
-            if (
-                isinstance(raw_signal, dict)
-                and raw_signal.get("terminal") is True
-            ):
-                diagnostics[
-                    "terminal_model_recovery_signal_seen"
-                ] = True
+            if isinstance(raw_signal, dict) and raw_signal.get("terminal") is True:
+                diagnostics["terminal_model_recovery_signal_seen"] = True
             signal = sanitize_terminal_model_recovery_signal(raw_signal)
             if signal is not None:
                 diagnostics["model_recovery_signal"] = signal
@@ -164,7 +156,8 @@ class AutopilotDecisionService:
         except Exception:  # noqa: BLE001 -- resolution unavailable: judge the proposed calls as they are
             return list(tool_calls or [])
         return list(resolution.resolved_tool_calls) + [
-            {"name": item.original_tool, "args": {}} for item in resolution.unresolved]
+            {"name": item.original_tool, "args": {}} for item in resolution.unresolved
+        ]
 
     def evaluate_tool_guardrails_for_autopilot(
         self,
@@ -193,11 +186,15 @@ class AutopilotDecisionService:
         tool_calls = self._as_executed(tool_calls)
         token_usage = {
             "prompt_tokens": estimate_text_tokens(command or reason or getattr(task, "description", None)),
-            "history_tokens": estimate_text_tokens(json.dumps(getattr(task, "history", None) or [], ensure_ascii=False)),
+            "history_tokens": estimate_text_tokens(
+                json.dumps(getattr(task, "history", None) or [], ensure_ascii=False)
+            ),
             "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
         }
         token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
-        return evaluate_tool_call_guardrails(tool_calls, {"llm_tool_guardrails": dynamic_guard}, token_usage=token_usage)
+        return evaluate_tool_call_guardrails(
+            tool_calls, {"llm_tool_guardrails": dynamic_guard}, token_usage=token_usage
+        )
 
     def normalize_execute_result(self, execute_data: dict) -> tuple[str, int | None, str | None]:
         exit_code = execute_data.get("exit_code")
@@ -224,7 +221,9 @@ class AutopilotDecisionService:
         passed, reason_code = evaluate_quality_gates(task, output, exit_code, policy=quality_cfg)
         if passed:
             return task_status, output, None
-        failed_output = f"{output}\n\n[quality_gate] failed: {reason_code}" if output else f"[quality_gate] failed: {reason_code}"
+        failed_output = (
+            f"{output}\n\n[quality_gate] failed: {reason_code}" if output else f"[quality_gate] failed: {reason_code}"
+        )
         return "failed", failed_output, reason_code
 
 

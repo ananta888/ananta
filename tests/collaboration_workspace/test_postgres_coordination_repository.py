@@ -140,11 +140,14 @@ def test_two_hub_services_share_cursor_and_fence_control_grant(tmp_path: Path, p
             conflicts.append(str(exc))
     assert len(results) == 1
     assert conflicts == ["collaboration_control_revision_conflict"]
-    assert second.current_grant(
-        tenant_id="tenant-live",
-        workspace_id="workspace-live",
-        principal_actor_id="human-user-b",
-    ) == results[0]
+    assert (
+        second.current_grant(
+            tenant_id="tenant-live",
+            workspace_id="workspace-live",
+            principal_actor_id="human-user-b",
+        )
+        == results[0]
+    )
     now[0] = 131.0
     renewed = second.grant_control(
         tenant_id="tenant-live",
@@ -181,9 +184,12 @@ def test_presence_and_cache_keys_are_tenant_workspace_qualified(postgres_engine)
             expires_at=200.0,
             payload={"marker": marker},
         )
-    assert repository.presence_values(
-        tenant_id="tenant-scope-a", workspace_id="workspace-shared-name", now=100.0
-    )[0]["lease_id"] == "lease-a"
+    assert (
+        repository.presence_values(tenant_id="tenant-scope-a", workspace_id="workspace-shared-name", now=100.0)[0][
+            "lease_id"
+        ]
+        == "lease-a"
+    )
     assert repository.cache_value(
         tenant_id="tenant-scope-b",
         workspace_id="workspace-shared-name",
@@ -207,6 +213,7 @@ def test_shared_state_database_failure_has_no_local_fallback(tmp_path: Path, pos
     now = [100.0]
     database = tmp_path / "fail-closed.sqlite3"
     _first, _second = _live_services(database, postgres_engine, now)
+
     # The live service owns no hidden secondary state; a repository exception is propagated.
     class UnavailableState:
         def put_cursor(self, **_kwargs):

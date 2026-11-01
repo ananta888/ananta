@@ -75,9 +75,7 @@ class ScopedWorkerModelDestinationCatalog:
         project_id: str,
         destination_id: str,
     ) -> DestinationDescriptor | None:
-        for descriptor in self._scoped_descriptors(
-            tenant_id, project_id
-        ):
+        for descriptor in self._scoped_descriptors(tenant_id, project_id):
             if descriptor.destination_id == destination_id:
                 return descriptor
         return None
@@ -92,9 +90,7 @@ class ScopedWorkerModelDestinationCatalog:
         filters: Mapping[str, object],
     ) -> tuple[Sequence[DestinationDescriptor], str | None]:
         if limit < 1 or limit > 200:
-            raise SourceControlProductionAdapterError(
-                "destination_limit_invalid"
-            )
+            raise SourceControlProductionAdapterError("destination_limit_invalid")
         after = self._decode_destination_cursor(cursor)
         values = sorted(
             self._scoped_descriptors(tenant_id, project_id),
@@ -104,37 +100,23 @@ class ScopedWorkerModelDestinationCatalog:
             item
             for item in values
             if (after is None or item.destination_id > after)
-            and (
-                not filters.get("provider_id")
-                or item.provider_id == str(filters["provider_id"])
-            )
-            and (
-                not filters.get("model_class")
-                or item.model_class == str(filters["model_class"])
-            )
+            and (not filters.get("provider_id") or item.provider_id == str(filters["provider_id"]))
+            and (not filters.get("model_class") or item.model_class == str(filters["model_class"]))
         ][: limit + 1]
         visible = selected[:limit]
         return (
             tuple(visible),
             (
-                base64.urlsafe_b64encode(
-                    visible[-1].destination_id.encode("ascii")
-                )
-                .decode("ascii")
-                .rstrip("=")
+                base64.urlsafe_b64encode(visible[-1].destination_id.encode("ascii")).decode("ascii").rstrip("=")
                 if len(selected) > limit and visible
                 else None
             ),
         )
 
-    def _scoped_descriptors(
-        self, tenant_id: str, project_id: str
-    ) -> list[DestinationDescriptor]:
+    def _scoped_descriptors(self, tenant_id: str, project_id: str) -> list[DestinationDescriptor]:
         descriptors: list[DestinationDescriptor] = []
         for record, target in self._records():
-            if not self._scope_allowed(
-                target, tenant_id=tenant_id, project_id=project_id
-            ):
+            if not self._scope_allowed(target, tenant_id=tenant_id, project_id=project_id):
                 continue
             descriptors.append(
                 DestinationDescriptor.create(
@@ -157,15 +139,9 @@ class ScopedWorkerModelDestinationCatalog:
         model_index = self._model_catalog()
         with Session(self._engine) as db:
             workers = list(db.exec(select(AgentInfoDB)).all())
-        records: list[
-            tuple[DestinationCatalogRecord, Mapping[str, object]]
-        ] = []
+        records: list[tuple[DestinationCatalogRecord, Mapping[str, object]]] = []
         for worker in workers:
-            if (
-                worker.role != "worker"
-                or worker.status != "online"
-                or not worker.registration_validated
-            ):
+            if worker.role != "worker" or worker.status != "online" or not worker.registration_validated:
                 continue
             worker_id = str(worker.name or worker.url)
             for raw in list(worker.runtime_targets or []):
@@ -173,40 +149,21 @@ class ScopedWorkerModelDestinationCatalog:
                     continue
                 target = dict(raw)
                 runtime_id = str(target.get("runtime_id") or "")
-                runtime_kind = str(
-                    target.get("runtime_kind")
-                    or target.get("kind")
-                    or ""
-                )
+                runtime_kind = str(target.get("runtime_kind") or target.get("kind") or "")
                 provider_id = str(target.get("provider_id") or "")
-                model_provider_id = str(
-                    target.get("model_provider_id") or provider_id
-                )
+                model_provider_id = str(target.get("model_provider_id") or provider_id)
                 model_ids = target.get("model_ids")
                 if not isinstance(model_ids, list):
                     model_ids = [target.get("model_id")]
                 for raw_model_id in model_ids:
                     model_id = str(raw_model_id or "")
-                    model = model_index.get(
-                        (model_provider_id, model_id)
-                    )
-                    if (
-                        not runtime_id
-                        or not runtime_kind
-                        or model is None
-                    ):
+                    model = model_index.get((model_provider_id, model_id))
+                    if not runtime_id or not runtime_kind or model is None:
                         continue
                     try:
-                        location = ProviderLocation(
-                            str(target["provider_location"])
-                        )
-                        data_residency = str(
-                            target["data_residency"]
-                        )
-                        model_class = str(
-                            target.get("model_class")
-                            or self._model_class(model)
-                        )
+                        location = ProviderLocation(str(target["provider_location"]))
+                        data_residency = str(target["data_residency"])
+                        model_class = str(target.get("model_class") or self._model_class(model))
                     except (KeyError, ValueError):
                         continue
                     if not data_residency or not model_class:
@@ -215,10 +172,7 @@ class ScopedWorkerModelDestinationCatalog:
                         (
                             DestinationCatalogRecord(
                                 worker_id=worker_id,
-                                worker_kind=str(
-                                    target.get("worker_kind")
-                                    or worker.role
-                                ),
+                                worker_kind=str(target.get("worker_kind") or worker.role),
                                 runtime_id=runtime_id,
                                 runtime_kind=runtime_kind,
                                 provider_id=provider_id,
@@ -226,17 +180,10 @@ class ScopedWorkerModelDestinationCatalog:
                                 model_class=model_class,
                                 provider_location=location,
                                 data_residency=data_residency,
-                                enabled=bool(
-                                    target.get("enabled", True)
-                                ),
+                                enabled=bool(target.get("enabled", True)),
                                 authorization_status=(
                                     "authorized"
-                                    if self._model_available(model)
-                                    and bool(
-                                        target.get(
-                                            "source_access_authorized"
-                                        )
-                                    )
+                                    if self._model_available(model) and bool(target.get("source_access_authorized"))
                                     else "denied"
                                 ),
                             ),
@@ -246,8 +193,7 @@ class ScopedWorkerModelDestinationCatalog:
         return [
             (record, target)
             for record, target in records
-            if record.enabled
-            and record.authorization_status == "authorized"
+            if record.enabled and record.authorization_status == "authorized"
         ]
 
     def _model_catalog(self) -> dict[tuple[str, str], object]:
@@ -257,20 +203,9 @@ class ScopedWorkerModelDestinationCatalog:
                 (
                     str(
                         getattr(item, "provider_id", None)
-                        or (
-                            item.get("provider_id")
-                            if isinstance(item, Mapping)
-                            else ""
-                        )
+                        or (item.get("provider_id") if isinstance(item, Mapping) else "")
                     ),
-                    str(
-                        getattr(item, "model_id", None)
-                        or (
-                            item.get("model_id")
-                            if isinstance(item, Mapping)
-                            else ""
-                        )
-                    ),
+                    str(getattr(item, "model_id", None) or (item.get("model_id") if isinstance(item, Mapping) else "")),
                 ): item
                 for item in self._models()
             }
@@ -282,21 +217,15 @@ class ScopedWorkerModelDestinationCatalog:
         availability = getattr(model, "availability", None)
         health = getattr(model, "health", None)
         return (
-            str(getattr(availability, "value", availability))
-            == ModelAvailability.AVAILABLE.value
-            and str(getattr(health, "value", health))
-            != ModelHealth.UNAVAILABLE.value
+            str(getattr(availability, "value", availability)) == ModelAvailability.AVAILABLE.value
+            and str(getattr(health, "value", health)) != ModelHealth.UNAVAILABLE.value
         )
 
     @staticmethod
     def _model_class(model: object) -> str:
         capabilities = getattr(model, "capabilities", ())
         return next(
-            (
-                str(item).removeprefix("class:")
-                for item in capabilities
-                if str(item).startswith("class:")
-            ),
+            (str(item).removeprefix("class:") for item in capabilities if str(item).startswith("class:")),
             "general",
         )
 
@@ -309,16 +238,11 @@ class ScopedWorkerModelDestinationCatalog:
     ) -> bool:
         if target.get("global_source_access") is True:
             return True
-        if (
-            target.get("tenant_id") == tenant_id
-            and target.get("project_id") == project_id
-        ):
+        if target.get("tenant_id") == tenant_id and target.get("project_id") == project_id:
             return True
         scopes = target.get("source_access_scopes")
         return isinstance(scopes, list) and any(
-            isinstance(scope, Mapping)
-            and scope.get("tenant_id") == tenant_id
-            and scope.get("project_id") == project_id
+            isinstance(scope, Mapping) and scope.get("tenant_id") == tenant_id and scope.get("project_id") == project_id
             for scope in scopes
         )
 
@@ -330,9 +254,7 @@ class ScopedWorkerModelDestinationCatalog:
             value = cursor + "=" * (-len(cursor) % 4)
             return base64.urlsafe_b64decode(value).decode("ascii")
         except (ValueError, UnicodeDecodeError) as exc:
-            raise SourceControlProductionAdapterError(
-                "destination_cursor_invalid"
-            ) from exc
+            raise SourceControlProductionAdapterError("destination_cursor_invalid") from exc
 
 
 __all__ = ["ScopedWorkerModelDestinationCatalog"]

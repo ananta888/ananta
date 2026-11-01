@@ -91,20 +91,13 @@ class AiSnakeProviderConfig:
     def from_mapping(cls, payload: dict[str, Any] | None) -> "AiSnakeProviderConfig":
         source = dict(payload or {})
         return cls(
-            provider_preference=(
-                str(source.get("provider_preference") or "lmstudio").strip()
-                or "lmstudio"
-            ),
+            provider_preference=(str(source.get("provider_preference") or "lmstudio").strip() or "lmstudio"),
             model=str(source.get("model") or "ananta-smoke").strip() or "ananta-smoke",
             max_latency_ms=max(250, int(source.get("max_latency_ms") or 2000)),
-            budgets=dict(source.get("budgets") or {})
-            if isinstance(source.get("budgets"), dict)
-            else {},
+            budgets=dict(source.get("budgets") or {}) if isinstance(source.get("budgets"), dict) else {},
             cloud_allowed=bool(source.get("cloud_allowed", False)),
             allowed_providers=[
-                str(item).strip()
-                for item in list(source.get("allowed_providers") or [])
-                if str(item).strip()
+                str(item).strip() for item in list(source.get("allowed_providers") or []) if str(item).strip()
             ],
         )
 
@@ -123,9 +116,7 @@ class NativeWorkerRuntimeService:
         return bool(self._native_runtime_cfg(agent_cfg).get("enabled", False))
 
     def fallback_backend(self, *, agent_cfg: dict[str, Any] | None) -> str:
-        value = str(
-            self._native_runtime_cfg(agent_cfg).get("fallback_backend") or "sgpt"
-        ).strip().lower()
+        value = str(self._native_runtime_cfg(agent_cfg).get("fallback_backend") or "sgpt").strip().lower()
         return value or "sgpt"
 
     def shell_policy(self, *, agent_cfg: dict[str, Any] | None) -> dict[str, Any]:
@@ -134,13 +125,7 @@ class NativeWorkerRuntimeService:
         configured = configured if isinstance(configured, dict) else {}
 
         def values(key: str, fallback: tuple[str, ...]) -> list[str]:
-            return sorted(
-                {
-                    str(item).strip()
-                    for item in list(configured.get(key) or fallback)
-                    if str(item).strip()
-                }
-            )
+            return sorted({str(item).strip() for item in list(configured.get(key) or fallback) if str(item).strip()})
 
         return {
             "allowlist": values("allowlist", _DEFAULT_ALLOWLIST),
@@ -196,9 +181,7 @@ class NativeWorkerRuntimeService:
 
         profile = _normalized_profile(worker_profile)
         source = str(profile_source or "agent_default").strip().lower() or "agent_default"
-        bundle_id = str(
-            context_bundle_id or task.get("context_bundle_id") or f"ctx-{tid}"
-        ).strip()
+        bundle_id = str(context_bundle_id or task.get("context_bundle_id") or f"ctx-{tid}").strip()
         context_hash = _build_context_hash(
             context_bundle_id=bundle_id,
             task_id=tid,
@@ -213,16 +196,12 @@ class NativeWorkerRuntimeService:
             "task_id": str(tid).strip(),
             "capability_id": "shell_plan",
             "command": normalized_command,
-            "command_hash": hashlib.sha256(
-                normalized_command.encode("utf-8")
-            ).hexdigest(),
+            "command_hash": hashlib.sha256(normalized_command.encode("utf-8")).hexdigest(),
             "explanation": str(reason or "Native Worker command plan.").strip(),
             "risk_classification": risk,
             "required_approval": approval_required,
             "working_directory": ".",
-            "expected_effects": [
-                "Delegate bounded execution to an authenticated Worker container."
-            ],
+            "expected_effects": ["Delegate bounded execution to an authenticated Worker container."],
         }
         ingress_request = self._build_request_payload(
             tid=tid,

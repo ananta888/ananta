@@ -17,12 +17,23 @@ from ananta_contracts.model_selection import (
     ModelRoutingValidationIssue,
 )
 
-_CLI_PROVIDERS = frozenset({
-    "aider", "claude", "claude_code", "codex", "mistral_code", "opencode",
-})
+_CLI_PROVIDERS = frozenset(
+    {
+        "aider",
+        "claude",
+        "claude_code",
+        "codex",
+        "mistral_code",
+        "opencode",
+    }
+)
 _QUALITY_RANK = {
-    "frontier": 5, "high": 4, "medium_high": 3, "medium": 2,
-    "low_medium": 1, "low": 0,
+    "frontier": 5,
+    "high": 4,
+    "medium_high": 3,
+    "medium": 2,
+    "low_medium": 1,
+    "low": 0,
 }
 
 
@@ -43,22 +54,26 @@ class ModelRoutingTemplateService:
             configuration_revision=configuration_revision,
             templates=(
                 self._build(
-                    "local-only", "Nur lokal",
+                    "local-only",
+                    "Nur lokal",
                     "Explizite lokale Profile und ausschließlich lokale Fallbacks.",
                     configuration_revision,
                 ),
                 self._build(
-                    "local-first-cloud-fallback", "Lokal zuerst, Cloud als Fallback",
+                    "local-first-cloud-fallback",
+                    "Lokal zuerst, Cloud als Fallback",
                     "Lokale Primärprofile; erlaubte Cloud-Profile erst nach lokalen Kandidaten.",
                     configuration_revision,
                 ),
                 self._build(
-                    "cloud-only", "Nur Cloud",
+                    "cloud-only",
+                    "Nur Cloud",
                     "Explizite, als Cloud erlaubt markierte Profile; Laufzeit-Policy bleibt bindend.",
                     configuration_revision,
                 ),
                 self._build(
-                    "cli-first", "CLI zuerst",
+                    "cli-first",
+                    "CLI zuerst",
                     "Registrierte CLI-Profile zuerst; lokale API-Profile dienen als Fallback.",
                     configuration_revision,
                 ),
@@ -81,41 +96,46 @@ class ModelRoutingTemplateService:
                 continue
             compatible_primaries = self._compatible(consumer, primaries)
             if not compatible_primaries:
-                issues.append(ModelRoutingValidationIssue(
-                    severity="warning",
-                    reason_code="model_routing_template_consumer_unresolved",
-                    reference=consumer.consumer_id,
-                ))
+                issues.append(
+                    ModelRoutingValidationIssue(
+                        severity="warning",
+                        reason_code="model_routing_template_consumer_unresolved",
+                        reference=consumer.consumer_id,
+                    )
+                )
                 continue
             primary = compatible_primaries[0]
             compatible_fallbacks = [
-                profile for profile in self._compatible(consumer, fallbacks)
-                if profile.profile_id != primary.profile_id
+                profile for profile in self._compatible(consumer, fallbacks) if profile.profile_id != primary.profile_id
             ]
             group_id = None
             if compatible_fallbacks:
                 group_id = f"template.{template_id}.{consumer.consumer_id}"
-                groups.append(ModelFallbackGroup(
-                    group_id=group_id,
-                    candidates=tuple(self._candidate(profile) for profile in compatible_fallbacks),
-                    max_total_retries=min(
-                        64, sum(profile.retry_budget for profile in compatible_fallbacks)
-                    ),
-                ))
-            assignments.append(ModelAssignment(
-                consumer_id=consumer.consumer_id,
-                scope="global",
-                scope_id="global",
-                mode="profile",
-                profile_id=primary.profile_id,
-                fallback_group_id=group_id,
-            ))
+                groups.append(
+                    ModelFallbackGroup(
+                        group_id=group_id,
+                        candidates=tuple(self._candidate(profile) for profile in compatible_fallbacks),
+                        max_total_retries=min(64, sum(profile.retry_budget for profile in compatible_fallbacks)),
+                    )
+                )
+            assignments.append(
+                ModelAssignment(
+                    consumer_id=consumer.consumer_id,
+                    scope="global",
+                    scope_id="global",
+                    mode="profile",
+                    profile_id=primary.profile_id,
+                    fallback_group_id=group_id,
+                )
+            )
         if not assignments:
-            issues.append(ModelRoutingValidationIssue(
-                severity="error",
-                reason_code="model_routing_template_no_compatible_profiles",
-                reference=template_id,
-            ))
+            issues.append(
+                ModelRoutingValidationIssue(
+                    severity="error",
+                    reason_code="model_routing_template_no_compatible_profiles",
+                    reference=template_id,
+                )
+            )
         return ModelRoutingTemplate(
             template_id=template_id,
             label=label,
@@ -129,18 +149,13 @@ class ModelRoutingTemplateService:
             issues=tuple(issues),
         )
 
-    def _profile_sets(
-        self, template_id: str
-    ) -> tuple[tuple[ModelProfile, ...], tuple[ModelProfile, ...]]:
+    def _profile_sets(self, template_id: str) -> tuple[tuple[ModelProfile, ...], tuple[ModelProfile, ...]]:
         local = self._rank(profile for profile in self._profiles if not profile.is_cloud())
-        cloud = self._rank(
-            profile for profile in self._profiles
-            if profile.is_cloud() and profile.cloud_allowed
-        )
+        cloud = self._rank(profile for profile in self._profiles if profile.is_cloud() and profile.cloud_allowed)
         cli = self._rank(
-            profile for profile in self._profiles
-            if profile.provider_id in _CLI_PROVIDERS
-            or str(profile.extra.get("executor_id") or "").startswith("cli:")
+            profile
+            for profile in self._profiles
+            if profile.provider_id in _CLI_PROVIDERS or str(profile.extra.get("executor_id") or "").startswith("cli:")
         )
         if template_id == "local-only":
             return local, local
@@ -152,16 +167,19 @@ class ModelRoutingTemplateService:
 
     @staticmethod
     def _rank(profiles: Iterable[ModelProfile]) -> tuple[ModelProfile, ...]:
-        return tuple(sorted(profiles, key=lambda profile: (
-            -_QUALITY_RANK.get(profile.quality_class, 2),
-            profile.fallback_rank if profile.fallback_rank is not None else 10_000,
-            profile.profile_id,
-        )))
+        return tuple(
+            sorted(
+                profiles,
+                key=lambda profile: (
+                    -_QUALITY_RANK.get(profile.quality_class, 2),
+                    profile.fallback_rank if profile.fallback_rank is not None else 10_000,
+                    profile.profile_id,
+                ),
+            )
+        )
 
     @staticmethod
-    def _compatible(
-        consumer: ModelConsumer, profiles: Iterable[ModelProfile]
-    ) -> list[ModelProfile]:
+    def _compatible(consumer: ModelConsumer, profiles: Iterable[ModelProfile]) -> list[ModelProfile]:
         def supports(profile: ModelProfile) -> bool:
             capabilities = set(consumer.required_capabilities)
             return (
@@ -175,11 +193,10 @@ class ModelRoutingTemplateService:
         compatible = [profile for profile in profiles if supports(profile)]
         indexed = list(enumerate(compatible))
         return [
-            profile for _index, profile in sorted(
+            profile
+            for _index, profile in sorted(
                 indexed,
-                key=lambda item: (
-                    item[1].model_role not in {"any", role}, item[0]
-                ),
+                key=lambda item: (item[1].model_role not in {"any", role}, item[0]),
             )
         ]
 

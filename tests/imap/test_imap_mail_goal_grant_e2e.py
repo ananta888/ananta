@@ -142,7 +142,9 @@ def test_e2e_mail_read_and_goal_grant_uses_only_explicit_excerpt(monkeypatch, tm
     assert str(artifact.get("artifact_kind") or "") == "excerpt"
     assert "secret-ci" not in str(artifact.get("excerpt") or "")
 
-    worker_context = build_mail_context_envelope(goal_id="goal-imap-e2e", worker_target="local_worker", repo_root=str(tmp_path))
+    worker_context = build_mail_context_envelope(
+        goal_id="goal-imap-e2e", worker_target="local_worker", repo_root=str(tmp_path)
+    )
     assert worker_context["allowed"] is True
     assert worker_context["mail_source_refs"] == [artifact_ref]
     assert worker_context["mail_artifacts"][0]["artifact_kind"] == "excerpt"

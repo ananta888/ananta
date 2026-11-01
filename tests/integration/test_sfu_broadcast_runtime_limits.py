@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -42,5 +41,4 @@ def test_preflight_names_kernel_enforcement_instead_of_claiming_compose_proof():
     assert "nft list ruleset" in script
     assert "bpftool prog show" in script
     assert "cgroup.controllers" in script
-    assert 'status=unsupported' in script
-
+    assert "status=unsupported" in script

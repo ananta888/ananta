@@ -8,7 +8,6 @@ from agent.services.sfu_fleet_reconciliation_service import (
     SfuFleetReconciliationService,
 )
 
-
 NOW = 1_000_000
 
 
@@ -105,9 +104,7 @@ def service(leases, state, mutations):
 
 def test_stale_authority_is_fenced_before_release_and_health_demotion():
     mutations = Mutations()
-    result = service(Leases(), State(stale_item()), mutations).run_once(
-        partition="tenant-a", owner_id="hub-a"
-    )
+    result = service(Leases(), State(stale_item()), mutations).run_once(partition="tenant-a", owner_id="hub-a")
 
     assert result.status == "completed"
     assert mutations.actions == [("fence", 17), ("release", 17), ("unknown", 17)]
@@ -115,9 +112,7 @@ def test_stale_authority_is_fenced_before_release_and_health_demotion():
 
 def test_db_partition_never_activates_or_renews_routes():
     mutations = Mutations()
-    result = service(Leases(), State(failure=True), mutations).run_once(
-        partition="tenant-a", owner_id="hub-a"
-    )
+    result = service(Leases(), State(failure=True), mutations).run_once(partition="tenant-a", owner_id="hub-a")
 
     assert result.status == "stopped"
     assert result.reason_code == "sfu_reconcile_state_unavailable"
@@ -129,10 +124,7 @@ def test_second_hub_without_lease_does_no_work():
     leases.current = False
     mutations = Mutations()
 
-    result = service(leases, State(stale_item()), mutations).run_once(
-        partition="tenant-a", owner_id="hub-b"
-    )
+    result = service(leases, State(stale_item()), mutations).run_once(partition="tenant-a", owner_id="hub-b")
 
     assert result.status == "skipped"
     assert mutations.actions == []
-

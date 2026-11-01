@@ -39,11 +39,7 @@ class ModelRoutingContractError(ValueError):
     def __init__(self, reason_code: str, detail: str = "") -> None:
         self.reason_code = str(reason_code)
         self.detail = str(detail)
-        super().__init__(
-            self.reason_code
-            if not self.detail
-            else f"{self.reason_code}:{self.detail}"
-        )
+        super().__init__(self.reason_code if not self.detail else f"{self.reason_code}:{self.detail}")
 
 
 class ModelRoutingConfig(BaseModel):
@@ -61,9 +57,7 @@ class ModelRoutingConfig(BaseModel):
     required_capabilities: list[str] = Field(default_factory=list)
     requires_json: Optional[StrictBool] = None
     requires_tools: Optional[StrictBool] = None
-    tool_calling_mode: Optional[
-        Literal["native_tools", "prompt_json", "both", "none"]
-    ] = None
+    tool_calling_mode: Optional[Literal["native_tools", "prompt_json", "both", "none"]] = None
     allow_cloud: StrictBool = False
     max_estimated_cost: Optional[float] = None
     max_estimated_cost_per_run: Optional[float] = None
@@ -72,9 +66,7 @@ class ModelRoutingConfig(BaseModel):
     require_approval_above_estimated_cost: Optional[float] = None
     # Hub instructions only. Workers do not create or orchestrate follow-up
     # work from these values.
-    context_recovery_strategies: list[ContextRecoveryStrategy] = Field(
-        default_factory=list
-    )
+    context_recovery_strategies: list[ContextRecoveryStrategy] = Field(default_factory=list)
     require_approval_for_generated_plan: StrictBool = True
 
     # Ignore additive designer fields while compiling, then serialize only this
@@ -132,25 +124,14 @@ class ModelRoutingConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_context_recovery(self) -> "ModelRoutingConfig":
         strategies = list(self.context_recovery_strategies)
-        positions = {
-            strategy: index
-            for index, strategy in enumerate(
-                CONTEXT_RECOVERY_STRATEGY_ORDER
-            )
-        }
+        positions = {strategy: index for index, strategy in enumerate(CONTEXT_RECOVERY_STRATEGY_ORDER)}
         if "stop" in strategies and strategies[-1] != "stop":
             raise ValueError("context_recovery_stop_must_be_last")
         if len(set(strategies)) != len(strategies):
             raise ValueError("context_recovery_strategies_must_be_unique")
-        if [
-            positions[strategy] for strategy in strategies
-        ] != sorted(positions[strategy] for strategy in strategies):
+        if [positions[strategy] for strategy in strategies] != sorted(positions[strategy] for strategy in strategies):
             raise ValueError("context_recovery_strategy_order_invalid")
-        generated_plan_requested = bool(
-            {"segment_planning", "propose_task_plan"}.intersection(
-                strategies
-            )
-        )
+        generated_plan_requested = bool({"segment_planning", "propose_task_plan"}.intersection(strategies))
         if generated_plan_requested:
             if "require_approval" not in strategies:
                 raise ValueError("generated_task_plan_approval_strategy_required")
@@ -164,17 +145,12 @@ class ModelRoutingConfig(BaseModel):
             )
             if strategies.index("require_approval") < plan_strategy_index:
                 raise ValueError("generated_task_plan_approval_order_invalid")
-        if (
-            generated_plan_requested
-            and not self.require_approval_for_generated_plan
-        ):
+        if generated_plan_requested and not self.require_approval_for_generated_plan:
             raise ValueError("generated_task_plan_requires_approval")
         return self
 
     @classmethod
-    def from_mapping(
-        cls, value: Mapping[str, Any] | ModelRoutingConfig
-    ) -> "ModelRoutingConfig":
+    def from_mapping(cls, value: Mapping[str, Any] | ModelRoutingConfig) -> "ModelRoutingConfig":
         if isinstance(value, cls):
             return value.model_copy(deep=True)
         if not isinstance(value, Mapping):
@@ -182,9 +158,7 @@ class ModelRoutingConfig(BaseModel):
         return cls.model_validate(dict(value))
 
     @classmethod
-    def from_metadata(
-        cls, metadata: Mapping[str, Any] | None
-    ) -> Optional["ModelRoutingConfig"]:
+    def from_metadata(cls, metadata: Mapping[str, Any] | None) -> Optional["ModelRoutingConfig"]:
         if not isinstance(metadata, Mapping):
             return None
         if MODEL_ROUTING_METADATA_KEY not in metadata:
@@ -195,28 +169,20 @@ class ModelRoutingConfig(BaseModel):
         return cls.from_mapping(raw)
 
     @classmethod
-    def assert_runtime_mapping(
-        cls, value: Mapping[str, Any]
-    ) -> "ModelRoutingConfig":
+    def assert_runtime_mapping(cls, value: Mapping[str, Any]) -> "ModelRoutingConfig":
         """Validate an already compiled runtime value without field smuggling."""
 
         if not isinstance(value, Mapping):
             raise ModelRoutingContractError("model_routing_mapping_required")
-        unknown = sorted(
-            str(key) for key in value.keys() if key not in cls.model_fields
-        )
+        unknown = sorted(str(key) for key in value.keys() if key not in cls.model_fields)
         if unknown:
-            raise ModelRoutingContractError(
-                "model_routing_field_not_allowed", ",".join(unknown)
-            )
+            raise ModelRoutingContractError("model_routing_field_not_allowed", ",".join(unknown))
         try:
             return cls.from_mapping(value)
         except ModelRoutingContractError:
             raise
         except Exception as exc:
-            raise ModelRoutingContractError(
-                "model_routing_invalid", type(exc).__name__
-            ) from exc
+            raise ModelRoutingContractError("model_routing_invalid", type(exc).__name__) from exc
 
     def as_metadata(self) -> dict[str, Any]:
         """Return a sparse canonical override; extras can never survive.
@@ -247,9 +213,7 @@ def sanitize_model_routing_metadata(
 def _model_routing_candidates(task: Any) -> list[Any]:
     """Return declarations in precedence order without parsing their values."""
 
-    execution_context = _as_mapping(
-        _value(task, "worker_execution_context")
-    )
+    execution_context = _as_mapping(_value(task, "worker_execution_context"))
     native_commands = (
         _value(execution_context, "native_node_command"),
         _value(task, "native_node_command"),
@@ -333,26 +297,14 @@ def build_model_routing_context(
 
     execution_context = _as_mapping(_value(task, "worker_execution_context"))
     workflow_step = _value(execution_context, "workflow_step")
-    task_kind = str(
-        _value(task, "task_kind")
-        or _value(workflow_step, "task_kind")
-        or ""
-    ).strip() or None
+    task_kind = str(_value(task, "task_kind") or _value(workflow_step, "task_kind") or "").strip() or None
     capabilities = set(routing.required_capabilities)
-    requires_json = bool(
-        requires_json
-        or routing.requires_json
-        or {"json", "supports_json"}.intersection(capabilities)
-    )
+    requires_json = bool(requires_json or routing.requires_json or {"json", "supports_json"}.intersection(capabilities))
     requires_tools = bool(
-        requires_tools
-        or routing.requires_tools
-        or {"tools", "supports_tools"}.intersection(capabilities)
+        requires_tools or routing.requires_tools or {"tools", "supports_tools"}.intersection(capabilities)
     )
     return RoutingContext(
-        model_role=str(
-            routing.model_role or routing.default_model_role or "any"
-        ),
+        model_role=str(routing.model_role or routing.default_model_role or "any"),
         blueprint_id=_optional_task_text(task, "blueprint_id"),
         template_id=_optional_task_text(task, "template_id"),
         team_id=_optional_task_text(task, "team_id"),

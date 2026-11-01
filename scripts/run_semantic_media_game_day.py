@@ -186,8 +186,10 @@ def main() -> int:
     try:
         if args.report is not None and args.execute_local:
             raise ProgramEvidenceError("semantic_media_game_day_input_ambiguous")
-        report = execute_local() if args.execute_local else (
-            json.loads(args.report.read_text(encoding="utf-8")) if args.report is not None else None
+        report = (
+            execute_local()
+            if args.execute_local
+            else (json.loads(args.report.read_text(encoding="utf-8")) if args.report is not None else None)
         )
         evidence = unavailable() if report is None else evaluate_live(report)
     except (OSError, json.JSONDecodeError, ProgramEvidenceError, subprocess.TimeoutExpired) as exc:

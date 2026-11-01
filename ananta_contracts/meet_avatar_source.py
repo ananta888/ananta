@@ -4,6 +4,7 @@ AVATAR_ACTIVATION_MS = 120_000
 AVATAR_FRAME_LIMIT = 600
 AVATAR_SETUP_SECONDS = 110
 
+
 def validate_avatar_snapshot(value, now_ms, deadline_ms, *, profile="neutral-ai-v1"):
     if profile not in ("neutral-ai-v1", "persona-image-v1", "persona-video-v1"):
         raise ValueError("meet_avatar_profile_invalid")

@@ -83,13 +83,7 @@ class WorkflowGoldenTraceNormalizer:
         normalized_events = []
         for event in sorted(events, key=lambda value: value.sequence):
             raw = event.to_dict()
-            normalized_events.append(
-                {
-                    key: value
-                    for key, value in raw.items()
-                    if key not in self.normalized_fields
-                }
-            )
+            normalized_events.append({key: value for key, value in raw.items() if key not in self.normalized_fields})
         return {
             "schema": GOLDEN_TRACE_SCHEMA,
             "runtime_id": runtime_id,

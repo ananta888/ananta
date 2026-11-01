@@ -1,4 +1,5 @@
 """OIDC browser session coordinator for Carbonyl flows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

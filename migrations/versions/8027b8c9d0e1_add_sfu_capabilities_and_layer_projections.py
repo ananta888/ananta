@@ -9,7 +9,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "8027b8c9d0e1"
 down_revision: str | Sequence[str] | None = "7f16a7b8c9d0"
 branch_labels: str | Sequence[str] | None = None
@@ -44,7 +43,11 @@ def upgrade() -> None:
             sa.CheckConstraint("sequence > 0 AND version > 0", name="ck_sfu_browser_capability_sequence"),
             sa.CheckConstraint("status IN ('active','unsupported','revoked')", name="ck_sfu_browser_capability_status"),
         )
-        op.create_index("ix_sfu_browser_capability_active", "sfu_browser_capabilities", ["tenant_id", "room_id", "status", "expires_at_ms"])
+        op.create_index(
+            "ix_sfu_browser_capability_active",
+            "sfu_browser_capabilities",
+            ["tenant_id", "room_id", "status", "expires_at_ms"],
+        )
         op.create_index("ix_sfu_browser_capability_retain", "sfu_browser_capabilities", ["retain_until_ms"])
     if "sfu_layer_projections" not in existing:
         op.create_table(
@@ -73,13 +76,21 @@ def upgrade() -> None:
             sa.Column("retain_until_ms", sa.BigInteger(), nullable=False),
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
-            sa.UniqueConstraint("tenant_id", "room_id", "projection_kind", "subject_ref", name="uq_sfu_layer_projection_scope"),
-            sa.CheckConstraint("projection_kind IN ('room','publisher','receiver')", name="ck_sfu_layer_projection_kind"),
+            sa.UniqueConstraint(
+                "tenant_id", "room_id", "projection_kind", "subject_ref", name="uq_sfu_layer_projection_scope"
+            ),
+            sa.CheckConstraint(
+                "projection_kind IN ('room','publisher','receiver')", name="ck_sfu_layer_projection_kind"
+            ),
             sa.CheckConstraint("projection_version > 0 AND fencing_token > 0", name="ck_sfu_layer_projection_version"),
             sa.CheckConstraint("membership_epoch > 0", name="ck_sfu_layer_projection_membership_epoch"),
             sa.CheckConstraint("status IN ('active','revoked','expired')", name="ck_sfu_layer_projection_status"),
         )
-        op.create_index("ix_sfu_layer_projection_current", "sfu_layer_projections", ["tenant_id", "room_id", "projection_kind", "status", "expires_at_ms"])
+        op.create_index(
+            "ix_sfu_layer_projection_current",
+            "sfu_layer_projections",
+            ["tenant_id", "room_id", "projection_kind", "status", "expires_at_ms"],
+        )
         op.create_index("ix_sfu_layer_projection_retain", "sfu_layer_projections", ["retain_until_ms"])
     if "sfu_layer_projection_receipts" not in existing:
         op.create_table(
@@ -93,10 +104,20 @@ def upgrade() -> None:
             sa.Column("receipt_digest", sa.String(), nullable=False),
             sa.Column("expires_at_ms", sa.BigInteger(), nullable=False),
             sa.Column("created_at", sa.Float(), nullable=False),
-            sa.UniqueConstraint("tenant_id", "projection_ref", "actor_digest", "receipt_sequence", name="uq_sfu_layer_projection_receipt_sequence"),
+            sa.UniqueConstraint(
+                "tenant_id",
+                "projection_ref",
+                "actor_digest",
+                "receipt_sequence",
+                name="uq_sfu_layer_projection_receipt_sequence",
+            ),
             sa.CheckConstraint("receipt_sequence > 0", name="ck_sfu_layer_projection_receipt_sequence"),
         )
-        op.create_index("ix_sfu_layer_projection_receipt_retention", "sfu_layer_projection_receipts", ["projection_ref", "expires_at_ms"])
+        op.create_index(
+            "ix_sfu_layer_projection_receipt_retention",
+            "sfu_layer_projection_receipts",
+            ["projection_ref", "expires_at_ms"],
+        )
 
 
 def downgrade() -> None:

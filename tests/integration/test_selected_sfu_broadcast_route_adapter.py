@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
 from agent.adapters.livekit_broadcast_route_adapter import (
     LiveKitBroadcastRouteAdapter,
     LiveKitOperationReservation,
@@ -30,7 +28,6 @@ from agent.services.sfu_broadcast_route_port import (
     UpdateRouteCommandV1,
 )
 
-
 NOW_MS = 1_900_000_000_000
 
 
@@ -57,9 +54,7 @@ class Bindings:
 
     def existing(self, key, version):
         del version
-        return LiveKitRouteBinding(
-            key.room_ref, ("receiver-0", "receiver-1", "receiver-2"), ("TR_camera",), True
-        )
+        return LiveKitRouteBinding(key.room_ref, ("receiver-0", "receiver-1", "receiver-2"), ("TR_camera",), True)
 
     def observed(self, key):
         return LiveKitRouteBinding(key.room_ref, ("receiver-0",), ("TR_camera",), True)
@@ -116,9 +111,7 @@ class Ledger:
             if existing == record
             else LiveKitOperationReservationStatus.CONFLICT
         )
-        return LiveKitOperationReservation(
-            status, existing, self.results.get(record.operation_id)
-        )
+        return LiveKitOperationReservation(status, existing, self.results.get(record.operation_id))
 
     def complete(self, record, result):
         self.results[record.operation_id] = result
@@ -158,9 +151,7 @@ def harness(statuses=()):
     bindings = Bindings()
     transport = Transport(statuses)
     client = LiveKitControlApiClient(
-        LiveKitControlApiConfig(
-            "https://livekit.internal.example", "ananta-control", "s" * 32
-        ),
+        LiveKitControlApiConfig("https://livekit.internal.example", "ananta-control", "s" * 32),
         bindings,
         observation_bindings=bindings,
         transport=transport,

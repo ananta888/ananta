@@ -64,9 +64,7 @@ def compose_hub_git_source_connectors(
     )
     return HubGitConnectorComposition(
         github_repository=GitHubRepositoryConnector(
-            endpoint_provider=HubGitHubRepositoryEndpointProvider(
-                registry=authorization_registry
-            ),
+            endpoint_provider=HubGitHubRepositoryEndpointProvider(registry=authorization_registry),
             commit_resolver=HubGitHubCommitResolver(
                 registry=authorization_registry,
                 transport=transport,
@@ -77,9 +75,7 @@ def compose_hub_git_source_connectors(
             budgets=budgets,
         ),
         generic_git=GenericGitConnector(
-            remote_registry=HubRegisteredGitRemoteProvider(
-                registry=authorization_registry
-            ),
+            remote_registry=HubRegisteredGitRemoteProvider(registry=authorization_registry),
             commit_resolver=HubGenericGitCommitResolver(
                 registry=authorization_registry,
                 transport=transport,

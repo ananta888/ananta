@@ -50,9 +50,7 @@ def select_groups(gate: Mapping[str, Any], selection: str) -> tuple[str, ...]:
     groups = gate["groups"]
     if selection == "core":
         return tuple(
-            name
-            for name, group in groups.items()
-            if group["hardware"] is False and group.get("core", True) is True
+            name for name, group in groups.items() if group["hardware"] is False and group.get("core", True) is True
         )
     if selection not in groups:
         raise ValueError(f"unknown release gate group: {selection}")
@@ -150,8 +148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         junit = temporary_path / "pytest.xml"
         test_environment = os.environ.copy()
         if any(
-            gate["groups"][group_id].get("integration") is True
-            or gate["groups"][group_id]["hardware"] is True
+            gate["groups"][group_id].get("integration") is True or gate["groups"][group_id]["hardware"] is True
             for group_id in groups
         ):
             test_environment["RUN_INTEGRATION_TESTS"] = "1"

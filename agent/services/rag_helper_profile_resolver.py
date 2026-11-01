@@ -187,6 +187,7 @@ class RagHelperProfileCatalog:
         ):
             return "subtask_refactor_navigation"
         return self.DEFAULT_PROFILE_NAME
+
     def resolve_profile(self, profile_name: str | None, overrides: dict[str, Any] | None) -> dict[str, Any]:
         selected_name = str(profile_name or self.DEFAULT_PROFILE_NAME).strip() or self.DEFAULT_PROFILE_NAME
         base = self.INTERNAL_PROFILE_CATALOG.get(selected_name)
@@ -253,9 +254,7 @@ class RagHelperProfileCatalog:
                 "error_log_file": config.get("error_log_file"),
             }
             runtime_extensions = {
-                str(ext).strip().lower()
-                for ext in list(config.get("extensions") or [])
-                if str(ext).strip()
+                str(ext).strip().lower() for ext in list(config.get("extensions") or []) if str(ext).strip()
             } or None
             runtime_filters = {
                 "include_globs": list(config.get("include_glob") or []),

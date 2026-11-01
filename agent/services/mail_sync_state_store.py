@@ -39,8 +39,7 @@ class MailSyncStateStore(Protocol):
         provider_account_id: str,
         scope: str,
         query_fingerprint: str,
-    ) -> JmapSyncCheckpoint | None:
-        ...
+    ) -> JmapSyncCheckpoint | None: ...
 
     def apply_and_commit(
         self,

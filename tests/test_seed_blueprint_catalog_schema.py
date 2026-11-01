@@ -137,16 +137,33 @@ def _minimal_blueprint(*, with_workflow: bool = True) -> dict:
         "description": "Blueprint with workflow gates",
         "base_team_type_name": "GateDemo",
         "roles": [
-            {"name": "Planner", "description": "Plans", "template_name": "GateDemo - Planner",
-             "sort_order": 10, "is_required": True, "config": {}},
-            {"name": "Developer", "description": "Codes", "template_name": "GateDemo - Developer",
-             "sort_order": 20, "is_required": True, "config": {}},
-            {"name": "Reviewer", "description": "Reviews", "template_name": "GateDemo - Reviewer",
-             "sort_order": 30, "is_required": True, "config": {}},
+            {
+                "name": "Planner",
+                "description": "Plans",
+                "template_name": "GateDemo - Planner",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {},
+            },
+            {
+                "name": "Developer",
+                "description": "Codes",
+                "template_name": "GateDemo - Developer",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {},
+            },
+            {
+                "name": "Reviewer",
+                "description": "Reviews",
+                "template_name": "GateDemo - Reviewer",
+                "sort_order": 30,
+                "is_required": True,
+                "config": {},
+            },
         ],
         "artifacts": [
-            {"kind": "task", "title": "Spec", "description": "Spec doc",
-             "sort_order": 10, "payload": {}},
+            {"kind": "task", "title": "Spec", "description": "Spec doc", "sort_order": 10, "payload": {}},
         ],
     }
     if with_workflow:
@@ -154,18 +171,39 @@ def _minimal_blueprint(*, with_workflow: bool = True) -> dict:
             "mode": "gated",
             "default_failure_policy": "block",
             "steps": [
-                {"id": "plan", "role": "Planner", "task_kind": "planning",
-                 "title": "Plan", "description": "Plan work",
-                 "produces": ["Spec"], "consumes": [], "depends_on": []},
-                {"id": "implement", "role": "Developer", "task_kind": "coding",
-                 "title": "Implement", "produces": ["Code"], "consumes": ["Spec"],
-                 "depends_on": ["plan"]},
-                {"id": "review", "role": "Reviewer", "task_kind": "gate_review",
-                 "title": "Review", "gate": True,
-                 "checks": {"min_artifacts": ["Spec", "Code"], "approval_role": "Reviewer",
-                            "verification_required": True},
-                 "depends_on": ["implement"],
-                 "failure_policy": "manual"},
+                {
+                    "id": "plan",
+                    "role": "Planner",
+                    "task_kind": "planning",
+                    "title": "Plan",
+                    "description": "Plan work",
+                    "produces": ["Spec"],
+                    "consumes": [],
+                    "depends_on": [],
+                },
+                {
+                    "id": "implement",
+                    "role": "Developer",
+                    "task_kind": "coding",
+                    "title": "Implement",
+                    "produces": ["Code"],
+                    "consumes": ["Spec"],
+                    "depends_on": ["plan"],
+                },
+                {
+                    "id": "review",
+                    "role": "Reviewer",
+                    "task_kind": "gate_review",
+                    "title": "Review",
+                    "gate": True,
+                    "checks": {
+                        "min_artifacts": ["Spec", "Code"],
+                        "approval_role": "Reviewer",
+                        "verification_required": True,
+                    },
+                    "depends_on": ["implement"],
+                    "failure_policy": "manual",
+                },
             ],
         }
     return bp
@@ -237,9 +275,11 @@ def test_workflow_block_rejects_gate_without_checks() -> None:
     }
     # Both layers may or may not fire; the normalizer MUST.
     Draft202012Validator(schema).iter_errors(catalog)
-    from agent.services.seed_blueprint_catalog import SeedBlueprintCatalog
     import json as _json
     import tempfile
+
+    from agent.services.seed_blueprint_catalog import SeedBlueprintCatalog
+
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
         _json.dump(catalog, fh)
         path = fh.name
@@ -254,9 +294,7 @@ def test_workflow_block_rejects_gate_without_checks() -> None:
         assert "requires a non-empty 'checks' object" in str(exc)
     else:
         # If neither layer fired we have a regression
-        raise AssertionError(
-            "gate=true without checks must be rejected by at least one layer"
-        )
+        raise AssertionError("gate=true without checks must be rejected by at least one layer")
 
 
 def test_workflow_block_rejects_unknown_task_kind() -> None:

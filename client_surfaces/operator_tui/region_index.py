@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
+from client_surfaces.operator_tui.audit_nav import audit_nav_items, grouped_audit_items
 from client_surfaces.operator_tui.chat_long_message import long_message_history_rows
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
-from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
 from client_surfaces.operator_tui.tab_manager import tab_positions_for_render
+from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
 
 
 @dataclass(frozen=True)
@@ -97,14 +97,30 @@ def _pane_regions(layout: _ShellLayout, section) -> list[RegionRect]:
 
     body_y1, body_y2 = layout.body_y1, layout.body_y2
     return [
-        RegionRect(x1=0, y1=0, x2=layout.w - 1, y2=max(0, layout.body_start - 2),
-                   target=pane("header", "HEADER", FocusPane.HEADER)),
-        RegionRect(x1=layout.nav_x1, y1=body_y1, x2=layout.nav_x2, y2=body_y2,
-                   target=pane("nav", "NAV", FocusPane.NAVIGATION)),
-        RegionRect(x1=layout.content_x1, y1=body_y1, x2=layout.content_x2, y2=body_y2,
-                   target=pane("content", section.title, FocusPane.CONTENT)),
-        RegionRect(x1=layout.detail_x1, y1=body_y1, x2=layout.detail_x2, y2=body_y2,
-                   target=pane("detail", "DETAIL", FocusPane.DETAIL)),
+        RegionRect(
+            x1=0,
+            y1=0,
+            x2=layout.w - 1,
+            y2=max(0, layout.body_start - 2),
+            target=pane("header", "HEADER", FocusPane.HEADER),
+        ),
+        RegionRect(
+            x1=layout.nav_x1, y1=body_y1, x2=layout.nav_x2, y2=body_y2, target=pane("nav", "NAV", FocusPane.NAVIGATION)
+        ),
+        RegionRect(
+            x1=layout.content_x1,
+            y1=body_y1,
+            x2=layout.content_x2,
+            y2=body_y2,
+            target=pane("content", section.title, FocusPane.CONTENT),
+        ),
+        RegionRect(
+            x1=layout.detail_x1,
+            y1=body_y1,
+            x2=layout.detail_x2,
+            y2=body_y2,
+            target=pane("detail", "DETAIL", FocusPane.DETAIL),
+        ),
     ]
 
 
@@ -126,20 +142,34 @@ def _nav_tree_regions(
     for group_name, group_rows in tree.groups:
         if nav_row > layout.body_y2:
             break
-        regions.append(layout.nav_row(nav_row, RegionTarget(
-            kind=f"{tree.prefix}_nav_group", section_id=tree.section_id, pane="nav", label=group_name, payload={},
-        )))
+        regions.append(
+            layout.nav_row(
+                nav_row,
+                RegionTarget(
+                    kind=f"{tree.prefix}_nav_group",
+                    section_id=tree.section_id,
+                    pane="nav",
+                    label=group_name,
+                    payload={},
+                ),
+            )
+        )
         nav_row += 1
         for item_index, item in group_rows:
             if nav_row > layout.body_y2:
                 break
-            regions.append(layout.nav_row(nav_row, RegionTarget(
-                kind=f"{tree.prefix}_nav_item",
-                section_id=tree.section_id,
-                pane="nav",
-                label=str(item.get("title") or item.get("id") or tree.default_label),
-                payload={"selected_index": selection_index, item_index_key: item_index},
-            )))
+            regions.append(
+                layout.nav_row(
+                    nav_row,
+                    RegionTarget(
+                        kind=f"{tree.prefix}_nav_item",
+                        section_id=tree.section_id,
+                        pane="nav",
+                        label=str(item.get("title") or item.get("id") or tree.default_label),
+                        payload={"selected_index": selection_index, item_index_key: item_index},
+                    ),
+                )
+            )
             nav_row += 1
             selection_index += 1
     return nav_row
@@ -151,13 +181,18 @@ def _nav_regions(layout: _ShellLayout, state: OperatorState, trees: dict[str, _N
     for idx, nav_section in enumerate(SECTIONS):
         if nav_row > layout.body_y2:
             break
-        regions.append(layout.nav_row(nav_row, RegionTarget(
-            kind="section",
-            section_id=nav_section.id,
-            pane="nav",
-            label=nav_section.title,
-            payload={"section_id": nav_section.id, "selected_index": idx},
-        )))
+        regions.append(
+            layout.nav_row(
+                nav_row,
+                RegionTarget(
+                    kind="section",
+                    section_id=nav_section.id,
+                    pane="nav",
+                    label=nav_section.title,
+                    payload={"section_id": nav_section.id, "selected_index": idx},
+                ),
+            )
+        )
         nav_row += 1
         tree = trees.get(nav_section.id)
         if tree is not None and state.section_id == nav_section.id:
@@ -181,13 +216,18 @@ def _chat_history_regions(
                 row += 1
         if row > layout.body_y2:
             break
-        regions.append(layout.nav_row(row, RegionTarget(
-            kind="chat_history",
-            section_id=section.id,
-            pane="nav",
-            label=str(entry.get("preview") or entry.get("text") or "Chat History"),
-            payload={"selected_index": selection_base + idx, "history_index": idx},
-        )))
+        regions.append(
+            layout.nav_row(
+                row,
+                RegionTarget(
+                    kind="chat_history",
+                    section_id=section.id,
+                    pane="nav",
+                    label=str(entry.get("preview") or entry.get("text") or "Chat History"),
+                    payload={"selected_index": selection_base + idx, "history_index": idx},
+                ),
+            )
+        )
         row += 1
 
 
@@ -218,19 +258,24 @@ def _content_item_regions(layout: _ShellLayout, section, items: list, config_mod
             break
         artifact_id = str(item.get("id") or "")
         artifact_path = str(item.get("path") or item.get("file") or "")
-        regions.append(layout.content_row(row, RegionTarget(
-            kind=kind,
-            section_id=section.id,
-            pane="content",
-            label=str(item.get("title") or artifact_path or artifact_id or f"item-{idx}"),
-            payload={
-                "selected_index": idx,
-                "id": artifact_id,
-                "path": artifact_path,
-                "title": str(item.get("title") or ""),
-                "ai_snake_config_key": str(item.get("ai_snake_config_key") or ""),
-            },
-        )))
+        regions.append(
+            layout.content_row(
+                row,
+                RegionTarget(
+                    kind=kind,
+                    section_id=section.id,
+                    pane="content",
+                    label=str(item.get("title") or artifact_path or artifact_id or f"item-{idx}"),
+                    payload={
+                        "selected_index": idx,
+                        "id": artifact_id,
+                        "path": artifact_path,
+                        "title": str(item.get("title") or ""),
+                        "ai_snake_config_key": str(item.get("ai_snake_config_key") or ""),
+                    },
+                ),
+            )
+        )
 
 
 def _config_combo_regions(
@@ -244,13 +289,18 @@ def _config_combo_regions(
         row = combo_row_start + idx
         if row > layout.body_y2:
             break
-        regions.append(layout.content_row(row, RegionTarget(
-            kind="item",
-            section_id=section.id,
-            pane="content",
-            label=str(option),
-            payload={"selected_index": int(state.selected_index), "ai_snake_combo_option_value": str(option)},
-        )))
+        regions.append(
+            layout.content_row(
+                row,
+                RegionTarget(
+                    kind="item",
+                    section_id=section.id,
+                    pane="content",
+                    label=str(option),
+                    payload={"selected_index": int(state.selected_index), "ai_snake_combo_option_value": str(option)},
+                ),
+            )
+        )
 
 
 def _tab_regions(layout: _ShellLayout, state: OperatorState, section, regions: list) -> None:
@@ -262,18 +312,40 @@ def _tab_regions(layout: _ShellLayout, state: OperatorState, section, regions: l
 
     for tp in tab_pos_list:
         if tp.label_x1 <= tp.label_x2:
-            regions.append(RegionRect(x1=tp.label_x1, y1=tab_y, x2=tp.label_x2, y2=tab_y,
-                                      target=tab_target("tab", tp.tab_id, {"tab_id": tp.tab_id})))
-        regions.append(RegionRect(x1=tp.close_x, y1=tab_y, x2=tp.close_x, y2=tab_y,
-                                  target=tab_target("tab_close", tp.tab_id, {"tab_id": tp.tab_id})))
+            regions.append(
+                RegionRect(
+                    x1=tp.label_x1,
+                    y1=tab_y,
+                    x2=tp.label_x2,
+                    y2=tab_y,
+                    target=tab_target("tab", tp.tab_id, {"tab_id": tp.tab_id}),
+                )
+            )
+        regions.append(
+            RegionRect(
+                x1=tp.close_x,
+                y1=tab_y,
+                x2=tp.close_x,
+                y2=tab_y,
+                target=tab_target("tab_close", tp.tab_id, {"tab_id": tp.tab_id}),
+            )
+        )
     # Overflow scroll arrows at fixed positions
     if state.tab_scroll_offset > 0:
-        regions.append(RegionRect(x1=0, y1=tab_y, x2=1, y2=tab_y,
-                                  target=tab_target("tab_scroll_left", "scroll_left", {})))
+        regions.append(
+            RegionRect(x1=0, y1=tab_y, x2=1, y2=tab_y, target=tab_target("tab_scroll_left", "scroll_left", {}))
+        )
     if state.tab_scroll_offset + len(tab_pos_list) < len(state.open_tabs):
         arrow_x = max(2, (tab_pos_list[-1].close_x + 2) if tab_pos_list else 2)
-        regions.append(RegionRect(x1=arrow_x, y1=tab_y, x2=min(layout.w - 1, arrow_x + 1), y2=tab_y,
-                                  target=tab_target("tab_scroll_right", "scroll_right", {})))
+        regions.append(
+            RegionRect(
+                x1=arrow_x,
+                y1=tab_y,
+                x2=min(layout.w - 1, arrow_x + 1),
+                y2=tab_y,
+                target=tab_target("tab_scroll_right", "scroll_right", {}),
+            )
+        )
 
 
 def _nav_trees(state: OperatorState) -> tuple[dict[str, _NavTree], int]:

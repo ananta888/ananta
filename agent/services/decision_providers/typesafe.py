@@ -54,8 +54,14 @@ DEFAULT_PRICE_INPUT_PER_MILLION = 0.042
 DEFAULT_PRICE_OUTPUT_PER_MILLION = 0.0
 MAX_RESPONSE_BYTES = 1024 * 1024
 _RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 529})
-_NON_RETRYABLE_REASONS = {400: "request_invalid", 401: "auth_invalid", 403: "auth_forbidden",
-                          404: "endpoint_not_found", 413: "request_too_large", 422: "request_invalid"}
+_NON_RETRYABLE_REASONS = {
+    400: "request_invalid",
+    401: "auth_invalid",
+    403: "auth_forbidden",
+    404: "endpoint_not_found",
+    413: "request_too_large",
+    422: "request_invalid",
+}
 
 
 def read_api_key(environ: Mapping[str, str] | None = None) -> str | None:
@@ -142,8 +148,7 @@ def parse_answer(question: DecisionQuestion, raw: Any) -> DecisionAnswer:
         probabilities = _probabilities(raw.get("probabilities") or {}, labels)
         confidence = raw.get("confidence")
         confidence = _unit(confidence) if confidence is not None else peak_confidence(probabilities)
-        return DecisionAnswer(question.key, "choice", choice=choice, probabilities=probabilities,
-                              confidence=confidence)
+        return DecisionAnswer(question.key, "choice", choice=choice, probabilities=probabilities, confidence=confidence)
     if question.kind == "score":
         levels = question.labels
         by_index = _probabilities(raw.get("probabilities") or {}, {str(i) for i in range(len(levels))})
@@ -151,12 +156,15 @@ def parse_answer(question: DecisionQuestion, raw: Any) -> DecisionAnswer:
         score = _unit(raw.get("score"), 0.0, float(len(levels) - 1))
         confidence = raw.get("confidence")
         confidence = _unit(confidence) if confidence is not None else peak_confidence(probabilities)
-        return DecisionAnswer(question.key, "score", score=score, probabilities=probabilities,
-                              confidence=confidence)
+        return DecisionAnswer(question.key, "score", score=score, probabilities=probabilities, confidence=confidence)
     probability = _unit(raw.get("noul", raw.get("probability")))
-    return DecisionAnswer(question.key, "noul", probability=probability,
-                          probabilities={"true": probability, "false": 1.0 - probability},
-                          confidence=abs(2.0 * probability - 1.0))
+    return DecisionAnswer(
+        question.key,
+        "noul",
+        probability=probability,
+        probabilities={"true": probability, "false": 1.0 - probability},
+        confidence=abs(2.0 * probability - 1.0),
+    )
 
 
 def request_body(request: DecisionRequest, model: str) -> dict[str, Any]:
@@ -179,25 +187,33 @@ def parse_response(request: DecisionRequest, payload: Any) -> tuple[str, dict[st
         raise DecisionProviderError("response_invalid")
     answers = {question.key: parse_answer(question, answers_raw[question.key]) for question in request.questions}
     usage_raw = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
-    usage = DecisionUsage(input_tokens=max(0, int(usage_raw.get("input_tokens") or 0)),
-                          output_tokens=max(0, int(usage_raw.get("output_tokens") or 0)))
+    usage = DecisionUsage(
+        input_tokens=max(0, int(usage_raw.get("input_tokens") or 0)),
+        output_tokens=max(0, int(usage_raw.get("output_tokens") or 0)),
+    )
     return str(payload.get("model") or ""), answers, usage
 
 
 class TypeSafeJevProvider:
     provider_id = PROVIDER_ID
 
-    def __init__(self, *, base_url: str = DEFAULT_BASE_URL, model: str = DEFAULT_MODEL,
-                 timeout_seconds: float = 10.0, retry: RetryPolicy = RetryPolicy(),
-                 api_key: Callable[[], str | None] = read_api_key,
-                 price_input_per_million: float = DEFAULT_PRICE_INPUT_PER_MILLION,
-                 price_output_per_million: float = DEFAULT_PRICE_OUTPUT_PER_MILLION,
-                 opener: Callable[..., Any] = urllib.request.urlopen,
-                 sleep: Callable[[float], None] = time.sleep,
-                 clock: Callable[[], float] = time.monotonic,
-                 endpoint_validator: Callable[[str], None] | None = None,
-                 response_validator: Callable[[Any, Any], None] | None = None,
-                 headers_for_request: Callable[[DecisionRequest], Mapping[str, str]] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        model: str = DEFAULT_MODEL,
+        timeout_seconds: float = 10.0,
+        retry: RetryPolicy = RetryPolicy(),
+        api_key: Callable[[], str | None] = read_api_key,
+        price_input_per_million: float = DEFAULT_PRICE_INPUT_PER_MILLION,
+        price_output_per_million: float = DEFAULT_PRICE_OUTPUT_PER_MILLION,
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+        endpoint_validator: Callable[[str], None] | None = None,
+        response_validator: Callable[[Any, Any], None] | None = None,
+        headers_for_request: Callable[[DecisionRequest], Mapping[str, str]] | None = None,
+    ) -> None:
         base_url = str(base_url or DEFAULT_BASE_URL).rstrip("/")
         if endpoint_validator is not None:
             endpoint_validator(base_url)
@@ -221,12 +237,27 @@ class TypeSafeJevProvider:
     def is_available(self) -> tuple[bool, str]:
         return (True, "ok") if self._api_key() else (False, "api_key_missing")
 
-    def _post(self, body: bytes, key: str, idempotency_key: str, timeout: float,
-              extra_headers: Mapping[str, str] | None = None) -> tuple[Any, str | None]:
-        request = urllib.request.Request(self._url, data=body, method="POST", headers={
-            "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Accept": "application/json",
-            "Idempotency-Key": idempotency_key, "User-Agent": "ananta-decision-provider/1",
-            **dict(extra_headers or {})})
+    def _post(
+        self,
+        body: bytes,
+        key: str,
+        idempotency_key: str,
+        timeout: float,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[Any, str | None]:
+        request = urllib.request.Request(
+            self._url,
+            data=body,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "Idempotency-Key": idempotency_key,
+                "User-Agent": "ananta-decision-provider/1",
+                **dict(extra_headers or {}),
+            },
+        )
         with self._opener(request, timeout=timeout) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             request_id = response.headers.get("x-typesafe-request-id") if response.headers else None
@@ -260,16 +291,25 @@ class TypeSafeJevProvider:
                 model, answers, usage = parse_response(request, payload)
                 cost = (usage.input_tokens * self._prices[0] + usage.output_tokens * self._prices[1]) / 1e6
                 return DecisionResult(
-                    provider_id=self.provider_id, model=model or self._model, answers=answers,
+                    provider_id=self.provider_id,
+                    model=model or self._model,
+                    answers=answers,
                     usage=DecisionUsage(usage.input_tokens, usage.output_tokens, round(cost, 9)),
-                    latency_ms=(self._clock() - started) * 1000.0, request_id=request_id, attempts=attempt)
+                    latency_ms=(self._clock() - started) * 1000.0,
+                    request_id=request_id,
+                    attempts=attempt,
+                )
             except urllib.error.HTTPError as error:
                 status = int(error.code or 0)
                 if status in _NON_RETRYABLE_REASONS or (400 <= status < 500 and status not in _RETRYABLE_STATUS):
-                    raise DecisionProviderError(_NON_RETRYABLE_REASONS.get(status, f"http_{status}"),
-                                                status=status) from None
-                failure = DecisionProviderError("rate_limited" if status == 429 else "upstream_busy"
-                                                if status == 529 else f"http_{status}", retryable=True, status=status)
+                    raise DecisionProviderError(
+                        _NON_RETRYABLE_REASONS.get(status, f"http_{status}"), status=status
+                    ) from None
+                failure = DecisionProviderError(
+                    "rate_limited" if status == 429 else "upstream_busy" if status == 529 else f"http_{status}",
+                    retryable=True,
+                    status=status,
+                )
                 header = error.headers.get("retry-after-ms") if error.headers else None
                 try:
                     retry_after_ms = float(header) if header is not None else None

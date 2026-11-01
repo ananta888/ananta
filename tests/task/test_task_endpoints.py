@@ -1,7 +1,5 @@
-import json
-import os
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -101,7 +99,14 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
             assert pipeline.get("pipeline") == "task_propose"
         routing = response.json["data"].get("routing") or {}
         if routing:
-            assert routing["effective_backend"] in {"aider", "sgpt", "codex", "opencode", "mistral_code", "ananta-worker"}
+            assert routing["effective_backend"] in {
+                "aider",
+                "sgpt",
+                "codex",
+                "opencode",
+                "mistral_code",
+                "ananta-worker",
+            }
             assert routing["execution_backend"] in {"aider", "sgpt", "codex", "opencode", "mistral_code"}
             assert "inference_provider" in routing
         with app.app_context():
@@ -137,7 +142,7 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
             execution_events = [h for h in hist if h.get("event_type") == "execution_result"]
             assert execution_events
             assert execution_events[-1]["cost_summary"]["tokens_total"] > 0
-            execution_routing = ((t.get("verification_status") or {}).get("execution_routing") or {})
+            execution_routing = (t.get("verification_status") or {}).get("execution_routing") or {}
             if execution_routing:
                 assert execution_routing.get("execution_backend")
 
@@ -166,7 +171,12 @@ def test_task_propose_records_native_worker_runtime_path_when_enabled(client, ap
             description="Plan native worker command",
             worker_execution_context={
                 "context_bundle_id": "ctx-native-propose",
-                "context": {"context_text": "native context", "chunks": [], "token_estimate": 12, "bundle_metadata": {}},
+                "context": {
+                    "context_text": "native context",
+                    "chunks": [],
+                    "token_estimate": 12,
+                    "bundle_metadata": {},
+                },
                 "allowed_tools": [],
                 "expected_output_schema": {},
                 "worker_profile": "balanced",
@@ -176,8 +186,15 @@ def test_task_propose_records_native_worker_runtime_path_when_enabled(client, ap
         assert _get_local_task_status(tid) is not None
 
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
-        mock_cli.return_value = (0, '{"reason":"native plan","command":"python -c \\"print(1)\\""}', "", "ananta-worker")
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "run bounded diagnostics"}, headers=admin_auth_header)
+        mock_cli.return_value = (
+            0,
+            '{"reason":"native plan","command":"python -c \\"print(1)\\""}',
+            "",
+            "ananta-worker",
+        )
+        response = client.post(
+            f"/tasks/{tid}/step/propose", json={"prompt": "run bounded diagnostics"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 200
     payload = response.json["data"]
@@ -282,13 +299,9 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
     assert ("native_worker_runtime" in payload["output"]) or ("degraded" in payload["output"])
     assert not payload.get("artifacts")
     native_stage = next(
-        stage
-        for stage in payload["pipeline"]["stages"]
-        if stage.get("name") == "native_worker_execute"
+        stage for stage in payload["pipeline"]["stages"] if stage.get("name") == "native_worker_execute"
     )
-    assert native_stage["metadata"]["reason_code"] == (
-        "native_worker_in_process_execution_disabled"
-    )
+    assert native_stage["metadata"]["reason_code"] == ("native_worker_in_process_execution_disabled")
 
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status
@@ -299,11 +312,8 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
         if repair_meta:
             assert repair_meta.get("runtime_path") == "delegated_worker_required"
             native_boundary = dict(repair_meta.get("native_worker_runtime") or {})
-            assert (
-                native_boundary.get("reason_code")
-                == "native_worker_in_process_execution_disabled"
-            )
-        metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
+            assert native_boundary.get("reason_code") == "native_worker_in_process_execution_disabled"
+        metrics = (task.get("verification_status") or {}).get("task_flow_metrics") or {}
         if metrics:
             assert metrics.get("worker_profile") == "balanced"
             assert metrics.get("profile_source") == "agent_default"
@@ -448,7 +458,9 @@ def test_tasks_cleanup_archives_by_status(client, app, admin_auth_header):
         assert task_repo.get_by_id("CLN-1") is not None
         assert archived_task_repo.get_by_id("CLN-1") is None
 
-    res = client.post("/tasks/cleanup", json={"mode": "archive", "statuses": ["completed", "failed"]}, headers=admin_auth_header)
+    res = client.post(
+        "/tasks/cleanup", json={"mode": "archive", "statuses": ["completed", "failed"]}, headers=admin_auth_header
+    )
     assert res.status_code == 200
     data = res.json["data"]
     assert data["matched_count"] >= 2
@@ -592,7 +604,9 @@ def test_archive_batch_and_restore_batch(client, app, admin_auth_header):
     assert archive_res.status_code == 200
     assert archive_res.json["data"]["archived_count"] >= 2
 
-    restore_res = client.post("/tasks/archived/restore/batch", json={"task_ids": ["BATCH-A1"]}, headers=admin_auth_header)
+    restore_res = client.post(
+        "/tasks/archived/restore/batch", json={"task_ids": ["BATCH-A1"]}, headers=admin_auth_header
+    )
     assert restore_res.status_code == 200
     assert "BATCH-A1" in (restore_res.json["data"]["restored_ids"] or [])
 
@@ -800,7 +814,9 @@ def test_task_propose_forwarding_unwraps_nested_data(client, app, admin_auth_hea
         assert res.json["data"]["command"] == "echo hi"
 
 
-def test_task_propose_forwarding_persists_terminal_metadata_without_command(client, app, admin_auth_header, force_hub_role):
+def test_task_propose_forwarding_persists_terminal_metadata_without_command(
+    client, app, admin_auth_header, force_hub_role
+):
     tid = "T-FWD-PROPOSE-TERM"
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -839,7 +855,9 @@ def test_task_propose_forwarding_persists_terminal_metadata_without_command(clie
         }
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "x"}, headers=admin_auth_header)
         assert res.status_code == 200
-        assert (res.json["data"].get("routing") or {}).get("live_terminal", {}).get("forward_param") == "cli-forward-123"
+        assert (res.json["data"].get("routing") or {}).get("live_terminal", {}).get(
+            "forward_param"
+        ) == "cli-forward-123"
 
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status
@@ -847,7 +865,9 @@ def test_task_propose_forwarding_persists_terminal_metadata_without_command(clie
         task = _get_local_task_status(tid)
         assert task is not None
         assert task["status"] == "proposing"
-        assert ((task.get("last_proposal") or {}).get("routing") or {}).get("live_terminal", {}).get("forward_param") == "cli-forward-123"
+        assert ((task.get("last_proposal") or {}).get("routing") or {}).get("live_terminal", {}).get(
+            "forward_param"
+        ) == "cli-forward-123"
         history = list(task.get("history") or [])
         assert history and history[-1]["event_type"] == "proposal_result"
 
@@ -877,7 +897,9 @@ def test_task_execute_forwarding_unwraps_nested_data(client, app, admin_auth_hea
         assert res.json["data"]["status"] == "completed"
 
 
-def test_task_execute_forwarding_persists_execution_artifacts_and_provenance(client, app, admin_auth_header, force_hub_role):
+def test_task_execute_forwarding_persists_execution_artifacts_and_provenance(
+    client, app, admin_auth_header, force_hub_role
+):
     tid = "T-FWD-EXEC-RICH"
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -996,9 +1018,7 @@ def test_vector_task_kind_cannot_be_overridden_into_generic_execution(
     )
 
     assert response.status_code >= 400
-    assert "vector_index_task_kind_override_forbidden" in str(
-        response.get_json()
-    )
+    assert "vector_index_task_kind_override_forbidden" in str(response.get_json())
     assert shell_calls == []
 
 
@@ -1051,10 +1071,7 @@ def test_partial_vector_domain_marker_cannot_reach_generic_execution(
     )
 
     assert response.status_code == 409
-    assert (
-        response.get_json()["data"]["reason_code"]
-        == "vector_index_task_domain_binding_invalid"
-    )
+    assert response.get_json()["data"]["reason_code"] == "vector_index_task_domain_binding_invalid"
     assert shell_calls == []
 
 
@@ -1108,10 +1125,7 @@ def test_authoritative_vector_task_without_handler_fails_closed(
     )
 
     assert response.status_code == 503
-    assert (
-        response.get_json()["data"]["reason_code"]
-        == "vector_index_worker_handler_unavailable"
-    )
+    assert response.get_json()["data"]["reason_code"] == "vector_index_worker_handler_unavailable"
     assert response.get_json()["data"]["phase"] == phase
     assert shell_calls == []
 
@@ -1158,10 +1172,7 @@ def test_authoritative_knowledge_index_without_handler_never_falls_back_to_llm(
     )
 
     assert response.status_code == 503
-    assert (
-        response.get_json()["data"]["reason_code"]
-        == "knowledge_index_worker_handler_unavailable"
-    )
+    assert response.get_json()["data"]["reason_code"] == "knowledge_index_worker_handler_unavailable"
     assert response.get_json()["data"]["phase"] == "propose"
 
 
@@ -1282,7 +1293,11 @@ def test_layer_build_propose_never_falls_back_to_an_llm_even_with_a_model(
 
     response = client.post(
         f"/tasks/{task_id}/step/propose",
-        json={"prompt": "attempt generic proposal", "model": "some-model", "strategy_mode": "autopilot_no_human_review"},
+        json={
+            "prompt": "attempt generic proposal",
+            "model": "some-model",
+            "strategy_mode": "autopilot_no_human_review",
+        },
         headers=admin_auth_header,
     )
 

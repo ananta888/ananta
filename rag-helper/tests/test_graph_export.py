@@ -18,24 +18,35 @@ class _GraphJavaExtractor:
         return {"file": rel_path, "package": None, "imports": [], "type_names": []}
 
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [{
-            "kind": "java_file",
-            "file": rel_path,
-            "id": "java_file:Demo",
-            "embedding_text": "demo",
-            "parent_id": None,
-        }], [{
-            "kind": "java_method_detail",
-            "file": rel_path,
-            "id": "java_method_detail:Demo.run",
-            "parent_id": "java_file:Demo",
-        }], [{
-            "type": "calls",
-            "from": "java_method_detail:Demo.run",
-            "to": "java_file:Demo",
-            "confidence": 0.8,
-            "heuristic": "same_class",
-        }], {"kind": "java", "file": rel_path}
+        return (
+            [
+                {
+                    "kind": "java_file",
+                    "file": rel_path,
+                    "id": "java_file:Demo",
+                    "embedding_text": "demo",
+                    "parent_id": None,
+                }
+            ],
+            [
+                {
+                    "kind": "java_method_detail",
+                    "file": rel_path,
+                    "id": "java_method_detail:Demo.run",
+                    "parent_id": "java_file:Demo",
+                }
+            ],
+            [
+                {
+                    "type": "calls",
+                    "from": "java_method_detail:Demo.run",
+                    "to": "java_file:Demo",
+                    "confidence": 0.8,
+                    "heuristic": "same_class",
+                }
+            ],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class _GraphNoopExtractor:
@@ -47,7 +58,9 @@ class GraphExportTests(unittest.TestCase):
     def test_build_graph_formats_jsonl_nodes_and_edges(self) -> None:
         nodes = build_graph_nodes(
             index_records=[{"id": "file:1", "kind": "java_file", "file": "Demo.java"}],
-            detail_records=[{"id": "detail:1", "kind": "java_method_detail", "file": "Demo.java", "parent_id": "file:1"}],
+            detail_records=[
+                {"id": "detail:1", "kind": "java_method_detail", "file": "Demo.java", "parent_id": "file:1"}
+            ],
             mode="jsonl",
         )
         edges = build_graph_edges(

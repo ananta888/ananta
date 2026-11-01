@@ -21,13 +21,12 @@ class SourceControlMetricInstruments:
     shadow_differences_total: Any
 
 
-def default_source_control_metric_instruments(
-) -> SourceControlMetricInstruments:
+def default_source_control_metric_instruments() -> SourceControlMetricInstruments:
     from agent.metrics import (
         SOURCE_CONTROL_ALERT_STATE,
         SOURCE_CONTROL_HEALTH,
-        SOURCE_CONTROL_OPERATIONS_TOTAL,
         SOURCE_CONTROL_OPERATION_DURATION_SECONDS,
+        SOURCE_CONTROL_OPERATIONS_TOTAL,
         SOURCE_CONTROL_SHADOW_DIFFERENCES_TOTAL,
     )
 
@@ -47,9 +46,7 @@ class PrometheusSourceControlMetrics(SourceControlMetricsPort):
         self,
         instruments: SourceControlMetricInstruments | None = None,
     ) -> None:
-        self._instruments = (
-            instruments or default_source_control_metric_instruments()
-        )
+        self._instruments = instruments or default_source_control_metric_instruments()
 
     def observe_duration(
         self,
@@ -58,15 +55,9 @@ class PrometheusSourceControlMetrics(SourceControlMetricsPort):
         labels: Mapping[str, str],
     ) -> None:
         normalized = bounded_metric_labels(**dict(labels))
-        if metric != "source_control_operation_duration_seconds" or set(
-            normalized
-        ) != {"operation", "status"}:
-            raise SourceControlObservabilityError(
-                "source_control_duration_metric_invalid"
-            )
-        self._instruments.duration_seconds.labels(**normalized).observe(
-            max(float(seconds), 0.0)
-        )
+        if metric != "source_control_operation_duration_seconds" or set(normalized) != {"operation", "status"}:
+            raise SourceControlObservabilityError("source_control_duration_metric_invalid")
+        self._instruments.duration_seconds.labels(**normalized).observe(max(float(seconds), 0.0))
 
     def increment(
         self,
@@ -81,23 +72,15 @@ class PrometheusSourceControlMetrics(SourceControlMetricsPort):
                 "reason_code",
                 "status",
             }:
-                raise SourceControlObservabilityError(
-                    "source_control_operation_metric_invalid"
-                )
+                raise SourceControlObservabilityError("source_control_operation_metric_invalid")
             self._instruments.operations_total.labels(**normalized).inc()
             return
         if metric == "source_control_shadow_differences_total":
             if set(normalized) != {"operation", "decision", "status"}:
-                raise SourceControlObservabilityError(
-                    "source_control_shadow_metric_invalid"
-                )
-            self._instruments.shadow_differences_total.labels(
-                **normalized
-            ).inc()
+                raise SourceControlObservabilityError("source_control_shadow_metric_invalid")
+            self._instruments.shadow_differences_total.labels(**normalized).inc()
             return
-        raise SourceControlObservabilityError(
-            "source_control_counter_metric_unknown"
-        )
+        raise SourceControlObservabilityError("source_control_counter_metric_unknown")
 
     def set_gauge(
         self,
@@ -108,23 +91,15 @@ class PrometheusSourceControlMetrics(SourceControlMetricsPort):
         normalized = bounded_metric_labels(**dict(labels))
         if metric == "source_control_health":
             if set(normalized) != {"status"}:
-                raise SourceControlObservabilityError(
-                    "source_control_health_metric_invalid"
-                )
+                raise SourceControlObservabilityError("source_control_health_metric_invalid")
             self._instruments.health.labels(**normalized).set(float(value))
             return
         if metric == "source_control_alert_state":
             if set(normalized) != {"reason_code", "status"}:
-                raise SourceControlObservabilityError(
-                    "source_control_alert_metric_invalid"
-                )
-            self._instruments.alert_state.labels(**normalized).set(
-                float(value)
-            )
+                raise SourceControlObservabilityError("source_control_alert_metric_invalid")
+            self._instruments.alert_state.labels(**normalized).set(float(value))
             return
-        raise SourceControlObservabilityError(
-            "source_control_gauge_metric_unknown"
-        )
+        raise SourceControlObservabilityError("source_control_gauge_metric_unknown")
 
 
 __all__ = [

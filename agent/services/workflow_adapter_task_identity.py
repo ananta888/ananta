@@ -58,9 +58,7 @@ def hub_task_id_from_context(context: Mapping[str, Any]) -> str:
     )
     if any(not str(value or "") for value in values):
         return ""
-    digest = hashlib.sha256(
-        "\x00".join(str(value) for value in values).encode("utf-8")
-    ).hexdigest()[:28]
+    digest = hashlib.sha256("\x00".join(str(value) for value in values).encode("utf-8")).hexdigest()[:28]
     return f"wfa-{digest}"
 
 
@@ -84,23 +82,13 @@ def submission_request_digest(submission: WorkflowAdapterIdentityView) -> str:
         {
             "payload": dict(submission.payload),
             "provider_binding": (
-                submission.provider_binding.to_dict()
-                if submission.provider_binding is not None
-                else None
+                submission.provider_binding.to_dict() if submission.provider_binding is not None else None
             ),
             "provider_decision_reason": submission.provider_decision_reason,
             "primary_profile_id": submission.primary_profile_id,
-            "provider_profile_bindings": [
-                item.to_dict()
-                for item in submission.provider_profile_bindings
-            ],
-            "provider_attempt_plan": [
-                item.to_dict()
-                for item in submission.provider_attempt_plan
-            ],
-            "provider_maximum_attempts": (
-                submission.provider_maximum_attempts
-            ),
+            "provider_profile_bindings": [item.to_dict() for item in submission.provider_profile_bindings],
+            "provider_attempt_plan": [item.to_dict() for item in submission.provider_attempt_plan],
+            "provider_maximum_attempts": (submission.provider_maximum_attempts),
             "model_routing": dict(submission.model_routing),
         },
         sort_keys=True,

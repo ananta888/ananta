@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-
 SOURCE_ID = "open-notebook-abc123def456"
 
 

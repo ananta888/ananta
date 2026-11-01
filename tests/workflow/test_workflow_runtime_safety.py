@@ -214,11 +214,7 @@ def test_workflow_signal_is_bounded_validated_and_secret_redacted(
     assert accepted.status_code == 200, accepted.get_json()
     events = accepted.get_json()["events"]
     signal_event = next(
-        (
-            event
-            for event in events
-            if event["event_type"] == "workflow.approval.granted"
-        ),
+        (event for event in events if event["event_type"] == "workflow.approval.granted"),
         None,
     )
     assert signal_event is not None, [event["event_type"] for event in events]

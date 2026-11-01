@@ -13,9 +13,11 @@ def pi_task_command(task) -> NativeNodeCommand:
         if (
             context.get("schema") != "ananta.native_graph_worker_context.v1"
             or context.get("runtime_path") != "native_graph_node"
-            or task.task_kind != "pi_coding_agent" or command.node.task_kind != "pi_coding_agent"
+            or task.task_kind != "pi_coding_agent"
+            or command.node.task_kind != "pi_coding_agent"
             or task.derivation_reason != "native_graph_hub_delegation"
-            or task.tenant_id != command.tenant_id or not task.id
+            or task.tenant_id != command.tenant_id
+            or not task.id
             or native_context_digest(raw) != native_context_digest(command.to_dict())
         ):
             raise ValueError("binding")
@@ -29,19 +31,30 @@ def pi_task_result_candidate(task, command):
     outer = verification.get("workflow_adapter_task_result")
     if not isinstance(outer, dict):
         raise ValueError("pi_native_result_required")
-    candidate = pi_native_result_candidate({
-        "status": task.status, "output": task.last_output, "exit_code": task.last_exit_code,
-        "reason_code": outer.get("reason_code"), "adapter_kind": outer.get("adapter_kind"),
-        "artifacts": outer.get("artifacts"), "sources": outer.get("sources"),
-        "workflow_adapter_verification": {
-            "schema": "ananta.workflow-adapter-task-verification.v1", "workflow_adapter_task_result": outer,
+    candidate = pi_native_result_candidate(
+        {
+            "status": task.status,
+            "output": task.last_output,
+            "exit_code": task.last_exit_code,
+            "reason_code": outer.get("reason_code"),
+            "adapter_kind": outer.get("adapter_kind"),
+            "artifacts": outer.get("artifacts"),
+            "sources": outer.get("sources"),
+            "workflow_adapter_verification": {
+                "schema": "ananta.workflow-adapter-task-verification.v1",
+                "workflow_adapter_task_result": outer,
+            },
         },
-    }, command=command, hub_task_id=task.id)
+        command=command,
+        hub_task_id=task.id,
+    )
     stored_native = native_context_digest(verification.get("native_node_result"))
     if stored_native != native_context_digest(candidate.result.to_dict()):
         raise ValueError("pi_native_result_verification_conflict")
-    expected_artifacts = [{'artifact_id': name, 'reference': reference}
-                          for name, reference in sorted(candidate.result.artifact_refs.items())]
+    expected_artifacts = [
+        {"artifact_id": name, "reference": reference}
+        for name, reference in sorted(candidate.result.artifact_refs.items())
+    ]
     if native_context_digest(verification.get("execution_artifacts", [])) != native_context_digest(expected_artifacts):
         raise ValueError("pi_native_result_artifacts_unsupported")
     return candidate

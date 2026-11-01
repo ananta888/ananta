@@ -19,7 +19,9 @@ def max_risk_level(*levels: str) -> str:
 
 def has_file_access_signal(command: str | None, tool_calls: list[dict] | None) -> bool:
     command_text = str(command or "").lower()
-    if any(token in command_text for token in ("cat ", "sed ", "awk ", "tee ", "cp ", "mv ", "touch ", "chmod ", "chown ")):
+    if any(
+        token in command_text for token in ("cat ", "sed ", "awk ", "tee ", "cp ", "mv ", "touch ", "chmod ", "chown ")
+    ):
         return True
     for call in tool_calls or []:
         if not isinstance(call, dict):
@@ -40,7 +42,9 @@ def classify_command_risk(command: str | None) -> str:
         return "low"
     if any(token in text for token in ("rm -rf", "mkfs", "shutdown", "reboot", "kill -9", "dd if=", "curl ")):
         return "critical"
-    if any(token in text for token in ("chmod ", "chown ", "docker ", "systemctl ", "kubectl ", "apt-get ", "pip install ")):
+    if any(
+        token in text for token in ("chmod ", "chown ", "docker ", "systemctl ", "kubectl ", "apt-get ", "pip install ")
+    ):
         return "high"
     if any(token in text for token in ("cat ", "sed ", "grep ", "rg ", "ls ")):
         return "medium"

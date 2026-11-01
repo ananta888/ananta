@@ -19,7 +19,14 @@ class CriticalWorkflowStateService:
         "evolution_proposal": {
             "initial_state": "review_required",
             "terminal_states": {"rejected", "applied", "failed"},
-            "active_states": {"review_required", "approved", "apply_requested", "apply_in_progress", "apply_prepared", "blocked"},
+            "active_states": {
+                "review_required",
+                "approved",
+                "apply_requested",
+                "apply_in_progress",
+                "apply_prepared",
+                "blocked",
+            },
             "transitions": {
                 "review_required": {"approved", "rejected", "failed", "blocked"},
                 "approved": {"apply_requested", "failed", "blocked"},
@@ -196,7 +203,9 @@ class CriticalWorkflowStateService:
         current = self._materialize_record(record, workflow_type=workflow_type, now=now)
         state = str(current.get("state") or "").strip().lower()
         timestamp = float(now if now is not None else time.time())
-        elapsed = max(0.0, timestamp - float(current.get("last_transition_at") or current.get("started_at") or timestamp))
+        elapsed = max(
+            0.0, timestamp - float(current.get("last_transition_at") or current.get("started_at") or timestamp)
+        )
         timeout_seconds = int(current.get("timeout_seconds") or definition["timeout_seconds"])
         stuck = state in set(definition["active_states"]) and elapsed > float(timeout_seconds)
         return {
@@ -233,7 +242,10 @@ class CriticalWorkflowStateService:
             trace_id=trace_id,
             task_id=task_id,
             goal_id=goal_id,
-            details={"elapsed_seconds": inspection["elapsed_seconds"], "timeout_seconds": inspection["timeout_seconds"]},
+            details={
+                "elapsed_seconds": inspection["elapsed_seconds"],
+                "timeout_seconds": inspection["timeout_seconds"],
+            },
             now=now,
         )
         attempts = int(timed.get("recovery_attempts") or 0)
@@ -290,7 +302,9 @@ class CriticalWorkflowStateService:
             "workflow_type": workflow_type,
             "valid": len(errors) == 0,
             "state_path": path,
-            "transition_count": len([event for event in history if str(event.get("event_type") or "") == "workflow_transition"]),
+            "transition_count": len(
+                [event for event in history if str(event.get("event_type") or "") == "workflow_transition"]
+            ),
             "terminal_reached": state in set(definition["terminal_states"]),
             "errors": errors,
             "current_state": str(current.get("state") or state),

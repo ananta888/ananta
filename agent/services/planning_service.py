@@ -16,7 +16,6 @@ import agent.services.planning_plan_repair_helpers as _planning_plan_repair_help
 from agent.db_models import PlanDB, PlanNodeDB
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
-
 from agent.services.lifecycle_service import get_task_lifecycle_service
 from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
 
@@ -26,6 +25,7 @@ from agent.services.planning_feature_flags import (  # noqa: F401
     get_plan_generation_limits,
 )
 from agent.services.planning_model_profile_service import get_planning_model_profile_service
+from agent.services.planning_plan_materialization import PlanMaterializationPorts, PlanMaterializer
 from agent.services.planning_prompt_evolver_service import get_planning_prompt_evolver_service
 from agent.services.planning_proposal_service import (
     normalize_planning_policy_config,
@@ -37,7 +37,6 @@ from agent.services.planning_service_pipeline import (
     _validate_and_finalize_plan,
     resolve_subtasks_with_timeout,
 )
-from agent.services.planning_plan_materialization import PlanMaterializationPorts, PlanMaterializer
 from agent.services.planning_strategies import (
     HubCopilotPlanningStrategy,
     LLMPlanningStrategy,
@@ -84,9 +83,7 @@ class PlanningService:
                 repositories=self._repository_provider,
                 task_lifecycle=self._task_lifecycle_provider,
                 plan_mutation_lock=self.plan_mutation_lock,
-                validate_existing_plan=(
-                    existing_plan_validator or self._validate_existing_plan_for_materialization
-                ),
+                validate_existing_plan=(existing_plan_validator or self._validate_existing_plan_for_materialization),
                 pipeline_shell_modes=frozenset(self._PIPELINE_SHELL_MODES),
             )
         )
@@ -138,9 +135,7 @@ class PlanningService:
         connection = None
         try:
             lock_id = int(
-                hashlib.sha256(
-                    f"planning-materialization:{plan_id}".encode("utf-8")
-                ).hexdigest()[:15],
+                hashlib.sha256(f"planning-materialization:{plan_id}".encode("utf-8")).hexdigest()[:15],
                 16,
             )
             connection = engine.connect()
@@ -180,9 +175,7 @@ class PlanningService:
         normalized_plan_id = str(plan_id or "").strip()
         with (
             self._materialization_lock(normalized_plan_id),
-            self._distributed_materialization_lock(
-                normalized_plan_id
-            ) as distributed_lock_acquired,
+            self._distributed_materialization_lock(normalized_plan_id) as distributed_lock_acquired,
         ):
             yield bool(distributed_lock_acquired)
 
@@ -199,6 +192,7 @@ class PlanningService:
     def _update_profile_learning_state(self, *, telemetry_run) -> None:
         try:
             from agent.services.planning_telemetry_service import get_planning_telemetry_service
+
             record = get_planning_telemetry_service().build_learning_record(telemetry_run)
             observed_shape = str(record.get("observed_output_shape") or "").strip() or None
             if not observed_shape:
@@ -215,7 +209,7 @@ class PlanningService:
                 return
             db_profile = None
             for _p in self._repositories().planning_model_profile_repo.get_enabled():
-                if str(getattr(_p, 'id', '') or '') == str(profile_id or ''):
+                if str(getattr(_p, "id", "") or "") == str(profile_id or ""):
                     db_profile = _p
                     break
             if db_profile is None:
@@ -310,9 +304,13 @@ class PlanningService:
         error_codes: list[str] | None = None,
     ) -> str:
         return _planning_plan_repair_helpers.build_selective_repair_prompt(
-            goal=goal, mode=mode, missing_categories=missing_categories,
-            generic_task_indices=generic_task_indices, preferred_output_format=preferred_output_format,
-            required_task_kinds=required_task_kinds, error_codes=error_codes,
+            goal=goal,
+            mode=mode,
+            missing_categories=missing_categories,
+            generic_task_indices=generic_task_indices,
+            preferred_output_format=preferred_output_format,
+            required_task_kinds=required_task_kinds,
+            error_codes=error_codes,
         )
 
     def _run_planning_strategies(
@@ -379,8 +377,19 @@ class PlanningService:
         initial_rationale: dict[str, Any] | None = None,
     ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         return _planning_plan_persistence.persist_plan(
-            self._repositories(), goal_id, trace_id, subtasks, planning_mode, raw_response, context, planning_origin,
-            repair_strategy_used, repair_attempt_count, parse_mode, planning_run_id, initial_rationale,
+            self._repositories(),
+            goal_id,
+            trace_id,
+            subtasks,
+            planning_mode,
+            raw_response,
+            context,
+            planning_origin,
+            repair_strategy_used,
+            repair_attempt_count,
+            parse_mode,
+            planning_run_id,
+            initial_rationale,
         )
 
     _PIPELINE_SHELL_MODES = {"admin_repair", "runtime_repair", "docker_compose_repair"}
@@ -400,8 +409,17 @@ class PlanningService:
         initial_task_status: str = "todo",
     ) -> tuple[list[str], str | None]:
         return self._plan_materializer().materialize_plan(
-            planner, plan, nodes, team_id, parent_task_id, goal_id, goal_trace_id, mode,
-            deterministic_task_ids, source_task_id, initial_task_status,
+            planner,
+            plan,
+            nodes,
+            team_id,
+            parent_task_id,
+            goal_id,
+            goal_trace_id,
+            mode,
+            deterministic_task_ids,
+            source_task_id,
+            initial_task_status,
         )
 
     def materialize_existing_plan(
@@ -418,9 +436,14 @@ class PlanningService:
     ) -> dict[str, Any]:
         """Materialize one persisted draft after a Hub approval was granted."""
         return self._plan_materializer().materialize_existing_plan(
-            planner=planner, plan_id=plan_id, approval_request_id=approval_request_id, team_id=team_id,
-            parent_task_id=parent_task_id, source_task_id=source_task_id,
-            expected_plan_digest=expected_plan_digest, initial_task_status=initial_task_status,
+            planner=planner,
+            plan_id=plan_id,
+            approval_request_id=approval_request_id,
+            team_id=team_id,
+            parent_task_id=parent_task_id,
+            source_task_id=source_task_id,
+            expected_plan_digest=expected_plan_digest,
+            initial_task_status=initial_task_status,
         )
 
     @staticmethod
@@ -437,8 +460,15 @@ class PlanningService:
         initial_task_status: str,
     ) -> bool:
         return _planning_materialization_validation.task_matches_materialization_binding(
-            task, plan=plan, node=node, task_id=task_id, team_id=team_id, parent_task_id=parent_task_id,
-            source_task_id=source_task_id, depends_on=depends_on, initial_task_status=initial_task_status,
+            task,
+            plan=plan,
+            node=node,
+            task_id=task_id,
+            team_id=team_id,
+            parent_task_id=parent_task_id,
+            source_task_id=source_task_id,
+            depends_on=depends_on,
+            initial_task_status=initial_task_status,
         )
 
     def _classify_deterministic_materialization(
@@ -452,8 +482,12 @@ class PlanningService:
         initial_task_status: str,
     ) -> tuple[list[str], list[dict[str, Any]], str | None]:
         return self._plan_materializer().classify_deterministic_materialization(
-            plan=plan, staged=staged, team_id=team_id, parent_task_id=parent_task_id,
-            source_task_id=source_task_id, initial_task_status=initial_task_status,
+            plan=plan,
+            staged=staged,
+            team_id=team_id,
+            parent_task_id=parent_task_id,
+            source_task_id=source_task_id,
+            initial_task_status=initial_task_status,
         )
 
     def _restore_retryable_materialization_state(
@@ -467,8 +501,12 @@ class PlanningService:
         initial_task_status: str,
     ) -> bool:
         return self._plan_materializer().restore_retryable_materialization_state(
-            plan_id=plan_id, error=error, team_id=team_id, parent_task_id=parent_task_id,
-            source_task_id=source_task_id, initial_task_status=initial_task_status,
+            plan_id=plan_id,
+            error=error,
+            team_id=team_id,
+            parent_task_id=parent_task_id,
+            source_task_id=source_task_id,
+            initial_task_status=initial_task_status,
         )
 
     def _validate_existing_plan_for_materialization(
@@ -499,10 +537,13 @@ class PlanningService:
         deterministic_seed: str | None = None,
     ) -> list[dict[str, Any]] | None:
         return _planning_plan_materialization.prepare_materialization(
-            nodes, deterministic_seed=deterministic_seed,
+            nodes,
+            deterministic_seed=deterministic_seed,
         )
 
-    def _rollback_materialization(self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str) -> None:
+    def _rollback_materialization(
+        self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str
+    ) -> None:
         return self._plan_materializer().rollback_materialization(plan, nodes, created_ids, error)
 
     @staticmethod
@@ -551,8 +592,12 @@ class PlanningService:
 
         injection_signal = screen_ingress(goal, source="goal_planning")
         if injection_signal is not None and injection_signal.needs_review:
-            logging.warning("goal %s: prompt-injection screen %s (%s)", goal_id, injection_signal.verdict,
-                            injection_signal.label or injection_signal.reason)
+            logging.warning(
+                "goal %s: prompt-injection screen %s (%s)",
+                goal_id,
+                injection_signal.verdict,
+                injection_signal.label or injection_signal.reason,
+            )
 
         goal = sanitize_input(goal)
         context = sanitize_input(context) if context else None
@@ -623,11 +668,20 @@ class PlanningService:
             hardened_subtasks.append(cleaned)
             policy_gate_warnings.extend(list(warns or []))
         subtasks = hardened_subtasks
-        preferred_output_format = str(
-            planning_policy.get("preferred_output_format")
-            or ((planning_policy.get("runtime_profiles") or {}).get(str(planning_policy.get("default_runtime_profile") or ""), {}) or {}).get("preferred_output_format")
-            or "json"
-        ).strip().lower()
+        preferred_output_format = (
+            str(
+                planning_policy.get("preferred_output_format")
+                or (
+                    (planning_policy.get("runtime_profiles") or {}).get(
+                        str(planning_policy.get("default_runtime_profile") or ""), {}
+                    )
+                    or {}
+                ).get("preferred_output_format")
+                or "json"
+            )
+            .strip()
+            .lower()
+        )
 
         # Pipeline phase: Validate -> Selective Repair (bounded rounds).
         quality = get_planning_quality_service().evaluate(
@@ -636,28 +690,22 @@ class PlanningService:
             planning_policy=planning_policy,
             team_id=team_id,
         )
-        has_explicit_validation_profiles = (
-            "validation_profiles" in planning_policy
-            and isinstance(planning_policy.get("validation_profiles"), dict)
+        has_explicit_validation_profiles = "validation_profiles" in planning_policy and isinstance(
+            planning_policy.get("validation_profiles"), dict
         )
-        enforce_quality_gate = (
-            mode == "new_software_project"
-            or (has_explicit_validation_profiles and bool(str(goal_id or "").strip()))
+        enforce_quality_gate = mode == "new_software_project" or (
+            has_explicit_validation_profiles and bool(str(goal_id or "").strip())
         )
         if current_app.testing:
             enforce_quality_gate = False
         perform_quality_repairs = bool(create_tasks and enforce_quality_gate)
         repair_context = dict(mode_data_dict.get("planning_repair_context") or {})
-        required_task_kinds = [
+        [
             str(item).strip().lower()
             for item in list(repair_context.get("missing_task_kinds") or [])
             if str(item).strip()
         ]
-        repair_error_codes = [
-            str(item).strip()
-            for item in list(repair_context.get("error_codes") or [])
-            if str(item).strip()
-        ]
+        [str(item).strip() for item in list(repair_context.get("error_codes") or []) if str(item).strip()]
         _quality_result = _run_quality_repairs(
             service=self,
             planner=planner,
@@ -685,9 +733,7 @@ class PlanningService:
         # 'planned' rather than 'failed'. Hard-fail only for too_few_tasks / too_many_generic.
         _remaining_reasons = [r for r in (quality.reason or "").split("|") if r and r != "ok"]
         _is_soft_remaining = (
-            not quality.ok
-            and subtasks
-            and all(r.startswith("missing_categories:") for r in _remaining_reasons)
+            not quality.ok and subtasks and all(r.startswith("missing_categories:") for r in _remaining_reasons)
         )
         if _is_soft_remaining:
             selective_repair_codes.append("soft_accepted_missing_categories")
@@ -746,12 +792,8 @@ class PlanningService:
         template_used = resolved["template_used"]
         # Count selective repair rounds toward repair_attempt_count so the learning loop
         # sees the repair signal even when the LLM strategy itself reported 0 retries.
-        _selective_round_count = sum(
-            1 for c in selective_repair_codes if c.startswith("selective_repair_rounds:")
-        )
-        _last_resort_count = sum(
-            1 for c in selective_repair_codes if c.startswith("last_resort_ask:")
-        )
+        _selective_round_count = sum(1 for c in selective_repair_codes if c.startswith("selective_repair_rounds:"))
+        _last_resort_count = sum(1 for c in selective_repair_codes if c.startswith("last_resort_ask:"))
         effective_repair_count = repair_attempt_count + _selective_round_count + _last_resort_count
         get_planning_telemetry_service().update_run(
             telemetry_run,
@@ -809,7 +851,9 @@ class PlanningService:
 
         if not subtasks:
             scoped_cfg = dict(getattr(planner, "_goal_effective_config", {}) or {})
-            raw_planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+            raw_planning_policy = (
+                scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+            )
             allow_non_llm_fallback = bool(raw_planning_policy.get("allow_non_llm_minimal_task_fallback", False))
             if allow_non_llm_fallback:
                 subtasks = [
@@ -894,7 +938,9 @@ class PlanningService:
             return None, []
         return plan, repos.plan_node_repo.get_by_plan_id(plan.id)
 
-    def patch_plan_node(self, goal_id: str, node_id: str, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    def patch_plan_node(
+        self, goal_id: str, node_id: str, payload: dict[str, Any]
+    ) -> tuple[dict[str, Any] | None, str | None]:
         plan, _ = self.get_latest_plan_for_goal(goal_id)
         if not plan:
             return None, "plan_not_found"
@@ -909,9 +955,7 @@ class PlanningService:
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Patch an unmaterialized node in one goal-bound persisted plan."""
         normalized_plan_id = str(plan_id or "").strip()
-        with self.plan_mutation_lock(
-            normalized_plan_id
-        ) as distributed_lock_acquired:
+        with self.plan_mutation_lock(normalized_plan_id) as distributed_lock_acquired:
             if not distributed_lock_acquired:
                 return None, "plan_mutation_in_progress"
             repos = self._repositories()
@@ -929,7 +973,11 @@ class PlanningService:
                 if key not in allowed_fields:
                     continue
                 if key == "depends_on":
-                    setattr(node, key, [str(item).strip() for item in value if str(item).strip()] if isinstance(value, list) else [])
+                    setattr(
+                        node,
+                        key,
+                        [str(item).strip() for item in value if str(item).strip()] if isinstance(value, list) else [],
+                    )
                 else:
                     setattr(node, key, value)
             node.updated_at = time.time()

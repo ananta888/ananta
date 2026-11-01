@@ -341,9 +341,7 @@ class ScientificSkillRiskProfiler:
             if re.search(pattern, lowered):
                 detected.add(capability)
         detected.update(
-            f"{item.ecosystem}_dependency"
-            for item in dependencies
-            if item.ecosystem in {"python", "node", "cli"}
+            f"{item.ecosystem}_dependency" for item in dependencies if item.ecosystem in {"python", "node", "cli"}
         )
         return detected
 
@@ -412,9 +410,13 @@ class ScientificSkillRiskProfiler:
         }
         if capabilities.intersection(controlled):
             return ScientificSkillOperatingMode.CONTROLLED_EXECUTION
-        if "file_read" in capabilities or manifest.source_references or re.search(
-            r"(?i)\b(?:research|literature|evidence|database lookup|bibliograph|citation)\b",
-            content,
+        if (
+            "file_read" in capabilities
+            or manifest.source_references
+            or re.search(
+                r"(?i)\b(?:research|literature|evidence|database lookup|bibliograph|citation)\b",
+                content,
+            )
         ):
             return ScientificSkillOperatingMode.READ_ONLY_RESEARCH
         return ScientificSkillOperatingMode.DOCUMENTATION_ONLY

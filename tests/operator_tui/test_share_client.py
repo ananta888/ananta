@@ -1,4 +1,5 @@
 """Tests for operator TUI share client request contracts."""
+
 from __future__ import annotations
 
 from client_surfaces.operator_tui import share_client

@@ -78,31 +78,35 @@ def build_prompt(
             "reviewed_commit_range": repository_revision,
             "review_goal": "Review the governed HRM experiment research pack.",
         },
-        "categories": [{
-            "name": "hrm-experiment-research",
-            "label": "HRM experiment research",
-            "items": [{
-                "id": item_id,
-                "title": "Review the governed HRM experiment research pack",
-                "status": "open",
-                "priority": "high",
-                "risk": "medium",
-                "type": "research",
-                "depends_on": [],
-                "acceptance_criteria": [
-                    "Every proposed HRM experiment decision is checked against the assignment-bound source context.",
-                    (
-                        "Factual decisions cite only assignment-allowed source references "
-                        "and the execution receipt cites the allowed run reference."
-                    ),
+        "categories": [
+            {
+                "name": "hrm-experiment-research",
+                "label": "HRM experiment research",
+                "items": [
+                    {
+                        "id": item_id,
+                        "title": "Review the governed HRM experiment research pack",
+                        "status": "open",
+                        "priority": "high",
+                        "risk": "medium",
+                        "type": "research",
+                        "depends_on": [],
+                        "acceptance_criteria": [
+                            "Every proposed HRM experiment decision is checked against the assignment-bound source context.",
+                            (
+                                "Factual decisions cite only assignment-allowed source references "
+                                "and the execution receipt cites the allowed run reference."
+                            ),
+                        ],
+                        "evidence_claim_refs": [source_claim_id, run_claim_id],
+                        "source_citation_refs": list(allowed_source_refs),
+                        "evidence_summary": (
+                            "The review is scoped to the exact Hub-issued source catalog and repository revision."
+                        ),
+                    }
                 ],
-                "evidence_claim_refs": [source_claim_id, run_claim_id],
-                "source_citation_refs": list(allowed_source_refs),
-                "evidence_summary": (
-                    "The review is scoped to the exact Hub-issued source catalog and repository revision."
-                ),
-            }],
-        }],
+            }
+        ],
         "meta": {
             "total_items": 1,
             "by_status": {"completed": 0, "partial": 0, "open": 1},
@@ -140,22 +144,29 @@ def build_prompt(
             "grounding_reason": "Every claim is limited to the exact assignment allowlists.",
         },
     }
-    return "\n".join((
-        "Execute one Hub-delegated planning_research assignment.",
-        "Return the DRAFT JSON below exactly, with no Markdown or prose.",
-        "Do not add, remove, rename, or rewrite any JSON value.",
-        "Do not modify files, run tools, create tasks, or orchestrate workers.",
-        "Never invent SRC_* or RUN_* identifiers.",
-        f"Task: {str(task.get('description') or task.get('title') or '').strip()}",
-        "SOURCE CATALOG IDENTITY:\n" + json.dumps({
-            "schema": source_catalog.get("schema"),
-            "source_catalog_id": source_catalog_id,
-            "source_catalog_hash": source_catalog_hash,
-            "source_ids": list(allowed_source_refs),
-        }, ensure_ascii=False, sort_keys=True),
-        "DRAFT JSON:\n" + json.dumps(draft, ensure_ascii=False, separators=(",", ":")),
-        "SOURCE CONTEXT:\n" + context_text,
-    ))
+    return "\n".join(
+        (
+            "Execute one Hub-delegated planning_research assignment.",
+            "Return the DRAFT JSON below exactly, with no Markdown or prose.",
+            "Do not add, remove, rename, or rewrite any JSON value.",
+            "Do not modify files, run tools, create tasks, or orchestrate workers.",
+            "Never invent SRC_* or RUN_* identifiers.",
+            f"Task: {str(task.get('description') or task.get('title') or '').strip()}",
+            "SOURCE CATALOG IDENTITY:\n"
+            + json.dumps(
+                {
+                    "schema": source_catalog.get("schema"),
+                    "source_catalog_id": source_catalog_id,
+                    "source_catalog_hash": source_catalog_hash,
+                    "source_ids": list(allowed_source_refs),
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            "DRAFT JSON:\n" + json.dumps(draft, ensure_ascii=False, separators=(",", ":")),
+            "SOURCE CONTEXT:\n" + context_text,
+        )
+    )
 
 
 def repair_prompt(*, prompt: str, raw_output: str, issues: list[str]) -> str:

@@ -39,8 +39,7 @@ class _Surface:
 
 def _database_chunks(row: SpeechEvidenceDB) -> tuple[str, ...]:
     return tuple(
-        json.dumps(getattr(row, column.name), default=repr, sort_keys=True)
-        for column in row.__table__.columns
+        json.dumps(getattr(row, column.name), default=repr, sort_keys=True) for column in row.__table__.columns
     )
 
 

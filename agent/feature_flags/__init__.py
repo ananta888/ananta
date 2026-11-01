@@ -8,10 +8,10 @@ without any external dependency.
 Flags are *opt-in* via environment variables of the form
 ``CODECOMPASS_<GROUP>_<NAME>=1``.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Callable
 
 from . import (
     codecompass_crg,

@@ -13,9 +13,7 @@ def test_bridge_adapter_registry_resolves_known_adapter_as_ready() -> None:
             }
         }
     )
-    registry.load_from_descriptors(
-        {"example": {"domain_id": "example", "bridge_adapter_type": "example.bridge.v1"}}
-    )
+    registry.load_from_descriptors({"example": {"domain_id": "example", "bridge_adapter_type": "example.bridge.v1"}})
 
     resolved = registry.resolve("example")
 
@@ -54,4 +52,3 @@ def test_bridge_adapter_registry_reports_malformed_descriptor_as_degraded() -> N
 
     assert resolved["status"] == "degraded"
     assert resolved["reason"] == "malformed_descriptor"
-

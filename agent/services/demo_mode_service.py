@@ -47,8 +47,7 @@ class DemoModeService:
                 id="bugfix-plan",
                 title="Bugfix vorbereiten",
                 goal=(
-                    "Untersuche einen Fehlerbericht, grenze die Ursache ein "
-                    "und plane eine kleine, testbare Korrektur."
+                    "Untersuche einen Fehlerbericht, grenze die Ursache ein und plane eine kleine, testbare Korrektur."
                 ),
                 outcome="Ein nachvollziehbarer Fix-Plan mit passenden Tests statt blindem Code-Aendern.",
                 tasks=("Fehler reproduzieren", "Betroffene Pfade finden", "Fix und Regressionstest vorschlagen"),

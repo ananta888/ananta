@@ -67,8 +67,7 @@ def test_runtime_ownership_bootstrap_prepares_only_fixed_service_roots(tmp_path)
         assert path.stat().st_gid == owner_gid
 
     unchanged_ctimes = {
-        path: path.stat().st_ctime_ns
-        for path in (workspace_root, credential_root, *data_root.rglob("*"))
+        path: path.stat().st_ctime_ns for path in (workspace_root, credential_root, *data_root.rglob("*"))
     }
     module.prepare_runtime_ownership(
         data_root,
@@ -77,10 +76,7 @@ def test_runtime_ownership_bootstrap_prepares_only_fixed_service_roots(tmp_path)
         owner_uid=owner_uid,
         owner_gid=owner_gid,
     )
-    assert {
-        path: path.stat().st_ctime_ns
-        for path in unchanged_ctimes
-    } == unchanged_ctimes
+    assert {path: path.stat().st_ctime_ns for path in unchanged_ctimes} == unchanged_ctimes
 
 
 def test_runtime_ownership_bootstrap_rejects_symlinked_data_root(tmp_path):
@@ -127,9 +123,7 @@ def test_runtime_ownership_bootstrap_rejects_linked_credentials(tmp_path):
     data_root, workspace_root, credential_root = _runtime_tree(tmp_path)
     owner_uid, owner_gid = _non_root_test_owner()
     credential = credential_root / "alpha" / "service-token"
-    (credential_root / "alpha" / "service-token-alias").symlink_to(
-        credential.name
-    )
+    (credential_root / "alpha" / "service-token-alias").symlink_to(credential.name)
 
     with pytest.raises(
         module.RuntimeOwnershipBootstrapError,
@@ -153,9 +147,7 @@ def test_assign_if_needed_changes_a_mismatched_owner(monkeypatch, tmp_path):
     monkeypatch.setattr(
         module.os,
         "chown",
-        lambda path, uid, gid, *, follow_symlinks: calls.append(
-            (Path(path), uid, gid, follow_symlinks)
-        ),
+        lambda path, uid, gid, *, follow_symlinks: calls.append((Path(path), uid, gid, follow_symlinks)),
     )
 
     module._assign_if_needed(
@@ -214,57 +206,33 @@ def test_ollama_compose_runs_python_services_as_the_credential_owner():
     ]
     keyring_bootstrap = services["workflow-keyring-bootstrap"]
     assert keyring_bootstrap["build"]["args"] == expected_build_args
-    assert keyring_bootstrap["user"] == (
-        "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
-    )
+    assert keyring_bootstrap["user"] == ("${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}")
     assert keyring_bootstrap["network_mode"] == "none"
     assert keyring_bootstrap["read_only"] is True
     assert keyring_bootstrap["cap_drop"] == ["ALL"]
     assert keyring_bootstrap["security_opt"] == ["no-new-privileges:true"]
-    assert (
-        keyring_bootstrap["depends_on"]["runtime-data-bootstrap"]["condition"]
-        == "service_completed_successfully"
-    )
+    assert keyring_bootstrap["depends_on"]["runtime-data-bootstrap"]["condition"] == "service_completed_successfully"
 
     for name in ("ai-agent-hub", "ai-agent-alpha", "ai-agent-beta"):
         service = services[name]
-        assert service["user"] == (
-            "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
-        )
+        assert service["user"] == ("${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}")
         assert service["environment"]["HOME"] == "/app/data/home"
         assert service["environment"]["XDG_CACHE_HOME"] == "/app/data/cache"
-        assert (
-            service["depends_on"]["runtime-data-bootstrap"]["condition"]
-            == "service_completed_successfully"
-        )
+        assert service["depends_on"]["runtime-data-bootstrap"]["condition"] == "service_completed_successfully"
 
     frontend = services["angular-frontend"]
-    assert frontend["user"] == (
-        "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
-    )
-    assert frontend["environment"]["HOME"] == (
-        "/app/frontend-angular/.angular/home"
-    )
-    assert frontend["environment"]["XDG_CACHE_HOME"] == (
-        "/app/frontend-angular/.angular/cache"
-    )
-    assert (
-        frontend["depends_on"]["runtime-data-bootstrap"]["condition"]
-        == "service_completed_successfully"
-    )
-    assert (
-        "frontend-angular-cache:/run/ananta-dev-data/frontend-angular-cache"
-        in bootstrap["volumes"]
-    )
+    assert frontend["user"] == ("${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}")
+    assert frontend["environment"]["HOME"] == ("/app/frontend-angular/.angular/home")
+    assert frontend["environment"]["XDG_CACHE_HOME"] == ("/app/frontend-angular/.angular/cache")
+    assert frontend["depends_on"]["runtime-data-bootstrap"]["condition"] == "service_completed_successfully"
+    assert "frontend-angular-cache:/run/ananta-dev-data/frontend-angular-cache" in bootstrap["volumes"]
 
     for name in (
         "ai-agent-hub-base",
         "ai-agent-worker-base",
         "angular-frontend-base",
     ):
-        assert base_compose["services"][name]["build"]["args"] == (
-            expected_build_args
-        )
+        assert base_compose["services"][name]["build"]["args"] == (expected_build_args)
 
 
 def test_runtime_entrypoint_does_not_install_test_packages():

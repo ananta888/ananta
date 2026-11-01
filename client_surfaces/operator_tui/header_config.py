@@ -5,11 +5,11 @@ from client_surfaces.operator_tui.models import OperatorMode, OperatorState
 CONFIG_ITEMS: tuple[str, ...] = ("mode", "endpoint", "auth", "3d_anim", "color")
 
 CONFIG_LABELS: dict[str, str] = {
-    "mode":    "Mode    ",
-    "endpoint":"Endpoint",
-    "auth":    "Auth    ",
+    "mode": "Mode    ",
+    "endpoint": "Endpoint",
+    "auth": "Auth    ",
     "3d_anim": "3D anim ",
-    "color":   "Color   ",
+    "color": "Color   ",
 }
 
 _CYCLEABLE = {"mode", "3d_anim", "color"}

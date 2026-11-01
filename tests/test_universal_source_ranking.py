@@ -5,12 +5,12 @@ from pathlib import Path
 
 import jsonschema
 
-from ananta_codecompass.ranking import RankingCandidate, RankingInput, UniversalSourceRanker
-from ananta_codecompass.ranking.file_roles import classify_file_role
-from ananta_codecompass.ranking.graph_features import derive_graph_features
 from agent.services.codecompass_universal_ranking_profile_service import (
     CodeCompassUniversalRankingProfileService,
 )
+from ananta_codecompass.ranking import RankingCandidate, RankingInput, UniversalSourceRanker
+from ananta_codecompass.ranking.file_roles import classify_file_role
+from ananta_codecompass.ranking.graph_features import derive_graph_features
 
 
 def test_ranking_is_byte_stable_and_contributions_reconstruct_score() -> None:
@@ -31,9 +31,7 @@ def test_ranking_is_byte_stable_and_contributions_reconstruct_score() -> None:
     for item in first.ranked:
         assert item.score == round(sum(row.contribution for row in item.contributions), 12)
     assert first.ranked[0].candidate.path == "src/payment/routes.py"
-    schema = json.loads(
-        Path("schemas/codecompass/universal_source_ranking.v1.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads(Path("schemas/codecompass/universal_source_ranking.v1.json").read_text(encoding="utf-8"))
     jsonschema.validate(first.as_dict(), schema)
 
 
@@ -41,7 +39,10 @@ def test_file_roles_are_language_conventional_and_unknown_directories_neutral() 
     assert classify_file_role("pkg/tests/test_api.py").role == "test"
     assert classify_file_role("web/src/api.spec.ts").role == "test"
     assert classify_file_role("src/test/java/a/ApiTest.java").role == "test"
-    assert classify_file_role("target/generated/Api.java", "// generated, do not edit").role in {"build_output", "generated"}
+    assert classify_file_role("target/generated/Api.java", "// generated, do not edit").role in {
+        "build_output",
+        "generated",
+    }
     assert classify_file_role("unfamiliar/subtree/service.py").role == "production"
 
 
@@ -64,20 +65,26 @@ def test_graph_features_require_evidence_and_mark_partial_coverage() -> None:
 
 def test_override_requires_complete_governance_and_future_expiry() -> None:
     service = CodeCompassUniversalRankingProfileService()
-    rejected = service.resolve({
-        "ANANTA_CODECOMPASS_RANKING_OVERRIDE_JSON": json.dumps({"weights": {"path_lexical": 1.0}}),
-    })
-    active = service.resolve({
-        "ANANTA_CODECOMPASS_REPOSITORY_RANKER": "shadow",
-        "ANANTA_CODECOMPASS_RANKING_OVERRIDE_JSON": json.dumps({
-            "owner": "ranking-team",
-            "reason": "bound evaluation",
-            "scope": "deployment",
-            "version": "experiment-1",
-            "expires_at": "2099-01-01T00:00:00Z",
-            "weights": {"path_lexical": 0.25},
-        }),
-    })
+    rejected = service.resolve(
+        {
+            "ANANTA_CODECOMPASS_RANKING_OVERRIDE_JSON": json.dumps({"weights": {"path_lexical": 1.0}}),
+        }
+    )
+    active = service.resolve(
+        {
+            "ANANTA_CODECOMPASS_REPOSITORY_RANKER": "shadow",
+            "ANANTA_CODECOMPASS_RANKING_OVERRIDE_JSON": json.dumps(
+                {
+                    "owner": "ranking-team",
+                    "reason": "bound evaluation",
+                    "scope": "deployment",
+                    "version": "experiment-1",
+                    "expires_at": "2099-01-01T00:00:00Z",
+                    "weights": {"path_lexical": 0.25},
+                }
+            ),
+        }
+    )
 
     assert rejected.override_status == "rejected_missing_governance"
     assert rejected.profile.overrides_enabled is False
@@ -92,7 +99,9 @@ def test_multilanguage_golden_set_has_perfect_first_relevant_result() -> None:
     fixture_path = Path("tests/fixtures/scenarios/universal_source_ranking.v1.json")
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     assert {repo["language"] for repo in fixture["repositories"]} == {
-        "python", "typescript", "java",
+        "python",
+        "typescript",
+        "java",
     }
     report = evaluate()
     assert all(row["metrics"]["mrr"] == 1.0 for row in report["results"])
@@ -122,8 +131,7 @@ def test_repository_map_uses_evidenced_import_graph_features(tmp_path) -> None:
     package = tmp_path / "src" / "payments"
     package.mkdir(parents=True)
     (package / "routes.py").write_text(
-        "from src.payments.service import PaymentService\n"
-        "def register_payment_route(): pass\n",
+        "from src.payments.service import PaymentService\ndef register_payment_route(): pass\n",
         encoding="utf-8",
     )
     (package / "service.py").write_text(
@@ -139,7 +147,4 @@ def test_repository_map_uses_evidenced_import_graph_features(tmp_path) -> None:
 
     assert trace["graph_feature_coverage"]["edge_count"] == 1
     assert trace["graph_feature_coverage"]["evidenced_candidates"] == 2
-    assert any(
-        row["candidate"]["relation_evidence"]
-        for row in trace["ranked"]
-    )
+    assert any(row["candidate"]["relation_evidence"] for row in trace["ranked"])

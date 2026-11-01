@@ -23,8 +23,10 @@ def main():
             if len(line) > EXECUTION_REQUEST_LIMIT or not line.endswith(b"\n"):
                 return 2
             request = decode(line)
-            if (not isinstance(request, dict)
-                    or set(request) not in ({"kind", "text"}, {"kind", "text", "model_execution"})):
+            if not isinstance(request, dict) or set(request) not in (
+                {"kind", "text"},
+                {"kind", "text", "model_execution"},
+            ):
                 return 2
             kind, text = request["kind"], request["text"]
             maximum = 2000 if kind == "answer" else 450
@@ -41,8 +43,13 @@ def main():
                         conversation = AssignedCompanionDialog()
                 elif profile != selected:
                     return 2
-                result = (conversation.answer(text, CompanionExecutionPorts(sys.stdin.buffer, sys.stdout.buffer,
-                            allowed={"tool", "model"})) if conversation is not None else generate_reply(text))
+                result = (
+                    conversation.answer(
+                        text, CompanionExecutionPorts(sys.stdin.buffer, sys.stdout.buffer, allowed={"tool", "model"})
+                    )
+                    if conversation is not None
+                    else generate_reply(text)
+                )
                 if not isinstance(result, str) or not 0 < len(result) <= 450:
                     return 2
             else:

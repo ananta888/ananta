@@ -66,7 +66,5 @@ def test_failed_probe_projects_only_bounded_reason_code() -> None:
         '"public_turn_probe_chromium_udp_ice_gathering_timeout"}\n'
     )
 
-    assert projection["reason_code"] == (
-        "public_turn_probe_chromium_udp_ice_gathering_timeout"
-    )
+    assert projection["reason_code"] == ("public_turn_probe_chromium_udp_ice_gathering_timeout")
     assert "secret-bearing" not in str(projection)

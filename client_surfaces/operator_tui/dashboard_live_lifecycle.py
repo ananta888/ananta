@@ -16,19 +16,15 @@ from client_surfaces.operator_tui.models import PanelState, SectionLoadResult
 
 
 class BackgroundTask(Protocol):
-    def cancel(self) -> Any:
-        ...
+    def cancel(self) -> Any: ...
 
-    def done(self) -> bool:
-        ...
+    def done(self) -> bool: ...
 
 
 class LiveSyncRunner(Protocol):
-    async def run(self) -> None:
-        ...
+    async def run(self) -> None: ...
 
-    def cancel(self) -> None:
-        ...
+    def cancel(self) -> None: ...
 
 
 Schedule = Callable[[Awaitable[None]], BackgroundTask]
@@ -176,11 +172,7 @@ class DashboardLiveSyncLifecycle:
                 self._sync = None
 
     def _guard(self, generation: int, board_id: str) -> bool:
-        return (
-            generation == self._generation
-            and board_id == self._board_id
-            and self._current_section() == "kanban"
-        )
+        return generation == self._generation and board_id == self._board_id and self._current_section() == "kanban"
 
     def _status(self, status: str) -> None:
         self._status_sink(str(status or "kanban_live_sync_status"))
@@ -194,11 +186,6 @@ class DashboardLiveSyncLifecycle:
         payload = result.payload if isinstance(result.payload, dict) else {}
         board_id = str(payload.get("board_id") or "").strip()
         sequence = payload.get("event_sequence")
-        if (
-            not board_id
-            or isinstance(sequence, bool)
-            or not isinstance(sequence, int)
-            or sequence < 0
-        ):
+        if not board_id or isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 0:
             return None
         return board_id, sequence

@@ -4,6 +4,7 @@ Builds the initial research prompt (CodeCompass catalog overview,
 architecture and symbol context, packed top files, ranked file list) and
 hands it to the agentic tool loop in :mod:`.snakes_rag_tool_loop`.
 """
+
 from __future__ import annotations
 
 import pathlib as _pl
@@ -75,42 +76,90 @@ class ToolModeSettings:
         )
         if max_search_calls_override is not None:
             max_search_calls = max(0, int(max_search_calls_override))
-        initial_min_files = max(0, min(5, int(_configured(
-            cfg, "rag_iterative_initial_min_files", getattr(settings, "rag_iterative_initial_min_files", 3)
-        ))))
+        initial_min_files = max(
+            0,
+            min(
+                5,
+                int(
+                    _configured(
+                        cfg, "rag_iterative_initial_min_files", getattr(settings, "rag_iterative_initial_min_files", 3)
+                    )
+                ),
+            ),
+        )
         return cls(
             max_tool_calls=max_tool_calls,
             max_search_calls=max_search_calls,
             tool_chars_per_file=window_chars(
                 _configured(cfg, "rag_iterative_tool_chars_per_file", settings.rag_iterative_tool_chars_per_file),
-                window_tokens=window_tokens, share="snake_tool_file", legacy="snake_tool_file_chars", minimum=4000,
+                window_tokens=window_tokens,
+                share="snake_tool_file",
+                legacy="snake_tool_file_chars",
+                minimum=4000,
             ),
             catalog_max_chars=window_chars(
                 _configured(
                     cfg, "rag_iterative_catalog_chars", getattr(settings, "rag_iterative_catalog_chars", 20000)
                 ),
-                window_tokens=window_tokens, share="snake_catalog", legacy="snake_catalog_chars", minimum=5000,
+                window_tokens=window_tokens,
+                share="snake_catalog",
+                legacy="snake_catalog_chars",
+                minimum=5000,
             ),
             summarize_reads=_flag(
                 cfg, "rag_iterative_summarize_reads", getattr(settings, "rag_iterative_summarize_reads", False)
             ),
-            summary_chars=max(200, min(2000, int(_configured(
-                cfg, "rag_iterative_summary_chars", getattr(settings, "rag_iterative_summary_chars", 600)
-            )))),
+            summary_chars=max(
+                200,
+                min(
+                    2000,
+                    int(
+                        _configured(
+                            cfg, "rag_iterative_summary_chars", getattr(settings, "rag_iterative_summary_chars", 600)
+                        )
+                    ),
+                ),
+            ),
             initial_min_files=initial_min_files,
-            initial_max_files=max(initial_min_files, min(16, int(_configured(
-                cfg, "rag_iterative_initial_max_files", getattr(settings, "rag_iterative_initial_max_files", 8)
-            )))),
-            symbol_max_snippets=max(0, min(24, int(_configured(
-                cfg,
-                "rag_iterative_symbol_context_max_snippets",
-                getattr(settings, "rag_iterative_symbol_context_max_snippets", 8),
-            )))),
-            symbol_max_lines=max(5, min(160, int(_configured(
-                cfg,
-                "rag_iterative_symbol_context_max_lines",
-                getattr(settings, "rag_iterative_symbol_context_max_lines", 80),
-            )))),
+            initial_max_files=max(
+                initial_min_files,
+                min(
+                    16,
+                    int(
+                        _configured(
+                            cfg,
+                            "rag_iterative_initial_max_files",
+                            getattr(settings, "rag_iterative_initial_max_files", 8),
+                        )
+                    ),
+                ),
+            ),
+            symbol_max_snippets=max(
+                0,
+                min(
+                    24,
+                    int(
+                        _configured(
+                            cfg,
+                            "rag_iterative_symbol_context_max_snippets",
+                            getattr(settings, "rag_iterative_symbol_context_max_snippets", 8),
+                        )
+                    ),
+                ),
+            ),
+            symbol_max_lines=max(
+                5,
+                min(
+                    160,
+                    int(
+                        _configured(
+                            cfg,
+                            "rag_iterative_symbol_context_max_lines",
+                            getattr(settings, "rag_iterative_symbol_context_max_lines", 80),
+                        )
+                    ),
+                ),
+            ),
         )
 
 
@@ -218,14 +267,15 @@ def build_tool_mode_prompt(
     first_unread = next((ch["source"] for ch in chunks if ch["source"] not in packed_paths), None)
     first_read_hint = (
         "\nNaechster Schritt: Beginne mit read_file('{}') — lies diese Datei als erstes.".format(first_unread)
-        if first_unread and not architecture_section else ""
+        if first_unread and not architecture_section
+        else ""
     )
     symbol_instruction = (
         "1. Nutze den Architektur- und Symbol-Kontext als Einstieg. Verwende fuer offene "
         "Architekturfragen zuerst codecompass_architecture_overview oder "
         "codecompass_retrieve und expandiere relevante Handles gezielt.\n"
-        if symbol_section else
-        "1. Nutze zuerst codecompass_retrieve oder codecompass_architecture_overview; "
+        if symbol_section
+        else "1. Nutze zuerst codecompass_retrieve oder codecompass_architecture_overview; "
         "lies danach nur die fachlich relevanten Dateien aus der Dateiliste.\n"
     )
     user_message = (
@@ -245,8 +295,7 @@ def build_tool_mode_prompt(
         "4. Wenn eine Datei nicht gefunden wird: Nutze den im Fehler angezeigten korrekten Pfad, "
         "oder versuche die naechste Datei aus der Liste — gib NICHT auf.\n"
         "5. Nutze search_codebase() NUR fuer Begriffe die NICHT in der Dateiliste stehen.\n"
-        "6. Jede Folgeaktion muss an den bisherigen Recherche-Stand anschliessen."
-        + first_read_hint
+        "6. Jede Folgeaktion muss an den bisherigen Recherche-Stand anschliessen." + first_read_hint
     )
     return ToolModePrompt(
         user_message=user_message,
@@ -277,5 +326,6 @@ def tool_loop_done_title(tool_loop_trace: dict[str, Any]) -> str:
     return "Tool-Loop abgeschlossen ({} Tool-Calls{})".format(
         tool_loop_trace.get("tool_calls_made", 0),
         ", {} textuell".format(tool_loop_trace["textual_tool_calls_detected"])
-        if tool_loop_trace.get("textual_tool_calls_detected") else "",
+        if tool_loop_trace.get("textual_tool_calls_detected")
+        else "",
     )

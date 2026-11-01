@@ -12,15 +12,6 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ananta_contracts.unsloth_studio import (
-    IncompatibleUnslothStudioContract,
-    UNSLOTH_MCP_PROTOCOL_VERSION,
-    validate_mcp_call_result,
-    validate_mcp_tools_list,
-)
-from ananta_contracts.mcp_streamable_http import (
-    McpStreamableHttpTransport,
-)
 from agent.common.redaction import VisibilityLevel, redact
 from agent.services.opaque_secret_reference_service import (
     OpaqueSecretReferenceError,
@@ -36,6 +27,15 @@ from agent.services.unsloth_studio_worker_adapter import (
     UnslothStudioWorkerAdapterError,
 )
 from agent.services.workflow_runtime.security import ReplayNonceStore
+from ananta_contracts.mcp_streamable_http import (
+    McpStreamableHttpTransport,
+)
+from ananta_contracts.unsloth_studio import (
+    UNSLOTH_MCP_PROTOCOL_VERSION,
+    IncompatibleUnslothStudioContract,
+    validate_mcp_call_result,
+    validate_mcp_tools_list,
+)
 
 _TOOL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _PROPERTY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -43,9 +43,7 @@ _IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 _NONCE_RE = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 _CORRELATION_RE = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
-_INLINE_SECRET_RE = re.compile(
-    r"(?i)\b(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*[^\s,;]+"
-)
+_INLINE_SECRET_RE = re.compile(r"(?i)\b(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*[^\s,;]+")
 _FORBIDDEN_ARGUMENT_KEY_RE = re.compile(
     r"(?:^|_)(?:path|url|uri|shell|command|cmd|arg|args|token|secret|password)"
     r"(?:_|$)",
@@ -85,9 +83,7 @@ class UnslothMcpToolPolicy:
     tool_id: str
     access_class: str
     allowed_roles: tuple[str, ...]
-    argument_schema: Mapping[str, Any] = field(
-        default_factory=lambda: dict(_EMPTY_OBJECT_SCHEMA)
-    )
+    argument_schema: Mapping[str, Any] = field(default_factory=lambda: dict(_EMPTY_OBJECT_SCHEMA))
     requires_confirmation: bool = False
 
     def __post_init__(self) -> None:
@@ -100,9 +96,7 @@ class UnslothMcpToolPolicy:
         roles = tuple(sorted({_normalize_role(value) for value in self.allowed_roles}))
         if not roles:
             raise ValueError("unsloth_mcp_role_allowlist_required")
-        if access == "mutation" and (
-            "admin" not in roles or not self.requires_confirmation
-        ):
+        if access == "mutation" and ("admin" not in roles or not self.requires_confirmation):
             raise ValueError("unsloth_mcp_mutation_policy_unsafe")
         object.__setattr__(self, "tool_id", tool_id)
         object.__setattr__(self, "access_class", access)
@@ -149,9 +143,7 @@ class UnslothMcpAdapter:
             policies[policy.tool_id] = policy
         if not policies:
             raise ValueError("unsloth_mcp_tool_allowlist_required")
-        self._transport = McpStreamableHttpTransport(
-            transport
-        )
+        self._transport = McpStreamableHttpTransport(transport)
         self._studio_adapter = studio_adapter
         self._replay_store = replay_store
         self._mcp_bearer_secret_ref = reference
@@ -190,8 +182,7 @@ class UnslothMcpAdapter:
                     request_id=request_id,
                     required_tools=tuple(sorted(self._policies)),
                     required_tool_schemas={
-                        tool_id: policy.argument_schema
-                        for tool_id, policy in self._policies.items()
+                        tool_id: policy.argument_schema for tool_id, policy in self._policies.items()
                     },
                 )
             except IncompatibleUnslothStudioContract as exc:
@@ -294,13 +285,9 @@ class UnslothMcpAdapter:
             arguments,
         )
         if policy.access_class == "mutation":
-            normalized_confirmation = str(
-                confirmation_id or ""
-            ).strip()
+            normalized_confirmation = str(confirmation_id or "").strip()
             if not normalized_confirmation:
-                raise UnslothMcpError(
-                    "unsloth_mcp_confirmation_required"
-                )
+                raise UnslothMcpError("unsloth_mcp_confirmation_required")
             if (
                 re.fullmatch(
                     r"[A-Za-z0-9][A-Za-z0-9._:-]{7,127}",
@@ -308,9 +295,7 @@ class UnslothMcpAdapter:
                 )
                 is None
             ):
-                raise UnslothMcpError(
-                    "unsloth_mcp_confirmation_invalid"
-                )
+                raise UnslothMcpError("unsloth_mcp_confirmation_invalid")
             if _IDEMPOTENCY_KEY_RE.fullmatch(str(idempotency_key or "")) is None:
                 raise UnslothMcpError("unsloth_mcp_idempotency_key_required")
         self.probe()
@@ -385,9 +370,7 @@ class UnslothMcpAdapter:
         try:
             value = self._secret_resolver.resolve(self._mcp_bearer_secret_ref)
         except OpaqueSecretReferenceError as exc:
-            raise UnslothMcpError(
-                "unsloth_mcp_bearer_secret_unavailable"
-            ) from exc
+            raise UnslothMcpError("unsloth_mcp_bearer_secret_unavailable") from exc
         if len(value) < 16 or len(value) > 4096 or "\r" in value or "\n" in value:
             raise UnslothMcpError("unsloth_mcp_bearer_secret_invalid")
 
@@ -539,18 +522,12 @@ def _validate_argument_schema(value: Mapping[str, Any]) -> dict[str, Any]:
     raw_required = value.get("required")
     if not isinstance(raw_properties, Mapping) or len(raw_properties) > 32:
         raise ValueError("unsloth_mcp_argument_schema_invalid")
-    if (
-        not isinstance(raw_required, Sequence)
-        or isinstance(raw_required, (str, bytes))
-    ):
+    if not isinstance(raw_required, Sequence) or isinstance(raw_required, (str, bytes)):
         raise ValueError("unsloth_mcp_argument_schema_invalid")
     properties: dict[str, dict[str, Any]] = {}
     for raw_name, raw_schema in raw_properties.items():
         name = str(raw_name)
-        if (
-            _PROPERTY_RE.fullmatch(name) is None
-            or _FORBIDDEN_ARGUMENT_KEY_RE.search(name)
-        ):
+        if _PROPERTY_RE.fullmatch(name) is None or _FORBIDDEN_ARGUMENT_KEY_RE.search(name):
             raise ValueError("unsloth_mcp_argument_name_forbidden")
         properties[name] = _validate_scalar_schema(raw_schema)
     required = [str(name) for name in raw_required]
@@ -625,11 +602,7 @@ def _validate_scalar_schema(value: Any) -> dict[str, Any]:
         normalized["maxLength"] = maximum
     enum = value.get("enum")
     if enum is not None:
-        if (
-            not isinstance(enum, Sequence)
-            or isinstance(enum, (str, bytes))
-            or not 1 <= len(enum) <= 32
-        ):
+        if not isinstance(enum, Sequence) or isinstance(enum, (str, bytes)) or not 1 <= len(enum) <= 32:
             raise ValueError("unsloth_mcp_argument_schema_invalid")
         for item in enum:
             _validate_scalar_value(scalar_type, item, normalized)
@@ -679,18 +652,12 @@ def _validate_scalar_value(
     }[scalar_type]
     if not valid:
         raise UnslothMcpError("unsloth_mcp_argument_type_invalid")
-    if scalar_type == "integer" and not (
-        int(schema["minimum"]) <= value <= int(schema["maximum"])
-    ):
+    if scalar_type == "integer" and not (int(schema["minimum"]) <= value <= int(schema["maximum"])):
         raise UnslothMcpError("unsloth_mcp_argument_range_invalid")
     if scalar_type == "string":
         if not int(schema["minLength"]) <= len(value) <= int(schema["maxLength"]):
             raise UnslothMcpError("unsloth_mcp_argument_range_invalid")
-        if (
-            "://" in value
-            or value.startswith((".", "~"))
-            or _FORBIDDEN_STRING_RE.search(value)
-        ):
+        if "://" in value or value.startswith((".", "~")) or _FORBIDDEN_STRING_RE.search(value):
             raise UnslothMcpError("unsloth_mcp_argument_value_forbidden")
         pattern = schema.get("pattern")
         if pattern is not None and re.search(str(pattern), value) is None:
@@ -708,10 +675,7 @@ def _normalize_role(value: str) -> str:
 
 def _mcp_transport_reason(reason_code: str, *, unavailable: str) -> str:
     normalized = str(reason_code or "")
-    if (
-        normalized == "incompatible_upstream_contract"
-        or normalized.startswith("unsloth_studio_response_")
-    ):
+    if normalized == "incompatible_upstream_contract" or normalized.startswith("unsloth_studio_response_"):
         return "incompatible_upstream_contract"
     return unavailable
 

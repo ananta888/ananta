@@ -10,7 +10,6 @@ from agent.config import settings
 from agent.llm_benchmarks import load_benchmarks
 from agent.repository import task_repo
 
-
 LIVE_AGENT_CHAIN_FLAG = "RUN_LIVE_AGENT_CHAIN_E2E"
 LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
@@ -54,15 +53,11 @@ def _normalize_ollama_base_url(base_url: str) -> str:
 def _live_llm_base_url() -> str:
     if _live_llm_provider() == "ollama":
         return str(
-            os.environ.get(LIVE_OLLAMA_URL_ENV)
-            or os.environ.get(LIVE_E2E_OLLAMA_URL_ENV)
-            or DEFAULT_OLLAMA_URL
+            os.environ.get(LIVE_OLLAMA_URL_ENV) or os.environ.get(LIVE_E2E_OLLAMA_URL_ENV) or DEFAULT_OLLAMA_URL
         ).strip()
 
     return str(
-        os.environ.get(LIVE_LMSTUDIO_URL_ENV)
-        or os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV)
-        or DEFAULT_LMSTUDIO_URL
+        os.environ.get(LIVE_LMSTUDIO_URL_ENV) or os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV) or DEFAULT_LMSTUDIO_URL
     ).strip()
 
 
@@ -110,9 +105,7 @@ def _live_llm_models_url(base_url: str | None = None) -> str:
 def _requested_live_goal_model() -> str:
     return str(
         os.environ.get(LIVE_LLM_MODEL_ENV)
-        or os.environ.get(
-            LIVE_OLLAMA_MODEL_ENV if _live_llm_provider() == "ollama" else LIVE_LMSTUDIO_MODEL_ENV
-        )
+        or os.environ.get(LIVE_OLLAMA_MODEL_ENV if _live_llm_provider() == "ollama" else LIVE_LMSTUDIO_MODEL_ENV)
         or ""
     ).strip()
 
@@ -194,7 +187,8 @@ def _require_live_llm() -> dict:
                 payload = response.json()
                 if _live_llm_provider() == "ollama":
                     models = [
-                        {"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])
+                        {"id": str(item.get("name") or "").strip()}
+                        for item in list((payload or {}).get("models") or [])
                     ]
                 else:
                     models = list((payload or {}).get("data") or [])
@@ -237,9 +231,7 @@ def _require_live_llm() -> dict:
 
 def _require_live_agent_chain_runtime() -> dict:
     if not _should_run_live_agent_chain_tests():
-        pytest.skip(
-            f"Requires live agent-chain runtime (set {LIVE_AGENT_CHAIN_FLAG}=1 and RUN_LIVE_LLM_TESTS=1)."
-        )
+        pytest.skip(f"Requires live agent-chain runtime (set {LIVE_AGENT_CHAIN_FLAG}=1 and RUN_LIVE_LLM_TESTS=1).")
     return _require_live_llm()
 
 
@@ -316,8 +308,7 @@ def _assert_comparison_fallback_shape(comparisons: dict, provider_candidates: li
     first = provider_candidates[0] if provider_candidates else None
     if first and isinstance(comparisons.get(first), dict) and comparisons[first].get("error"):
         assert any(
-            key != first and isinstance(item, dict) and not item.get("error")
-            for key, item in comparisons.items()
+            key != first and isinstance(item, dict) and not item.get("error") for key, item in comparisons.items()
         )
 
 
@@ -495,7 +486,9 @@ def test_live_goal_agent_chain_creates_tasks_executes_terminal_skills_and_record
 
     terminal_log = tmp_path / "terminal_log.jsonl"
     assert terminal_log.exists()
-    terminal_lines = [json.loads(line) for line in terminal_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+    terminal_lines = [
+        json.loads(line) for line in terminal_log.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
     assert any(str(item.get("task_id") or "") in task_ids for item in terminal_lines)
     assert any(item.get("direction") == "out" for item in terminal_lines)
     assert any(item.get("direction") == "in" for item in terminal_lines)

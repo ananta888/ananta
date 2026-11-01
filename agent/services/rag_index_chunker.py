@@ -132,9 +132,13 @@ def index_wiki_records_with_codecompass(
 ) -> dict[str, Any]:
     include_graph = str(profile.get("limits", {}).get("graph_export_mode") or "off").strip().lower() != "off"
     bridge = WikiCodeCompassBridge()
-    manifest = bridge.build_outputs(records=records, records_path=records_path,
-                                    output_dir=output_dir, include_graph=include_graph,
-                                    links_path=links_path)
+    manifest = bridge.build_outputs(
+        records=records,
+        records_path=records_path,
+        output_dir=output_dir,
+        include_graph=include_graph,
+        links_path=links_path,
+    )
     return {
         **manifest,
         "profile_name": profile.get("name"),

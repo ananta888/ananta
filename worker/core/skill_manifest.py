@@ -7,6 +7,7 @@ EW-T035: SkillProposalArtifact workflow.
 EW-T036: SkillReviewArtifact, stale-skill detection, pinned-skill protection.
 EW-T037: Baseline skill definitions (manifest-only, no execution code).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,16 +21,14 @@ from pydantic import BaseModel, Field, field_validator
 from worker.core.execution_envelope import (
     KNOWN_CAPABILITY_CLASSES,
     ExecutionEnvelope,
-    WorkerResult,
-    WorkerResultStatus,
-    make_trace,
 )
-
 
 # ── SkillManifest (EW-T032) ───────────────────────────────────────────────────
 
+
 class SkillManifest(BaseModel):
     """Declares what a skill can do and what it requires. EW-T032."""
+
     id: str
     name: str
     version: str
@@ -37,8 +36,8 @@ class SkillManifest(BaseModel):
     capability_requirements: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
     denied_tools: list[str] = Field(default_factory=list)
-    risk_class: str = "medium"     # low / medium / high
-    pinned: bool = False           # pinned skills require admin approval to modify
+    risk_class: str = "medium"  # low / medium / high
+    pinned: bool = False  # pinned skills require admin approval to modify
     tags: list[str] = Field(default_factory=list)
 
     @field_validator("capability_requirements")
@@ -65,14 +64,19 @@ class SkillManifest(BaseModel):
 
     def as_catalog_entry(self) -> dict[str, Any]:
         return {
-            "id": self.id, "name": self.name, "version": self.version,
+            "id": self.id,
+            "name": self.name,
+            "version": self.version,
             "description": self.description,
             "capability_requirements": self.capability_requirements,
-            "risk_class": self.risk_class, "pinned": self.pinned, "tags": self.tags,
+            "risk_class": self.risk_class,
+            "pinned": self.pinned,
+            "tags": self.tags,
         }
 
 
 # ── SkillRegistryEntry (EW-T033) ──────────────────────────────────────────────
+
 
 @dataclass
 class SkillRegistryEntry:
@@ -102,6 +106,7 @@ class SkillRegistryEntry:
 
 # ── SkillRegistry (EW-T033) ───────────────────────────────────────────────────
 
+
 class SkillRegistry:
     def __init__(self) -> None:
         self._entries: dict[str, SkillRegistryEntry] = {}
@@ -124,16 +129,14 @@ class SkillRegistry:
 
     def skills_for_envelope(self, envelope: ExecutionEnvelope) -> list[SkillRegistryEntry]:
         """Skills whose capability requirements are all satisfied by the envelope."""
-        return [
-            e for e in self.enabled_skills()
-            if e.manifest.capabilities_granted_by(envelope)
-        ]
+        return [e for e in self.enabled_skills() if e.manifest.capabilities_granted_by(envelope)]
 
     def catalog(self) -> list[dict[str, Any]]:
         return [e.manifest.as_catalog_entry() for e in self._entries.values()]
 
 
 # ── SkillRunResult ────────────────────────────────────────────────────────────
+
 
 @dataclass
 class SkillRunResult:
@@ -146,6 +149,7 @@ class SkillRunResult:
 
 
 # ── SkillRunner (EW-T034) ─────────────────────────────────────────────────────
+
 
 class SkillRunner:
     """Executes a skill within the authority of the ExecutionEnvelope. EW-T034.
@@ -174,12 +178,11 @@ class SkillRunner:
 
         # Capability gate: skill cannot declare capabilities not in envelope
         if not entry.manifest.capabilities_granted_by(envelope):
-            missing = [
-                c for c in entry.manifest.capability_requirements
-                if not envelope.has_capability(c)
-            ]
+            missing = [c for c in entry.manifest.capability_requirements if not envelope.has_capability(c)]
             return SkillRunResult(
-                skill_id, False, "missing_capability",
+                skill_id,
+                False,
+                "missing_capability",
                 warnings=[f"skill requires {missing!r} not in envelope"],
             )
 
@@ -190,7 +193,9 @@ class SkillRunner:
                 denied_tools.append(tool_id)
         if denied_tools:
             return SkillRunResult(
-                skill_id, False, "tool_unavailable",
+                skill_id,
+                False,
+                "tool_unavailable",
                 warnings=[f"skill tool(s) not in envelope ToolPolicy: {denied_tools!r}"],
             )
 
@@ -205,9 +210,11 @@ class SkillRunner:
 
 # ── SkillProposalArtifact (EW-T035) ───────────────────────────────────────────
 
+
 @dataclass
 class SkillProposalArtifact:
     """Proposed new skill — never auto-enabled. EW-T035."""
+
     artifact_id: str
     task_id: str
     proposed_manifest: SkillManifest
@@ -217,7 +224,7 @@ class SkillProposalArtifact:
     test_sketch: str = ""
     risk_assessment: str = ""
     requires_capability: str = "skill_propose"
-    auto_enabled: bool = False    # always False
+    auto_enabled: bool = False  # always False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -234,6 +241,7 @@ class SkillProposalArtifact:
 
 # ── SkillReviewArtifact (EW-T036) ─────────────────────────────────────────────
 
+
 class SkillReviewFinding(str, Enum):
     outdated = "outdated"
     overlapping = "overlapping"
@@ -247,12 +255,13 @@ class SkillReviewEntry:
     skill_id: str
     finding: SkillReviewFinding
     detail: str
-    suggested_action: str = ""   # "patch", "disable", "review", "none"
+    suggested_action: str = ""  # "patch", "disable", "review", "none"
 
 
 @dataclass
 class SkillReviewArtifact:
     """Review report on installed skills. EW-T036."""
+
     artifact_id: str
     task_id: str
     entries: list[SkillReviewEntry] = field(default_factory=list)
@@ -306,21 +315,25 @@ class SkillReviewer:
 
             # Stale: no content hash set
             if not entry.content_hash:
-                artifact.entries.append(SkillReviewEntry(
-                    skill_id=m.id,
-                    finding=SkillReviewFinding.stale,
-                    detail="skill has no content hash — source integrity unverified",
-                    suggested_action="review",
-                ))
+                artifact.entries.append(
+                    SkillReviewEntry(
+                        skill_id=m.id,
+                        finding=SkillReviewFinding.stale,
+                        detail="skill has no content hash — source integrity unverified",
+                        suggested_action="review",
+                    )
+                )
 
             # Unsafe: high risk + shell_execute without explicit human approval
             if m.risk_class == "high" and "shell_execute" in m.capability_requirements:
-                artifact.entries.append(SkillReviewEntry(
-                    skill_id=m.id,
-                    finding=SkillReviewFinding.unsafe,
-                    detail="high-risk skill with shell_execute capability",
-                    suggested_action="patch",
-                ))
+                artifact.entries.append(
+                    SkillReviewEntry(
+                        skill_id=m.id,
+                        finding=SkillReviewFinding.unsafe,
+                        detail="high-risk skill with shell_execute capability",
+                        suggested_action="patch",
+                    )
+                )
 
         return artifact
 

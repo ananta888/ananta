@@ -67,16 +67,11 @@ def write_output_files(
         catalog_path = out_dir / "component-catalog.md"
         catalog_path.write_text(component_catalog_markdown, encoding="utf-8")
         written_output_files.append("component-catalog.md")
-    xsd_index_records = [
-        record for record in all_index
-        if str(record.get("kind") or "").startswith("xsd_")
-    ]
-    xsd_detail_records = [
-        record for record in all_details
-        if str(record.get("kind") or "").startswith("xsd_")
-    ]
+    xsd_index_records = [record for record in all_index if str(record.get("kind") or "").startswith("xsd_")]
+    xsd_detail_records = [record for record in all_details if str(record.get("kind") or "").startswith("xsd_")]
     xsd_relation_records = [
-        record for record in all_relations
+        record
+        for record in all_relations
         if str(record.get("source_kind") or "").startswith("xsd_")
         or str(record.get("target_resolved") or "").startswith("xsd_")
         or str(record.get("file") or "").lower().endswith(".xsd")

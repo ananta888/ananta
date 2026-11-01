@@ -4,14 +4,15 @@ HeuristicCommand ABC maps DecisionResult.action_kind → concrete Command.
 Adapters (TuiCommandAdapter, EclipseCommandAdapter) execute commands without
 embedding UI logic in the command itself, keeping commands unit-testable.
 """
+
 from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ── Result ────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class CommandResult:
@@ -29,6 +30,7 @@ class CommandResult:
 
 
 # ── Adapter protocol ──────────────────────────────────────────────────────────
+
 
 class CommandAdapter(abc.ABC):
     """Executes UI effects. Subclassed for TUI and Eclipse — never called directly."""
@@ -57,6 +59,7 @@ class CommandAdapter(abc.ABC):
 
 # ── Base command ──────────────────────────────────────────────────────────────
 
+
 class HeuristicCommand(abc.ABC):
     """Abstract command. Subclasses implement execute(); undo() is optional."""
 
@@ -72,6 +75,7 @@ class HeuristicCommand(abc.ABC):
 
 # ── Concrete commands ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class FollowWithDistanceCommand(HeuristicCommand):
     target_x: int = 0
@@ -85,8 +89,14 @@ class FollowWithDistanceCommand(HeuristicCommand):
         return CommandResult.ok("follow", dx=self.dx, dy=self.dy)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"command": "follow_with_distance", "target_x": self.target_x, "target_y": self.target_y,
-                "distance": self.distance, "dx": self.dx, "dy": self.dy}
+        return {
+            "command": "follow_with_distance",
+            "target_x": self.target_x,
+            "target_y": self.target_y,
+            "distance": self.distance,
+            "dx": self.dx,
+            "dy": self.dy,
+        }
 
 
 @dataclass
@@ -165,6 +175,7 @@ class NoActionCommand(HeuristicCommand):
 
 
 # ── Adapters ──────────────────────────────────────────────────────────────────
+
 
 class MockCommandAdapter(CommandAdapter):
     """In-memory adapter for tests — records all calls."""
@@ -258,6 +269,7 @@ class EclipseCommandAdapter(CommandAdapter):
 
 
 # ── Decision → Command mapping ────────────────────────────────────────────────
+
 
 def command_for_decision(decision_result: Any) -> HeuristicCommand:
     """Map DecisionResult.action_kind → HeuristicCommand instance."""

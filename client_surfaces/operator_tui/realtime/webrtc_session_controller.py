@@ -11,10 +11,10 @@ See docs/operator-tui/carbonyl-webrtc-session.md for the Mermaid diagram.
 
 This module is completely separate from webrtc_transport.py (Hub Relay).
 """
+
 from __future__ import annotations
 
 import threading
-import time
 from typing import TYPE_CHECKING
 
 from .signaling_client import SignalingClient, SignalingClientError
@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 # Transfer state machine
 # ---------------------------------------------------------------------------
 
+
 class _TransferState:
     IDLE = "idle"
     OFFER_PENDING = "offer_pending"
@@ -39,6 +40,7 @@ class _TransferState:
 # ---------------------------------------------------------------------------
 # WebRtcSessionController
 # ---------------------------------------------------------------------------
+
 
 class WebRtcSessionController:
     """Orchestrates a single WebRTC DataChannel session.
@@ -70,10 +72,10 @@ class WebRtcSessionController:
         self._session_nonce: str = ""
         self._peer_id: str | None = None
 
-        self._auth_state: str = "unauthenticated"   # unauthenticated | authenticated
-        self._signaling_state: str = "disconnected" # disconnected | connecting | connected | failed
-        self._ice_state: str = "new"                # new | checking | connected | completed | failed
-        self._datachannel_state: str = "closed"     # closed | connecting | open | error
+        self._auth_state: str = "unauthenticated"  # unauthenticated | authenticated
+        self._signaling_state: str = "disconnected"  # disconnected | connecting | connected | failed
+        self._ice_state: str = "new"  # new | checking | connected | completed | failed
+        self._datachannel_state: str = "closed"  # closed | connecting | open | error
         self._transfer_state: str = _TransferState.IDLE
 
         self._pending_offers: dict[str, dict] = {}  # offer_id -> offer payload

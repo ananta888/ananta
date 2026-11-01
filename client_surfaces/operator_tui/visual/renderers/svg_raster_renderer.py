@@ -11,6 +11,7 @@ from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame,
 
 try:
     import cairosvg  # type: ignore
+
     _CAIROSVG_AVAILABLE = True
 except Exception:  # pragma: no cover
     cairosvg = None
@@ -18,6 +19,7 @@ except Exception:  # pragma: no cover
 
 try:
     from PIL import Image, ImageDraw
+
     _PIL_AVAILABLE = True
 except Exception:  # pragma: no cover
     Image = None
@@ -77,9 +79,7 @@ class SvgRasterRenderer:
         except OSError:
             return ""
 
-    def _render_diagram_nodes(
-        self, diagram_nodes: list[dict[str, Any]], *, width: int, height: int
-    ) -> bytes | None:
+    def _render_diagram_nodes(self, diagram_nodes: list[dict[str, Any]], *, width: int, height: int) -> bytes | None:
         """Render first SVG diagram_image node to PNG (MDP-011 / MIMG-008)."""
         if not diagram_nodes:
             return None

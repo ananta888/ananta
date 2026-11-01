@@ -53,9 +53,7 @@ class _Store:
     ) -> ScientificSkillCatalog:
         latest = self.latest(catalog_id=catalog.catalog_id)
         if latest is None or latest.catalog_digest != expected_latest_digest:
-            raise ScientificSkillCatalogError(
-                "scientific_skill_catalog_rollback_revision_conflict"
-            )
+            raise ScientificSkillCatalogError("scientific_skill_catalog_rollback_revision_conflict")
         return self.append(catalog)
 
 

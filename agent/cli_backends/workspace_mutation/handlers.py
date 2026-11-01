@@ -5,6 +5,7 @@ Each handler consumes one parsed model message and returns either a final
 collected evidence). ``ACTION_HANDLERS`` maps message kinds to handlers so
 new kinds are added by registration instead of growing the loop (OCP).
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -73,13 +74,17 @@ def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult
             return None
         return session.finish_with_summary(
             "code_analysis_required",
-            {"kind": "final_answer_blocked", "reason": "code_analysis_required",
-             "code_analysis": session.analysis_gate.state()},
+            {
+                "kind": "final_answer_blocked",
+                "reason": "code_analysis_required",
+                "code_analysis": session.analysis_gate.state(),
+            },
             turn.err,
         )
-    if session.cfg.get("return_executable_proposal") and not str(
-        getattr(session, "verification_command", "") or ""
-    ).strip():
+    if (
+        session.cfg.get("return_executable_proposal")
+        and not str(getattr(session, "verification_command", "") or "").strip()
+    ):
         commands = list(session.cfg.get("allowlisted_test_commands") or [])
         if len(commands) != 1:
             # The proposal boundary cannot hand back a command that never ran:
@@ -243,8 +248,11 @@ def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResu
 def _rejection_hint(reason: str, state: dict) -> str:
     """Machine-readable next step for a rejected analysis, so the model acts instead of guessing."""
     if reason == "code_analysis_source_not_observed":
-        return ("cite_an_observed_source_range_with_its_sha256" if state.get("observed_sources")
-                else "read_a_source_file_range_first")
+        return (
+            "cite_an_observed_source_range_with_its_sha256"
+            if state.get("observed_sources")
+            else "read_a_source_file_range_first"
+        )
     if reason == "codecompass_inspection_required":
         return "call_codecompass_first"
     return ""
@@ -263,8 +271,7 @@ def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> "LoopResul
     hint = _rejection_hint(reason, data)
     if hint:
         data["action_required"] = hint
-    session.add_evidence({"kind": "code_analysis_result", "status": "error",
-                          "error": reason, "data": data})
+    session.add_evidence({"kind": "code_analysis_result", "status": "error", "error": reason, "data": data})
     if not session.analysis_gate.pending:
         # The gate is already open: a superfluous re-analysis of stale bytes is
         # corrected, but it never spends the rejection budget of the loop.
@@ -283,8 +290,12 @@ def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> "LoopResul
     if streak >= ANALYSIS_REJECTION_LIMIT:
         return session.finish_with_summary(
             "analysis_rejected_repeatedly",
-            {"kind": "loop_aborted", "reason": "analysis_rejected_repeatedly",
-             "last_error": reason, "code_analysis": data},
+            {
+                "kind": "loop_aborted",
+                "reason": "analysis_rejected_repeatedly",
+                "last_error": reason,
+                "code_analysis": data,
+            },
             turn.err,
         )
     return None

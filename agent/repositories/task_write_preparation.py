@@ -374,9 +374,8 @@ def _apply_task_completion_policy(
 
     require_native_completion_policy(authoritative, candidate)
     context = dict(getattr(candidate, "worker_execution_context", None) or {})
-    if (
-        str(getattr(candidate, "status", "") or "").strip().lower() == "completed"
-        and isinstance(context.get("organization_workflow_step_binding"), dict)
+    if str(getattr(candidate, "status", "") or "").strip().lower() == "completed" and isinstance(
+        context.get("organization_workflow_step_binding"), dict
     ):
         raise RuntimeError("organization_workflow_completion_policy_unavailable")
     return candidate
@@ -652,21 +651,18 @@ def _preserve_bound_knowledge_index_context(
     status CAS remains the only general status transition seam.
     """
 
-    authoritative_context = copy.deepcopy(
-        dict(authoritative.worker_execution_context or {})
-    )
+    authoritative_context = copy.deepcopy(dict(authoritative.worker_execution_context or {}))
     authoritative_job = authoritative_context.get("knowledge_index_job")
-    if not isinstance(authoritative_job, dict) or authoritative_job.get(
-        "schema"
-    ) != "ananta.knowledge_index_execution_job.v2":
+    if (
+        not isinstance(authoritative_job, dict)
+        or authoritative_job.get("schema") != "ananta.knowledge_index_execution_job.v2"
+    ):
         return candidate
     if write_operation == "save":
         candidate.status = authoritative.status
     candidate.assigned_agent_url = authoritative.assigned_agent_url
     candidate.task_kind = authoritative.task_kind
-    candidate_context = copy.deepcopy(
-        dict(candidate.worker_execution_context or {})
-    )
+    candidate_context = copy.deepcopy(dict(candidate.worker_execution_context or {}))
     for reserved_key in (
         "knowledge_index_job",
         "knowledge_index_worker_binding",
@@ -674,9 +670,7 @@ def _preserve_bound_knowledge_index_context(
         "source_access_intent",
     ):
         if reserved_key in authoritative_context:
-            candidate_context[reserved_key] = copy.deepcopy(
-                authoritative_context[reserved_key]
-            )
+            candidate_context[reserved_key] = copy.deepcopy(authoritative_context[reserved_key])
         else:
             candidate_context.pop(reserved_key, None)
     # Replay authority lives exclusively in the Worker-scoped SQL ledger.

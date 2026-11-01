@@ -122,13 +122,9 @@ def _task(bundle):
                 "allowed_source_refs": ["SRC_0001"],
                 "allowed_run_refs": [],
                 "context_bundle_id": bundle.id,
-                "context_bundle_digest": source_policy[
-                    "context_bundle_digest"
-                ],
+                "context_bundle_digest": source_policy["context_bundle_digest"],
                 "llm_scope": "local_only",
-                "destination_policy": (
-                    category_research_destination_policy()
-                ),
+                "destination_policy": (category_research_destination_policy()),
             },
         },
     }

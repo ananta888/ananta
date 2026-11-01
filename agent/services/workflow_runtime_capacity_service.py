@@ -64,16 +64,18 @@ class SQLAlchemyWorkflowRuntimeCapacity(SQLAlchemyStoreSupport):
     ) -> int:
         del workflow_id  # the run is the accounting unit; workflow ids can repeat
         with self._read_session() as session:
-            base = sa.select(sa.func.count()).select_from(
-                WorkflowRuntimeCapacityReservationDB
-            ).where(
-                WorkflowRuntimeCapacityReservationDB.active.is_(True),
-                sa.not_(
-                    sa.and_(
-                        WorkflowRuntimeCapacityReservationDB.tenant_id == tenant_id,
-                        WorkflowRuntimeCapacityReservationDB.run_id == run_id,
-                    )
-                ),
+            base = (
+                sa.select(sa.func.count())
+                .select_from(WorkflowRuntimeCapacityReservationDB)
+                .where(
+                    WorkflowRuntimeCapacityReservationDB.active.is_(True),
+                    sa.not_(
+                        sa.and_(
+                            WorkflowRuntimeCapacityReservationDB.tenant_id == tenant_id,
+                            WorkflowRuntimeCapacityReservationDB.run_id == run_id,
+                        )
+                    ),
+                )
             )
             global_active = int(session.execute(base).scalar_one())
             tenant_active = int(
@@ -262,13 +264,13 @@ class CapacityGuardedWorkflowAdapterQueue:
 
 
 def _active_count(session: Any, *, tenant_id: str = "") -> int:
-    statement = sa.select(sa.func.count()).select_from(
-        WorkflowRuntimeCapacityReservationDB
-    ).where(WorkflowRuntimeCapacityReservationDB.active.is_(True))
+    statement = (
+        sa.select(sa.func.count())
+        .select_from(WorkflowRuntimeCapacityReservationDB)
+        .where(WorkflowRuntimeCapacityReservationDB.active.is_(True))
+    )
     if tenant_id:
-        statement = statement.where(
-            WorkflowRuntimeCapacityReservationDB.tenant_id == tenant_id
-        )
+        statement = statement.where(WorkflowRuntimeCapacityReservationDB.tenant_id == tenant_id)
     return int(session.execute(statement).scalar_one())
 
 

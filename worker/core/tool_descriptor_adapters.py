@@ -108,10 +108,14 @@ class MCPToolCatalogSource:
                 continue
             access_class = str(descriptor.get("access_class") or "read")
             metadata = descriptor.get("metadata") if isinstance(descriptor.get("metadata"), dict) else {}
-            schema = descriptor.get("input_schema") or metadata.get("input_schema") or {
-                "type": "object",
-                "properties": {},
-            }
+            schema = (
+                descriptor.get("input_schema")
+                or metadata.get("input_schema")
+                or {
+                    "type": "object",
+                    "properties": {},
+                }
+            )
             side_effects = () if access_class == "read" else (f"mcp_{access_class}",)
             yield WorkerToolEntry(
                 id=str(descriptor.get("tool_id") or ""),

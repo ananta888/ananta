@@ -26,38 +26,37 @@ from agent.services.semantic_media_program_evidence import (
     canonical_sha256,
     source_hash,
 )
-from worker.speech_reconciliation.resolver import SpeechReconciliationResolver
+from scripts.benchmark.semantic_media_program_live_probe import (
+    _concurrent_live_slo_probe,
+)
 from scripts.benchmark.semantic_media_program_measurements import (
-    _delivery_score,
-    _measured,
     METRIC_FIELDS,
     MetricState,
     ModeMeasurement,
+    ProgramBenchmarkExecutionError,
+    _delivery_score,
+    _measured,
     _not_applicable,
     _percentile_ms,
-    ProgramBenchmarkExecutionError,
     _unavailable,
     _worst_burst,
 )
-from scripts.benchmark.semantic_media_program_resources import (
-    _hardware_descriptor,
-    ResourceMonitor,
-)
 from scripts.benchmark.semantic_media_program_payloads import (
-    _fixture_unit,
     _HEADER,
+    SecurePacketCodec,
+    _fixture_unit,
     _offline_candidates,
     _ordinary_evidence_value,
     _ordinary_value,
     _receive_loop,
-    SecurePacketCodec,
     _semantic_speech_value,
     _semantic_visual_value,
 )
-from scripts.benchmark.semantic_media_program_live_probe import (
-    _concurrent_live_slo_probe,
+from scripts.benchmark.semantic_media_program_resources import (
+    ResourceMonitor,
+    _hardware_descriptor,
 )
-
+from worker.speech_reconciliation.resolver import SpeechReconciliationResolver
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "config/semantic-media-program-benchmark.v1.json"
@@ -116,8 +115,7 @@ class LoopbackScenarioExecutor:
         fixture = self._policy["source_fixture"]
         units = window_seconds * int(fixture["units_per_second"])
         raw_units = tuple(
-            _fixture_unit(self._policy["seed"], index, int(fixture["ordinary_unit_bytes"]))
-            for index in range(units)
+            _fixture_unit(self._policy["seed"], index, int(fixture["ordinary_unit_bytes"])) for index in range(units)
         )
         if topology == "evidence":
             transform = _ordinary_evidence_value if mode == "ordinary" else _semantic_speech_value
@@ -336,9 +334,7 @@ class OfflineScenarioExecutor:
             resource_values["cpu_micros"] = int(resource_values["cpu_micros"] or 0) + int(
                 saturation["probe_cpu_micros"]
             )
-            resource_values["ram_bytes"] = int(resource_values["ram_bytes"] or 0) + int(
-                saturation["probe_ram_bytes"]
-            )
+            resource_values["ram_bytes"] = int(resource_values["ram_bytes"] or 0) + int(saturation["probe_ram_bytes"])
             resource_availability["cpu_micros"] = _measured("process_time_plus_node_cpu_usage")
             resource_availability["ram_bytes"] = _measured("proc_rss_plus_node_rss")
         finally:
@@ -402,9 +398,7 @@ def run_benchmark(*, timeout_seconds: int | None = None) -> dict[str, Any]:
         }
     )
     fixture_digest = canonical_sha256(policy["source_fixture"])
-    quality_bindings = {
-        topology: _quality_binding(path) for topology, path in QUALITY_EVIDENCE_PATHS.items()
-    }
+    quality_bindings = {topology: _quality_binding(path) for topology, path in QUALITY_EVIDENCE_PATHS.items()}
     config = {
         "duration_seconds": int(policy["source_fixture"]["duration_seconds"]),
         "width": int(policy["source_fixture"]["width"]),
@@ -472,10 +466,7 @@ def run_benchmark(*, timeout_seconds: int | None = None) -> dict[str, Any]:
             network_profile="offline",
         )
         order = ("semantic", "ordinary") if int(binding[0], 16) % 2 else ("ordinary", "semantic")
-        measured = {
-            mode: offline_executor.run(mode=mode, factor=int(factor), binding_sha256=binding)
-            for mode in order
-        }
+        measured = {mode: offline_executor.run(mode=mode, factor=int(factor), binding_sha256=binding) for mode in order}
         rows.append(
             _row(
                 config=config,
@@ -540,9 +531,7 @@ def _row(
         "semantic_score_micros": semantic_score,
         "minimum_score_micros": minimum_quality,
         "external_gate_passed": external_passed,
-        "passed": ordinary_score >= minimum_quality
-        and semantic_score >= minimum_quality
-        and external_passed,
+        "passed": ordinary_score >= minimum_quality and semantic_score >= minimum_quality and external_passed,
         "external_evidence_sha256": quality_binding["evidence_sha256"],
     }
     quality = {**quality_values, "decision_sha256": canonical_sha256(quality_values)}

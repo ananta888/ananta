@@ -123,8 +123,7 @@ class WebrtcTurnIntegrationService:
         except TurnPoolDirectoryError as exc:
             raise TurnIntegrationError(exc.reason_code, exc.status_code) from exc
         urls = tuple(
-            self._endpoint_authorizer(endpoint["url"], consumer, request.transport)
-            for endpoint in selected.endpoints
+            self._endpoint_authorizer(endpoint["url"], consumer, request.transport) for endpoint in selected.endpoints
         )
         if not urls:
             raise TurnIntegrationError("turn_endpoint_policy_rejected", 503)

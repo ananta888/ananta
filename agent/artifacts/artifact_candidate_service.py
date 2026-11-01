@@ -55,7 +55,9 @@ class ArtifactCandidateService:
             latest = self._snapshots.latest_indexed_snapshot(source_id=source_id)
             snapshot_ref = str((latest or {}).get("snapshot_id") or "latest")
             artifact_ref = f"sources:{source_id}:{snapshot_ref}"
-            boundary = "public" if str(descriptor.get("trust_level") or "").startswith("official_") else "project_private"
+            boundary = (
+                "public" if str(descriptor.get("trust_level") or "").startswith("official_") else "project_private"
+            )
             sensitivity = "public" if boundary == "public" else "internal"
             policy_decision = self._policy.evaluate(
                 goal_id=goal_id,

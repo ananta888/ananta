@@ -1,8 +1,9 @@
 """DRR-T008: Repair procedure catalog tests."""
+
 from __future__ import annotations
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from agent.services.repair_procedure_catalog import (
     CatalogEntry,

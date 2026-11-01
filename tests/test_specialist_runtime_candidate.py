@@ -25,15 +25,26 @@ def candidate(app, tmp_path, monkeypatch):
     outcome = reader.read(principal, job.id, command)
     metadata = command.request_spec["specialist"]
     result = benchmark(
-        GATE, [Prediction("case-one", "allow", "allow")], benchmark_version=metadata["benchmark_version"],
-        holdout_digest=metadata["holdout_digest"], candidate_id="candidate-one", base_model=job.base_model,
-        method=command.request_spec["method"], usage=outcome.usage,
+        GATE,
+        [Prediction("case-one", "allow", "allow")],
+        benchmark_version=metadata["benchmark_version"],
+        holdout_digest=metadata["holdout_digest"],
+        candidate_id="candidate-one",
+        base_model=job.base_model,
+        method=command.request_spec["method"],
+        usage=outcome.usage,
     )
     lineage = ArtifactLineage(
-        specialist_id=metadata["specialist_id"], contract_version=metadata["contract_version"], version="v1",
-        base_model=job.base_model, base_model_digest=outcome.base_model_digest,
-        adapter_digest=outcome.adapter_digest, dataset_digest=metadata["dataset_digest"],
-        holdout_digest=metadata["holdout_digest"], training_job_id=job.id, method=command.request_spec["method"],
+        specialist_id=metadata["specialist_id"],
+        contract_version=metadata["contract_version"],
+        version="v1",
+        base_model=job.base_model,
+        base_model_digest=outcome.base_model_digest,
+        adapter_digest=outcome.adapter_digest,
+        dataset_digest=metadata["dataset_digest"],
+        holdout_digest=metadata["holdout_digest"],
+        training_job_id=job.id,
+        method=command.request_spec["method"],
     ).with_evaluation(result)
     winner = CandidateOutcome("candidate-one", command, outcome, result, lineage)
     registry = MlInternAdapterRegistryService(tmp_path / "registry.json")
@@ -65,9 +76,10 @@ def test_changed_training_or_evaluation_cannot_create_runtime_alias(candidate, m
         winner = replace(winner, outcome=replace(winner.outcome, adapter_digest="d" * 64))
     with pytest.raises(ValueError):
         service.prepare(principal, winner)
-    assert registry.get(
-        "specialist-code-risk-gate-v1", tenant_id=principal.tenant_id, owner_subject=principal.subject
-    ) is None
+    assert (
+        registry.get("specialist-code-risk-gate-v1", tenant_id=principal.tenant_id, owner_subject=principal.subject)
+        is None
+    )
 
 
 @pytest.mark.parametrize("allowed", [True, False])
@@ -75,12 +87,23 @@ def test_factory_real_registration_preserves_artifacts_and_never_uses_legacy_app
     service, registry, principal, winner, _adapter = candidate
     registration = HubSpecialistCandidateRegistration(principal=principal, candidates=service, registry=registry)
     factory = SpecialistModelFactory(
-        GATE, trainer=None, predictor=None, partition_predictor=object(), registry=registry, policy=POLICY,
-        benchmark_version="bench-v1", candidate_registration=registration,
+        GATE,
+        trainer=None,
+        predictor=None,
+        partition_predictor=object(),
+        registry=registry,
+        policy=POLICY,
+        benchmark_version="bench-v1",
+        candidate_registration=registration,
     )
     decision = PromotionDecision(
-        allowed, () if allowed else ("quality_rejected",), "quality" if allowed else "none",
-        winner.result.to_mapping()["result_digest"], None, "a" * 64, None,
+        allowed,
+        () if allowed else ("quality_rejected",),
+        "quality" if allowed else "none",
+        winner.result.to_mapping()["result_digest"],
+        None,
+        "a" * 64,
+        None,
     )
     adapter_id, status = factory._register(winner, decision)
     assert status == ("evaluated" if allowed else "rejected")
@@ -92,7 +115,11 @@ def test_factory_real_registration_preserves_artifacts_and_never_uses_legacy_app
 def test_real_adapter_cannot_fall_back_to_reference_registration(candidate):
     _service, registry, _principal, winner, _adapter = candidate
     factory = SpecialistModelFactory(
-        GATE, trainer=None, partition_predictor=object(), registry=registry, policy=POLICY,
+        GATE,
+        trainer=None,
+        partition_predictor=object(),
+        registry=registry,
+        policy=POLICY,
         benchmark_version="bench-v1",
     )
     with pytest.raises(ValueError, match="specialist_runtime_candidate_registration_required"):
@@ -105,17 +132,28 @@ def test_other_candidate_decision_cannot_register_or_reject(candidate):
     decision = PromotionDecision(False, ("rejected",), "none", "b" * 64, None, "a" * 64, None)
     with pytest.raises(ValueError, match="specialist_runtime_candidate_decision_mismatch"):
         registration.register(winner, decision)
-    assert registry.get(
-        f"specialist-{winner.lineage.specialist_id}-{winner.lineage.version}",
-        tenant_id=principal.tenant_id, owner_subject=principal.subject,
-    ) is None
+    assert (
+        registry.get(
+            f"specialist-{winner.lineage.specialist_id}-{winner.lineage.version}",
+            tenant_id=principal.tenant_id,
+            owner_subject=principal.subject,
+        )
+        is None
+    )
 
 
 def test_revoked_evaluation_receipt_blocks_runtime_registry_write(candidate):
     service, registry, principal, winner, _adapter = candidate
     receipt = SpecialistEvaluationReceipt(
-        "synthetic-eval", 1, "synthetic-attempt", "synthetic-dataset", 1,
-        winner.outcome.adapter_id, winner.outcome.adapter_digest, winner.outcome.base_model_digest, "a" * 64,
+        "synthetic-eval",
+        1,
+        "synthetic-attempt",
+        "synthetic-dataset",
+        1,
+        winner.outcome.adapter_id,
+        winner.outcome.adapter_digest,
+        winner.outcome.base_model_digest,
+        "a" * 64,
     )
     winner = replace(winner, evaluations=(("validation", receipt), ("holdout", receipt)))
 
@@ -129,7 +167,11 @@ def test_revoked_evaluation_receipt_blocks_runtime_registry_write(candidate):
     )
     with pytest.raises(ValueError, match="receipt_revoked"):
         guarded.prepare(principal, winner)
-    assert registry.get(
-        f"specialist-{winner.lineage.specialist_id}-{winner.lineage.version}",
-        tenant_id=principal.tenant_id, owner_subject=principal.subject,
-    ) is None
+    assert (
+        registry.get(
+            f"specialist-{winner.lineage.specialist_id}-{winner.lineage.version}",
+            tenant_id=principal.tenant_id,
+            owner_subject=principal.subject,
+        )
+        is None
+    )

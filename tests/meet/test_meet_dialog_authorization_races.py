@@ -8,8 +8,8 @@ import pytest
 
 from agent.services.meet_authorization_client import MeetAuthorizationClient
 from agent.services.meet_contract import MeetError
-from tests.test_meet_dialog_avatar_controls import avatar_scope
 from tests.meet.test_meet_dialog_avatar_selection import image_selection
+from tests.test_meet_dialog_avatar_controls import avatar_scope
 from tests.test_meet_dialog_voice_selection import voice_selection
 
 

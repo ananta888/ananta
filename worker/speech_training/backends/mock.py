@@ -70,11 +70,7 @@ class MockSpeechTrainingBackend:
             # Ignore graceful termination so the deterministic CI scenario
             # exercises the supervisor's hard-kill escalation.  This process
             # handles no speech/model data and never emits output.
-            program = (
-                "import signal,time;"
-                "signal.signal(signal.SIGTERM,signal.SIG_IGN);"
-                "time.sleep(3600)"
-            )
+            program = "import signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);time.sleep(3600)"
             supervisor.run(
                 (sys.executable, "-c", program),
                 cwd=context.workspace_root,

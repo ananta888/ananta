@@ -40,7 +40,13 @@ class PlanningPromptEvolutionGuardService:
                 if key in rule_text:
                     violations.append(f"forbidden_system_rule:{key}")
         prompt_text = f"{user_prompt}\n{repair_prompt}".lower()
-        for key in ("ignore_governance", "worker_system_prompt_patch", "role_template_patch", "overlay_patch", "allowed_tools"):
+        for key in (
+            "ignore_governance",
+            "worker_system_prompt_patch",
+            "role_template_patch",
+            "overlay_patch",
+            "allowed_tools",
+        ):
             if key in prompt_text:
                 violations.append(f"forbidden_prompt_directive:{key}")
         return len(violations) == 0, sorted(set(violations))

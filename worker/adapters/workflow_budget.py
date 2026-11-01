@@ -1,4 +1,5 @@
 """Timeout/budget/iterations protection for workflow adapters (LCG-019)."""
+
 from __future__ import annotations
 
 import threading

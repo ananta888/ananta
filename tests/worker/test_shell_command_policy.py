@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from worker.shell.command_policy import classify_command
 
-
 POLICY = {
     "allowlist": ["echo", "python", "pytest"],
     "approval_required_commands": ["pip", "npm"],

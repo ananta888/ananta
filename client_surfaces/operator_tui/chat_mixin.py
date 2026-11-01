@@ -9,9 +9,9 @@ to ChatHistoryManagerMixin (SPLIT-024).
 Used as a mixin: class InteractiveOperatorTui(ChatMixin, ...):
 All methods use self.* — no back-reference needed beyond normal Python MRO.
 """
+
 from __future__ import annotations
 
-import os
 import time
 import urllib.error
 import urllib.request
@@ -65,12 +65,14 @@ def format_performance_report_summary(report: dict[str, Any]) -> str:
     """Return a compact TUI-safe performance report summary."""
     comparison = report.get("comparison") if isinstance(report.get("comparison"), dict) else {}
     regression = report.get("regression") if isinstance(report.get("regression"), dict) else {}
-    return "\n".join([
-        f"Performance: {report.get('status', 'unknown')} ({report.get('reason_code', 'unknown')})",
-        f"Regression: {regression.get('status', 'unknown')}",
-        f"Comparison: {comparison.get('pass_fail', 'unknown')} / {comparison.get('reason_code', 'unknown')}",
-        "Review required: yes",
-    ])
+    return "\n".join(
+        [
+            f"Performance: {report.get('status', 'unknown')} ({report.get('reason_code', 'unknown')})",
+            f"Regression: {regression.get('status', 'unknown')}",
+            f"Comparison: {comparison.get('pass_fail', 'unknown')} / {comparison.get('reason_code', 'unknown')}",
+            "Review required: yes",
+        ]
+    )
 
 
 class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
@@ -82,11 +84,15 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
 
     def _chat_send_message(self) -> None:
         game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_policy import audit, check_policy, system_message_for_deny
         from client_surfaces.operator_tui.chat_state import (
-            get_chat_state, set_chat_state, get_active_channel, make_message,
-            append_message, sanitize_text, ChannelType, DeliveryState,
+            append_message,
+            get_active_channel,
+            get_chat_state,
+            make_message,
+            sanitize_text,
+            set_chat_state,
         )
-        from client_surfaces.operator_tui.chat_policy import check_policy, audit, system_message_for_deny
         from client_surfaces.operator_tui.snake_notes import append_note
 
         chat = get_chat_state(game)
@@ -105,7 +111,9 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
             self._set_state(
                 self.state.with_updates(
                     header_logo_game=game,
-                    status_message="shortcuts mitte: an" if bool(game.get("shortcut_help_middle_open")) else "shortcuts mitte: aus",
+                    status_message="shortcuts mitte: an"
+                    if bool(game.get("shortcut_help_middle_open"))
+                    else "shortcuts mitte: aus",
                 )
             )
             return
@@ -137,11 +145,11 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
         local_id = str(game.get("local_snake_id") or "s1")
 
         if buf.startswith("/") and not buf.startswith("//"):
-            from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
-            from client_surfaces.operator_tui.chat_control_config import load_chat_control_config
-            from client_surfaces.operator_tui.chat_control_policy import evaluate
-            from client_surfaces.operator_tui.tui_action_dispatcher import TuiActionDispatcher, ActionRequest
             from client_surfaces.operator_tui.chat_control_audit import get_default_audit_log
+            from client_surfaces.operator_tui.chat_control_config import load_chat_control_config
+            from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
+            from client_surfaces.operator_tui.chat_control_policy import evaluate
+            from client_surfaces.operator_tui.tui_action_dispatcher import ActionRequest, TuiActionDispatcher
 
             cc_cfg_raw = game.get("chat_control_config") if isinstance(game.get("chat_control_config"), dict) else {}
             cc_cfg = load_chat_control_config(cc_cfg_raw)
@@ -174,18 +182,22 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
                         game[k] = v
 
                     ctrl_msg = make_message(
-                        channel_id=ch_id, channel_type=ch_type,
-                        sender_id="tui_control", sender_kind="control",
+                        channel_id=ch_id,
+                        channel_type=ch_type,
+                        sender_id="tui_control",
+                        sender_kind="control",
                         text=f"[TUI] {result.message}",
                         visibility="local_only",
                         delivery_state="sent",
                     )
                     append_message(chat, ctrl_msg)
                     set_chat_state(game, chat)
-                    self._set_state(self.state.with_updates(
-                        header_logo_game=game,
-                        status_message=result.message[:60],
-                    ))
+                    self._set_state(
+                        self.state.with_updates(
+                            header_logo_game=game,
+                            status_message=result.message[:60],
+                        )
+                    )
                     return
 
                 audit_log.record(
@@ -199,27 +211,34 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
                     reason=decision.reason,
                 )
                 deny_msg = make_message(
-                    channel_id=ch_id, channel_type=ch_type,
-                    sender_id="tui_control", sender_kind="control",
+                    channel_id=ch_id,
+                    channel_type=ch_type,
+                    sender_id="tui_control",
+                    sender_kind="control",
                     text=f"[TUI] Denied: {decision.reason}",
                     visibility="local_only",
                     delivery_state="sent",
                 )
                 append_message(chat, deny_msg)
                 set_chat_state(game, chat)
-                self._set_state(self.state.with_updates(
-                    header_logo_game=game,
-                    status_message=f"command denied: {decision.reason[:40]}",
-                ))
+                self._set_state(
+                    self.state.with_updates(
+                        header_logo_game=game,
+                        status_message=f"command denied: {decision.reason[:40]}",
+                    )
+                )
                 return
 
         if ch_type == "notes":
             note = append_note(buf)
             if note:
                 msg = make_message(
-                    channel_id=ch_id, channel_type=ch_type,
-                    sender_id=local_id, sender_kind="user",
-                    text=buf, visibility="local_only",
+                    channel_id=ch_id,
+                    channel_type=ch_type,
+                    sender_id=local_id,
+                    sender_kind="user",
+                    text=buf,
+                    visibility="local_only",
                     delivery_state="sent",
                 )
                 msg["id"] = note["id"]
@@ -249,9 +268,12 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
             except Exception:
                 pass
             cancel_msg = make_message(
-                channel_id=ch_id, channel_type=ch_type,
-                sender_id="system", sender_kind="system",
-                text="[TUI] Anfrage abgebrochen.", visibility="local_only",
+                channel_id=ch_id,
+                channel_type=ch_type,
+                sender_id="system",
+                sender_kind="system",
+                text="[TUI] Anfrage abgebrochen.",
+                visibility="local_only",
                 delivery_state="received",
             )
             append_message(chat, cancel_msg)
@@ -261,9 +283,12 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
 
         if ch_type == "ai":
             msg = make_message(
-                channel_id=ch_id, channel_type=ch_type,
-                sender_id=local_id, sender_kind="user",
-                text=buf, visibility="ai_context",
+                channel_id=ch_id,
+                channel_type=ch_type,
+                sender_id=local_id,
+                sender_kind="user",
+                text=buf,
+                visibility="ai_context",
                 delivery_state="sent",
             )
             append_message(chat, msg)
@@ -286,8 +311,10 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
         action = "send_hub"
         notes_released = bool(chat.get("notes_context_released"))
         msg = make_message(
-            channel_id=ch_id, channel_type=ch_type,
-            sender_id=local_id, sender_kind="user",
+            channel_id=ch_id,
+            channel_type=ch_type,
+            sender_id=local_id,
+            sender_kind="user",
             text=buf,
             target_ids=[p for p in (ch.get("participants") or []) if p != local_id] if ch_type == "direct" else [],
             delivery_state="queued",
@@ -296,9 +323,12 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
         audit(decision)
         if decision["decision"] == "deny":
             sys_msg = make_message(
-                channel_id=ch_id, channel_type=ch_type,
-                sender_id="system", sender_kind="system",
-                text=system_message_for_deny(decision), visibility="system",
+                channel_id=ch_id,
+                channel_type=ch_type,
+                sender_id="system",
+                sender_kind="system",
+                text=system_message_for_deny(decision),
+                visibility="system",
                 delivery_state="received",
             )
             append_message(chat, sys_msg)
@@ -315,10 +345,16 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
     # ── E01: Notes ops from command ───────────────────────────────────────────
 
     def _process_notes_ops(self, game: dict[str, Any]) -> None:
-        from client_surfaces.operator_tui.snake_notes import (
-            load_notes, pin_note, unpin_note, delete_note, search_notes, rewrite_notes, visible_notes,
-        )
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        from client_surfaces.operator_tui.snake_notes import (
+            delete_note,
+            load_notes,
+            pin_note,
+            rewrite_notes,
+            search_notes,
+            unpin_note,
+            visible_notes,
+        )
 
         changed = False
         notes = load_notes()
@@ -347,16 +383,20 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
             ch = (chat.get("channels") or {}).get("notes:self")
             if isinstance(ch, dict):
                 from client_surfaces.operator_tui.chat_state import make_message
+
                 synced: list[dict[str, Any]] = []
                 for n in visible[-200:]:
-                    synced.append(make_message(
-                        channel_id="notes:self", channel_type="notes",
-                        sender_id=str(game.get("local_snake_id") or "s1"),
-                        sender_kind="user",
-                        text=str(n.get("text") or ""),
-                        visibility="local_only",
-                        delivery_state="sent",
-                    ))
+                    synced.append(
+                        make_message(
+                            channel_id="notes:self",
+                            channel_type="notes",
+                            sender_id=str(game.get("local_snake_id") or "s1"),
+                            sender_kind="user",
+                            text=str(n.get("text") or ""),
+                            visibility="local_only",
+                            delivery_state="sent",
+                        )
+                    )
                 ch["messages"] = synced
             set_chat_state(game, chat)
 
@@ -364,10 +404,14 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
 
     def _init_notes_channel(self) -> None:
         try:
-            from client_surfaces.operator_tui.snake_notes import load_notes, visible_notes
             from client_surfaces.operator_tui.chat_state import (
-                get_chat_state, set_chat_state, make_message, default_chat_state,
+                default_chat_state,
+                get_chat_state,
+                make_message,
+                set_chat_state,
             )
+            from client_surfaces.operator_tui.snake_notes import load_notes, visible_notes
+
             game = dict(self.state.header_logo_game or {})
             local_id = str(game.get("local_snake_id") or "s1")
             chat = get_chat_state(game)
@@ -379,12 +423,17 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
             if isinstance(ch, dict):
                 synced = []
                 for n in visible[-200:]:
-                    synced.append(make_message(
-                        channel_id="notes:self", channel_type="notes",
-                        sender_id=local_id, sender_kind="user",
-                        text=str(n.get("text") or ""), visibility="local_only",
-                        delivery_state="sent",
-                    ))
+                    synced.append(
+                        make_message(
+                            channel_id="notes:self",
+                            channel_type="notes",
+                            sender_id=local_id,
+                            sender_kind="user",
+                            text=str(n.get("text") or ""),
+                            visibility="local_only",
+                            delivery_state="sent",
+                        )
+                    )
                 ch["messages"] = synced
             set_chat_state(game, chat)
             self.state = self.state.with_updates(header_logo_game=game)
@@ -407,11 +456,12 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
         if self._chat_transport is not None:
             try:
                 from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
                 chat = get_chat_state(game)
                 outbox = self._chat_transport.outbox_snapshot()
                 outbox_by_id = {m.get("id"): m for m in outbox}
                 for ch in (chat.get("channels") or {}).values():
-                    for msg in (ch.get("messages") or []):
+                    for msg in ch.get("messages") or []:
                         mid = msg.get("id")
                         if mid in outbox_by_id:
                             msg["delivery_state"] = outbox_by_id[mid].get("delivery_state", msg["delivery_state"])
@@ -423,8 +473,12 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
         try:
             game = dict(self.state.header_logo_game or {})
             from client_surfaces.operator_tui.chat_state import (
-                get_chat_state, set_chat_state, append_message, make_message, ChannelType,
+                append_message,
+                get_chat_state,
+                make_message,
+                set_chat_state,
             )
+
             chat = get_chat_state(game)
             for raw in messages:
                 ch_type = str(raw.get("channel_type") or "room")
@@ -432,7 +486,8 @@ class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
                     continue
                 ch_id = str(raw.get("channel_id") or "room:main")
                 msg = make_message(
-                    channel_id=ch_id, channel_type=ch_type,
+                    channel_id=ch_id,
+                    channel_type=ch_type,
                     sender_id=str(raw.get("sender_id") or "?"),
                     sender_kind=str(raw.get("sender_kind") or "user"),
                     text=str(raw.get("text") or ""),

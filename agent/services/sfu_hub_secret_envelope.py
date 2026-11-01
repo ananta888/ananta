@@ -49,9 +49,7 @@ class AesGcmSfuHubSecretEnvelope:
         self._active_key_id = active_key_id
         normalized_blind = {
             str(blind_id): bytes(blind_key)
-            for blind_id, blind_key in (
-                blind_keys or {f"legacy:{active_key_id}": normalized[active_key_id]}
-            ).items()
+            for blind_id, blind_key in (blind_keys or {f"legacy:{active_key_id}": normalized[active_key_id]}).items()
         }
         selected_blind = active_blind_key_id or next(iter(normalized_blind), "")
         if (
@@ -77,17 +75,13 @@ class AesGcmSfuHubSecretEnvelope:
         _context(purpose, scope)
         if not isinstance(value, str) or not value:
             raise SfuHubSecretEnvelopeError("sfu_secret_blind_value_invalid")
-        key = self._derive_blind(
-            self._active_blind_key_id, purpose=f"blind:{purpose}", scope=scope
-        )
+        key = self._derive_blind(self._active_blind_key_id, purpose=f"blind:{purpose}", scope=scope)
         return SfuHubBlindIndex(
             self._active_blind_key_id,
             hmac.new(key, value.encode("utf-8"), hashlib.sha256).hexdigest(),
         )
 
-    def blind_candidates(
-        self, *, purpose: str, scope: str, value: str
-    ) -> tuple[SfuHubBlindIndex, ...]:
+    def blind_candidates(self, *, purpose: str, scope: str, value: str) -> tuple[SfuHubBlindIndex, ...]:
         _context(purpose, scope)
         if not isinstance(value, str) or not value:
             raise SfuHubSecretEnvelopeError("sfu_secret_blind_value_invalid")
@@ -207,14 +201,7 @@ def derive_sfu_hub_envelope(
 
 
 def _context(purpose: str, scope: str) -> None:
-    if (
-        not purpose
-        or not scope
-        or "\0" in purpose
-        or "\0" in scope
-        or len(purpose) > 128
-        or len(scope) > 512
-    ):
+    if not purpose or not scope or "\0" in purpose or "\0" in scope or len(purpose) > 128 or len(scope) > 512:
         raise SfuHubSecretEnvelopeError("sfu_secret_scope_invalid")
 
 

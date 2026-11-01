@@ -90,7 +90,9 @@ class IncrementalBuildDecisionEngine:
             return True
         return str(old_profile.get("profile_digest") or "") == str(new_profile.get("profile_digest") or "")
 
-    def _check_embedding_model_change(self, old_profile: dict[str, Any] | None, new_profile: dict[str, Any] | None) -> bool:
+    def _check_embedding_model_change(
+        self, old_profile: dict[str, Any] | None, new_profile: dict[str, Any] | None
+    ) -> bool:
         old = dict((old_profile or {}).get("embedding_profile") or {})
         new = dict((new_profile or {}).get("embedding_profile") or {})
         return (old.get("model"), old.get("dimensions"), old.get("embedding_text_profile")) != (
@@ -100,10 +102,16 @@ class IncrementalBuildDecisionEngine:
         ) and bool(old or new)
 
     def _check_fts_config_change(self, old_profile: dict[str, Any] | None, new_profile: dict[str, Any] | None) -> bool:
-        return dict((old_profile or {}).get("search_profile") or {}) != dict((new_profile or {}).get("search_profile") or {})
+        return dict((old_profile or {}).get("search_profile") or {}) != dict(
+            (new_profile or {}).get("search_profile") or {}
+        )
 
-    def _check_graph_schema_change(self, old_profile: dict[str, Any] | None, new_profile: dict[str, Any] | None) -> bool:
-        return dict((old_profile or {}).get("graph_profile") or {}) != dict((new_profile or {}).get("graph_profile") or {})
+    def _check_graph_schema_change(
+        self, old_profile: dict[str, Any] | None, new_profile: dict[str, Any] | None
+    ) -> bool:
+        return dict((old_profile or {}).get("graph_profile") or {}) != dict(
+            (new_profile or {}).get("graph_profile") or {}
+        )
 
     def decide(
         self,
@@ -145,7 +153,10 @@ class IncrementalBuildDecisionEngine:
             decision = DecisionType.ARTIFACT_KIND_REBASE
             reason = "fts_config_changed"
             kinds = ["fts"]
-        elif factors.changeset_size <= self.small_changeset_threshold and factors.severity_score < self.medium_severity_threshold:
+        elif (
+            factors.changeset_size <= self.small_changeset_threshold
+            and factors.severity_score < self.medium_severity_threshold
+        ):
             reasons = [item for item in list(impact.get("reason_codes") or []) if item]
             if reasons and all(item == "metadata_only" for item in reasons):
                 decision = DecisionType.METADATA_ONLY
@@ -153,7 +164,10 @@ class IncrementalBuildDecisionEngine:
             else:
                 decision = DecisionType.DELTA_BUILD
                 reason = "small_compatible_change"
-        elif factors.severity_score >= self.high_severity_threshold or factors.changeset_size > self.medium_changeset_threshold:
+        elif (
+            factors.severity_score >= self.high_severity_threshold
+            or factors.changeset_size > self.medium_changeset_threshold
+        ):
             decision = DecisionType.PARTIAL_BASE_REBUILD
             reason = "large_impact"
         else:

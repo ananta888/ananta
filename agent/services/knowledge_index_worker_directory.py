@@ -21,9 +21,7 @@ class RegisteredKnowledgeIndexWorkerDirectory:
         matches = [
             agent
             for agent in self._agents.get_all()
-            if str(getattr(agent, "name", None) or getattr(agent, "url", ""))
-            .strip()
-            == normalized_worker_id
+            if str(getattr(agent, "name", None) or getattr(agent, "url", "")).strip() == normalized_worker_id
         ]
         if len(matches) != 1:
             raise ValueError("knowledge_index_assignment_worker_unavailable")
@@ -31,11 +29,9 @@ class RegisteredKnowledgeIndexWorkerDirectory:
         worker_url = str(getattr(agent, "url", "") or "").strip().rstrip("/")
         parsed = urlparse(worker_url)
         if (
-            str(getattr(agent, "role", "") or "").strip().lower()
-            != "worker"
+            str(getattr(agent, "role", "") or "").strip().lower() != "worker"
             or not bool(getattr(agent, "registration_validated", False))
-            or str(getattr(agent, "status", "") or "").strip().lower()
-            not in {"online", "degraded", "busy"}
+            or str(getattr(agent, "status", "") or "").strip().lower() not in {"online", "degraded", "busy"}
             or parsed.scheme not in {"http", "https"}
             or not parsed.hostname
         ):

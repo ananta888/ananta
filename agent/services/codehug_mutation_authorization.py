@@ -16,7 +16,6 @@ from agent.services.source_access_enforcement import (
 )
 from ananta_contracts.source_control import GrantOperation, GrantTransformation
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -134,15 +133,8 @@ class CodeHugMutationAuthorizationService:
 
     def execute(self, command: CodeHugMutationCommand) -> Mapping[str, object]:
         tool = self._tools.resolve(tool_id=command.tool_id)
-        if (
-            tool is None
-            or tool.tool_id != command.tool_id
-            or not tool.enabled
-            or not tool.mutating
-        ):
-            raise CodeHugMutationAuthorizationError(
-                "codehug_tool_not_authorized"
-            )
+        if tool is None or tool.tool_id != command.tool_id or not tool.enabled or not tool.mutating:
+            raise CodeHugMutationAuthorizationError("codehug_tool_not_authorized")
         binding_digest: str | None = None
         try:
             policy_decision = self._effective_access.verify_dispatch(
@@ -171,15 +163,9 @@ class CodeHugMutationAuthorizationService:
                     assignment_id=command.assignment_id,
                     lease_id=command.lease_id,
                     destination_digest=command.destination_digest,
-                    source_revision_digest=(
-                        command.expected_revision_digest
-                    ),
-                    source_access_grant_id=(
-                        command.source_access_grant_id
-                    ),
-                    source_access_grant_digest=(
-                        command.source_access_grant_digest
-                    ),
+                    source_revision_digest=(command.expected_revision_digest),
+                    source_access_grant_id=(command.source_access_grant_id),
+                    source_access_grant_digest=(command.source_access_grant_digest),
                     policy_digest=command.expected_policy_digest,
                 )
             )

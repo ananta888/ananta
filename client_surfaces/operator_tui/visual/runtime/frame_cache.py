@@ -98,4 +98,3 @@ class FrameBackpressureBuffer:
             dropped_frames=self._dropped_frames,
             queued_frames=1 if self._pending is not None else 0,
         )
-

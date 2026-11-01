@@ -7,6 +7,7 @@ materialize task-kind artifacts into TaskDB. Owns no blueprint
 persistence and no template bootstrap. Migrated from
 team_blueprint_service.py (WFG-029 split) without behaviour change.
 """
+
 from __future__ import annotations
 
 import time
@@ -43,7 +44,9 @@ def instantiate_blueprint(
             return error_factory("not_found", 404)
 
         blueprint_roles = session.exec(
-            select(BlueprintRoleDB).where(BlueprintRoleDB.blueprint_id == blueprint.id).order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
+            select(BlueprintRoleDB)
+            .where(BlueprintRoleDB.blueprint_id == blueprint.id)
+            .order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
         ).all()
         blueprint_artifacts = session.exec(
             select(BlueprintArtifactDB)
@@ -61,7 +64,9 @@ def instantiate_blueprint(
         blueprint_role_map = {role.id: role for role in blueprint_roles}
         role_bindings: dict[str, str] = {}
         for blueprint_role in blueprint_roles:
-            role = _ensure_role_for_blueprint_role_in_session(session, team_type.id if team_type else None, blueprint_role)
+            role = _ensure_role_for_blueprint_role_in_session(
+                session, team_type.id if team_type else None, blueprint_role
+            )
             role_bindings[blueprint_role.id] = role.id
 
         members_payload = []
@@ -84,6 +89,7 @@ def instantiate_blueprint(
         from agent.services.team_blueprint_persistence_service import (
             serialize_blueprint_snapshot,
         )
+
         snapshot = serialize_blueprint_snapshot(blueprint, blueprint_roles, blueprint_artifacts)
         team = TeamDB(
             name=data.name,
@@ -91,7 +97,9 @@ def instantiate_blueprint(
             team_type_id=team_type.id if team_type else None,
             blueprint_id=blueprint.id,
             is_active=data.activate,
-            role_templates={role_bindings[role.id]: role.template_id for role in blueprint_roles if role_bindings.get(role.id)},
+            role_templates={
+                role_bindings[role.id]: role.template_id for role in blueprint_roles if role_bindings.get(role.id)
+            },
             blueprint_snapshot=snapshot,
         )
         if data.activate:

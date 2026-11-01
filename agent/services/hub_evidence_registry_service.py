@@ -53,15 +53,30 @@ def _canonical_digest(value: Any) -> str:
 
 
 def _run_binding_digest(run: RunEvidenceIdentity) -> str:
-    return _canonical_digest({
-        "schema": "ananta.hub-run-evidence-binding.v1",
-        **{name: getattr(run, name) for name in (
-            "tenant_id", "project_id", "task_id", "assignment_id", "dispatch_lease_id",
-            "repository_revision", "input_digest", "execution_profile_digest", "environment_digest",
-            "evidence_scope", "synthetic", "issuer", "reservation_key_digest",
-        )},
-        "source_ids": list(run.source_ids),
-    })
+    return _canonical_digest(
+        {
+            "schema": "ananta.hub-run-evidence-binding.v1",
+            **{
+                name: getattr(run, name)
+                for name in (
+                    "tenant_id",
+                    "project_id",
+                    "task_id",
+                    "assignment_id",
+                    "dispatch_lease_id",
+                    "repository_revision",
+                    "input_digest",
+                    "execution_profile_digest",
+                    "environment_digest",
+                    "evidence_scope",
+                    "synthetic",
+                    "issuer",
+                    "reservation_key_digest",
+                )
+            },
+            "source_ids": list(run.source_ids),
+        }
+    )
 
 
 class HubEvidenceRegistryService:
@@ -364,12 +379,24 @@ class HubEvidenceRegistryService:
         source = self._repository.get_source(tenant_id=tenant_id, project_id=project_id, source_id=source_id)
         if source is None:
             raise HubEvidenceRegistryError("evidence_source_identity_unavailable")
-        return self.require_source_identity(tenant_id=tenant_id, project_id=project_id, source_id=source_id,
-                                            expected_binding_digest=source.binding_digest)
+        return self.require_source_identity(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            source_id=source_id,
+            expected_binding_digest=source.binding_digest,
+        )
 
-    def require_assignment_result(self, *, tenant_id: str, project_id: str, projection: dict,
-                                  task_id: str, assignment_id: str, dispatch_lease_id: str,
-                                  result_digest: str) -> RunEvidenceIdentity:
+    def require_assignment_result(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        projection: dict,
+        task_id: str,
+        assignment_id: str,
+        dispatch_lease_id: str,
+        result_digest: str,
+    ) -> RunEvidenceIdentity:
         """Verify a completed closed assignment without reissuing its run."""
         from ananta_contracts.hub_evidence import build_hub_evidence_assignment, validate_hub_evidence_assignment
 
@@ -378,16 +405,26 @@ class HubEvidenceRegistryService:
         if run is None:
             raise HubEvidenceRegistryError("evidence_run_result_unavailable")
         expected = build_hub_evidence_assignment(
-            run_id=run.run_id, task_id=run.task_id, assignment_id=run.assignment_id,
-            dispatch_lease_id=run.dispatch_lease_id, source_ids=run.source_ids,
-            evidence_scope=run.evidence_scope, binding_digest=run.binding_digest,
+            run_id=run.run_id,
+            task_id=run.task_id,
+            assignment_id=run.assignment_id,
+            dispatch_lease_id=run.dispatch_lease_id,
+            source_ids=run.source_ids,
+            evidence_scope=run.evidence_scope,
+            binding_digest=run.binding_digest,
         )
         if value != expected:
             raise HubEvidenceRegistryError("evidence_run_assignment_binding_mismatch")
         return self.require_run_result(
-            tenant_id=tenant_id, project_id=project_id, run_id=run.run_id, task_id=task_id,
-            assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id,
-            input_digest=run.input_digest, source_ids=run.source_ids, result_digest=result_digest,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            run_id=run.run_id,
+            task_id=task_id,
+            assignment_id=assignment_id,
+            dispatch_lease_id=dispatch_lease_id,
+            input_digest=run.input_digest,
+            source_ids=run.source_ids,
+            result_digest=result_digest,
             expected_binding_digest=value["binding_digest"],
         )
 
@@ -395,12 +432,16 @@ class HubEvidenceRegistryService:
         sources = []
         for source_id in run.source_ids:
             source = self._repository.get_source(
-                tenant_id=run.tenant_id, project_id=run.project_id, source_id=source_id,
+                tenant_id=run.tenant_id,
+                project_id=run.project_id,
+                source_id=source_id,
             )
             if source is None:
                 raise HubEvidenceRegistryError("evidence_run_source_identity_unavailable")
             source = self.require_source_identity(
-                tenant_id=run.tenant_id, project_id=run.project_id, source_id=source_id,
+                tenant_id=run.tenant_id,
+                project_id=run.project_id,
+                source_id=source_id,
                 expected_binding_digest=source.binding_digest,
             )
             if source.evidence_scope not in _SOURCE_SCOPES_BY_RUN[run.evidence_scope] or (
@@ -415,16 +456,25 @@ class HubEvidenceRegistryService:
         from ananta_contracts.hub_evidence import build_hub_evidence_assignment, validate_hub_evidence_assignment
 
         projection = validate_hub_evidence_assignment(assignment)
-        run = self._repository.get_run(tenant_id=tenant_id, project_id=project_id, run_id=projection['run_id'])
-        if (run is None or run.state not in {'reserved', 'succeeded', 'failed', 'cancelled'}
-                or _run_binding_digest(run) != run.binding_digest
-                or (run.issuer == _HUB_ISSUER and run.run_id != f'RUN_{run.binding_digest[:32]}')):
-            raise HubEvidenceRegistryError('evidence_run_assignment_identity_mutated')
-        expected = build_hub_evidence_assignment(run_id=run.run_id, task_id=run.task_id,
-            assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id, source_ids=run.source_ids,
-            evidence_scope=run.evidence_scope, binding_digest=run.binding_digest)
+        run = self._repository.get_run(tenant_id=tenant_id, project_id=project_id, run_id=projection["run_id"])
+        if (
+            run is None
+            or run.state not in {"reserved", "succeeded", "failed", "cancelled"}
+            or _run_binding_digest(run) != run.binding_digest
+            or (run.issuer == _HUB_ISSUER and run.run_id != f"RUN_{run.binding_digest[:32]}")
+        ):
+            raise HubEvidenceRegistryError("evidence_run_assignment_identity_mutated")
+        expected = build_hub_evidence_assignment(
+            run_id=run.run_id,
+            task_id=run.task_id,
+            assignment_id=run.assignment_id,
+            dispatch_lease_id=run.dispatch_lease_id,
+            source_ids=run.source_ids,
+            evidence_scope=run.evidence_scope,
+            binding_digest=run.binding_digest,
+        )
         if expected != projection:
-            raise HubEvidenceRegistryError('evidence_run_assignment_binding_mismatch')
+            raise HubEvidenceRegistryError("evidence_run_assignment_binding_mismatch")
         return self._require_run_sources(run)
 
     def assignment_projection(
@@ -457,22 +507,28 @@ class HubEvidenceRegistryService:
             or run.dispatch_lease_id != str(dispatch_lease_id or "").strip()
         ):
             raise HubEvidenceRegistryError("evidence_run_assignment_binding_mismatch")
-        if (
-            _run_binding_digest(run) != run.binding_digest
-            or (run.issuer == _HUB_ISSUER and run.run_id != f"RUN_{run.binding_digest[:32]}")
+        if _run_binding_digest(run) != run.binding_digest or (
+            run.issuer == _HUB_ISSUER and run.run_id != f"RUN_{run.binding_digest[:32]}"
         ):
             raise HubEvidenceRegistryError("evidence_run_assignment_identity_mutated")
         if (
-            input_digest is not None and run.input_digest != self._digest(
-                input_digest, "evidence_run_input_digest_invalid",
+            input_digest is not None
+            and run.input_digest
+            != self._digest(
+                input_digest,
+                "evidence_run_input_digest_invalid",
             )
-            or expected_binding_digest is not None and run.binding_digest != self._digest(
-                expected_binding_digest, "evidence_run_binding_digest_invalid",
+            or expected_binding_digest is not None
+            and run.binding_digest
+            != self._digest(
+                expected_binding_digest,
+                "evidence_run_binding_digest_invalid",
             )
         ):
             raise HubEvidenceRegistryError("evidence_run_assignment_input_binding_mismatch")
         if execution_profile_digest is not None and run.execution_profile_digest != self._digest(
-                execution_profile_digest, "evidence_run_execution_profile_invalid"):
+            execution_profile_digest, "evidence_run_execution_profile_invalid"
+        ):
             raise HubEvidenceRegistryError("evidence_run_assignment_profile_binding_mismatch")
         self._require_run_sources(run)
         return build_hub_evidence_assignment(

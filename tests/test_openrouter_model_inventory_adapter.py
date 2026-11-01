@@ -19,20 +19,24 @@ class _Client:
 
 
 def test_openrouter_inventory_normalizes_capabilities_cost_and_evidence():
-    client = _Client(({
-        "id": "vendor/coder:free",
-        "canonical_slug": "vendor/coder",
-        "name": "Coder",
-        "context_length": 131072,
-        "architecture": {
-            "input_modalities": ["text", "image"],
-            "output_modalities": ["text"],
-            "modality": "text+image->text",
-            "tokenizer": "Test",
-        },
-        "supported_parameters": ["tools", "structured_outputs", "reasoning"],
-        "pricing": {"prompt": "0.000001", "completion": "0.000002"},
-    },))
+    client = _Client(
+        (
+            {
+                "id": "vendor/coder:free",
+                "canonical_slug": "vendor/coder",
+                "name": "Coder",
+                "context_length": 131072,
+                "architecture": {
+                    "input_modalities": ["text", "image"],
+                    "output_modalities": ["text"],
+                    "modality": "text+image->text",
+                    "tokenizer": "Test",
+                },
+                "supported_parameters": ["tools", "structured_outputs", "reasoning"],
+                "pricing": {"prompt": "0.000001", "completion": "0.000002"},
+            },
+        )
+    )
     adapter = OpenRouterModelInventoryAdapter(lambda: "server-secret", client)
 
     snapshot = adapter.collect()
@@ -49,7 +53,9 @@ def test_openrouter_inventory_normalizes_capabilities_cost_and_evidence():
     assert claims["vision"].value == "supported"
     assert claims["tools"].source_id == "openrouter.models"
     assert {item.fact_id for item in model.metadata_facts} >= {
-        "canonical_slug", "modality", "tokenizer",
+        "canonical_slug",
+        "modality",
+        "tokenizer",
     }
     assert "server-secret" not in model.model_dump_json()
 
@@ -57,16 +63,12 @@ def test_openrouter_inventory_normalizes_capabilities_cost_and_evidence():
 def test_openrouter_inventory_fails_with_bounded_reason_when_key_is_missing():
     adapter = OpenRouterModelInventoryAdapter(lambda: "", _Client())
 
-    with pytest.raises(
-        RuntimeError, match="provider_openrouter_credentials_unavailable"
-    ):
+    with pytest.raises(RuntimeError, match="provider_openrouter_credentials_unavailable"):
         adapter.collect()
 
 
 def test_openrouter_inventory_skips_rows_without_stable_model_id():
-    adapter = OpenRouterModelInventoryAdapter(
-        lambda: "key", _Client(({}, {"id": "vendor/model", "name": "Model"}))
-    )
+    adapter = OpenRouterModelInventoryAdapter(lambda: "key", _Client(({}, {"id": "vendor/model", "name": "Model"})))
 
     assert [item.model_id for item in adapter.collect().models] == ["vendor/model"]
 

@@ -29,6 +29,8 @@ EXPECTED_ARTIFACT_COUNTS = {
     "Story-Domain-Implementation": 5,
     "TDD": 6,
 }
+
+
 def test_seed_catalog_and_runtime_reconcile_keep_expected_names_and_artifact_counts(client) -> None:
     seed_map = get_seed_blueprint_catalog().as_seed_blueprint_map()
     assert set(seed_map.keys()) == set(EXPECTED_ARTIFACT_COUNTS.keys())

@@ -1,4 +1,5 @@
 """AWTCL-017: unit tests for the ananta-worker tool calling loop."""
+
 import json
 
 import pytest
@@ -45,7 +46,6 @@ def _loop_config(**overrides):
 
 def test_default_tool_loop_allows_codecompass_context_tools():
     from agent.config_defaults import build_default_agent_config
-
     from agent.services.ananta_tool_registry_service import TOOL_ALIASES
 
     allowed = set(build_default_agent_config()["ananta_worker_tool_loop"]["allowed_tools"])
@@ -64,9 +64,7 @@ def test_default_tool_loop_allows_codecompass_context_tools():
 
 
 def test_parser_accepts_raw_json_tool_request():
-    payload = json.dumps(
-        {"kind": "tool_request", "tool_name": "repo.grep", "arguments": {"pattern": "x"}}
-    )
+    payload = json.dumps({"kind": "tool_request", "tool_name": "repo.grep", "arguments": {"pattern": "x"}})
     message = parse_worker_tool_output(payload)
     assert message is not None
     assert message["kind"] == KIND_TOOL_REQUEST
@@ -74,7 +72,7 @@ def test_parser_accepts_raw_json_tool_request():
 
 
 def test_parser_accepts_fenced_json_final_answer():
-    text = "Here you go:\n```json\n{\"kind\": \"final_answer\", \"answer\": \"done\"}\n```\nthanks"
+    text = 'Here you go:\n```json\n{"kind": "final_answer", "answer": "done"}\n```\nthanks'
     message = parse_worker_tool_output(text)
     assert message is not None
     assert message["kind"] == KIND_FINAL_ANSWER
@@ -114,8 +112,13 @@ def test_loop_grep_then_final_answer(tmp_path):
         ]
     )
     rc, out, err = run_ananta_worker_tool_loop(
-        "Find ToolRoutingService", str(tmp_path), options=[], timeout=10, model=None,
-        llm_runner=llm, config=_loop_config(),
+        "Find ToolRoutingService",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_loop_config(),
     )
     assert rc == 0
     assert out == "found it"
@@ -181,7 +184,13 @@ def test_loop_unknown_tool_is_policy_blocked(tmp_path):
         ]
     )
     rc, out, err = run_ananta_worker_tool_loop(
-        "task", str(tmp_path), options=[], timeout=10, model=None, llm_runner=llm, config=_loop_config(),
+        "task",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_loop_config(),
     )
     assert rc == 0
     assert out == "ok"
@@ -193,7 +202,12 @@ def test_loop_max_iterations_prevents_endless_loop(tmp_path):
     request = json.dumps({"kind": "tool_request", "tool_name": "repo.list_files", "arguments": {}})
     llm = ScriptedLLM([request] * 50)
     rc, out, err = run_ananta_worker_tool_loop(
-        "task", str(tmp_path), options=[], timeout=10, model=None, llm_runner=llm,
+        "task",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
         config=_loop_config(max_iterations=3, max_tool_calls=50),
     )
     assert rc == 0
@@ -207,7 +221,12 @@ def test_loop_max_tool_calls_aborts(tmp_path):
     request = json.dumps({"kind": "tool_request", "tool_name": "repo.list_files", "arguments": {}})
     llm = ScriptedLLM([request] * 50)
     rc, out, err = run_ananta_worker_tool_loop(
-        "task", str(tmp_path), options=[], timeout=10, model=None, llm_runner=llm,
+        "task",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
         config=_loop_config(max_iterations=10, max_tool_calls=2),
     )
     payload = json.loads(out)
@@ -217,7 +236,12 @@ def test_loop_max_tool_calls_aborts(tmp_path):
 def test_loop_invalid_json_falls_back_to_text(tmp_path):
     llm = ScriptedLLM(["not json at all", "still not json"])
     rc, out, err = run_ananta_worker_tool_loop(
-        "task", str(tmp_path), options=[], timeout=10, model=None, llm_runner=llm,
+        "task",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
         config=_loop_config(max_invalid_outputs=2),
     )
     assert rc == 0
@@ -229,7 +253,13 @@ def test_loop_invalid_json_falls_back_to_text(tmp_path):
 def test_loop_needs_approval_stops_loop(tmp_path):
     llm = ScriptedLLM([json.dumps({"kind": "needs_approval", "reason": "wants git push"})])
     rc, out, err = run_ananta_worker_tool_loop(
-        "task", str(tmp_path), options=[], timeout=10, model=None, llm_runner=llm, config=_loop_config(),
+        "task",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_loop_config(),
     )
     payload = json.loads(out)
     assert payload["kind"] == "needs_approval"

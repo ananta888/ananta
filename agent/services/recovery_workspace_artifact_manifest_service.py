@@ -18,9 +18,7 @@ from ananta_contracts.recovery_artifact_ingress import (
     build_recovery_artifact_ingress_manifest,
 )
 
-_SOURCE_ID = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,255}$"
-)
+_SOURCE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,255}$")
 
 
 class RecoveryWorkspaceArtifactManifestError(RuntimeError):
@@ -47,9 +45,7 @@ class RecoveryWorkspaceArtifactManifestService:
         workspace_file_reader_provider: Callable[[], Any] | None = None,
     ) -> None:
         self._workspace_service_provider = workspace_service_provider
-        self._workspace_file_reader_provider = (
-            workspace_file_reader_provider
-        )
+        self._workspace_file_reader_provider = workspace_file_reader_provider
 
     def build(
         self,
@@ -63,9 +59,7 @@ class RecoveryWorkspaceArtifactManifestService:
     ) -> RecoveryWorkspaceArtifactManifest:
         task_id = str(task.get("id") or "").strip()
         normalized_executor_id = str(executor_id or "").strip()
-        normalized_executor_url = str(executor_url or "").strip().rstrip(
-            "/"
-        )
+        normalized_executor_url = str(executor_url or "").strip().rstrip("/")
         if not all(
             (
                 task_id,
@@ -75,30 +69,14 @@ class RecoveryWorkspaceArtifactManifestService:
                 request_fingerprint,
             )
         ):
-            raise RecoveryWorkspaceArtifactManifestError(
-                "recovery_artifact_manifest_identity_unavailable"
-            )
-        if (
-            not isinstance(artifacts, list)
-            or not artifacts
-            or len(artifacts) > MAX_RECOVERY_ARTIFACT_COUNT
-        ):
-            raise RecoveryWorkspaceArtifactManifestError(
-                "recovery_artifact_count_invalid"
-            )
-        if any(
-            not isinstance(artifact, Mapping)
-            for artifact in artifacts
-        ):
-            raise RecoveryWorkspaceArtifactManifestError(
-                "recovery_artifact_descriptor_invalid"
-            )
-        workspace_root = (
-            self._workspace_service()
-            .resolve_workspace_dir_for_read(
-                task=dict(task),
-                agent_name=normalized_executor_id,
-            )
+            raise RecoveryWorkspaceArtifactManifestError("recovery_artifact_manifest_identity_unavailable")
+        if not isinstance(artifacts, list) or not artifacts or len(artifacts) > MAX_RECOVERY_ARTIFACT_COUNT:
+            raise RecoveryWorkspaceArtifactManifestError("recovery_artifact_count_invalid")
+        if any(not isinstance(artifact, Mapping) for artifact in artifacts):
+            raise RecoveryWorkspaceArtifactManifestError("recovery_artifact_descriptor_invalid")
+        workspace_root = self._workspace_service().resolve_workspace_dir_for_read(
+            task=dict(task),
+            agent_name=normalized_executor_id,
         )
         descriptors_list: list[dict[str, Any]] = []
         total_bytes = 0
@@ -110,9 +88,7 @@ class RecoveryWorkspaceArtifactManifestService:
             )
             total_bytes += int(descriptor["size_bytes"])
             if total_bytes > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES:
-                raise RecoveryWorkspaceArtifactManifestError(
-                    "recovery_artifact_total_size_exceeded"
-                )
+                raise RecoveryWorkspaceArtifactManifestError("recovery_artifact_total_size_exceeded")
             descriptors_list.append(descriptor)
         descriptors = tuple(descriptors_list)
         manifest = build_recovery_artifact_ingress_manifest(
@@ -152,13 +128,9 @@ class RecoveryWorkspaceArtifactManifestService:
         artifact: Mapping[str, Any],
         source_index: int,
     ) -> dict[str, Any]:
-        relative_path = str(
-            artifact.get("workspace_relative_path") or ""
-        )
+        relative_path = str(artifact.get("workspace_relative_path") or "")
         if not relative_path:
-            raise RecoveryWorkspaceArtifactManifestError(
-                "recovery_artifact_workspace_path_required"
-            )
+            raise RecoveryWorkspaceArtifactManifestError("recovery_artifact_workspace_path_required")
         from agent.services.recovery_workspace_file_reader import (
             RecoveryWorkspaceFileReadError,
         )
@@ -170,16 +142,12 @@ class RecoveryWorkspaceArtifactManifestService:
                 maximum_bytes=MAX_RECOVERY_ARTIFACT_BYTES,
             )
         except RecoveryWorkspaceFileReadError as exc:
-            raise RecoveryWorkspaceArtifactManifestError(
-                exc.reason_code
-            ) from exc
+            raise RecoveryWorkspaceArtifactManifestError(exc.reason_code) from exc
         path = snapshot.resolved_path
         content = snapshot.content
         size_bytes = snapshot.size_bytes
         actual_hash = hashlib.sha256(content).hexdigest()
-        claimed_hash = str(
-            artifact.get("content_hash") or ""
-        ).strip()
+        claimed_hash = str(artifact.get("content_hash") or "").strip()
         if (
             len(content) != size_bytes
             or len(claimed_hash) != 64
@@ -188,34 +156,22 @@ class RecoveryWorkspaceArtifactManifestService:
                 actual_hash,
             )
         ):
-            raise RecoveryWorkspaceArtifactManifestError(
-                "recovery_artifact_worker_hash_mismatch"
-            )
-        filename = str(
-            artifact.get("filename") or path.name
-        ).strip()
+            raise RecoveryWorkspaceArtifactManifestError("recovery_artifact_worker_hash_mismatch")
+        filename = str(artifact.get("filename") or path.name).strip()
         media_type = str(
-            artifact.get("media_type")
-            or mimetypes.guess_type(filename)[0]
-            or "application/octet-stream"
+            artifact.get("media_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream"
         ).strip()
         return {
             "source_index": source_index,
-            "kind": str(
-                artifact.get("kind") or "workspace_file"
-            ).strip(),
+            "kind": str(artifact.get("kind") or "workspace_file").strip(),
             "workspace_path": relative_path,
             "relative_path": relative_path,
             "filename": filename,
             "media_type": media_type,
             "size_bytes": size_bytes,
             "sha256": actual_hash,
-            "worker_artifact_id": _optional_source_id(
-                artifact.get("artifact_id")
-            ),
-            "worker_artifact_version_id": _optional_source_id(
-                artifact.get("artifact_version_id")
-            ),
+            "worker_artifact_id": _optional_source_id(artifact.get("artifact_id")),
+            "worker_artifact_version_id": _optional_source_id(artifact.get("artifact_version_id")),
         }
 
 
@@ -227,9 +183,7 @@ def _optional_source_id(value: object) -> str | None:
 _SERVICE = RecoveryWorkspaceArtifactManifestService()
 
 
-def get_recovery_workspace_artifact_manifest_service() -> (
-    RecoveryWorkspaceArtifactManifestService
-):
+def get_recovery_workspace_artifact_manifest_service() -> RecoveryWorkspaceArtifactManifestService:
     return _SERVICE
 
 

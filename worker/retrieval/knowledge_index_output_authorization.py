@@ -299,9 +299,7 @@ class KnowledgeIndexWorkerOutputCapabilityAuthorizer:
 class LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer:
     """Authorize one v1 output through the Worker's exact live assignment."""
 
-    def __init__(
-        self, *, task_repository: Any, worker_id: str, worker_url: str, secret: str
-    ) -> None:
+    def __init__(self, *, task_repository: Any, worker_id: str, worker_url: str, secret: str) -> None:
         self._tasks = task_repository
         self._worker_id = str(worker_id or "").strip()
         self._worker_url = str(worker_url or "").strip().rstrip("/")
@@ -322,21 +320,15 @@ class LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer:
         encoded_capability: str,
     ) -> None:
         normalized_job_id = str(job_id or "").strip()
-        if (
-            not _JOB_ID.fullmatch(normalized_job_id) or not self._secret
-        ):
+        if not _JOB_ID.fullmatch(normalized_job_id) or not self._secret:
             self._deny()
         task = self._tasks.get_by_id(normalized_job_id)
         context = self._mapping(self._value(task, "worker_execution_context"))
         job = self._mapping(context.get("knowledge_index_job"))
         if (
             task is None
-            or str(self._value(task, "task_kind") or "").strip().lower()
-            != "codecompass_index_build"
-            or str(self._value(task, "assigned_agent_url") or "")
-            .strip()
-            .rstrip("/")
-            != self._worker_url
+            or str(self._value(task, "task_kind") or "").strip().lower() != "codecompass_index_build"
+            or str(self._value(task, "assigned_agent_url") or "").strip().rstrip("/") != self._worker_url
             or job.get("schema") != "ananta.knowledge_index_job.v1"
             or str(job.get("job_id") or "") != normalized_job_id
         ):
@@ -349,10 +341,7 @@ class LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer:
             "output_role": str(output_role or ""),
         }
         if any(
-            not hmac.compare_digest(
-                str(artifact_metadata.get(field) or ""), value
-            )
-            for field, value in expected.items()
+            not hmac.compare_digest(str(artifact_metadata.get(field) or ""), value) for field, value in expected.items()
         ):
             self._deny()
         capability_binding = {

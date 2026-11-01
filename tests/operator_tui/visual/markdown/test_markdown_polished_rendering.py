@@ -1,12 +1,11 @@
 """MDP-017: Tests for polished Markdown rendering."""
+
 from __future__ import annotations
 
 import re
 
-import pytest
-
 from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import render_markdown_ansi_lines
-from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown, parse_inline_spans
+from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_inline_spans, parse_markdown
 
 
 def _strip(text: str) -> str:
@@ -18,6 +17,7 @@ def _render(md: str, width: int = 80) -> list[str]:
 
 
 # ── Headings ──────────────────────────────────────────────────────────────────
+
 
 def test_h1_rendered_with_prefix():
     lines = _render("# Hello World")
@@ -44,6 +44,7 @@ def test_h6_rendered():
 
 
 # ── Inline formatting ──────────────────────────────────────────────────────────
+
 
 def test_inline_code_backtick_preserved():
     spans = parse_inline_spans("Use `print()` here")
@@ -86,6 +87,7 @@ def test_mixed_inline_in_paragraph():
 
 # ── Bullet lists ──────────────────────────────────────────────────────────────
 
+
 def test_bullet_list_rendered():
     lines = _render("- Alpha\n- Beta\n- Gamma")
     content = [l for l in lines if l.strip()]
@@ -101,6 +103,7 @@ def test_bullet_uses_bullet_char():
 
 # ── Numbered lists ─────────────────────────────────────────────────────────────
 
+
 def test_numbered_list_rendered():
     lines = _render("1. First\n2. Second\n3. Third")
     content = [l for l in lines if l.strip()]
@@ -110,6 +113,7 @@ def test_numbered_list_rendered():
 
 # ── Blockquote ────────────────────────────────────────────────────────────────
 
+
 def test_blockquote_rendered_with_marker():
     lines = _render("> This is a quote")
     assert any("▌" in l or "|" in l for l in lines)
@@ -118,12 +122,14 @@ def test_blockquote_rendered_with_marker():
 
 # ── Horizontal rule ───────────────────────────────────────────────────────────
 
+
 def test_hr_rendered():
     lines = _render("---")
     assert any("─" in l for l in lines)
 
 
 # ── Tables ────────────────────────────────────────────────────────────────────
+
 
 def test_table_renders_headers():
     md = "| Name | Age |\n|------|-----|\n| Alice | 30 |\n| Bob | 25 |"
@@ -149,6 +155,7 @@ def test_table_narrow_viewport():
 
 
 # ── Code blocks ───────────────────────────────────────────────────────────────
+
 
 def test_code_block_shows_language():
     md = "```python\nprint('hello')\n```"
@@ -182,6 +189,7 @@ def test_code_block_no_ansi_injection():
 
 # ── Mermaid source fallback ───────────────────────────────────────────────────
 
+
 def test_mermaid_source_shown_as_code_block_without_error_header():
     md = "```mermaid\ngraph TD\n  A --> B\n```"
     lines = _render(md)
@@ -193,6 +201,7 @@ def test_mermaid_source_shown_as_code_block_without_error_header():
 
 
 # ── Links ────────────────────────────────────────────────────────────────────
+
 
 def test_link_renders_label_and_url():
     md = "Visit [Python](https://python.org) today."
@@ -212,6 +221,7 @@ def test_long_url_shortened():
 
 
 # ── Viewport width ────────────────────────────────────────────────────────────
+
 
 def test_narrow_viewport_does_not_crash():
     md = "# Heading\n\nSome paragraph text.\n\n- item\n- another"

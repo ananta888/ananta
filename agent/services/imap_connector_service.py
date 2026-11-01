@@ -7,25 +7,19 @@ from agent.services.imap_contract_service import validate_imap_account_config
 
 
 class ImapClient(Protocol):
-    def connect(self, *, host: str, port: int, username: str, credential: str, use_tls: bool) -> None:
-        ...
+    def connect(self, *, host: str, port: int, username: str, credential: str, use_tls: bool) -> None: ...
 
-    def list_mailboxes(self) -> list[str]:
-        ...
+    def list_mailboxes(self) -> list[str]: ...
 
-    def fetch_headers(self, *, mailbox: str, limit: int) -> list[dict[str, Any]]:
-        ...
+    def fetch_headers(self, *, mailbox: str, limit: int) -> list[dict[str, Any]]: ...
 
-    def fetch_body(self, *, mailbox: str, uid: int) -> str:
-        ...
+    def fetch_body(self, *, mailbox: str, uid: int) -> str: ...
 
-    def disconnect(self) -> None:
-        ...
+    def disconnect(self) -> None: ...
 
 
 class ImapClientFactory(Protocol):
-    def create(self) -> ImapClient:
-        ...
+    def create(self) -> ImapClient: ...
 
 
 class StaticImapClient:
@@ -39,7 +33,9 @@ class StaticImapClient:
     ) -> None:
         self._mailboxes = list(mailboxes or ["INBOX"])
         self._headers = {str(k): [dict(item) for item in list(v)] for k, v in dict(headers or {}).items()}
-        self._bodies = {str(k): {int(uid): str(text) for uid, text in dict(v).items()} for k, v in dict(bodies or {}).items()}
+        self._bodies = {
+            str(k): {int(uid): str(text) for uid, text in dict(v).items()} for k, v in dict(bodies or {}).items()
+        }
         self._connected = False
         self._fail_on_connect = str(fail_on_connect or "").strip()
 

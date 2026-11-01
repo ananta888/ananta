@@ -11,6 +11,7 @@ The "o" events start with \\x1b[2J\\x1b[H (clear + cursor-home, needed by the
 asciinema player) followed by ANSI-free text.  To strip all ANSI in JS:
   data.replace(/\\x1b\\[[0-?]*[ -\\/]*[@-~]|\\x1b./g, '')
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -24,10 +25,11 @@ _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
 _W, _H = 100, 30
 _SPLASH_CAST_FILE = Path(__file__).parent.parent / "output" / "operator_tui_splash.cast"
 
-_CLEAR = "\x1b[2J\x1b[H"   # clear screen + cursor home
+_CLEAR = "\x1b[2J\x1b[H"  # clear screen + cursor home
 
 
 # ── render helper ────────────────────────────────────────────────────────────
+
 
 def _render(*extra: str) -> tuple[int, str]:
     """Run operator TUI in render-once mode and return (exit_code, clean_text)."""
@@ -35,11 +37,17 @@ def _render(*extra: str) -> tuple[int, str]:
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = _run_tui([
-            "--render-once", "--skip-splash",
-            "--width", str(_W), "--height", str(_H),
-            *extra,
-        ])
+        rc = _run_tui(
+            [
+                "--render-once",
+                "--skip-splash",
+                "--width",
+                str(_W),
+                "--height",
+                str(_H),
+                *extra,
+            ]
+        )
     return rc, _ANSI_RE.sub("", buf.getvalue())
 
 
@@ -49,19 +57,25 @@ def _render_raw(*extra: str) -> tuple[int, str]:
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = _run_tui([
-            "--render-once",
-            "--width", str(_W), "--height", str(_H),
-            *extra,
-        ])
+        rc = _run_tui(
+            [
+                "--render-once",
+                "--width",
+                str(_W),
+                "--height",
+                str(_H),
+                *extra,
+            ]
+        )
     return rc, buf.getvalue()
 
 
 # ── recording ────────────────────────────────────────────────────────────────
 
+
 class _Frame(NamedTuple):
     label: str
-    screen: str     # ANSI-free, newline-separated
+    screen: str  # ANSI-free, newline-separated
 
 
 class _Recorder:
@@ -103,6 +117,7 @@ class _Recorder:
 
 
 # ── individual assertions ────────────────────────────────────────────────────
+
 
 def test_e2e_render_is_ansi_free() -> None:
     """Our renderer must not leak any ANSI escape codes into the TUI text."""
@@ -148,7 +163,7 @@ def test_e2e_all_sections_render_without_ansi() -> None:
 def test_e2e_command_navigation_changes_active_section() -> None:
     """`:section <id>` command must switch the active content pane."""
     _, before = _render("--section", "dashboard")
-    _, after  = _render("--section", "dashboard", "--command", ":section goals")
+    _, after = _render("--section", "dashboard", "--command", ":section goals")
     assert "GOALS" in after
     assert before != after
 
@@ -156,9 +171,12 @@ def test_e2e_command_navigation_changes_active_section() -> None:
 def test_e2e_chained_commands_are_applied_in_order() -> None:
     """Multiple --command flags must be executed left-to-right."""
     _, out = _render(
-        "--section", "dashboard",
-        "--command", ":section tasks",
-        "--command", ":section system",
+        "--section",
+        "dashboard",
+        "--command",
+        ":section tasks",
+        "--command",
+        ":section system",
     )
     assert "SYSTEM" in out
     assert "TASKS" not in out
@@ -191,6 +209,7 @@ def test_e2e_unknown_command_does_not_crash() -> None:
 
 # ── recording ────────────────────────────────────────────────────────────────
 
+
 def test_e2e_produces_cast_recording(tmp_path: Path) -> None:
     """
     Drives the TUI through key states and writes an isolated asciinema v2
@@ -198,16 +217,16 @@ def test_e2e_produces_cast_recording(tmp_path: Path) -> None:
     """
     rec = _Recorder()
 
-    rec.capture("01-dashboard",    "--section", "dashboard")
-    rec.capture("02-goals",        "--section", "goals")
-    rec.capture("03-tasks",        "--section", "tasks")
-    rec.capture("04-system",       "--section", "system")
-    rec.capture("05-help",         "--section", "help")
-    rec.capture("06-artifacts",    "--section", "artifacts")
+    rec.capture("01-dashboard", "--section", "dashboard")
+    rec.capture("02-goals", "--section", "goals")
+    rec.capture("03-tasks", "--section", "tasks")
+    rec.capture("04-system", "--section", "system")
+    rec.capture("05-help", "--section", "help")
+    rec.capture("06-artifacts", "--section", "artifacts")
     rec.capture("07-nav-to-tasks", "--section", "dashboard", "--command", ":section tasks")
     rec.capture("08-nav-to-goals", "--section", "dashboard", "--command", ":section goals")
-    rec.capture("09-inspect",      "--section", "tasks",     "--command", ":inspect")
-    rec.capture("10-system-refresh","--section", "system",   "--command", ":refresh")
+    rec.capture("09-inspect", "--section", "tasks", "--command", ":inspect")
+    rec.capture("10-system-refresh", "--section", "system", "--command", ":refresh")
 
     cast_file = tmp_path / "operator_tui_e2e.cast"
     rec.save(cast_file)
@@ -239,6 +258,6 @@ def test_e2e_produces_cast_recording(tmp_path: Path) -> None:
     frames_by_label = {f.label: f.screen for f in rec._frames}
 
     assert "DASHBOARD" in frames_by_label["01-dashboard"]
-    assert "GOALS"     in frames_by_label["02-goals"]
-    assert "TASKS"     in frames_by_label["03-tasks"]
-    assert "SYSTEM"    in frames_by_label["04-system"]
+    assert "GOALS" in frames_by_label["02-goals"]
+    assert "TASKS" in frames_by_label["03-tasks"]
+    assert "SYSTEM" in frames_by_label["04-system"]

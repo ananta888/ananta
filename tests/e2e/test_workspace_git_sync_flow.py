@@ -2,6 +2,7 @@
 
 Uses real git operations against a local bare repo (no docker, no hub process needed).
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -113,6 +114,7 @@ class TestHubGitRemoteService:
 
     def test_create_goal_repo_and_get_url(self, tmp_path: Path):
         from agent.services.hub_git_remote_service import HubGitRemoteService
+
         svc = HubGitRemoteService(repos_root=tmp_path / "repos")
         repo_path = svc.create_goal_repo("abc123def456xyz")
         assert repo_path.exists()
@@ -123,11 +125,13 @@ class TestHubGitRemoteService:
 
     def test_repo_exists_false_before_create(self, tmp_path: Path):
         from agent.services.hub_git_remote_service import HubGitRemoteService
+
         svc = HubGitRemoteService(repos_root=tmp_path / "repos")
         assert svc.repo_exists("no-such-goal") is False
 
     def test_create_is_idempotent(self, tmp_path: Path):
         from agent.services.hub_git_remote_service import HubGitRemoteService
+
         svc = HubGitRemoteService(repos_root=tmp_path / "repos")
         svc.create_goal_repo("goal1")
         svc.create_goal_repo("goal1")  # should not raise
@@ -135,6 +139,7 @@ class TestHubGitRemoteService:
 
     def test_list_branches_empty_on_new_repo(self, tmp_path: Path):
         from agent.services.hub_git_remote_service import HubGitRemoteService
+
         svc = HubGitRemoteService(repos_root=tmp_path / "repos")
         svc.create_goal_repo("goal2")
         branches = svc.list_branches("goal2")
@@ -142,6 +147,7 @@ class TestHubGitRemoteService:
 
     def test_worker_push_visible_as_branch(self, tmp_path: Path):
         from agent.services.hub_git_remote_service import HubGitRemoteService
+
         hub_svc = HubGitRemoteService(repos_root=tmp_path / "repos")
         hub_svc.create_goal_repo("goal3")
         remote_url = hub_svc.get_remote_url("goal3")

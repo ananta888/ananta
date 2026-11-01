@@ -31,9 +31,7 @@ from agent.services.human_approval_service import (  # noqa: E402
 
 class TestBuildPendingApprovalRecord:
     def test_returns_canonical_block(self):
-        record = build_pending_approval_record(
-            goal_id="g-1", gate_task_id="ptask-gate"
-        )
+        record = build_pending_approval_record(goal_id="g-1", gate_task_id="ptask-gate")
         assert record["schema"] == "workflow_gate_decision.v1"
         assert record["status"] == DECISION_PENDING
         assert record["decision_id"].startswith("hdec-")
@@ -59,9 +57,7 @@ def _pending_task():
         "status": "blocked",
         "verification_status": {
             "gate": DECISION_PENDING,
-            "gate_decision": build_pending_approval_record(
-                goal_id="g-1", gate_task_id="ptask-gate"
-            ),
+            "gate_decision": build_pending_approval_record(goal_id="g-1", gate_task_id="ptask-gate"),
         },
     }
 
@@ -69,10 +65,7 @@ def _pending_task():
 class TestApplyHumanDecision:
     def test_approves_pending_gate(self):
         task = _pending_task()
-        block = apply_human_decision(
-            task=task, operator="alice", outcome=DECISION_APPROVED,
-            reason="verified manually"
-        )
+        block = apply_human_decision(task=task, operator="alice", outcome=DECISION_APPROVED, reason="verified manually")
         assert block["status"] == DECISION_APPROVED
         assert block["resolved_by"] == "alice"
         assert block["resolution_reason"] == "verified manually"
@@ -82,18 +75,12 @@ class TestApplyHumanDecision:
 
     def test_rejects_pending_gate(self):
         task = _pending_task()
-        block = apply_human_decision(
-            task=task, operator="bob", outcome=DECISION_REJECTED,
-            reason="evidence missing"
-        )
+        block = apply_human_decision(task=task, operator="bob", outcome=DECISION_REJECTED, reason="evidence missing")
         assert block["status"] == DECISION_REJECTED
 
     def test_defers_pending_gate(self):
         task = _pending_task()
-        block = apply_human_decision(
-            task=task, operator="carol", outcome=DECISION_DEFERRED,
-            reason="waiting for QA"
-        )
+        block = apply_human_decision(task=task, operator="carol", outcome=DECISION_DEFERRED, reason="waiting for QA")
         assert block["status"] == DECISION_DEFERRED
         # Deferred does NOT mirror to ``gate`` because the
         # gate is still effectively pending.
@@ -102,9 +89,7 @@ class TestApplyHumanDecision:
     def test_preserves_existing_decision_id(self):
         task = _pending_task()
         existing_id = task["verification_status"]["gate_decision"]["decision_id"]
-        block = apply_human_decision(
-            task=task, operator="alice", outcome=DECISION_APPROVED
-        )
+        block = apply_human_decision(task=task, operator="alice", outcome=DECISION_APPROVED)
         assert block["decision_id"] == existing_id
 
     def test_invalid_outcome_raises(self):
@@ -121,9 +106,7 @@ class TestApplyHumanDecision:
 
     def test_works_on_task_without_existing_decision(self):
         task = {"id": "ptask-gate", "goal_id": "g-1", "verification_status": {}}
-        block = apply_human_decision(
-            task=task, operator="alice", outcome=DECISION_APPROVED
-        )
+        block = apply_human_decision(task=task, operator="alice", outcome=DECISION_APPROVED)
         assert block["status"] == DECISION_APPROVED
         assert block["decision_id"].startswith("hdec-")
 
@@ -132,20 +115,16 @@ class TestApplyHumanDecision:
             verification_status: dict = {}
             id = "ptask-gate"
             goal_id = "g-1"
+
         task = FakeTask()
-        block = apply_human_decision(
-            task=task, operator="alice", outcome=DECISION_APPROVED
-        )
+        block = apply_human_decision(task=task, operator="alice", outcome=DECISION_APPROVED)
         assert block["status"] == DECISION_APPROVED
         # Pydantic-style attribute assignment must have stuck
         assert task.verification_status["gate"] == DECISION_APPROVED
 
     def test_resolution_timestamp_set(self):
         task = _pending_task()
-        block = apply_human_decision(
-            task=task, operator="alice", outcome=DECISION_APPROVED,
-            timestamp=12345.0
-        )
+        block = apply_human_decision(task=task, operator="alice", outcome=DECISION_APPROVED, timestamp=12345.0)
         assert block["resolved_at"] == 12345.0
 
 
@@ -187,32 +166,34 @@ class TestSubmitViaRepo:
     def test_missing_task_raises(self, monkeypatch):
         # Stub the task_repo so we don't need a live DB
         import sys
+
         fake_module = type(sys)("agent.repository.task_repo")
+
         def fake_get_by_id(task_id):
             return None
+
         fake_module.get_by_id = fake_get_by_id
         monkeypatch.setitem(sys.modules, "agent.repository.task_repo", fake_module)
         with pytest.raises(HumanApprovalError):
             submit_human_decision_via_repo(
-                goal_id="g", gate_task_id="missing",
-                operator="alice", outcome=DECISION_APPROVED
+                goal_id="g", gate_task_id="missing", operator="alice", outcome=DECISION_APPROVED
             )
 
     def test_invalid_outcome_raises_before_db(self, monkeypatch):
         # No task_repo call should happen for an invalid outcome
         called = {"n": 0}
         import sys
+
         fake_module = type(sys)("agent.repository.task_repo")
+
         def fake_get_by_id(task_id):
             called["n"] += 1
             return None
+
         fake_module.get_by_id = fake_get_by_id
         monkeypatch.setitem(sys.modules, "agent.repository.task_repo", fake_module)
         with pytest.raises(HumanApprovalError):
-            submit_human_decision_via_repo(
-                goal_id="g", gate_task_id="t",
-                operator="alice", outcome="bogus"
-            )
+            submit_human_decision_via_repo(goal_id="g", gate_task_id="t", operator="alice", outcome="bogus")
         assert called["n"] == 0
 
     def test_reserved_vector_gate_is_never_mutated(

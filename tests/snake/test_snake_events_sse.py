@@ -10,10 +10,7 @@ Covers:
 from __future__ import annotations
 
 import json
-import queue
-import threading
 import time
-from typing import Any
 
 import jwt
 import pytest
@@ -133,8 +130,9 @@ class TestSnakeEventsStreamEndpoint:
 
     @pytest.fixture
     def client(self):
-        from agent.routes.snakes import _snakes, snakes_bp
         from flask import Flask
+
+        from agent.routes.snakes import _snakes, snakes_bp
 
         app = Flask(__name__)
         app.register_blueprint(snakes_bp)
@@ -168,9 +166,7 @@ class TestSnakeEventsStreamEndpoint:
 
     def test_stream_rejects_unauthenticated_and_long_lived_query_tokens(self, client):
         assert client.get("/snakes/test-snake/events/stream").status_code == 401
-        snake_bearer = client.get(
-            "/snakes/test-snake/events/stream?token=secret-token"
-        )
+        snake_bearer = client.get("/snakes/test-snake/events/stream?token=secret-token")
         assert snake_bearer.status_code == 401
         assert snake_bearer.get_json()["error"] == "legacy_query_credential_forbidden"
         full_user_query = client.get(
@@ -219,9 +215,7 @@ class TestSnakeEventsStreamEndpoint:
     def test_stream_token_mint_is_exactly_tenant_and_snake_bound(self, client):
         foreign = client.post(
             "/snakes/test-snake/events/stream-token",
-            headers={
-                "Authorization": f"Bearer {_user_jwt('stream-user', 'foreign-tenant')}"
-            },
+            headers={"Authorization": f"Bearer {_user_jwt('stream-user', 'foreign-tenant')}"},
         )
         assert foreign.status_code == 404
 

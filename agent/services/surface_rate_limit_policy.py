@@ -13,7 +13,6 @@ from agent.services.rate_limit_service import (
     get_rate_limit_service,
 )
 
-
 KANBAN_WRITE = "kanban_write"
 KANBAN_EVENT_RECONNECT = "kanban_event_reconnect"
 MODEL_CATALOG_REFRESH = "model_catalog_refresh"
@@ -135,9 +134,7 @@ def rate_limit_subject(
         "client_id",
         "username",
     ) or _claim(user, "id", "sub", "username", "name")
-    tenant = _claim(auth_payload, "tenant_id", "tenant") or _claim(
-        user, "tenant_id", "tenant"
-    )
+    tenant = _claim(auth_payload, "tenant_id", "tenant") or _claim(user, "tenant_id", "tenant")
     raw = f"{tenant or '-'}|{subject or remote_addr or 'anonymous'}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

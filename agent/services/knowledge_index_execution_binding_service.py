@@ -108,14 +108,10 @@ class KnowledgeIndexExecutionBindingService:
 
         normalized_owner_id = str(owner_id or "").strip()
         if not normalized_owner_id or len(normalized_owner_id) > 160:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_owner_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_owner_invalid")
         manifest = KnowledgeIndexFileManifest.create(files)
         payload = KnowledgeIndexExecutionPayload(
-            payload_artifact_ref=KnowledgeIndexPayloadArtifactRef.model_validate(
-                payload_artifact_ref
-            )
+            payload_artifact_ref=KnowledgeIndexPayloadArtifactRef.model_validate(payload_artifact_ref)
         )
         job = KnowledgeIndexExecutionJob.create(
             hub_task_id=hub_task_id,
@@ -152,39 +148,19 @@ class KnowledgeIndexExecutionBindingService:
             CurrentKnowledgeIndexAuthority(
                 tenant_id=record.job.authority_binding.tenant_id,
                 project_id=record.job.authority_binding.project_id,
-                source_revision_id=(
-                    record.job.authority_binding.source_revision_id
-                ),
-                source_revision_digest=(
-                    record.job.authority_binding.source_revision_digest
-                ),
-                admission_digest=(
-                    record.job.authority_binding.admission_digest
-                ),
-                policy_snapshot_id=(
-                    record.job.authority_binding.policy_snapshot_id
-                ),
-                policy_snapshot_digest=(
-                    record.job.authority_binding.policy_snapshot_digest
-                ),
-                destination_id=(
-                    record.job.authority_binding.destination_id
-                ),
-                destination_digest=(
-                    record.job.authority_binding.destination_digest
-                ),
-                source_access_grant_id=(
-                    record.job.authority_binding.source_access_grant_id
-                ),
-                source_access_grant_digest=(
-                    record.job.authority_binding.source_access_grant_digest
-                ),
+                source_revision_id=(record.job.authority_binding.source_revision_id),
+                source_revision_digest=(record.job.authority_binding.source_revision_digest),
+                admission_digest=(record.job.authority_binding.admission_digest),
+                policy_snapshot_id=(record.job.authority_binding.policy_snapshot_id),
+                policy_snapshot_digest=(record.job.authority_binding.policy_snapshot_digest),
+                destination_id=(record.job.authority_binding.destination_id),
+                destination_digest=(record.job.authority_binding.destination_digest),
+                source_access_grant_id=(record.job.authority_binding.source_access_grant_id),
+                source_access_grant_digest=(record.job.authority_binding.source_access_grant_digest),
             )
         )
         if record.job.assignment.lease_expires_epoch_ms <= self._clock_ms():
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_assignment_lease_expired"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_assignment_lease_expired")
 
     def admit_prepared_issue(
         self,
@@ -195,9 +171,7 @@ class KnowledgeIndexExecutionBindingService:
         self.validate_prepared_issue(record)
         admitted, _created = self._repository.admit(record)
         if not self.same_submission(admitted, record):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_idempotency_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_idempotency_conflict")
         return admitted
 
     def get_by_idempotency(
@@ -224,10 +198,7 @@ class KnowledgeIndexExecutionBindingService:
         candidate_job = candidate.job.to_wire()
         existing_job.pop("created_at_epoch_ms", None)
         candidate_job.pop("created_at_epoch_ms", None)
-        return bool(
-            existing.owner_id == candidate.owner_id
-            and existing_job == candidate_job
-        )
+        return bool(existing.owner_id == candidate.owner_id and existing_job == candidate_job)
 
     def get_record(self, job_id: str) -> KnowledgeIndexExecutionRecord:
         """Return the durable Hub execution projection without mutation."""
@@ -247,9 +218,7 @@ class KnowledgeIndexExecutionBindingService:
         )
         self._assert_current_binding(record.job.authority_binding)
         if record.state not in {"assigned", "running"}:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_not_dispatchable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_dispatchable")
         return record
 
     def validate_delegated_payload_access(
@@ -272,18 +241,14 @@ class KnowledgeIndexExecutionBindingService:
             lease_id=str(lease_id),
         )
         if record is None:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_not_found"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_found")
         self._assert_live_assignment(
             record,
             authenticated_worker_id=authenticated_worker_id,
         )
         self._assert_current_binding(record.job.authority_binding)
         if record.state != "running":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_payload_access_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_payload_access_invalid")
         return record
 
     def mark_running(
@@ -298,9 +263,7 @@ class KnowledgeIndexExecutionBindingService:
             authenticated_worker_id=authenticated_worker_id,
         )
         if current.lock_version != expected_lock_version:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_version_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_version_conflict")
         if current.state == "running":
             return current
         return self._repository.compare_and_set(
@@ -333,17 +296,10 @@ class KnowledgeIndexExecutionBindingService:
             authenticated_worker_id=authenticated_worker_id,
         )
         required_window_ms = (
-            current.job.resources.max_runtime_seconds
-            + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+            current.job.resources.max_runtime_seconds + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
         ) * 1000
-        if (
-            current.job.assignment.lease_expires_epoch_ms
-            - int(self._clock_ms())
-            < required_window_ms
-        ):
-            raise KnowledgeIndexExecutionBindingError(
-                KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
-            )
+        if current.job.assignment.lease_expires_epoch_ms - int(self._clock_ms()) < required_window_ms:
+            raise KnowledgeIndexExecutionBindingError(KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON)
         self._assert_dispatch_claimable(
             current,
             expected_lock_version=expected_lock_version,
@@ -359,10 +315,7 @@ class KnowledgeIndexExecutionBindingService:
                 expected_lock_version=current.lock_version,
             )
         except KnowledgeIndexExecutionBindingError as exc:
-            if (
-                exc.reason_code
-                != "knowledge_index_execution_version_conflict"
-            ):
+            if exc.reason_code != "knowledge_index_execution_version_conflict":
                 raise
             self._raise_dispatch_claim_conflict(
                 job_id=job_id,
@@ -393,20 +346,14 @@ class KnowledgeIndexExecutionBindingService:
 
         current = self._require(job_id)
         if current.lock_version != expected_lock_version:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_reconcile_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_reconcile_conflict")
         if is_expired_dispatch_tombstone(current):
             return current
         if current.state not in {"assigned", "running"}:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_not_reconcilable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_reconcilable")
         now_ms = int(self._clock_ms())
         if now_ms < current.job.assignment.lease_expires_epoch_ms:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_dispatch_lease_active"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_dispatch_lease_active")
         replacement = replace(
             current,
             state="failed",
@@ -423,9 +370,7 @@ class KnowledgeIndexExecutionBindingService:
         except KnowledgeIndexExecutionBindingError as exc:
             if exc.reason_code != "knowledge_index_execution_version_conflict":
                 raise
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_reconcile_conflict"
-            ) from None
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_reconcile_conflict") from None
 
     def validate_result(
         self,
@@ -445,9 +390,7 @@ class KnowledgeIndexExecutionBindingService:
             # permanent, non-replayable terminal authority decision.  It must
             # never be confused with a Worker-produced failed result merely
             # because both use the same lifecycle state.
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_lease_stale"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_lease_stale")
         if record.state in {"completed", "failed"}:
             # A terminal record is the durable authority decision.  Exact
             # result replay by its originally authenticated Worker must remain
@@ -455,23 +398,17 @@ class KnowledgeIndexExecutionBindingService:
             # expires, so a Hub crash between the result CAS and its
             # idempotent completion projection can be recovered.
             if authenticated_worker_id != job.assignment.worker_id:
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_lease_stale"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_lease_stale")
             if execution_digest(result.to_wire()) == record.result_digest:
                 return record, result
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_result_state_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_result_state_invalid")
         self._assert_live_assignment(
             record,
             authenticated_worker_id=authenticated_worker_id,
         )
         self._assert_current_binding(job.authority_binding)
         if record.state != "running":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_result_state_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_result_state_invalid")
         expected = {
             "job_id": job.job_id,
             "idempotency_fingerprint": job.idempotency_fingerprint,
@@ -479,40 +416,22 @@ class KnowledgeIndexExecutionBindingService:
             "worker_id": job.assignment.worker_id,
             "lease_id": job.assignment.lease_id,
             "lease_generation": job.assignment.lease_generation,
-            "source_revision_id": (
-                job.authority_binding.source_revision_id
-            ),
-            "source_revision_digest": (
-                job.authority_binding.source_revision_digest
-            ),
+            "source_revision_id": (job.authority_binding.source_revision_id),
+            "source_revision_digest": (job.authority_binding.source_revision_digest),
             "admission_digest": job.authority_binding.admission_digest,
-            "policy_snapshot_id": (
-                job.authority_binding.policy_snapshot_id
-            ),
-            "policy_snapshot_digest": (
-                job.authority_binding.policy_snapshot_digest
-            ),
+            "policy_snapshot_id": (job.authority_binding.policy_snapshot_id),
+            "policy_snapshot_digest": (job.authority_binding.policy_snapshot_digest),
             "destination_id": job.authority_binding.destination_id,
-            "destination_digest": (
-                job.authority_binding.destination_digest
-            ),
-            "source_access_grant_id": (
-                job.authority_binding.source_access_grant_id
-            ),
-            "source_access_grant_digest": (
-                job.authority_binding.source_access_grant_digest
-            ),
-            "authority_binding_digest": (
-                job.authority_binding.binding_digest
-            ),
+            "destination_digest": (job.authority_binding.destination_digest),
+            "source_access_grant_id": (job.authority_binding.source_access_grant_id),
+            "source_access_grant_digest": (job.authority_binding.source_access_grant_digest),
+            "authority_binding_digest": (job.authority_binding.binding_digest),
             "file_manifest_digest": job.file_manifest.manifest_digest,
         }
         wire = result.to_wire()
         for field, value in expected.items():
             if wire[field] != value:
-                raise KnowledgeIndexExecutionBindingError(
-                    f"knowledge_index_execution_result_{field}_stale"
-                )
+                raise KnowledgeIndexExecutionBindingError(f"knowledge_index_execution_result_{field}_stale")
         return record, result
 
     def finalize_result(
@@ -562,15 +481,11 @@ class KnowledgeIndexExecutionBindingService:
         )
         wire = parsed.to_wire()
         if str(wire.get("status") or "") != "completed":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_result_incomplete"
-            )
-        projection_payload, projection_digest = (
-            completion_projection_candidate(
-                job_id=str(job_id),
-                worker_result=wire,
-                materialized_result=materialized_result,
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_result_incomplete")
+        projection_payload, projection_digest = completion_projection_candidate(
+            job_id=str(job_id),
+            worker_result=wire,
+            materialized_result=materialized_result,
         )
         result_digest = execution_digest(wire)
         if record.state == "completed":
@@ -581,22 +496,16 @@ class KnowledgeIndexExecutionBindingService:
                 and projection.payload == projection_payload
             ):
                 return record, projection
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_conflict")
         if record.state != "running":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_result_state_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_result_state_invalid")
         commit = getattr(
             self._repository,
             "complete_with_projection",
             None,
         )
         if not callable(commit):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_store_unavailable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_store_unavailable")
         now_epoch_ms = int(self._clock_ms())
         try:
             return commit(
@@ -636,10 +545,13 @@ class KnowledgeIndexExecutionBindingService:
         result_digest: str,
         projection_digest: str,
         projection_payload: dict[str, Any],
-    ) -> tuple[
-        KnowledgeIndexExecutionRecord,
-        KnowledgeIndexCompletionProjectionRecord,
-    ] | None:
+    ) -> (
+        tuple[
+            KnowledgeIndexExecutionRecord,
+            KnowledgeIndexCompletionProjectionRecord,
+        ]
+        | None
+    ):
         """Converge an ambiguous commit only from exact durable evidence."""
 
         try:
@@ -672,34 +584,21 @@ class KnowledgeIndexExecutionBindingService:
             None,
         )
         if not callable(getter):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_store_unavailable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_store_unavailable")
         projection = getter(str(job_id))
         if projection is None:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_not_found"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_not_found")
         digest = validate_completion_projection_payload(
             projection.payload,
             job_id=str(job_id),
         )
         if digest != projection.projection_digest:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_digest_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_digest_invalid")
         if require_terminal_result:
             record = self._require(str(job_id))
-            worker_result_digest = str(
-                projection.payload.get("worker_result_digest") or ""
-            )
-            if (
-                record.state != "completed"
-                or record.result_digest != worker_result_digest
-            ):
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_completion_projection_not_ready"
-                )
+            worker_result_digest = str(projection.payload.get("worker_result_digest") or "")
+            if record.state != "completed" or record.result_digest != worker_result_digest:
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_not_ready")
         return projection
 
     def mark_completion_projection_projected(
@@ -710,28 +609,19 @@ class KnowledgeIndexExecutionBindingService:
         expected_projection_digest: str,
     ) -> KnowledgeIndexCompletionProjectionRecord:
         projection = self.get_completion_projection(str(job_id))
-        if (
-            projection.projection_digest
-            != str(expected_projection_digest)
-        ):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_conflict"
-            )
+        if projection.projection_digest != str(expected_projection_digest):
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_conflict")
         marker = getattr(
             self._repository,
             "mark_completion_projection_projected",
             None,
         )
         if not callable(marker):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_store_unavailable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_store_unavailable")
         return marker(
             job_id=str(job_id),
             expected_lock_version=int(expected_lock_version),
-            expected_projection_digest=str(
-                expected_projection_digest
-            ),
+            expected_projection_digest=str(expected_projection_digest),
             now_epoch_ms=int(self._clock_ms()),
         )
 
@@ -742,13 +632,8 @@ class KnowledgeIndexExecutionBindingService:
         expected_lock_version: int,
     ) -> KnowledgeIndexExecutionRecord:
         record = self._require(job_id)
-        if (
-            record.lock_version != expected_lock_version
-            or record.state not in {"assigned", "running"}
-        ):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_cancel_conflict"
-            )
+        if record.lock_version != expected_lock_version or record.state not in {"assigned", "running"}:
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_cancel_conflict")
         return self._repository.compare_and_set(
             replace(
                 record,
@@ -772,27 +657,20 @@ class KnowledgeIndexExecutionBindingService:
         if (
             record.lock_version != expected_lock_version
             or record.state not in {"failed", "cancelled"}
-            or assignment.lease_generation
-            != record.job.assignment.lease_generation + 1
+            or assignment.lease_generation != record.job.assignment.lease_generation + 1
         ):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_retry_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_retry_conflict")
         # Every v2 execution is bound to the exact admitted source-access
         # grant.  That grant is one-time, so replacing only the assignment
         # would reuse consumed authority and make a second transport possible.
         # A retry therefore requires normal admission of a new job with a new
         # grant and idempotency key.
-        raise KnowledgeIndexExecutionBindingError(
-            "knowledge_index_retry_requires_fresh_grant"
-        )
+        raise KnowledgeIndexExecutionBindingError("knowledge_index_retry_requires_fresh_grant")
 
     def _require(self, job_id: str) -> KnowledgeIndexExecutionRecord:
         record = self._repository.get(job_id)
         if record is None:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_not_found"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_found")
         return record
 
     @staticmethod
@@ -802,17 +680,11 @@ class KnowledgeIndexExecutionBindingService:
         expected_lock_version: int,
     ) -> None:
         if record.state == "running":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_dispatch_in_progress"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_dispatch_in_progress")
         if record.state != "assigned":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_not_dispatchable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_dispatchable")
         if record.lock_version != expected_lock_version:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_version_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_version_conflict")
 
     def _raise_dispatch_claim_conflict(
         self,
@@ -827,13 +699,9 @@ class KnowledgeIndexExecutionBindingService:
                 authenticated_worker_id=authenticated_worker_id,
             )
             self._assert_current_binding(latest.job.authority_binding)
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_dispatch_in_progress"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_dispatch_in_progress")
         if latest.state != "assigned":
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_not_dispatchable"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_dispatchable")
 
     def _assert_live_assignment(
         self,
@@ -846,9 +714,7 @@ class KnowledgeIndexExecutionBindingService:
             authenticated_worker_id != assignment.worker_id
             or int(self._clock_ms()) >= assignment.lease_expires_epoch_ms
         ):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_lease_stale"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_lease_stale")
 
     def _assert_current(
         self,
@@ -862,9 +728,7 @@ class KnowledgeIndexExecutionBindingService:
             source_access_grant_id=expected.source_access_grant_id,
         )
         if current != expected:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_authority_stale"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_authority_stale")
 
     def _assert_current_binding(
         self,
@@ -882,9 +746,7 @@ class KnowledgeIndexExecutionBindingService:
                 destination_id=binding.destination_id,
                 destination_digest=binding.destination_digest,
                 source_access_grant_id=binding.source_access_grant_id,
-                source_access_grant_digest=(
-                    binding.source_access_grant_digest
-                ),
+                source_access_grant_digest=(binding.source_access_grant_digest),
             )
         )
 

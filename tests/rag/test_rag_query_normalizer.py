@@ -1,19 +1,18 @@
 """Tests for agent/rag_query_normalizer.py — RCFG-009, RTS-008."""
+
 from __future__ import annotations
 
 from agent.rag_query_normalizer import (
-    normalize_query,
-    normalize_query_from_settings,
-    _keyword_de_to_en,
-    _keyword_en_to_de,
     _is_mixed_code_query,
     _mixed_code_query_expansion,
+    normalize_query,
+    normalize_query_from_settings,
 )
-
 
 # ---------------------------------------------------------------------------
 # off mode
 # ---------------------------------------------------------------------------
+
 
 def test_off_mode_returns_only_original() -> None:
     result = normalize_query("Wie funktioniert der Autopilot?", mode="off")
@@ -34,6 +33,7 @@ def test_off_mode_empty_query() -> None:
 # ---------------------------------------------------------------------------
 # keyword DE→EN mode
 # ---------------------------------------------------------------------------
+
 
 def test_keyword_de_autopilot_tick_engine() -> None:
     result = normalize_query(
@@ -125,6 +125,7 @@ def test_keyword_no_llm_network_call(monkeypatch) -> None:
 # llm mode fallback
 # ---------------------------------------------------------------------------
 
+
 def test_llm_mode_falls_back_to_keyword() -> None:
     """llm mode without provider falls back to keyword silently."""
     result_llm = normalize_query("Wie funktioniert der agent?", mode="llm", directions="de_to_en")
@@ -135,6 +136,7 @@ def test_llm_mode_falls_back_to_keyword() -> None:
 # ---------------------------------------------------------------------------
 # EN→DE mode (RTS-004)
 # ---------------------------------------------------------------------------
+
 
 def test_en_to_de_permission_check() -> None:
     result = normalize_query(
@@ -167,6 +169,7 @@ def test_en_to_de_deactivatable() -> None:
 # ---------------------------------------------------------------------------
 # Mixed-code-query (RTS-005)
 # ---------------------------------------------------------------------------
+
 
 def test_mixed_code_query_detection() -> None:
     assert _is_mixed_code_query("wo wird repository_map in der snake initialisiert") is True
@@ -205,8 +208,10 @@ def test_mixed_code_repo_snake_example() -> None:
 # Integration: normalize_query_from_settings
 # ---------------------------------------------------------------------------
 
+
 def test_normalize_from_settings_returns_list(monkeypatch) -> None:
     from agent.config import settings
+
     monkeypatch.setattr(settings, "rag_query_normalize_mode", "keyword", raising=False)
     monkeypatch.setattr(settings, "rag_query_translation_directions", "de_to_en", raising=False)
     result = normalize_query_from_settings("Wie funktioniert der service?")
@@ -217,6 +222,7 @@ def test_normalize_from_settings_returns_list(monkeypatch) -> None:
 
 def test_normalize_from_settings_off_mode(monkeypatch) -> None:
     from agent.config import settings
+
     monkeypatch.setattr(settings, "rag_query_normalize_mode", "off", raising=False)
     result = normalize_query_from_settings("irgendeine query")
     assert result == ["irgendeine query"]

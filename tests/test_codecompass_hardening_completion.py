@@ -321,21 +321,27 @@ def test_layer_scope_keys_rollback_and_stale_cas(tmp_path) -> None:
         repository_id="repository",
     )
     assert first_key != second_key
-    assert registry.create_head(
-        first_key,
-        layer_id="layer-1",
-        snapshot_revision="rev-1",
-        layer_set={"symbols": "layer-1"},
-    ).new_generation == 1
-    assert registry.update_head(
-        first_key,
-        expected_generation=1,
-        new_layer_id="layer-2",
-        snapshot_revision="rev-2",
-        append_delta=False,
-        new_layer_set={"symbols": "layer-2"},
-        replace_artifact_kinds=["symbols"],
-    ).new_generation == 2
+    assert (
+        registry.create_head(
+            first_key,
+            layer_id="layer-1",
+            snapshot_revision="rev-1",
+            layer_set={"symbols": "layer-1"},
+        ).new_generation
+        == 1
+    )
+    assert (
+        registry.update_head(
+            first_key,
+            expected_generation=1,
+            new_layer_id="layer-2",
+            snapshot_revision="rev-2",
+            append_delta=False,
+            new_layer_set={"symbols": "layer-2"},
+            replace_artifact_kinds=["symbols"],
+        ).new_generation
+        == 2
+    )
     rolled_back = registry.rollback(
         first_key,
         target_generation=1,
@@ -443,9 +449,7 @@ def test_suspended_github_installation_and_legacy_refs_fail_closed() -> None:
         HubGitAuthorizationProvisioningError,
         match="git_authorization_github_installation_inactive",
     ):
-        resolver.resolve(
-            "secret://github-app/installation/7/repository/owner%2Frepository"
-        )
+        resolver.resolve("secret://github-app/installation/7/repository/owner%2Frepository")
     assert api.token_calls == 0
 
     legacy = "secret://github-app/installation/7"

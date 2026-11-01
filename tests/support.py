@@ -7,16 +7,15 @@ from sqlmodel import Session
 from agent.auth import INVALID_TOKEN_WARN_LAST, generate_token
 from agent.config import settings
 from agent.database import engine
-from agent.db_models import BannedIPDB, LoginAttemptDB, UserDB
+from agent.db_models import UserDB
 
 
 def initial_admin_credentials() -> tuple[str, str]:
-    username = str(getattr(settings, "initial_admin_user", "") or os.environ.get("INITIAL_ADMIN_USER") or "admin").strip() or "admin"
-    password = (
-        getattr(settings, "initial_admin_password", None)
-        or os.environ.get("INITIAL_ADMIN_PASSWORD")
+    username = (
+        str(getattr(settings, "initial_admin_user", "") or os.environ.get("INITIAL_ADMIN_USER") or "admin").strip()
         or "admin"
     )
+    password = getattr(settings, "initial_admin_password", None) or os.environ.get("INITIAL_ADMIN_PASSWORD") or "admin"
     return username, str(password)
 
 

@@ -36,9 +36,7 @@ class RecoverySourcePostCommitService:
         *,
         repository_provider: Callable[[], Any] | None = None,
         mutation_lock_provider: Callable[[], Any] | None = None,
-        callback_delivery_port: (
-            RecoverySourceCallbackDeliveryPort | None
-        ) = None,
+        callback_delivery_port: (RecoverySourceCallbackDeliveryPort | None) = None,
         retry_after_seconds: float = 30.0,
         attempt_id_factory: Callable[[], str] | None = None,
     ) -> None:
@@ -54,9 +52,7 @@ class RecoverySourcePostCommitService:
             float(retry_after_seconds),
         )
         self._attempt_id_factory = (
-            attempt_id_factory
-            if attempt_id_factory is not None
-            else lambda: secrets.token_hex(16)
+            attempt_id_factory if attempt_id_factory is not None else lambda: secrets.token_hex(16)
         )
 
     def _repos(self):
@@ -91,28 +87,19 @@ class RecoverySourcePostCommitService:
                     "recovery_source_post_commit_lock_unavailable",
                 )
             task = repos.task_repo.get_by_id(normalized_id)
-            details = _mapping(
-                getattr(task, "status_reason_details", None)
-            )
-            marker = _mapping(
-                details.get("recovery_source_post_commit")
-            )
+            details = _mapping(getattr(task, "status_reason_details", None))
+            marker = _mapping(details.get("recovery_source_post_commit"))
             if (
                 task is None
                 or recovery_task_role(task) != "source"
-                or normalize_task_status(
-                    getattr(task, "status", None)
-                )
-                not in {"completed", "verification_failed"}
+                or normalize_task_status(getattr(task, "status", None)) not in {"completed", "verification_failed"}
                 or not marker
             ):
                 return RecoverySourcePostCommitDecision(
                     False,
                     "recovery_source_post_commit_not_pending",
                 )
-            transition_id = str(
-                marker.get("transition_id") or ""
-            ).strip() or None
+            transition_id = str(marker.get("transition_id") or "").strip() or None
             state = str(marker.get("state") or "").strip().lower()
             if state == "completed":
                 return RecoverySourcePostCommitDecision(
@@ -120,26 +107,15 @@ class RecoverySourcePostCommitService:
                     "recovery_source_post_commit_completed",
                     transition_id,
                 )
-            processing_at = float(
-                marker.get("processing_at") or 0.0
-            )
-            if (
-                state == "processing"
-                and now - processing_at < self._retry_after_seconds
-            ):
+            processing_at = float(marker.get("processing_at") or 0.0)
+            if state == "processing" and now - processing_at < self._retry_after_seconds:
                 return RecoverySourcePostCommitDecision(
                     False,
                     "recovery_source_post_commit_inflight",
                     transition_id,
                 )
-            attempt_id = str(
-                self._attempt_id_factory() or ""
-            ).strip()
-            if (
-                not attempt_id
-                or attempt_id
-                == str(marker.get("attempt_id") or "")
-            ):
+            attempt_id = str(self._attempt_id_factory() or "").strip()
+            if not attempt_id or attempt_id == str(marker.get("attempt_id") or ""):
                 return RecoverySourcePostCommitDecision(
                     False,
                     "recovery_source_post_commit_attempt_id_invalid",
@@ -151,10 +127,7 @@ class RecoverySourcePostCommitService:
                     "state": "processing",
                     "processing_at": now,
                     "attempt_id": attempt_id,
-                    "attempt_count": int(
-                        marker.get("attempt_count") or 0
-                    )
-                    + 1,
+                    "attempt_count": int(marker.get("attempt_count") or 0) + 1,
                 }
             )
             details["recovery_source_post_commit"] = marker
@@ -169,10 +142,7 @@ class RecoverySourcePostCommitService:
                 current=previous_marker,
                 proposed=marker,
             ):
-                persisted = (
-                    repos.task_repo.save(task)
-                    or repos.task_repo.get_by_id(normalized_id)
-                )
+                persisted = repos.task_repo.save(task) or repos.task_repo.get_by_id(normalized_id)
             marker = _mapping(
                 _mapping(
                     getattr(
@@ -194,21 +164,13 @@ class RecoverySourcePostCommitService:
                 )
 
         try:
-            callback_delivery = (
-                self._callback_delivery_port.deliver(
-                    normalized_id,
-                    old_status=str(
-                        marker.get("old_status") or ""
-                    )
-                    or None,
-                    event_type="recovery_source_finalized",
-                )
+            callback_delivery = self._callback_delivery_port.deliver(
+                normalized_id,
+                old_status=str(marker.get("old_status") or "") or None,
+                event_type="recovery_source_finalized",
             )
             if not callback_delivery.delivered:
-                raise RuntimeError(
-                    callback_delivery.reason_code
-                    or "recovery_source_callback_delivery_failed"
-                )
+                raise RuntimeError(callback_delivery.reason_code or "recovery_source_callback_delivery_failed")
         except Exception as exc:
             failure_recorded = self._record_failure(
                 task_id=normalized_id,
@@ -234,12 +196,8 @@ class RecoverySourcePostCommitService:
                     transition_id,
                 )
             task = repos.task_repo.get_by_id(normalized_id)
-            details = _mapping(
-                getattr(task, "status_reason_details", None)
-            )
-            current = _mapping(
-                details.get("recovery_source_post_commit")
-            )
+            details = _mapping(getattr(task, "status_reason_details", None))
+            current = _mapping(details.get("recovery_source_post_commit"))
             if not self._owns_processing_claim(
                 current,
                 transition_id=transition_id,
@@ -270,10 +228,7 @@ class RecoverySourcePostCommitService:
                 current=previous_marker,
                 proposed=current,
             ):
-                persisted = (
-                    repos.task_repo.save(task)
-                    or repos.task_repo.get_by_id(normalized_id)
-                )
+                persisted = repos.task_repo.save(task) or repos.task_repo.get_by_id(normalized_id)
             persisted_marker = _mapping(
                 _mapping(
                     getattr(
@@ -284,16 +239,9 @@ class RecoverySourcePostCommitService:
                 ).get("recovery_source_post_commit")
             )
             if not (
-                str(persisted_marker.get("state") or "")
-                == "completed"
-                and str(
-                    persisted_marker.get("transition_id") or ""
-                )
-                == str(transition_id or "")
-                and str(
-                    persisted_marker.get("attempt_id") or ""
-                )
-                == attempt_id
+                str(persisted_marker.get("state") or "") == "completed"
+                and str(persisted_marker.get("transition_id") or "") == str(transition_id or "")
+                and str(persisted_marker.get("attempt_id") or "") == attempt_id
                 and persisted_marker.get("last_error") is None
             ):
                 return RecoverySourcePostCommitDecision(
@@ -322,12 +270,8 @@ class RecoverySourcePostCommitService:
             task = repos.task_repo.get_by_id(task_id)
             if task is None:
                 return False
-            details = _mapping(
-                getattr(task, "status_reason_details", None)
-            )
-            marker = _mapping(
-                details.get("recovery_source_post_commit")
-            )
+            details = _mapping(getattr(task, "status_reason_details", None))
+            marker = _mapping(details.get("recovery_source_post_commit"))
             if not self._owns_processing_claim(
                 marker,
                 transition_id=transition_id,
@@ -354,10 +298,7 @@ class RecoverySourcePostCommitService:
                 current=previous_marker,
                 proposed=marker,
             ):
-                persisted = (
-                    repos.task_repo.save(task)
-                    or repos.task_repo.get_by_id(task_id)
-                )
+                persisted = repos.task_repo.save(task) or repos.task_repo.get_by_id(task_id)
             persisted_marker = _mapping(
                 _mapping(
                     getattr(
@@ -368,20 +309,10 @@ class RecoverySourcePostCommitService:
                 ).get("recovery_source_post_commit")
             )
             return bool(
-                str(persisted_marker.get("state") or "")
-                == "pending"
-                and str(
-                    persisted_marker.get("transition_id") or ""
-                )
-                == str(transition_id or "")
-                and str(
-                    persisted_marker.get("attempt_id") or ""
-                )
-                == attempt_id
-                and str(
-                    persisted_marker.get("last_error") or ""
-                )
-                == str(error or "")[:500]
+                str(persisted_marker.get("state") or "") == "pending"
+                and str(persisted_marker.get("transition_id") or "") == str(transition_id or "")
+                and str(persisted_marker.get("attempt_id") or "") == attempt_id
+                and str(persisted_marker.get("last_error") or "") == str(error or "")[:500]
             )
 
     @staticmethod
@@ -394,19 +325,14 @@ class RecoverySourcePostCommitService:
         """Return whether this delivery still owns the persisted CAS claim."""
 
         return bool(
-            str(marker.get("state") or "").strip().lower()
-            == "processing"
-            and str(marker.get("transition_id") or "")
-            == str(transition_id or "")
-            and str(marker.get("attempt_id") or "")
-            == str(attempt_id or "")
+            str(marker.get("state") or "").strip().lower() == "processing"
+            and str(marker.get("transition_id") or "") == str(transition_id or "")
+            and str(marker.get("attempt_id") or "") == str(attempt_id or "")
         )
 
 
 _service = RecoverySourcePostCommitService()
 
 
-def get_recovery_source_post_commit_service() -> (
-    RecoverySourcePostCommitService
-):
+def get_recovery_source_post_commit_service() -> RecoverySourcePostCommitService:
     return _service

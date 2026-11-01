@@ -1,4 +1,5 @@
 """SkillRunner: capability-gated skill execution via WorkerToolRegistry. AWF-T029."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,9 +13,10 @@ from worker.skills.skill_registry import SkillRegistry
 @dataclass
 class SkillRunResult:
     """Result of a single skill execution. AWF-T029."""
+
     skill_id: str
     version: str
-    status: str         # "completed" | "failed" | "denied"
+    status: str  # "completed" | "failed" | "denied"
     reason: str | None
     artifacts: list[dict[str, Any]] = field(default_factory=list)
 

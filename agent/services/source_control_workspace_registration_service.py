@@ -12,6 +12,11 @@ from collections.abc import Callable, Mapping
 from agent.repositories.source_control_workspace_registration_repository import (
     SourceControlWorkspacePersistenceError,
 )
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectAccessPort,
+    ProjectCapability,
+)
 from agent.services.source_control_workspace_catalog import (
     SourceControlWorkspaceCatalogError,
 )
@@ -21,11 +26,6 @@ from agent.services.source_control_workspace_contracts import (
     WorkspaceFolderSelection,
     WorkspaceRegistrationRecord,
     WorkspaceValidationBinding,
-)
-from agent.services.project_access_authority import (
-    ProjectAccessError,
-    ProjectAccessPort,
-    ProjectCapability,
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
@@ -51,9 +51,7 @@ class SourceControlWorkspaceRegistrationService:
         project_access: ProjectAccessPort,
         ttl_seconds: int = 300,
         clock: Callable[[], float] = time.time,
-        token_factory: Callable[[], str] = (
-            lambda: secrets.token_urlsafe(32)
-        ),
+        token_factory: Callable[[], str] = (lambda: secrets.token_urlsafe(32)),
     ) -> None:
         if not 30 <= int(ttl_seconds) <= 900:
             raise ValueError("workspace_validation_ttl_invalid")
@@ -149,10 +147,7 @@ class SourceControlWorkspaceRegistrationService:
                     },
                 }
             except SourceControlWorkspacePersistenceError as exc:
-                if (
-                    exc.reason_code
-                    == "workspace_validation_handle_collision"
-                ):
+                if exc.reason_code == "workspace_validation_handle_collision":
                     continue
                 raise
         raise SourceControlWorkspaceRegistrationError(
@@ -318,15 +313,13 @@ class SourceControlWorkspaceRegistrationService:
     ):
         key = str(idempotency_key or "").strip()
         if _IDEMPOTENCY.fullmatch(key) is None:
-            raise SourceControlWorkspaceRegistrationError(
-                "idempotency_key_required"
-            )
-        operation_key = "workspace:" + hashlib.sha256(
-            (
-                f"{scope.tenant_id}\0{scope.project_id}\0"
-                f"{scope.owner_id}\0{key}"
-            ).encode("utf-8")
-        ).hexdigest()
+            raise SourceControlWorkspaceRegistrationError("idempotency_key_required")
+        operation_key = (
+            "workspace:"
+            + hashlib.sha256(
+                (f"{scope.tenant_id}\0{scope.project_id}\0{scope.owner_id}\0{key}").encode("utf-8")
+            ).hexdigest()
+        )
         plan_digest = hashlib.sha256(
             json.dumps(
                 {
@@ -357,11 +350,7 @@ class SourceControlWorkspaceRegistrationService:
     @staticmethod
     def _claimed_token(claim: object) -> str:
         token = getattr(claim, "claim_token", None)
-        if (
-            getattr(claim, "state", None) != "claimed"
-            or not isinstance(token, str)
-            or not token
-        ):
+        if getattr(claim, "state", None) != "claimed" or not isinstance(token, str) or not token:
             raise SourceControlWorkspaceRegistrationError(
                 "workspace_idempotency_claim_failed",
                 status_code=409,
@@ -434,9 +423,7 @@ class SourceControlWorkspaceRegistrationService:
     @staticmethod
     def _require_workspace_id(workspace_id: str) -> None:
         if _WORKSPACE_ID.fullmatch(str(workspace_id or "")) is None:
-            raise SourceControlWorkspaceRegistrationError(
-                "workspace_id_invalid"
-            )
+            raise SourceControlWorkspaceRegistrationError("workspace_id_invalid")
 
     def _record_denial(
         self,

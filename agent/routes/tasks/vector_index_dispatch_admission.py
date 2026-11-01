@@ -15,35 +15,18 @@ from agent.utils import rate_limit
 
 
 def _bearer_token() -> str:
-    auth_header = str(
-        request.headers.get("Authorization") or ""
-    ).strip()
-    return (
-        auth_header.removeprefix("Bearer ").strip()
-        if auth_header.startswith("Bearer ")
-        else ""
-    )
+    auth_header = str(request.headers.get("Authorization") or "").strip()
+    return auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
 
 
 def _authenticate_worker():
     return authenticate_vector_index_worker(
         provided_token=_bearer_token(),
-        claimed_worker_id=str(
-            request.headers.get("X-Ananta-Worker-ID") or ""
-        ).strip(),
-        claimed_worker_url=str(
-            request.headers.get("X-Ananta-Worker-URL") or ""
-        ).strip(),
-        registered_agents=(
-            get_repository_registry().agent_repo.get_all() or ()
-        ),
+        claimed_worker_id=str(request.headers.get("X-Ananta-Worker-ID") or "").strip(),
+        claimed_worker_url=str(request.headers.get("X-Ananta-Worker-URL") or "").strip(),
+        registered_agents=(get_repository_registry().agent_repo.get_all() or ()),
         forbidden_tokens=(
-            str(
-                resolve_configured_agent_token(
-                    current_app.config
-                )
-                or ""
-            ),
+            str(resolve_configured_agent_token(current_app.config) or ""),
             str(current_app.secret_key or ""),
         ),
         config=current_app.config,
@@ -69,18 +52,11 @@ def vector_index_dispatch_admission(tid: str):
         )
 
     payload = request.get_json(silent=True)
-    if (
-        not isinstance(payload, dict)
-        or set(payload) != {"attempt_id", "sequence", "phase"}
-    ):
+    if not isinstance(payload, dict) or set(payload) != {"attempt_id", "sequence", "phase"}:
         return api_response(
             status="error",
             message="vector index dispatch admission invalid",
-            data={
-                "reason_code": (
-                    "vector_index_dispatch_admission_request_invalid"
-                )
-            },
+            data={"reason_code": ("vector_index_dispatch_admission_request_invalid")},
             code=400,
         )
     # Resolve at the service boundary so the established test/injection seam
@@ -90,19 +66,13 @@ def vector_index_dispatch_admission(tid: str):
     )
 
     try:
-        admission = (
-            get_vector_index_task_service()
-            .admit_dispatch_attempt(
-                job_id=str(tid or ""),
-                attempt_id=payload.get("attempt_id"),
-                sequence=payload.get("sequence"),
-                phase=payload.get("phase"),
-                worker_audience=identity.worker_url,
-                actor=(
-                    "vector-index-worker:"
-                    + identity.worker_id
-                ),
-            )
+        admission = get_vector_index_task_service().admit_dispatch_attempt(
+            job_id=str(tid or ""),
+            attempt_id=payload.get("attempt_id"),
+            sequence=payload.get("sequence"),
+            phase=payload.get("phase"),
+            worker_audience=identity.worker_url,
+            actor=("vector-index-worker:" + identity.worker_id),
         )
     except ValueError as exc:
         return api_response(
@@ -121,9 +91,7 @@ def vector_index_dispatch_admission(tid: str):
     return api_response(
         data={
             "allowed": True,
-            "reason_code": (
-                "vector_index_dispatch_admission_granted"
-            ),
+            "reason_code": ("vector_index_dispatch_admission_granted"),
             "job_id": str(tid or ""),
             "attempt_id": admission["attempt_id"],
             "sequence": admission["sequence"],
@@ -137,10 +105,7 @@ def register_vector_index_dispatch_admission_route(
     blueprint: Blueprint,
 ) -> None:
     blueprint.add_url_rule(
-        (
-            "/internal/tasks/<tid>/"
-            "vector-index-dispatch-admission"
-        ),
+        ("/internal/tasks/<tid>/vector-index-dispatch-admission"),
         endpoint="vector_index_dispatch_admission",
         view_func=vector_index_dispatch_admission,
         methods=["POST"],

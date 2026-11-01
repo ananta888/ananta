@@ -4,6 +4,7 @@ This module keeps service-owned helpers behind ``CliBackendContext`` so
 the CLI backend package depends on its public DI boundary instead of
 importing ``agent.services`` directly.
 """
+
 from __future__ import annotations
 
 from typing import Any

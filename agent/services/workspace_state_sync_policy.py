@@ -1,4 +1,5 @@
 """WorkspaceStateSyncPolicy — normalises how workers exchange state via the hub."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -46,6 +47,7 @@ class WorkspaceStateSyncPolicy:
             if ws_cfg.get("sync_mode"):
                 return cls.from_config(ws_cfg)
             from flask import current_app, has_app_context
+
             if has_app_context():
                 agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
                 global_ws = dict(agent_cfg.get("workspace") or {})

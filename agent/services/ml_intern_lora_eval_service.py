@@ -23,6 +23,7 @@ class EvalError(ValueError):
 
 # --- Scoring ---------------------------------------------------------------
 
+
 def _score_todo_json(output_text: str) -> dict[str, Any]:
     """Deterministisches Scoring fuer ananta-todo-json Ausgaben."""
     return score_todo_track_output(output_text)
@@ -57,6 +58,7 @@ _SCORERS = {
 
 
 # --- Eval-Ergebnis -Strukturen ---------------------------------------------
+
 
 @dataclass
 class EvalSample:
@@ -93,6 +95,7 @@ class EvalReport:
 
 
 # --- Eval-Service ----------------------------------------------------------
+
 
 class MlInternLoraEvalService:
     """Eval-Runner fuer Base vs. Adapter Vergleich."""
@@ -153,15 +156,17 @@ class MlInternLoraEvalService:
 
             base_score = scorer(base_out)
             adapter_score = scorer(adapter_out)
-            samples.append(EvalSample(
-                prompt_index=i,
-                prompt=prompt[:500],
-                base_output=base_out[:1000],
-                adapter_output=adapter_out[:1000],
-                base_score=base_score,
-                adapter_score=adapter_score,
-                adapter_wins=float(adapter_score.get("total", 0)) >= float(base_score.get("total", 0)),
-            ))
+            samples.append(
+                EvalSample(
+                    prompt_index=i,
+                    prompt=prompt[:500],
+                    base_output=base_out[:1000],
+                    adapter_output=adapter_out[:1000],
+                    base_score=base_score,
+                    adapter_score=adapter_score,
+                    adapter_wins=float(adapter_score.get("total", 0)) >= float(base_score.get("total", 0)),
+                )
+            )
 
         base_avg = (sum(float(s.base_score.get("total", 0)) for s in samples) / len(samples)) if samples else 0.0
         adapter_avg = (sum(float(s.adapter_score.get("total", 0)) for s in samples) / len(samples)) if samples else 0.0
@@ -192,6 +197,7 @@ class MlInternLoraEvalService:
     @staticmethod
     def _hash_file(path: Path) -> str:
         import hashlib
+
         h = hashlib.sha256()
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):

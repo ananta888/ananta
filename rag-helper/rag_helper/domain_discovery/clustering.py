@@ -25,7 +25,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from rag_helper.domain_discovery.contracts import DomainCandidate
-from rag_helper.domain_discovery.graph_model import DomainGraph, STRUCTURAL_EDGE_TYPES
+from rag_helper.domain_discovery.graph_model import STRUCTURAL_EDGE_TYPES, DomainGraph
 from rag_helper.domain_discovery.signals import (
     assign_root_path,
     collect_package_prefixes,
@@ -95,8 +95,7 @@ class _Cluster:
 
         return DomainCandidate(
             domain_id=self.domain_id,
-            display_name=self.domain_id.replace("-", " ").replace("_", " ").title()
-            or self.domain_id,
+            display_name=self.domain_id.replace("-", " ").replace("_", " ").title() or self.domain_id,
             confidence=round(confidence, 4),
             root_paths=sorted(self.root_paths),
             package_prefixes=sorted(self.package_prefixes),
@@ -108,9 +107,7 @@ class _Cluster:
                 "internal_edge_count": self.internal_relation_count,
                 "inbound_edge_count": self.inbound_edges,
                 "outbound_edge_count": self.outbound_edges,
-                "edge_type_counts": dict(
-                    sorted(self.edge_type_counts.items())
-                ),
+                "edge_type_counts": dict(sorted(self.edge_type_counts.items())),
             },
             boundary_warnings=list(self.boundary_warnings),
             evidence={
@@ -158,17 +155,13 @@ def _aggregate_packages(records: list[dict], manifest: dict) -> dict[str, int]:
     return counts
 
 
-def _assign_via_path(
-    record_id: str, file_path: str | None, root_paths: list[str]
-) -> str | None:
+def _assign_via_path(record_id: str, file_path: str | None, root_paths: list[str]) -> str | None:
     if not file_path:
         return None
     return assign_root_path(file_path, root_paths)
 
 
-def _assign_via_package(
-    record_id: str, record: dict, root_paths: list[str]
-) -> str | None:
+def _assign_via_package(record_id: str, record: dict, root_paths: list[str]) -> str | None:
     """Best-effort package-based fallback when path-signal gives no root.
 
     Only runs for records with a package/namespace AND a file path; the file
@@ -216,9 +209,7 @@ def _assign_via_graph(
     return None
 
 
-def _find_cluster_for_node(
-    node_id: str, cluster_index: dict[str, _Cluster]
-) -> str | None:
+def _find_cluster_for_node(node_id: str, cluster_index: dict[str, _Cluster]) -> str | None:
     for cid, cluster in cluster_index.items():
         if node_id in cluster.member_record_ids:
             return cid
@@ -259,12 +250,7 @@ def cluster_domains(
     manifest = dict(manifest or {})
 
     files = [n.file for n in graph.nodes.values() if n.file]
-    root_paths = [
-        c.root_path
-        for c in derive_root_path_candidates(
-            [f for f in files if f], min_files=min_files
-        )
-    ]
+    root_paths = [c.root_path for c in derive_root_path_candidates([f for f in files if f], min_files=min_files)]
 
     # Initial clusters: one per root_path
     clusters: dict[str, _Cluster] = {}
@@ -324,9 +310,7 @@ def cluster_domains(
     # graph-signal on id alone (record belongs only via edges).
     pending = [rid for rid in sorted(graph.nodes) if rid not in _all_member_ids(clusters)]
     for record_id in pending:
-        target = _assign_via_graph(
-            record_id, clusters, graph, min_edges=min_coupled_edges
-        )
+        target = _assign_via_graph(record_id, clusters, graph, min_edges=min_coupled_edges)
         if target is None:
             unassigned.append(record_id)
             continue
@@ -371,9 +355,7 @@ def cluster_domains(
     # Phase 6: importance scores and relation metrics per cluster
     importance = {nid: (n.importance_score or 0.0) for nid, n in graph.nodes.items()}
     for cluster in clusters.values():
-        cluster.importance_by_id = {
-            rid: importance.get(rid, 0.0) for rid in cluster.member_record_ids
-        }
+        cluster.importance_by_id = {rid: importance.get(rid, 0.0) for rid in cluster.member_record_ids}
 
     members_by_id: dict[str, str] = {}
     for cid, cluster in clusters.items():
@@ -408,9 +390,7 @@ def cluster_domains(
     kept: list[_Cluster] = []
     for cluster in sorted(clusters.values(), key=lambda c: c.domain_id):
         if cluster.layer_only or not cluster.member_record_ids:
-            warnings.append(
-                f"cluster '{cluster.domain_id}' dropped: technical-layer-only or empty"
-            )
+            warnings.append(f"cluster '{cluster.domain_id}' dropped: technical-layer-only or empty")
             continue
         kept.append(cluster)
 

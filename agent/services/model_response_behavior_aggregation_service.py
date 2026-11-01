@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections import Counter
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any
 
-from agent.services.repository_registry import get_repository_registry
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
+from agent.services.repository_registry import get_repository_registry
 
 
 class ModelResponseBehaviorAggregationService:
@@ -29,7 +28,13 @@ class ModelResponseBehaviorAggregationService:
     @staticmethod
     def _shape_to_output_format(shape: str | None) -> str:
         normalized = str(shape or "").strip().lower()
-        if normalized in {"strict_json_array", "strict_json_object", "json_in_markdown_fence", "partial_json", "python_literal"}:
+        if normalized in {
+            "strict_json_array",
+            "strict_json_object",
+            "json_in_markdown_fence",
+            "partial_json",
+            "python_literal",
+        }:
             return "json"
         if normalized in {"markdown_bullets", "numbered_steps"}:
             return "markdown"
@@ -66,17 +71,19 @@ class ModelResponseBehaviorAggregationService:
         parse = Counter()
         repair = Counter()
         family = Counter()
-        family_groups: dict[str, dict[str, Any]] = defaultdict(lambda: {
-            "run_count": 0,
-            "parse_success_count": 0,
-            "validation_success_count": 0,
-            "materialization_success_count": 0,
-            "repair_count": 0,
-            "truncation_count": 0,
-            "shape": Counter(),
-            "format": Counter(),
-            "parse": Counter(),
-        })
+        family_groups: dict[str, dict[str, Any]] = defaultdict(
+            lambda: {
+                "run_count": 0,
+                "parse_success_count": 0,
+                "validation_success_count": 0,
+                "materialization_success_count": 0,
+                "repair_count": 0,
+                "truncation_count": 0,
+                "shape": Counter(),
+                "format": Counter(),
+                "parse": Counter(),
+            }
+        )
         total = 0
         for r in runs:
             if provider and str(r.model_provider or "") != str(provider):
@@ -103,9 +110,13 @@ class ModelResponseBehaviorAggregationService:
             family[model_family] += 1
             family_item = family_groups[model_family]
             family_item["run_count"] += 1
-            family_item["parse_success_count"] += 1 if str(learning_record.get("parse_mode") or "") not in {"", "parse_failed"} else 0
+            family_item["parse_success_count"] += (
+                1 if str(learning_record.get("parse_mode") or "") not in {"", "parse_failed"} else 0
+            )
             family_item["validation_success_count"] += 1 if bool(learning_record.get("validation_success")) else 0
-            family_item["materialization_success_count"] += 1 if int(learning_record.get("generated_task_count") or 0) > 0 else 0
+            family_item["materialization_success_count"] += (
+                1 if int(learning_record.get("generated_task_count") or 0) > 0 else 0
+            )
             family_item["repair_count"] += 1 if bool(r.repair_needed) else 0
             family_item["truncation_count"] += 1 if bool(learning_record.get("truncation_flag")) else 0
             family_item["shape"][shp] += 1
@@ -132,13 +143,23 @@ class ModelResponseBehaviorAggregationService:
                     "validation_success_rate": validation_success_rate,
                     "materialization_success_rate": materialization_success_rate,
                     "truncation_rate": truncation_rate,
-                    "output_shape_distribution": self._normalized_distribution(item["shape"], total=int(item["run_count"] or 0)),
-                    "output_format_distribution": self._normalized_distribution(item["format"], total=int(item["run_count"] or 0)),
-                    "parse_mode_distribution": self._normalized_distribution(item["parse"], total=int(item["run_count"] or 0)),
+                    "output_shape_distribution": self._normalized_distribution(
+                        item["shape"], total=int(item["run_count"] or 0)
+                    ),
+                    "output_format_distribution": self._normalized_distribution(
+                        item["format"], total=int(item["run_count"] or 0)
+                    ),
+                    "parse_mode_distribution": self._normalized_distribution(
+                        item["parse"], total=int(item["run_count"] or 0)
+                    ),
                     "preferred_output_shape": preferred_output_shape,
                     "preferred_output_format": preferred_output_format,
                     "preferred_parse_mode": preferred_parse_mode,
-                    "behavior_state": "stable" if preferred_output_format.get("state") == "stable" and parse_success_rate >= 0.6 and validation_success_rate >= 0.6 else "candidate",
+                    "behavior_state": "stable"
+                    if preferred_output_format.get("state") == "stable"
+                    and parse_success_rate >= 0.6
+                    and validation_success_rate >= 0.6
+                    else "candidate",
                 }
             )
         family_summaries.sort(key=lambda item: item["run_count"], reverse=True)

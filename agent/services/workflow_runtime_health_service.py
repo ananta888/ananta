@@ -84,9 +84,7 @@ class AgentDirectoryRuntimeHealthSource:
             if str(getattr(agent, "role", "worker") or "worker") != "worker":
                 continue
             capabilities = {
-                str(item).strip()
-                for item in (getattr(agent, "capabilities", None) or ())
-                if str(item).strip()
+                str(item).strip() for item in (getattr(agent, "capabilities", None) or ()) if str(item).strip()
             }
             targets = _runtime_targets(getattr(agent, "runtime_targets", None) or ())
             if not (capability_names & capabilities or aliases & targets):
@@ -112,18 +110,12 @@ class AgentDirectoryRuntimeHealthSource:
                 reason = "runtime_health_worker_unavailable"
             observation = RuntimeHealthObservation(
                 runtime_id=normalized,
-                instance_id=str(
-                    getattr(agent, "url", "")
-                    or getattr(agent, "name", "")
-                    or "unknown-worker"
-                ),
+                instance_id=str(getattr(agent, "url", "") or getattr(agent, "name", "") or "unknown-worker"),
                 status=health_status,
                 reason_code=reason,
                 observed_at=now,
                 expires_at=now + min(self._stale_after_seconds, 30.0),
-                runtime_version=_target_version(
-                    getattr(agent, "runtime_targets", None) or (), aliases
-                ),
+                runtime_version=_target_version(getattr(agent, "runtime_targets", None) or (), aliases),
                 source="hub_worker_directory",
             )
             observation.assert_valid()
@@ -148,9 +140,7 @@ class ConfiguredEndpointRuntimeHealthSource:
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._endpoints = {
-            _normalize_runtime_id(key): str(value).strip()
-            for key, value in endpoints.items()
-            if str(value).strip()
+            _normalize_runtime_id(key): str(value).strip() for key, value in endpoints.items() if str(value).strip()
         }
         self._client = client
         self._timeout_seconds = max(0.1, min(float(timeout_seconds), 10.0))
@@ -164,9 +154,7 @@ class ConfiguredEndpointRuntimeHealthSource:
             return ()
         now = self._clock()
         try:
-            status_code, payload = self._client.get_json(
-                url, timeout_seconds=self._timeout_seconds
-            )
+            status_code, payload = self._client.get_json(url, timeout_seconds=self._timeout_seconds)
             body = payload.get("data") if isinstance(payload.get("data"), Mapping) else payload
             reported_status = str(body.get("status") or "").strip().lower()
             ready = bool(body.get("ready", reported_status == "ready"))
@@ -210,8 +198,7 @@ class WorkflowRuntimeObservedHealthService:
     ) -> None:
         self._sources = tuple(sources)
         self._expected_versions = {
-            _normalize_runtime_id(key): str(value).strip()
-            for key, value in (expected_versions or {}).items()
+            _normalize_runtime_id(key): str(value).strip() for key, value in (expected_versions or {}).items()
         }
         self._clock = clock
 
@@ -232,32 +219,23 @@ class WorkflowRuntimeObservedHealthService:
                 if observation.runtime_id == normalized and observation.expires_at > now:
                     observations.append(observation)
         if not observations:
-            return RuntimeHealthSnapshot(
-                normalized, "unavailable", "runtime_health_not_observed"
-            )
+            return RuntimeHealthSnapshot(normalized, "unavailable", "runtime_health_not_observed")
 
         expected_version = self._expected_versions.get(normalized, "")
         version_mismatch = expected_version and any(
-            item.runtime_version and item.runtime_version != expected_version
-            for item in observations
+            item.runtime_version and item.runtime_version != expected_version for item in observations
         )
         if version_mismatch:
-            return RuntimeHealthSnapshot(
-                normalized, "degraded", "runtime_health_version_mismatch"
-            )
+            return RuntimeHealthSnapshot(normalized, "degraded", "runtime_health_version_mismatch")
         ranked = sorted(
             observations,
             key=lambda item: (
-                {"ready": 0, "degraded": 1, "unavailable": 2, "disabled": 3}[
-                    item.status
-                ],
+                {"ready": 0, "degraded": 1, "unavailable": 2, "disabled": 3}[item.status],
                 item.instance_id,
             ),
         )
         selected = ranked[0]
-        return RuntimeHealthSnapshot(
-            normalized, selected.status, selected.reason_code
-        )
+        return RuntimeHealthSnapshot(normalized, selected.status, selected.reason_code)
 
 
 class _DefaultRuntimeHealthHttpClient:
@@ -334,8 +312,7 @@ def _target_version(values: Sequence[Any], aliases: frozenset[str]) -> str:
         if not isinstance(item, Mapping):
             continue
         identity = {
-            str(item.get(field) or "").strip().lower()
-            for field in ("runtime_id", "adapter_id", "runtime_target_id")
+            str(item.get(field) or "").strip().lower() for field in ("runtime_id", "adapter_id", "runtime_target_id")
         }
         if identity & aliases:
             return str(item.get("runtime_version") or item.get("version") or "").strip()

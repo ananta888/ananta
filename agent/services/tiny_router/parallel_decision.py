@@ -80,8 +80,9 @@ class CircuitBreaker:
 class HttpParallelDecisionRuntime:
     """POSTs one decision to the endpoint named by the profile's ``endpoint_env``."""
 
-    def __init__(self, *, opener: Callable[..., Any] = urllib.request.urlopen,
-                 environ: Mapping[str, str] | None = None) -> None:
+    def __init__(
+        self, *, opener: Callable[..., Any] = urllib.request.urlopen, environ: Mapping[str, str] | None = None
+    ) -> None:
         self._opener = opener
         self._environ = environ
 
@@ -93,8 +94,10 @@ class HttpParallelDecisionRuntime:
 
     def decide(self, profile: TinyActionModelProfile, body: Mapping[str, Any], *, timeout_ms: int) -> Any:
         request = urllib.request.Request(
-            self.base_url(profile) + DECISION_PATH, data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"}, method="POST",
+            self.base_url(profile) + DECISION_PATH,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
         )
         try:
             with self._opener(request, timeout=max(0.05, timeout_ms / 1000.0)) as response:
@@ -108,8 +111,13 @@ class ParallelDecisionAdapter:
 
     adapter_id = ADAPTER_ID
 
-    def __init__(self, runtime: Any | None = None, *, breaker: CircuitBreaker | None = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        runtime: Any | None = None,
+        *,
+        breaker: CircuitBreaker | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._runtime = runtime or HttpParallelDecisionRuntime()
         self._breaker = breaker or CircuitBreaker()
         self._clock = clock

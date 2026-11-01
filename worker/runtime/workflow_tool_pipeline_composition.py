@@ -29,13 +29,8 @@ logger = logging.getLogger(__name__)
 class HubBoundWorkerToolPolicy:
     """Local defense-in-depth over the Hub-signed tool allowlist."""
 
-    def authorize(
-        self, request: ToolCallRequest, descriptor: WorkerToolEntry
-    ) -> ToolCallDecision:
-        envelope_tools = {
-            str(item)
-            for item in request.authorization_envelope.get("allowed_tools", ())
-        }
+    def authorize(self, request: ToolCallRequest, descriptor: WorkerToolEntry) -> ToolCallDecision:
+        envelope_tools = {str(item) for item in request.authorization_envelope.get("allowed_tools", ())}
         if descriptor.id not in envelope_tools:
             return ToolCallDecision(False, "workflow_tool_not_in_signed_allowlist")
         if f"tool:{descriptor.id}" not in set(request.allowed_policy_scopes):
@@ -51,9 +46,7 @@ class BoundedWorkerToolBudget:
         self._usage: dict[tuple[str, str], int] = {}
         self._lock = threading.RLock()
 
-    def reserve(
-        self, request: ToolCallRequest, _descriptor: WorkerToolEntry
-    ) -> ToolCallDecision:
+    def reserve(self, request: ToolCallRequest, _descriptor: WorkerToolEntry) -> ToolCallDecision:
         key = (request.tenant_id, request.run_id)
         with self._lock:
             used = self._usage.get(key, 0)
@@ -70,9 +63,7 @@ class BoundedWorkerToolBudget:
 class HubConfirmedWorkerToolApproval:
     """Require the approval reference already verified by Hub authorization."""
 
-    def authorize(
-        self, request: ToolCallRequest, descriptor: WorkerToolEntry
-    ) -> ToolCallDecision:
+    def authorize(self, request: ToolCallRequest, descriptor: WorkerToolEntry) -> ToolCallDecision:
         if not descriptor.side_effects:
             return ToolCallDecision(True, "workflow_read_tool_approval_not_required")
         if not request.approval_ref or not request.hub_task_id:
@@ -132,18 +123,14 @@ class WorkerRuntimeToolInvoker:
                     "workflow_tool_task_not_found",
                 )
             task_payload = task.model_dump()
-            workspace = self._workspaces.resolve_workspace_context(
-                task=task_payload
-            )
+            workspace = self._workspaces.resolve_workspace_context(task=task_payload)
             runtime_result = self._runtime.dispatch(
                 tool_name=request.tool_id,
                 arguments=request.arguments,
                 task_id=request.hub_task_id,
                 goal_id=str(task_payload.get("goal_id") or "") or None,
                 workspace_ref=str(workspace.workspace_dir),
-                mutation_mode=(
-                    "controlled_workspace" if descriptor.side_effects else "read_only"
-                ),
+                mutation_mode=("controlled_workspace" if descriptor.side_effects else "read_only"),
                 policy_decision={
                     "decision": "allow",
                     "risk_class": descriptor.risk_class,
@@ -172,9 +159,7 @@ class WorkerRuntimeToolInvoker:
             exit_code=0 if success else 1,
             artifacts=list(runtime_result.get("artifacts") or []),
             reason_code=(
-                None
-                if success
-                else str(runtime_result.get("error") or "workflow_tool_execution_failed")[:256]
+                None if success else str(runtime_result.get("error") or "workflow_tool_execution_failed")[:256]
             ),
             truncated=len(rendered) > len(bounded),
             task_id=request.hub_task_id,
@@ -222,9 +207,7 @@ def build_workflow_tool_pipeline(
 
     if client is None:
         raise ValueError("workflow_hub_gateway_not_configured")
-    resolved_registry = registry or AdaptedToolDescriptorRegistry(
-        (LangChainBuiltinToolCatalogSource(),)
-    )
+    resolved_registry = registry or AdaptedToolDescriptorRegistry((LangChainBuiltinToolCatalogSource(),))
     return ToolCallingPipeline(
         registry=resolved_registry,
         authorization=HubToolAuthorizationAdapter(client),

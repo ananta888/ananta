@@ -181,10 +181,7 @@ def test_ensure_schema_compat_backfills_legacy_agents_registration_columns(monke
 
 
 def test_alembic_contains_strict_worker_registration_provenance_migration():
-    migration = Path(
-        "migrations/versions/"
-        "v1w2x3y4z5a6_add_agent_registration_provenance.py"
-    )
+    migration = Path("migrations/versions/v1w2x3y4z5a6_add_agent_registration_provenance.py")
     assert migration.exists()
     content = migration.read_text(encoding="utf-8")
     assert 'down_revision: str | Sequence[str] | None = "u1v2w3x4y5z6"' in content
@@ -193,10 +190,7 @@ def test_alembic_contains_strict_worker_registration_provenance_migration():
 
 
 def test_alembic_contains_hub_worker_assignment_migration():
-    migration = Path(
-        "migrations/versions/"
-        "w1x2y3z4a5b6_add_workflow_worker_assignments.py"
-    )
+    migration = Path("migrations/versions/w1x2y3z4a5b6_add_workflow_worker_assignments.py")
     assert migration.exists()
     content = migration.read_text(encoding="utf-8")
     assert 'down_revision: str | Sequence[str] | None = "v1w2x3y4z5a6"' in content

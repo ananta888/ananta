@@ -34,7 +34,6 @@ from agent.services.webrtc_peer_key_confirmation_service import (
 )
 from ananta_contracts.webrtc_security import SecureEnvelopeV1
 
-
 _rate_limiter = RateLimitService()
 
 
@@ -133,9 +132,7 @@ def _strict_pair_authorizer(
     contract_digest: str,
 ):
     service = get_share_session_service()
-    memberships = [
-        item for item in service.get_security_memberships(session_id) if item.get("active")
-    ]
+    memberships = [item for item in service.get_security_memberships(session_id) if item.get("active")]
     member_by_peer = {str(item.get("peer_id") or ""): item for item in memberships}
     active_peers = set(member_by_peer)
 

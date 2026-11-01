@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Mapping
 
-
 CapabilityState = Literal["active", "unknown", "unsupported", "stale"]
 
 
@@ -34,12 +33,27 @@ class SfuBrowserCapabilityWriteResult:
 
 
 def unknown_capability(
-    *, tenant_id: str, room_id: str, browser_pseudonym: str,
-    admission_epoch: int, membership_epoch: int,
+    *,
+    tenant_id: str,
+    room_id: str,
+    browser_pseudonym: str,
+    admission_epoch: int,
+    membership_epoch: int,
 ) -> SfuBrowserCapabilitySnapshot:
     return SfuBrowserCapabilitySnapshot(
-        tenant_id, room_id, browser_pseudonym, admission_epoch, membership_epoch,
-        0, 0, "unknown", "unknown", (), "unknown", 0, "",
+        tenant_id,
+        room_id,
+        browser_pseudonym,
+        admission_epoch,
+        membership_epoch,
+        0,
+        0,
+        "unknown",
+        "unknown",
+        (),
+        "unknown",
+        0,
+        "",
     )
 
 

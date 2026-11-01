@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from typing import Any
 
-
 CANONICAL_AUDIT_EVENT_SCHEMA: dict[str, Any] = {
     "schema": "canonical_audit_event.v1",
     "required_fields": [

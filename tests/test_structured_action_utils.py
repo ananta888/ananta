@@ -1,4 +1,7 @@
-from agent.common.utils.structured_action_utils import normalize_structured_action_payload, parse_structured_action_payload
+from agent.common.utils.structured_action_utils import (
+    normalize_structured_action_payload,
+    parse_structured_action_payload,
+)
 
 
 def test_normalize_structured_action_payload_combines_command_with_args():
@@ -36,6 +39,7 @@ def test_parse_structured_action_payload_fallback_recovers_command_with_args():
 def test_placeholder_command_is_no_command():
     assert normalize_structured_action_payload({"command": "null", "tool_calls": []}) is None
     payload = normalize_structured_action_payload(
-        {"command": "None", "tool_calls": [{"name": "file_write", "args": {"path": "result.md", "content": "x"}}]})
+        {"command": "None", "tool_calls": [{"name": "file_write", "args": {"path": "result.md", "content": "x"}}]}
+    )
     assert payload["command"] is None and payload["tool_calls"][0]["name"] == "file_write"
     assert parse_structured_action_payload('{"command": "null", "reason": "nichts"}') is None

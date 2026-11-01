@@ -68,9 +68,7 @@ class VectorStoreFactory:
                 module = importlib.import_module("worker.retrieval.duckdb_vector_store")
                 backend_type: Any = getattr(module, "DuckDBVectorStore")
             except (ImportError, AttributeError) as exc:
-                raise VectorStoreConfigError(
-                    "duckdb_backend_not_installed: install the ananta[duckdb] extra"
-                ) from exc
+                raise VectorStoreConfigError("duckdb_backend_not_installed: install the ananta[duckdb] extra") from exc
             store = backend_type.from_config(config.duckdb)
             return self._with_availability_policy(
                 store,
@@ -84,9 +82,7 @@ class VectorStoreFactory:
                 module = importlib.import_module("worker.retrieval.qdrant_vector_store")
                 backend_type: Any = getattr(module, "QdrantVectorStore")
             except (ImportError, AttributeError) as exc:
-                raise VectorStoreConfigError(
-                    "qdrant_backend_not_installed: install the ananta[qdrant] extra"
-                ) from exc
+                raise VectorStoreConfigError("qdrant_backend_not_installed: install the ananta[qdrant] extra") from exc
             store = backend_type.from_config(
                 config.qdrant,
                 secret_resolver=secret_resolver,

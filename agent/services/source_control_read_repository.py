@@ -1,5 +1,4 @@
-"""Scoped SQL read model behind the Source Control projections, bindings and ETags.
-"""
+"""Scoped SQL read model behind the Source Control projections, bindings and ETags."""
 
 from __future__ import annotations
 
@@ -35,9 +34,7 @@ class SQLSourceControlReadRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
-    def binding(
-        self, *, resource_kind: str, resource_id: str
-    ) -> Mapping[str, object] | None:
+    def binding(self, *, resource_kind: str, resource_id: str) -> Mapping[str, object] | None:
         model: type[Any]
         if resource_kind == "source_connection":
             model = SourceConnectionDB
@@ -49,9 +46,7 @@ class SQLSourceControlReadRepository:
             with Session(self._engine) as db:
                 row = db.exec(
                     select(ContextPolicyVersionDB)
-                    .where(
-                        ContextPolicyVersionDB.policy_id == resource_id
-                    )
+                    .where(ContextPolicyVersionDB.policy_id == resource_id)
                     .order_by(ContextPolicyVersionDB.version.desc())
                 ).first()
                 if row is None:
@@ -89,29 +84,15 @@ class SQLSourceControlReadRepository:
                 SourceConnectionDB.project_id == project_id,
             )
             if after_id is not None:
-                statement = statement.where(
-                    SourceConnectionDB.connection_id > after_id
-                )
+                statement = statement.where(SourceConnectionDB.connection_id > after_id)
             for name in ("state", "connector_type", "owner_id", "sensitivity"):
                 if value := filters.get(name):
-                    statement = statement.where(
-                        getattr(SourceConnectionDB, name) == str(value)
-                    )
-            rows = list(
-                db.exec(
-                    statement.order_by(SourceConnectionDB.connection_id).limit(
-                        limit + 1
-                    )
-                ).all()
-            )
+                    statement = statement.where(getattr(SourceConnectionDB, name) == str(value))
+            rows = list(db.exec(statement.order_by(SourceConnectionDB.connection_id).limit(limit + 1)).all())
             selected = rows[:limit]
             return SourceControlPage(
                 records=tuple(self._aggregate(db, row) for row in selected),
-                next_cursor=(
-                    encode_cursor(selected[-1].connection_id)
-                    if len(rows) > limit and selected
-                    else None
-                ),
+                next_cursor=(encode_cursor(selected[-1].connection_id) if len(rows) > limit and selected else None),
             )
 
     def get_aggregate(
@@ -131,9 +112,7 @@ class SQLSourceControlReadRepository:
             ).first()
             return None if row is None else self._aggregate(db, row)
 
-    def connection_version(
-        self, *, tenant_id: str, project_id: str, connection_id: str
-    ) -> int:
+    def connection_version(self, *, tenant_id: str, project_id: str, connection_id: str) -> int:
         with Session(self._engine) as db:
             row = db.exec(
                 select(SourceConnectionDB).where(
@@ -143,42 +122,29 @@ class SQLSourceControlReadRepository:
                 )
             ).first()
             if row is None:
-                raise SourceControlApiRuntimeError(
-                    "source_control_not_found", status_code=404
-                )
+                raise SourceControlApiRuntimeError("source_control_not_found", status_code=404)
             return int(row.lock_version)
 
-    def index_version(
-        self, *, tenant_id: str, project_id: str, knowledge_index_id: str
-    ) -> int:
+    def index_version(self, *, tenant_id: str, project_id: str, knowledge_index_id: str) -> int:
         with Session(self._engine) as db:
             row = db.exec(
                 select(KnowledgeIndexSourceBindingDB).where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
                 )
             ).first()
             if row is None:
-                raise SourceControlApiRuntimeError(
-                    "source_control_not_found", status_code=404
-                )
+                raise SourceControlApiRuntimeError("source_control_not_found", status_code=404)
             return int(row.lock_version)
 
     @staticmethod
     def index_etag(version: int) -> str:
         return f'"index:{version}"'
 
-    def _aggregate(
-        self, db: Session, connection: SourceConnectionDB
-    ) -> SourceControlAggregateRecord:
+    def _aggregate(self, db: Session, connection: SourceConnectionDB) -> SourceControlAggregateRecord:
         revisions = list(
-            db.exec(
-                select(SourceRevisionDB).where(
-                    SourceRevisionDB.connection_id == connection.connection_id
-                )
-            ).all()
+            db.exec(select(SourceRevisionDB).where(SourceRevisionDB.connection_id == connection.connection_id)).all()
         )
         revision = max(
             revisions,
@@ -188,8 +154,7 @@ class SQLSourceControlReadRepository:
         indexes = list(
             db.exec(
                 select(KnowledgeIndexSourceBindingDB).where(
-                    KnowledgeIndexSourceBindingDB.connection_id
-                    == connection.connection_id
+                    KnowledgeIndexSourceBindingDB.connection_id == connection.connection_id
                 )
             ).all()
         )
@@ -199,17 +164,13 @@ class SQLSourceControlReadRepository:
             default=None,
         )
         active = db.exec(
-            select(ActiveKnowledgeIndexDB).where(
-                ActiveKnowledgeIndexDB.connection_id
-                == connection.connection_id
-            )
+            select(ActiveKnowledgeIndexDB).where(ActiveKnowledgeIndexDB.connection_id == connection.connection_id)
         ).first()
         grants = (
             list(
                 db.exec(
                     select(SourceAccessGrantDB).where(
-                        SourceAccessGrantDB.source_revision_id
-                        == revision.source_revision_id
+                        SourceAccessGrantDB.source_revision_id == revision.source_revision_id
                     )
                 ).all()
             )
@@ -241,13 +202,7 @@ class SQLSourceControlReadRepository:
                 if revision is not None
                 else None
             ),
-            admission={
-                "state": (
-                    revision.admission_state
-                    if revision is not None
-                    else "pending"
-                )
-            },
+            admission={"state": (revision.admission_state if revision is not None else "pending")},
             index=(
                 {
                     "knowledge_index_id": index.knowledge_index_id,
@@ -277,13 +232,7 @@ class SQLSourceControlReadRepository:
                 }
                 for grant in grants
             ),
-            health={
-                "status": (
-                    "disabled"
-                    if connection.state in {"disabled", "tombstoned"}
-                    else "healthy"
-                )
-            },
+            health={"status": ("disabled" if connection.state in {"disabled", "tombstoned"} else "healthy")},
             capabilities=frozenset(
                 {
                     "refresh",

@@ -148,11 +148,13 @@ def _tool_calls(value: object) -> list[dict[str, Any]]:
         encoded = json.dumps(arguments, sort_keys=True, separators=(",", ":"), allow_nan=False)
         if len(encoded) > 256 * 1024:
             raise LocalRuntimeResponseError("tool_arguments_too_large")
-        result.append({
-            "id": str(raw.get("id") or f"call-{index}"),
-            "name": name,
-            "arguments": dict(arguments),
-        })
+        result.append(
+            {
+                "id": str(raw.get("id") or f"call-{index}"),
+                "name": name,
+                "arguments": dict(arguments),
+            }
+        )
     return result
 
 

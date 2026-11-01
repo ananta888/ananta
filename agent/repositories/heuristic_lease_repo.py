@@ -6,6 +6,7 @@ TTL semantics:
 
 Lease lifecycle: active → expired | superseded | released
 """
+
 from __future__ import annotations
 
 import time
@@ -125,9 +126,7 @@ class HeuristicLeaseRepository:
 
     def list_all(self) -> List[HeuristicDecisionLeaseDB]:
         with Session(engine) as session:
-            stmt = select(HeuristicDecisionLeaseDB).order_by(
-                HeuristicDecisionLeaseDB.acquired_at.desc()
-            )
+            stmt = select(HeuristicDecisionLeaseDB).order_by(HeuristicDecisionLeaseDB.acquired_at.desc())
             return list(session.exec(stmt).all())
 
     def _supersede_active(self, domain: str, *, now: float) -> None:

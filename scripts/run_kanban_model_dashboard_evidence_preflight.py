@@ -31,22 +31,13 @@ SCHEMA = "ananta.kanban-model-dashboard.evidence-preflight.v1"
 PERFORMANCE_BASELINE_SCHEMA = "ananta.kanban-model-dashboard.performance-baseline.v1"
 PERFORMANCE_GATE_SCHEMA = "ananta.kanban-model-dashboard.performance-gate.v1"
 PERFORMANCE_SUITE_ID = "kanban-model-dashboard.performance.v1"
-BASELINE_CANDIDATE_RELATIVE = Path(
-    "artifacts/test-gates/kanban-model-dashboard-performance-baseline-candidate.v1.json"
-)
+BASELINE_CANDIDATE_RELATIVE = Path("artifacts/test-gates/kanban-model-dashboard-performance-baseline-candidate.v1.json")
 APPROVED_BASELINE_RELATIVE = Path(
-    "config/test-profiles/kanban-model-dashboard/baselines/"
-    "formal-performance-approved.v1.json"
+    "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json"
 )
-PERFORMANCE_GATE_RELATIVE = Path(
-    "artifacts/test-gates/kanban-model-dashboard-performance-gate.v1.json"
-)
-APPROVAL_POLICY_RELATIVE = Path(
-    "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json"
-)
-FORMAL_PROFILE_RELATIVE = Path(
-    "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json"
-)
+PERFORMANCE_GATE_RELATIVE = Path("artifacts/test-gates/kanban-model-dashboard-performance-gate.v1.json")
+APPROVAL_POLICY_RELATIVE = Path("config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json")
+FORMAL_PROFILE_RELATIVE = Path("config/test-profiles/kanban-model-dashboard/formal-performance.v1.json")
 MAX_JSON_BYTES = 4 * 1024 * 1024
 
 GitStateReader = Callable[[Path], tuple[str | None, bool, str | None]]
@@ -140,8 +131,7 @@ def _approved_baseline(
         parsed.tzinfo is not None
         and isinstance(approval, Mapping)
         and approval.get("candidate_sha256") == candidate_sha256
-        and protected_candidate_sha256(document)
-        == protected_candidate_sha256(candidate)
+        and protected_candidate_sha256(document) == protected_candidate_sha256(candidate)
         and isinstance(profile, Mapping)
         and profile.get("sha256") == profile_sha256
         and validate_policy_approval(
@@ -172,9 +162,7 @@ def _serialize_spec(spec: object) -> str:
 def _orchestrator_contract() -> Mapping[str, Any]:
     serialized_specs = [_serialize_spec(spec) for spec in SUITE_SPECS.values()]
     performance_specs = [
-        value
-        for value in serialized_specs
-        if "run_kanban_model_dashboard_performance_suite.py" in value
+        value for value in serialized_specs if "run_kanban_model_dashboard_performance_suite.py" in value
     ]
     approved_path = APPROVED_BASELINE_RELATIVE.as_posix()
     candidate_path = BASELINE_CANDIDATE_RELATIVE.as_posix()
@@ -262,17 +250,14 @@ def run_preflight(
         "performance": {
             "baseline_candidate": {
                 "path": BASELINE_CANDIDATE_RELATIVE.as_posix(),
-                "approval_status": (
-                    candidate.get("approval_status") if candidate is not None else None
-                ),
+                "approval_status": (candidate.get("approval_status") if candidate is not None else None),
             },
             "approved_baseline": {
                 "path": APPROVED_BASELINE_RELATIVE.as_posix(),
                 "present_and_approved": approved_baseline_valid,
                 "approval_method": (
                     (approved.get("approval") or {}).get("method")
-                    if approved is not None
-                    and isinstance(approved.get("approval"), Mapping)
+                    if approved is not None and isinstance(approved.get("approval"), Mapping)
                     else None
                 ),
             },
@@ -292,10 +277,7 @@ def run_preflight(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            "Read-only preflight for the seven-suite Kanban model-dashboard "
-            "release-evidence producer."
-        )
+        description=("Read-only preflight for the seven-suite Kanban model-dashboard release-evidence producer.")
     )
     parser.add_argument(
         "--root",

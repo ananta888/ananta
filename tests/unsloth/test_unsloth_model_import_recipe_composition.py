@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 
 import pytest
 
-from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
 from agent.services.unsloth_data_recipe_adapter import (
     DataRecipeRequest,
     DatasetSnapshot,
@@ -26,7 +25,6 @@ from agent.services.unsloth_model_source_adapter import (
 )
 from agent.services.unsloth_task_port import HubUnslothTaskSubmissionAdapter
 from ananta_contracts.model_catalog import ModelCatalog
-
 
 SOURCE_ID = "SRC_supplied-model"
 RUN_ID = "RUN_supplied-evaluation"

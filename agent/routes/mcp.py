@@ -239,12 +239,16 @@ def _authorize_mcp_target(
     _emit_policy_execution_audit(decision, params=params, trace_id=trace_id)
     if decision.allowed:
         return descriptor, decision, None
-    return descriptor, decision, _jsonrpc_error(
-        req_id=req_id,
-        code=-32000,
-        message="forbidden",
-        data={"details": "operation_forbidden", "trace_id": trace_id},
-        http_status=403,
+    return (
+        descriptor,
+        decision,
+        _jsonrpc_error(
+            req_id=req_id,
+            code=-32000,
+            message="forbidden",
+            data={"details": "operation_forbidden", "trace_id": trace_id},
+            http_status=403,
+        ),
     )
 
 

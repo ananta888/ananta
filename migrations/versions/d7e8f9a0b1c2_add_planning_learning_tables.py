@@ -5,9 +5,8 @@ Revises: c6d7e8f9a0b1
 Create Date: 2026-05-20 23:10:00
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "d7e8f9a0b1c2"
@@ -88,7 +87,9 @@ def upgrade() -> None:
     )
     op.create_index("ix_planning_prompt_versions_version", "planning_prompt_versions", ["version"])
     op.create_index("ix_planning_prompt_versions_language", "planning_prompt_versions", ["language"])
-    op.create_index("ix_planning_prompt_versions_target_model_family", "planning_prompt_versions", ["target_model_family"])
+    op.create_index(
+        "ix_planning_prompt_versions_target_model_family", "planning_prompt_versions", ["target_model_family"]
+    )
     op.create_index("ix_planning_prompt_versions_mode", "planning_prompt_versions", ["mode"])
     op.create_index("ix_planning_prompt_versions_checksum", "planning_prompt_versions", ["checksum"])
 

@@ -4,6 +4,7 @@ Provides an auditable, type-checked interface to the Compressed Content
 Reference (CCR) store so agents can safely retrieve original content that
 was replaced by a compression placeholder.
 """
+
 from __future__ import annotations
 
 import time
@@ -113,10 +114,7 @@ class CCRRetrievalTool:
                 content=None,
                 content_type=content_type,
                 decision="type_not_allowed",
-                reason=(
-                    f"content_type {content_type!r} not in allowed list "
-                    f"{request.allowed_content_types!r}"
-                ),
+                reason=(f"content_type {content_type!r} not in allowed list {request.allowed_content_types!r}"),
                 byte_size=0,
                 elapsed_ms=elapsed,
             )

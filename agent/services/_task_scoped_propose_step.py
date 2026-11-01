@@ -102,9 +102,7 @@ def run_propose_step(
         phase="propose",
     ):
         return guard
-    if (
-        vector_binding_error := _vector_index_domain_binding_error(task)
-    ) is not None:
+    if (vector_binding_error := _vector_index_domain_binding_error(task)) is not None:
         return vector_binding_error
     admission = ports.admit_dispatch(
         tid=tid,
@@ -117,11 +115,9 @@ def run_propose_step(
             recovery_dispatch_request_fingerprint,
         )
 
-        admission["request_fingerprint"] = (
-            recovery_dispatch_request_fingerprint(
-                "propose",
-                request_data,
-            )
+        admission["request_fingerprint"] = recovery_dispatch_request_fingerprint(
+            "propose",
+            request_data,
         )
     if admission["error"] is not None:
         return admission["error"]
@@ -130,9 +126,7 @@ def run_propose_step(
             getattr(request_data, "dispatch_lease_token", None),
             task_id=tid,
             phase="propose",
-            request_fingerprint=admission[
-                "request_fingerprint"
-            ],
+            request_fingerprint=admission["request_fingerprint"],
         )
         if cached is not None:
             return cached
@@ -151,8 +145,7 @@ def run_propose_step(
     from agent.config import settings
 
     defer_local_writes = bool(admission["token"]) and (
-        admission["guard_local_result"]
-        or str(settings.role or "").strip().lower() != "hub"
+        admission["guard_local_result"] or str(settings.role or "").strip().lower() != "hub"
     )
     boundary = contextlib.nullcontext()
     if defer_local_writes:
@@ -239,9 +232,7 @@ def _run_propose_step_admitted(
         phase="propose",
     ):
         return guard
-    if (
-        vector_binding_error := _vector_index_domain_binding_error(task)
-    ) is not None:
+    if (vector_binding_error := _vector_index_domain_binding_error(task)) is not None:
         return vector_binding_error
     _apply_request_run_evidence_context(
         task=task,
@@ -288,12 +279,7 @@ def _run_propose_step_admitted(
                 "catalog_hash": existing_source_catalog.get("source_catalog_hash"),
                 "sources": list(existing_source_catalog.get("sources") or []),
             }
-    run_evidence_context = dict(
-        (task.get("status_reason_details") or {}).get(
-            "recovery_tool_run_context"
-        )
-        or {}
-    )
+    run_evidence_context = dict((task.get("status_reason_details") or {}).get("recovery_tool_run_context") or {})
     citation_contract = service._render_citation_contract_prompt(
         source_catalog,
         run_evidence_context=run_evidence_context or None,
@@ -381,18 +367,12 @@ def _run_propose_step_admitted(
             invoke_cli_runner=service._invoke_cli_runner,
             coalesce_cli_output=service._coalesce_cli_output,
         )
-    explicit_task_kind = str(
-        task.get("task_kind")
-        or getattr(request_data, "task_kind", "")
-        or ""
-    ).strip().lower()
+    explicit_task_kind = str(task.get("task_kind") or getattr(request_data, "task_kind", "") or "").strip().lower()
     legacy_cli_task_kinds = LEGACY_CLI_TASK_KINDS
     if (
         explicit_task_kind
         and task_kind in legacy_cli_task_kinds
-        and not str(
-            getattr(request_data, "strategy_mode", "") or ""
-        ).strip()
+        and not str(getattr(request_data, "strategy_mode", "") or "").strip()
     ):
         routed_backend, _routing_reason = service._resolve_cli_backend(
             task_kind,

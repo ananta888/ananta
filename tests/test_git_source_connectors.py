@@ -24,7 +24,6 @@ from agent.sources.source_connectors import (
     SourceConnectorError,
 )
 
-
 COMMIT = "a" * 40
 MANIFEST = "b" * 64
 SCOPE = {
@@ -259,21 +258,15 @@ def test_github_resolves_ref_server_side_to_immutable_commit() -> None:
     assert revision.immutable_ref == f"git-commit:{COMMIT}"
     assert revision.metadata["commit_sha"] == COMMIT
     assert "github_authorization_ref" not in revision.metadata
-    assert endpoint.requests[0].authorization_ref == (
-        "github-installation:installation-1"
-    )
+    assert endpoint.requests[0].authorization_ref == ("github-installation:installation-1")
     assert commit.requests[0].requested_ref == "main"
-    assert vars(commit.requests[0]).keys().isdisjoint(
-        {"token", "credential_ref", "remote_url"}
-    )
+    assert vars(commit.requests[0]).keys().isdisjoint({"token", "credential_ref", "remote_url"})
     assert policy.requests[0].remote_url.startswith("https://github.com/")
 
 
 def test_github_cache_miss_falls_back_to_authorized_commit_resolution() -> None:
     connector, _, commit, _, _ = github_connector(
-        content_provider=StoredPayloadProvider(
-            "remote_source_payload_required"
-        )
+        content_provider=StoredPayloadProvider("remote_source_payload_required")
     )
 
     revision = connector.resolve_revision(GITHUB_DESCRIPTOR)
@@ -284,9 +277,7 @@ def test_github_cache_miss_falls_back_to_authorized_commit_resolution() -> None:
 
 def test_github_non_cache_payload_error_remains_fail_closed() -> None:
     connector, _, commit, _, _ = github_connector(
-        content_provider=StoredPayloadProvider(
-            "remote_source_payload_binding_invalid"
-        )
+        content_provider=StoredPayloadProvider("remote_source_payload_binding_invalid")
     )
 
     with pytest.raises(
@@ -335,12 +326,8 @@ def test_github_rejects_raw_token_and_clone_url_before_provider_access() -> None
 def test_github_revocation_blocks_index_and_refresh(
     authorization_state: str,
 ) -> None:
-    endpoint = FakeGitHubEndpointProvider(
-        authorization_state=authorization_state
-    )
-    connector, _, commit, policy, content = github_connector(
-        endpoint_provider=endpoint
-    )
+    endpoint = FakeGitHubEndpointProvider(authorization_state=authorization_state)
+    connector, _, commit, policy, content = github_connector(endpoint_provider=endpoint)
 
     with pytest.raises(SourceConnectorError) as index_error:
         connector.assert_indexable(GITHUB_DESCRIPTOR)
@@ -356,9 +343,7 @@ def test_github_revocation_blocks_index_and_refresh(
 
 def test_github_scope_loss_blocks_before_ref_network_access() -> None:
     endpoint = FakeGitHubEndpointProvider(scopes=frozenset({"metadata:read"}))
-    connector, _, commit, policy, _ = github_connector(
-        endpoint_provider=endpoint
-    )
+    connector, _, commit, policy, _ = github_connector(endpoint_provider=endpoint)
 
     with pytest.raises(SourceConnectorError) as exc:
         connector.resolve_revision(GITHUB_DESCRIPTOR)
@@ -443,9 +428,7 @@ def test_generic_connector_uses_scoped_registered_remote_id_only() -> None:
     assert registry.requests[0].remote_id == "remote-primary"
     assert registry.requests[0].scope.tenant_id == "tenant-1"
     assert commit.requests[0].remote_id == "remote-primary"
-    assert vars(commit.requests[0]).keys().isdisjoint(
-        {"token", "credential_ref", "remote_url"}
-    )
+    assert vars(commit.requests[0]).keys().isdisjoint({"token", "credential_ref", "remote_url"})
     assert content.fetch_requests[0].connection_ref == "remote-primary"
 
 
@@ -469,12 +452,8 @@ def test_generic_connector_rejects_supplied_remote_url() -> None:
 def test_generic_revocation_blocks_index_and_refresh(
     authorization_state: str,
 ) -> None:
-    registry = FakeRegisteredRemoteRegistry(
-        authorization_state=authorization_state
-    )
-    connector, _, commit, _, content = generic_connector(
-        remote_registry=registry
-    )
+    registry = FakeRegisteredRemoteRegistry(authorization_state=authorization_state)
+    connector, _, commit, _, content = generic_connector(remote_registry=registry)
 
     with pytest.raises(SourceConnectorError) as index_error:
         connector.assert_indexable(GENERIC_DESCRIPTOR)
@@ -489,9 +468,7 @@ def test_generic_revocation_blocks_index_and_refresh(
 
 def test_remote_policy_denial_blocks_ref_resolution_and_fetch() -> None:
     policy = FakeRemotePolicy("git_remote_address_not_global")
-    connector, _, commit, _, content = generic_connector(
-        remote_policy=policy
-    )
+    connector, _, commit, _, content = generic_connector(remote_policy=policy)
 
     with pytest.raises(SourceConnectorError) as exc:
         connector.refresh(GENERIC_DESCRIPTOR, ConnectorRefreshRequest())

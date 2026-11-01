@@ -16,7 +16,9 @@ def _now_iso() -> str:
 
 
 def _stable_hash(payload: Any) -> str:
-    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 class SourcePackService:
@@ -41,7 +43,9 @@ class SourcePackService:
             raise ValueError("source_pack_not_found")
         return pack
 
-    def _selected_sources(self, *, pack: dict[str, Any], skip_source_ids: set[str], include_optional: bool) -> list[dict[str, Any]]:
+    def _selected_sources(
+        self, *, pack: dict[str, Any], skip_source_ids: set[str], include_optional: bool
+    ) -> list[dict[str, Any]]:
         selected: list[dict[str, Any]] = []
         for row in [dict(item) for item in list(pack.get("sources") or []) if isinstance(item, dict)]:
             source_id = str(row.get("source_id") or "").strip()
@@ -52,7 +56,9 @@ class SourcePackService:
             selected.append(row)
         return selected
 
-    def resolve_retrieval_sources(self, *, source_pack_id: str, query: str, include_wikipedia: bool = False) -> list[str]:
+    def resolve_retrieval_sources(
+        self, *, source_pack_id: str, query: str, include_wikipedia: bool = False
+    ) -> list[str]:
         pack = self.get_pack(source_pack_id)
         sources = self._selected_sources(pack=pack, skip_source_ids=set(), include_optional=False)
         ids = [str(item.get("source_id") or "") for item in sources if str(item.get("source_id") or "").strip()]
@@ -298,7 +304,9 @@ class SourcePackService:
             "source_snapshot_ids": snapshot_ids,
             "profile_refs": profile_refs,
             "created_at": _now_iso(),
-            "index_hash": _stable_hash({"source_pack_id": source_pack_id, "source_snapshot_ids": snapshot_ids, "profile_refs": profile_refs}),
+            "index_hash": _stable_hash(
+                {"source_pack_id": source_pack_id, "source_snapshot_ids": snapshot_ids, "profile_refs": profile_refs}
+            ),
             "metadata_only": True,
             "index_profile": self._build_index_profile(),
             "cloud_context_policy": {
@@ -328,7 +336,9 @@ class SourcePackService:
             skip_source_ids=skip_source_ids,
             include_optional=include_optional,
         )
-        license_report = self._license_policy_report(pack=self.get_pack(source_pack_id), selected_sources=list(plan.get("selected_sources") or []))
+        license_report = self._license_policy_report(
+            pack=self.get_pack(source_pack_id), selected_sources=list(plan.get("selected_sources") or [])
+        )
         if dry_run:
             return {"status": "planned", **plan, "license_policy_report": license_report}
         if list(license_report.get("blocking_errors") or []):
@@ -362,7 +372,13 @@ class SourcePackService:
             if isinstance(item, dict) and str(item.get("profile_id") or "").strip()
         ]
         bundle = self._write_bundle(source_pack_id=source_pack_id, snapshot_ids=snapshot_ids, profile_refs=profile_refs)
-        citation_bundle = self._build_citation_bundle(source_ids=[str(item.get("source_id") or "") for item in list(plan.get("selected_sources") or []) if str(item.get("source_id") or "").strip()])
+        citation_bundle = self._build_citation_bundle(
+            source_ids=[
+                str(item.get("source_id") or "")
+                for item in list(plan.get("selected_sources") or [])
+                if str(item.get("source_id") or "").strip()
+            ]
+        )
         return {
             "status": "ok",
             **plan,
@@ -375,7 +391,9 @@ class SourcePackService:
     def doctor(self, *, source_pack_id: str = "ananta-dev-default") -> dict[str, Any]:
         pack = self.get_pack(source_pack_id)
         selected = self._selected_sources(pack=pack, skip_source_ids=set(), include_optional=False)
-        required_ids = [str(item.get("source_id") or "") for item in selected if str(item.get("source_id") or "").strip()]
+        required_ids = [
+            str(item.get("source_id") or "") for item in selected if str(item.get("source_id") or "").strip()
+        ]
         by_source: dict[str, dict[str, Any]] = {}
         ready = True
         missing_steps: list[str] = []

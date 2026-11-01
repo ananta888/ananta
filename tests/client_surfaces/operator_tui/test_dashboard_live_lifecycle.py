@@ -48,13 +48,10 @@ def test_autoloader_reports_only_applied_snapshot_with_generation() -> None:
         completed: list[tuple[SectionLoadResult, int]] = []
         loader = DashboardSectionAutoloader(
             registry,
-            schedule=lambda awaitable: tasks.append(asyncio.create_task(awaitable))
-            or tasks[-1],
+            schedule=lambda awaitable: tasks.append(asyncio.create_task(awaitable)) or tasks[-1],
             current_section=lambda: "kanban",
             apply_result=applied.append,
-            on_snapshot_applied=lambda result, generation: completed.append(
-                (result, generation)
-            ),
+            on_snapshot_applied=lambda result, generation: completed.append((result, generation)),
         )
 
         assert loader.request("kanban") is True
@@ -87,10 +84,7 @@ def test_lifecycle_starts_from_confirmed_watermark_and_stops_on_section_change()
             endpoint="http://hub.test",
             credential="header.payload.signature",
             registry=registry,
-            schedule=lambda awaitable: scheduled.append(
-                asyncio.create_task(awaitable)
-            )
-            or scheduled[-1],
+            schedule=lambda awaitable: scheduled.append(asyncio.create_task(awaitable)) or scheduled[-1],
             current_section=lambda: section[0],
             apply_result=lambda _result: None,
             live_sync_factory=factory,

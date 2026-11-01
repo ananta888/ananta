@@ -83,8 +83,7 @@ def _ack(record, *, groups=("group-a", "group-b"), decision="complete", impact="
             "revocation_epoch": record.revocation_epoch,
             "impact_digest": digest(impact),
             "group_results": [
-                {"group_id": group, "state": "deleted", "reason_code": "local_cleanup_complete"}
-                for group in groups
+                {"group_id": group, "state": "deleted", "reason_code": "local_cleanup_complete"} for group in groups
             ],
             "decision": decision,
         },

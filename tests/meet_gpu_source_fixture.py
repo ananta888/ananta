@@ -58,8 +58,18 @@ def driver_bindings(mounts):
     return [f"type=bind,src={source},dst=/host-nvidia/{name},readonly" for name, source in sorted(result.items())]
 
 
-def probe_command(name, image, bindings, module, root=ROOT, *, packaged=False, asr_profile=None,
-                  host_profile="native", driver_store=None):
+def probe_command(
+    name,
+    image,
+    bindings,
+    module,
+    root=ROOT,
+    *,
+    packaged=False,
+    asr_profile=None,
+    host_profile="native",
+    driver_store=None,
+):
     if module not in MODULES or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
         raise ValueError("test_gpu_probe_invalid")
     if not re.fullmatch(r"meet-test-gpu-[a-f0-9-]{36}", name):
@@ -77,6 +87,7 @@ def probe_command(name, image, bindings, module, root=ROOT, *, packaged=False, a
     library_path = "/host-nvidia"
     if host_profile == "wsl":
         from tests.meet_gpu_wsl_fixture import validate_driver_store
+
         library_path = "/usr/lib/wsl/lib:" + str(validate_driver_store(driver_store))
     args = [
         "create",
@@ -120,8 +131,9 @@ def probe_command(name, image, bindings, module, root=ROOT, *, packaged=False, a
     ]
 
 
-def run_probe(module, *, command=docker, packaged_image=None, asr_profile=None, host_profile="native",
-              driver_store=None):
+def run_probe(
+    module, *, command=docker, packaged_image=None, asr_profile=None, host_profile="native", driver_store=None
+):
     if module not in MODULES:
         raise ValueError("test_gpu_probe_invalid")
     if host_profile not in ("native", "wsl"):
@@ -130,6 +142,7 @@ def run_probe(module, *, command=docker, packaged_image=None, asr_profile=None, 
         raise ValueError("test_gpu_wsl_driver_store_invalid")
     if host_profile == "wsl":
         from tests.meet_gpu_wsl_fixture import driver_bindings as wsl_bindings
+
         bindings = wsl_bindings(driver_store)
     # Inspect only image identity and mounts, never service environment/secrets.
     service = "ananta-meet-media-meet-media-worker-1"
@@ -144,8 +157,16 @@ def run_probe(module, *, command=docker, packaged_image=None, asr_profile=None, 
     if host_profile == "native":
         bindings = driver_bindings(json.loads(command("inspect", service, "--format", "{{json .Mounts}}")))
     name = "meet-test-gpu-" + str(uuid4())
-    args = probe_command(name, image, bindings, module, packaged=packaged_image is not None,
-                         asr_profile=asr_profile, host_profile=host_profile, driver_store=driver_store)
+    args = probe_command(
+        name,
+        image,
+        bindings,
+        module,
+        packaged=packaged_image is not None,
+        asr_profile=asr_profile,
+        host_profile=host_profile,
+        driver_store=driver_store,
+    )
     try:
         command(*args)
         output = command("start", "--attach", name)

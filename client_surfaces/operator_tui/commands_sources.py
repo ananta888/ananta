@@ -5,6 +5,7 @@
 :data:`SOURCES_ACTIONS`; ``sources pack ...`` has its own table. Each handler
 is one small function (SRP); a new action is one table entry (OCP).
 """
+
 from __future__ import annotations
 
 import json

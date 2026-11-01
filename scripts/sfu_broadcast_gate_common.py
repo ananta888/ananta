@@ -178,7 +178,7 @@ def _process_group_rss_bytes(process_group_id: int) -> int | None:
                 continue
             try:
                 stat = Path(entry.path, "stat").read_text(encoding="ascii")
-                fields = stat[stat.rfind(")") + 2:].split()
+                fields = stat[stat.rfind(")") + 2 :].split()
                 if len(fields) > 21 and int(fields[2]) == process_group_id:
                     total_pages += max(0, int(fields[21]))
             except (OSError, UnicodeError, ValueError):

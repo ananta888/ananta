@@ -116,9 +116,7 @@ class _HubState:
                     "is_default": True,
                 }
             ],
-            "provider_failures": [
-                {"provider_id": "broken", "reason_code": "unavailable"}
-            ],
+            "provider_failures": [{"provider_id": "broken", "reason_code": "unavailable"}],
         }
 
 
@@ -295,10 +293,7 @@ def test_board_and_cards_are_composed_through_authenticated_hub_calls(local_hub)
     assert [column["id"] for column in board["columns"]] == ["todo", "completed"]
     assert board["columns"][0]["tasks"][0]["id"] == "TASK-1"
     assert board["columns"][0]["tasks"][0]["assignee_id"] == "agent-1"
-    assert all(
-        request["authorization"] == "Bearer header.payload.signature"
-        for request in state.requests
-    )
+    assert all(request["authorization"] == "Bearer header.payload.signature" for request in state.requests)
     assert [request["path"] for request in state.requests] == [
         "/config/features/v1",
         "/api/v1/kanban/boards/hub/snapshot",
@@ -325,11 +320,7 @@ def test_all_kanban_commands_send_revision_and_stable_contract(local_hub) -> Non
     asyncio.run(adapter.block_task("TASK-1", reason="dependency", expected_revision=7))
     asyncio.run(adapter.complete_task("TASK-1", expected_revision=8))
 
-    commands = [
-        request
-        for request in state.requests
-        if "/commands/" in request["path"]
-    ]
+    commands = [request for request in state.requests if "/commands/" in request["path"]]
     assert [request["path"].rsplit("/", 1)[-1] for request in commands] == [
         "move",
         "assign",
@@ -408,9 +399,7 @@ def test_model_catalog_refresh_and_default_remain_hub_relative(local_hub) -> Non
             "revision": catalog["revision"],
         }
     ]
-    assert catalog["provider_errors"] == [
-        {"provider": "broken", "code": "unavailable"}
-    ]
+    assert catalog["provider_errors"] == [{"provider": "broken", "code": "unavailable"}]
 
     asyncio.run(adapter.refresh_catalog())
     selected = asyncio.run(
@@ -420,19 +409,13 @@ def test_model_catalog_refresh_and_default_remain_hub_relative(local_hub) -> Non
         )
     )
     assert selected["model_id"] == "safe-model"
-    default_request = next(
-        request for request in state.requests if request["path"] == "/models/default/v1"
-    )
+    default_request = next(request for request in state.requests if request["path"] == "/models/default/v1")
     assert default_request["body"] == {
         "schema": "ananta.model-default-selection-command.v1",
         "provider_id": "local",
         "model_id": "safe-model",
     }
-    assert all(
-        request["path"].startswith("/")
-        and "://" not in request["path"]
-        for request in state.requests
-    )
+    assert all(request["path"].startswith("/") and "://" not in request["path"] for request in state.requests)
 
 
 def test_model_catalog_v2_preserves_capability_provenance_for_tui() -> None:
@@ -476,9 +459,7 @@ def test_model_catalog_v2_preserves_capability_provenance_for_tui() -> None:
     )
 
     assert mapped["models"][0]["capabilities"] == ["tools"]
-    assert mapped["models"][0]["capability_sources"] == [
-        "capability.tools.source:runtime_reported"
-    ]
+    assert mapped["models"][0]["capability_sources"] == ["capability.tools.source:runtime_reported"]
     assert mapped["models"][0]["conflicts"] == ["template_conflict"]
 
 
@@ -494,7 +475,4 @@ def test_stale_model_revision_fails_before_default_write(local_hub) -> None:
             )
         )
 
-    assert not any(
-        request["path"] == "/models/default/v1"
-        for request in state.requests
-    )
+    assert not any(request["path"] == "/models/default/v1" for request in state.requests)

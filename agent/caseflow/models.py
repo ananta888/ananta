@@ -3,6 +3,7 @@
 Generic case management model — no domain-specific fields.
 Job application data lives in domain_payload or agent/job_module/models.py.
 """
+
 from __future__ import annotations
 
 import uuid

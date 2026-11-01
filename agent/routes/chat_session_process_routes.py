@@ -319,9 +319,7 @@ def signal_session_process_run_gate(session_id: str, run_id: str):
         action["error_code"] = "gate_signal_outcome_unknown"
         action["updated_at"] = time.time()
         _save_chat(chat, principal=principal)
-        return jsonify(
-            {"error": "gate_manual_reconcile_required", "error_code": "gate_manual_reconcile_required"}
-        ), 503
+        return jsonify({"error": "gate_manual_reconcile_required", "error_code": "gate_manual_reconcile_required"}), 503
     _log.info(
         "chat_process_gate actor=%s workflow_id=%s step_id=%s decision=%s idempotency_key_ref=%s",
         action["actor"],

@@ -90,11 +90,13 @@ def resolve_explicit_hub_model(
     resolver = ModelInvocationService.default_instance().get_profile_resolver()
     if resolver is None:
         return None
-    return HubModelRuntimeSelectionService(EffectiveModelRoutingService(
-        repository=SqlModelRoutingConfigurationRepository(),
-        consumers=ModelConsumerRegistry.defaults(),
-        resolver=resolver,
-    )).resolve_explicit(command)
+    return HubModelRuntimeSelectionService(
+        EffectiveModelRoutingService(
+            repository=SqlModelRoutingConfigurationRepository(),
+            consumers=ModelConsumerRegistry.defaults(),
+            resolver=resolver,
+        )
+    ).resolve_explicit(command)
 
 
 __all__ = [

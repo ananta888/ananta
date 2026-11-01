@@ -21,8 +21,14 @@ class ScratchpadEntry:
 class InMemoryScratchpadStore:
     """Serialize quota checks and mutations so concurrent appends cannot exceed limits."""
 
-    def __init__(self, *, max_runs: int = 256, max_entries_per_run: int = 128,
-                 max_bytes_per_run: int = 262144, max_value_bytes: int = 65536):
+    def __init__(
+        self,
+        *,
+        max_runs: int = 256,
+        max_entries_per_run: int = 128,
+        max_bytes_per_run: int = 262144,
+        max_value_bytes: int = 65536,
+    ):
         limits = (max_runs, max_entries_per_run, max_bytes_per_run, max_value_bytes)
         if any(type(value) is not int or value <= 0 for value in limits):
             raise ScratchpadStorageError("scratchpad_limits_invalid")
@@ -73,8 +79,7 @@ class InMemoryScratchpadStore:
                 raise ScratchpadStorageError("scratchpad_run_quota_exceeded")
             if key not in entries and len(entries) >= self._max_entries:
                 raise ScratchpadStorageError("scratchpad_entry_quota_exceeded")
-            size = sum(len(k.encode("utf-8")) + len(v.value.encode("utf-8"))
-                       for k, v in entries.items() if k != key)
+            size = sum(len(k.encode("utf-8")) + len(v.value.encode("utf-8")) for k, v in entries.items() if k != key)
             if size + len(key.encode("utf-8")) + len(value.encode("utf-8")) > self._max_bytes:
                 raise ScratchpadStorageError("scratchpad_byte_quota_exceeded")
             self._runs.setdefault(namespace, {})[key] = ScratchpadEntry(value, expires_at)

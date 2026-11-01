@@ -40,9 +40,7 @@ def test_production_keyring_loads_active_and_rotated_verification_keys(
     )
     path.chmod(0o600)
 
-    keyring = load_source_access_manifest_keyring(
-        {SOURCE_ACCESS_KEYRING_FILE_ENV: str(path)}
-    )
+    keyring = load_source_access_manifest_keyring({SOURCE_ACCESS_KEYRING_FILE_ENV: str(path)})
 
     assert keyring.active_signing_key.key_id == "current"
     assert set(keyring.verification_keys) == {"previous", "current"}
@@ -67,14 +65,12 @@ def test_explicit_compose_safe_derivation_uses_existing_secret() -> None:
 
     keyring = load_source_access_manifest_keyring(environment)
     digest = "a" * 64
-    signature = HubSourceAccessManifestSigner(
-        keyring.active_signing_key
-    ).sign(manifest_digest=digest)
+    signature = HubSourceAccessManifestSigner(keyring.active_signing_key).sign(manifest_digest=digest)
 
     assert keyring.local_compose_derived is True
-    assert WorkerSourceAccessManifestVerifier(
-        keyring.verification_keys
-    ).verify(manifest_digest=digest, signature=signature)
+    assert WorkerSourceAccessManifestVerifier(keyring.verification_keys).verify(
+        manifest_digest=digest, signature=signature
+    )
     assert resolve_knowledge_index_worker_id(environment) == "worker-alpha"
 
 

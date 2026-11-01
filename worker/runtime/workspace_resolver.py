@@ -32,26 +32,16 @@ class ConfiguredWorkerWorkspaceResolver:
         runtime = agent_config.get("worker_runtime")
         runtime = runtime if isinstance(runtime, Mapping) else {}
         env = os.environ if environment is None else environment
-        raw_root = str(
-            runtime.get("workspace_root")
-            or env.get("ANANTA_WORKSPACE_ROOT")
-            or ""
-        ).strip()
+        raw_root = str(runtime.get("workspace_root") or env.get("ANANTA_WORKSPACE_ROOT") or "").strip()
         root = Path(raw_root).expanduser()
         if not raw_root or not root.is_absolute() or "\x00" in raw_root:
-            raise WorkerWorkspaceResolutionError(
-                "worker_workspace_root_required"
-            )
+            raise WorkerWorkspaceResolutionError("worker_workspace_root_required")
         try:
             resolved = root.resolve(strict=True)
         except OSError as exc:
-            raise WorkerWorkspaceResolutionError(
-                "worker_workspace_root_unavailable"
-            ) from exc
+            raise WorkerWorkspaceResolutionError("worker_workspace_root_unavailable") from exc
         if not resolved.is_dir():
-            raise WorkerWorkspaceResolutionError(
-                "worker_workspace_root_unavailable"
-            )
+            raise WorkerWorkspaceResolutionError("worker_workspace_root_unavailable")
         self._root = resolved
 
     def resolve_workspace_context(
@@ -60,9 +50,7 @@ class ConfiguredWorkerWorkspaceResolver:
         task: Mapping[str, Any],
     ) -> WorkerWorkspaceContext:
         execution_context = task.get("worker_execution_context")
-        execution_context = (
-            execution_context if isinstance(execution_context, Mapping) else {}
-        )
+        execution_context = execution_context if isinstance(execution_context, Mapping) else {}
         workspace = execution_context.get("workspace")
         workspace = workspace if isinstance(workspace, Mapping) else {}
         raw_output = str(workspace.get("output_dir") or "").strip()
@@ -70,27 +58,19 @@ class ConfiguredWorkerWorkspaceResolver:
             candidate = self._output_candidate(raw_output)
         else:
             scope = self._safe_segment(
-                workspace.get("scope_key")
-                or workspace.get("task_id")
-                or task.get("id"),
+                workspace.get("scope_key") or workspace.get("task_id") or task.get("id"),
                 fallback="task",
             )
             candidate = (self._root / scope).resolve()
         if candidate != self._root and self._root not in candidate.parents:
-            raise WorkerWorkspaceResolutionError(
-                "worker_workspace_outside_configured_root"
-            )
+            raise WorkerWorkspaceResolutionError("worker_workspace_outside_configured_root")
         try:
             candidate.mkdir(parents=True, exist_ok=True)
             final = candidate.resolve(strict=True)
         except OSError as exc:
-            raise WorkerWorkspaceResolutionError(
-                "worker_workspace_unavailable"
-            ) from exc
+            raise WorkerWorkspaceResolutionError("worker_workspace_unavailable") from exc
         if final != self._root and self._root not in final.parents:
-            raise WorkerWorkspaceResolutionError(
-                "worker_workspace_symlink_escape"
-            )
+            raise WorkerWorkspaceResolutionError("worker_workspace_symlink_escape")
         return WorkerWorkspaceContext(workspace_dir=final)
 
     def _output_candidate(self, raw_output: str) -> Path:

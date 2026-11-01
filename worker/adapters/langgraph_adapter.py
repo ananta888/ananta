@@ -65,6 +65,7 @@ _RISK_MAP = {
     "review_workflow": "low",
 }
 
+
 class LangGraphAdapter(LangGraphLegacyNodeMixin, LangGraphStreamMixin):
     """Optional LangGraph worker adapter."""
 

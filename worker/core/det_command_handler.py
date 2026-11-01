@@ -3,6 +3,7 @@
 Registered for task_kinds: run_tests, script, git_op, file_check, regex_check, fork, join.
 Reads det_command / det_subtype from task.metadata (set by canvas toVpGraph()).
 """
+
 from __future__ import annotations
 
 import re
@@ -19,8 +20,15 @@ class DetCommandTaskHandler:
 
     _BLOCKED = [
         re.compile(p, re.IGNORECASE)
-        for p in [r"rm\s+-[rf]", r"\bdd\b.*of=", r"\bmkfs\b", r":\(\)\{", r"\bsudo\b",
-                  r"curl\s+.*\|\s*(ba)?sh", r"wget\s+.*\|\s*(ba)?sh"]
+        for p in [
+            r"rm\s+-[rf]",
+            r"\bdd\b.*of=",
+            r"\bmkfs\b",
+            r":\(\)\{",
+            r"\bsudo\b",
+            r"curl\s+.*\|\s*(ba)?sh",
+            r"wget\s+.*\|\s*(ba)?sh",
+        ]
     ]
 
     def propose(self, *, tid: str, task: dict, task_kind: str, **kwargs: Any) -> ExecutableProposal | None:
@@ -88,8 +96,9 @@ class DetCommandTaskHandler:
             else:
                 cmd = command
 
-            r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True,
-                               timeout=timeout, cwd="/project-workspaces")
+            r = subprocess.run(
+                ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout, cwd="/project-workspaces"
+            )
             duration_ms = int((time.monotonic() - t0) * 1000)
             success = r.returncode == 0
             stdout = r.stdout[:2048]
@@ -105,8 +114,13 @@ class DetCommandTaskHandler:
                     except (ValueError, IndexError):
                         pass
 
-            return {"success": success, "exit_code": r.returncode,
-                    "stdout": stdout, "stderr": r.stderr[:512], "duration_ms": duration_ms}
+            return {
+                "success": success,
+                "exit_code": r.returncode,
+                "stdout": stdout,
+                "stderr": r.stderr[:512],
+                "duration_ms": duration_ms,
+            }
         except subprocess.TimeoutExpired:
             return {"success": False, "exit_code": -1, "stdout": "", "stderr": "Timeout", "duration_ms": timeout * 1000}
         except Exception as exc:

@@ -184,9 +184,7 @@ class ByteBpeTrainer:
         maximum_merges = vocab_size - 256 - len(specials)
         for index in range(maximum_merges):
             counts: Counter[tuple[int, int]] = Counter(
-                pair
-                for sequence in sequences
-                for pair in zip(sequence, sequence[1:], strict=False)
+                pair for sequence in sequences for pair in zip(sequence, sequence[1:], strict=False)
             )
             if not counts:
                 break

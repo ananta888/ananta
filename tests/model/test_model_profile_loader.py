@@ -1,4 +1,5 @@
 """Tests for ModelProfileLoader and ModelProfile — AMR-007."""
+
 import pytest
 
 from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
@@ -53,12 +54,14 @@ def test_load_minimal_local_profile():
 
 def test_profile_can_declare_runtime_without_per_request_seed():
     data = {
-        "profiles": [{
-            "profile_id": "local-colibri",
-            "provider_id": "openai_compatible",
-            "model": "kat",
-            "supports_seed": False,
-        }]
+        "profiles": [
+            {
+                "profile_id": "local-colibri",
+                "provider_id": "openai_compatible",
+                "model": "kat",
+                "supports_seed": False,
+            }
+        ]
     }
 
     result = ModelProfileLoader().load_dict(data)
@@ -69,17 +72,36 @@ def test_profile_can_declare_runtime_without_per_request_seed():
 
 
 def test_unsafe_research_profile_requires_explicit_safety_modified() -> None:
-    invalid = ModelProfileLoader().load_dict({"profiles": [{
-        "profile_id": "unsafe", "provider_id": "ollama", "model": "modified",
-        "trust_class": "unsafe_research", "safety_modified": False,
-    }]})
+    invalid = ModelProfileLoader().load_dict(
+        {
+            "profiles": [
+                {
+                    "profile_id": "unsafe",
+                    "provider_id": "ollama",
+                    "model": "modified",
+                    "trust_class": "unsafe_research",
+                    "safety_modified": False,
+                }
+            ]
+        }
+    )
     assert not invalid.ok
     assert "unsafe_research_requires_safety_modified" in " ".join(invalid.errors)
 
-    valid = ModelProfileLoader().load_dict({"profiles": [{
-        "profile_id": "unsafe", "provider_id": "ollama", "model": "modified",
-        "trust_class": "unsafe_research", "safety_modified": True, "enabled": False,
-    }]})
+    valid = ModelProfileLoader().load_dict(
+        {
+            "profiles": [
+                {
+                    "profile_id": "unsafe",
+                    "provider_id": "ollama",
+                    "model": "modified",
+                    "trust_class": "unsafe_research",
+                    "safety_modified": True,
+                    "enabled": False,
+                }
+            ]
+        }
+    )
     assert valid.ok
     assert valid.profiles[0].trust_class == "unsafe_research"
 
@@ -234,26 +256,30 @@ def test_hybrid_profile_fields_are_parsed():
 
 def test_evidence_aware_profile_fields_are_validated_and_projected():
     data = {
-        "profiles": [{
-            "profile_id": "local-evidence-aware",
-            "provider_id": "ollama",
-            "model": "model@sha256:abc",
-            "enabled": False,
-            "aliases": ["stable-alias"],
-            "input_modalities": ["text", "image"],
-            "output_modalities": ["text"],
-            "nominal_context_tokens": 262144,
-            "verified_context_tokens": 8192,
-            "hardware_class": "rtx3080-10gb",
-            "artifact_sha256": "a" * 64,
-            "release_state": "experimental",
-            "capability_claims": [{
-                "capability_id": "vision",
-                "value": "unknown",
-                "evidence": "unknown",
-                "source_id": "profile:test",
-            }],
-        }]
+        "profiles": [
+            {
+                "profile_id": "local-evidence-aware",
+                "provider_id": "ollama",
+                "model": "model@sha256:abc",
+                "enabled": False,
+                "aliases": ["stable-alias"],
+                "input_modalities": ["text", "image"],
+                "output_modalities": ["text"],
+                "nominal_context_tokens": 262144,
+                "verified_context_tokens": 8192,
+                "hardware_class": "rtx3080-10gb",
+                "artifact_sha256": "a" * 64,
+                "release_state": "experimental",
+                "capability_claims": [
+                    {
+                        "capability_id": "vision",
+                        "value": "unknown",
+                        "evidence": "unknown",
+                        "source_id": "profile:test",
+                    }
+                ],
+            }
+        ]
     }
 
     result = ModelProfileLoader().load_dict(data)

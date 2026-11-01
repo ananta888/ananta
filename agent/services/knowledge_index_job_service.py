@@ -114,63 +114,36 @@ class KnowledgeIndexJobService:
         self._task_repository = task_repository
         self._payload_store = payload_store
         self._worker_artifact_service = worker_artifact_service
-        self._source_control_completion_projector = (
-            source_control_completion_projector
-        )
+        self._source_control_completion_projector = source_control_completion_projector
         self._execution_binding_service = execution_binding_service
-        self._destination_resolution_service = (
-            destination_resolution_service
-        )
+        self._destination_resolution_service = destination_resolution_service
         self._worker_directory = worker_directory
-        self._source_access_enforcement_service = (
-            source_access_enforcement_service
-        )
+        self._source_access_enforcement_service = source_access_enforcement_service
         self._task_result_publisher = task_result_publisher
-        self._allow_legacy_unresolved_destination = bool(
-            allow_legacy_unresolved_destination
-        )
-        self._allow_legacy_unsigned_source_dispatch = bool(
-            allow_legacy_unsigned_source_dispatch
-        )
+        self._allow_legacy_unresolved_destination = bool(allow_legacy_unresolved_destination)
+        self._allow_legacy_unsigned_source_dispatch = bool(allow_legacy_unsigned_source_dispatch)
         self._clock = clock
-        self._payload_storage = payload_storage or KnowledgeIndexJobPayloadStorage(
-            payload_store=payload_store
-        )
+        self._payload_storage = payload_storage or KnowledgeIndexJobPayloadStorage(payload_store=payload_store)
         self._dispatch_gate = dispatch_gate or KnowledgeIndexBoundDispatchGate(
             repository_provider=self._repository,
             execution_binding_service=execution_binding_service,
             destination_resolution_service=destination_resolution_service,
-            source_access_enforcement_service=(
-                source_access_enforcement_service
-            ),
-            allow_legacy_unresolved_destination=(
-                allow_legacy_unresolved_destination
-            ),
-            allow_legacy_unsigned_source_dispatch=(
-                allow_legacy_unsigned_source_dispatch
-            ),
+            source_access_enforcement_service=(source_access_enforcement_service),
+            allow_legacy_unresolved_destination=(allow_legacy_unresolved_destination),
+            allow_legacy_unsigned_source_dispatch=(allow_legacy_unsigned_source_dispatch),
             clock=clock,
         )
-        self._bound_job_admission = (
-            bound_job_admission
-            or KnowledgeIndexBoundJobAdmission(
-                repository_provider=self._repository,
-                payload_storage=self._payload_storage,
-                execution_binding_service=execution_binding_service,
-                destination_resolution_service=(
-                    destination_resolution_service
-                ),
-                worker_directory=worker_directory,
-                allow_legacy_unresolved_destination=(
-                    allow_legacy_unresolved_destination
-                ),
-            )
+        self._bound_job_admission = bound_job_admission or KnowledgeIndexBoundJobAdmission(
+            repository_provider=self._repository,
+            payload_storage=self._payload_storage,
+            execution_binding_service=execution_binding_service,
+            destination_resolution_service=(destination_resolution_service),
+            worker_directory=worker_directory,
+            allow_legacy_unresolved_destination=(allow_legacy_unresolved_destination),
         )
         self._completion_saga = completion_saga or KnowledgeIndexCompletionSaga(
             execution_binding_service=execution_binding_service,
-            source_control_completion_projector=(
-                source_control_completion_projector
-            ),
+            source_control_completion_projector=(source_control_completion_projector),
         )
 
     def _queue(self) -> KnowledgeIndexTaskQueuePort:
@@ -284,9 +257,7 @@ class KnowledgeIndexJobService:
             else:
                 task = self._repository().get_by_id(record.job.job_id)
         if task is None:
-            raise RuntimeError(
-                "knowledge_index_execution_queue_projection_missing"
-            )
+            raise RuntimeError("knowledge_index_execution_queue_projection_missing")
         validate_bound_task_projection(
             task,
             record=record,
@@ -296,9 +267,7 @@ class KnowledgeIndexJobService:
         )
         projected = self.get_job(record.job.job_id)
         if projected is None:
-            raise RuntimeError(
-                "knowledge_index_execution_queue_projection_invalid"
-            )
+            raise RuntimeError("knowledge_index_execution_queue_projection_invalid")
         return projected
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
@@ -317,10 +286,7 @@ class KnowledgeIndexJobService:
         verification = dict(raw.get("verification_status") or {})
         result = verification.get("knowledge_index_job_result")
         payload = project_job_view(raw, envelope)
-        if (
-            envelope_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-            and self._execution_binding_service is not None
-        ):
+        if envelope_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA and self._execution_binding_service is not None:
             get_record = getattr(
                 self._execution_binding_service,
                 "get_record",
@@ -330,21 +296,14 @@ class KnowledgeIndexJobService:
                 try:
                     execution_record = get_record(str(job_id))
                 except Exception as exc:
-                    if getattr(exc, "reason_code", None) != (
-                        "knowledge_index_execution_not_found"
-                    ):
+                    if getattr(exc, "reason_code", None) != ("knowledge_index_execution_not_found"):
                         raise
                 else:
                     payload.update(
                         {
                             "execution_state": execution_record.state,
-                            "execution_lock_version": int(
-                                execution_record.lock_version
-                            ),
-                            "lease_expires_epoch_ms": int(
-                                execution_record.job.assignment
-                                .lease_expires_epoch_ms
-                            ),
+                            "execution_lock_version": int(execution_record.lock_version),
+                            "lease_expires_epoch_ms": int(execution_record.job.assignment.lease_expires_epoch_ms),
                         }
                     )
             get_projection = getattr(
@@ -367,12 +326,8 @@ class KnowledgeIndexJobService:
                 else:
                     payload.update(
                         {
-                            "completion_projection_state": (
-                                completion_projection.state
-                            ),
-                            "completion_projection_lock_version": int(
-                                completion_projection.lock_version
-                            ),
+                            "completion_projection_state": (completion_projection.state),
+                            "completion_projection_lock_version": int(completion_projection.lock_version),
                         }
                     )
         if isinstance(result, Mapping):
@@ -403,9 +358,7 @@ class KnowledgeIndexJobService:
             payload={
                 "artifact_id": artifact,
                 "profile_overrides": dict(profile_overrides or {}),
-                "graph_visual_metrics": normalize_graph_visual_metrics_options(
-                    graph_visual_metrics
-                ),
+                "graph_visual_metrics": normalize_graph_visual_metrics_options(graph_visual_metrics),
             },
         )
 
@@ -434,9 +387,7 @@ class KnowledgeIndexJobService:
                 "collection_id": collection,
                 "artifact_ids": artifacts,
                 "profile_overrides": dict(profile_overrides or {}),
-                "graph_visual_metrics": normalize_graph_visual_metrics_options(
-                    graph_visual_metrics
-                ),
+                "graph_visual_metrics": normalize_graph_visual_metrics_options(graph_visual_metrics),
             },
         )
 
@@ -473,9 +424,7 @@ class KnowledgeIndexJobService:
                 "records": normalized_records,
                 "source_metadata": dict(source_metadata or {}),
                 "codecompass_prerender": bool(codecompass_prerender),
-                "graph_visual_metrics": normalize_graph_visual_metrics_options(
-                    graph_visual_metrics
-                ),
+                "graph_visual_metrics": normalize_graph_visual_metrics_options(graph_visual_metrics),
             },
         )
 
@@ -516,26 +465,15 @@ class KnowledgeIndexJobService:
         if task is None:
             raise ValueError("knowledge_index_job_not_found")
         raw_task = task_mapping(task)
-        envelope = dict(
-            dict(raw_task.get("worker_execution_context") or {}).get(
-                "knowledge_index_job"
-            )
-            or {}
-        )
-        if (
-            str(envelope.get("schema") or "")
-            != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-            or str(envelope.get("job_id") or "") != str(job_id)
-        ):
-            raise ValueError(
-                "knowledge_index_execution_task_binding_invalid"
-            )
+        envelope = dict(dict(raw_task.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
+        if str(envelope.get("schema") or "") != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA or str(
+            envelope.get("job_id") or ""
+        ) != str(job_id):
+            raise ValueError("knowledge_index_execution_task_binding_invalid")
         payload = dict(result)
         status = str(payload.get("status") or "").strip().lower()
         details = {
-            "idempotency_fingerprint": envelope.get(
-                "idempotency_fingerprint"
-            ),
+            "idempotency_fingerprint": envelope.get("idempotency_fingerprint"),
             "worker_result_schema": payload.get("schema"),
             **dict(event_details or {}),
         }
@@ -545,13 +483,8 @@ class KnowledgeIndexJobService:
                 expected_envelope=envelope,
                 result=payload,
                 status_values=dict(status_values or {}),
-                status_reason_code=(
-                    str(payload.get("reason_code") or "") or None
-                ),
-                event_type=(
-                    str(event_type or "").strip()
-                    or f"knowledge_index_job_{status}"
-                ),
+                status_reason_code=(str(payload.get("reason_code") or "") or None),
+                event_type=(str(event_type or "").strip() or f"knowledge_index_job_{status}"),
                 event_actor=str(event_actor),
                 event_details=details,
             )
@@ -559,9 +492,7 @@ class KnowledgeIndexJobService:
             raise
         except Exception as exc:
             if status == "completed":
-                raise KnowledgeIndexCompletionProjectionPending(
-                    exc
-                ) from exc
+                raise KnowledgeIndexCompletionProjectionPending(exc) from exc
             raise
 
     def accept_worker_result(
@@ -582,18 +513,13 @@ class KnowledgeIndexJobService:
         raw_task = task.model_dump() if hasattr(task, "model_dump") else dict(task)
         status = str(payload.get("status") or "").strip().lower()
         envelope = dict((raw_task.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
-        bound_v2 = bool(
-            str(envelope.get("schema") or "")
-            == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-        )
+        bound_v2 = bool(str(envelope.get("schema") or "") == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA)
         if bound_v2:
             payload = self.materialize_worker_result(
                 job_id=str(job_id),
                 result=payload,
                 task=raw_task,
-                authenticated_worker_id=str(
-                    authenticated_worker_id or ""
-                ),
+                authenticated_worker_id=str(authenticated_worker_id or ""),
             )
             status = str(payload.get("status") or "").strip().lower()
 
@@ -649,11 +575,7 @@ class KnowledgeIndexJobService:
             )
 
             service = KnowledgeIndexWorkerArtifactService()
-        materialization_deadline = (
-            {"transfer_deadline": transfer_deadline}
-            if transfer_deadline is not None
-            else {}
-        )
+        materialization_deadline = {"transfer_deadline": transfer_deadline} if transfer_deadline is not None else {}
         materialized = service.materialize(
             job_id=job_id,
             result=payload,
@@ -662,21 +584,9 @@ class KnowledgeIndexJobService:
         )
         require_transfer_deadline(transfer_deadline)
         raw_task = self._repository().get_by_id(str(job_id))
-        raw_task_payload = (
-            raw_task.model_dump()
-            if hasattr(raw_task, "model_dump")
-            else dict(raw_task or {})
-        )
-        envelope = dict(
-            (raw_task_payload.get("worker_execution_context") or {}).get(
-                "knowledge_index_job"
-            )
-            or {}
-        )
-        if (
-            str(envelope.get("schema") or "")
-            == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-        ):
+        raw_task_payload = raw_task.model_dump() if hasattr(raw_task, "model_dump") else dict(raw_task or {})
+        envelope = dict((raw_task_payload.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
+        if str(envelope.get("schema") or "") == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA:
             return self._completion_saga.finalize(
                 job_id=str(job_id),
                 worker_result=payload,
@@ -698,35 +608,25 @@ class KnowledgeIndexJobService:
 
         binding_service = self._execution_binding_service
         if binding_service is None:
-            raise RuntimeError(
-                "knowledge_index_execution_binding_service_unavailable"
-            )
+            raise RuntimeError("knowledge_index_execution_binding_service_unavailable")
         getter = getattr(
             binding_service,
             "get_completion_projection",
             None,
         )
         if not callable(getter):
-            raise RuntimeError(
-                "knowledge_index_completion_projection_store_unavailable"
-            )
+            raise RuntimeError("knowledge_index_completion_projection_store_unavailable")
         projection = getter(str(job_id))
-        if projection.lock_version != int(
-            expected_projection_lock_version
-        ):
+        if projection.lock_version != int(expected_projection_lock_version):
             from agent.services.knowledge_index_execution_binding_service import (
                 KnowledgeIndexExecutionBindingError,
             )
 
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_conflict")
         task = self._repository().get_by_id(str(job_id))
         if task is None:
             raise ValueError("knowledge_index_job_not_found")
-        raw_task = (
-            task.model_dump() if hasattr(task, "model_dump") else dict(task)
-        )
+        raw_task = task.model_dump() if hasattr(task, "model_dump") else dict(task)
         service = self._worker_artifact_service
         if service is None:
             from agent.services.knowledge_index_worker_artifact_service import (
@@ -770,29 +670,18 @@ class KnowledgeIndexJobService:
             raise ValueError("knowledge_index_job_not_found")
         raw_task = task.model_dump() if hasattr(task, "model_dump") else dict(task)
         envelope = dict((raw_task.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
-        if (
-            str(envelope.get("schema") or "")
-            == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-        ):
+        if str(envelope.get("schema") or "") == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA:
             if self._execution_binding_service is None:
-                raise RuntimeError(
-                    "knowledge_index_execution_binding_service_unavailable"
-                )
-            _record, parsed = (
-                self._execution_binding_service.validate_result(
-                    job_id=str(job_id),
-                    payload=dict(result),
-                    authenticated_worker_id=str(
-                        authenticated_worker_id or ""
-                    ),
-                )
+                raise RuntimeError("knowledge_index_execution_binding_service_unavailable")
+            _record, parsed = self._execution_binding_service.validate_result(
+                job_id=str(job_id),
+                payload=dict(result),
+                authenticated_worker_id=str(authenticated_worker_id or ""),
             )
             payload = parsed.to_wire()
             artifact_refs = payload.get("artifact_refs")
             if not isinstance(artifact_refs, list):
-                raise ValueError(
-                    "knowledge_index_result_artifact_refs_invalid"
-                )
+                raise ValueError("knowledge_index_result_artifact_refs_invalid")
             validate_worker_artifact_references(
                 artifact_refs,
                 execution_envelope=envelope,
@@ -835,9 +724,7 @@ class KnowledgeIndexJobService:
         worker_payload = payload
         payload_artifact_ref = None
         if len(rendered) > INLINE_JOB_PAYLOAD_BYTES:
-            payload_fingerprint = hashlib.sha256(
-                payload_bytes
-            ).hexdigest()
+            payload_fingerprint = hashlib.sha256(payload_bytes).hexdigest()
             payload_artifact_ref = self._payload_storage.store(
                 content=payload_bytes,
                 fingerprint=payload_fingerprint,

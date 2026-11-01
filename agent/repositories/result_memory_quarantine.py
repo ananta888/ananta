@@ -35,15 +35,29 @@ class ResultMemoryQuarantineRepository:
                 return True
             if state not in {"active", "quarantined"} or action == "release" and state != "quarantined":
                 return False
-            row.memory_metadata = {**row.memory_metadata, "memory_quarantine": {
-                "schema": "ananta.memory-quarantine.v1", "state": target, "reason_code": reason_code,
-                "decision_audit_ref": decision.audit_event_id, "policy_digest": decision.policy_digest,
-            }}
-            session.add(MemoryQuarantineEventDB(
-                chunk_id=row.id, channel_id="hub-result-memory", tenant_id=decision.actor.tenant_id,
-                action=action, previous_lifecycle=state, next_lifecycle=target, reason_code=reason_code,
-                policy_digest=decision.policy_digest, decision_audit_ref=decision.audit_event_id,
-            ))
+            row.memory_metadata = {
+                **row.memory_metadata,
+                "memory_quarantine": {
+                    "schema": "ananta.memory-quarantine.v1",
+                    "state": target,
+                    "reason_code": reason_code,
+                    "decision_audit_ref": decision.audit_event_id,
+                    "policy_digest": decision.policy_digest,
+                },
+            }
+            session.add(
+                MemoryQuarantineEventDB(
+                    chunk_id=row.id,
+                    channel_id="hub-result-memory",
+                    tenant_id=decision.actor.tenant_id,
+                    action=action,
+                    previous_lifecycle=state,
+                    next_lifecycle=target,
+                    reason_code=reason_code,
+                    policy_digest=decision.policy_digest,
+                    decision_audit_ref=decision.audit_event_id,
+                )
+            )
             session.add(row)
             self._boundary.recheck(decision)
             session.commit()

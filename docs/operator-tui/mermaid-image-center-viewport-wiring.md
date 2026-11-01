@@ -35,18 +35,18 @@ Markdown text
 
 ```python
 {
-    "kind":             "diagram_image",
-    "diagram_id":       str,      # stable hash-based ID per block
-    "image_format":     str,      # "png" | "svg" | "svg+xml"
-    "image_data":       bytes,    # raw PNG or SVG bytes
-    "x":                int,
-    "y":                int,
-    "requested_width":  int,      # pixels
-    "requested_height": int,      # pixels
-    "alt_text":         str,
-    "fallback_text":    str,      # Mermaid source for ANSI fallback
+    "kind": "diagram_image",
+    "diagram_id": str,  # stable hash-based ID per block
+    "image_format": str,  # "png" | "svg" | "svg+xml"
+    "image_data": bytes,  # raw PNG or SVG bytes
+    "x": int,
+    "y": int,
+    "requested_width": int,  # pixels
+    "requested_height": int,  # pixels
+    "alt_text": str,
+    "fallback_text": str,  # Mermaid source for ANSI fallback
     "render_duration_ms": float,
-    "cache_hit":        bool,
+    "cache_hit": bool,
 }
 ```
 

@@ -36,7 +36,13 @@ class ModernGLOffscreenRenderer:
         self._draw_demo_cube(draw=draw, width=width, height=height, t=float(config.t))
         return PixelFrame.from_image(
             img,
-            metadata={"renderer": self.name, "scene": config.scene, "ok": True, "offscreen": True, "fallback_sw": not self.is_available()},
+            metadata={
+                "renderer": self.name,
+                "scene": config.scene,
+                "ok": True,
+                "offscreen": True,
+                "fallback_sw": not self.is_available(),
+            },
         )
 
     def _draw_demo_cube(self, *, draw, width: int, height: int, t: float) -> None:

@@ -301,6 +301,7 @@ def test_drain_report_is_countable_for_a_reconcile_summary() -> None:
 
     assert reconciler.drain().to_dict() == {"projected": 0, "deferred": 0, "failed": []}
 
+
 def test_the_runtime_builder_assembles_a_usable_trace_path() -> None:
     """Enabling the safe half of the cutover must be one decision, not two."""
 
@@ -335,4 +336,3 @@ def test_a_half_configured_trace_runtime_is_refused() -> None:
                 project=_Projection(),
             ),
         )
-

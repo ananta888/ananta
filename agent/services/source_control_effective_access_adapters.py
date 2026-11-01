@@ -52,8 +52,7 @@ class SQLSourceRevisionAccessCatalog:
         with Session(self._engine) as db:
             row = db.exec(
                 select(SourceRevisionDB).where(
-                    SourceRevisionDB.source_revision_id
-                    == source_revision_id,
+                    SourceRevisionDB.source_revision_id == source_revision_id,
                     SourceRevisionDB.tenant_id == tenant_id,
                     SourceRevisionDB.project_id == project_id,
                 )
@@ -76,35 +75,17 @@ class SQLSourceRevisionAccessCatalog:
                 SourceRevisionDB.project_id == project_id,
             )
             if after is not None:
-                statement = statement.where(
-                    SourceRevisionDB.source_revision_id > after
-                )
+                statement = statement.where(SourceRevisionDB.source_revision_id > after)
             if filters.get("source_type"):
-                statement = statement.where(
-                    SourceRevisionDB.connector_type
-                    == filters["source_type"]
-                )
+                statement = statement.where(SourceRevisionDB.connector_type == filters["source_type"])
             if filters.get("sensitivity"):
-                statement = statement.where(
-                    SourceRevisionDB.sensitivity
-                    == filters["sensitivity"]
-                )
-            rows = list(
-                db.exec(
-                    statement.order_by(
-                        SourceRevisionDB.source_revision_id
-                    ).limit(limit + 1)
-                ).all()
-            )
+                statement = statement.where(SourceRevisionDB.sensitivity == filters["sensitivity"])
+            rows = list(db.exec(statement.order_by(SourceRevisionDB.source_revision_id).limit(limit + 1)).all())
         visible = rows[:limit]
         return (
             tuple(self._record(row) for row in visible),
             (
-                base64.urlsafe_b64encode(
-                    visible[-1].source_revision_id.encode("ascii")
-                )
-                .decode("ascii")
-                .rstrip("=")
+                base64.urlsafe_b64encode(visible[-1].source_revision_id.encode("ascii")).decode("ascii").rstrip("=")
                 if len(rows) > limit and visible
                 else None
             ),
@@ -129,9 +110,7 @@ class SQLSourceRevisionAccessCatalog:
             value = cursor + "=" * (-len(cursor) % 4)
             return base64.urlsafe_b64decode(value).decode("ascii")
         except (ValueError, UnicodeDecodeError) as exc:
-            raise SourceControlProductionAdapterError(
-                "source_revision_cursor_invalid"
-            ) from exc
+            raise SourceControlProductionAdapterError("source_revision_cursor_invalid") from exc
 
 
 class ScopedEffectiveDestinationCatalog:
@@ -146,9 +125,7 @@ class ScopedEffectiveDestinationCatalog:
         self._tenant_id = tenant_id
         self._project_id = project_id
 
-    def get_destination(
-        self, *, destination_id: str
-    ) -> DestinationDescriptor | None:
+    def get_destination(self, *, destination_id: str) -> DestinationDescriptor | None:
         return self._catalog.get(
             tenant_id=self._tenant_id,
             project_id=self._project_id,
@@ -188,34 +165,24 @@ class PersistentGrantEffectivePolicy:
         purpose: str,
     ) -> EffectivePolicyEvaluation:
         operation_value = str(getattr(operation, "value", operation))
-        transformation_value = str(
-            getattr(transformation, "value", transformation)
-        )
+        transformation_value = str(getattr(transformation, "value", transformation))
         with Session(self._engine) as db:
             grants = list(
                 db.exec(
                     select(SourceAccessGrantDB).where(
-                        SourceAccessGrantDB.tenant_id
-                        == source_revision.tenant_id,
-                        SourceAccessGrantDB.project_id
-                        == source_revision.project_id,
-                        SourceAccessGrantDB.source_revision_id
-                        == source_revision.source_revision_id,
-                        SourceAccessGrantDB.destination_id
-                        == destination.destination_id,
+                        SourceAccessGrantDB.tenant_id == source_revision.tenant_id,
+                        SourceAccessGrantDB.project_id == source_revision.project_id,
+                        SourceAccessGrantDB.source_revision_id == source_revision.source_revision_id,
+                        SourceAccessGrantDB.destination_id == destination.destination_id,
                         SourceAccessGrantDB.operation == operation_value,
-                        SourceAccessGrantDB.transformation
-                        == transformation_value,
+                        SourceAccessGrantDB.transformation == transformation_value,
                         SourceAccessGrantDB.purpose == purpose,
                         SourceAccessGrantDB.state == "active",
-                        SourceAccessGrantDB.expires_at_epoch
-                        > float(self._clock()),
+                        SourceAccessGrantDB.expires_at_epoch > float(self._clock()),
                     )
                 ).all()
             )
-        grant = max(
-            grants, key=lambda item: item.grant_version, default=None
-        )
+        grant = max(grants, key=lambda item: item.grant_version, default=None)
         if grant is None:
             return EffectivePolicyEvaluation(
                 decision="deny",
@@ -223,9 +190,7 @@ class PersistentGrantEffectivePolicy:
                 matched_rule_path=(),
                 default_applied=True,
                 approval_requirement=None,
-                policy_digest=hashlib.sha256(
-                    b"ananta.source-control.no-active-grant.v1"
-                ).hexdigest(),
+                policy_digest=hashlib.sha256(b"ananta.source-control.no-active-grant.v1").hexdigest(),
             )
         policy_digest = self._resolve_policy_snapshot_digest(
             tenant_id=source_revision.tenant_id,
@@ -298,14 +263,17 @@ def derive_policy_snapshot_id(
         "version": version,
         "policy_digest": policy_digest,
     }
-    return "cpv_" + hashlib.sha256(
-        json.dumps(
-            payload,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("ascii")
-    ).hexdigest()
+    return (
+        "cpv_"
+        + hashlib.sha256(
+            json.dumps(
+                payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("ascii")
+        ).hexdigest()
+    )
 
 
 def build_scoped_effective_access_service(

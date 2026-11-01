@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+import pytest
+
 from agent.services.organization_category_research_callback_adapter import (
     OrganizationCategoryResearchCallbackAdapter,
     OrganizationCategoryResearchCallbackError,
 )
-import pytest
 
 
 def _category_task() -> dict[str, Any]:
@@ -19,14 +20,11 @@ def _category_task() -> dict[str, Any]:
                 "schema": "organization_planning_result_callback.v1",
                 "method": "POST",
                 "path_template": (
-                    "/api/worker-results/tasks/{source_task_id}/assignments/"
-                    "{assignment_id}/planning/category"
+                    "/api/worker-results/tasks/{source_task_id}/assignments/{assignment_id}/planning/category"
                 ),
                 "authorization": "worker_result_capability",
             },
-            "planning_research_binding": {
-                "artifact_hashes": {"prompt": "a" * 64}
-            },
+            "planning_research_binding": {"artifact_hashes": {"prompt": "a" * 64}},
         },
     }
 
@@ -36,8 +34,7 @@ def test_generic_worker_callback_is_adapted_to_closed_category_result() -> None:
     raw_output = '{"project":"research"}'
     adapter = OrganizationCategoryResearchCallbackAdapter(
         task_reader=lambda _task_id: _category_task(),
-        result_acceptor=lambda **kwargs: calls.append(kwargs)
-        or {"status": "accepted"},
+        result_acceptor=lambda **kwargs: calls.append(kwargs) or {"status": "accepted"},
     )
 
     result = adapter.accept_if_applicable(
@@ -57,9 +54,7 @@ def test_generic_worker_callback_is_adapted_to_closed_category_result() -> None:
     )
 
     assert result == {"status": "accepted"}
-    assert calls[0]["raw_output_digest"] == hashlib.sha256(
-        raw_output.encode("utf-8")
-    ).hexdigest()
+    assert calls[0]["raw_output_digest"] == hashlib.sha256(raw_output.encode("utf-8")).hexdigest()
     assert calls[0]["runtime_artifact_hashes"] == {"prompt": "a" * 64}
     assert calls[0]["idempotency_key"].startswith("category-result-")
 
@@ -85,9 +80,7 @@ def test_non_category_callback_remains_on_generic_path() -> None:
 def test_category_pipeline_error_is_preserved_for_fail_closed_http_mapping() -> None:
     adapter = OrganizationCategoryResearchCallbackAdapter(
         task_reader=lambda _task_id: _category_task(),
-        result_acceptor=lambda **_kwargs: (_ for _ in ()).throw(
-            ValueError("category_dispatch_lease_invalid")
-        ),
+        result_acceptor=lambda **_kwargs: (_ for _ in ()).throw(ValueError("category_dispatch_lease_invalid")),
     )
 
     with pytest.raises(

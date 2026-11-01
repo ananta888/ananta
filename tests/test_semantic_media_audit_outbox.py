@@ -151,10 +151,7 @@ def test_outbox_has_closed_content_free_schema(db_engine) -> None:
         SqlSemanticMediaAuditOutbox.enqueue_in_session(db, _event())
         db.commit()
         row = db.exec(select(SemanticMediaAuditOutboxDB)).one()
-        projection = {
-            column.name: getattr(row, column.name)
-            for column in SemanticMediaAuditOutboxDB.__table__.columns
-        }
+        projection = {column.name: getattr(row, column.name) for column in SemanticMediaAuditOutboxDB.__table__.columns}
     forbidden = {
         "payload",
         "audio",

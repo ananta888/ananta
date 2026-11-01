@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -140,9 +140,7 @@ def _parse_config(raw: dict[str, Any]) -> TuiToolConfig:
 
     default_editor = str(raw.get("default_editor") or "vim").strip()
     if default_editor not in allowed_tools:
-        raise TuiConfigValidationError(
-            f"default_editor {default_editor!r} is not in allowed_tools: {allowed_tools}"
-        )
+        raise TuiConfigValidationError(f"default_editor {default_editor!r} is not in allowed_tools: {allowed_tools}")
 
     filetype_rules: list[FiletypeRule] = []
     for entry in raw.get("filetype_editors", []):
@@ -227,6 +225,7 @@ class TuiToolRegistry:
             # env-level overrides from settings
             try:
                 from agent.config import settings
+
                 if os.environ.get("TUI_DEFAULT_EDITOR"):
                     merged["default_editor"] = settings.tui_default_editor
                 if os.environ.get("TUI_ALLOW_ENVIRONMENT_EDITOR") is not None:

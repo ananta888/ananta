@@ -55,9 +55,7 @@ def test_local_only_scope_produces_source_reference_refs():
 
 
 def test_external_scope_denies_local_only_chunks():
-    result = _service().build_open_notebook_worker_refs(
-        _bundle("external_cloud_allowed", chunk_llm_scope="local_only")
-    )
+    result = _service().build_open_notebook_worker_refs(_bundle("external_cloud_allowed", chunk_llm_scope="local_only"))
     assert result["retrieval_refs"] == []
     assert result["denied"]
     assert result["denied"][0]["reason_code"] == "denied_external_llm_scope"

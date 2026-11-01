@@ -1,5 +1,4 @@
-"""Effective access and Context Policy lifecycle routes of the Source Control v1 API.
-"""
+"""Effective access and Context Policy lifecycle routes of the Source Control v1 API."""
 
 from __future__ import annotations
 
@@ -45,16 +44,15 @@ def register_policy_routes(
             required=PREVIEW_FIELDS,
         )
         source_revision_id = required_string(payload, "source_revision_id")
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_revision",
             resource_id=source_revision_id,
         )
         if denied is not None:
             return denied
-        return success_response(
-            api.access_preview(principal=request_guard.principal(), payload=payload)
-        )
+        return success_response(api.access_preview(principal=request_guard.principal(), payload=payload))
 
     @blueprint.post("/access/matrix")
     @check_auth
@@ -64,26 +62,24 @@ def register_policy_routes(
         require_exact_fields(
             payload,
             MATRIX_FIELDS,
-            required=frozenset(
-                {"operation", "transformation", "purpose"}
-            ),
+            required=frozenset({"operation", "transformation", "purpose"}),
         )
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_revision",
             collection=True,
         )
         if denied is not None:
             return denied
-        return success_response(
-            api.access_matrix(principal=request_guard.principal(), payload=payload)
-        )
+        return success_response(api.access_matrix(principal=request_guard.principal(), payload=payload))
 
     @blueprint.get("/context-policies")
     @check_auth
     @boundary
     def context_policy_list():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             collection=True,
@@ -108,7 +104,8 @@ def register_policy_routes(
     @check_auth
     @boundary
     def context_policy_versions(policy_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,
@@ -130,13 +127,12 @@ def register_policy_routes(
             )
         )
 
-    @blueprint.get(
-        "/context-policies/<policy_id>/versions/<int:version>"
-    )
+    @blueprint.get("/context-policies/<policy_id>/versions/<int:version>")
     @check_auth
     @boundary
     def context_policy_detail(policy_id: str, version: int):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,
@@ -156,7 +152,8 @@ def register_policy_routes(
     @check_auth
     @boundary
     def context_policy_active(policy_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,
@@ -175,7 +172,8 @@ def register_policy_routes(
     @check_auth
     @boundary
     def context_policy_draft(policy_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             collection=True,
@@ -185,21 +183,15 @@ def register_policy_routes(
         payload = json_object()
         require_exact_fields(
             payload,
-            frozenset(
-                {"document", "expected_latest_version", "dry_run"}
-            ),
-            required=frozenset(
-                {"document", "expected_latest_version", "dry_run"}
-            ),
+            frozenset({"document", "expected_latest_version", "dry_run"}),
+            required=frozenset({"document", "expected_latest_version", "dry_run"}),
         )
         if (
             not isinstance(payload.get("document"), dict)
             or payload.get("dry_run") is not False
             or (
                 payload.get("expected_latest_version") is not None
-                and not isinstance(
-                    payload.get("expected_latest_version"), int
-                )
+                and not isinstance(payload.get("expected_latest_version"), int)
             )
         ):
             raise SourceControlApiError("policy_draft_invalid")
@@ -231,7 +223,8 @@ def register_policy_routes(
             minimum=1,
             maximum=2_147_483_647,
         )
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,
@@ -261,7 +254,8 @@ def register_policy_routes(
             }
         )
         require_exact_fields(payload, allowed, required=allowed)
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,
@@ -289,7 +283,8 @@ def register_policy_routes(
             required=frozenset({"dry_run"}),
         )
         if_match, idempotency_key = require_execution_contract(payload)
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,
@@ -307,9 +302,7 @@ def register_policy_routes(
             )
         )
 
-    @blueprint.post(
-        "/context-policies/<policy_id>/versions/<int:version>/activate"
-    )
+    @blueprint.post("/context-policies/<policy_id>/versions/<int:version>/activate")
     @check_auth
     @boundary
     def context_policy_activate(policy_id: str, version: int):
@@ -319,9 +312,7 @@ def register_policy_routes(
             version=version,
         )
 
-    @blueprint.post(
-        "/context-policies/<policy_id>/versions/<int:version>/revoke"
-    )
+    @blueprint.post("/context-policies/<policy_id>/versions/<int:version>/revoke")
     @check_auth
     @boundary
     def context_policy_revoke(policy_id: str, version: int):
@@ -336,16 +327,15 @@ def register_policy_routes(
     @boundary
     def context_policy_rollback(policy_id: str):
         payload = json_object()
-        allowed = frozenset(
-            {"target_version", "expected_latest_version", "dry_run"}
-        )
+        allowed = frozenset({"target_version", "expected_latest_version", "dry_run"})
         require_exact_fields(payload, allowed, required=allowed)
         if not isinstance(payload.get("target_version"), int) or not isinstance(
             payload.get("expected_latest_version"), int
         ):
             raise SourceControlApiError("policy_rollback_invalid")
         if_match, idempotency_key = require_execution_contract(payload)
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="context_policy",
             resource_id=policy_id,

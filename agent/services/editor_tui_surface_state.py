@@ -658,5 +658,3 @@ from agent.services._editor_tui_tui_builders import (
     build_tui_task_detail_view,
     build_tui_task_filtering_grouping,
 )
-
-

@@ -70,9 +70,7 @@ class FileTypeManifestService:
         )
         matrix = registry.support_matrix(runtime_availability=self.runtime_availability)
         self._rag_helper_matrix = {
-            str(row["format_id"]): row
-            for row in matrix["rows"]
-            if row["pipeline"] == "rag_helper"
+            str(row["format_id"]): row for row in matrix["rows"] if row["pipeline"] == "rag_helper"
         }
 
     def enrich_rag_helper_manifest(self, manifest: Mapping[str, Any]) -> dict[str, Any]:
@@ -81,11 +79,7 @@ class FileTypeManifestService:
         observed_items: list[_ObservedFile] = []
         enriched_files: list[Any] = []
         for index, item in enumerate(files):
-            observed = (
-                self._observe_file(item)
-                if index < 100_000 and isinstance(item, Mapping)
-                else None
-            )
+            observed = self._observe_file(item) if index < 100_000 and isinstance(item, Mapping) else None
             if observed is not None:
                 observed_items.append(observed)
                 enriched_files.append({**dict(item), "detected_type": observed.format_id})
@@ -111,9 +105,7 @@ class FileTypeManifestService:
         format_id = classification.format_id if classification is not None else "unknown_text"
         stats = raw.get("stats") if isinstance(raw.get("stats"), Mapping) else {}
         diagnostics = {
-            str(value).strip()
-            for value in list(stats.get("diagnostic_codes") or [])[:256]
-            if str(value).strip()
+            str(value).strip() for value in list(stats.get("diagnostic_codes") or [])[:256] if str(value).strip()
         }
         if raw.get("error"):
             outcome = "failed"
@@ -162,8 +154,7 @@ class FileTypeManifestService:
                 continue
             fallback_reasons = sorted({item.fallback_reason for item in files if item.fallback_reason})
             claims = {
-                dimension.value: self._capability_claim(matrix_row, dimension)
-                for dimension in CapabilityDimension
+                dimension.value: self._capability_claim(matrix_row, dimension) for dimension in CapabilityDimension
             }
             if claims["indexed"]["effective"] == "none":
                 claims["symbols"]["effective"] = "none"
@@ -178,13 +169,9 @@ class FileTypeManifestService:
                     "parser_id": descriptor.parser_strategy or None,
                     "parser_version": _parser_version(descriptor),
                     "fallback_reason": (
-                        fallback_reasons[0]
-                        if len(fallback_reasons) == 1
-                        else "multiple" if fallback_reasons else None
+                        fallback_reasons[0] if len(fallback_reasons) == 1 else "multiple" if fallback_reasons else None
                     ),
-                    "diagnostic_codes": sorted(
-                        {code for item in files for code in item.diagnostics}
-                    )[:256],
+                    "diagnostic_codes": sorted({code for item in files for code in item.diagnostics})[:256],
                     "file_count": len(files),
                 }
             )

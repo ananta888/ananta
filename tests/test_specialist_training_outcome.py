@@ -89,14 +89,21 @@ def test_completed_training_remains_readable_after_regular_registry_evaluation(c
     before = reader.read(principal, job.id, command)
     record = reader._registry.get(job.adapter_id, tenant_id=principal.tenant_id, owner_subject=principal.subject)
     evaluated = reader._registry.set_eval_report(
-        job.adapter_id, eval_report_ref="synthetic-validation-job", eval_score=0.9,
-        tenant_id=principal.tenant_id, owner_subject=principal.subject, expected_version=record.registry_version,
+        job.adapter_id,
+        eval_report_ref="synthetic-validation-job",
+        eval_score=0.9,
+        tenant_id=principal.tenant_id,
+        owner_subject=principal.subject,
+        expected_version=record.registry_version,
     )
     assert evaluated.status == "evaluated" and evaluated.approved_by is None
     assert reader.read(principal, job.id, command) == before
     reader._registry.reject(
-        job.adapter_id, reason="synthetic rejection", tenant_id=principal.tenant_id,
-        owner_subject=principal.subject, expected_version=evaluated.registry_version,
+        job.adapter_id,
+        reason="synthetic rejection",
+        tenant_id=principal.tenant_id,
+        owner_subject=principal.subject,
+        expected_version=evaluated.registry_version,
     )
     with pytest.raises(ValueError, match="specialist_training_registry_binding_invalid"):
         reader.read(principal, job.id, command)

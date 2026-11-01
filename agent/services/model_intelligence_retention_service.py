@@ -138,9 +138,7 @@ class ModelIntelligenceRetentionService:
             )
         reference = self._store_reference(principal.tenant_id, pending_record)
         try:
-            object_existed = bool(
-                self._artifact_delete_port.delete(principal.tenant_id, reference)
-            )
+            object_existed = bool(self._artifact_delete_port.delete(principal.tenant_id, reference))
         except Exception as exc:
             raise ModelIntelligenceRetentionServiceError("artifact_delete_failed") from exc
         confirmed = self._retention_policy.confirm_deletion(

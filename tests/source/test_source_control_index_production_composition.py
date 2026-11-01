@@ -64,18 +64,14 @@ def test_legacy_ingestion_payload_store_keeps_keyword_constructor() -> None:
     version = SimpleNamespace(
         sha256=fingerprint,
         size_bytes=len(content),
-        media_type=(
-            "application/vnd.ananta.knowledge-index-job+json"
-        ),
+        media_type=("application/vnd.ananta.knowledge-index-job+json"),
     )
 
     class Ingestion:
         def upload_artifact(self, **kwargs):
             assert kwargs["content"] == content
             assert kwargs["artifact_metadata"] == {
-                "system_artifact_kind": (
-                    "knowledge_index_job_payload"
-                ),
+                "system_artifact_kind": ("knowledge_index_job_payload"),
                 "idempotency_fingerprint": fingerprint,
             }
             return artifact, version, None
@@ -269,9 +265,7 @@ def _planner_fixture(
             lease_id="lease_example",
             lease_generation=1,
             lease_issued_epoch_ms=int((NOW - timedelta(seconds=1)).timestamp() * 1000),
-            lease_expires_epoch_ms=int(
-                (NOW + lease_lifetime).timestamp() * 1000
-            ),
+            lease_expires_epoch_ms=int((NOW + lease_lifetime).timestamp() * 1000),
         ),
     )
     grants = _GrantPort(grant)
@@ -368,9 +362,7 @@ def test_planner_requires_runtime_and_transport_margin_on_assignment() -> None:
             idempotency_key="index-example",
         )
 
-    assert raised.value.reason_code == (
-        "source_index_assignment_runtime_window_insufficient"
-    )
+    assert raised.value.reason_code == ("source_index_assignment_runtime_window_insufficient")
 
 
 def test_planner_rejects_grant_without_runtime_transport_margin() -> None:
@@ -391,9 +383,7 @@ def test_planner_rejects_grant_without_runtime_transport_margin() -> None:
             idempotency_key="index-example",
         )
 
-    assert raised.value.reason_code == (
-        "source_index_grant_runtime_window_insufficient"
-    )
+    assert raised.value.reason_code == ("source_index_grant_runtime_window_insufficient")
 
 
 def test_planner_allows_pre_dispatch_reserve_to_absorb_clock_drift() -> None:
@@ -438,9 +428,7 @@ def test_planner_fails_closed_after_pre_dispatch_reserve_is_consumed() -> None:
             idempotency_key="index-example",
         )
 
-    assert raised.value.reason_code == (
-        "source_index_assignment_runtime_window_insufficient"
-    )
+    assert raised.value.reason_code == ("source_index_assignment_runtime_window_insufficient")
 
 
 class _Queue:
@@ -542,9 +530,7 @@ def test_worker_composition_requires_identity_and_signed_v2_manifests() -> None:
     )
 
     digest = "a" * 64
-    signature = HubSourceAccessManifestSigner(key).sign(
-        manifest_digest=digest
-    )
+    signature = HubSourceAccessManifestSigner(key).sign(manifest_digest=digest)
     assert handler._worker_id == "worker_example"
     assert handler._source_access_manifest_verifier.verify(
         manifest_digest=digest,

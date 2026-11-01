@@ -23,5 +23,7 @@ def test_endpoint_role_matrix_for_protected_and_admin_routes(client, user_auth_h
     ]
 
     for _role, path, headers, expected in cases:
-        response = client.get(path, headers=headers) if path == "/tasks" else client.post(path, headers=headers, json={})
+        response = (
+            client.get(path, headers=headers) if path == "/tasks" else client.post(path, headers=headers, json={})
+        )
         assert response.status_code == expected

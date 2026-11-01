@@ -56,8 +56,17 @@ def test_invalid_network_cannot_be_adopted(change):
     assert run.call_count == 1
 
 
-@pytest.mark.parametrize("change", [{"Id": "b" * 64}, {"Name": "foreign"}, {"Internal": False},
-                                    {"Driver": "overlay"}, {"Containers": {"foreign": {}}}, {"Containers": None}])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"Id": "b" * 64},
+        {"Name": "foreign"},
+        {"Internal": False},
+        {"Driver": "overlay"},
+        {"Containers": {"foreign": {}}},
+        {"Containers": None},
+    ],
+)
 def test_mutated_or_nonempty_network_is_not_removed(change):
     owner, info, run = fixture()
     owner.capture(NAME)

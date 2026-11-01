@@ -3,11 +3,10 @@
 Verifies path traversal prevention, workspace boundary enforcement,
 and that large/secret files are not inlined.
 """
+
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import uuid
 from pathlib import Path
 
@@ -15,7 +14,7 @@ import pytest
 
 from agent.services.artifact_manifest_service import get_artifact_manifest_service
 from agent.services.workspace_diff_service import get_workspace_diff_service
-from worker.core.artifact_manifest import build_artifact_entry, build_artifact_manifest, write_manifest
+from worker.core.artifact_manifest import build_artifact_entry
 
 
 def _sha256(content: str) -> str:
@@ -42,16 +41,19 @@ class TestPathTraversalRejection:
     def test_manifest_with_dotdot_path_rejected(self, tmp_path: Path) -> None:
         """Manifest with ../ path must be rejected by ArtifactManifestService."""
         svc = get_artifact_manifest_service()
-        manifest = _minimal_manifest([
-            {
-                "artifact_id": "art-bad",
-                "kind": "generated_file",
-                "relative_path": "../outside_workspace/secret.txt",
-                "content_hash": "a" * 64,
-                "size_bytes": 0,
-                "required": False,
-            }
-        ], tmp_path)
+        manifest = _minimal_manifest(
+            [
+                {
+                    "artifact_id": "art-bad",
+                    "kind": "generated_file",
+                    "relative_path": "../outside_workspace/secret.txt",
+                    "content_hash": "a" * 64,
+                    "size_bytes": 0,
+                    "required": False,
+                }
+            ],
+            tmp_path,
+        )
         result = svc.validate_manifest(manifest, workspace_root=tmp_path)
         assert not result["valid"], "Manifest with ../ path must be rejected"
         assert any("path_traversal" in e or "escapes_workspace" in e for e in result["errors"]), (
@@ -61,16 +63,19 @@ class TestPathTraversalRejection:
     def test_manifest_with_absolute_path_rejected(self, tmp_path: Path) -> None:
         """Manifest with /absolute/path must be rejected."""
         svc = get_artifact_manifest_service()
-        manifest = _minimal_manifest([
-            {
-                "artifact_id": "art-abs",
-                "kind": "generated_file",
-                "relative_path": "/etc/passwd",
-                "content_hash": "b" * 64,
-                "size_bytes": 0,
-                "required": False,
-            }
-        ], tmp_path)
+        manifest = _minimal_manifest(
+            [
+                {
+                    "artifact_id": "art-abs",
+                    "kind": "generated_file",
+                    "relative_path": "/etc/passwd",
+                    "content_hash": "b" * 64,
+                    "size_bytes": 0,
+                    "required": False,
+                }
+            ],
+            tmp_path,
+        )
         result = svc.validate_manifest(manifest, workspace_root=tmp_path)
         assert not result["valid"], "Manifest with /absolute/path must be rejected"
         assert any("path_traversal" in e or "escapes_workspace" in e for e in result["errors"]), (
@@ -84,16 +89,19 @@ class TestPathTraversalRejection:
         safe_file.write_text(content, encoding="utf-8")
 
         svc = get_artifact_manifest_service()
-        manifest = _minimal_manifest([
-            {
-                "artifact_id": f"art-{uuid.uuid4().hex[:8]}",
-                "kind": "generated_file",
-                "relative_path": "app.py",
-                "content_hash": _sha256(content),
-                "size_bytes": len(content.encode()),
-                "required": True,
-            }
-        ], tmp_path)
+        manifest = _minimal_manifest(
+            [
+                {
+                    "artifact_id": f"art-{uuid.uuid4().hex[:8]}",
+                    "kind": "generated_file",
+                    "relative_path": "app.py",
+                    "content_hash": _sha256(content),
+                    "size_bytes": len(content.encode()),
+                    "required": True,
+                }
+            ],
+            tmp_path,
+        )
         result = svc.validate_manifest(manifest, workspace_root=tmp_path)
         assert result["valid"], f"Valid path must be accepted. errors={result['errors']}"
 
@@ -128,16 +136,19 @@ class TestSymlinkEscape:
             pytest.skip("Symlink creation not supported in this environment")
 
         svc = get_artifact_manifest_service()
-        manifest = _minimal_manifest([
-            {
-                "artifact_id": "art-sym",
-                "kind": "generated_file",
-                "relative_path": "innocent.txt",
-                "content_hash": "0" * 64,
-                "size_bytes": 0,
-                "required": False,
-            }
-        ], tmp_path)
+        manifest = _minimal_manifest(
+            [
+                {
+                    "artifact_id": "art-sym",
+                    "kind": "generated_file",
+                    "relative_path": "innocent.txt",
+                    "content_hash": "0" * 64,
+                    "size_bytes": 0,
+                    "required": False,
+                }
+            ],
+            tmp_path,
+        )
         result = svc.validate_manifest(manifest, workspace_root=tmp_path)
         # Symlink escape should cause path resolution to detect the escape or hash mismatch
         # Either the file is flagged as escaping or hash mismatch (file actually exists via symlink)
@@ -152,16 +163,19 @@ class TestHashIntegrity:
         real_file.write_text("real content", encoding="utf-8")
 
         svc = get_artifact_manifest_service()
-        manifest = _minimal_manifest([
-            {
-                "artifact_id": "art-badhash",
-                "kind": "generated_file",
-                "relative_path": "output.txt",
-                "content_hash": "f" * 64,  # wrong hash
-                "size_bytes": 12,
-                "required": True,
-            }
-        ], tmp_path)
+        manifest = _minimal_manifest(
+            [
+                {
+                    "artifact_id": "art-badhash",
+                    "kind": "generated_file",
+                    "relative_path": "output.txt",
+                    "content_hash": "f" * 64,  # wrong hash
+                    "size_bytes": 12,
+                    "required": True,
+                }
+            ],
+            tmp_path,
+        )
         result = svc.validate_manifest(manifest, workspace_root=tmp_path)
         assert not result["valid"], "Wrong hash must cause manifest rejection"
         assert any("hash_mismatch" in e for e in result["errors"]), (
@@ -175,16 +189,19 @@ class TestHashIntegrity:
         real_file.write_text(content, encoding="utf-8")
 
         svc = get_artifact_manifest_service()
-        manifest = _minimal_manifest([
-            {
-                "artifact_id": "art-goodhash",
-                "kind": "generated_file",
-                "relative_path": "output.txt",
-                "content_hash": _sha256(content),
-                "size_bytes": len(content.encode()),
-                "required": True,
-            }
-        ], tmp_path)
+        manifest = _minimal_manifest(
+            [
+                {
+                    "artifact_id": "art-goodhash",
+                    "kind": "generated_file",
+                    "relative_path": "output.txt",
+                    "content_hash": _sha256(content),
+                    "size_bytes": len(content.encode()),
+                    "required": True,
+                }
+            ],
+            tmp_path,
+        )
         result = svc.validate_manifest(manifest, workspace_root=tmp_path)
         assert result["valid"], f"Correct hash must be accepted. errors={result['errors']}"
 

@@ -1,8 +1,8 @@
 """Operator-TUI: Workflow Adapter Status Panel (LCG-056, LCG-057)."""
+
 from __future__ import annotations
 
 from typing import Any
-
 
 # ANSI color codes
 _RESET = "\033[0m"
@@ -74,6 +74,7 @@ def fetch_adapter_status(hub_base_url: str) -> list[dict[str, Any]]:
     """
     try:
         import requests
+
         url = hub_base_url.rstrip("/") + "/api/workflow_adapters/"
         resp = requests.get(url, timeout=5)
         if resp.ok:

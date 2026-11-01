@@ -6,7 +6,11 @@ def test_metrics_grouped_by_model(client, admin_auth_header, monkeypatch):
     monkeypatch.setattr(
         mod,
         "get_planning_metrics_service",
-        lambda: type("S", (), {"summarize": lambda self, **_: {"run_count": 1, "groups": [{"group": "lmstudio::gemma", "run_count": 1}]}})(),
+        lambda: type(
+            "S",
+            (),
+            {"summarize": lambda self, **_: {"run_count": 1, "groups": [{"group": "lmstudio::gemma", "run_count": 1}]}},
+        )(),
     )
 
     resp = client.get("/admin/planning/metrics", headers=admin_auth_header)
@@ -16,8 +20,8 @@ def test_metrics_grouped_by_model(client, admin_auth_header, monkeypatch):
 
 
 def test_model_benchmark_planning_scores(monkeypatch):
-    from agent.services.ollama_benchmark_service import OllamaBenchmarkService
     import agent.services.ollama_benchmark_service as mod
+    from agent.services.ollama_benchmark_service import OllamaBenchmarkService
 
     class _Run:
         def __init__(self):

@@ -163,9 +163,7 @@ def get_voice_live_run(run_id: str):
     try:
         after_sequence = int(request.args.get("after_sequence", -1))
         after_revision_value = request.args.get("after_revision")
-        after_revision = (
-            int(after_revision_value) if after_revision_value is not None else None
-        )
+        after_revision = int(after_revision_value) if after_revision_value is not None else None
         limit = int(request.args.get("limit", 600))
         include_text = str(request.args.get("include_text", "true")).strip().lower() not in {
             "0",

@@ -5,29 +5,30 @@ ReplayRecord, ReplayAnalysis, ReplayRecordService.
 Replay läuft immer opt-in; analyse_replay ist read-only ohne Approval,
 action_replay braucht eigene ApprovalRequests (erbt keine vom Original-Run).
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-
 # ── Data classes ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ReplayRecord:
     replay_id: str
     run_id: str
     expert_id: str
-    expert_version: str          # exakte Version, nie "latest"
-    config_hash: str             # sha256 der aktiven Konfiguration zum Run-Zeitpunkt
-    policy_snapshot_ref: str | None    # artifact_id des PolicySnapshot-Artefakts
-    context_bundle_refs: list[str]     # artifact_ids aller Context-Bundles des Runs
-    tool_call_log_ref: str | None      # artifact_id des vollständigen Tool-Call-Logs
+    expert_version: str  # exakte Version, nie "latest"
+    config_hash: str  # sha256 der aktiven Konfiguration zum Run-Zeitpunkt
+    policy_snapshot_ref: str | None  # artifact_id des PolicySnapshot-Artefakts
+    context_bundle_refs: list[str]  # artifact_ids aller Context-Bundles des Runs
+    tool_call_log_ref: str | None  # artifact_id des vollständigen Tool-Call-Logs
     non_deterministic_refs: list[str]  # artifact_ids externer Antwort-Snapshots
     created_at: float
-    replay_status: str = "available"   # "available" | "unavailable" | "incomplete"
+    replay_status: str = "available"  # "available" | "unavailable" | "incomplete"
     unavailable_reason: str | None = None
 
 
@@ -36,9 +37,9 @@ class ReplayAnalysis:
     replay_id: str
     can_analyse: bool
     can_action_replay: bool
-    missing_refs: list[str]           # was fehlt für vollständigen Replay
+    missing_refs: list[str]  # was fehlt für vollständigen Replay
     non_deterministic_steps: list[str]  # Schritte die nicht reproduzierbar sind
-    estimated_fidelity: float          # 0.0–1.0, wie zuverlässig der Replay wäre
+    estimated_fidelity: float  # 0.0–1.0, wie zuverlässig der Replay wäre
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
@@ -101,14 +102,9 @@ class ReplayRecordService:
         # analyse_replay (read-only) only needs the tool call log.
         can_analyse = record.tool_call_log_ref is not None
         # action_replay also requires the policy snapshot.
-        can_action_replay = (
-            record.policy_snapshot_ref is not None
-            and record.tool_call_log_ref is not None
-        )
+        can_action_replay = record.policy_snapshot_ref is not None and record.tool_call_log_ref is not None
 
-        non_det_steps = list(
-            self._non_deterministic_steps.get(record.replay_id, [])
-        )
+        non_det_steps = list(self._non_deterministic_steps.get(record.replay_id, []))
 
         # Fidelity: weighted sum of available evidence.
         fidelity = 0.0
@@ -130,9 +126,7 @@ class ReplayRecordService:
             estimated_fidelity=round(fidelity, 4),
         )
 
-    def mark_non_deterministic(
-        self, replay_id: str, step_description: str
-    ) -> None:
+    def mark_non_deterministic(self, replay_id: str, step_description: str) -> None:
         """Register a non-deterministic step for a replay (e.g. external LLM call)."""
         if replay_id not in self._non_deterministic_steps:
             self._non_deterministic_steps[replay_id] = []
@@ -145,10 +139,7 @@ class ReplayRecordService:
         ToolCallLog (to reconstruct the sequence of actions) — without these a
         dry-run cannot produce meaningful output.
         """
-        return (
-            record.policy_snapshot_ref is not None
-            and record.tool_call_log_ref is not None
-        )
+        return record.policy_snapshot_ref is not None and record.tool_call_log_ref is not None
 
     def to_dict(self, record: ReplayRecord) -> dict[str, Any]:
         """Serialise a ReplayRecord to a plain dict.

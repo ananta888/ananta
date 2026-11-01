@@ -9,6 +9,7 @@ cover the cross-field rules the pydantic model enforces:
 - to_safe_dict strips secret_refs
 - Literal-typed mode fields round-trip through JSON
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,7 +19,6 @@ from agent.providers.lc_lg import (
     LangChainProviderConfig,
     LangGraphProviderConfig,
 )
-
 
 # ── LangChainProviderConfig defaults ────────────────────────────────────
 
@@ -49,14 +49,18 @@ def test_lc_allowed_tools_default_empty():
 def test_lc_cloud_gated_without_external_calls_rejected():
     with pytest.raises(ValidationError) as exc:
         LangChainProviderConfig(
-            enabled=True, mode="cloud_gated", external_calls_allowed=False,
+            enabled=True,
+            mode="cloud_gated",
+            external_calls_allowed=False,
         )
     assert "external_calls_allowed" in str(exc.value).lower()
 
 
 def test_lc_cloud_gated_with_external_calls_ok():
     cfg = LangChainProviderConfig(
-        enabled=True, mode="cloud_gated", external_calls_allowed=True,
+        enabled=True,
+        mode="cloud_gated",
+        external_calls_allowed=True,
     )
     assert cfg.mode == "cloud_gated"
     assert cfg.external_calls_allowed is True
@@ -65,7 +69,9 @@ def test_lc_cloud_gated_with_external_calls_ok():
 def test_lg_cloud_gated_without_external_calls_rejected():
     with pytest.raises(ValidationError) as exc:
         LangGraphProviderConfig(
-            enabled=True, mode="cloud_gated", external_calls_allowed=False,
+            enabled=True,
+            mode="cloud_gated",
+            external_calls_allowed=False,
         )
     assert "external_calls_allowed" in str(exc.value).lower()
 
@@ -120,7 +126,8 @@ def test_lg_graph_allowed_empty_list_allows_any():
 
 def test_lg_graph_allowed_restricts_to_list():
     cfg = LangGraphProviderConfig(
-        enabled=True, mode="dry_run",
+        enabled=True,
+        mode="dry_run",
         allowed_graphs=["code_review_v1"],
     )
     assert cfg.graph_allowed("code_review_v1") is True
@@ -132,7 +139,9 @@ def test_lg_graph_allowed_restricts_to_list():
 
 def test_lc_to_safe_dict_omits_secret_refs():
     cfg = LangChainProviderConfig(
-        enabled=True, mode="cloud_gated", external_calls_allowed=True,
+        enabled=True,
+        mode="cloud_gated",
+        external_calls_allowed=True,
         secret_refs=["vault:openai/key"],
     )
     safe = cfg.to_safe_dict()
@@ -143,7 +152,9 @@ def test_lc_to_safe_dict_omits_secret_refs():
 
 def test_lg_to_safe_dict_omits_secret_refs():
     cfg = LangGraphProviderConfig(
-        enabled=True, mode="cloud_gated", external_calls_allowed=True,
+        enabled=True,
+        mode="cloud_gated",
+        external_calls_allowed=True,
         secret_refs=["vault:x"],
     )
     safe = cfg.to_safe_dict()
@@ -153,13 +164,16 @@ def test_lg_to_safe_dict_omits_secret_refs():
 # ── is_live / is_dry_run matrix ────────────────────────────────────────
 
 
-@pytest.mark.parametrize("enabled,mode,live", [
-    (False, "dry_run", False),
-    (False, "local_live", False),    # disabled wins
-    (True, "dry_run", False),
-    (True, "mock_live", False),      # mock is dry
-    (True, "local_live", True),
-])
+@pytest.mark.parametrize(
+    "enabled,mode,live",
+    [
+        (False, "dry_run", False),
+        (False, "local_live", False),  # disabled wins
+        (True, "dry_run", False),
+        (True, "mock_live", False),  # mock is dry
+        (True, "local_live", True),
+    ],
+)
 def test_lc_is_live_matrix(enabled, mode, live):
     cfg_kwargs = {"enabled": enabled, "mode": mode}
     if mode == "cloud_gated":
@@ -169,9 +183,16 @@ def test_lc_is_live_matrix(enabled, mode, live):
     assert cfg.is_dry_run() is (not live)
 
 
-@pytest.mark.parametrize("mode", [
-    "disabled", "dry_run", "mock_live", "local_live", "cloud_gated",
-])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "disabled",
+        "dry_run",
+        "mock_live",
+        "local_live",
+        "cloud_gated",
+    ],
+)
 def test_lc_mode_literal_accepts_all_documented_values(mode):
     """Every documented mode value parses without error.
 

@@ -6,11 +6,6 @@ import json
 import os
 from typing import Any
 
-from ananta_contracts.file_credentials import (
-    FileCredentialConfigurationError,
-    read_file_managed_bytes,
-)
-
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
 from agent.services.workflow_runtime.telemetry import (
     CanonicalEventTelemetryProjector,
@@ -18,6 +13,10 @@ from agent.services.workflow_runtime.telemetry import (
     TelemetryEventStore,
     WorkflowTelemetryError,
     WorkflowTraceContext,
+)
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_bytes,
 )
 
 

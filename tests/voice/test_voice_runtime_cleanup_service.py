@@ -50,12 +50,15 @@ def test_cleanup_survives_service_recreation_and_retries_without_persisting_cont
         runtime_stream_delete=unavailable,
         audit_sink=lambda _event, _details: None,
     )
-    assert first_service.stage(
-        principal,
-        profile_id=profile_id,
-        operation="profile_delete",
-        targets=(target,),
-    ) == 1
+    assert (
+        first_service.stage(
+            principal,
+            profile_id=profile_id,
+            operation="profile_delete",
+            targets=(target,),
+        )
+        == 1
+    )
     first_run = first_service.retry_profile(principal, profile_id)
 
     assert first_run.public() == {
@@ -194,9 +197,7 @@ def test_hub_restart_cleanup_invalidates_ephemeral_stream_replay_metadata() -> N
             "agent.bootstrap.voice_runtime_cleanup.get_voice_runtime_cleanup_service",
             return_value=cleanup,
         ),
-        patch(
-            "agent.bootstrap.voice_runtime_cleanup.get_voice_deletion_reconciliation_service"
-        ) as reconciliation,
+        patch("agent.bootstrap.voice_runtime_cleanup.get_voice_deletion_reconciliation_service") as reconciliation,
         patch("agent.bootstrap.voice_runtime_cleanup.settings.role", "hub"),
     ):
         recover_voice_runtime_cleanup()
@@ -302,11 +303,14 @@ def test_restricted_cache_gc_failure_survives_recreation_and_replays() -> None:
         restricted_cache_gc=unavailable,
         audit_sink=lambda _event, _details: None,
     )
-    assert first.stage_cache_gc(
-        principal,
-        profile_id=profile_id,
-        operation="profile_delete",
-    ) == 1
+    assert (
+        first.stage_cache_gc(
+            principal,
+            profile_id=profile_id,
+            operation="profile_delete",
+        )
+        == 1
+    )
     failed = first.retry_profile(principal, profile_id)
 
     assert failed.public() == {

@@ -1,10 +1,12 @@
 """X86CC-006 to X86CC-010: Data models for x86 CodeCompass extension."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 SCHEMA_ID = "codecompass_x86_graph.v1"
+
 
 # ---------------------------------------------------------------------------
 # X86CC-006: Node kinds
@@ -29,14 +31,28 @@ class X86NodeKind:
     STRING_LITERAL = "string_literal"
     ADDRESS_RANGE = "address_range"
 
+
 ALL_NODE_KINDS = {
-    X86NodeKind.BINARY_FILE, X86NodeKind.SECTION, X86NodeKind.SEGMENT,
-    X86NodeKind.SYMBOL, X86NodeKind.FUNCTION, X86NodeKind.BASIC_BLOCK,
-    X86NodeKind.INSTRUCTION, X86NodeKind.OPERAND, X86NodeKind.REGISTER,
-    X86NodeKind.FLAG, X86NodeKind.STACK_SLOT, X86NodeKind.MEMORY_REGION,
-    X86NodeKind.CALLSITE, X86NodeKind.IMPORT_SYMBOL, X86NodeKind.EXPORT_SYMBOL,
-    X86NodeKind.RELOCATION, X86NodeKind.STRING_LITERAL, X86NodeKind.ADDRESS_RANGE,
+    X86NodeKind.BINARY_FILE,
+    X86NodeKind.SECTION,
+    X86NodeKind.SEGMENT,
+    X86NodeKind.SYMBOL,
+    X86NodeKind.FUNCTION,
+    X86NodeKind.BASIC_BLOCK,
+    X86NodeKind.INSTRUCTION,
+    X86NodeKind.OPERAND,
+    X86NodeKind.REGISTER,
+    X86NodeKind.FLAG,
+    X86NodeKind.STACK_SLOT,
+    X86NodeKind.MEMORY_REGION,
+    X86NodeKind.CALLSITE,
+    X86NodeKind.IMPORT_SYMBOL,
+    X86NodeKind.EXPORT_SYMBOL,
+    X86NodeKind.RELOCATION,
+    X86NodeKind.STRING_LITERAL,
+    X86NodeKind.ADDRESS_RANGE,
 }
+
 
 # ---------------------------------------------------------------------------
 # X86CC-007: Edge types
@@ -65,16 +81,32 @@ class X86EdgeType:
     REFERENCES_ADDRESS = "references_address"
     RELOCATES_TO = "relocates_to"
 
+
 ALL_EDGE_TYPES = {
-    X86EdgeType.CONTAINS, X86EdgeType.BELONGS_TO, X86EdgeType.NEXT_INSTRUCTION,
-    X86EdgeType.CFG_FALLTHROUGH, X86EdgeType.CFG_TRUE, X86EdgeType.CFG_FALSE,
-    X86EdgeType.CFG_JUMP, X86EdgeType.CFG_INDIRECT_JUMP, X86EdgeType.CALLS,
-    X86EdgeType.INDIRECT_CALLS, X86EdgeType.RETURNS_TO, X86EdgeType.READS_REGISTER,
-    X86EdgeType.WRITES_REGISTER, X86EdgeType.READS_FLAG, X86EdgeType.WRITES_FLAG,
-    X86EdgeType.READS_MEMORY, X86EdgeType.WRITES_MEMORY, X86EdgeType.USES_STACK_SLOT,
-    X86EdgeType.REFERENCES_STRING, X86EdgeType.REFERENCES_IMPORT,
-    X86EdgeType.REFERENCES_ADDRESS, X86EdgeType.RELOCATES_TO,
+    X86EdgeType.CONTAINS,
+    X86EdgeType.BELONGS_TO,
+    X86EdgeType.NEXT_INSTRUCTION,
+    X86EdgeType.CFG_FALLTHROUGH,
+    X86EdgeType.CFG_TRUE,
+    X86EdgeType.CFG_FALSE,
+    X86EdgeType.CFG_JUMP,
+    X86EdgeType.CFG_INDIRECT_JUMP,
+    X86EdgeType.CALLS,
+    X86EdgeType.INDIRECT_CALLS,
+    X86EdgeType.RETURNS_TO,
+    X86EdgeType.READS_REGISTER,
+    X86EdgeType.WRITES_REGISTER,
+    X86EdgeType.READS_FLAG,
+    X86EdgeType.WRITES_FLAG,
+    X86EdgeType.READS_MEMORY,
+    X86EdgeType.WRITES_MEMORY,
+    X86EdgeType.USES_STACK_SLOT,
+    X86EdgeType.REFERENCES_STRING,
+    X86EdgeType.REFERENCES_IMPORT,
+    X86EdgeType.REFERENCES_ADDRESS,
+    X86EdgeType.RELOCATES_TO,
 }
+
 
 # ---------------------------------------------------------------------------
 # X86CC-008: AddressRef
@@ -86,9 +118,13 @@ class AddressKind:
     RVA = "rva"
     UNKNOWN = "unknown"
 
+
 ALL_ADDRESS_KINDS = {
-    AddressKind.ABSOLUTE, AddressKind.RELATIVE, AddressKind.FILE_OFFSET,
-    AddressKind.RVA, AddressKind.UNKNOWN,
+    AddressKind.ABSOLUTE,
+    AddressKind.RELATIVE,
+    AddressKind.FILE_OFFSET,
+    AddressKind.RVA,
+    AddressKind.UNKNOWN,
 }
 
 
@@ -238,8 +274,15 @@ class X86EvidenceKind:
     STRING = "x86_string"
     DIAGNOSTIC = "x86_diagnostic"
 
+
 ALL_EVIDENCE_KINDS = {
-    X86EvidenceKind.INSTRUCTION, X86EvidenceKind.BASIC_BLOCK, X86EvidenceKind.FUNCTION,
-    X86EvidenceKind.CFG_EDGE, X86EvidenceKind.CALLSITE, X86EvidenceKind.SECTION,
-    X86EvidenceKind.IMPORT, X86EvidenceKind.STRING, X86EvidenceKind.DIAGNOSTIC,
+    X86EvidenceKind.INSTRUCTION,
+    X86EvidenceKind.BASIC_BLOCK,
+    X86EvidenceKind.FUNCTION,
+    X86EvidenceKind.CFG_EDGE,
+    X86EvidenceKind.CALLSITE,
+    X86EvidenceKind.SECTION,
+    X86EvidenceKind.IMPORT,
+    X86EvidenceKind.STRING,
+    X86EvidenceKind.DIAGNOSTIC,
 }

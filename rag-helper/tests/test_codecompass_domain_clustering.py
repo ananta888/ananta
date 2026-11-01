@@ -22,12 +22,8 @@ def _build_inputs(
         manifest=dict(manifest or {}),
         loaded_files={"graph_nodes(in-memory)": len(nodes)},
     )
-    inputs.graph_nodes = [
-        n for n in nodes if n.get("id") and n.get("kind") is not None and n.get("file")
-    ]
-    inputs.graph_edges = [
-        e for e in (edges or []) if e.get("source") and e.get("target") and e.get("type")
-    ]
+    inputs.graph_nodes = [n for n in nodes if n.get("id") and n.get("kind") is not None and n.get("file")]
+    inputs.graph_edges = [e for e in (edges or []) if e.get("source") and e.get("target") and e.get("type")]
     return inputs
 
 
@@ -40,8 +36,7 @@ def _record(rid: str, file: str, **extra) -> dict:
 class TestPathSignalClustering(unittest.TestCase):
     def test_dominant_path_yields_single_cluster_per_root(self) -> None:
         nodes = [
-            _record(f"r{i}", f"rag-helper/rag_helper/application/mod{i}.py", importance_score=0.5)
-            for i in range(5)
+            _record(f"r{i}", f"rag-helper/rag_helper/application/mod{i}.py", importance_score=0.5) for i in range(5)
         ] + [
             _record("cli", "rag-helper/rag_helper/cli.py", importance_score=0.9),
         ]
@@ -57,10 +52,9 @@ class TestPathSignalClustering(unittest.TestCase):
         self.assertEqual(result.unassigned_records, [])
 
     def test_heterogeneous_parent_splits_into_sub_roots(self) -> None:
-        nodes = (
-            [_record(f"s{i}", f"agent/services/service{i}.py") for i in range(5)]
-            + [_record(f"r{i}", f"agent/routes/route{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"s{i}", f"agent/services/service{i}.py") for i in range(5)] + [
+            _record(f"r{i}", f"agent/routes/route{i}.py") for i in range(4)
+        ]
         graph = DomainGraph.build(_build_inputs(nodes=nodes))
         result = cluster_domains(graph)
 
@@ -70,10 +64,9 @@ class TestPathSignalClustering(unittest.TestCase):
         self.assertNotIn("agent", ids)
 
     def test_output_is_byte_stable_sorted(self) -> None:
-        nodes = (
-            [_record(f"a{i}", f"alpha/file{i}.py") for i in range(4)]
-            + [_record(f"b{i}", f"beta/file{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"a{i}", f"alpha/file{i}.py") for i in range(4)] + [
+            _record(f"b{i}", f"beta/file{i}.py") for i in range(4)
+        ]
         graph_a = DomainGraph.build(_build_inputs(nodes=list(nodes)))
         graph_b = DomainGraph.build(_build_inputs(nodes=list(reversed(nodes))))
         result_a = cluster_domains(graph_a)
@@ -88,9 +81,7 @@ class TestGraphSignalClustering(unittest.TestCase):
     def test_isolated_record_joins_single_coupled_cluster(self) -> None:
         # Two well-populated clusters and one isolated record whose only
         # relation edges point into the rag-helper cluster.
-        nodes = [
-            _record(f"r{i}", f"rag-helper/rag_helper/m{i}.py") for i in range(4)
-        ] + [
+        nodes = [_record(f"r{i}", f"rag-helper/rag_helper/m{i}.py") for i in range(4)] + [
             _record("orphan", "tools/lonely.py"),
         ]
         edges = [
@@ -112,11 +103,11 @@ class TestGraphSignalClustering(unittest.TestCase):
         self.assertIn("r0", rag_cluster.member_record_ids)
 
     def test_isolated_record_ambiguous_coupling_stays_unassigned(self) -> None:
-        nodes = [
-            _record(f"a{i}", f"alpha/f{i}.py") for i in range(4)
-        ] + [
-            _record(f"b{i}", f"beta/f{i}.py") for i in range(4)
-        ] + [_record("orphan", "tools/lonely.py")]
+        nodes = (
+            [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)]
+            + [_record(f"b{i}", f"beta/f{i}.py") for i in range(4)]
+            + [_record("orphan", "tools/lonely.py")]
+        )
         edges = [
             {"source": "orphan", "target": "a0", "type": "field_type_uses"},
             {"source": "orphan", "target": "b0", "type": "field_type_uses"},
@@ -133,10 +124,7 @@ class TestLayerOnlyFiltered(unittest.TestCase):
     def test_cluster_without_path_signal_is_dropped(self) -> None:
         # All records share the same layer-only classification; no path
         # signal lands because the only root candidate has no records.
-        nodes = [
-            _record(f"x{i}", f"shared/api/{i}.py", role_labels=["controller"])
-            for i in range(3)
-        ]
+        nodes = [_record(f"x{i}", f"shared/api/{i}.py", role_labels=["controller"]) for i in range(3)]
         graph = DomainGraph.build(_build_inputs(nodes=nodes))
         result = cluster_domains(graph)
         # 'shared' should remain as a cluster only if it qualifies; the
@@ -186,10 +174,9 @@ class TestPackageEnrichment(unittest.TestCase):
 
 class TestRelationMetrics(unittest.TestCase):
     def test_internal_and_external_edges_counted(self) -> None:
-        nodes = (
-            [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)]
-            + [_record(f"b{i}", f"beta/f{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)] + [
+            _record(f"b{i}", f"beta/f{i}.py") for i in range(4)
+        ]
         edges = [
             {"source": "a0", "target": "a1", "type": "field_type_uses"},
             {"source": "a0", "target": "b0", "type": "injects_dependency"},

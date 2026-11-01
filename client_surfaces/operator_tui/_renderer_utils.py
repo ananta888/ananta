@@ -10,45 +10,21 @@ so existing imports keep working.
 
 from __future__ import annotations
 
-import os
 import re
-import time
-from textwrap import shorten
 from typing import TYPE_CHECKING
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
-from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
-from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
-from client_surfaces.operator_tui.chat_long_message import (
-    compact_chat_message_text,
-    get_render_mode,
-    is_showing_chat_long_message,
-    long_message_history_rows,
-    should_use_middle_view_for_message,
-)
-from client_surfaces.operator_tui.chat_state import get_active_channel
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
-from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
-from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
-from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
+from client_surfaces.operator_tui.theme import DEFAULT_THEME
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine, SplashState
-
-
+    pass
 
 
 # === Module-level state (constants) ===
 
 # === Functions extracted from the original renderer.py ===
+
 
 def _render_vscrollbar_char(bar_char: str) -> str:
     """Colorize a single scrollbar character."""
@@ -60,7 +36,6 @@ def _render_vscrollbar_char(bar_char: str) -> str:
     if bar_char == " ":
         return " "
     return f"{_dim}{bar_char}{_r}"
-
 
 
 def _render_hscrollbar_row(*, content_width: int, viewport_width: int, offset: int, track_width: int) -> str:
@@ -84,9 +59,9 @@ def _render_hscrollbar_row(*, content_width: int, viewport_width: int, offset: i
 
 _TPL_THEME = {
     "blueprint": ("\x1b[38;2;130;200;255m", "\x1b[0m"),
-    "template":  ("\x1b[38;2;180;230;150m", "\x1b[0m"),
-    "seed":      "\x1b[38;2;255;205;100m★\x1b[0m",
-    "header":    ("\x1b[38;2;100;120;150m", "\x1b[0m"),
+    "template": ("\x1b[38;2;180;230;150m", "\x1b[0m"),
+    "seed": "\x1b[38;2;255;205;100m★\x1b[0m",
+    "header": ("\x1b[38;2;100;120;150m", "\x1b[0m"),
 }
 _TPL_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_\.\[\]-]*$")
 _TPL_VAR_COLOR = "\x1b[38;2;130;210;255m"
@@ -95,10 +70,7 @@ _TPL_ERR_COLOR = "\x1b[38;2;255;120;120m"
 _TPL_RESET = "\x1b[0m"
 
 
-
-def _splice_inspector_into_chrome(
-    out: list[str], inspector: list[str], height: int | None
-) -> list[str]:
+def _splice_inspector_into_chrome(out: list[str], inspector: list[str], height: int | None) -> list[str]:
     """CRPS-007: insert the Profile Inspector lines into the visible chrome.
 
     Strategy:
@@ -136,7 +108,6 @@ def _splice_inspector_into_chrome(
     return out
 
 
-
 def _truncate_to_height(out: list[str], height: int | None) -> list[str]:
     if not height or height <= 0:
         return out
@@ -145,10 +116,7 @@ def _truncate_to_height(out: list[str], height: int | None) -> list[str]:
     return out[:height]
 
 
-
-def _clip_with_scroll(
-    out: list[str], *, game: dict, height: int | None, width: int
-) -> list[str]:
+def _clip_with_scroll(out: list[str], *, game: dict, height: int | None, width: int) -> list[str]:
     """Clip *out* to *height* lines, honouring game['chat_long_message_scroll_offset'].
 
     The pane title, question header and sender row are kept fixed at the top
@@ -193,19 +161,12 @@ def _clip_with_scroll(
     if above <= 0 and below <= 0:
         indicator = ""
     elif above > 0 and below > 0:
-        indicator = (
-            f"\x1b[2m  ↑{above} ↓{below}  Zeilen {offset+1}-{offset+available}/{len(body)}\x1b[0m"
-        )
+        indicator = f"\x1b[2m  ↑{above} ↓{below}  Zeilen {offset + 1}-{offset + available}/{len(body)}\x1b[0m"
     elif above > 0:
-        indicator = (
-            f"\x1b[2m  ↑{above}  Zeilen {offset+1}-{offset+available}/{len(body)}  ↓ Ende\x1b[0m"
-        )
+        indicator = f"\x1b[2m  ↑{above}  Zeilen {offset + 1}-{offset + available}/{len(body)}  ↓ Ende\x1b[0m"
     else:
-        indicator = (
-            f"\x1b[2m  ↑ Anfang  Zeilen 1-{available}/{len(body)}  ↓{below}\x1b[0m"
-        )
+        indicator = f"\x1b[2m  ↑ Anfang  Zeilen 1-{available}/{len(body)}  ↓{below}\x1b[0m"
     return chrome + window + [_clip(indicator, width)]
-
 
 
 def _overlay_text(
@@ -224,7 +185,6 @@ def _overlay_text(
         out[y] = _overlay_at_visible_col(out[y], cx, repl)
         cx += 1
     return out
-
 
 
 def _overlay_frame_preview(
@@ -257,7 +217,6 @@ def _overlay_frame_preview(
     out[max_y] = _overlay_at_visible_col(out[max_y], min_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{bl}\x1b[0m")
     out[max_y] = _overlay_at_visible_col(out[max_y], max_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{br}\x1b[0m")
     return out
-
 
 
 def _highlight_line_range(line: str, x1: int, x2: int, fg: tuple, bg: tuple) -> str:
@@ -295,7 +254,6 @@ def _highlight_line_range(line: str, x1: int, x2: int, fg: tuple, bg: tuple) -> 
     return line[:pos_x1] + "\x1b[0m" + bg_code + fg_code + mid_plain + "\x1b[0m" + line[pos_x2_end:]
 
 
-
 def _overlay_at_visible_col(line: str, col: int, replacement: str) -> str:
     col = max(0, col)
     plain = _ANSI_STRIP.sub("", line)
@@ -325,7 +283,6 @@ def _overlay_at_visible_col(line: str, col: int, replacement: str) -> str:
     return line
 
 
-
 def _visible_char_at(line: str, col: int) -> str:
     col = max(0, col)
     plain = _ANSI_STRIP.sub("", line)
@@ -334,10 +291,8 @@ def _visible_char_at(line: str, col: int) -> str:
     return plain[col]
 
 
-
 def _rule(width: int) -> str:
     return "-" * width
-
 
 
 def _clip(value: str, width: int) -> str:
@@ -350,20 +305,22 @@ def _clip(value: str, width: int) -> str:
 
 # === Symbols moved here from snake_overlay to break circular import ===
 
+
 def _snake_palette(name: str) -> dict[str, tuple[int, int, int]]:
     palettes = {
-        "mint":   {"head": (170, 255, 210), "body": (96, 215, 165),  "label": (236, 255, 244)},
-        "cyan":   {"head": (120, 235, 255), "body": (75, 188, 224),  "label": (220, 248, 255)},
+        "mint": {"head": (170, 255, 210), "body": (96, 215, 165), "label": (236, 255, 244)},
+        "cyan": {"head": (120, 235, 255), "body": (75, 188, 224), "label": (220, 248, 255)},
         "violet": {"head": (212, 176, 255), "body": (163, 120, 228), "label": (242, 230, 255)},
-        "amber":  {"head": (255, 205, 130), "body": (224, 155, 84),  "label": (255, 238, 202)},
-        "rose":   {"head": (255, 170, 200), "body": (222, 110, 156), "label": (255, 230, 240)},
+        "amber": {"head": (255, 205, 130), "body": (224, 155, 84), "label": (255, 238, 202)},
+        "rose": {"head": (255, 170, 200), "body": (222, 110, 156), "label": (255, 230, 240)},
         # extended palette (T03.03)
-        "lime":   {"head": (200, 255, 100), "body": (155, 220, 60),  "label": (230, 255, 180)},
-        "sky":    {"head": (100, 210, 255), "body": (60, 170, 230),  "label": (200, 240, 255)},
-        "coral":  {"head": (255, 160, 120), "body": (230, 110, 80),  "label": (255, 220, 200)},
-        "ice":    {"head": (200, 240, 255), "body": (160, 210, 240), "label": (230, 248, 255)},
+        "lime": {"head": (200, 255, 100), "body": (155, 220, 60), "label": (230, 255, 180)},
+        "sky": {"head": (100, 210, 255), "body": (60, 170, 230), "label": (200, 240, 255)},
+        "coral": {"head": (255, 160, 120), "body": (230, 110, 80), "label": (255, 220, 200)},
+        "ice": {"head": (200, 240, 255), "body": (160, 210, 240), "label": (230, 248, 255)},
     }
     return palettes.get(name, palettes["mint"])
+
 
 def _trim_visible_leading_spaces(line: str, spaces: int) -> str:
     if spaces <= 0:
@@ -389,6 +346,7 @@ def _trim_visible_leading_spaces(line: str, spaces: int) -> str:
 
 # === Symbols moved here to break circular import ===
 
+
 def _chat_channel_label(channel_id: str) -> str:
     return {
         "room:main": "#room",
@@ -396,6 +354,7 @@ def _chat_channel_label(channel_id: str) -> str:
         "notes:self": "notes",
         "system": "system",
     }.get(channel_id, channel_id.replace("direct:", "@"))
+
 
 def _inline_input_with_cursor(text: str, cursor: int, width: int) -> str:
     raw = str(text or "")
@@ -405,15 +364,17 @@ def _inline_input_with_cursor(text: str, cursor: int, width: int) -> str:
     if len(rendered) <= max_w:
         return rendered
     start = max(0, min(cur, len(rendered) - max_w))
-    return rendered[start:start + max_w]
+    return rendered[start : start + max_w]
 
 
 # === More symbols moved to break circular imports ===
+
 
 def _pane_title(title: str, focused: bool) -> str:
     if focused:
         return f"{DEFAULT_THEME.focused_open}{title}{DEFAULT_THEME.focused_close}"
     return f" {title} "
+
 
 def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, width: int, row: int = 0) -> list[str]:
     """Overlay score and highscore in the top-right area (T01.05)."""
@@ -444,4 +405,3 @@ def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, wi
     if len(out) > 0:
         out = _overlay_text(out, x=x, y=target_row, text=label, color=col)
     return out
-

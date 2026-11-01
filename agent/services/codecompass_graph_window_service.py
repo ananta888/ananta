@@ -13,18 +13,8 @@ def _node_id(node: Mapping[str, object]) -> str:
 
 
 def _edge_endpoints(edge: Mapping[str, object]) -> tuple[str, str]:
-    source = str(
-        edge.get("source_id")
-        or edge.get("source")
-        or edge.get("from")
-        or ""
-    ).strip()
-    target = str(
-        edge.get("target_id")
-        or edge.get("target")
-        or edge.get("to")
-        or ""
-    ).strip()
+    source = str(edge.get("source_id") or edge.get("source") or edge.get("from") or "").strip()
+    target = str(edge.get("target_id") or edge.get("target") or edge.get("to") or "").strip()
     return source, target
 
 
@@ -69,10 +59,7 @@ class CodeCompassGraphWindowService:
         canonical_nodes = self._canonical_nodes(nodes)
         node_by_id = {_node_id(node): node for node in canonical_nodes}
         canonical_edges = tuple(
-            edge
-            for edge in edges
-            if isinstance(edge, Mapping)
-            and self._edge_is_bound(edge, node_by_id)
+            edge for edge in edges if isinstance(edge, Mapping) and self._edge_is_bound(edge, node_by_id)
         )
         canonical_groups = self._canonical_groups(
             node_ids=tuple(node_by_id),
@@ -107,9 +94,7 @@ class CodeCompassGraphWindowService:
             unresolved_edge_count=len(edges) - len(canonical_edges),
             internal_edge_count=len(window_edges),
             edge_capped=len(visible_edges) < len(window_edges),
-            represented_group_count=sum(
-                1 for group in canonical_groups if selected.intersection(group)
-            ),
+            represented_group_count=sum(1 for group in canonical_groups if selected.intersection(group)),
             total_group_count=len(canonical_groups),
         )
 
@@ -136,11 +121,7 @@ class CodeCompassGraphWindowService:
             group_seen: set[str] = set()
             for value in raw_group:
                 node_id = str(value).strip()
-                if (
-                    node_id in known
-                    and node_id not in claimed
-                    and node_id not in group_seen
-                ):
+                if node_id in known and node_id not in claimed and node_id not in group_seen:
                     group_values.append(node_id)
                     group_seen.add(node_id)
             group = tuple(group_values)
@@ -169,11 +150,7 @@ class CodeCompassGraphWindowService:
         """
 
         all_node_ids = tuple(node_id for group in groups for node_id in group)
-        group_by_node = {
-            node_id: group_index
-            for group_index, group in enumerate(groups)
-            for node_id in group
-        }
+        group_by_node = {node_id: group_index for group_index, group in enumerate(groups) for node_id in group}
         adjacency = {node_id: set() for node_id in all_node_ids}
         degree = {node_id: 0 for node_id in all_node_ids}
         for edge in edges:
@@ -261,9 +238,7 @@ class CodeCompassGraphWindowService:
         adjacency: Mapping[str, set[str]],
         degree: Mapping[str, int],
     ) -> tuple[str, ...]:
-        original_position = {
-            node_id: position for position, node_id in enumerate(node_ids)
-        }
+        original_position = {node_id: position for position, node_id in enumerate(node_ids)}
 
         def priority(node_id: str) -> tuple[int, int, str]:
             return (
@@ -307,9 +282,7 @@ class CodeCompassGraphWindowService:
         incremental spanning forest is emitted before cycle/parallel edges.
         """
 
-        node_rank = {
-            node_id: rank for rank, node_id in enumerate(ranked_node_ids)
-        }
+        node_rank = {node_id: rank for rank, node_id in enumerate(ranked_node_ids)}
         edges_by_activation: dict[int, list[Mapping[str, object]]] = {}
         for edge in edges:
             source, target = _edge_endpoints(edge)
@@ -317,9 +290,7 @@ class CodeCompassGraphWindowService:
             if activation_rank < active_node_count:
                 edges_by_activation.setdefault(activation_rank, []).append(edge)
 
-        parent = {
-            node_id: node_id for node_id in ranked_node_ids[:active_node_count]
-        }
+        parent = {node_id: node_id for node_id in ranked_node_ids[:active_node_count]}
 
         def find(node_id: str) -> str:
             root = node_id

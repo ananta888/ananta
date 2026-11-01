@@ -1,18 +1,15 @@
 """DSL v2 Validator — Schema-Validierung + Capability-Checks."""
+
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
 _FORBIDDEN_KEYS = frozenset({"inline_code", "shell_command", "exec", "eval", "import"})
-_ALLOWED_ACTION_KINDS = frozenset({
-    "suggest_target", "follow_artifact", "lurk_near", "smooth_follow",
-    "fast_target", "explain_target", "no_action"
-})
-_ALLOWED_SOURCES = frozenset({
-    "tui.snapshot", "tui.delta", "tui.semantic", "tui.mouse", "tui.focus", "tui.history"
-})
+_ALLOWED_ACTION_KINDS = frozenset(
+    {"suggest_target", "follow_artifact", "lurk_near", "smooth_follow", "fast_target", "explain_target", "no_action"}
+)
+_ALLOWED_SOURCES = frozenset({"tui.snapshot", "tui.delta", "tui.semantic", "tui.mouse", "tui.focus", "tui.history"})
 
 
 @dataclass
@@ -52,7 +49,7 @@ class DslValidator:
         safety = dsl.get("safety") or {}
         safety_class = safety.get("safety_class")
         if safety_class not in ("ui_motion_only", "readonly"):
-            errors.append(f"safety.safety_class muss 'ui_motion_only' oder 'readonly' sein")
+            errors.append("safety.safety_class muss 'ui_motion_only' oder 'readonly' sein")
 
         # provenance
         provenance = dsl.get("provenance") or {}

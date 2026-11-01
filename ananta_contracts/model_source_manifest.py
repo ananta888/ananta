@@ -97,8 +97,7 @@ class ModelSourceArtifact(_ClosedModel):
     def _reason_codes(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(dict.fromkeys(values))
         if len(normalized) > 32 or any(
-            re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,127}", value) is None
-            for value in normalized
+            re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,127}", value) is None for value in normalized
         ):
             raise ValueError("model_source_reason_code_invalid")
         return normalized

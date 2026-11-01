@@ -1,4 +1,5 @@
 """Job Fit Scoring — explainable multi-dimensional fit evaluation."""
+
 from __future__ import annotations
 
 import uuid
@@ -64,9 +65,14 @@ class JobFitScore(BaseModel):
         if self.manual_override is not None:
             return self.manual_override
         subscores = [
-            s for s in [
-                self.technical_fit, self.domain_fit, self.seniority_fit,
-                self.location_fit, self.remote_fit, self.salary_fit,
+            s
+            for s in [
+                self.technical_fit,
+                self.domain_fit,
+                self.seniority_fit,
+                self.location_fit,
+                self.remote_fit,
+                self.salary_fit,
             ]
             if s is not None and s.score is not None
         ]

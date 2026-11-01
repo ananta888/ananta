@@ -5,13 +5,14 @@ Stores original content locally by SHA-256 hash.  Each entry is a JSON file
 inside *store_path*; a lightweight index file (.index.json) tracks metadata.
 No external dependencies — uses the standard library only.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,13 +24,13 @@ _DATA_DIR = "data"
 
 @dataclass(frozen=True)
 class CCREntry:
-    ref: str            # sha256[:24]
+    ref: str  # sha256[:24]
     content_type: str
-    content_hash: str   # full sha256 hex
-    stored_at: float    # unix timestamp
-    expires_at: float   # stored_at + ttl_seconds
+    content_hash: str  # full sha256 hex
+    stored_at: float  # unix timestamp
+    expires_at: float  # stored_at + ttl_seconds
     byte_size: int
-    redacted: bool      # True if secret_redactor ran on it
+    redacted: bool  # True if secret_redactor ran on it
 
 
 class CCRStore:
@@ -66,10 +67,7 @@ class CCRStore:
         """Persist *content* and return a CCREntry with a stable ref."""
         raw_bytes = content.encode("utf-8")
         if len(raw_bytes) > self._max_bytes:
-            raise ValueError(
-                f"Content ({len(raw_bytes)} bytes) exceeds max_bytes_per_item "
-                f"({self._max_bytes} bytes)."
-            )
+            raise ValueError(f"Content ({len(raw_bytes)} bytes) exceeds max_bytes_per_item ({self._max_bytes} bytes).")
 
         content_hash = hashlib.sha256(raw_bytes).hexdigest()
         ref = content_hash[:24]
@@ -143,9 +141,7 @@ class CCRStore:
         """Return a snapshot of store health metrics."""
         now = time.time()
         live_refs = [ref for ref, m in self._index.items() if now <= m["expires_at"]]
-        total_bytes = sum(
-            self._index[ref]["byte_size"] for ref in live_refs if ref in self._index
-        )
+        total_bytes = sum(self._index[ref]["byte_size"] for ref in live_refs if ref in self._index)
         return {
             "store_path": str(self._store_path),
             "live_entries": len(live_refs),

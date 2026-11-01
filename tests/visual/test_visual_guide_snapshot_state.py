@@ -5,6 +5,7 @@ reply-throttle key.
 The `app` fixture is required to avoid a circular-import problem that arises
 when snakes_execution_routes is imported before the Flask app bootstraps.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,6 +16,7 @@ def reset_visual_state(app):
     """Reset both module-global visual state variables before and after each test.
     Requires the `app` fixture so Flask + route modules are fully initialised."""
     import agent.routes.snakes_execution_routes as ser
+
     ser._visual_last_delta_snapshot = ""
     ser._visual_last_reply_snapshot = ""
     ser._visual_last_reply_at = 0.0

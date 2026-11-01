@@ -218,11 +218,7 @@ class BlueprintWorkflowStepRepository:
         with Session(engine) as session:
             from sqlmodel import delete
 
-            session.exec(
-                delete(BlueprintWorkflowStepDB).where(
-                    BlueprintWorkflowStepDB.blueprint_id == blueprint_id
-                )
-            )
+            session.exec(delete(BlueprintWorkflowStepDB).where(BlueprintWorkflowStepDB.blueprint_id == blueprint_id))
             session.commit()
 
 

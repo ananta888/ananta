@@ -5,6 +5,7 @@ Usage:
     python scripts/operator_tui_markdown_mermaid_smoke.py [path] [--mode ansi|source_only]
                                                           [--width N] [--height N] [--scroll N]
 """
+
 from __future__ import annotations
 
 import argparse

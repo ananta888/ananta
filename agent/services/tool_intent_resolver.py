@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
-import json
 from typing import Any
 
 from agent.services.task_execution_policy_service import normalize_tool_call_name
@@ -57,7 +57,9 @@ class ToolIntentResolver:
         "git_commit",
     }
 
-    def resolve(self, tool_calls: list[dict] | None, *, known_tools: list[str] | set[str] | tuple[str, ...] | None) -> ToolIntentResolution:
+    def resolve(
+        self, tool_calls: list[dict] | None, *, known_tools: list[str] | set[str] | tuple[str, ...] | None
+    ) -> ToolIntentResolution:
         known = {str(item).strip() for item in (known_tools or []) if str(item).strip()}
         remapped: list[dict[str, Any]] = []
         events: list[ToolIntentRemapEvent] = []
@@ -109,7 +111,9 @@ class ToolIntentResolver:
                 elif self._is_read_intent(raw_name or canonical):
                     # a read intent without a readable path must never become a write
                     unresolved.append(
-                        ToolIntentUnresolved(original_tool=raw_name or canonical, reason_code="unknown_read_tool_without_path")
+                        ToolIntentUnresolved(
+                            original_tool=raw_name or canonical, reason_code="unknown_read_tool_without_path"
+                        )
                     )
                     continue
                 elif command_payload:
@@ -144,9 +148,15 @@ class ToolIntentResolver:
                         original_tool=raw_name or "<missing>",
                         resolved_tool=resolved_name,
                         reason=reason,
-                        resolved_intent=get_tool_intent_taxonomy_service().classify_tool(resolved_name).get("intent", "unknown"),
-                        resolved_risk=get_tool_intent_taxonomy_service().classify_tool(resolved_name).get("risk_class", "medium"),
-                        tool_class=get_tool_intent_taxonomy_service().classify_tool(resolved_name).get("tool_class", "unknown"),
+                        resolved_intent=get_tool_intent_taxonomy_service()
+                        .classify_tool(resolved_name)
+                        .get("intent", "unknown"),
+                        resolved_risk=get_tool_intent_taxonomy_service()
+                        .classify_tool(resolved_name)
+                        .get("risk_class", "medium"),
+                        tool_class=get_tool_intent_taxonomy_service()
+                        .classify_tool(resolved_name)
+                        .get("tool_class", "unknown"),
                     )
                 )
 
@@ -182,7 +192,9 @@ class ToolIntentResolver:
         return "file_read", resolved, "heuristic_read_to_file_read"
 
     @classmethod
-    def _heuristic_unknown_tool_resolution(cls, *, raw_name: str, args: dict[str, Any]) -> tuple[str, dict[str, Any], str] | None:
+    def _heuristic_unknown_tool_resolution(
+        cls, *, raw_name: str, args: dict[str, Any]
+    ) -> tuple[str, dict[str, Any], str] | None:
         read = cls._read_intent_resolution(raw_name=raw_name, args=args)
         if read is not None:
             return read

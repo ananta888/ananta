@@ -36,7 +36,9 @@ def test_global_config_change_does_not_mutate_goal_snapshot(client, admin_auth_h
     before = client.get(f"/goals/{goal_id}/effective-config", headers=admin_auth_header).get_json()["data"]
     before_checksum = before.get("config_checksum")
 
-    patch = client.post("/config", headers=admin_auth_header, json={"default_provider": "lmstudio", "default_model": "qwen2.5-coder:7b"})
+    patch = client.post(
+        "/config", headers=admin_auth_header, json={"default_provider": "lmstudio", "default_model": "qwen2.5-coder:7b"}
+    )
     assert patch.status_code == 200
 
     after = client.get(f"/goals/{goal_id}/effective-config", headers=admin_auth_header).get_json()["data"]

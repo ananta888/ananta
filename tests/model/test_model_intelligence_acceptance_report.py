@@ -7,10 +7,7 @@ from scripts.model_intelligence_acceptance_report import build_report
 
 def _junit(path: Path, *, failures: int = 0) -> None:
     path.write_text(
-        (
-            '<testsuite tests="3" failures="'
-            f'{failures}" errors="0" skipped="0"></testsuite>'
-        ),
+        (f'<testsuite tests="3" failures="{failures}" errors="0" skipped="0"></testsuite>'),
         encoding="utf-8",
     )
 

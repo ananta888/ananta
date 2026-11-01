@@ -67,17 +67,9 @@ def test_gate_records_mock_success_and_never_copies_process_output() -> None:
         "validation",
     }
     assert report["nvidia_live_smoke"]["status"] == "not_run"
-    assert (
-        report["nvidia_live_smoke"]["reason_code"]
-        == "local_model_not_configured"
-    )
+    assert report["nvidia_live_smoke"]["reason_code"] == "local_model_not_configured"
     assert report["nvidia_live_smoke"]["evidence_ids"]["complete"] is False
-    assert (
-        report["nvidia_live_smoke"]["image_attestation"][
-            "runtime_image_digest_supplied"
-        ]
-        is False
-    )
+    assert report["nvidia_live_smoke"]["image_attestation"]["runtime_image_digest_supplied"] is False
     assert report["nvidia_live_proof"] is False
     assert "private-secret-marker" not in json.dumps(report)
 
@@ -380,9 +372,7 @@ def test_unsloth_stage_failure_is_a_failed_run_with_diagnostics() -> None:
     )
 
     assert failed["status"] == "failed"
-    assert failed["platform_stage_coverage"]["adapter_evaluation"]["run_reason_codes"] == [
-        "adapter_load_failed"
-    ]
+    assert failed["platform_stage_coverage"]["adapter_evaluation"]["run_reason_codes"] == ["adapter_load_failed"]
     assert failed["runs"][0]["stage_results"]["adapter_evaluation"] == {
         "status": "failed",
         "reason_code": "adapter_load_failed",
@@ -392,8 +382,7 @@ def test_unsloth_stage_failure_is_a_failed_run_with_diagnostics() -> None:
 
 def test_worker_diagnostic_is_bounded_and_redacts_transport_and_paths() -> None:
     diagnostic = bounded_worker_diagnostic(
-        "Bearer top-secret failed at /models/private/model with https://worker.internal/error "
-        + "x" * 600
+        "Bearer top-secret failed at /models/private/model with https://worker.internal/error " + "x" * 600
     )
 
     assert len(diagnostic) <= 512

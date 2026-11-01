@@ -8,20 +8,20 @@ import time
 
 import pytest
 
-from agent.services.task_orchestration_service import build_copilot_routing_prompt, extract_copilot_routing_hint
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
-    build_orchestration_read_model,
     build_dispatch_queue,
+    build_orchestration_read_model,
     choose_worker_for_task,
-    compute_retry_delay_seconds,
     compute_lease_expiry,
+    compute_retry_delay_seconds,
     derive_required_capabilities,
     derive_research_specialization,
     evaluate_worker_routing_policy,
     extract_active_lease,
     normalize_worker_roles,
 )
+from agent.services.task_orchestration_service import build_copilot_routing_prompt, extract_copilot_routing_hint
 
 
 class MockRoleProvider:
@@ -137,11 +137,17 @@ class TestWorkerCapabilitySelection:
         assert derive_required_capabilities(task, "testing") == ["testing"]
 
     def test_derive_required_capabilities_for_repo_research(self):
-        task = {"title": "Repository research", "description": "Investigate the codebase and git history systematically"}
+        task = {
+            "title": "Repository research",
+            "description": "Investigate the codebase and git history systematically",
+        }
         assert derive_required_capabilities(task, "research") == ["research", "repo_research"]
 
     def test_derive_research_specialization_prefers_specific_capability(self):
-        task = {"title": "Repository research", "description": "Investigate the codebase and git history systematically"}
+        task = {
+            "title": "Repository research",
+            "description": "Investigate the codebase and git history systematically",
+        }
         assert derive_research_specialization(task, "research") == "repo_research"
 
     def test_choose_worker_prefers_specialized_research_capability(self):
@@ -249,10 +255,7 @@ class TestWorkerCapabilitySelection:
 
         assert selection.worker_url is None
         assert selection.strategy == "capability_blocked"
-        assert (
-            "required_capability_set_not_satisfied"
-            in selection.reasons
-        )
+        assert "required_capability_set_not_satisfied" in selection.reasons
 
     def test_choose_worker_falls_back_to_online_worker(self):
         workers = [

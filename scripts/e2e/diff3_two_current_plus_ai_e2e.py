@@ -1,4 +1,5 @@
 """T06.04: Deterministischer E2E-Flow für zwei Current-Diff Panels plus AI-Panel."""
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,14 @@ if str(_REPO) not in sys.path:
 from agent.config import settings
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState
-from scripts.e2e.e2e_artifacts import build_report, compact_summary, make_flow_entry, new_run_id, write_report, write_text_artifact
+from scripts.e2e.e2e_artifacts import (
+    build_report,
+    compact_summary,
+    make_flow_entry,
+    new_run_id,
+    write_report,
+    write_text_artifact,
+)
 
 
 def _state() -> OperatorState:
@@ -89,4 +97,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

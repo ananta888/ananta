@@ -62,9 +62,13 @@ class PlanningLearningLoopService:
         trigger_signals: list[str] = []
         if float(group.get("parse_success_rate") or 0.0) < float(learning.get("min_parse_success_rate") or 0.7):
             trigger_signals.append("parse_success_rate_low")
-        if float(group.get("validation_success_rate") or 0.0) < float(learning.get("min_validation_success_rate") or 0.7):
+        if float(group.get("validation_success_rate") or 0.0) < float(
+            learning.get("min_validation_success_rate") or 0.7
+        ):
             trigger_signals.append("validation_success_rate_low")
-        if float(group.get("materialization_success_rate") or 0.0) < float(learning.get("min_materialization_success_rate") or 0.6):
+        if float(group.get("materialization_success_rate") or 0.0) < float(
+            learning.get("min_materialization_success_rate") or 0.6
+        ):
             trigger_signals.append("materialization_success_rate_low")
         if float(group.get("repair_rate") or 0.0) > float(learning.get("max_repair_rate") or 0.4):
             trigger_signals.append("repair_rate_high")
@@ -114,7 +118,9 @@ class PlanningLearningLoopService:
         text_score = (1.0 - float(slop) + float(depth) + float(style)) / 3.0
         return round((technical + text_score) / 2.0, 4)
 
-    def _find_profile_groups(self, *, profile_name: str, lookback_runs: int, prompt_version: str | None = None) -> list[dict[str, Any]]:
+    def _find_profile_groups(
+        self, *, profile_name: str, lookback_runs: int, prompt_version: str | None = None
+    ) -> list[dict[str, Any]]:
         metrics = get_planning_metrics_service().summarize(
             behavior_profile_name=profile_name,
             prompt_version=prompt_version,
@@ -139,10 +145,14 @@ class PlanningLearningLoopService:
             limit=200,
         )
 
-    def _activation_guard(self, *, learning: dict[str, Any], current_candidate, current_group: dict[str, Any]) -> dict[str, Any]:
+    def _activation_guard(
+        self, *, learning: dict[str, Any], current_candidate, current_group: dict[str, Any]
+    ) -> dict[str, Any]:
         freeze_minutes = int(learning.get("freeze_minutes") or 120)
         threshold = float(learning.get("candidate_activation_threshold") or 0.75)
-        rollback_min_runs = int(learning.get("rollback_min_runs") or max(3, int(learning.get("canary_window_runs") or 10)))
+        rollback_min_runs = int(
+            learning.get("rollback_min_runs") or max(3, int(learning.get("canary_window_runs") or 10))
+        )
         payload = dict((getattr(current_candidate, "candidate_payload", {}) or {}))
         candidate_age_seconds = None
         if current_candidate is not None:
@@ -155,7 +165,8 @@ class PlanningLearningLoopService:
             current_candidate is not None
             and str(getattr(current_candidate, "status", "") or "").strip().lower() == "canary"
             and not freeze_active
-            and int(current_group.get("run_count") or 0) >= int(payload.get("canary_window_runs") or learning.get("canary_window_runs") or 10)
+            and int(current_group.get("run_count") or 0)
+            >= int(payload.get("canary_window_runs") or learning.get("canary_window_runs") or 10)
             and quality >= threshold
         )
         reason_codes: list[str] = []
@@ -163,7 +174,9 @@ class PlanningLearningLoopService:
             reason_codes.append("no_candidate")
         if freeze_active:
             reason_codes.append("freeze_active")
-        if int(current_group.get("run_count") or 0) < int(payload.get("canary_window_runs") or learning.get("canary_window_runs") or 10):
+        if int(current_group.get("run_count") or 0) < int(
+            payload.get("canary_window_runs") or learning.get("canary_window_runs") or 10
+        ):
             reason_codes.append("canary_window_not_met")
         if quality < threshold:
             reason_codes.append("quality_below_threshold")
@@ -205,11 +218,15 @@ class PlanningLearningLoopService:
         for profile in profiles:
             profile_name = str(profile.profile_name or "").strip()
             prompt_version_id = self._extract_prompt_version_id(profile)
-            groups = self._find_profile_groups(
-                profile_name=profile_name,
-                lookback_runs=int(learning.get("lookback_runs") or 120),
-                prompt_version=prompt_version_id,
-            ) if profile_name else []
+            groups = (
+                self._find_profile_groups(
+                    profile_name=profile_name,
+                    lookback_runs=int(learning.get("lookback_runs") or 120),
+                    prompt_version=prompt_version_id,
+                )
+                if profile_name
+                else []
+            )
             current_group = groups[0] if groups else {}
             current_candidate = next(
                 (
@@ -220,8 +237,12 @@ class PlanningLearningLoopService:
                 None,
             )
             current_quality = self._quality_score(current_group) if current_group else 0.0
-            activation_guard = self._activation_guard(learning=learning, current_candidate=current_candidate, current_group=current_group)
-            profile_learning_state = normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable")
+            activation_guard = self._activation_guard(
+                learning=learning, current_candidate=current_candidate, current_group=current_group
+            )
+            profile_learning_state = normalize_learning_state(
+                getattr(profile, "learning_state", None), default_state="stable"
+            )
 
             profile_rows.append(
                 {
@@ -232,20 +253,36 @@ class PlanningLearningLoopService:
                     "enabled": bool(profile.enabled),
                     "active_prompt_version_id": prompt_version_id,
                     "learning_state": profile_learning_state,
-                    "observed_output_shape": str(profile_learning_state.get("observed_output_shape") or profile_learning_state.get("observed_output_format") or ""),
+                    "observed_output_shape": str(
+                        profile_learning_state.get("observed_output_shape")
+                        or profile_learning_state.get("observed_output_format")
+                        or ""
+                    ),
                     "observed_output_format": str(profile_learning_state.get("observed_output_format") or ""),
-                    "preferred_output_format": str((behavior_aggregation.get("preferred_output_format") or {}).get("value") or ""),
+                    "preferred_output_format": str(
+                        (behavior_aggregation.get("preferred_output_format") or {}).get("value") or ""
+                    ),
                     "current_quality_score": current_quality,
                     "trend_direction": str(current_group.get("trend_direction") or ""),
                     "sample_size_is_small": bool(current_group.get("sample_size_is_small")),
                     "current_candidate": {
                         "id": str(getattr(current_candidate, "id", "") or ""),
                         "status": str(getattr(current_candidate, "status", "") or ""),
-                        "prompt_version_id": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("new_prompt_version_id") or ""),
-                        "current_prompt_version_id": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("current_prompt_version_id") or ""),
-                        "candidate_state": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("candidate_state") or ""),
+                        "prompt_version_id": str(
+                            (getattr(current_candidate, "candidate_payload", {}) or {}).get("new_prompt_version_id")
+                            or ""
+                        ),
+                        "current_prompt_version_id": str(
+                            (getattr(current_candidate, "candidate_payload", {}) or {}).get("current_prompt_version_id")
+                            or ""
+                        ),
+                        "candidate_state": str(
+                            (getattr(current_candidate, "candidate_payload", {}) or {}).get("candidate_state") or ""
+                        ),
                         "candidate_age_seconds": activation_guard.get("candidate_age_seconds"),
-                    } if current_candidate is not None else None,
+                    }
+                    if current_candidate is not None
+                    else None,
                     "freeze": {
                         "enabled": bool(learning.get("enabled", False)),
                         "active": bool(activation_guard.get("freeze_active")),
@@ -371,7 +408,9 @@ class PlanningLearningLoopService:
             "trigger_run_id": str(trigger_run.id or ""),
             "reason_codes": list(reason_codes),
             "baseline_metrics": dict(group or {}),
-            "behavior_baseline": self._baseline_behavior(profile_name=str(profile.profile_name or ""), prompt_version=previous_prompt_version_id),
+            "behavior_baseline": self._baseline_behavior(
+                profile_name=str(profile.profile_name or ""), prompt_version=previous_prompt_version_id
+            ),
             "canary_window_runs": int(learning.get("canary_window_runs") or 10),
             "freeze_minutes": int(learning.get("freeze_minutes") or 120),
             "created_at": time.time(),
@@ -381,7 +420,11 @@ class PlanningLearningLoopService:
         candidate = repos.planning_template_candidate_repo.save(
             PlanningTemplateCandidateDB(
                 source_run_id=str(trigger_run.id or ""),
-                goal_type=str((trigger_run.mode_data or {}).get("__intent__", {}).get("goal_type") or trigger_run.mode or "generic"),
+                goal_type=str(
+                    (trigger_run.mode_data or {}).get("__intent__", {}).get("goal_type")
+                    or trigger_run.mode
+                    or "generic"
+                ),
                 mode=str(trigger_run.mode or "generic"),
                 candidate_payload=candidate_payload,
                 confidence="high" if float(group.get("quality_score") or 0.0) < 0.5 else "medium",
@@ -426,7 +469,9 @@ class PlanningLearningLoopService:
         quality = self._quality_score(current_group)
         if quality >= float(learning.get("rollback_threshold") or 0.55):
             return False, {"reason": "rollback_not_needed", "quality_score": quality}
-        rollback_min_runs = int(learning.get("rollback_min_runs") or max(3, int(learning.get("canary_window_runs") or 10)))
+        rollback_min_runs = int(
+            learning.get("rollback_min_runs") or max(3, int(learning.get("canary_window_runs") or 10))
+        )
         if int(current_group.get("run_count") or 0) < rollback_min_runs:
             return False, {
                 "reason": "rollback_window_not_met",
@@ -462,7 +507,12 @@ class PlanningLearningLoopService:
             reason_codes=["rollback", "quality_below_threshold"],
         )
         active_candidate.status = "rolled_back"
-        active_candidate.candidate_payload = {**payload, "rolled_back_at": time.time(), "candidate_state": "rolled_back", "current_quality_score": quality}
+        active_candidate.candidate_payload = {
+            **payload,
+            "rolled_back_at": time.time(),
+            "candidate_state": "rolled_back",
+            "current_quality_score": quality,
+        }
         repos.planning_template_candidate_repo.save(active_candidate)
         return True, {
             "rolled_back_to": previous_prompt_version_id,
@@ -494,7 +544,12 @@ class PlanningLearningLoopService:
                 profile.preferred_prompt_version_id = new_version_id
                 repos.planning_model_profile_repo.save(profile)
         active_candidate.status = "activated"
-        active_candidate.candidate_payload = {**payload, "activated_at": time.time(), "candidate_state": "activated", "current_quality_score": quality}
+        active_candidate.candidate_payload = {
+            **payload,
+            "activated_at": time.time(),
+            "candidate_state": "activated",
+            "current_quality_score": quality,
+        }
         repos.planning_template_candidate_repo.save(active_candidate)
         self._set_profile_learning_state(
             profile=profile,
@@ -568,12 +623,18 @@ class PlanningLearningLoopService:
             trigger_run = next(
                 (
                     run
-                    for run in repos.planning_run_repo.get_recent(limit=max(20, int(learning.get("lookback_runs") or 120)))
+                    for run in repos.planning_run_repo.get_recent(
+                        limit=max(20, int(learning.get("lookback_runs") or 120))
+                    )
                     if str(run.planning_profile or "").strip() == profile_name
                 ),
                 None,
             )
-            if active_candidate is not None and active_candidate.status == "canary" and str(active_candidate.source_run_id or ""):
+            if (
+                active_candidate is not None
+                and active_candidate.status == "canary"
+                and str(active_candidate.source_run_id or "")
+            ):
                 promoted, promotion_details = self._maybe_promote_canary(
                     profile=profile,
                     active_candidate=active_candidate,
@@ -596,7 +657,9 @@ class PlanningLearningLoopService:
                     continue
 
             if active_candidate is not None:
-                _existing_ls = normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable")
+                _existing_ls = normalize_learning_state(
+                    getattr(profile, "learning_state", None), default_state="stable"
+                )
                 _shape_from_group = str((worst_group.get("preferred_output_shape") or {}).get("value") or "")
                 _preserved_shape = _shape_from_group or str(_existing_ls.get("observed_output_shape") or "")
                 self._set_profile_learning_state(
@@ -606,7 +669,11 @@ class PlanningLearningLoopService:
                     observed_output_format=_preserved_shape,
                     observed_output_shape=_preserved_shape,
                     observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
-                    prompt_version_id=str((active_candidate.candidate_payload or {}).get("new_prompt_version_id") or active_prompt_version_id or ""),
+                    prompt_version_id=str(
+                        (active_candidate.candidate_payload or {}).get("new_prompt_version_id")
+                        or active_prompt_version_id
+                        or ""
+                    ),
                     sample_size=int(worst_group.get("run_count") or 0),
                     reason_codes=["candidate_pending"],
                 )
@@ -621,31 +688,53 @@ class PlanningLearningLoopService:
                 continue
 
             if trigger_run is None:
-                decision.details.append({"profile_name": profile_name, "action": "skip", "reason": "trigger_run_missing"})
+                decision.details.append(
+                    {"profile_name": profile_name, "action": "skip", "reason": "trigger_run_missing"}
+                )
                 continue
 
             if not qualifies:
-                decision.details.append({"profile_name": profile_name, "action": "skip", "reason_codes": reason_codes, "quality_score": worst_group.get("quality_score")})
+                decision.details.append(
+                    {
+                        "profile_name": profile_name,
+                        "action": "skip",
+                        "reason_codes": reason_codes,
+                        "quality_score": worst_group.get("quality_score"),
+                    }
+                )
                 continue
 
             if bool(learning.get("require_review_before_activate", True)):
-                matching_reviews = [review for review in open_reviews if str(review.planning_run_id or "") == str(trigger_run.id or "")]
+                matching_reviews = [
+                    review for review in open_reviews if str(review.planning_run_id or "") == str(trigger_run.id or "")
+                ]
                 if matching_reviews:
-                    decision.details.append({"profile_name": profile_name, "action": "await_review", "open_review_count": len(matching_reviews)})
+                    decision.details.append(
+                        {
+                            "profile_name": profile_name,
+                            "action": "await_review",
+                            "open_review_count": len(matching_reviews),
+                        }
+                    )
                     continue
 
             freeze_minutes = int(learning.get("freeze_minutes") or 120)
             last_candidate = next(
                 (
-                    cand for cand in recent_candidates
+                    cand
+                    for cand in recent_candidates
                     if str((cand.candidate_payload or {}).get("profile_name") or "").strip() == profile_name
                 ),
                 None,
             )
             if last_candidate is not None:
-                created_at = float((last_candidate.candidate_payload or {}).get("created_at") or last_candidate.created_at or 0.0)
+                created_at = float(
+                    (last_candidate.candidate_payload or {}).get("created_at") or last_candidate.created_at or 0.0
+                )
                 if time.time() - created_at < freeze_minutes * 60:
-                    decision.details.append({"profile_name": profile_name, "action": "freeze_active", "freeze_minutes": freeze_minutes})
+                    decision.details.append(
+                        {"profile_name": profile_name, "action": "freeze_active", "freeze_minutes": freeze_minutes}
+                    )
                     continue
 
             if not bool(profile.enabled):
@@ -655,7 +744,9 @@ class PlanningLearningLoopService:
             if int(worst_group.get("run_count") or 0) <= 0:
                 continue
 
-            if float(worst_group.get("quality_score") or 0.0) >= float(learning.get("candidate_activation_threshold") or 0.75):
+            if float(worst_group.get("quality_score") or 0.0) >= float(
+                learning.get("candidate_activation_threshold") or 0.75
+            ):
                 self._set_profile_learning_state(
                     profile=profile,
                     state="stable",
@@ -667,7 +758,9 @@ class PlanningLearningLoopService:
                     sample_size=int(worst_group.get("run_count") or 0),
                     reason_codes=["quality_above_threshold"],
                 )
-                decision.details.append({"profile_name": profile_name, "action": "skip", "reason": "quality_above_threshold"})
+                decision.details.append(
+                    {"profile_name": profile_name, "action": "skip", "reason": "quality_above_threshold"}
+                )
                 continue
 
             result = self._create_candidate(
@@ -678,7 +771,9 @@ class PlanningLearningLoopService:
                 reason_codes=reason_codes,
             )
             if not result.get("created"):
-                decision.details.append({"profile_name": profile_name, "action": "candidate_failed", "reason": result.get("reason")})
+                decision.details.append(
+                    {"profile_name": profile_name, "action": "candidate_failed", "reason": result.get("reason")}
+                )
                 continue
 
             decision.candidates_created += 1
@@ -686,15 +781,17 @@ class PlanningLearningLoopService:
                 decision.profiles_activated += 1
             review_items = get_planning_review_queue_service().evaluate_run_for_review(trigger_run)
             decision.review_items_created += len(review_items)
-            decision.details.append({
-                "profile_name": profile_name,
-                "action": "candidate_created",
-                "candidate_status": result.get("status"),
-                "new_prompt_version_id": result.get("new_prompt_version_id"),
-                "reason_codes": reason_codes,
-                "quality_score": worst_group.get("quality_score"),
-                "active_prompt_version_id": active_prompt_version_id,
-            })
+            decision.details.append(
+                {
+                    "profile_name": profile_name,
+                    "action": "candidate_created",
+                    "candidate_status": result.get("status"),
+                    "new_prompt_version_id": result.get("new_prompt_version_id"),
+                    "reason_codes": reason_codes,
+                    "quality_score": worst_group.get("quality_score"),
+                    "active_prompt_version_id": active_prompt_version_id,
+                }
+            )
 
         return decision.as_dict()
 
@@ -713,7 +810,7 @@ def start_planning_learning_loop_thread(app):
         logging.info("Planning-Learning-Loop gestartet.")
         while not agent.common.context.shutdown_requested:
             try:
-                policy = ((app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {})
+                policy = (app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
                 result = get_planning_learning_loop_service().run_once(planning_policy=policy)
                 if result.get("ran"):
                     logging.info(
@@ -724,7 +821,14 @@ def start_planning_learning_loop_thread(app):
                     )
             except Exception as exc:
                 logging.warning("Planning-Learning-Loop Fehler: %s", exc)
-            _sleep_with_shutdown(int((((app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}).get("learning_loop") or {}).get("interval_seconds") or 900))
+            _sleep_with_shutdown(
+                int(
+                    (
+                        ((app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}).get("learning_loop") or {}
+                    ).get("interval_seconds")
+                    or 900
+                )
+            )
         logging.info("Planning-Learning-Loop beendet.")
 
     t = threading.Thread(target=run_loop, daemon=True)

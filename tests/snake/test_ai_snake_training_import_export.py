@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from client_surfaces.operator_tui.ai_snake_training_import_export import (
     export_training_bundle_to_path,
@@ -25,7 +24,11 @@ def _pattern(pattern_id: str, confidence: float, *, explanation: str = "pattern"
         "conditions": {"all": [{"field": "recent_event", "op": "contains", "value": "artifact:README.md"}]},
         "predicted_intent": "artifact_explain",
         "confidence": confidence,
-        "evidence": {"source_event_ids": [f"evt-{pattern_id}"], "sample_size": 1, "counter_refs": [f"counter:{pattern_id}"]},
+        "evidence": {
+            "source_event_ids": [f"evt-{pattern_id}"],
+            "sample_size": 1,
+            "counter_refs": [f"counter:{pattern_id}"],
+        },
         "counters": {"hits": 1, "misses": 0, "positives": 1, "negatives": 0},
         "last_seen_at": "2026-01-01T00:00:00Z",
         "expires_at": "2026-02-01T00:00:00Z",
@@ -85,17 +88,19 @@ def test_import_preview_does_not_mutate_local_state(monkeypatch, tmp_path) -> No
 def test_import_conflict_strategies(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     save_patterns([_pattern("pat-shared", 0.2, explanation="local")])
-    incoming = _with_valid_checksums({
-        "bundle_id": "b1",
-        "schema_version": "ai_snake_training_bundle.v1",
-        "exported_at": "2026-01-01T00:00:00Z",
-        "source": {"app": "ananta-tui", "version": "1.0"},
-        "profile": read_active_profile(),
-        "patterns": [_pattern("pat-shared", 0.9, explanation="remote")],
-        "human_readme": "h",
-        "ai_readme": "a",
-        "privacy_manifest": {"public_ui": 0, "workspace": 1, "private_local": 0, "sensitive_blocked": 0},
-    })
+    incoming = _with_valid_checksums(
+        {
+            "bundle_id": "b1",
+            "schema_version": "ai_snake_training_bundle.v1",
+            "exported_at": "2026-01-01T00:00:00Z",
+            "source": {"app": "ananta-tui", "version": "1.0"},
+            "profile": read_active_profile(),
+            "patterns": [_pattern("pat-shared", 0.9, explanation="remote")],
+            "human_readme": "h",
+            "ai_readme": "a",
+            "privacy_manifest": {"public_ui": 0, "workspace": 1, "private_local": 0, "sensitive_blocked": 0},
+        }
+    )
     src = tmp_path / "incoming.json"
     src.write_text(json.dumps(incoming, ensure_ascii=False), encoding="utf-8")
 
@@ -162,7 +167,9 @@ def test_import_rejects_invalid_json_and_schema(monkeypatch, tmp_path) -> None:
         raise AssertionError("expected JSONDecodeError")
 
     invalid_schema = tmp_path / "invalid-schema.json"
-    invalid_schema.write_text(json.dumps({"schema_version": "ai_snake_training_bundle.v1", "bundle_id": "x"}), encoding="utf-8")
+    invalid_schema.write_text(
+        json.dumps({"schema_version": "ai_snake_training_bundle.v1", "bundle_id": "x"}), encoding="utf-8"
+    )
     try:
         import_training_bundle(input_path=str(invalid_schema), preview=False)
     except ValueError as exc:

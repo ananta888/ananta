@@ -56,9 +56,7 @@ SFB_BROADCAST_FEATURE_DEFINITIONS: tuple[SfuBroadcastFeatureDefinition, ...] = (
     ),
 )
 
-SFB_BROADCAST_FEATURE_KEYS = frozenset(
-    definition.key for definition in SFB_BROADCAST_FEATURE_DEFINITIONS
-)
+SFB_BROADCAST_FEATURE_KEYS = frozenset(definition.key for definition in SFB_BROADCAST_FEATURE_DEFINITIONS)
 SFB_BROADCAST_KILL_SWITCH_REASON_CODES: Mapping[str, str] = {
     "immediate_security_fence": "sfu_broadcast.kill_switch.immediate_security_fence",
     "stop_admission": "sfu_broadcast.kill_switch.stop_admission",
@@ -69,12 +67,8 @@ SFB_BROADCAST_KILL_SWITCH_PRIORITY = (
     "stop_admission",
     "graceful_drain",
 )
-SFB_BROADCAST_MUTABLE_FLAGS = SFB_BROADCAST_FEATURE_KEYS | frozenset(
-    SFB_BROADCAST_KILL_SWITCH_REASON_CODES
-)
-SFB_BROADCAST_ROOM_COHORTS = frozenset(
-    {"*", "internal", "canary", "general_availability"}
-)
+SFB_BROADCAST_MUTABLE_FLAGS = SFB_BROADCAST_FEATURE_KEYS | frozenset(SFB_BROADCAST_KILL_SWITCH_REASON_CODES)
+SFB_BROADCAST_ROOM_COHORTS = frozenset({"*", "internal", "canary", "general_availability"})
 SFB_BROADCAST_ROLLOUT_STAGES = frozenset(
     {"flag_off", "internal", "cohort", "canary", "general_availability", "security"}
 )
@@ -144,10 +138,7 @@ class SfuBroadcastFeatureProjection:
         return {
             "version": max(0, int(self.version)),
             "available": self.available is True,
-            "flags": {
-                key: self.flags.get(key) is True
-                for key in sorted(SFB_BROADCAST_FEATURE_KEYS)
-            },
+            "flags": {key: self.flags.get(key) is True for key in sorted(SFB_BROADCAST_FEATURE_KEYS)},
             "reason_codes": list(self.reason_codes),
         }
 
@@ -226,13 +217,9 @@ class SfuBroadcastFeaturePolicy:
             try:
                 snapshot = self._repository.snapshot(scope)
             except (SfuBroadcastFeatureFlagRepositoryError, RuntimeError):
-                return SfuBroadcastFeatureProjection.unavailable(
-                    "sfu_broadcast.feature_store_unavailable"
-                )
+                return SfuBroadcastFeatureProjection.unavailable("sfu_broadcast.feature_store_unavailable")
             if not snapshot.available:
-                return SfuBroadcastFeatureProjection.unavailable(
-                    "sfu_broadcast.feature_store_unavailable"
-                )
+                return SfuBroadcastFeatureProjection.unavailable("sfu_broadcast.feature_store_unavailable")
             for flag, state in snapshot.flags.items():
                 if flag in SFB_BROADCAST_MUTABLE_FLAGS:
                     states[flag] = state
@@ -254,10 +241,7 @@ class SfuBroadcastFeaturePolicy:
             version=max((state.version for state in states.values()), default=0),
             flags=resolved,
             available=True,
-            reason_codes=tuple(
-                SFB_BROADCAST_KILL_SWITCH_REASON_CODES[flag]
-                for flag in active_kill_switches
-            ),
+            reason_codes=tuple(SFB_BROADCAST_KILL_SWITCH_REASON_CODES[flag] for flag in active_kill_switches),
         )
 
     def _validate_command(self, command: SfuBroadcastFeatureMutationCommand) -> None:
@@ -342,9 +326,7 @@ def resolve_sfu_broadcast_feature_flags(source: Mapping[str, Any] | None = None)
 
 def _requested_static_flags(source: Mapping[str, Any]) -> dict[str, bool]:
     return {
-        definition.key: _strict_boolean(
-            source.get(definition.key, source.get(definition.env_key, definition.default))
-        )
+        definition.key: _strict_boolean(source.get(definition.key, source.get(definition.env_key, definition.default)))
         for definition in SFB_BROADCAST_FEATURE_DEFINITIONS
     }
 

@@ -11,7 +11,9 @@ def build_goal_rows(payload: dict[str, Any]) -> list[str]:
     for item in items:
         if not isinstance(item, dict):
             continue
-        rows.append(f"{item.get('id', '-')} [{item.get('status', 'unknown')}] {item.get('title', item.get('summary', ''))}")
+        rows.append(
+            f"{item.get('id', '-')} [{item.get('status', 'unknown')}] {item.get('title', item.get('summary', ''))}"
+        )
     return rows or ["no goals available"]
 
 
@@ -56,7 +58,7 @@ def build_templates_inspect(payload: dict[str, Any], selected_index: int) -> lis
         raw_id = str(item.get("raw_id") or "")
         raw_list: list[dict] = payload.get("blueprints_raw") or []
         raw = next((b for b in raw_list if str(b.get("id") or "") == raw_id), {})
-        lines.append(f"Blueprint: {item.get('title','')}")
+        lines.append(f"Blueprint: {item.get('title', '')}")
         if item.get("description"):
             lines.append(f"  {item['description']}")
         lines.append(f"  seed: {'ja' if item.get('is_seed') else 'nein'}")
@@ -68,20 +70,20 @@ def build_templates_inspect(payload: dict[str, Any], selected_index: int) -> lis
             lines.append(f"  Rollen ({len(roles)}):")
             for r in roles:
                 req = " *" if r.get("is_required", True) else ""
-                tpl = f"  → tpl:{r.get('template_id','')}" if r.get("template_id") else ""
-                lines.append(f"    {r.get('name','?')}{req}{tpl}")
+                tpl = f"  → tpl:{r.get('template_id', '')}" if r.get("template_id") else ""
+                lines.append(f"    {r.get('name', '?')}{req}{tpl}")
         artifacts: list[dict] = raw.get("artifacts") or []
         if artifacts:
             lines.append("")
             lines.append(f"  Artefakte ({len(artifacts)}):")
             for a in artifacts[:6]:
-                lines.append(f"    [{a.get('kind','?')}] {a.get('title','?')}")
+                lines.append(f"    [{a.get('kind', '?')}] {a.get('title', '?')}")
 
     elif kind == "template":
         raw_id = str(item.get("raw_id") or "")
         raw_list = payload.get("templates_raw") or []
         raw = next((t for t in raw_list if str(t.get("id") or "") == raw_id), {})
-        lines.append(f"Template: {item.get('title','')}")
+        lines.append(f"Template: {item.get('title', '')}")
         if item.get("description"):
             lines.append(f"  {item['description']}")
         lines.append("")
@@ -97,7 +99,7 @@ def build_templates_inspect(payload: dict[str, Any], selected_index: int) -> lis
         raw_id = str(item.get("raw_id") or "")
         raw_list = payload.get("templates_raw") or []
         raw = next((t for t in raw_list if str(t.get("id") or "") == raw_id), {})
-        lines.append(f"System-Prompt: {item.get('title','')}")
+        lines.append(f"System-Prompt: {item.get('title', '')}")
         if item.get("description"):
             for desc_line in str(item["description"]).splitlines():
                 lines.append(f"  {desc_line}")

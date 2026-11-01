@@ -388,9 +388,7 @@ def test_http_transport_disables_environment_proxies(monkeypatch) -> None:
         bearer_token=TEST_TOKEN,
     )
 
-    proxy_handlers = [
-        handler for handler in handlers if isinstance(handler, urllib.request.ProxyHandler)
-    ]
+    proxy_handlers = [handler for handler in handlers if isinstance(handler, urllib.request.ProxyHandler)]
     assert len(proxy_handlers) == 1
     assert proxy_handlers[0].proxies == {}
 

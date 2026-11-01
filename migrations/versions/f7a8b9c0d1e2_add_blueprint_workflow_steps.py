@@ -14,6 +14,7 @@ DAG edges (depends_on, produces, consumes) live in JSON columns
 rather than relational tables — see the BlueprintWorkflowStepDB
 docstring for the trade-off.
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -21,7 +22,6 @@ import sqlmodel
 import sqlmodel.sql.sqltypes
 from alembic import op
 from sqlalchemy import inspect
-
 
 revision: str = "f7a8b9c0d1e2"
 down_revision: Union[str, Sequence[str], None] = ("e8f9a0b1c2d3", "f2e3d4c5b6a7")
@@ -61,7 +61,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.Float(), nullable=False, server_default="0"),
         sa.Column("updated_at", sa.Float(), nullable=False, server_default="0"),
         sa.PrimaryKeyConstraint("id"),
-        sa.ForeignKeyConstraint(["blueprint_id"], ["team_blueprints.id"], name="fk_blueprint_workflow_steps_blueprint_id"),
+        sa.ForeignKeyConstraint(
+            ["blueprint_id"], ["team_blueprints.id"], name="fk_blueprint_workflow_steps_blueprint_id"
+        ),
         sa.UniqueConstraint("blueprint_id", "step_id", name="uq_blueprint_workflow_steps_blueprint_step_id"),
         sa.UniqueConstraint("blueprint_id", "sort_order", name="uq_blueprint_workflow_steps_blueprint_sort_order"),
     )

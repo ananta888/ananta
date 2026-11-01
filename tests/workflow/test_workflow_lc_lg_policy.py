@@ -3,6 +3,7 @@
 Regression guard for the 67c3cacf fix: empty allowed_tools used to mean
 'everything allowed' (inverted secure default). It must now mean DENY.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -41,10 +42,18 @@ def test_default_deny_blocks_every_tool(gate_default):
 # ── Hard-deny list wins over everything ─────────────────────────────────
 
 
-@pytest.mark.parametrize("tool", [
-    "exec_shell", "write_file", "delete_file",
-    "read_file_arbitrary", "http_request", "network_scan", "spawn_process",
-])
+@pytest.mark.parametrize(
+    "tool",
+    [
+        "exec_shell",
+        "write_file",
+        "delete_file",
+        "read_file_arbitrary",
+        "http_request",
+        "network_scan",
+        "spawn_process",
+    ],
+)
 def test_hard_deny_always_blocks(gate_with_allowlist, tool):
     """Even when allowlisted, hard-deny tools must be blocked.
 
@@ -113,7 +122,9 @@ def test_decisions_log_accumulates(gate_with_allowlist):
     log = gate_with_allowlist.decisions_log()
     assert len(log) == 3
     assert [d["reason"] for d in log] == [
-        "allowlisted", "always_blocked", "not_in_allowlist",
+        "allowlisted",
+        "always_blocked",
+        "not_in_allowlist",
     ]
 
 

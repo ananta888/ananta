@@ -20,9 +20,11 @@ def configure_model_profile(app):
         except (ValueError, UnicodeError):
             raise ValueError("meet_companion_model_profile_config_invalid") from None
     try:
-        if (not isinstance(value, dict)
-                or set(value) != {"backend", "model", "environment_digest", "auto_execute"}
-                or type(value["auto_execute"]) is not bool):
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"backend", "model", "environment_digest", "auto_execute"}
+            or type(value["auto_execute"]) is not bool
+        ):
             raise ValueError()
         profile = validate_model_execution({key: value[key] for key in ("backend", "model", "environment_digest")})
     except (ValueError, TypeError, KeyError):

@@ -136,11 +136,14 @@ class DigestKeyContractPolicy:
             raise ValueError("only the versioned HMAC-SHA256 digest contract is supported")
         if self.maximum_payload_bytes < 1 or self.maximum_keys_per_scope < 2:
             raise ValueError("digest policy bounds are invalid")
-        if min(
-            self.maximum_active_lifetime.total_seconds(),
-            self.maximum_dual_read_overlap.total_seconds(),
-            self.maximum_retention.total_seconds(),
-        ) < 0:
+        if (
+            min(
+                self.maximum_active_lifetime.total_seconds(),
+                self.maximum_dual_read_overlap.total_seconds(),
+                self.maximum_retention.total_seconds(),
+            )
+            < 0
+        ):
             raise ValueError("digest lifecycle durations cannot be negative")
 
 
@@ -213,8 +216,7 @@ class SfuMemberDigestKeyContractService:
         candidates = [
             record
             for record in self._reader.list_for_scope(scope.fingerprint())
-            if record.state is DigestKeyLifecycleState.ACTIVE
-            and record.valid_from <= now < record.valid_until
+            if record.state is DigestKeyLifecycleState.ACTIVE and record.valid_from <= now < record.valid_until
         ]
         if not candidates:
             raise SfuMemberDigestContractError(
@@ -270,10 +272,7 @@ class SfuMemberDigestKeyContractService:
                 )
             now = self._aware_now()
             if key.state is DigestKeyLifecycleState.ACTIVE:
-                permitted = (
-                    key.valid_from <= now < key.valid_until
-                    and candidate.key_version == key.version
-                )
+                permitted = key.valid_from <= now < key.valid_until and candidate.key_version == key.version
             elif key.state is DigestKeyLifecycleState.DUAL_READ:
                 permitted = (
                     key.dual_read_until is not None
@@ -376,7 +375,7 @@ class SfuMemberDigestKeyContractService:
         if compromised:
             try:
                 self._crypto.destroy(current_key_id)
-            except Exception as exc:
+            except Exception:
                 # Metadata is already fail-closed. Returning the explicit pending
                 # state avoids claiming that the committed rotation failed and
                 # lets an idempotent reconciler retry physical destruction.
@@ -406,10 +405,7 @@ class SfuMemberDigestKeyContractService:
         self._validate_metadata(record, scope)
         if record.state is DigestKeyLifecycleState.DESTROYED:
             return record
-        if (
-            record.state is not DigestKeyLifecycleState.DESTRUCTION_PENDING
-            or record.version != expected_version
-        ):
+        if record.state is not DigestKeyLifecycleState.DESTRUCTION_PENDING or record.version != expected_version:
             raise SfuMemberDigestContractError(
                 SfuMemberDigestReason.KEY_VERSION_CONFLICT,
                 "pending digest key destruction compare-and-swap failed",
@@ -467,12 +463,8 @@ class SfuMemberDigestKeyContractService:
                 SfuMemberDigestReason.KEY_EXPIRED,
                 "digest key validity window is invalid",
             )
-        if (
-            record.dual_read_until is not None
-            and (
-                record.dual_read_until <= record.state_changed_at
-                or record.dual_read_until > record.valid_until
-            )
+        if record.dual_read_until is not None and (
+            record.dual_read_until <= record.state_changed_at or record.dual_read_until > record.valid_until
         ):
             raise SfuMemberDigestContractError(
                 SfuMemberDigestReason.KEY_EXPIRED,

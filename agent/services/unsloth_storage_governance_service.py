@@ -304,14 +304,10 @@ class UnslothStorageCleanupMutationExecutor:
         try:
             raw_requested_ids = tuple(
                 _opaque(value, "storage_artifact_id_invalid")
-                for value in tuple(
-                    operation_payload.get("artifact_ids") or ()
-                )
+                for value in tuple(operation_payload.get("artifact_ids") or ())
             )
             requested_ids = set(raw_requested_ids)
-            expected_revision = int(
-                operation_payload.get("expected_catalog_revision")
-            )
+            expected_revision = int(operation_payload.get("expected_catalog_revision"))
         except (
             TypeError,
             ValueError,
@@ -326,8 +322,7 @@ class UnslothStorageCleanupMutationExecutor:
             submission.get("task_id") != task_id
             or submission.get("task_type") != "ml.storage.cleanup"
             or submission.get("tenant_id") != principal.tenant_id
-            or submission.get("result_handler")
-            != "unsloth_storage_cleanup_v1"
+            or submission.get("result_handler") != "unsloth_storage_cleanup_v1"
             or not isinstance(payload, Mapping)
             or not requested_ids
             or len(requested_ids) != len(raw_requested_ids)
@@ -342,13 +337,10 @@ class UnslothStorageCleanupMutationExecutor:
             task_id=task_id,
             payload=payload,
         )
-        reason_sha256 = hashlib.sha256(
-            reason.encode("utf-8")
-        ).hexdigest()
+        reason_sha256 = hashlib.sha256(reason.encode("utf-8")).hexdigest()
         if (
             plan.catalog_revision != expected_revision
-            or plan.owner_scope_digest
-            != tenant_scope_digest(principal)
+            or plan.owner_scope_digest != tenant_scope_digest(principal)
             or payload.get("reason_sha256") != reason_sha256
             or not set(plan.artifact_ids).issubset(requested_ids)
         ):
@@ -373,11 +365,7 @@ class UnslothStorageCleanupMutationExecutor:
                     tenant_id=principal.tenant_id,
                     owner_scope_digest=plan.owner_scope_digest,
                 )["catalog_revision"],
-                "reason_code": (
-                    "unsloth_cleanup_completed"
-                    if status == "completed"
-                    else "unsloth_cleanup_failed"
-                ),
+                "reason_code": ("unsloth_cleanup_completed" if status == "completed" else "unsloth_cleanup_failed"),
                 "replayed": True,
             }
         if status not in {
@@ -405,9 +393,7 @@ class UnslothStorageCleanupMutationExecutor:
                     reason_code=exc.reason_code,
                 )
             raise _mutation_error(exc) from exc
-        if status == "reserved" and not self._tasks.activate_reserved(
-            task_id
-        ):
+        if status == "reserved" and not self._tasks.activate_reserved(task_id):
             raise UnslothMutationError(
                 "unsloth_cleanup_task_activation_pending",
                 "Cleanup reservation remains fenced for reconciliation.",
@@ -441,8 +427,7 @@ class UnslothStorageCleanupMutationExecutor:
                 "reason_sha256",
                 "artifacts",
             }
-            or payload.get("contract_version")
-            != "ananta.unsloth-storage-cleanup-task.v1"
+            or payload.get("contract_version") != "ananta.unsloth-storage-cleanup-task.v1"
             or payload.get("task_id") != task_id
             or not isinstance(artifacts, list)
             or not 1 <= len(artifacts) <= 128
@@ -470,8 +455,7 @@ class UnslothStorageCleanupMutationExecutor:
                         "sha256",
                         "size_bytes",
                     }
-                    or item.get("kind")
-                    not in {"workspace", "checkpoint", "export"}
+                    or item.get("kind") not in {"workspace", "checkpoint", "export"}
                     or isinstance(item.get("size_bytes"), bool)
                     or not isinstance(item.get("size_bytes"), int)
                     or int(item["size_bytes"]) < 0
@@ -495,9 +479,7 @@ class UnslothStorageCleanupMutationExecutor:
                 )
                 relative_ref = _scoped_relative_ref(
                     tenant_id=tenant_id,
-                    owner_scope_digest=str(
-                        payload["tenant_scope_digest"]
-                    ),
+                    owner_scope_digest=str(payload["tenant_scope_digest"]),
                     kind=str(item["kind"]),
                     relative_ref=str(item["relative_ref"]),
                     job_id=job_id,
@@ -514,12 +496,7 @@ class UnslothStorageCleanupMutationExecutor:
                         "size_bytes": int(item["size_bytes"]),
                     }
                 )
-            if len(
-                {
-                    str(item["artifact_id"])
-                    for item in delegations
-                }
-            ) != len(delegations):
+            if len({str(item["artifact_id"]) for item in delegations}) != len(delegations):
                 raise ValueError
             return CleanupPlan(
                 tenant_id=_tenant(tenant_id),
@@ -528,16 +505,10 @@ class UnslothStorageCleanupMutationExecutor:
                     "storage_scope_digest_invalid",
                 ),
                 catalog_revision=int(payload["catalog_revision"]),
-                artifact_ids=tuple(
-                    str(item["artifact_id"])
-                    for item in delegations
-                ),
+                artifact_ids=tuple(str(item["artifact_id"]) for item in delegations),
                 delegations=tuple(delegations),
                 protected=(),
-                total_bytes=sum(
-                    int(item["size_bytes"])
-                    for item in delegations
-                ),
+                total_bytes=sum(int(item["size_bytes"]) for item in delegations),
                 plan_sha256=_digest(
                     str(payload["plan_sha256"]),
                     "storage_cleanup_plan_hash_invalid",
@@ -565,9 +536,7 @@ class UnslothStorageCleanupMutationExecutor:
                 tenant_id=principal.tenant_id,
                 owner_scope_digest=tenant_scope_digest(principal),
                 artifact_ids=tuple(operation_payload.get("artifact_ids") or ()),
-                expected_catalog_revision=int(
-                    operation_payload.get("expected_catalog_revision")
-                ),
+                expected_catalog_revision=int(operation_payload.get("expected_catalog_revision")),
                 retention_before=operation_payload.get("retention_before"),
             )
         except (TypeError, ValueError) as exc:
@@ -594,10 +563,7 @@ def cleanup_plan_from_submission(
 
 
 def tenant_scope_digest(principal: MlInternTrainingPrincipal) -> str:
-    material = (
-        "ananta.ml-intern-training.scope.v1\x00"
-        f"{principal.tenant_id}\x00{principal.subject}"
-    ).encode("utf-8")
+    material = (f"ananta.ml-intern-training.scope.v1\x00{principal.tenant_id}\x00{principal.subject}").encode("utf-8")
     return hashlib.sha256(material).hexdigest()
 
 
@@ -609,22 +575,12 @@ def storage_catalog_from_config(
         if isinstance(config.get("ml_intern_training"), Mapping)
         else dict(config)
     )
-    artifact_root = Path(
-        str(training.get("artifact_root") or "artifacts/lora")
-    )
+    artifact_root = Path(str(training.get("artifact_root") or "artifacts/lora"))
     individual = {
-        "max_dataset_bytes": int(
-            training.get("max_dataset_bytes") or 4 * 1024**3
-        ),
-        "max_model_bytes": int(
-            training.get("max_model_bytes") or 20 * 1024**3
-        ),
-        "max_checkpoint_bytes": int(
-            training.get("max_checkpoint_bytes") or 8 * 1024**3
-        ),
-        "max_export_bytes": int(
-            training.get("max_export_bytes") or 20 * 1024**3
-        ),
+        "max_dataset_bytes": int(training.get("max_dataset_bytes") or 4 * 1024**3),
+        "max_model_bytes": int(training.get("max_model_bytes") or 20 * 1024**3),
+        "max_checkpoint_bytes": int(training.get("max_checkpoint_bytes") or 8 * 1024**3),
+        "max_export_bytes": int(training.get("max_export_bytes") or 20 * 1024**3),
     }
     maximum = max(individual.values())
     policy = UnslothStorageQuotaPolicy(
@@ -633,18 +589,11 @@ def storage_catalog_from_config(
             maximum,
             int(training.get("max_tenant_storage_bytes") or 64 * 1024**3),
         ),
-        retention_seconds=int(
-            training.get("storage_retention_seconds") or 30 * 24 * 60 * 60
-        ),
+        retention_seconds=int(training.get("storage_retention_seconds") or 30 * 24 * 60 * 60),
         max_cleanup_items=int(training.get("max_cleanup_items") or 128),
     )
-    path = (
-        artifact_root
-        / ".control"
-        / "unsloth-storage-governance.sqlite3"
-    )
+    path = artifact_root / ".control" / "unsloth-storage-governance.sqlite3"
     return SqliteUnslothStorageCatalog(path, policy=policy)
-
 
 
 def _mutation_error(exc: UnslothStorageError) -> UnslothMutationError:

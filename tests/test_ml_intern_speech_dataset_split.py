@@ -88,13 +88,9 @@ def test_leakage_fixtures_cover_phrase_reconnect_peer_copy_transform_and_revisio
         records=records,
         curation_report_digest=digest(f"report-{prefix}"),
     )[0]
-    split = MlInternSpeechDatasetSplitService().split(
-        principal(prefix), manifest, validation_ratio=0.3, seed=20260719
-    )
+    split = MlInternSpeechDatasetSplitService().split(principal(prefix), manifest, validation_ratio=0.3, seed=20260719)
 
     for indexes in ((0, 1), (2, 3), (4, 5, 6), (7, 8)):
-        partitions = {
-            split.assignments[str(records[index]["record_digest"])] for index in indexes
-        }
+        partitions = {split.assignments[str(records[index]["record_digest"])] for index in indexes}
         assert len(partitions) == 1
     assert split.train_count > 0 and split.validation_count > 0

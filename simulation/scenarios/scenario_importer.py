@@ -7,6 +7,7 @@ Loads ScenarioConfig from external formats:
 
 Produces an ImportReport with attribution metadata.
 """
+
 from __future__ import annotations
 
 import json
@@ -56,6 +57,7 @@ class ScenarioImporter:
         except json.JSONDecodeError:
             try:
                 import yaml
+
                 data = yaml.safe_load(raw_text)
                 fmt = "yaml"
             except ImportError:
@@ -66,8 +68,7 @@ class ScenarioImporter:
     def from_dict(self, data: dict[str, Any], source: str = "inline") -> tuple[ScenarioConfig, ImportReport]:
         return self._parse(data, source=source, fmt="dict")
 
-    def _parse(self, data: dict[str, Any], source: str,
-                fmt: str) -> tuple[ScenarioConfig, ImportReport]:
+    def _parse(self, data: dict[str, Any], source: str, fmt: str) -> tuple[ScenarioConfig, ImportReport]:
         warnings: list[str] = []
         attribution: dict[str, Any] = {}
 
@@ -115,34 +116,40 @@ class ScenarioImporter:
         # Agents
         agents = []
         for ag in world.get("agents", []):
-            agents.append({
-                "id": ag.get("id", ag.get("name", "unknown")),
-                "name": ag.get("name", ag.get("id", "unknown")),
-                "role": ag.get("role", "citizen"),
-                "location_id": ag.get("location", ag.get("location_id", "default")),
-                "starting_inventory": ag.get("inventory", {}),
-            })
+            agents.append(
+                {
+                    "id": ag.get("id", ag.get("name", "unknown")),
+                    "name": ag.get("name", ag.get("id", "unknown")),
+                    "role": ag.get("role", "citizen"),
+                    "location_id": ag.get("location", ag.get("location_id", "default")),
+                    "starting_inventory": ag.get("inventory", {}),
+                }
+            )
         translated["agents"] = agents
 
         # Locations
         locations = []
         for loc in world.get("locations", []):
-            locations.append({
-                "id": loc.get("id", loc.get("name", "default")),
-                "name": loc.get("name", loc.get("id", "default")),
-            })
+            locations.append(
+                {
+                    "id": loc.get("id", loc.get("name", "default")),
+                    "name": loc.get("name", loc.get("id", "default")),
+                }
+            )
         translated["locations"] = locations
 
         # Laws
         laws = []
         for law in world.get("laws", []):
-            laws.append({
-                "id": law.get("id", "law"),
-                "description": law.get("description", ""),
-                "forbidden_actions": law.get("forbidden_actions", []),
-                "penalty": law.get("penalty", "reputation_loss"),
-                "severity": float(law.get("severity", 0.5)),
-            })
+            laws.append(
+                {
+                    "id": law.get("id", "law"),
+                    "description": law.get("description", ""),
+                    "forbidden_actions": law.get("forbidden_actions", []),
+                    "penalty": law.get("penalty", "reputation_loss"),
+                    "severity": float(law.get("severity", 0.5)),
+                }
+            )
         translated["laws"] = laws
 
         if not locations:

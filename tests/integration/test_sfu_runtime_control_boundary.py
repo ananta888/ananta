@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,11 +8,11 @@ import jwt
 import pytest
 
 from agent.adapters.livekit_control_api_client import (
+    PINNED_LIVEKIT_IMAGE,
     LiveKitControlApiClient,
     LiveKitControlApiConfig,
     LiveKitControlApiError,
     LiveKitRouteBinding,
-    PINNED_LIVEKIT_IMAGE,
     TwirpResponse,
     UnsupportedSfuRuntimeControlBoundary,
     build_sfu_runtime_control_boundary,
@@ -25,8 +24,8 @@ sys.path.insert(0, str(ROOT / "sfu-runtime-agent/src"))
 
 from ananta_sfu_runtime.control_server import (  # noqa: E402
     FixedWindowRateLimiter,
-    RuntimeControlApplication,
     RuntimeBoundaryError,
+    RuntimeControlApplication,
 )
 from ananta_sfu_runtime.key_providers import (  # noqa: E402
     KeyProviderUnavailable,

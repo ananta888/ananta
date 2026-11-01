@@ -1,7 +1,6 @@
 """Tests für AnsiReplayState: Cursor-Tracking, SGR, CellGrid-Output."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from client_surfaces.operator_tui.ansi_replay import AnsiReplayState
 

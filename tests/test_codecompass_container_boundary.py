@@ -30,10 +30,7 @@ def test_worker_graph_modules_are_compatibility_facades() -> None:
     assert worker_expansion.expand_codecompass_graph is expand_codecompass_graph
     assert worker_query.run_architecture_query is run_architecture_query
     assert worker_candidates.CodeCompassCandidateResolver is CodeCompassCandidateResolver
-    assert (
-        worker_embeddings.load_codecompass_embedding_documents
-        is load_codecompass_embedding_documents
-    )
+    assert worker_embeddings.load_codecompass_embedding_documents is load_codecompass_embedding_documents
     assert worker_output.CodeCompassOutputReader is CodeCompassOutputReader
     assert worker_parser.parse_codecompass_query is parse_codecompass_query
     assert worker_repository_query.run_query is run_query
@@ -47,18 +44,11 @@ def test_agent_production_code_does_not_import_worker_graph_implementation() -> 
     for path in (root / "agent").rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.ImportFrom)
-                and str(node.module or "").startswith(
-                    "worker.retrieval.codecompass_"
-                )
-            ):
+            if isinstance(node, ast.ImportFrom) and str(node.module or "").startswith("worker.retrieval.codecompass_"):
                 violations.append(str(path.relative_to(root)))
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name.startswith(
-                        "worker.retrieval.codecompass_"
-                    ):
+                    if alias.name.startswith("worker.retrieval.codecompass_"):
                         violations.append(str(path.relative_to(root)))
 
     assert violations == []

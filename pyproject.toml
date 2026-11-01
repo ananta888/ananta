@@ -72,7 +72,6 @@ dev = [
     "pytest-timeout",
     "pytest-xdist",
     "httpx",
-    "flake8",
     "mypy",
     "ruff"
 ]
@@ -256,13 +255,55 @@ hub = "src/hub"
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+# Non-source trees: vendored third-party code, generated/runtime output and
+# per-goal workspace copies are not linted — they are not ours to style-fix.
+exclude = [
+    "vendor",
+    "project-workspaces",
+    "rag-helper/out",
+    "autoimport-state",
+    "data",
+    "data_test",
+    "artifacts",
+    "ci-artifacts",
+    ".tmp",
+    "benchmarks/results",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "C90", "I"]
-ignore = []
+# RATCHET (CLN-022, Stand 2026-11-01): Legacy-Residuum nach erstmaliger Aktivierung
+# des Lint-Gates. Diese Regeln waren nie erzwungen; das Gate ist ab jetzt aktiv und
+# verhindert NEUE Verletzungen in allen anderen Regeln. Die Einträge werden beim
+# Abarbeiten des Residuums wieder entfernt (siehe todos/todo.repo-hygiene-cleanup-remediation.json):
+#   E501 line-too-long: 402 Reste (vormals 4923; Formatter hat 4281 gewrappt)
+#   E402 import-not-at-top: 253 Reste (meist Zuweisungen zwischen Imports, Split-Shims)
+#   E741 ambiguous-name: 110 Reste (l/I/O-Renames brauchen Kontext)
+#   F811 redefinition: 38 Reste (pytest-Fixture-Overrides + Split-Duplikate)
+#   C901 complexity: 6 Grenzfälle (31-39 vs. 30; Refactor in CLN-043/057-Kontext)
+ignore = [
+    "E501",
+    "E402",
+    "E741",
+    "F811",
+    "C901",
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 30
+
+[tool.ruff.lint.per-file-ignores]
+# Public-API-/Fassaden-Module: deren Import-Oberflaeche IST die API. Konsumenten
+# und Tests importieren und monkeypatchen ueber exakt diese Pfade, z.B.
+# patch("agent.cli_backends.sgpt.shutil.which"). F401 ist hier per Design
+# ein Falsch-Positiv — die Importe duerfen nicht "aufgeraeumt" werden.
+"agent/cli_backends/sgpt.py" = ["F401"]
+"agent/routes/tasks/autopilot_tick_engine.py" = ["F401"]
+"agent/services/task_scoped_execution_service.py" = ["F401"]
+"agent/services/lmstudio_request_registry.py" = ["F401"]
+"client_surfaces/operator_tui/chat_state.py" = ["F401"]
+"client_surfaces/operator_tui/animation3d/backends.py" = ["F401"]
+"agent/services/editor_tui_surface_state.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -285,6 +326,10 @@ ignore_missing_imports = true
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-v"
+# Global bounded-runtime guard (AGENTS.md: tests must fail with bounded
+# diagnostics instead of hanging). Per-test @pytest.mark.timeout overrides
+# still apply (248 files use them); workflows may raise this via --timeout.
+timeout = 300
 markers = [
     "benchmark: marks deterministic benchmark-contract and performance tests",
     "slow: marks tests that take >= 10 s (migrations, real toolchains, drills); skipped by scripts/test-affected.sh unless INCLUDE_SLOW=1, always part of the full suite",

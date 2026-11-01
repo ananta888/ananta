@@ -10,6 +10,7 @@ from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame,
 
 try:
     from PIL import Image, ImageDraw, ImageFont
+
     _PIL_AVAILABLE = True
 except Exception:  # pragma: no cover
     Image = None
@@ -52,6 +53,7 @@ def _try_svg_to_png(svg_bytes: bytes, *, width: int, height: int) -> bytes | Non
     """Convert SVG bytes to PNG using cairosvg if available."""
     try:
         import cairosvg  # type: ignore
+
         return cairosvg.svg2png(bytestring=svg_bytes, output_width=width, output_height=height)
     except Exception:
         return None

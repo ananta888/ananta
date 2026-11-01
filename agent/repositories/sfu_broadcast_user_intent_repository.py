@@ -47,32 +47,22 @@ class SqlSfuBroadcastUserIntentRepository:
         self._max_audits_per_tenant = max_audits_per_tenant
         self._purge_batch_size = purge_batch_size
 
-    def execute(
-        self, mutation: SfuBroadcastCommandMutation
-    ) -> SfuBroadcastCommandMutationResult:
+    def execute(self, mutation: SfuBroadcastCommandMutation) -> SfuBroadcastCommandMutationResult:
         for attempt in range(3):
             try:
                 return self._execute_once(mutation)
             except (_ConcurrentMutation, IntegrityError) as exc:
                 if attempt == 2:
-                    raise SfuBroadcastCommandRepositoryError(
-                        "sfu_broadcast_command_concurrent_mutation"
-                    ) from exc
+                    raise SfuBroadcastCommandRepositoryError("sfu_broadcast_command_concurrent_mutation") from exc
         raise SfuBroadcastCommandRepositoryError("sfu_broadcast_command_store_failed")
 
-    def _execute_once(
-        self, mutation: SfuBroadcastCommandMutation
-    ) -> SfuBroadcastCommandMutationResult:
+    def _execute_once(self, mutation: SfuBroadcastCommandMutation) -> SfuBroadcastCommandMutationResult:
         with Session(bind=self._engine, expire_on_commit=False) as session:
             with session.begin():
-                replay = session.get(
-                    SfuBroadcastCommandAuditDB, mutation.operation_id
-                )
+                replay = session.get(SfuBroadcastCommandAuditDB, mutation.operation_id)
                 if replay is not None:
                     if replay.request_digest != mutation.request_digest:
-                        raise SfuBroadcastCommandRepositoryConflict(
-                            "sfu_broadcast_operation_id_reused"
-                        )
+                        raise SfuBroadcastCommandRepositoryConflict("sfu_broadcast_operation_id_reused")
                     return self._result(replay, replayed=True)
 
                 self._purge_for_tenant(
@@ -116,9 +106,7 @@ class SqlSfuBroadcastUserIntentRepository:
                     session.add(audit)
                     return self._result(audit)
 
-                target_state, changed, reason_code = self._transition(
-                    intent, mutation
-                )
+                target_state, changed, reason_code = self._transition(intent, mutation)
                 effective_version = current_version
                 if changed:
                     effective_version = current_version + 1
@@ -188,9 +176,7 @@ class SqlSfuBroadcastUserIntentRepository:
                 return state, False, "sfu_broadcast_command_noop"
             return "inactive", True, "sfu_broadcast_stopped"
         if mutation.action == "start":
-            preference_change = SqlSfuBroadcastUserIntentRepository._preferences_changed(
-                intent, mutation
-            )
+            preference_change = SqlSfuBroadcastUserIntentRepository._preferences_changed(intent, mutation)
             if state == "active" and not preference_change:
                 return state, False, "sfu_broadcast_command_noop"
             return "active", True, "sfu_broadcast_started"
@@ -255,9 +241,7 @@ class SqlSfuBroadcastUserIntentRepository:
         )
 
     @staticmethod
-    def _result(
-        audit: SfuBroadcastCommandAuditDB, *, replayed: bool = False
-    ) -> SfuBroadcastCommandMutationResult:
+    def _result(audit: SfuBroadcastCommandAuditDB, *, replayed: bool = False) -> SfuBroadcastCommandMutationResult:
         return SfuBroadcastCommandMutationResult(
             accepted=bool(audit.accepted),
             effective_version=int(audit.effective_version),
@@ -274,32 +258,31 @@ class SqlSfuBroadcastUserIntentRepository:
         tenant_diagnostic_ref: str,
         now: datetime,
     ) -> int:
-        audit_ids = select(SfuBroadcastCommandAuditDB.operation_id).where(
-            SfuBroadcastCommandAuditDB.retain_until <= now
-        ).limit(self._purge_batch_size)
-        audit_result = session.execute(
-            delete(SfuBroadcastCommandAuditDB).where(
-                SfuBroadcastCommandAuditDB.operation_id.in_(audit_ids)
-            )
+        audit_ids = (
+            select(SfuBroadcastCommandAuditDB.operation_id)
+            .where(SfuBroadcastCommandAuditDB.retain_until <= now)
+            .limit(self._purge_batch_size)
         )
-        intent_ids = select(SfuBroadcastUserIntentDB.id).where(
-            SfuBroadcastUserIntentDB.tenant_id == tenant_id,
-            SfuBroadcastUserIntentDB.state == "inactive",
-            SfuBroadcastUserIntentDB.retain_until <= now,
-        ).limit(self._purge_batch_size)
-        intent_result = session.execute(
-            delete(SfuBroadcastUserIntentDB).where(
-                SfuBroadcastUserIntentDB.id.in_(intent_ids)
+        audit_result = session.execute(
+            delete(SfuBroadcastCommandAuditDB).where(SfuBroadcastCommandAuditDB.operation_id.in_(audit_ids))
+        )
+        intent_ids = (
+            select(SfuBroadcastUserIntentDB.id)
+            .where(
+                SfuBroadcastUserIntentDB.tenant_id == tenant_id,
+                SfuBroadcastUserIntentDB.state == "inactive",
+                SfuBroadcastUserIntentDB.retain_until <= now,
             )
+            .limit(self._purge_batch_size)
+        )
+        intent_result = session.execute(
+            delete(SfuBroadcastUserIntentDB).where(SfuBroadcastUserIntentDB.id.in_(intent_ids))
         )
         count = int(
             session.scalar(
                 select(func.count())
                 .select_from(SfuBroadcastCommandAuditDB)
-                .where(
-                    SfuBroadcastCommandAuditDB.tenant_diagnostic_ref
-                    == tenant_diagnostic_ref
-                )
+                .where(SfuBroadcastCommandAuditDB.tenant_diagnostic_ref == tenant_diagnostic_ref)
             )
             or 0
         )
@@ -307,17 +290,12 @@ class SqlSfuBroadcastUserIntentRepository:
         if overflow > 0:
             oldest = (
                 select(SfuBroadcastCommandAuditDB.operation_id)
-                .where(
-                    SfuBroadcastCommandAuditDB.tenant_diagnostic_ref
-                    == tenant_diagnostic_ref
-                )
+                .where(SfuBroadcastCommandAuditDB.tenant_diagnostic_ref == tenant_diagnostic_ref)
                 .order_by(SfuBroadcastCommandAuditDB.created_at)
                 .limit(min(overflow, self._purge_batch_size))
             )
             overflow_result = session.execute(
-                delete(SfuBroadcastCommandAuditDB).where(
-                    SfuBroadcastCommandAuditDB.operation_id.in_(oldest)
-                )
+                delete(SfuBroadcastCommandAuditDB).where(SfuBroadcastCommandAuditDB.operation_id.in_(oldest))
             )
         else:
             overflow_result = None
@@ -332,9 +310,7 @@ class SqlSfuBroadcastUserIntentRepository:
         with Session(bind=self._engine) as session:
             with session.begin():
                 audits = session.execute(
-                    delete(SfuBroadcastCommandAuditDB).where(
-                        SfuBroadcastCommandAuditDB.retain_until <= instant
-                    )
+                    delete(SfuBroadcastCommandAuditDB).where(SfuBroadcastCommandAuditDB.retain_until <= instant)
                 ).rowcount
                 intents = session.execute(
                     delete(SfuBroadcastUserIntentDB).where(

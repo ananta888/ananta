@@ -19,10 +19,7 @@ class BoundedUtf8Writer:
 
     def write(self, value: str) -> int:
         encoded_size = len(value.encode("utf-8"))
-        if (
-            self._maximum_bytes is not None
-            and self.byte_count + encoded_size > self._maximum_bytes
-        ):
+        if self._maximum_bytes is not None and self.byte_count + encoded_size > self._maximum_bytes:
             raise RuntimeError("codecompass_graph_artifact_too_large")
         written = self._handle.write(value)
         self.byte_count += encoded_size

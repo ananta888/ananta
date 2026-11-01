@@ -306,30 +306,39 @@ def test_all_training_authorities_enqueue_closed_exactly_once_audit(atomic_engin
         dedupe_key="queued-once",
         payload={"status": "queued"},
     )
-    assert repository.append_event(
-        principal,
-        job.id,
-        event_type="queued",
-        dedupe_key="queued-once",
-        payload={"status": "queued"},
-    ).id == event.id
+    assert (
+        repository.append_event(
+            principal,
+            job.id,
+            event_type="queued",
+            dedupe_key="queued-once",
+            payload={"status": "queued"},
+        ).id
+        == event.id
+    )
 
-    assert repository.try_acquire_execution_slot(
-        job.id,
-        limit=1,
-        lease_expires_at=2000.0,
-        now=1000.0,
-    ) == 0
+    assert (
+        repository.try_acquire_execution_slot(
+            job.id,
+            limit=1,
+            lease_expires_at=2000.0,
+            now=1000.0,
+        )
+        == 0
+    )
     assert repository.renew_execution_slot(job.id, lease_expires_at=3000.0) is True
     repository.release_execution_slot(job.id)
     # Reusing numeric slot zero is a new authority generation, while retrying
     # one generation must remain idempotent.
-    assert repository.try_acquire_execution_slot(
-        job.id,
-        limit=1,
-        lease_expires_at=4000.0,
-        now=1000.0,
-    ) == 0
+    assert (
+        repository.try_acquire_execution_slot(
+            job.id,
+            limit=1,
+            lease_expires_at=4000.0,
+            now=1000.0,
+        )
+        == 0
+    )
     repository.release_execution_slot(job.id)
 
     attempt = repository.create_attempt(
@@ -364,8 +373,7 @@ def test_all_training_authorities_enqueue_closed_exactly_once_audit(atomic_engin
     assert len({row.idempotency_digest for row in pending}) == 16
     assert {row.event_type for row in pending} == {"speech_dataset", "speech_training"}
     projection = {
-        column.name: getattr(pending[0], column.name)
-        for column in SemanticMediaAuditOutboxDB.__table__.columns
+        column.name: getattr(pending[0], column.name) for column in SemanticMediaAuditOutboxDB.__table__.columns
     }
     assert not {"payload", "audio", "transcript", "tenant_id", "owner_subject"}.intersection(projection)
     assert principal.tenant_id not in repr(projection)
@@ -432,29 +440,41 @@ def test_revocation_ports_delegate_to_single_atomic_sql_authorities(
 
     jobs = SqlSpeechTrainingFencePort(training)
     adapters = SqlSpeechAdapterFencePort(registry)
-    assert jobs.fence(
-        voice_principal,
-        lineage_digest=lineage_digest,
-        revocation_epoch=7,
-    ) is True
-    assert adapters.fence(
-        VoicePrincipal(adapter.tenant_id, adapter.owner_subject),
-        lineage_digest=adapter.artifact_sha256,
-        revocation_epoch=7,
-    ) is True
+    assert (
+        jobs.fence(
+            voice_principal,
+            lineage_digest=lineage_digest,
+            revocation_epoch=7,
+        )
+        is True
+    )
+    assert (
+        adapters.fence(
+            VoicePrincipal(adapter.tenant_id, adapter.owner_subject),
+            lineage_digest=adapter.artifact_sha256,
+            revocation_epoch=7,
+        )
+        is True
+    )
 
     # Replays repair a missing audit command, but neither mutate authority a
     # second time nor add duplicate outbox rows.
-    assert jobs.fence(
-        voice_principal,
-        lineage_digest=lineage_digest,
-        revocation_epoch=7,
-    ) is True
-    assert adapters.fence(
-        VoicePrincipal(adapter.tenant_id, adapter.owner_subject),
-        lineage_digest=adapter.artifact_sha256,
-        revocation_epoch=7,
-    ) is True
+    assert (
+        jobs.fence(
+            voice_principal,
+            lineage_digest=lineage_digest,
+            revocation_epoch=7,
+        )
+        is True
+    )
+    assert (
+        adapters.fence(
+            VoicePrincipal(adapter.tenant_id, adapter.owner_subject),
+            lineage_digest=adapter.artifact_sha256,
+            revocation_epoch=7,
+        )
+        is True
+    )
 
     with Session(atomic_engine) as db:
         saved_job = db.get(MlInternTrainingJobDB, created_job.id)

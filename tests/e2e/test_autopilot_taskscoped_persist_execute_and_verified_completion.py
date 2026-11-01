@@ -11,6 +11,7 @@ This file pins the two remaining integration gaps:
    when required artifacts are explicitly verified, and does not complete when
    verification is missing.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,7 +21,6 @@ import pytest
 
 from agent.services.task_completion_policy_service import get_task_completion_policy_service
 from tests.fixtures.mock_openai_compatible_provider import make_mock_invoke_with_tools
-
 
 TASK_ID = "T-AFF-TASKSCOPED-PERSIST-EXECUTE"
 

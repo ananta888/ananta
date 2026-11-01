@@ -218,17 +218,10 @@ def test_partial_cross_engine_calibration_suppresses_all_confidence_comparison()
         ),
     )
 
-    outcome = DeterministicFusionService(
-        CandidateScorer({("calibrated", "revision-1"): profile})
-    ).fuse(candidates)
+    outcome = DeterministicFusionService(CandidateScorer({("calibrated", "revision-1"): profile})).fuse(candidates)
 
     traces = outcome.result.decision_trace["candidate_scores"]
-    assert all(
-        trace["signals"]["confidence"]["contribution"] == 0.0
-        for trace in traces.values()
-    )
-    assert traces["a"]["signals"]["confidence"]["reason"] == (
-        "calibration_set_incomplete"
-    )
+    assert all(trace["signals"]["confidence"]["contribution"] == 0.0 for trace in traces.values())
+    assert traces["a"]["signals"]["confidence"]["reason"] == ("calibration_set_incomplete")
     assert outcome.result.confidence is None
     assert "fusion_cross_engine_confidence_degraded" in outcome.result.warnings

@@ -38,9 +38,7 @@ def _build_payload(*, task_kind: str):
             "preferred_bundle_mode": "catalog",
         },
         context_policy={},
-        worker_execution_context={
-            "task_proposal_binding": {"dispatch_lease_id": "lease-1"}
-        },
+        worker_execution_context={"task_proposal_binding": {"dispatch_lease_id": "lease-1"}},
     )
     return issued, payload
 

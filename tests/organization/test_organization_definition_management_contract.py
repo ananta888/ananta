@@ -19,9 +19,6 @@ from agent.services import blueprint_seed_service
 from agent.services.organization_compile_application_service import (
     OrganizationCompileApplicationService,
 )
-from agent.services.organization_definition_application_service import (
-    OrganizationDefinitionApplicationService,
-)
 from agent.services.organization_definition_reference_projection import (
     definition_reference_hashes,
 )

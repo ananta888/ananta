@@ -5,15 +5,15 @@
 - Simuliert zwei TUI Clients gegen Test-Rendezvous
 - Profil local/offline nutzt keine öffentlichen URLs
 """
-from __future__ import annotations
 
-import os
-import pytest
+from __future__ import annotations
 
 
 def test_public_ananta_profile_has_correct_defaults():
     import importlib
+
     import client_surfaces.operator_tui.network_profile as np_mod
+
     importlib.reload(np_mod)
     profile = np_mod.get_profile("public-ananta")
     assert profile["profile_id"] == "public-ananta"
@@ -28,6 +28,7 @@ def test_local_profile_has_no_public_urls(monkeypatch):
     for key in ("ANANTA_OIDC_ISSUER", "ANANTA_OIDC_CLIENT_ID", "ANANTA_RENDEZVOUS_URL", "ANANTA_SIGNALING_URL"):
         monkeypatch.delenv(key, raising=False)
     from client_surfaces.operator_tui.network_profile import get_profile
+
     profile = get_profile("local")
     assert "keycloak.ananta.de" not in (profile["oidc"].get("issuer") or "")
     assert "webrtc.ananta.de" not in (profile["rendezvous"].get("base_url") or "")
@@ -37,6 +38,7 @@ def test_offline_profile_has_no_transport(monkeypatch):
     for key in ("ANANTA_OIDC_ISSUER", "ANANTA_OIDC_CLIENT_ID", "ANANTA_RENDEZVOUS_URL", "ANANTA_SIGNALING_URL"):
         monkeypatch.delenv(key, raising=False)
     from client_surfaces.operator_tui.network_profile import get_profile
+
     profile = get_profile("offline")
     assert not profile["rendezvous"]["transport_order"]
     assert not profile["oidc"]["issuer"]
@@ -46,7 +48,9 @@ def test_env_override_oidc_issuer(monkeypatch):
     monkeypatch.setenv("ANANTA_OIDC_ISSUER", "https://my-keycloak.example.com/realms/test")
     monkeypatch.setenv("ANANTA_NETWORK_PROFILE", "custom")
     import importlib
+
     import client_surfaces.operator_tui.network_profile as np_mod
+
     importlib.reload(np_mod)
     profile = np_mod.get_active_profile()
     assert profile["oidc"]["issuer"] == "https://my-keycloak.example.com/realms/test"
@@ -56,7 +60,9 @@ def test_env_override_rendezvous_url(monkeypatch):
     monkeypatch.setenv("ANANTA_RENDEZVOUS_URL", "https://my-rendezvous.example.com")
     monkeypatch.setenv("ANANTA_NETWORK_PROFILE", "custom")
     import importlib
+
     import client_surfaces.operator_tui.network_profile as np_mod
+
     importlib.reload(np_mod)
     profile = np_mod.get_active_profile()
     assert profile["rendezvous"]["base_url"] == "https://my-rendezvous.example.com"
@@ -65,12 +71,14 @@ def test_env_override_rendezvous_url(monkeypatch):
 def test_two_clients_rendezvous_flow():
     """Simuliert Owner und Teilnehmer über Rendezvous-Service (in-memory)."""
     import agent.services.rendezvous_service as svc_mod
+
     svc_mod._sessions.clear()
     svc_mod._participants.clear()
     svc_mod._invite_codes.clear()
     svc_mod._service = None
 
     from agent.services.rendezvous_service import RendezvousService
+
     service = RendezvousService()
 
     # Client A: erstellt Session
@@ -101,7 +109,8 @@ def test_two_clients_rendezvous_flow():
     assert len(participants["participants"]) == 1
 
     # Verschlüsselte Chat-Nachricht ist ohne Klartext übertragbar
-    from client_surfaces.operator_tui.share_crypto import SessionKeyPair, encrypt_chat, decrypt_chat, _CONTEXT_CHAT
+    from client_surfaces.operator_tui.share_crypto import _CONTEXT_CHAT, SessionKeyPair, decrypt_chat, encrypt_chat
+
     kp_a = SessionKeyPair()
     kp_b = SessionKeyPair()
     shared_key_a = kp_a.derive_shared_key(kp_b.public_key_bytes, _CONTEXT_CHAT)
@@ -113,6 +122,7 @@ def test_two_clients_rendezvous_flow():
     assert plaintext.decode() not in str(wire)
     # Client B kann entschlüsseln
     from client_surfaces.operator_tui.share_crypto import EncryptedPayload
+
     decoded = decrypt_chat(EncryptedPayload.from_dict(wire), shared_key_b)
     assert decoded == plaintext
 

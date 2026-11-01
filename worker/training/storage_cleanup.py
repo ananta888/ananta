@@ -6,9 +6,9 @@ import hashlib
 import hmac
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shutil
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
 from ananta_contracts.unsloth_task import (
@@ -85,10 +85,7 @@ class WorkerStorageCleanupExecutor:
                 )
             return {**dict(result), "replayed": True}
 
-        admitted = [
-            self._admit_artifact(scope, item)
-            for item in artifacts
-        ]
+        admitted = [self._admit_artifact(scope, item) for item in artifacts]
         results: list[dict[str, Any]] = []
         for item, target in admitted:
             existed = target.exists()
@@ -174,11 +171,7 @@ class WorkerStorageCleanupExecutor:
             "cleanup_artifact_hash_invalid",
         )
         size_bytes = raw.get("size_bytes")
-        if (
-            isinstance(size_bytes, bool)
-            or not isinstance(size_bytes, int)
-            or not 0 <= size_bytes <= 2**63 - 1
-        ):
+        if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or not 0 <= size_bytes <= 2**63 - 1:
             raise WorkerStorageCleanupError(
                 "cleanup_artifact_size_invalid",
                 "Cleanup artifact size is invalid.",
@@ -196,18 +189,9 @@ class WorkerStorageCleanupExecutor:
         if (
             len(relative.parts) <= len(expected_prefix)
             or relative.parts[: len(expected_prefix)] != expected_prefix
-            or (
-                kind == "workspace"
-                and suffix[0] != "workspace"
-            )
-            or (
-                kind == "checkpoint"
-                and suffix[0] != "checkpoints"
-            )
-            or (
-                kind == "export"
-                and suffix[0] not in {"adapter", "artifacts", "exports"}
-            )
+            or (kind == "workspace" and suffix[0] != "workspace")
+            or (kind == "checkpoint" and suffix[0] != "checkpoints")
+            or (kind == "export" and suffix[0] not in {"adapter", "artifacts", "exports"})
         ):
             raise WorkerStorageCleanupError(
                 "cleanup_scope_binding_mismatch",

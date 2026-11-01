@@ -9,9 +9,9 @@ from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_deadlines import MeetDialogDeadlines, original_deadline
 from ananta_contracts.meet_dialog import validate_callback
-from tests.test_dialog_browser_screen import Pool
 from tests.meet.test_meet_browser_hub_tasks import navigate, setup
 from tests.meet.test_meet_browser_workspace_contract import job
+from tests.test_dialog_browser_screen import Pool
 from worker.meet_media.browser_completion_reports import BrowserCompletionReports
 
 

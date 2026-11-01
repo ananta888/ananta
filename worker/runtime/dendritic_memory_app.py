@@ -55,9 +55,7 @@ def create_app(
             or len(body["packs"]) > 16
         ):
             return jsonify({"error": {"code": "dendritic_worker_payload_invalid"}}), 422
-        return jsonify(
-            runner.run(job=body["assignment"], records=body["records"], packs=body["packs"])
-        )
+        return jsonify(runner.run(job=body["assignment"], records=body["records"], packs=body["packs"]))
 
     return app
 

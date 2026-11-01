@@ -11,13 +11,13 @@ Security invariants:
 - No token-like values in any event field or string representation.
 - In-memory ring buffer only (max 200 events) — no disk persistence.
 """
+
 from __future__ import annotations
 
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-
 
 # Event type constants
 EVENT_LOGIN_START = "login_start"
@@ -47,6 +47,7 @@ class OidcAuditEvent:
     All fields contain only safe, non-secret metadata.
     Token values, auth codes, and cookies are NEVER stored here.
     """
+
     event_type: str  # one of the EVENT_* constants
     provider_id: str
     mode: str  # ananta_owned_callback | real_browser_session

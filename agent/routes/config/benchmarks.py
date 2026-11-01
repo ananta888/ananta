@@ -97,7 +97,11 @@ def get_llm_benchmarks_timeseries():
         source_bucket = entry.get("overall") or {}
         if task_kind in shared._BENCH_TASK_KINDS:
             source_bucket = (entry.get("task_kinds") or {}).get(task_kind) or {}
-        samples = [sample for sample in (source_bucket.get("samples") or []) if int((sample or {}).get("ts") or 0) >= effective_min_ts]
+        samples = [
+            sample
+            for sample in (source_bucket.get("samples") or [])
+            if int((sample or {}).get("ts") or 0) >= effective_min_ts
+        ]
         items.append(
             {
                 "id": key,
@@ -108,7 +112,15 @@ def get_llm_benchmarks_timeseries():
                 "points": timeseries_from_samples(samples, bucket=bucket),
             }
         )
-    return api_response(data={"updated_at": db.get("updated_at"), "days": days, "bucket": bucket, "retention": retention, "items": items})
+    return api_response(
+        data={
+            "updated_at": db.get("updated_at"),
+            "days": days,
+            "bucket": bucket,
+            "retention": retention,
+            "items": items,
+        }
+    )
 
 
 @benchmarks_bp.route("/llm/benchmarks/config", methods=["GET"])

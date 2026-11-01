@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent.cli.splash import SplashMachine, SplashState, SplashTransitionError, SplashContext
+from agent.cli.splash import SplashContext, SplashMachine, SplashState, SplashTransitionError
 from agent.cli.status_snapshot import StatusSnapshot
 
 

@@ -5,18 +5,18 @@ Tests verify that:
 - Snapshot deltas computed for A differ from those computed for B
 - Reply throttle for A does not block B
 """
+
 from __future__ import annotations
 
-import json
 import time
 import unittest.mock as mock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def reset_visual_state(app):
@@ -24,6 +24,7 @@ def reset_visual_state(app):
     Requires the `app` fixture so Flask + route modules are fully initialised."""
     import agent.routes.snakes_execution_routes as ser
     import agent.services.visual_guide.service as svc_mod
+
     ser._visual_last_delta_snapshot = ""
     ser._visual_last_reply_snapshot = ""
     ser._visual_last_reply_at = 0.0
@@ -39,14 +40,15 @@ def reset_visual_state(app):
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _make_fake_openai_client(content: str = "Guide text"):
     class _FakeCompletion:
-        choices = [type("C", (), {
-            "message": type("M", (), {"content": content})()
-        })()]
+        choices = [type("C", (), {"message": type("M", (), {"content": content})()})()]
 
     class _FakeClient:
-        def __init__(self, **_): pass
+        def __init__(self, **_):
+            pass
+
         class chat:
             class completions:
                 @staticmethod
@@ -63,12 +65,15 @@ def _fake_config():
 def _set_pug_settings_enabled():
     """Set predictive_guide_enabled=True in the visual session (app-fixture path)."""
     try:
-        from client_surfaces.operator_tui.config.user_config_manager import get_manager
         from client_surfaces.operator_tui.chat_state import make_session
+        from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
         mgr = get_manager()
         sess = make_session(
-            session_id="ananta-visual", name="Visual Snake Log",
-            icon="X", group="Konfiguration",
+            session_id="ananta-visual",
+            name="Visual Snake Log",
+            icon="X",
+            group="Konfiguration",
             settings={"predictive_guide_enabled": True, "predictive_guide_multi_candidates": 1},
         )
         mgr.save({"chat_sessions": [sess], "chat_active_session_id": ""})
@@ -81,12 +86,14 @@ def _set_pug_settings_enabled():
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestSnakeIdIsolation:
     """Verifies that snake A's state cannot interfere with snake B."""
 
     def test_ui_state_keyed_per_snake_id(self, reset_visual_state):
         """_snake_ui_state is keyed by snake_id — different snakes have separate slots."""
         from agent.routes.snakes_execution_routes import _snake_ui_state
+
         _snake_ui_state.clear()
 
         _snake_ui_state["snake-A"] = {"route": "/teams", "ui_snapshot": "/teams | nav:Teams*"}
@@ -102,8 +109,8 @@ class TestSnakeIdIsolation:
 
     def test_per_snake_visual_state_is_keyed_by_snake_id(self, reset_visual_state):
         """Per-snake visual state in _visual_state is independent per snake_id."""
-        from agent.services.visual_guide.service import _get_visual_state
         import agent.services.visual_guide.service as svc_mod
+        from agent.services.visual_guide.service import _get_visual_state
 
         # Wipe existing state
         svc_mod._visual_state.clear()
@@ -118,8 +125,8 @@ class TestSnakeIdIsolation:
 
     def test_reply_throttle_is_per_snake_independent(self, reset_visual_state):
         """Snake A's throttle window does NOT block snake B in the new per-snake architecture."""
-        from agent.services.visual_guide.service import _get_visual_state, _VISUAL_THROTTLE_S
         import agent.services.visual_guide.service as svc_mod
+        from agent.services.visual_guide.service import _VISUAL_THROTTLE_S, _get_visual_state
 
         svc_mod._visual_state.clear()
 
@@ -137,8 +144,8 @@ class TestSnakeIdIsolation:
 
     def test_reply_throttle_releases_after_window(self, reset_visual_state):
         """After the throttle window expires for a snake, it can reply again."""
-        from agent.services.visual_guide.service import _get_visual_state, _VISUAL_THROTTLE_S
         import agent.services.visual_guide.service as svc_mod
+        from agent.services.visual_guide.service import _VISUAL_THROTTLE_S, _get_visual_state
 
         svc_mod._visual_state.clear()
         state = _get_visual_state("snake-window-release")
@@ -209,13 +216,15 @@ class TestVisualReplyIsolation:
     def test_handle_ui_tick_updates_reply_snapshot_not_delta(self, reset_visual_state, monkeypatch):
         """After handle_ui_tick runs for a snake, its reply_snapshot is updated in
         _visual_state but the delta_snapshot is only updated by _append_visual_user_tick."""
-        from agent.services.visual_guide.service import VisualGuideService, _get_visual_state
         import agent.services.visual_guide.service as svc_mod
+        from agent.services.visual_guide.service import VisualGuideService, _get_visual_state
 
         monkeypatch.setattr(svc_mod, "_background_threads_disabled", lambda: False)
-        monkeypatch.setattr(svc_mod, "_visual_session_settings",
-                            lambda: {"predictive_guide_enabled": True,
-                                     "predictive_guide_multi_candidates": 1})
+        monkeypatch.setattr(
+            svc_mod,
+            "_visual_session_settings",
+            lambda: {"predictive_guide_enabled": True, "predictive_guide_multi_candidates": 1},
+        )
         monkeypatch.setattr(svc_mod, "_append_room_ai_message", lambda **kw: None)
 
         svc = VisualGuideService()

@@ -92,7 +92,13 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.25,
             "result_memory": 1.2,
         }
-        profile["source_type_weights"] = {"repo": 1.1, "artifact": 1.15, "task_memory": 1.2, "wiki": 1.0, "open_notebook": 0.85}
+        profile["source_type_weights"] = {
+            "repo": 1.1,
+            "artifact": 1.15,
+            "task_memory": 1.2,
+            "wiki": 1.0,
+            "open_notebook": 0.85,
+        }
     elif normalized_kind in {"refactor", "implement", "coding"}:
         profile["engine_weights"] = {
             "repository_map": 1.25,
@@ -101,7 +107,13 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.1,
             "result_memory": 1.15,
         }
-        profile["source_type_weights"] = {"repo": 1.15, "artifact": 1.1, "task_memory": 1.15, "wiki": 1.0, "open_notebook": 0.85}
+        profile["source_type_weights"] = {
+            "repo": 1.15,
+            "artifact": 1.1,
+            "task_memory": 1.15,
+            "wiki": 1.0,
+            "open_notebook": 0.85,
+        }
     elif normalized_kind in {"architecture", "analysis", "doc", "research"}:
         profile["engine_weights"] = {
             "repository_map": 0.85,
@@ -110,7 +122,13 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.3,
             "result_memory": 1.1,
         }
-        profile["source_type_weights"] = {"repo": 0.9, "artifact": 1.2, "task_memory": 1.0, "wiki": 1.25, "open_notebook": 1.2}
+        profile["source_type_weights"] = {
+            "repo": 0.9,
+            "artifact": 1.2,
+            "task_memory": 1.0,
+            "wiki": 1.25,
+            "open_notebook": 1.2,
+        }
         profile["max_per_source"] = 1
     elif normalized_kind in {"config", "xml", "ops"}:
         profile["engine_weights"] = {
@@ -120,7 +138,13 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.2,
             "result_memory": 1.15,
         }
-        profile["source_type_weights"] = {"repo": 1.05, "artifact": 1.15, "task_memory": 1.1, "wiki": 1.0, "open_notebook": 0.9}
+        profile["source_type_weights"] = {
+            "repo": 1.05,
+            "artifact": 1.15,
+            "task_memory": 1.1,
+            "wiki": 1.0,
+            "open_notebook": 0.9,
+        }
 
     if normalized_kind in {"code_change", "api_contract"}:
         source_weights = dict(profile.get("source_type_weights") or {})
@@ -172,7 +196,14 @@ def source_priority_rules(
     rules = []
     for rank, (source_type, weight) in enumerate(weighted, start=1):
         reason = "base_profile_weight"
-        if source_type == "task_memory" and normalized_kind in {"bugfix", "testing", "test", "refactor", "implement", "coding"}:
+        if source_type == "task_memory" and normalized_kind in {
+            "bugfix",
+            "testing",
+            "test",
+            "refactor",
+            "implement",
+            "coding",
+        }:
             reason = "task_execution_history_relevance"
         elif source_type in {"artifact", "wiki"} and normalized_kind in {"architecture", "analysis", "doc", "research"}:
             reason = "architecture_and_documentation_coverage"
@@ -225,7 +256,9 @@ def redact_nested(value, *, orchestrator: HybridOrchestrator):
 
 
 def final_merge_trace(chunks: list[ContextChunk]) -> list[dict[str, object]]:
-    ranked = sorted(chunks, key=lambda chunk: (-float(chunk.score or 0.0), chunk.engine, chunk.source, chunk.content[:80]))
+    ranked = sorted(
+        chunks, key=lambda chunk: (-float(chunk.score or 0.0), chunk.engine, chunk.source, chunk.content[:80])
+    )
     trace: list[dict[str, object]] = []
     for index, chunk in enumerate(ranked, start=1):
         metadata = dict(chunk.metadata or {})
@@ -282,7 +315,8 @@ def build_retrieval_trace(
         {
             source_channel_map[source_type]
             for source_type in effective
-            if source_channel_map.get(source_type) and source_channel_map[source_type] not in selected_chunk_counts_by_channel
+            if source_channel_map.get(source_type)
+            and source_channel_map[source_type] not in selected_chunk_counts_by_channel
         }
     )
     manifest_hash = ""
@@ -367,9 +401,7 @@ def memory_candidates(
             score += 0.3
         compact = str(memory_metadata.get("compacted_summary") or "").strip()
         content_preview = (
-            retrieval_document
-            or "\n".join(part for part in [summary, compact] if part).strip()
-            or content[:1200]
+            retrieval_document or "\n".join(part for part in [summary, compact] if part).strip() or content[:1200]
         )
         chunks.append(
             ContextChunk(
@@ -392,39 +424,25 @@ def memory_candidates(
                     "retrieval_document_present": bool(retrieval_document),
                     "security_metadata": security_metadata,
                     "classification": str(
-                        security_metadata.get("classification")
-                        or memory_metadata.get("classification")
-                        or ""
+                        security_metadata.get("classification") or memory_metadata.get("classification") or ""
                     ).strip()
                     or None,
                     "source_origin": str(
-                        security_metadata.get("source_origin")
-                        or memory_metadata.get("source_origin")
-                        or "task_memory"
+                        security_metadata.get("source_origin") or memory_metadata.get("source_origin") or "task_memory"
                     ).strip()
                     or "task_memory",
                     "sensitivity": str(
-                        security_metadata.get("sensitivity")
-                        or memory_metadata.get("sensitivity")
-                        or ""
+                        security_metadata.get("sensitivity") or memory_metadata.get("sensitivity") or ""
                     ).strip()
                     or None,
-                    "tenancy": str(
-                        security_metadata.get("tenancy")
-                        or memory_metadata.get("tenancy")
-                        or ""
-                    ).strip()
+                    "tenancy": str(security_metadata.get("tenancy") or memory_metadata.get("tenancy") or "").strip()
                     or None,
                     "approval_class": str(
-                        security_metadata.get("approval_class")
-                        or memory_metadata.get("approval_class")
-                        or ""
+                        security_metadata.get("approval_class") or memory_metadata.get("approval_class") or ""
                     ).strip()
                     or None,
                     "chunk_security_tags": list(
-                        security_metadata.get("chunk_security_tags")
-                        or memory_metadata.get("chunk_security_tags")
-                        or []
+                        security_metadata.get("chunk_security_tags") or memory_metadata.get("chunk_security_tags") or []
                     ),
                 },
             )
@@ -479,7 +497,9 @@ def dedupe_candidates(chunks: list[ContextChunk]) -> tuple[list[ContextChunk], d
         duplicate_content += 1
         if is_better_chunk(chunk, existing):
             by_content[content_sig] = chunk
-    deduped = sorted(by_content.values(), key=lambda chunk: (-chunk.score, chunk.engine, chunk.source, chunk.content[:80]))
+    deduped = sorted(
+        by_content.values(), key=lambda chunk: (-chunk.score, chunk.engine, chunk.source, chunk.content[:80])
+    )
     return deduped, {"identity_duplicates": duplicate_identity, "content_duplicates": duplicate_content}
 
 

@@ -20,15 +20,8 @@ def organization_research_requires_secure_delegation(
         organization_id_from_task,
     )
 
-    task_kind = (
-        task.get("task_kind")
-        if isinstance(task, Mapping)
-        else getattr(task, "task_kind", None)
-    )
-    return bool(
-        str(task_kind or "").strip().lower() == "planning_research"
-        and organization_id_from_task(task)
-    )
+    task_kind = task.get("task_kind") if isinstance(task, Mapping) else getattr(task, "task_kind", None)
+    return bool(str(task_kind or "").strip().lower() == "planning_research" and organization_id_from_task(task))
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,9 +51,7 @@ class OrganizationTaskDispatchGateService:
         if organization_research_requires_secure_delegation(task):
             return OrganizationTaskDispatchDecision(
                 allowed=False,
-                reason_code=(
-                    "organization_research_secure_delegation_required"
-                ),
+                reason_code=("organization_research_secure_delegation_required"),
             )
         if not organization_id:
             return OrganizationTaskDispatchDecision(

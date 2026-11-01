@@ -96,9 +96,7 @@ class SubtaskParser(Protocol):
 
 
 class DiagnosticSubtaskParser(Protocol):
-    def __call__(
-        self, raw: str, default_priority: str = "Medium"
-    ) -> tuple[list[dict[str, Any]], dict[str, Any]]: ...
+    def __call__(self, raw: str, default_priority: str = "Medium") -> tuple[list[dict[str, Any]], dict[str, Any]]: ...
 
 
 @dataclass(frozen=True)
@@ -338,7 +336,9 @@ class LLMPlanningStrategy:
         if not bool(planning_policy.get("segmented_planning_enabled", False)):
             return None
         segment_chars, max_segments = self.segmentation(planning_policy, len(resolved_context or ""))
-        segments = self._split_context_into_segments(resolved_context, segment_chars=segment_chars, max_segments=max_segments)
+        segments = self._split_context_into_segments(
+            resolved_context, segment_chars=segment_chars, max_segments=max_segments
+        )
         if len(segments) <= 1:
             return None
 
@@ -509,6 +509,7 @@ class LLMPlanningStrategy:
 
         raw_response = planner._call_llm_with_retry(setup.prompt, llm_config)
         import logging
+
         logging.getLogger(__name__).debug(f"LLMPlanningStrategy: main LLM response: {raw_response}")
         runner = LLMPlanningRepairRunner(collaborators=self._collaborators, prompts=self._repair_prompt_builders())
         attempt = runner.parse_initial(raw_response, default_priority=planner.default_priority)
@@ -575,8 +576,13 @@ class LLMPlanningStrategy:
             return resolved_context
         from agent.context_window import estimate_tokens, record_truncation
 
-        record_truncation("planning.context", "char_cut", before_tokens=estimate_tokens(resolved_context),
-                          after_tokens=estimate_tokens(resolved_context[:limit]), limit_chars=limit)
+        record_truncation(
+            "planning.context",
+            "char_cut",
+            before_tokens=estimate_tokens(resolved_context),
+            after_tokens=estimate_tokens(resolved_context[:limit]),
+            limit_chars=limit,
+        )
         return resolved_context[:limit]
 
     def _with_mode_context(
@@ -589,11 +595,7 @@ class LLMPlanningStrategy:
             max_chars=1600 if mode == "new_software_project" else 4000,
         )
         mode_label = f"Mode: {mode}" if planning_policy.get("prompt_language", "de") == "en" else f"Modus: {mode}"
-        mode_context = (
-            f"{(resolved_context or '').strip()}\n\n"
-            f"{mode_label}\n"
-            f"{json.dumps(compact_mode_data, indent=2)}"
-        )
+        mode_context = f"{(resolved_context or '').strip()}\n\n{mode_label}\n{json.dumps(compact_mode_data, indent=2)}"
         return mode_context.strip()
 
     def _resolve_prompt_setup(
@@ -614,18 +616,26 @@ class LLMPlanningStrategy:
             model_name=llm_cfg.get("model"),
             explicit_profile=(planning_policy.get("planning_profile") or None),
         )
-        preferred_output_format = str(
-            planning_policy.get("preferred_output_format")
-            or runtime_profile.get("preferred_output_format")
-            or llm_cfg.get("planner_output_format")
-            or profile.get("preferred_output_format")
-            or "json"
-        ).strip().lower()
-        prompt_language = str(
-            planning_policy.get("prompt_language")
-            or profile.get("prompt_language")
-            or ("en" if bool(profile.get("requires_english_prompt")) else "de")
-        ).strip().lower()
+        preferred_output_format = (
+            str(
+                planning_policy.get("preferred_output_format")
+                or runtime_profile.get("preferred_output_format")
+                or llm_cfg.get("planner_output_format")
+                or profile.get("preferred_output_format")
+                or "json"
+            )
+            .strip()
+            .lower()
+        )
+        prompt_language = (
+            str(
+                planning_policy.get("prompt_language")
+                or profile.get("prompt_language")
+                or ("en" if bool(profile.get("requires_english_prompt")) else "de")
+            )
+            .strip()
+            .lower()
+        )
         prompt_mode = str(mode or "generic").strip() or "generic"
         behavior_profile = get_model_response_behavior_profile_service().resolve(
             provider=llm_cfg.get("provider"),

@@ -7,12 +7,6 @@ supplied through ports so multiple Hub instances converge on one authority.
 
 from __future__ import annotations
 
-from agent.services.sfu_broadcast_control_observability import (
-    SfuBroadcastControlObservationPort,
-    control_observer_or_null,
-    observed_control_path,
-)
-
 import time
 from dataclasses import dataclass
 from typing import Callable, Protocol
@@ -20,6 +14,11 @@ from typing import Callable, Protocol
 from agent.models.sfu_fleet_reconciliation import (
     SfuFleetReconciliationItem,
     SfuFleetReconciliationPage,
+)
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
 )
 
 
@@ -84,13 +83,9 @@ class SfuFleetReconciliationOutcome:
 
 
 class SfuFleetReconciliationLeasePort(Protocol):
-    def acquire(
-        self, *, scope: str, owner_id: str, ttl_ms: int, now_ms: int
-    ) -> SfuFleetReconciliationLease | None: ...
+    def acquire(self, *, scope: str, owner_id: str, ttl_ms: int, now_ms: int) -> SfuFleetReconciliationLease | None: ...
 
-    def renew(
-        self, lease: SfuFleetReconciliationLease, *, ttl_ms: int, now_ms: int
-    ) -> SfuFleetReconciliationLease: ...
+    def renew(self, lease: SfuFleetReconciliationLease, *, ttl_ms: int, now_ms: int) -> SfuFleetReconciliationLease: ...
 
     def is_current(self, lease: SfuFleetReconciliationLease, *, now_ms: int) -> bool: ...
 
@@ -113,17 +108,13 @@ class SfuFleetReconciliationStatePort(Protocol):
 
 
 class SfuFleetReconciliationMutationPort(Protocol):
-    def fence_route(
-        self, *, item: SfuFleetReconciliationItem, fencing_token: int, reason_code: str
-    ) -> bool: ...
+    def fence_route(self, *, item: SfuFleetReconciliationItem, fencing_token: int, reason_code: str) -> bool: ...
 
     def release_reservation(
         self, *, item: SfuFleetReconciliationItem, fencing_token: int, reason_code: str
     ) -> bool: ...
 
-    def mark_node_unknown(
-        self, *, item: SfuFleetReconciliationItem, fencing_token: int, reason_code: str
-    ) -> bool: ...
+    def mark_node_unknown(self, *, item: SfuFleetReconciliationItem, fencing_token: int, reason_code: str) -> bool: ...
 
     def reconcile_desired_route(
         self,
@@ -171,7 +162,7 @@ class SfuFleetReconciliationService:
                 ttl_ms=self._policy.lease_ttl_ms,
                 now_ms=self._wall_clock_ms(),
             )
-        except Exception as exc:
+        except Exception:
             return self._outcome("stopped", "sfu_reconcile_lease_store_unavailable", None, 0, 0, None)
         if lease is None:
             return self._outcome("skipped", "sfu_reconcile_lease_held", None, 0, 0, None)
@@ -257,9 +248,7 @@ class SfuFleetReconciliationService:
                 self._sleeper(delay_ms / 1_000)
         raise SfuFleetReconciliationError("sfu_reconcile_retry_budget_exhausted")
 
-    def _reconcile_item(
-        self, item: SfuFleetReconciliationItem, lease: SfuFleetReconciliationLease
-    ) -> int:
+    def _reconcile_item(self, item: SfuFleetReconciliationItem, lease: SfuFleetReconciliationLease) -> int:
         now = self._wall_clock_ms()
         if not self._lease_current(lease):
             raise SfuFleetReconciliationError("sfu_reconcile_lease_lost")
@@ -269,15 +258,12 @@ class SfuFleetReconciliationService:
             item.stale_access_expires_at_ms,
         )
         observation_stale = now >= item.observation_fresh_until_ms
-        route_stale = (
-            item.active_route
-            and (
-                now >= access_expires_at
-                or observation_stale
-                or not item.desired_route
-                or item.active_route_version != item.desired_route_version
-                or not item.control_plane_consistent
-            )
+        route_stale = item.active_route and (
+            now >= access_expires_at
+            or observation_stale
+            or not item.desired_route
+            or item.active_route_version != item.desired_route_version
+            or not item.control_plane_consistent
         )
         changed = 0
         if route_stale:
@@ -292,9 +278,7 @@ class SfuFleetReconciliationService:
                 )
             )
         if item.reservation_active and (
-            item.reservation_orphaned
-            or not item.desired_route
-            or now >= item.reservation_expires_at_ms
+            item.reservation_orphaned or not item.desired_route or now >= item.reservation_expires_at_ms
         ):
             changed += int(
                 self._mutate(
@@ -350,13 +334,9 @@ class SfuFleetReconciliationService:
         except SfuFleetReconciliationError:
             raise
         except Exception as exc:
-            raise SfuFleetReconciliationError(
-                "sfu_reconcile_mutation_unavailable", retryable=True
-            ) from exc
+            raise SfuFleetReconciliationError("sfu_reconcile_mutation_unavailable", retryable=True) from exc
 
-    def _renew_if_needed(
-        self, lease: SfuFleetReconciliationLease
-    ) -> SfuFleetReconciliationLease:
+    def _renew_if_needed(self, lease: SfuFleetReconciliationLease) -> SfuFleetReconciliationLease:
         now = self._wall_clock_ms()
         if lease.expires_at_ms - now > self._policy.renew_before_ms:
             return lease
@@ -365,9 +345,7 @@ class SfuFleetReconciliationService:
         except Exception as exc:
             raise SfuFleetReconciliationError("sfu_reconcile_lease_lost") from exc
 
-    def _checkpoint(
-        self, lease: SfuFleetReconciliationLease, cursor: str | None
-    ) -> SfuFleetReconciliationLease:
+    def _checkpoint(self, lease: SfuFleetReconciliationLease, cursor: str | None) -> SfuFleetReconciliationLease:
         if not self._lease_current(lease):
             raise SfuFleetReconciliationError("sfu_reconcile_lease_lost")
         try:

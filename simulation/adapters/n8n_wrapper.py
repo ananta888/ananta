@@ -4,9 +4,9 @@ Provides a webhook receiver that n8n can POST to in order to trigger
 simulation runs, and an n8n-compatible output payload for downstream
 workflow nodes.
 """
+
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,6 +14,7 @@ from typing import Any
 @dataclass
 class N8NTriggerPayload:
     """Shape of the JSON body n8n sends to start a simulation."""
+
     scenario_name: str = "survival_island"
     tick_limit: int = 10
     seed: int = 42
@@ -38,14 +39,12 @@ def handle_n8n_trigger(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         trigger = N8NTriggerPayload.from_dict(payload)
         from simulation.engine.batch_runner import BatchRunner
-        from simulation.scenarios.standard_scenarios import get_scenario
         from simulation.models.scenario import BudgetConfig
+        from simulation.scenarios.standard_scenarios import get_scenario
 
         scenario = get_scenario(trigger.scenario_name)
         patched = scenario.model_copy(
-            update={"budget": BudgetConfig(max_ticks=trigger.tick_limit,
-                                            stop_on_extinction=True),
-                     "seed": trigger.seed}
+            update={"budget": BudgetConfig(max_ticks=trigger.tick_limit, stop_on_extinction=True), "seed": trigger.seed}
         )
         runner = BatchRunner()
         results = runner.run([patched])

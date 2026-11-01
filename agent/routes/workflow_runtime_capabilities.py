@@ -31,15 +31,8 @@ def get_workflow_runtime_capabilities():
 
     if set(request.args).difference(_ALLOWED_QUERY_FIELDS):
         return jsonify({"status": "error", "reason_code": "runtime_capability_query_forbidden"}), 400
-    required = tuple(
-        str(value).strip()
-        for value in request.args.getlist("required_capability")
-        if str(value).strip()
-    )
-    if (
-        len(required) > _MAX_REQUIRED_CAPABILITIES
-        or any(len(value) > _MAX_CAPABILITY_LENGTH for value in required)
-    ):
+    required = tuple(str(value).strip() for value in request.args.getlist("required_capability") if str(value).strip())
+    if len(required) > _MAX_REQUIRED_CAPABILITIES or any(len(value) > _MAX_CAPABILITY_LENGTH for value in required):
         return jsonify({"status": "error", "reason_code": "runtime_capability_query_invalid"}), 400
     try:
         projection = default_workflow_runtime_capability_service(

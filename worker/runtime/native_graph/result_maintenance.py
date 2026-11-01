@@ -22,11 +22,26 @@ def main(argv=None):
         store = SQLiteNativeResultStore(path, expire_on_open=False)
         scrubbed = store.expire_results(batch_size=options.batch_size)
     except Exception:
-        print(json.dumps({"schema": "ananta.native-result-maintenance.v1", "status": "blocked",
-                          "reason_code": "native_result_maintenance_unavailable"}))
+        print(
+            json.dumps(
+                {
+                    "schema": "ananta.native-result-maintenance.v1",
+                    "status": "blocked",
+                    "reason_code": "native_result_maintenance_unavailable",
+                }
+            )
+        )
         return 1
-    print(json.dumps({"schema": "ananta.native-result-maintenance.v1", "status": "completed",
-                      "scrubbed_results": scrubbed, "replay_tombstones_preserved": True}))
+    print(
+        json.dumps(
+            {
+                "schema": "ananta.native-result-maintenance.v1",
+                "status": "completed",
+                "scrubbed_results": scrubbed,
+                "replay_tombstones_preserved": True,
+            }
+        )
+    )
     return 0
 
 

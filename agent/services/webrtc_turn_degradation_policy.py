@@ -93,7 +93,9 @@ class InMemoryTurnReceiverStatePort:
 
 class WebrtcTurnDegradationPolicy:
     STATES = frozenset({"direct", "relay_ok", "relay_capped", "control_only", "fallback", "rejected"})
-    EVENTS = frozenset({"admitted", "capacity", "credential_expired", "pool_unavailable", "network_changed", "recovered"})
+    EVENTS = frozenset(
+        {"admitted", "capacity", "credential_expired", "pool_unavailable", "network_changed", "recovered"}
+    )
 
     def __init__(
         self,
@@ -185,9 +187,17 @@ class WebrtcTurnDegradationPolicy:
     def _validate(self, signal: TurnDegradationSignal) -> None:
         if not isinstance(signal.receiver_ref, str) or not signal.receiver_ref or len(signal.receiver_ref) > 128:
             raise WebrtcTurnDegradationError("turn_degradation_receiver_invalid")
-        if isinstance(signal.expected_version, bool) or not isinstance(signal.expected_version, int) or signal.expected_version < 0:
+        if (
+            isinstance(signal.expected_version, bool)
+            or not isinstance(signal.expected_version, int)
+            or signal.expected_version < 0
+        ):
             raise WebrtcTurnDegradationError("turn_degradation_version_invalid")
-        if signal.event not in self.EVENTS or signal.quota_decision not in {"allow", "lower_cap", "relay_capacity_exhausted"}:
+        if signal.event not in self.EVENTS or signal.quota_decision not in {
+            "allow",
+            "lower_cap",
+            "relay_capacity_exhausted",
+        }:
             raise WebrtcTurnDegradationError("turn_degradation_signal_invalid")
         bools = (
             signal.credential_valid,

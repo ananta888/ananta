@@ -6,7 +6,9 @@ from agent.services.worker_workspace_service import WorkerWorkspaceService
 def test_goal_scoped_workspace_same_goal_same_dir(tmp_path):
     app = Flask("wgw")
     app.config["AGENT_NAME"] = "worker-a"
-    app.config["AGENT_CONFIG"] = {"worker_runtime": {"workspace_root": str(tmp_path), "workspace_reuse_mode": "goal_worker"}}
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path), "workspace_reuse_mode": "goal_worker"}
+    }
 
     svc = WorkerWorkspaceService()
     with app.app_context():
@@ -21,7 +23,9 @@ def test_goal_scoped_workspace_same_goal_same_dir(tmp_path):
 def test_output_dir_lock_for_shared_workspace(tmp_path):
     app = Flask("wgw-lock")
     app.config["AGENT_NAME"] = "worker-a"
-    app.config["AGENT_CONFIG"] = {"worker_runtime": {"workspace_root": str(tmp_path), "workspace_reuse_mode": "goal_worker"}}
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path), "workspace_reuse_mode": "goal_worker"}
+    }
 
     svc = WorkerWorkspaceService()
     task = {"id": "t1", "goal_id": "g1", "current_worker_job_id": "w1"}

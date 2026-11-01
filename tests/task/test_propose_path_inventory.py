@@ -1,4 +1,5 @@
 """Tests for propose path inventory and legacy blocks per FA-T003."""
+
 from unittest.mock import Mock
 
 import pytest

@@ -19,11 +19,17 @@ class AppliedStyleOverlay:
 
 class CognitiveStyleOverlayService:
     _TASK_ROLE = {
-        "coding": "implementer", "implementation": "implementer",
-        "debugging": "implementer", "review": "reviewer",
-        "verification": "verifier", "testing": "qa", "qa": "qa",
-        "research": "researcher", "architecture": "architect",
-        "planning": "planner", "challenge": "challenger",
+        "coding": "implementer",
+        "implementation": "implementer",
+        "debugging": "implementer",
+        "review": "reviewer",
+        "verification": "verifier",
+        "testing": "qa",
+        "qa": "qa",
+        "research": "researcher",
+        "architecture": "architect",
+        "planning": "planner",
+        "challenge": "challenger",
     }
     _ROLE_ALIAS = {"coder": "implementer", "reasoning": "reviewer"}
 
@@ -40,10 +46,7 @@ class CognitiveStyleOverlayService:
         role_id = self._resolve_role(task, fallback_role)
         configuration = self._styles.read().configuration
         overlay = next(
-            (
-                item for item in configuration.overlays
-                if item.role_id == role_id and item.enabled
-            ),
+            (item for item in configuration.overlays if item.role_id == role_id and item.enabled),
             None,
         )
         if overlay is None:
@@ -67,9 +70,7 @@ class CognitiveStyleOverlayService:
         task: Mapping[str, object],
         fallback_role: str | None,
     ) -> str:
-        explicit = str(
-            task.get("role_id") or task.get("role") or task.get("agent_role") or ""
-        ).strip().lower()
+        explicit = str(task.get("role_id") or task.get("role") or task.get("agent_role") or "").strip().lower()
         if explicit:
             return self._ROLE_ALIAS.get(explicit, explicit)
         task_kind = str(task.get("task_kind") or task.get("type") or "").strip().lower()
@@ -103,6 +104,7 @@ def apply_cognitive_style_overlay(
 
 
 __all__ = [
-    "AppliedStyleOverlay", "CognitiveStyleOverlayService",
+    "AppliedStyleOverlay",
+    "CognitiveStyleOverlayService",
     "apply_cognitive_style_overlay",
 ]

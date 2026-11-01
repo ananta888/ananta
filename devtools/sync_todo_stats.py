@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 TODO_PATH_CANDIDATES = (
     ROOT / "todo.json",
@@ -32,12 +31,7 @@ def _load_todo(path: Path) -> dict:
 def _recompute(data: dict) -> dict:
     categories = data.get("categories") or []
 
-    items = [
-        item
-        for category in categories
-        for item in category.get("items", [])
-        if isinstance(item, dict)
-    ]
+    items = [item for category in categories for item in category.get("items", []) if isinstance(item, dict)]
     if items:
         by_status: dict[str, int] = {"completed": 0, "partial": 0, "open": 0}
         for item in items:
@@ -52,16 +46,9 @@ def _recompute(data: dict) -> dict:
 
     completed_in_session = data.get("completed_in_session") or []
     discovered = data.get("newly_discovered_tasks") or []
-    tasks = [
-        task
-        for category in categories
-        for task in category.get("tasks", [])
-        if isinstance(task, dict)
-    ]
+    tasks = [task for category in categories for task in category.get("tasks", []) if isinstance(task, dict)]
     remaining = sum(
-        1
-        for task in tasks
-        if str(task.get("status") or "").strip().lower() not in {"completed", "cancelled"}
+        1 for task in tasks if str(task.get("status") or "").strip().lower() not in {"completed", "cancelled"}
     )
 
     stats = data.setdefault("statistics", {})

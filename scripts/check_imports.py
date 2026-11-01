@@ -104,8 +104,7 @@ def check_file_imports(file_path: Path) -> set[str]:
     violations: set[str] = set()
     for imported_module in _imported_modules(tree):
         if any(
-            module_name.startswith(module_prefix)
-            and imported_module.startswith(import_prefix)
+            module_name.startswith(module_prefix) and imported_module.startswith(import_prefix)
             for module_prefix, import_prefix in EXCEPTIONS
         ):
             continue
@@ -166,8 +165,7 @@ def main() -> int:
         return 1
 
     print(
-        "✅ No new architecture boundary violations "
-        f"({len(baseline)} legacy violations remain explicitly baselined)."
+        f"✅ No new architecture boundary violations ({len(baseline)} legacy violations remain explicitly baselined)."
     )
     return 0
 

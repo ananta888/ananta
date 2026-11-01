@@ -1,10 +1,12 @@
 """Tests for CaseFlow Timeline (CASECORE-004)."""
+
 from __future__ import annotations
 
-import time
+from datetime import datetime
+
 import pytest
-from datetime import datetime, timedelta
-from agent.caseflow.timeline import CaseEvent, append_event, get_events_for_case, clear_events
+
+from agent.caseflow.timeline import CaseEvent, append_event, clear_events, get_events_for_case
 
 
 @pytest.fixture(autouse=True)

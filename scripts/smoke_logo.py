@@ -25,6 +25,7 @@ Pixel demos (current pipeline):
     .venv/bin/python scripts/smoke_logo.py --pixel-2d-demo
     .venv/bin/python scripts/smoke_logo.py --pixel-3d-demo
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,6 +44,7 @@ _CAST_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "output")
 
 
 # ── 2D ───────────────────────────────────────────────────────────────────────
+
 
 def show_2d(width: int = 0) -> str:
     """
@@ -65,6 +67,7 @@ def show_2d(width: int = 0) -> str:
 
 
 # ── 3D ───────────────────────────────────────────────────────────────────────
+
 
 def _render_frames(
     preset: str,
@@ -91,10 +94,12 @@ def _render_frames(
 
     backend = BuiltinBackend()
     source = "svg" if backend._a_model.label == "ananta_svg" else "hardcoded-A"
-    print(f"[smoke_logo] 3D geometry source: {source}  "
-          f"verts={len(backend._a_model.vertices)}  "
-          f"edges={len(backend._a_model.edges)}",
-          file=sys.stderr)
+    print(
+        f"[smoke_logo] 3D geometry source: {source}  "
+        f"verts={len(backend._a_model.vertices)}  "
+        f"edges={len(backend._a_model.edges)}",
+        file=sys.stderr,
+    )
 
     total = max(1, int(cap.max_fps * cap.duration_ms / 1000))
     frames: list[str] = []
@@ -134,7 +139,7 @@ def show_3d(
         return frames
 
     interval = 1.0 / fps
-    sys.stdout.write("\x1b[?25l")   # hide cursor
+    sys.stdout.write("\x1b[?25l")  # hide cursor
     try:
         for _ in range(repeat):
             for frame in frames:
@@ -142,7 +147,7 @@ def show_3d(
                 sys.stdout.flush()
                 time.sleep(interval)
     finally:
-        sys.stdout.write("\x1b[?25h")   # restore cursor
+        sys.stdout.write("\x1b[?25h")  # restore cursor
         sys.stdout.flush()
     return frames
 
@@ -151,33 +156,38 @@ def show_3d(
 
 # ── splash animation ─────────────────────────────────────────────────────────
 
-_GREEN   = '\x1b[38;2;71;166;56m'   # #47A638 – SVG green
-_RESET_C = '\x1b[0m'
-_SNAKE_CHARS = '~sSoOcC'
+_GREEN = "\x1b[38;2;71;166;56m"  # #47A638 – SVG green
+_RESET_C = "\x1b[0m"
+_SNAKE_CHARS = "~sSoOcC"
 
 
 def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
     """Render ananta.svg as colored (or plain) ASCII art; returns lines."""
     import sys as _sys
     import tempfile as _tmp
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     _sys.path.insert(0, script_dir)
     try:
         from render_terminal_logo import (
-            ASCII_PALETTES, RenderConfig, load_image,
-            render_ascii, render_ascii_color, svg_to_png,
+            ASCII_PALETTES,
+            RenderConfig,
+            load_image,
+            render_ascii,
+            render_ascii_color,
+            svg_to_png,
         )
     except ImportError:
         return []
 
-    svg_path = os.path.abspath(os.path.join(script_dir, '..', 'ananta.svg'))
+    svg_path = os.path.abspath(os.path.join(script_dir, "..", "ananta.svg"))
     if not os.path.isfile(svg_path):
         return []
 
     cfg = RenderConfig()
-    chars = ASCII_PALETTES['clean']
+    chars = ASCII_PALETTES["clean"]
 
-    with _tmp.NamedTemporaryFile(suffix='.png', delete=False) as f:
+    with _tmp.NamedTemporaryFile(suffix=".png", delete=False) as f:
         png = f.name
     try:
         svg_to_png(svg_path, png, width=800)
@@ -192,22 +202,26 @@ def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
         except OSError:
             pass
 
-    return art.split('\n')
+    return art.split("\n")
 
 
 def _orbit_path(top: int, bottom: int, left: int, right: int) -> list[tuple[int, int]]:
     p: list[tuple[int, int]] = []
-    for c in range(left, right + 1):          p.append((top, c))
-    for r in range(top + 1, bottom + 1):      p.append((r, right))
-    for c in range(right - 1, left - 1, -1):  p.append((bottom, c))
-    for r in range(bottom - 1, top, -1):       p.append((r, left))
+    for c in range(left, right + 1):
+        p.append((top, c))
+    for r in range(top + 1, bottom + 1):
+        p.append((r, right))
+    for c in range(right - 1, left - 1, -1):
+        p.append((bottom, c))
+    for r in range(bottom - 1, top, -1):
+        p.append((r, left))
     return p
 
 
 def _pad_canvas_line(line: str, width: int) -> str:
-    visible = len(_ANSI_RE.sub('', line))
+    visible = len(_ANSI_RE.sub("", line))
     if visible < width:
-        return line + ' ' * (width - visible)
+        return line + " " * (width - visible)
     return line
 
 
@@ -226,20 +240,20 @@ def _insert_snake_on_row(
         return _pad_canvas_line(base, canvas_w)
 
     # Positions left of the logo and right of the logo
-    left_snakes  = {c: ch for c, ch in snake_cols.items() if c < logo_col_start}
+    left_snakes = {c: ch for c, ch in snake_cols.items() if c < logo_col_start}
     right_snakes = {c: ch for c, ch in snake_cols.items() if c >= logo_col_start + 70}
 
     if not left_snakes and not right_snakes:
         return _pad_canvas_line(base, canvas_w)
 
     # Left region (cols 0..logo_col_start-1): pure spaces + snake chars
-    left_part = list(' ' * logo_col_start)
+    left_part = list(" " * logo_col_start)
     for c, ch in left_snakes.items():
         if 0 <= c < logo_col_start:
             left_part[c] = ch
 
     def _colorize_region(chars_list: list[str], snake_set: dict[int, str], col_offset: int) -> str:
-        out, in_g = '', False
+        out, in_g = "", False
         for i, ch in enumerate(chars_list):
             col = i + col_offset
             if col in snake_set:
@@ -259,21 +273,21 @@ def _insert_snake_on_row(
     left_str = _colorize_region(left_part, left_snakes, 0)
 
     # Logo region (already ANSI-colored): pass through unchanged
-    logo_start = logo_col_start
     # Strip the plain leading pad from base (base = ' '*logo_col_start + logo_line)
-    logo_str = base[logo_col_start:] if len(base) > logo_col_start else ''
+    logo_str = base[logo_col_start:] if len(base) > logo_col_start else ""
 
     # Right region (cols logo_end..canvas_w-1): pure spaces + snake chars
     logo_end = logo_col_start + 70
     right_len = canvas_w - logo_end
-    right_part = list(' ' * right_len)
+    right_part = list(" " * right_len)
     for c, ch in right_snakes.items():
         idx = c - logo_end
         if 0 <= idx < right_len:
             right_part[idx] = ch
 
-    right_str = _colorize_region(right_part, {c - logo_end: ch for c, ch in right_snakes.items()
-                                               if 0 <= c - logo_end < right_len}, 0)
+    right_str = _colorize_region(
+        right_part, {c - logo_end: ch for c, ch in right_snakes.items() if 0 <= c - logo_end < right_len}, 0
+    )
 
     return left_str + logo_str + right_str
 
@@ -292,26 +306,28 @@ def _frame_from_logo(
 
     for row in range(canvas_h):
         if row < logo_h:
-            base = ' ' * logo_col + logo_lines[row]
+            base = " " * logo_col + logo_lines[row]
         else:
-            base = ''
+            base = ""
 
         row_snakes = {c: ch for (r, c), ch in snake_map.items() if r == row}
 
         if not row_snakes:
-            rows_out.append(_pad_canvas_line(base, canvas_w) if base else ' ' * canvas_w)
+            rows_out.append(_pad_canvas_line(base, canvas_w) if base else " " * canvas_w)
         elif row >= logo_h:
             # Empty row: just place snake chars
-            line = list(' ' * canvas_w)
-            parts, in_g = '', False
+            line = list(" " * canvas_w)
+            parts, in_g = "", False
             for ci in range(canvas_w):
                 if ci in row_snakes:
                     if not in_g:
-                        parts += _GREEN; in_g = True
+                        parts += _GREEN
+                        in_g = True
                     parts += row_snakes[ci]
                 else:
                     if in_g:
-                        parts += _RESET_C; in_g = False
+                        parts += _RESET_C
+                        in_g = False
                     parts += line[ci]
             if in_g:
                 parts += _RESET_C
@@ -319,7 +335,7 @@ def _frame_from_logo(
         else:
             rows_out.append(_insert_snake_on_row(base, row_snakes, logo_col, canvas_w))
 
-    return '\n'.join(rows_out)
+    return "\n".join(rows_out)
 
 
 def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
@@ -329,21 +345,20 @@ def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     Falls back gracefully if rendering libraries are unavailable.
     """
     # ── render logo at three sizes ────────────────────────────────────────────
-    logo_lg = _render_svg_ascii(70, color=True)   # fits 32-row canvas
+    logo_lg = _render_svg_ascii(70, color=True)  # fits 32-row canvas
     logo_sm = _render_svg_ascii(35, color=False)  # for shrink phase
 
     if not logo_lg:
-        print('[smoke_logo] SVG render unavailable, skipping splash frames',
-              file=sys.stderr)
+        print("[smoke_logo] SVG render unavailable, skipping splash frames", file=sys.stderr)
         return []
 
     # Center logo horizontally
     logo_w = 70
-    col0 = (w - logo_w) // 2   # left padding (cols 0..col0-1 are empty)
+    col0 = (w - logo_w) // 2  # left padding (cols 0..col0-1 are empty)
 
     # Detect content bounds (non-blank rows/cols) for tight snake orbit
     strip = _ANSI_RE
-    content_rows = [i for i, ln in enumerate(logo_lg) if strip.sub('', ln).strip()]
+    content_rows = [i for i, ln in enumerate(logo_lg) if strip.sub("", ln).strip()]
     if not content_rows:
         content_rows = list(range(len(logo_lg)))
     ct, cb = content_rows[0], content_rows[-1]
@@ -351,10 +366,10 @@ def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     # Orbit path slightly outside the content bounding box
     # Left/right borders are in the empty padding cols around the logo
     pad_r, pad_c = 2, 3
-    orbit_top    = max(0,     ct - pad_r)
+    orbit_top = max(0, ct - pad_r)
     orbit_bottom = min(h - 1, cb + pad_r)
-    orbit_left   = max(0,     col0 - pad_c)
-    orbit_right  = min(w - 1, col0 + logo_w + pad_c)
+    orbit_left = max(0, col0 - pad_c)
+    orbit_right = min(w - 1, col0 + logo_w + pad_c)
     path = _orbit_path(orbit_top, orbit_bottom, orbit_left, orbit_right)
     plen = len(path)
 
@@ -369,15 +384,13 @@ def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     grow = int(fps * 1.5)
     for fi in range(grow):
         n_s = int((fi + 1) / grow * plen)
-        snake_map = {path[k]: _SNAKE_CHARS[(k + fi) % len(_SNAKE_CHARS)]
-                     for k in range(n_s)}
+        snake_map = {path[k]: _SNAKE_CHARS[(k + fi) % len(_SNAKE_CHARS)] for k in range(n_s)}
         frames.append(_frame_from_logo(logo_lg, col0, w, h, len(logo_lg), snake_map))
 
     # ── phase 3: full snake orbits slowly (1 s) ──────────────────────────────
     for fi in range(fps):
         off = fi * 2
-        snake_map = {path[(off + k) % plen]: _SNAKE_CHARS[(k + off) % len(_SNAKE_CHARS)]
-                     for k in range(plen)}
+        snake_map = {path[(off + k) % plen]: _SNAKE_CHARS[(k + off) % len(_SNAKE_CHARS)] for k in range(plen)}
         frames.append(_frame_from_logo(logo_lg, col0, w, h, len(logo_lg), snake_map))
 
     # ── phase 4: shrink toward top-left (1 s) ────────────────────────────────
@@ -395,8 +408,9 @@ def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
         # Interpolate position toward top-left
         target_col = max(0, a_col - int(a_col * t * 2))
         snake_visible = int(plen * max(0.0, 1.0 - t * 2))
-        snake_map = {path[(last_off + k) % plen]: _SNAKE_CHARS[(k + last_off) % len(_SNAKE_CHARS)]
-                     for k in range(snake_visible)}
+        snake_map = {
+            path[(last_off + k) % plen]: _SNAKE_CHARS[(k + last_off) % len(_SNAKE_CHARS)] for k in range(snake_visible)
+        }
         frames.append(_frame_from_logo(art, target_col, w, h, len(art), snake_map))
 
     return frames
@@ -405,6 +419,7 @@ def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
 def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
     """Render a single TUI frame with live hub data (or empty state when hub is offline)."""
     import os
+
     from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
     from client_surfaces.operator_tui.app import load_active_section
     from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
@@ -427,17 +442,17 @@ def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
 
 def _pad_canvas(text: str, w: int, h: int) -> str:
     """Pad every line to full width and ensure exactly h rows — so in-place overwrite is clean."""
-    lines = text.split('\n')
+    lines = text.split("\n")
     padded = []
     for line in lines[:h]:
-        visible = len(_ANSI_RE.sub('', line))
-        padded.append(line + ' ' * max(0, w - visible))
+        visible = len(_ANSI_RE.sub("", line))
+        padded.append(line + " " * max(0, w - visible))
     while len(padded) < h:
-        padded.append(' ' * w)
-    return '\n'.join(padded[:h])
+        padded.append(" " * w)
+    return "\n".join(padded[:h])
 
 
-_MAX_SPLASH_H = 45   # animation content lives in rows 0-26; more rows = wasted throughput
+_MAX_SPLASH_H = 45  # animation content lives in rows 0-26; more rows = wasted throughput
 _MAX_SPLASH_FPS = 15  # 24fps * 28KB/frame = 500KB/s; Windows Terminal can't keep up
 
 
@@ -465,9 +480,9 @@ def record(fps: int = _MAX_SPLASH_FPS, width: int = 0, height: int = 0, **_: obj
     # ── Phase 2: TUI sections ─────────────────────────────────────────────────
     section_specs = [
         ("dashboard", 1.5),
-        ("goals",     1.0),
-        ("tasks",     1.0),
-        ("system",    0.8),
+        ("goals", 1.0),
+        ("tasks", 1.0),
+        ("system", 0.8),
     ]
     for si, (section_id, dur) in enumerate(section_specs):
         raw = _render_tui_snapshot(section_id, w, h)
@@ -485,7 +500,9 @@ def record(fps: int = _MAX_SPLASH_FPS, width: int = 0, height: int = 0, **_: obj
     path = os.path.join(_CAST_DIR, "operator_tui_splash.cast")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     header = {
-        "version": 2, "width": w, "height": h,
+        "version": 2,
+        "width": w,
+        "height": h,
         "title": "Ananta – snake wraps A → TUI",
         "env": {"TERM": "xterm-256color", "COLORTERM": "truecolor"},
     }
@@ -503,6 +520,7 @@ def record(fps: int = _MAX_SPLASH_FPS, width: int = 0, height: int = 0, **_: obj
 
 
 # ── check (CI / headless) ─────────────────────────────────────────────────────
+
 
 def check() -> bool:
     """Return True if both 2D and 3D render successfully."""
@@ -522,8 +540,10 @@ def check() -> bool:
     frames_differ = _ANSI_RE.sub("", frames[0]) != _ANSI_RE.sub("", frames[-1])
 
     ok = has_2d and has_3d and frames_differ
-    print(f"[smoke_logo] check: 2d={has_2d}  3d={has_3d}  animated={frames_differ}  → {'ok' if ok else 'FAIL'}",
-          file=sys.stderr)
+    print(
+        f"[smoke_logo] check: 2d={has_2d}  3d={has_3d}  animated={frames_differ}  → {'ok' if ok else 'FAIL'}",
+        file=sys.stderr,
+    )
     return ok
 
 
@@ -662,25 +682,30 @@ def run_pixel_3d_demo(
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    mode = ap.add_mutually_exclusive_group()
-    mode.add_argument("--2d",      dest="mode_2d",   action="store_true", help="2D only")
-    mode.add_argument("--3d",      dest="mode_3d",   action="store_true", help="3D only")
-    mode.add_argument("--record",  dest="mode_rec",  action="store_true", help="record 3D to cast")
-    mode.add_argument("--check",   dest="mode_check",action="store_true", help="headless CI check")
-    mode.add_argument("--header-check", dest="mode_header_check", action="store_true", help="CI-safe header render smoke")
-    mode.add_argument("--pixel-2d-demo", dest="mode_pixel_2d_demo", action="store_true", help="render-once TUI pixel 2D demo")
-    mode.add_argument("--pixel-3d-demo", dest="mode_pixel_3d_demo", action="store_true", help="render-once TUI pixel 3D demo")
 
-    ap.add_argument("--preset",      default="rotate_in",
-                    choices=["rotate_in", "snake_orbit", "depth_pulse"])
-    ap.add_argument("--fps",         type=int, default=24)
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--2d", dest="mode_2d", action="store_true", help="2D only")
+    mode.add_argument("--3d", dest="mode_3d", action="store_true", help="3D only")
+    mode.add_argument("--record", dest="mode_rec", action="store_true", help="record 3D to cast")
+    mode.add_argument("--check", dest="mode_check", action="store_true", help="headless CI check")
+    mode.add_argument(
+        "--header-check", dest="mode_header_check", action="store_true", help="CI-safe header render smoke"
+    )
+    mode.add_argument(
+        "--pixel-2d-demo", dest="mode_pixel_2d_demo", action="store_true", help="render-once TUI pixel 2D demo"
+    )
+    mode.add_argument(
+        "--pixel-3d-demo", dest="mode_pixel_3d_demo", action="store_true", help="render-once TUI pixel 3D demo"
+    )
+
+    ap.add_argument("--preset", default="rotate_in", choices=["rotate_in", "snake_orbit", "depth_pulse"])
+    ap.add_argument("--fps", type=int, default=24)
     ap.add_argument("--duration-ms", type=int, default=2000)
-    ap.add_argument("--repeat",      type=int, default=1)
-    ap.add_argument("--width",       type=int, default=0)
-    ap.add_argument("--height",      type=int, default=0)
+    ap.add_argument("--repeat", type=int, default=1)
+    ap.add_argument("--width", type=int, default=0)
+    ap.add_argument("--height", type=int, default=0)
     args = ap.parse_args(argv)
 
     if args.mode_check:
@@ -714,8 +739,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.mode_3d:
-        show_3d(args.preset, args.fps, args.duration_ms,
-                args.width, args.height, args.repeat)
+        show_3d(args.preset, args.fps, args.duration_ms, args.width, args.height, args.repeat)
         return 0
 
     # default: 2D then 3D
@@ -726,8 +750,7 @@ def main(argv: list[str] | None = None) -> int:
     print("\n── 3D wireframe (built from SVG silhouette) ──", file=sys.stderr)
     sys.stdout.write("\x1b[2J\x1b[H")
     sys.stdout.flush()
-    show_3d(args.preset, args.fps, args.duration_ms,
-            args.width, args.height, args.repeat)
+    show_3d(args.preset, args.fps, args.duration_ms, args.width, args.height, args.repeat)
     return 0
 
 

@@ -54,4 +54,3 @@ def test_center_viewport_reports_small_region_fallback_mode() -> None:
     state = viewport.resize(region)
     assert state.is_too_small_for_image_protocols is True
     assert "viewport too small" in state.reason
-

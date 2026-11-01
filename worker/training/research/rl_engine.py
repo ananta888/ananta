@@ -56,11 +56,7 @@ class TorchRlEngine:
                     raise ValueError("research_reward_bound_exceeded")
                 sample_rewards.append(reward)
                 sample_log_probabilities.append(log_probability)
-            baseline = (
-                sum(sample_rewards) / len(sample_rewards)
-                if config.algorithm == "group_relative_v1"
-                else 0.0
-            )
+            baseline = sum(sample_rewards) / len(sample_rewards) if config.algorithm == "group_relative_v1" else 0.0
             loss = -sum(
                 (reward - baseline) * probability
                 for reward, probability in zip(sample_rewards, sample_log_probabilities, strict=True)

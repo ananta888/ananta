@@ -66,11 +66,14 @@ def test_worker_auth_readiness_job_and_drain_lifecycle(tmp_path) -> None:
     assert terminal["status"] == "completed"
     assert "artifact" in terminal["result"]
 
-    assert client.post(
-        "/internal/v1/speech-training/drain",
-        json={"drain": True},
-        headers=_headers(),
-    ).status_code == 202
+    assert (
+        client.post(
+            "/internal/v1/speech-training/drain",
+            json={"drain": True},
+            headers=_headers(),
+        ).status_code
+        == 202
+    )
     assert client.get("/ready", headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 503
 
 
@@ -116,9 +119,7 @@ def test_external_cancel_kills_child_process_cleans_workspace_and_restart_forget
     job_id = payload["job_id"]
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        current = client.get(
-            f"/internal/v1/speech-training/jobs/{job_id}", headers=_headers()
-        ).get_json()
+        current = client.get(f"/internal/v1/speech-training/jobs/{job_id}", headers=_headers()).get_json()
         if current["status"] == "running":
             break
         time.sleep(0.01)
@@ -136,9 +137,7 @@ def test_external_cancel_kills_child_process_cleans_workspace_and_restart_forget
     assert cancelled.status_code == 202
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        terminal = client.get(
-            f"/internal/v1/speech-training/jobs/{job_id}", headers=_headers()
-        ).get_json()
+        terminal = client.get(f"/internal/v1/speech-training/jobs/{job_id}", headers=_headers()).get_json()
         if terminal["status"] in {"cancelled", "failed"}:
             break
         time.sleep(0.01)

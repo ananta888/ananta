@@ -36,4 +36,3 @@ class RepairController:
         for key, default in (("id", "chatcmpl-repaired"), ("object", "chat.completion"), ("model", "unknown")):
             raw.setdefault(key, default)
         return raw, "repaired"
-

@@ -17,12 +17,8 @@ from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-RECOVERY_ARTIFACT_INGRESS_SCHEMA = (
-    "ananta.recovery_artifact_ingress.v1"
-)
-RECOVERY_ARTIFACT_RECEIPTS_SCHEMA = (
-    "ananta.recovery_artifact_receipts.v1"
-)
+RECOVERY_ARTIFACT_INGRESS_SCHEMA = "ananta.recovery_artifact_ingress.v1"
+RECOVERY_ARTIFACT_RECEIPTS_SCHEMA = "ananta.recovery_artifact_receipts.v1"
 MAX_RECOVERY_ARTIFACT_COUNT = 32
 MAX_RECOVERY_ARTIFACT_BYTES = 25 * 1024 * 1024
 MAX_RECOVERY_ARTIFACT_TOTAL_BYTES = 64 * 1024 * 1024
@@ -31,17 +27,11 @@ MAX_RECOVERY_FORWARD_RESPONSE_BYTES = 1_048_576
 _RECEIPT_FIXED_BUDGET_BYTES = 1_024
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
-_IDENTIFIER = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,255}$"
-)
+_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,255}$")
 _KIND = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$")
-_MEDIA_TYPE = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+/-]{0,126}$"
-)
+_MEDIA_TYPE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+/-]{0,126}$")
 _ARTIFACT_ID = re.compile(r"^recovery-artifact-[0-9a-f]{32}$")
-_ARTIFACT_VERSION_ID = re.compile(
-    r"^recovery-artifact-version-[0-9a-f]{32}$"
-)
+_ARTIFACT_VERSION_ID = re.compile(r"^recovery-artifact-version-[0-9a-f]{32}$")
 _MANIFEST_FIELDS = frozenset(
     {
         "schema",
@@ -122,19 +112,13 @@ def recovery_artifact_assignment_fingerprint(
         "recovery_artifact_task_id_invalid",
     )
     normalized_worker_url = _worker_url(worker_url)
-    return hashlib.sha256(
-        (
-            f"{normalized_task_id}\0{normalized_worker_url}"
-        ).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256((f"{normalized_task_id}\0{normalized_worker_url}").encode("utf-8")).hexdigest()
 
 
 def recovery_artifact_lease_token_digest(token: str) -> str:
     value = str(token or "")
     if not value or len(value.encode("utf-8")) > 16_384:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_lease_token_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_lease_token_invalid")
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
@@ -157,14 +141,8 @@ def build_recovery_artifact_ingress_manifest(
                 worker_url=worker_url,
             )
         ),
-        "request_fingerprint": str(
-            request_fingerprint or ""
-        ),
-        "lease_token_digest": (
-            recovery_artifact_lease_token_digest(
-                lease_token
-            )
-        ),
+        "request_fingerprint": str(request_fingerprint or ""),
+        "lease_token_digest": (recovery_artifact_lease_token_digest(lease_token)),
         "artifacts": [dict(value) for value in artifacts],
     }
     payload["digest"] = _payload_digest(payload)
@@ -186,41 +164,29 @@ def validate_recovery_artifact_ingress_manifest(
     lease_token: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(value, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_manifest_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_manifest_invalid")
     raw = dict(value)
     if set(raw) != _MANIFEST_FIELDS:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_manifest_fields_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_manifest_fields_invalid")
     if raw.get("schema") != RECOVERY_ARTIFACT_INGRESS_SCHEMA:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_manifest_schema_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_manifest_schema_invalid")
     normalized_task_id = _identifier(
         raw.get("task_id"),
         "recovery_artifact_task_id_invalid",
     )
     if raw.get("phase") != "execute":
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_phase_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_phase_invalid")
     normalized_worker_url = _worker_url(raw.get("worker_url"))
     assignment = _digest(
         raw.get("assignment_fingerprint"),
         "recovery_artifact_assignment_invalid",
     )
-    expected_assignment = (
-        recovery_artifact_assignment_fingerprint(
-            task_id=normalized_task_id,
-            worker_url=normalized_worker_url,
-        )
+    expected_assignment = recovery_artifact_assignment_fingerprint(
+        task_id=normalized_task_id,
+        worker_url=normalized_worker_url,
     )
     if not hmac.compare_digest(assignment, expected_assignment):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_assignment_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_assignment_mismatch")
     fingerprint = _digest(
         raw.get("request_fingerprint"),
         "recovery_artifact_request_fingerprint_invalid",
@@ -236,20 +202,11 @@ def validate_recovery_artifact_ingress_manifest(
         or not raw_artifacts
         or len(raw_artifacts) > MAX_RECOVERY_ARTIFACT_COUNT
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_count_invalid"
-        )
-    artifacts = [
-        _artifact(value, expected_index=index)
-        for index, value in enumerate(raw_artifacts)
-    ]
-    total_bytes = sum(
-        int(value["size_bytes"]) for value in artifacts
-    )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_count_invalid")
+    artifacts = [_artifact(value, expected_index=index) for index, value in enumerate(raw_artifacts)]
+    total_bytes = sum(int(value["size_bytes"]) for value in artifacts)
     if total_bytes > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_total_size_exceeded"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_total_size_exceeded")
 
     expected_digest = _payload_digest(raw)
     actual_digest = _digest(
@@ -257,37 +214,27 @@ def validate_recovery_artifact_ingress_manifest(
         "recovery_artifact_manifest_digest_invalid",
     )
     if not hmac.compare_digest(actual_digest, expected_digest):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_manifest_digest_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_manifest_digest_mismatch")
     if task_id is not None and not hmac.compare_digest(
         normalized_task_id,
         str(task_id or ""),
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_task_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_task_mismatch")
     if worker_url is not None and not hmac.compare_digest(
         normalized_worker_url,
         _worker_url(worker_url),
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_worker_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_worker_mismatch")
     if request_fingerprint is not None and not hmac.compare_digest(
         fingerprint,
         str(request_fingerprint or ""),
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_request_fingerprint_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_request_fingerprint_mismatch")
     if lease_token is not None and not hmac.compare_digest(
         token_digest,
         recovery_artifact_lease_token_digest(lease_token),
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_lease_binding_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_lease_binding_mismatch")
     return {
         "schema": RECOVERY_ARTIFACT_INGRESS_SCHEMA,
         "task_id": normalized_task_id,
@@ -309,13 +256,9 @@ def validate_recovery_artifact_receipt_list(
     """Validate the closed, bounded receipt list carried by a Worker result."""
 
     if not isinstance(value, list):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_list_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_list_invalid")
     if len(value) > MAX_RECOVERY_ARTIFACT_COUNT:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_count_exceeded"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_count_exceeded")
     expected_task_id = _identifier(
         task_id,
         "recovery_artifact_receipt_task_id_invalid",
@@ -334,21 +277,11 @@ def validate_recovery_artifact_receipt_list(
                 expected_index=index,
             )
         )
-    if (
-        sum(int(receipt["size_bytes"]) for receipt in receipts)
-        > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES
-    ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_total_size_exceeded"
-        )
-    manifest_digests = {
-        str(receipt["provenance_summary"]["manifest_digest"])
-        for receipt in receipts
-    }
+    if sum(int(receipt["size_bytes"]) for receipt in receipts) > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES:
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_total_size_exceeded")
+    manifest_digests = {str(receipt["provenance_summary"]["manifest_digest"]) for receipt in receipts}
     if len(manifest_digests) > 1:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_manifest_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_manifest_mismatch")
     # Only normalized, closed, scalar-bounded values reach canonical JSON.
     _bounded_receipt_json(receipts)
     return receipts
@@ -363,23 +296,17 @@ def validate_recovery_artifact_receipts_payload(
     """Validate one Hub response against the exact submitted manifest."""
 
     if not isinstance(value, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipts_payload_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipts_payload_invalid")
     raw = dict(value)
     if set(raw) != _RECEIPTS_PAYLOAD_FIELDS:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipts_payload_fields_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipts_payload_fields_invalid")
     task_id = str(manifest.get("task_id") or "")
     manifest_digest = str(manifest.get("digest") or "")
     if (
         _bounded_text(
             raw.get("schema"),
             maximum_characters=64,
-            reason_code=(
-                "recovery_artifact_receipts_payload_binding_invalid"
-            ),
+            reason_code=("recovery_artifact_receipts_payload_binding_invalid"),
         )
         != RECOVERY_ARTIFACT_RECEIPTS_SCHEMA
         or _identifier(
@@ -394,18 +321,14 @@ def validate_recovery_artifact_receipts_payload(
         != manifest_digest
         or not isinstance(raw.get("replayed"), bool)
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipts_payload_binding_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipts_payload_binding_invalid")
     receipts = validate_recovery_artifact_receipt_list(
         raw.get("artifacts"),
         task_id=task_id,
     )
     expected_descriptors = [dict(value) for value in descriptors]
     if len(receipts) != len(expected_descriptors):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_count_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_count_mismatch")
     for receipt, descriptor in zip(
         receipts,
         expected_descriptors,
@@ -415,18 +338,13 @@ def validate_recovery_artifact_receipts_payload(
             receipt["kind"] != descriptor.get("kind")
             or receipt["filename"] != descriptor.get("filename")
             or receipt["media_type"] != descriptor.get("media_type")
-            or receipt["workspace_relative_path"]
-            != descriptor.get("relative_path")
+            or receipt["workspace_relative_path"] != descriptor.get("relative_path")
             or receipt["content_hash"] != descriptor.get("sha256")
             or receipt["size_bytes"] != descriptor.get("size_bytes")
-            or receipt["provenance_summary"]["manifest_digest"]
-            != manifest_digest
-            or receipt["provenance_summary"]["source_index"]
-            != descriptor.get("source_index")
+            or receipt["provenance_summary"]["manifest_digest"] != manifest_digest
+            or receipt["provenance_summary"]["source_index"] != descriptor.get("source_index")
         ):
-            raise RecoveryArtifactIngressContractError(
-                "recovery_artifact_receipt_descriptor_mismatch"
-            )
+            raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_descriptor_mismatch")
     normalized = {
         "schema": RECOVERY_ARTIFACT_RECEIPTS_SCHEMA,
         "task_id": task_id,
@@ -446,24 +364,16 @@ def _preflight_receipt(
     """Reject open or oversized scalars before canonical serialization."""
 
     if not isinstance(value, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_invalid")
     raw = dict(value)
     if set(raw) != RECOVERY_ARTIFACT_RECEIPT_FIELDS:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_fields_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_fields_invalid")
     provenance = raw.get("provenance_summary")
     if not isinstance(provenance, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_provenance_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_provenance_invalid")
     normalized_provenance = dict(provenance)
     if set(normalized_provenance) != _RECEIPT_PROVENANCE_FIELDS:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_provenance_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_provenance_invalid")
     remaining = remaining_budget - _RECEIPT_FIXED_BUDGET_BYTES
     scalar_limits = (
         (raw.get("kind"), 96),
@@ -488,9 +398,7 @@ def _preflight_receipt(
         )
         remaining -= len(text.encode("utf-8"))
         if remaining < 0:
-            raise RecoveryArtifactIngressContractError(
-                "recovery_artifact_receipt_payload_too_large"
-            )
+            raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_payload_too_large")
     if (
         isinstance(raw.get("size_bytes"), bool)
         or not isinstance(raw.get("size_bytes"), int)
@@ -503,9 +411,7 @@ def _preflight_receipt(
             int,
         )
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_scalar_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_scalar_invalid")
     return remaining
 
 
@@ -516,14 +422,10 @@ def _receipt(
     expected_index: int,
 ) -> dict[str, Any]:
     if not isinstance(value, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_invalid")
     raw = dict(value)
     if set(raw) != RECOVERY_ARTIFACT_RECEIPT_FIELDS:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_fields_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_fields_invalid")
     receipt_task_id = _identifier(
         raw.get("task_id"),
         "recovery_artifact_receipt_task_id_invalid",
@@ -535,33 +437,24 @@ def _receipt(
         or size_bytes < 0
         or size_bytes > MAX_RECOVERY_ARTIFACT_BYTES
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_size_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_size_invalid")
     provenance = raw.get("provenance_summary")
     if not isinstance(provenance, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_provenance_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_provenance_invalid")
     normalized_provenance = dict(provenance)
     source_index = normalized_provenance.get("source_index")
     if (
         set(normalized_provenance) != _RECEIPT_PROVENANCE_FIELDS
-        or normalized_provenance.get("schema")
-        != "ananta.recovery_artifact_provenance.v1"
+        or normalized_provenance.get("schema") != "ananta.recovery_artifact_provenance.v1"
         or normalized_provenance.get("authority") != "hub"
         or normalized_provenance.get("ingress") != "workspace"
         or isinstance(source_index, bool)
         or not isinstance(source_index, int)
         or source_index != expected_index
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_provenance_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_provenance_invalid")
     if receipt_task_id != expected_task_id:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_task_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_task_mismatch")
     return {
         "kind": _pattern(
             raw.get("kind"),
@@ -598,9 +491,7 @@ def _receipt(
             "schema": "ananta.recovery_artifact_provenance.v1",
             "authority": "hub",
             "ingress": "workspace",
-            "worker_url": _worker_url(
-                normalized_provenance.get("worker_url")
-            ),
+            "worker_url": _worker_url(normalized_provenance.get("worker_url")),
             "manifest_digest": _digest(
                 normalized_provenance.get("manifest_digest"),
                 "recovery_artifact_receipt_manifest_invalid",
@@ -626,13 +517,9 @@ def _bounded_receipt_json(value: object) -> None:
         ValueError,
         UnicodeError,
     ) as exc:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_not_json"
-        ) from exc
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_not_json") from exc
     if len(encoded) > MAX_RECOVERY_ARTIFACT_RECEIPTS_BYTES:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_receipt_payload_too_large"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_receipt_payload_too_large")
 
 
 def _artifact(
@@ -641,23 +528,13 @@ def _artifact(
     expected_index: int,
 ) -> dict[str, Any]:
     if not isinstance(value, Mapping):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_descriptor_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_descriptor_invalid")
     raw = dict(value)
     if set(raw) != _ARTIFACT_FIELDS:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_descriptor_fields_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_descriptor_fields_invalid")
     source_index = raw.get("source_index")
-    if (
-        isinstance(source_index, bool)
-        or not isinstance(source_index, int)
-        or source_index != expected_index
-    ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_source_index_invalid"
-        )
+    if isinstance(source_index, bool) or not isinstance(source_index, int) or source_index != expected_index:
+        raise RecoveryArtifactIngressContractError("recovery_artifact_source_index_invalid")
     size_bytes = raw.get("size_bytes")
     if (
         isinstance(size_bytes, bool)
@@ -665,9 +542,7 @@ def _artifact(
         or size_bytes < 0
         or size_bytes > MAX_RECOVERY_ARTIFACT_BYTES
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_size_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_size_invalid")
     workspace_path = _relative_path(
         raw.get("workspace_path"),
         "recovery_artifact_workspace_path_invalid",
@@ -680,9 +555,7 @@ def _artifact(
         workspace_path,
         relative_path,
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_path_binding_mismatch"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_path_binding_mismatch")
     return {
         "source_index": source_index,
         "kind": _pattern(
@@ -703,21 +576,13 @@ def _artifact(
             raw.get("sha256"),
             "recovery_artifact_hash_invalid",
         ),
-        "worker_artifact_id": _optional_identifier(
-            raw.get("worker_artifact_id")
-        ),
-        "worker_artifact_version_id": _optional_identifier(
-            raw.get("worker_artifact_version_id")
-        ),
+        "worker_artifact_id": _optional_identifier(raw.get("worker_artifact_id")),
+        "worker_artifact_version_id": _optional_identifier(raw.get("worker_artifact_version_id")),
     }
 
 
 def _payload_digest(value: Mapping[str, Any]) -> str:
-    payload = {
-        key: value[key]
-        for key in sorted(value)
-        if key != "digest"
-    }
+    payload = {key: value[key] for key in sorted(value) if key != "digest"}
     try:
         encoded = json.dumps(
             payload,
@@ -727,29 +592,27 @@ def _payload_digest(value: Mapping[str, Any]) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     except (TypeError, ValueError, UnicodeError) as exc:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_manifest_not_json"
-        ) from exc
+        raise RecoveryArtifactIngressContractError("recovery_artifact_manifest_not_json") from exc
     if len(encoded) > 262_144:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_manifest_too_large"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_manifest_too_large")
     return hashlib.sha256(encoded).hexdigest()
 
 
 def _worker_url(value: object) -> str:
-    raw = _bounded_text(
-        value,
-        maximum_characters=2_048,
-        reason_code="recovery_artifact_worker_url_invalid",
-    ).strip().rstrip("/")
+    raw = (
+        _bounded_text(
+            value,
+            maximum_characters=2_048,
+            reason_code="recovery_artifact_worker_url_invalid",
+        )
+        .strip()
+        .rstrip("/")
+    )
     try:
         parsed = urlsplit(raw)
         port = parsed.port
     except ValueError as exc:
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_worker_url_invalid"
-        ) from exc
+        raise RecoveryArtifactIngressContractError("recovery_artifact_worker_url_invalid") from exc
     if (
         parsed.scheme not in {"http", "https"}
         or not parsed.hostname
@@ -758,9 +621,7 @@ def _worker_url(value: object) -> str:
         or parsed.query
         or parsed.fragment
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_worker_url_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_worker_url_invalid")
     hostname = str(parsed.hostname).lower()
     host = f"[{hostname}]" if ":" in hostname else hostname
     netloc = f"{host}:{port}" if port is not None else host
@@ -781,13 +642,7 @@ def _relative_path(value: object, reason_code: str) -> str:
         maximum_characters=512,
         reason_code=reason_code,
     )
-    if (
-        not raw
-        or raw != raw.strip()
-        or "\\" in raw
-        or "\x00" in raw
-        or len(raw.encode("utf-8")) > 512
-    ):
+    if not raw or raw != raw.strip() or "\\" in raw or "\x00" in raw or len(raw.encode("utf-8")) > 512:
         raise RecoveryArtifactIngressContractError(reason_code)
     path = PurePosixPath(raw)
     if (
@@ -795,10 +650,7 @@ def _relative_path(value: object, reason_code: str) -> str:
         or not path.parts
         or str(path) != raw
         or any(part in {"", ".", ".."} for part in path.parts)
-        or any(
-            character in raw
-            for character in "\r\n\t"
-        )
+        or any(character in raw for character in "\r\n\t")
     ):
         raise RecoveryArtifactIngressContractError(reason_code)
     return str(path)
@@ -820,9 +672,7 @@ def _filename(value: object) -> str:
         or any(character in raw for character in "\r\n\t")
         or len(raw.encode("utf-8")) > 255
     ):
-        raise RecoveryArtifactIngressContractError(
-            "recovery_artifact_filename_invalid"
-        )
+        raise RecoveryArtifactIngressContractError("recovery_artifact_filename_invalid")
     return raw
 
 
@@ -879,10 +729,7 @@ def _bounded_text(
     maximum_characters: int,
     reason_code: str,
 ) -> str:
-    if (
-        not isinstance(value, str)
-        or len(value) > maximum_characters
-    ):
+    if not isinstance(value, str) or len(value) > maximum_characters:
         raise RecoveryArtifactIngressContractError(reason_code)
     return value
 

@@ -30,4 +30,3 @@ def test_cloud_request_reduced_context():
     )
     assert out.action == "reduce_context"
     assert out.context_mode == "redacted_minimal"
-

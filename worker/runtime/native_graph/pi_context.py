@@ -22,7 +22,10 @@ class PiContextDecisionPort(Protocol):
 
 class PiTaskContextPort(Protocol):
     def read(
-        self, *, task: Mapping[str, Any], command: NativeNodeCommand,
+        self,
+        *,
+        task: Mapping[str, Any],
+        command: NativeNodeCommand,
     ) -> NativeContextBundleProjection | None: ...
 
 
@@ -31,22 +34,36 @@ class HubPiTaskContextReader:
         self._client = client
 
     def read(
-        self, *, task: Mapping[str, Any], command: NativeNodeCommand,
+        self,
+        *,
+        task: Mapping[str, Any],
+        command: NativeNodeCommand,
     ) -> NativeContextBundleProjection | None:
         bundle_id = pi_context_bundle_reference(task)
         if bundle_id is None:
             return None
         binding = WorkflowWorkerBinding(
-            tenant_id=command.tenant_id, workflow_id=command.workflow_id, run_id=command.run_id,
-            step_id=command.node.node_id, plan_hash=command.plan_hash, policy_version=command.policy_version,
+            tenant_id=command.tenant_id,
+            workflow_id=command.workflow_id,
+            run_id=command.run_id,
+            step_id=command.node.node_id,
+            plan_hash=command.plan_hash,
+            policy_version=command.policy_version,
             authorization_envelope=command.authorization.to_dict(),
         )
-        projection = NativeContextBundleProjection.from_mapping(self._client.command(
-            "native_context_read", binding=binding.to_dict(), hub_task_id=task.get("id"),
-            command_id=command.command_id, attempt_id=command.attempt_id, fencing_token=command.fencing_token,
-        ))
+        projection = NativeContextBundleProjection.from_mapping(
+            self._client.command(
+                "native_context_read",
+                binding=binding.to_dict(),
+                hub_task_id=task.get("id"),
+                command_id=command.command_id,
+                attempt_id=command.attempt_id,
+                fencing_token=command.fencing_token,
+            )
+        )
         if (
-            projection.hub_task_id != task.get("id") or projection.bundle_id != bundle_id
+            projection.hub_task_id != task.get("id")
+            or projection.bundle_id != bundle_id
             or projection.command_digest != native_context_digest(command.to_dict())
         ):
             raise ValueError("pi_context_projection_binding_mismatch")

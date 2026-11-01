@@ -1,4 +1,5 @@
 """Checkpointing/Resume (SIM-022)."""
+
 from __future__ import annotations
 
 import json
@@ -40,8 +41,14 @@ class CheckpointManager:
         for p in sorted(self.run_dir.glob("*.json")):
             try:
                 meta = json.loads(p.read_text(encoding="utf-8"))
-                result.append({"file": p.name, "tick": meta.get("world", {}).get("tick"),
-                                "hash": meta.get("state_hash"), "saved_at": meta.get("saved_at")})
+                result.append(
+                    {
+                        "file": p.name,
+                        "tick": meta.get("world", {}).get("tick"),
+                        "hash": meta.get("state_hash"),
+                        "saved_at": meta.get("saved_at"),
+                    }
+                )
             except Exception:
                 pass
         return result

@@ -136,10 +136,8 @@ def test_readiness_also_requires_fresh_hub_policy_and_never_hands_off_after_revo
     f = setup()
     f.page.ready = False
     call = f.hub.call.side_effect
-    f.hub.call.side_effect = (
-        lambda action, **fields: call(action, **fields)
-        if f.page.now < 106
-        else (_ for _ in ()).throw(ValueError("synthetic_revoked"))
+    f.hub.call.side_effect = lambda action, **fields: (
+        call(action, **fields) if f.page.now < 106 else (_ for _ in ()).throw(ValueError("synthetic_revoked"))
     )
     with pytest.raises(ValueError, match="revoked"):
         f.run()

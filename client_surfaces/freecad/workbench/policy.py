@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 SENSITIVE_CAPABILITIES = {"freecad.model.mutate", "freecad.macro.execute"}
 
 

@@ -45,9 +45,7 @@ from agent.services.source_catalog_authority_service import (
 )
 
 _CATALOG_TASK_SOURCES = frozenset({"agent", "api", "system", "ui"})
-_CATALOG_TASK_KINDS = frozenset(
-    {"knowledge", "planning_research", "research", "retrieval", "source_catalog"}
-)
+_CATALOG_TASK_KINDS = frozenset({"knowledge", "planning_research", "research", "retrieval", "source_catalog"})
 
 
 class OrganizationSourceCatalogContextError(RuntimeError):
@@ -120,15 +118,11 @@ class OrganizationSourceCatalogContextService:
             statement = statement.with_for_update()
         catalog_task = session.exec(statement).one_or_none()
         if catalog_task is None:
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_not_found"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_not_found")
 
         # Resolve from the exact locked row, then keep that immutable snapshot
         # for both catalog projection and context hydration.
-        authority_service = SourceCatalogAuthorityService(
-            _LockedTaskRepository(catalog_task)
-        )
+        authority_service = SourceCatalogAuthorityService(_LockedTaskRepository(catalog_task))
         source_scope = str(catalog_binding.get("source_scope") or "").strip()
         resolved = authority_service.resolve(
             principal=ChatSessionPrincipal.from_values(
@@ -138,13 +132,9 @@ class OrganizationSourceCatalogContextService:
             catalog_task_id=catalog_task_id,
             catalog_id=str(catalog_binding.get("catalog_id") or ""),
             catalog_hash=str(catalog_binding.get("catalog_hash") or ""),
-            repository_revision=str(
-                catalog_binding.get("repository_revision") or ""
-            ),
+            repository_revision=str(catalog_binding.get("repository_revision") or ""),
             manifest_hash=str(catalog_binding.get("manifest_hash") or ""),
-            source_allowlist_version=str(
-                catalog_binding.get("source_allowlist_version") or ""
-            ),
+            source_allowlist_version=str(catalog_binding.get("source_allowlist_version") or ""),
             source_scope=source_scope,
             allowed_task_sources=_CATALOG_TASK_SOURCES,
             allowed_task_kinds=_CATALOG_TASK_KINDS,
@@ -157,17 +147,13 @@ class OrganizationSourceCatalogContextService:
         catalog = dict(verification.get("source_catalog") or {})
         raw_publication = verification.get("source_catalog_publication")
         if not isinstance(raw_publication, Mapping):
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_publication_missing"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_publication_missing")
         try:
             publication = self._bindings.validate(raw_publication)
         except OrganizationSourceCatalogBindingError as exc:
             raise OrganizationSourceCatalogContextError(exc.reason_code) from exc
         if publication["organization_id"] != context.organization_id:
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_publication_scope_invalid"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_publication_scope_invalid")
         repository = SqlOrganizationSourceCatalogRepository(session)
         try:
             source_authority = repository.resolve_publishing_authority(
@@ -188,9 +174,7 @@ class OrganizationSourceCatalogContextService:
         )
         index = session.get(KnowledgeIndexDB, source_authority.knowledge_index_id)
         if index is None:
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_index_missing"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_index_missing")
         try:
             hydrated = self._records.load_bound_records(
                 knowledge_index=index,
@@ -211,15 +195,13 @@ class OrganizationSourceCatalogContextService:
             resolved.catalog_hash,
             str(publication["binding_digest"]),
         )
-        if session.get(RetrievalRunDB, retrieval_run_id) is not None or session.get(
-            ContextBundleDB, context_bundle_id
-        ) is not None:
-            raise OrganizationSourceCatalogContextError(
-                "category_research_context_identity_conflict"
-            )
+        if (
+            session.get(RetrievalRunDB, retrieval_run_id) is not None
+            or session.get(ContextBundleDB, context_bundle_id) is not None
+        ):
+            raise OrganizationSourceCatalogContextError("category_research_context_identity_conflict")
         context_text = "\n\n".join(
-            f"[{row['metadata']['source_id']}] {row['source']}\n{row['content']}"
-            for row in chunks
+            f"[{row['metadata']['source_id']}] {row['source']}\n{row['content']}" for row in chunks
         )
         token_estimate = max(1, (len(context_text) + 3) // 4)
         retrieval_run = RetrievalRunDB(
@@ -323,9 +305,7 @@ class OrganizationSourceCatalogContextService:
             grants=grants,
             now=time.time(),
         ):
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_authority_forbidden"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_authority_forbidden")
 
     @staticmethod
     def _require_same_lineage(
@@ -347,9 +327,7 @@ class OrganizationSourceCatalogContextService:
             "active_generation": authority.active_generation,
         }
         if any(publication.get(field) != value for field, value in expected.items()):
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_lineage_stale"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_lineage_stale")
 
     @staticmethod
     def _source_rows(
@@ -361,24 +339,13 @@ class OrganizationSourceCatalogContextService:
     ) -> list[dict[str, Any]]:
         raw_sources = catalog.get("sources")
         if not isinstance(raw_sources, list):
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_incomplete"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_incomplete")
         sources = [dict(row) for row in raw_sources if isinstance(row, Mapping)]
         source_by_id = {str(row.get("source_id") or ""): row for row in sources}
-        binding_by_id = {
-            str(row.get("source_id") or ""): dict(row)
-            for row in publication["record_bindings"]
-        }
+        binding_by_id = {str(row.get("source_id") or ""): dict(row) for row in publication["record_bindings"]}
         expected_ids = {reference.source_id for reference in resolved.source_refs}
-        if (
-            len(sources) != len(source_by_id)
-            or set(source_by_id) != expected_ids
-            or set(binding_by_id) != expected_ids
-        ):
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_incomplete"
-            )
+        if len(sources) != len(source_by_id) or set(source_by_id) != expected_ids or set(binding_by_id) != expected_ids:
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_incomplete")
         for source_id in expected_ids:
             source = source_by_id[source_id]
             binding = binding_by_id[source_id]
@@ -392,9 +359,7 @@ class OrganizationSourceCatalogContextService:
                     "content_hash",
                 )
             ):
-                raise OrganizationSourceCatalogContextError(
-                    "category_research_source_catalog_record_binding_mismatch"
-                )
+                raise OrganizationSourceCatalogContextError("category_research_source_catalog_record_binding_mismatch")
             expected_provenance = OrganizationSourceCatalogBindingService.source_provenance_digest(
                 organization_id=str(publication["organization_id"]),
                 authority=authority,
@@ -404,15 +369,12 @@ class OrganizationSourceCatalogContextService:
             if (
                 source.get("source_version") != authority.revision_digest
                 or source.get("tenant_id") != authority.tenant_id
-                or source.get("scope")
-                != f"organization:{publication['organization_id']}"
+                or source.get("scope") != f"organization:{publication['organization_id']}"
                 or source.get("manifest_hash") != authority.index_manifest_digest
                 or source.get("task_id") != resolved.catalog_task_id
                 or source.get("provenance_digest") != expected_provenance
             ):
-                raise OrganizationSourceCatalogContextError(
-                    "category_research_source_catalog_provenance_mismatch"
-                )
+                raise OrganizationSourceCatalogContextError("category_research_source_catalog_provenance_mismatch")
         return [source_by_id[source_id] for source_id in sorted(expected_ids)]
 
     @staticmethod
@@ -424,9 +386,7 @@ class OrganizationSourceCatalogContextService:
         source_by_id = {str(row["source_id"]): row for row in sources}
         hydrated_by_id = {str(row["source_id"]): row for row in hydrated}
         if set(source_by_id) != set(hydrated_by_id):
-            raise OrganizationSourceCatalogContextError(
-                "category_research_source_catalog_context_incomplete"
-            )
+            raise OrganizationSourceCatalogContextError("category_research_source_catalog_context_incomplete")
         chunks: list[dict[str, Any]] = []
         for source_id in sorted(source_by_id):
             source = source_by_id[source_id]
@@ -434,9 +394,7 @@ class OrganizationSourceCatalogContextService:
             content = str(record.get("content") or "")
             content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
             if content_hash != source.get("content_hash"):
-                raise OrganizationSourceCatalogContextError(
-                    "category_research_source_catalog_content_mismatch"
-                )
+                raise OrganizationSourceCatalogContextError("category_research_source_catalog_content_mismatch")
             source_type = OrganizationSourceCatalogContextService._runtime_source_type(
                 str(source.get("source_type") or "")
             )
@@ -505,10 +463,7 @@ class OrganizationSourceCatalogContextService:
 
     @staticmethod
     def _supports_row_lock(session: Session) -> bool:
-        return (
-            str(getattr(getattr(session.get_bind(), "dialect", None), "name", ""))
-            == "postgresql"
-        )
+        return str(getattr(getattr(session.get_bind(), "dialect", None), "name", "")) == "postgresql"
 
 
 __all__ = [

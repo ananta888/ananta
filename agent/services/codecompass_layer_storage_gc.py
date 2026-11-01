@@ -66,7 +66,7 @@ class LayerStorageGarbageCollector:
                 normalized = dict(delta) if isinstance(delta, Mapping) else {"default": str(delta)}
                 reachable.update(str(v) for v in normalized.values() if v)
             history = list(head.get("history") or [])
-            for item in history[-self._history_depth:] if self._history_depth else []:
+            for item in history[-self._history_depth :] if self._history_depth else []:
                 if item.get("layer_id"):
                     reachable.add(str(item["layer_id"]))
                 reachable.update(str(v) for v in dict(item.get("layer_set") or {}).values() if v)
@@ -143,8 +143,9 @@ class LayerStorageGarbageCollector:
 class GarbageCollectionObserver:
     """After a publication, collect at most every ``min_interval`` seconds, off the request path."""
 
-    def __init__(self, collector: Any, *, min_interval: float = 60 * 60, clock: Any = time.time,
-                 start: Any = None) -> None:
+    def __init__(
+        self, collector: Any, *, min_interval: float = 60 * 60, clock: Any = time.time, start: Any = None
+    ) -> None:
         self._collector = collector
         self._min_interval = float(min_interval)
         self._clock = clock

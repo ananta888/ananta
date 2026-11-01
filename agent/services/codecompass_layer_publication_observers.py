@@ -53,8 +53,14 @@ class KnowledgeIndexPointerObserver:
             "layer_id": str(publication.get("layer_id") or ""),
         }
         if row is None:
-            row = self._model(id=index_id, source_scope="repo_path", profile_name="codecompass_layers",
-                              status="completed", output_dir=None, created_by="codecompass-layers")
+            row = self._model(
+                id=index_id,
+                source_scope="repo_path",
+                profile_name="codecompass_layers",
+                status="completed",
+                output_dir=None,
+                created_by="codecompass-layers",
+            )
         row.index_metadata = metadata
         row.status = "completed"
         row.updated_at = time.time()
@@ -68,8 +74,9 @@ class SearchIndexSyncObserver:
         self._heads = heads
 
     def published(self, publication: Mapping[str, Any]) -> None:
-        LayerRecordSource(root=self._root, profile_id=str(publication.get("profile_id") or ""),
-                          layers=self._layers, heads=self._heads).sync()
+        LayerRecordSource(
+            root=self._root, profile_id=str(publication.get("profile_id") or ""), layers=self._layers, heads=self._heads
+        ).sync()
 
 
 def notify(observers: list[Any], publication: Mapping[str, Any]) -> None:

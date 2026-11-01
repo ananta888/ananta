@@ -28,7 +28,10 @@ class TransactionEvidenceIdentityRepository:
 
     def register_source(self, identity: SourceEvidenceIdentity) -> SourceEvidenceIdentity:
         existing = self._read(
-            HubSourceEvidenceIdentityDB, identity.tenant_id, identity.project_id, identity.source_id,
+            HubSourceEvidenceIdentityDB,
+            identity.tenant_id,
+            identity.project_id,
+            identity.source_id,
         )
         if existing is not None:
             return same_source(existing, identity)
@@ -59,13 +62,25 @@ class TransactionEvidenceIdentityRepository:
         return run_identity(row) if row is not None else None
 
     def complete_run(
-        self, *, tenant_id: str, project_id: str, run_id: str, assignment_id: str, dispatch_lease_id: str,
-        terminal_state: str, result_digest: str, updated_at_epoch: float,
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        run_id: str,
+        assignment_id: str,
+        dispatch_lease_id: str,
+        terminal_state: str,
+        result_digest: str,
+        updated_at_epoch: float,
     ) -> RunEvidenceIdentity:
         row = self._read(HubRunEvidenceIdentityDB, tenant_id, project_id, run_id)
         apply_run_result(
-            row, assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id,
-            terminal_state=terminal_state, result_digest=result_digest, updated_at_epoch=updated_at_epoch,
+            row,
+            assignment_id=assignment_id,
+            dispatch_lease_id=dispatch_lease_id,
+            terminal_state=terminal_state,
+            result_digest=result_digest,
+            updated_at_epoch=updated_at_epoch,
         )
         self._session.flush()
         return run_identity(row)
@@ -75,7 +90,9 @@ class TransactionEvidenceIdentityRepository:
             raise EvidenceIdentityPersistenceError("evidence_caller_transaction_required")
         key = model.source_id if model is HubSourceEvidenceIdentityDB else model.run_id
         statement = sa.select(model).where(
-            model.tenant_id == tenant_id, model.project_id == project_id, key == identity,
+            model.tenant_id == tenant_id,
+            model.project_id == project_id,
+            key == identity,
         )
         if self._session.get_bind().dialect.name == "postgresql":
             statement = statement.with_for_update()

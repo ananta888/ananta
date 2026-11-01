@@ -75,8 +75,7 @@ class MouseRouter:
             "panel_count": len(self._panels),
             "mouse_support_enabled": self.mouse_support_enabled,
             "panels": [
-                {"focus_id": p.focus_id, "scroll_context_id": p.scroll_context_id,
-                 "rect": (p.x1, p.y1, p.x2, p.y2)}
+                {"focus_id": p.focus_id, "scroll_context_id": p.scroll_context_id, "rect": (p.x1, p.y1, p.x2, p.y2)}
                 for p in self._panels
             ],
         }

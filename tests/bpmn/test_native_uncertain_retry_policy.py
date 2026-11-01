@@ -21,28 +21,46 @@ from tests.pi.test_pi_result_completion_policy import admission  # noqa: F401
 def retry(native):
     task = native.repository.get_by_id(native.task_id)
     assignments = SQLAlchemyWorkflowWorkerAssignmentStore(native.engine)
-    assignment = assignments.get(tenant_id=task.tenant_id, run_id=native.command.run_id,
-                                  step_id=native.command.node.node_id)
+    assignment = assignments.get(
+        tenant_id=task.tenant_id, run_id=native.command.run_id, step_id=native.command.node.node_id
+    )
     journal = SQLAlchemyNativeDispatchJournal(native.engine)
     journal.begin(task=task, assignment=assignment)
     with Session(native.engine) as session:
         row = session.exec(select(NativeDispatchDB)).one()
-    command = SimpleNamespace(command_type="retry", actor_id="synthetic-admin", run_id=native.command.run_id,
-                              step_id=native.command.node.node_id)
-    plan = SimpleNamespace(tenant_id=task.tenant_id, workflow_id=native.command.workflow_id,
-                           plan_hash=native.command.plan_hash, policy_version=native.command.policy_version,
-                           budget=SimpleNamespace(max_attempts=3))
+    command = SimpleNamespace(
+        command_type="retry",
+        actor_id="synthetic-admin",
+        run_id=native.command.run_id,
+        step_id=native.command.node.node_id,
+    )
+    plan = SimpleNamespace(
+        tenant_id=task.tenant_id,
+        workflow_id=native.command.workflow_id,
+        plan_hash=native.command.plan_hash,
+        policy_version=native.command.policy_version,
+        budget=SimpleNamespace(max_attempts=3),
+    )
     state = SimpleNamespace(status="cancelled", attempts={command.step_id: 1})
-    binding = dict(purpose="native.retry.unknown_dispatch", tenant_id=plan.tenant_id,
-                   workflow_id=plan.workflow_id, run_id=command.run_id, plan_hash=plan.plan_hash,
-                   policy_version=plan.policy_version, step_id=command.step_id, actor_id=command.actor_id,
-                   dispatch_binding_digest=row.binding_digest, maximum_attempts=2)
+    binding = dict(
+        purpose="native.retry.unknown_dispatch",
+        tenant_id=plan.tenant_id,
+        workflow_id=plan.workflow_id,
+        run_id=command.run_id,
+        plan_hash=plan.plan_hash,
+        policy_version=plan.policy_version,
+        step_id=command.step_id,
+        actor_id=command.actor_id,
+        dispatch_binding_digest=row.binding_digest,
+        maximum_attempts=2,
+    )
     return SimpleNamespace(native=native, command=command, plan=plan, state=state, binding=binding)
 
 
 def decide(retry, bindings):
-    return authorize_uncertain_native_retry(retry.command, plan=retry.plan, state=retry.state,
-                                            engine=retry.native.engine, policy_bindings=bindings)
+    return authorize_uncertain_native_retry(
+        retry.command, plan=retry.plan, state=retry.state, engine=retry.native.engine, policy_bindings=bindings
+    )
 
 
 def test_unknown_outcome_requires_exact_hub_policy(retry):
@@ -50,11 +68,21 @@ def test_unknown_outcome_requires_exact_hub_policy(retry):
     assert decide(retry, [retry.binding]) == (True, "native_retry_uncertain_dispatch_preauthorized")
 
 
-@pytest.mark.parametrize("field,value", [("actor_id", "foreign"), ("tenant_id", "foreign"),
-                                         ("run_id", "foreign"), ("plan_hash", "b"*64),
-                                         ("policy_version", "foreign"), ("step_id", "foreign"),
-                                         ("dispatch_binding_digest", "a"*64), ("purpose", "retry"),
-                                         ("maximum_attempts", True), ("maximum_attempts", 4)])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("actor_id", "foreign"),
+        ("tenant_id", "foreign"),
+        ("run_id", "foreign"),
+        ("plan_hash", "b" * 64),
+        ("policy_version", "foreign"),
+        ("step_id", "foreign"),
+        ("dispatch_binding_digest", "a" * 64),
+        ("purpose", "retry"),
+        ("maximum_attempts", True),
+        ("maximum_attempts", 4),
+    ],
+)
 def test_partial_or_foreign_authorization_never_permits_retry(retry, field, value):
     binding = {**retry.binding, field: value}
     assert decide(retry, [binding])[0] is False

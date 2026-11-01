@@ -1,15 +1,15 @@
 """CRPS-002/003/004/009/017: Tests for RetrievalProfile, classifier, resolver, and source constraints."""
+
 from __future__ import annotations
 
 import pytest
 
 from agent.services.retrieval_profile_service import (
-    DOMAIN_AI_SNAKE,
     DOMAIN_ANANTA_GAME,
     DOMAIN_CODECOMPASS,
     DOMAIN_GENERIC,
-    DOMAIN_OPS,
     DOMAIN_OPERATOR_TUI,
+    DOMAIN_OPS,
     DOMAIN_WORKER,
     INTENT_ARCHITECTURE,
     INTENT_CODE_EXPLANATION,
@@ -37,11 +37,13 @@ class TestNormalizeRetrievalProfile:
         assert normalize_retrieval_profile({"profile_id": "x"}) is None
 
     def test_valid_minimal(self):
-        p = normalize_retrieval_profile({
-            "profile_id": "test/code",
-            "domain": "codecompass",
-            "intent": "implemented_code_explanation",
-        })
+        p = normalize_retrieval_profile(
+            {
+                "profile_id": "test/code",
+                "domain": "codecompass",
+                "intent": "implemented_code_explanation",
+            }
+        )
         assert p is not None
         assert p.profile_id == "test/code"
         assert p.source_types == []
@@ -49,16 +51,18 @@ class TestNormalizeRetrievalProfile:
         assert p.warnings == []
 
     def test_valid_full(self):
-        p = normalize_retrieval_profile({
-            "profile_id": "test/code",
-            "domain": "codecompass",
-            "intent": "implemented_code_explanation",
-            "source_types": ["repo", "artifact"],
-            "source_type_weights": {"repo": 1.45, "artifact": 1.05, "wiki": 0.3},
-            "retrieval_intent": "code_explanation_with_codecompass",
-            "negative_source_patterns": ["book-of-ananta"],
-            "feature_flag": "auto",
-        })
+        p = normalize_retrieval_profile(
+            {
+                "profile_id": "test/code",
+                "domain": "codecompass",
+                "intent": "implemented_code_explanation",
+                "source_types": ["repo", "artifact"],
+                "source_type_weights": {"repo": 1.45, "artifact": 1.05, "wiki": 0.3},
+                "retrieval_intent": "code_explanation_with_codecompass",
+                "negative_source_patterns": ["book-of-ananta"],
+                "feature_flag": "auto",
+            }
+        )
         assert p is not None
         assert p.source_types == ["repo", "artifact"]
         assert p.source_type_weights["repo"] == pytest.approx(1.45)
@@ -70,24 +74,28 @@ class TestNormalizeRetrievalProfile:
         assert p.explainability["include_selected_by"] is True
 
     def test_unknown_source_type_produces_warning(self):
-        p = normalize_retrieval_profile({
-            "profile_id": "x/y",
-            "domain": "d",
-            "intent": "i",
-            "source_types": ["repo", "unknown_source"],
-        })
+        p = normalize_retrieval_profile(
+            {
+                "profile_id": "x/y",
+                "domain": "d",
+                "intent": "i",
+                "source_types": ["repo", "unknown_source"],
+            }
+        )
         assert p is not None
         assert "repo" in p.source_types
         assert "unknown_source" not in p.source_types
         assert any("unknown_source_type" in w for w in p.warnings)
 
     def test_invalid_weight_produces_warning(self):
-        p = normalize_retrieval_profile({
-            "profile_id": "x/y",
-            "domain": "d",
-            "intent": "i",
-            "source_type_weights": {"repo": "not_a_float"},
-        })
+        p = normalize_retrieval_profile(
+            {
+                "profile_id": "x/y",
+                "domain": "d",
+                "intent": "i",
+                "source_type_weights": {"repo": "not_a_float"},
+            }
+        )
         assert p is not None
         assert any("invalid_weight_for:repo" in w for w in p.warnings)
 
@@ -111,9 +119,7 @@ class TestNormalizeRetrievalProfile:
 
 class TestClassifyRetrievalIntent:
     def test_codecompass_code_explanation(self):
-        domain, intent = classify_retrieval_intent(
-            "den codecompass der schon implementiert ist erklären"
-        )
+        domain, intent = classify_retrieval_intent("den codecompass der schon implementiert ist erklären")
         assert domain == DOMAIN_CODECOMPASS
         assert intent == INTENT_CODE_EXPLANATION
 
@@ -123,9 +129,7 @@ class TestClassifyRetrievalIntent:
         assert intent == INTENT_CODE_EXPLANATION
 
     def test_worker_handoff_mechanism(self):
-        domain, intent = classify_retrieval_intent(
-            "wie ist der mechanismus damit ananta dies an die worker weitergibt"
-        )
+        domain, intent = classify_retrieval_intent("wie ist der mechanismus damit ananta dies an die worker weitergibt")
         assert intent == INTENT_CODE_EXPLANATION
 
     def test_ananta_game_lore(self):
@@ -161,11 +165,17 @@ class TestClassifyRetrievalIntent:
         "query,expected_intent",
         [
             pytest.param("kannst du mir mermaid diagramme dazu zeigen", INTENT_MERMAID, id="mermaid_request"),
-            pytest.param("beschreib mir die architektur des rag services", INTENT_ARCHITECTURE, id="architecture_question"),
-            pytest.param("how does the retrieval service function work", INTENT_CODE_EXPLANATION, id="english_code_keywords"),
+            pytest.param(
+                "beschreib mir die architektur des rag services", INTENT_ARCHITECTURE, id="architecture_question"
+            ),
+            pytest.param(
+                "how does the retrieval service function work", INTENT_CODE_EXPLANATION, id="english_code_keywords"
+            ),
             pytest.param("show me the file for the rag service", INTENT_CODE_EXPLANATION, id="english_file_keyword"),
             # unambiguously game-design: "spieldesign" + "punkte" + "level" → no code keywords
-            pytest.param("beschreibe das spieldesign mit punktesystem und level", INTENT_GAME_DESIGN, id="game_design_intent"),
+            pytest.param(
+                "beschreibe das spieldesign mit punktesystem und level", INTENT_GAME_DESIGN, id="game_design_intent"
+            ),
         ],
     )
     def test_query_classified_to_intent(self, query, expected_intent):
@@ -273,10 +283,23 @@ class TestResolveProfile:
     def test_as_dict_contains_all_fields(self):
         profile = resolve_profile("implementierter code", {"chat_use_codecompass": True})
         d = profile.as_dict()
-        for key in ("profile_id", "domain", "intent", "source_types", "source_type_weights",
-                    "retrieval_intent", "negative_source_patterns", "feature_flag", "warnings",
-                    "selected_by", "reasons", "source_policy", "chunk_policy", "expansion_policy",
-                    "explainability"):
+        for key in (
+            "profile_id",
+            "domain",
+            "intent",
+            "source_types",
+            "source_type_weights",
+            "retrieval_intent",
+            "negative_source_patterns",
+            "feature_flag",
+            "warnings",
+            "selected_by",
+            "reasons",
+            "source_policy",
+            "chunk_policy",
+            "expansion_policy",
+            "explainability",
+        ):
             assert key in d
 
     def test_resolved_profile_explains_selection(self):
@@ -322,7 +345,9 @@ class TestApplyProfileSourceConstraints:
 
     def test_negative_pattern_removes_matching_chunk(self):
         profile = RetrievalProfile(
-            profile_id="x", domain="d", intent="i",
+            profile_id="x",
+            domain="d",
+            intent="i",
             negative_source_patterns=["book-of-ananta"],
         )
         chunks = [
@@ -336,7 +361,9 @@ class TestApplyProfileSourceConstraints:
 
     def test_source_id_matching(self):
         profile = RetrievalProfile(
-            profile_id="x", domain="d", intent="i",
+            profile_id="x",
+            domain="d",
+            intent="i",
             negative_source_patterns=["snake_tutor"],
         )
         chunks = [
@@ -349,7 +376,9 @@ class TestApplyProfileSourceConstraints:
 
     def test_insufficient_sources_flag(self):
         profile = RetrievalProfile(
-            profile_id="x", domain="d", intent="i",
+            profile_id="x",
+            domain="d",
+            intent="i",
             negative_source_patterns=["book-of-ananta"],
         )
         chunks = [self._make_chunk("docs/book-of-ananta.md")]
@@ -359,7 +388,9 @@ class TestApplyProfileSourceConstraints:
 
     def test_multiple_patterns(self):
         profile = RetrievalProfile(
-            profile_id="x", domain="d", intent="i",
+            profile_id="x",
+            domain="d",
+            intent="i",
             negative_source_patterns=["book-of-ananta", "snake_tutor", "terminal-header"],
         )
         chunks = [

@@ -17,12 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DEFINITION = (
-    ROOT
-    / "artifacts/test-gates/source-control-load-recovery-definition.json"
-)
+DEFAULT_DEFINITION = ROOT / "artifacts/test-gates/source-control-load-recovery-definition.json"
 
 
 def _digest(value: object) -> str:
@@ -40,10 +36,8 @@ def load_definition(path: Path) -> Mapping[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(payload, dict)
-        or set(payload)
-        != {"schema", "load", "scenarios", "thresholds"}
-        or payload["schema"]
-        != "ananta.source-control.load-recovery-definition.v1"
+        or set(payload) != {"schema", "load", "scenarios", "thresholds"}
+        or payload["schema"] != "ananta.source-control.load-recovery-definition.v1"
     ):
         raise ValueError("load_recovery_definition_invalid")
     load = payload["load"]
@@ -88,9 +82,7 @@ def plan(definition: Mapping[str, Any]) -> Mapping[str, object]:
         "definition_digest": _digest(definition),
         "seed": int(definition["load"]["seed"]),
         "status": "unverified",
-        "scenario_status": {
-            str(name): "unverified" for name in definition["scenarios"]
-        },
+        "scenario_status": {str(name): "unverified" for name in definition["scenarios"]},
         "metrics": {
             "total_requests": None,
             "failed_requests": None,
@@ -122,11 +114,7 @@ class HarnessClient:
         body: Mapping[str, object] | None = None,
     ) -> RequestResult:
         encoded = (
-            json.dumps(body, separators=(",", ":"), ensure_ascii=True).encode(
-                "ascii"
-            )
-            if body is not None
-            else None
+            json.dumps(body, separators=(",", ":"), ensure_ascii=True).encode("ascii") if body is not None else None
         )
         request = urllib.request.Request(
             self._base_url + path,
@@ -188,17 +176,12 @@ def _iteration(
     rng = random.Random(seed + index)
     limit = int(rng.choice(page_limits))
     try:
-        first = client.request(
-            f"/api/source-control/v1/connections?limit={limit}"
-        )
+        first = client.request(f"/api/source-control/v1/connections?limit={limit}")
         accumulator.success(first.duration_ms, cursor=True)
         items = first.payload.get("items", [])
         next_cursor = first.payload.get("next_cursor")
         if isinstance(next_cursor, str) and next_cursor:
-            second = client.request(
-                "/api/source-control/v1/connections"
-                f"?limit={limit}&cursor={next_cursor}"
-            )
+            second = client.request(f"/api/source-control/v1/connections?limit={limit}&cursor={next_cursor}")
             accumulator.success(second.duration_ms, cursor=True)
         if isinstance(items, list) and items:
             item = items[rng.randrange(len(items))]
@@ -226,43 +209,29 @@ def _iteration(
     except Exception:
         accumulator.failure()
     try:
-        first_events = client.request(
-            "/api/source-control/v1/events?after_sequence=0&limit=100"
-        )
+        first_events = client.request("/api/source-control/v1/events?after_sequence=0&limit=100")
         accumulator.success(first_events.duration_ms)
-        second_events = client.request(
-            "/api/source-control/v1/events?after_sequence=0&limit=100"
-        )
+        second_events = client.request("/api/source-control/v1/events?after_sequence=0&limit=100")
         accumulator.success(second_events.duration_ms)
-        first_items = first_events.payload.get(
-            "items", first_events.payload.get("events", [])
-        )
-        second_items = second_events.payload.get(
-            "items", second_events.payload.get("events", [])
-        )
+        first_items = first_events.payload.get("items", first_events.payload.get("events", []))
+        second_items = second_events.payload.get("items", second_events.payload.get("events", []))
         consistent = (
             isinstance(first_items, list)
             and isinstance(second_items, list)
             and len(second_items) >= len(first_items)
-            and _digest(first_items)
-            == _digest(second_items[: len(first_items)])
+            and _digest(first_items) == _digest(second_items[: len(first_items)])
         )
         sequences = [
             int(item["sequence"])
             for item in first_items
-            if isinstance(item, Mapping)
-            and isinstance(item.get("sequence"), int)
+            if isinstance(item, Mapping) and isinstance(item.get("sequence"), int)
         ]
         second_sequences = [
             int(item["sequence"])
             for item in second_items
-            if isinstance(item, Mapping)
-            and isinstance(item.get("sequence"), int)
+            if isinstance(item, Mapping) and isinstance(item.get("sequence"), int)
         ]
-        monotonic = (
-            sequences == sorted(set(sequences))
-            and second_sequences == sorted(set(second_sequences))
-        )
+        monotonic = sequences == sorted(set(sequences)) and second_sequences == sorted(set(second_sequences))
         with accumulator.lock:
             accumulator.replay_consistent &= consistent and monotonic
             accumulator.recovery_verified = True
@@ -290,15 +259,11 @@ def execute(
     load = definition["load"]
     thresholds = definition["thresholds"]
     accumulator = _Accumulator()
-    client = HarnessClient(
-        base_url=base_url, token=token, timeout=timeout
-    )
+    client = HarnessClient(base_url=base_url, token=token, timeout=timeout)
     deadline = time.monotonic() + int(load["duration_seconds"])
     submitted = 0
     concurrency = int(load["concurrency"])
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=concurrency
-    ) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
         pending: set[concurrent.futures.Future[None]] = set()
         while submitted < int(load["max_iterations"]):
             if int(load["duration_seconds"]) and time.monotonic() >= deadline:
@@ -309,9 +274,7 @@ def execute(
                     submitted,
                     client=client,
                     seed=int(load["seed"]),
-                    page_limits=[
-                        int(value) for value in load["page_limits"]
-                    ],
+                    page_limits=[int(value) for value in load["page_limits"]],
                     accumulator=accumulator,
                 )
             )
@@ -339,25 +302,12 @@ def execute(
     scenario_status = {
         "connection-list-cursor": "passed" if list_passed else "failed",
         "event-replay": "passed" if replay_passed else "failed",
-        "bulk-dry-run": (
-            "passed" if accumulator.bulk_verified else "unverified"
-        ),
-        "job-recovery-replay": (
-            "passed"
-            if accumulator.recovery_verified and replay_passed
-            else "failed"
-        ),
+        "bulk-dry-run": ("passed" if accumulator.bulk_verified else "unverified"),
+        "job-recovery-replay": ("passed" if accumulator.recovery_verified and replay_passed else "failed"),
     }
-    visible_statuses = [
-        scenario_status.get(str(name), "unverified")
-        for name in definition["scenarios"]
-    ]
+    visible_statuses = [scenario_status.get(str(name), "unverified") for name in definition["scenarios"]]
     status = (
-        "failed"
-        if "failed" in visible_statuses
-        else "unverified"
-        if "unverified" in visible_statuses
-        else "passed"
+        "failed" if "failed" in visible_statuses else "unverified" if "unverified" in visible_statuses else "passed"
     )
     return {
         "schema": "ananta.source-control.load-recovery-evidence.v1",

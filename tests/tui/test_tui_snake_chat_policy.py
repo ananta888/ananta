@@ -1,20 +1,18 @@
 """T07.03: Policy-Regressionstests für Chat-State Sicherheitsgrenzen."""
+
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.chat_policy import (
-    check_policy,
-    check_and_redact,
-    get_audit_log,
-    audit,
-    system_message_for_deny,
     _is_sensitive,
     _redact,
+    audit,
+    check_and_redact,
+    check_policy,
+    get_audit_log,
+    system_message_for_deny,
 )
 from client_surfaces.operator_tui.chat_state import (
     make_message,
-    ChannelType,
 )
 
 
@@ -195,8 +193,8 @@ def test_audit_stores_deny_events():
 # ── T08 — classify_chat_intent + apply_token_budget_policy ───────────────────
 
 from client_surfaces.operator_tui.chat_policy import (
-    classify_chat_intent,
     apply_token_budget_policy,
+    classify_chat_intent,
 )
 
 

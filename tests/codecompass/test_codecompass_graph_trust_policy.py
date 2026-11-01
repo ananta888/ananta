@@ -1,7 +1,7 @@
 """COMBO-002: graph evidence / trust policy import-edge tests."""
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -15,10 +15,10 @@ from agent.services.tools.graph_evidence import (
     validate_repository_intelligence_snapshot,
 )
 
-
 # ---------------------------------------------------------------------------
 # graph-evidence schema (DD-016)
 # ---------------------------------------------------------------------------
+
 
 def _good_evidence() -> dict:
     return {
@@ -112,6 +112,7 @@ def test_non_object_input_is_rejected():
 # RIG snapshot schema (DD-014)
 # ---------------------------------------------------------------------------
 
+
 def _good_rig() -> dict:
     return {
         "schema_version": "codecompass.repository-intelligence.v1",
@@ -181,6 +182,7 @@ def test_validate_rig_snapshot_rejects_too_many_entities():
 # ---------------------------------------------------------------------------
 # enforce_import_invariants (DD-013 / DD-016 fail-closed)
 # ---------------------------------------------------------------------------
+
 
 def test_enforce_import_invariants_path_outside_workspace(tmp_path):
     snap = _good_rig()

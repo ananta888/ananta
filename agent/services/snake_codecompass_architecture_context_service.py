@@ -1,4 +1,5 @@
 """Bounded hierarchical CodeCompass architecture prefill for AI-Snake."""
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -36,11 +37,11 @@ class SnakeCodeCompassArchitectureContextService:
                 "status": "degraded",
                 "reason": str((result or {}).get("error") or "architecture_graph_unavailable"),
                 "warnings": list((result or {}).get("warnings") or []),
-                "resolution_diagnostics": list(
-                    (data or {}).get("resolution_diagnostics") or []
-                ) if isinstance(data, dict) else [],
+                "resolution_diagnostics": list((data or {}).get("resolution_diagnostics") or [])
+                if isinstance(data, dict)
+                else [],
             }
-        architecture = ((result.get("data") or {}).get("architecture") or {})
+        architecture = (result.get("data") or {}).get("architecture") or {}
         nodes = [item for item in architecture.get("nodes") or [] if isinstance(item, dict)]
         if not nodes:
             return "", {"status": "degraded", "reason": "empty_architecture_slice"}
@@ -64,12 +65,7 @@ class SnakeCodeCompassArchitectureContextService:
             target_id = str(item.get("target") or item.get("target_id") or "").strip()
             if not source_id or not target_id:
                 continue
-            relation = str(
-                item.get("relation")
-                or item.get("type")
-                or item.get("edge_type")
-                or "contains"
-            ).strip()
+            relation = str(item.get("relation") or item.get("type") or item.get("edge_type") or "contains").strip()
             source = node_titles.get(source_id, source_id)
             target = node_titles.get(target_id, target_id)
             relation_rows.append(f"- {source} --{relation}--> {target}")

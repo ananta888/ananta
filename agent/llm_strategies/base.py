@@ -79,11 +79,15 @@ class LLMStrategy(ABC):
         if trimmed is not messages:
             from agent.context_window import estimate_messages_tokens, record_truncation
 
-            record_truncation("llm.trim_messages", "trim_messages",
-                              before_tokens=estimate_messages_tokens(messages),
-                              after_tokens=estimate_messages_tokens(trimmed),
-                              dropped_items=max(0, len(messages or []) - len(trimmed or [])),
-                              strategy=type(self).__name__, window_tokens=int(max_context_tokens))
+            record_truncation(
+                "llm.trim_messages",
+                "trim_messages",
+                before_tokens=estimate_messages_tokens(messages),
+                after_tokens=estimate_messages_tokens(trimmed),
+                dropped_items=max(0, len(messages or []) - len(trimmed or [])),
+                strategy=type(self).__name__,
+                window_tokens=int(max_context_tokens),
+            )
         return trimmed
 
     def _trim_messages_to_budget(self, messages: list, max_context_tokens: int, max_output_tokens: int) -> list:

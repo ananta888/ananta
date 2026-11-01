@@ -6,6 +6,7 @@ from collections.abc import Awaitable
 import pytest
 
 from client_surfaces.operator_tui import sections
+from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import (
     _parse_args,
     build_initial_state,
@@ -18,7 +19,6 @@ from client_surfaces.operator_tui.models import (
     PanelState,
     SectionLoadResult,
 )
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 
 
 class RecordingApplication:
@@ -126,9 +126,7 @@ def test_startup_section_argument_autoloads_without_enter_or_click(
         loader = DeferredLoader("startup")
         registry = SectionAdapterRegistry()
         registry.register_async(section_id, loader)
-        state = build_initial_state(
-            _parse_args(["--section", section_id, "--skip-splash"])
-        ).with_updates(
+        state = build_initial_state(_parse_args(["--section", section_id, "--skip-splash"])).with_updates(
             header_logo_game={
                 "center_browser_active": True,
                 "shortcut_help_middle_open": True,

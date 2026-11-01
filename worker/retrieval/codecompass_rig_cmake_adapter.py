@@ -13,6 +13,7 @@ Per CCRIG-DD-007/008/012/013:
 * degraded diagnostics with ``coverage_status=partial|unknown`` when
   only one of the two artefacts is present
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,7 +29,6 @@ from worker.retrieval.codecompass_import_provider import (
     assert_within_workspace,
     compute_content_hash,
 )
-
 
 SPADE_REVIEWED_REVISION = "6306e203732f7c4553d1564c5250396b7f84a315"
 PROVIDER_ID = "rig.cmake.file_api"
@@ -87,10 +87,8 @@ class CmakeRigAdapter:
             "reviewed_revision": PROVIDER_REVISION,
         }
         # Both reads stay within workspace_dir (DD-013).
-        cm = _safe_path_within(self.workspace_dir,
-                               CODEMODEL_GLOB.format(config=self.config_name))
-        ct = _safe_path_within(self.workspace_dir,
-                               CTEST_INFO_GLOB.format(config=self.config_name))
+        cm = _safe_path_within(self.workspace_dir, CODEMODEL_GLOB.format(config=self.config_name))
+        ct = _safe_path_within(self.workspace_dir, CTEST_INFO_GLOB.format(config=self.config_name))
         if cm is None or not cm.exists():
             self._last_run = {**diag, "result": "external_graph_unavailable"}
             return ImportSnapshot(
@@ -134,8 +132,7 @@ class CmakeRigAdapter:
             content_hash=content_hash,
             graph_nodes=tuple(nodes),
             graph_edges=tuple(edges),
-            extras={"rig_coverage": ({"status": coverage_status,
-                                      "unsupported_features": unsupported},)},
+            extras={"rig_coverage": ({"status": coverage_status, "unsupported_features": unsupported},)},
             diagnostics=self._last_run,
         )
 
@@ -150,6 +147,7 @@ class CmakeRigAdapter:
 # ---------------------------------------------------------------------------
 # Conversion helpers — public for testability
 # ---------------------------------------------------------------------------
+
 
 def _file_sha256(path: Path) -> str:
     if not path.exists():
@@ -170,12 +168,14 @@ def _build_snapshot_records(
     rig_nodes/rig_edges records. Records are tagged with the graph-evidence
     policy object expected by COMBO-002."""
     # package_manager
-    nodes: list[dict[str, Any]] = [{
-        "id": "pm:cmake",
-        "kind": "package_manager",
-        "attrs": {"kind": "cmake"},
-        "trust": _trust_template("pm:cmake", workspace_dir, source_kind="spade_cmake_reply"),
-    }]
+    nodes: list[dict[str, Any]] = [
+        {
+            "id": "pm:cmake",
+            "kind": "package_manager",
+            "attrs": {"kind": "cmake"},
+            "trust": _trust_template("pm:cmake", workspace_dir, source_kind="spade_cmake_reply"),
+        }
+    ]
     edges: list[dict[str, Any]] = []
 
     configs = codemodel.get("configurations") or []
@@ -197,34 +197,38 @@ def _build_snapshot_records(
             }.get(tgt_kind, "custom")
             sources = [str(s) for s in (tgt.get("sources") or []) if s]
             tgt_node_id = f"bc:{tgt_name}"
-            nodes.append({
-                "id": tgt_node_id,
-                "kind": "buildable_component",
-                "attrs": {
-                    "name": tgt_name,
-                    "kind": tgt_kind,
-                    "language": "cpp",
-                    "source_files": sources,
-                },
-                "trust": _trust_template(tgt_node_id, workspace_dir,
-                                          source_kind="spade_cmake_reply",
-                                          record_id=tgt_id),
-            })
+            nodes.append(
+                {
+                    "id": tgt_node_id,
+                    "kind": "buildable_component",
+                    "attrs": {
+                        "name": tgt_name,
+                        "kind": tgt_kind,
+                        "language": "cpp",
+                        "source_files": sources,
+                    },
+                    "trust": _trust_template(
+                        tgt_node_id, workspace_dir, source_kind="spade_cmake_reply", record_id=tgt_id
+                    ),
+                }
+            )
             # map sources as evidence file records
             for src in sources:
-                edges.append({
-                    "from_id": tgt_node_id,
-                    "to_id": f"file:{src}",
-                    "kind": "built_by",
-                    "evidence": {
-                        "source_file": str(workspace_dir / src),
-                        "source_kind": "spade_cmake_reply",
-                        "source_record_id": tgt_id,
-                    },
-                    "trust": _trust_template(f"{tgt_node_id}->{src}", workspace_dir,
-                                              source_kind="spade_cmake_reply",
-                                              record_id=tgt_id),
-                })
+                edges.append(
+                    {
+                        "from_id": tgt_node_id,
+                        "to_id": f"file:{src}",
+                        "kind": "built_by",
+                        "evidence": {
+                            "source_file": str(workspace_dir / src),
+                            "source_kind": "spade_cmake_reply",
+                            "source_record_id": tgt_id,
+                        },
+                        "trust": _trust_template(
+                            f"{tgt_node_id}->{src}", workspace_dir, source_kind="spade_cmake_reply", record_id=tgt_id
+                        ),
+                    }
+                )
 
         # CTest wiring
         if ctest_info:
@@ -234,60 +238,70 @@ def _build_snapshot_records(
                     continue
                 runner_id = "rn:ctest"
                 if not any(n["id"] == runner_id for n in nodes):
-                    nodes.append({
-                        "id": runner_id,
-                        "kind": "runner",
-                        "attrs": {"kind": "ctest"},
-                        "trust": _trust_template(runner_id, workspace_dir,
-                                                  source_kind="spade_ctest_record"),
-                    })
+                    nodes.append(
+                        {
+                            "id": runner_id,
+                            "kind": "runner",
+                            "attrs": {"kind": "ctest"},
+                            "trust": _trust_template(runner_id, workspace_dir, source_kind="spade_ctest_record"),
+                        }
+                    )
                 test_id = f"t:{test_name}"
-                nodes.append({
-                    "id": test_id,
-                    "kind": "test",
-                    "attrs": {"name": test_name},
-                    "trust": _trust_template(test_id, workspace_dir,
-                                              source_kind="spade_ctest_record",
-                                              record_id=test_name),
-                })
+                nodes.append(
+                    {
+                        "id": test_id,
+                        "kind": "test",
+                        "attrs": {"name": test_name},
+                        "trust": _trust_template(
+                            test_id, workspace_dir, source_kind="spade_ctest_record", record_id=test_name
+                        ),
+                    }
+                )
                 # connect runner -> test
-                edges.append({
-                    "from_id": runner_id,
-                    "to_id": test_id,
-                    "kind": "runs",
-                    "evidence": {
-                        "source_file": str(workspace_dir / "CTestTestfile.cmake"),
-                        "source_kind": "spade_ctest_record",
-                        "source_record_id": test_name,
-                    },
-                    "trust": _trust_template(f"{runner_id}->{test_id}", workspace_dir,
-                                              source_kind="spade_ctest_record",
-                                              record_id=test_name),
-                })
+                edges.append(
+                    {
+                        "from_id": runner_id,
+                        "to_id": test_id,
+                        "kind": "runs",
+                        "evidence": {
+                            "source_file": str(workspace_dir / "CTestTestfile.cmake"),
+                            "source_kind": "spade_ctest_record",
+                            "source_record_id": test_name,
+                        },
+                        "trust": _trust_template(
+                            f"{runner_id}->{test_id}",
+                            workspace_dir,
+                            source_kind="spade_ctest_record",
+                            record_id=test_name,
+                        ),
+                    }
+                )
                 # Match test to a buildable_component by name suffix (best-effort)
                 for tgt in targets:
                     tgt_name = str(tgt.get("name") or "").strip()
                     if not tgt_name:
                         continue
                     if test_name.startswith(tgt_name):
-                        edges.append({
-                            "from_id": f"t:{test_name}",
-                            "to_id": f"bc:{tgt_name}",
-                            "kind": "covers",
-                            "evidence": {
-                                "source_file": str(workspace_dir / "CTestTestfile.cmake"),
-                                "source_kind": "spade_ctest_record",
-                                "source_record_id": test_name,
-                                "reason": "aggregated_from_children",
-                            },
-                            "trust": _trust_template(
-                                f"t:{test_name}->bc:{tgt_name}",
-                                workspace_dir,
-                                source_kind="spade_ctest_record",
-                                record_id=test_name,
-                                reason="aggregated_from_children",
-                            ),
-                        })
+                        edges.append(
+                            {
+                                "from_id": f"t:{test_name}",
+                                "to_id": f"bc:{tgt_name}",
+                                "kind": "covers",
+                                "evidence": {
+                                    "source_file": str(workspace_dir / "CTestTestfile.cmake"),
+                                    "source_kind": "spade_ctest_record",
+                                    "source_record_id": test_name,
+                                    "reason": "aggregated_from_children",
+                                },
+                                "trust": _trust_template(
+                                    f"t:{test_name}->bc:{tgt_name}",
+                                    workspace_dir,
+                                    source_kind="spade_ctest_record",
+                                    record_id=test_name,
+                                    reason="aggregated_from_children",
+                                ),
+                            }
+                        )
     return nodes, edges
 
 

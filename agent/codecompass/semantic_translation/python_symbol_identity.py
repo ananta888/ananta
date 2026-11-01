@@ -10,9 +10,7 @@ from pathlib import PurePosixPath
 from typing import Protocol
 from urllib.parse import quote
 
-PYTHON_SYMBOL_IDENTITY_STRATEGY = (
-    "repo_relative_file_provenance_symbol_sha256.v2"
-)
+PYTHON_SYMBOL_IDENTITY_STRATEGY = "repo_relative_file_provenance_symbol_sha256.v2"
 _PYTHON_SYMBOL_ID_PREFIX = "semantic:python:symbol:v2"
 _MAX_READABLE_SYMBOL_ENCODED_LENGTH = 96
 _READABLE_SYMBOL_TRUNCATION_MARKER = "~"
@@ -103,11 +101,7 @@ class DeterministicPythonSymbolIdentityFactory:
                 "qualified_symbol": canonical_symbol,
                 "strategy": PYTHON_SYMBOL_IDENTITY_STRATEGY,
                 "symbol_kind": canonical_kind,
-                **(
-                    {"legacy_identity_sha256": _legacy_identity_sha256}
-                    if _legacy_identity_sha256
-                    else {}
-                ),
+                **({"legacy_identity_sha256": _legacy_identity_sha256} if _legacy_identity_sha256 else {}),
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -123,14 +117,8 @@ class DeterministicPythonSymbolIdentityFactory:
         encoded_length = 0
         for character in canonical_symbol:
             encoded_character = quote(character, safe="")
-            if (
-                encoded_length + len(encoded_character)
-                > _MAX_READABLE_SYMBOL_ENCODED_LENGTH
-            ):
-                return (
-                    "".join(encoded_parts)
-                    + _READABLE_SYMBOL_TRUNCATION_MARKER
-                )
+            if encoded_length + len(encoded_character) > _MAX_READABLE_SYMBOL_ENCODED_LENGTH:
+                return "".join(encoded_parts) + _READABLE_SYMBOL_TRUNCATION_MARKER
             encoded_parts.append(encoded_character)
             encoded_length += len(encoded_character)
         return "".join(encoded_parts)
@@ -193,14 +181,10 @@ def _accepts_occurrence_provenance(symbol_id: object) -> bool:
     except (TypeError, ValueError):
         return False
     names = {parameter.name for parameter in parameters}
-    return (
-        {
-            "provenance_line_start",
-            "provenance_column_start",
-        }
-        <= names
-        or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters)
-    )
+    return {
+        "provenance_line_start",
+        "provenance_column_start",
+    } <= names or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters)
 
 
 __all__ = [

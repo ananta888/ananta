@@ -18,7 +18,10 @@ def test_legacy_classification_is_conservative_idempotent_and_preserves_provenan
     original = {"memory_scope": "global", "approved": True, "source_refs": ["tool-output"], "sensitivity": "secret"}
     result = normalize_legacy_memory_metadata(original)
     assert result["memory_security"] == {
-        "scope": "task", "sensitivity": "secret", "retention_class": "task", "trust_level": "untrusted",
+        "scope": "task",
+        "sensitivity": "secret",
+        "retention_class": "task",
+        "trust_level": "untrusted",
     }
     assert result["source_refs"] == original["source_refs"]
     assert "memory_security" not in original
@@ -29,8 +32,18 @@ def test_missing_metadata_never_means_global_or_trusted():
     assert normalize_legacy_memory_metadata(None)["memory_security"] == MemorySecurityMetadata().to_mapping()
 
 
-@pytest.mark.parametrize("value", [[], "global", {"scope": "unknown"}, {"trust_level": "system"},
-                                   {"scope": None}, {"sensitivity": "unknown"}, {"extra_authority": True}])
+@pytest.mark.parametrize(
+    "value",
+    [
+        [],
+        "global",
+        {"scope": "unknown"},
+        {"trust_level": "system"},
+        {"scope": None},
+        {"sensitivity": "unknown"},
+        {"extra_authority": True},
+    ],
+)
 def test_invalid_security_metadata_is_rejected(value):
     with pytest.raises(MemoryContractError):
         MemorySecurityMetadata.from_mapping(value)
@@ -43,8 +56,9 @@ def test_namespace_identifiers_are_strict(field, value):
         replace(NAMESPACE, **{field: value})
 
 
-@pytest.mark.parametrize("scope", [MemoryScope.run, MemoryScope.task, MemoryScope.goal,
-                                   MemoryScope.conversation, MemoryScope.workspace])
+@pytest.mark.parametrize(
+    "scope", [MemoryScope.run, MemoryScope.task, MemoryScope.goal, MemoryScope.conversation, MemoryScope.workspace]
+)
 def test_missing_scope_binding_does_not_broaden_access(scope):
     with pytest.raises(MemoryContractError, match="namespace_incomplete"):
         MemoryNamespace("tenant").key(scope)

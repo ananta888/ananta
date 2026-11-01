@@ -14,8 +14,12 @@ def main():
         if not raw or len(raw) > 24_000 or not raw.endswith(b"\n"):
             return 2
         value = decode(raw)
-        if (not isinstance(value, dict) or set(value) != {"assignment", "endpoint", "key_hex", "tool", "arguments"}
-                or not isinstance(value["key_hex"], str) or len(value["key_hex"]) > 512):
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"assignment", "endpoint", "key_hex", "tool", "arguments"}
+            or not isinstance(value["key_hex"], str)
+            or len(value["key_hex"]) > 512
+        ):
             return 2
         grants = AssignedCompanionGrantClient(value["assignment"], value["endpoint"], bytes.fromhex(value["key_hex"]))
         result = AssignedCompanionToolClient(grants).call(value["tool"], value["arguments"])

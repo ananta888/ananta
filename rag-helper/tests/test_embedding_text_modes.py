@@ -28,9 +28,7 @@ class EmbeddingTextModeTests(unittest.TestCase):
         )
 
         self.assertIn("XML config.xml. Root root.", index_records[0]["embedding_text"])
-        self.assertTrue(
-            any("Attrs attr." in record["embedding_text"] for record in detail_records)
-        )
+        self.assertTrue(any("Attrs attr." in record["embedding_text"] for record in detail_records))
 
     @unittest.skipUnless(XsdExtractor is not None, "lxml dependency missing")
     def test_xsd_extractor_compact_mode_shortens_embedding_text(self) -> None:

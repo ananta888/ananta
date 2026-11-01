@@ -142,16 +142,8 @@ class VectorStoreOperationObservation:
             if value < 0:
                 raise ValueError("vector_store_observation_count_invalid")
             normalized_counts[key] = value
-        requested = (
-            str(self.requested_backend or "").strip().lower()
-            if self.requested_backend is not None
-            else None
-        )
-        effective = (
-            str(self.effective_backend or "").strip().lower()
-            if self.effective_backend is not None
-            else None
-        )
+        requested = str(self.requested_backend or "").strip().lower() if self.requested_backend is not None else None
+        effective = str(self.effective_backend or "").strip().lower() if self.effective_backend is not None else None
         if requested is not None and requested not in VECTOR_STORE_BACKENDS:
             raise ValueError("vector_store_observation_requested_backend_invalid")
         if effective is not None and effective not in VECTOR_STORE_BACKENDS:

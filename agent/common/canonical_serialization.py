@@ -54,9 +54,7 @@ def redact_json(value: Any) -> Any:
             key = str(raw_key)
             lowered = key.lower()
             is_sensitive = lowered not in _SAFE_TOKEN_KEYS and any(
-                lowered == part
-                or lowered.endswith(f"_{part}")
-                or lowered.startswith(f"{part}_")
+                lowered == part or lowered.endswith(f"_{part}") or lowered.startswith(f"{part}_")
                 for part in _SENSITIVE_PARTS
             )
             result[key] = "[REDACTED]" if is_sensitive else redact_json(item)

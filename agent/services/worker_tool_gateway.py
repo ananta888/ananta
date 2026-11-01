@@ -29,8 +29,9 @@ TOOL_PREFIX = "codecompass."
 MAX_RESULT_BYTES = 256 * 1024
 TIMEOUT_ENV = "ANANTA_WORKER_TOOL_GATEWAY_TIMEOUT_SECONDS"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_FINISHED = frozenset({"completed", "failed", "cancelled", "verification_failed", "skipped", "aborted",
-                       "timeout", "archived"})
+_FINISHED = frozenset(
+    {"completed", "failed", "cancelled", "verification_failed", "skipped", "aborted", "timeout", "archived"}
+)
 
 
 class GatewayDenied(Exception):
@@ -46,10 +47,16 @@ def _same_worker(assigned: Any, caller: str) -> bool:
 
 
 class WorkerToolGateway:
-    def __init__(self, *, get_task: Callable[[str], Any], role_grants: Callable[[], Mapping[str, Any]],
-                 registry: Any, allowed_tools: Callable[[], list[str]],
-                 issue_capability: Callable[..., dict[str, Any] | None],
-                 execute_tool: Callable[..., dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        *,
+        get_task: Callable[[str], Any],
+        role_grants: Callable[[], Mapping[str, Any]],
+        registry: Any,
+        allowed_tools: Callable[[], list[str]],
+        issue_capability: Callable[..., dict[str, Any] | None],
+        execute_tool: Callable[..., dict[str, Any]],
+    ) -> None:
         self._get_task = get_task
         self._role_grants = role_grants
         self._registry = registry
@@ -87,27 +94,49 @@ class WorkerToolGateway:
             raise GatewayDenied("capability_unavailable", 503)
         return task, capability
 
-    def execute(self, tool_name: str, arguments: Mapping[str, Any], *, tool_call_id: str,
-                capability: dict[str, Any]) -> dict[str, Any]:
+    def execute(
+        self, tool_name: str, arguments: Mapping[str, Any], *, tool_call_id: str, capability: dict[str, Any]
+    ) -> dict[str, Any]:
         """The tool's result, run locally on the Hub under ``capability``."""
-        result = self._execute_tool(tool_name=tool_name, arguments=dict(arguments), workspace_dir=str(_REPO_ROOT),
-                                    tool_call_id=tool_call_id,
-                                    config={"codecompass_capability": capability, "codecompass_access": "delegated"})
+        result = self._execute_tool(
+            tool_name=tool_name,
+            arguments=dict(arguments),
+            workspace_dir=str(_REPO_ROOT),
+            tool_call_id=tool_call_id,
+            config={"codecompass_capability": capability, "codecompass_access": "delegated"},
+        )
         if len(json.dumps(result, ensure_ascii=False, default=str).encode("utf-8")) > MAX_RESULT_BYTES:
             from agent.services.tools._evidence import build_tool_result
 
-            return build_tool_result(tool_name=tool_name, tool_call_id=tool_call_id, status="error",
-                                     error="hub_gateway_result_too_large")
+            return build_tool_result(
+                tool_name=tool_name, tool_call_id=tool_call_id, status="error", error="hub_gateway_result_too_large"
+            )
         return result
 
-    def call(self, app: Any, task_id: str, tool_name: str, arguments: Mapping[str, Any], *, worker_url: str,
-             tool_call_id: str, trace_id: str | None) -> dict[str, Any]:
+    def call(
+        self,
+        app: Any,
+        task_id: str,
+        tool_name: str,
+        arguments: Mapping[str, Any],
+        *,
+        worker_url: str,
+        tool_call_id: str,
+        trace_id: str | None,
+    ) -> dict[str, Any]:
         """Admit, run bounded, audit. ``GatewayDenied`` for a refused call."""
         details = {"task_id": task_id, "worker_url": worker_url, "arguments_keys": sorted(arguments)}
 
         def audit(outcome: str, **extra: Any) -> None:
-            audit_tool_call("worker_tool_gateway_called", tool_name, outcome=outcome, trace_id=trace_id,
-                            target_scope={"task_id": task_id}, actor_role="worker", details={**details, **extra})
+            audit_tool_call(
+                "worker_tool_gateway_called",
+                tool_name,
+                outcome=outcome,
+                trace_id=trace_id,
+                target_scope={"task_id": task_id},
+                actor_role="worker",
+                details={**details, **extra},
+            )
 
         try:
             _task, capability = self.admit(task_id, tool_name, worker_url=worker_url)
@@ -117,8 +146,11 @@ class WorkerToolGateway:
         from agent.services.hub_tool_gateway import GatewayTimeout
 
         try:
-            result = run_bounded(app, lambda: self.execute(tool_name, arguments, tool_call_id=tool_call_id,
-                                                           capability=capability), timeout_seconds(TIMEOUT_ENV, 45.0))
+            result = run_bounded(
+                app,
+                lambda: self.execute(tool_name, arguments, tool_call_id=tool_call_id, capability=capability),
+                timeout_seconds(TIMEOUT_ENV, 45.0),
+            )
         except GatewayTimeout:
             audit("timeout")
             raise GatewayDenied("tool_timeout", 504) from None

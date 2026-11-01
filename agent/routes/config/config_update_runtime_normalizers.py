@@ -288,9 +288,7 @@ def normalize_worker_runtime(new_cfg: dict, ctx: ConfigUpdateContext) -> dict:
         todo_contract = _normalize_todo_contract(worker_runtime_cfg.get("todo_contract"))
     native_runtime = None
     if "native_worker_runtime" in worker_runtime_cfg:
-        native_runtime = require_dict(
-            worker_runtime_cfg["native_worker_runtime"], "invalid_native_worker_runtime"
-        )
+        native_runtime = require_dict(worker_runtime_cfg["native_worker_runtime"], "invalid_native_worker_runtime")
         enabled = native_runtime.get("enabled", True)
         if not isinstance(enabled, bool):
             raise ConfigUpdateRejected("invalid_native_worker_runtime_enabled")

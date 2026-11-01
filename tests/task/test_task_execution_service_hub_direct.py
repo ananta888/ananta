@@ -1,4 +1,5 @@
 """HDE-005: hub-direct routing inside TaskExecutionService.propose_direct_step."""
+
 import pytest
 
 from agent.models import TaskStepProposeRequest
@@ -35,9 +36,9 @@ def fake_runtime(monkeypatch, tmp_path):
                 "warnings": [],
             }
 
+    import agent.services.hub_tool_execution_adapter as adapter_module
     from agent.services.hub_tool_execution_adapter import HubToolExecutionAdapter
     from agent.services.worker_runtime_execution_adapter import WorkerRuntimeExecutionAdapter
-    import agent.services.hub_tool_execution_adapter as adapter_module
 
     adapter = HubToolExecutionAdapter(runtime_adapter=WorkerRuntimeExecutionAdapter(_Runtime()))
     monkeypatch.setattr(adapter_module, "hub_tool_execution_adapter", adapter)
@@ -103,7 +104,7 @@ def test_missing_workspace_falls_back_to_worker(fake_runtime, tmp_path):
     llm = FakeLLM()
     cfg = _agent_cfg(tmp_path)
     cfg["worker_runtime"] = {}
-    response = _propose(TaskExecutionService(), "liste dateien", cfg, llm)
+    _propose(TaskExecutionService(), "liste dateien", cfg, llm)
     assert len(llm.calls) == 1
     assert fake_runtime == []
 
@@ -143,8 +144,9 @@ def test_existing_execute_direct_step_path_unchanged(tmp_path):
 
 def test_multi_tool_result_is_returned_without_llm_or_classic_dispatch(monkeypatch, tmp_path):
     from types import SimpleNamespace
-    import agent.services.task_execution_service as module
+
     import agent.services.hub_multi_tool_pipeline as pipeline_module
+    import agent.services.task_execution_service as module
 
     monkeypatch.setattr(module, "get_local_task_status", lambda _: {"id": "task"})
     monkeypatch.setattr(

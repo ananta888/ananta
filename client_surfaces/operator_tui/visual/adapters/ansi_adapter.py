@@ -39,22 +39,22 @@ def _raster_fallback_lines(frame: RenderFrame, *, columns: int, rows: int) -> li
     lines.append(f"{yellow}║{reset} {cyan}Grafik-Ausgabe nicht verfügbar{reset}".ljust(columns))
     lines.append(f"{yellow}║{reset} {dim}Scene: {scene}  Renderer: {renderer}  Size: {w}×{h}{reset}")
     if reason:
-        lines.append(f"{yellow}║{reset} {dim}Grund: {reason[:columns - 12]}{reset}")
+        lines.append(f"{yellow}║{reset} {dim}Grund: {reason[: columns - 12]}{reset}")
 
     # Show alt_text or fallback_text from frame metadata
     alt = str(frame.metadata.get("alt_text") or frame.metadata.get("fallback_text") or "")
     if alt:
-        lines.append(f"{yellow}║{reset} {dim}{alt[:columns - 4]}{reset}")
+        lines.append(f"{yellow}║{reset} {dim}{alt[: columns - 4]}{reset}")
 
     # Diagram ids
     diag_ids = frame.metadata.get("diagram_ids")
     if diag_ids:
         ids_str = ", ".join(str(d) for d in diag_ids[:3])
-        lines.append(f"{yellow}║{reset} {dim}Diagramme: {ids_str[:columns - 14]}{reset}")
+        lines.append(f"{yellow}║{reset} {dim}Diagramme: {ids_str[: columns - 14]}{reset}")
 
     lines.append(f"{yellow}║{reset}")
     hint = "→ Kitty/Sixel-Terminal oder ANSI-Quellmodus aktivieren"
-    lines.append(f"{yellow}║{reset} {dim}{hint[:columns - 4]}{reset}")
+    lines.append(f"{yellow}║{reset} {dim}{hint[: columns - 4]}{reset}")
     lines.append(f"{yellow}╚{'═' * max(2, columns - 2)}╝{reset}")
 
     # Pad or truncate to rows

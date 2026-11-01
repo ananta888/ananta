@@ -20,7 +20,10 @@ def rig_graph_store(arguments: dict[str, Any]):
 
 
 def codecompass_repository_query(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
 ) -> dict[str, Any]:
     """Run a whitelisted repository-intelligence query against the graph store."""
 
@@ -80,7 +83,10 @@ def codecompass_repository_query(
 
 
 def codecompass_build_test_map(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
 ) -> dict[str, Any]:
     """Build the repository component/dependency test map for a target."""
 

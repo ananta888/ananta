@@ -99,9 +99,7 @@ def build_model(config: TinyCausalLmConfig):
                 raise ValueError("research_model_input_shape_invalid")
             positions = torch.arange(tokens.shape[1], device=tokens.device)
             hidden = self.token_embedding(tokens) + self.position_embedding(positions)[None, :, :]
-            causal = torch.nn.Transformer.generate_square_subsequent_mask(
-                tokens.shape[1], device=tokens.device
-            )
+            causal = torch.nn.Transformer.generate_square_subsequent_mask(tokens.shape[1], device=tokens.device)
             hidden = self.transformer(hidden, mask=causal, is_causal=True)
             return self.output(self.normalization(hidden))
 
@@ -149,10 +147,7 @@ def serialize_portable_checkpoint(
     # Clone every entry so tied weights (embedding/output projection) do not
     # share storage inside the safetensors payload. The model constructor ties
     # them again before strict loading.
-    tensors = {
-        key: value.detach().cpu().contiguous().clone()
-        for key, value in model.state_dict().items()
-    }
+    tensors = {key: value.detach().cpu().contiguous().clone() for key, value in model.state_dict().items()}
     tensors["__ananta_config_bytes__"] = torch.tensor(
         list(canonical_json(config.to_dict()).encode("utf-8")), dtype=torch.uint8
     )

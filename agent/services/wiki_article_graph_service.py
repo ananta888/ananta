@@ -9,6 +9,7 @@ into a SQLite database so neighborhood queries return in milliseconds.
 The database lives next to the JSONL files:
   <output_dir>/wiki_article_graph.db
 """
+
 from __future__ import annotations
 
 import bz2
@@ -168,24 +169,35 @@ def build_index(output_dir: Path, *, force: bool = False) -> None:
                 if rec.get("relation") != "wiki_link":
                     continue
                 from_slug = str(rec.get("from") or "").removeprefix("article:")
-                to_slug   = str(rec.get("to")   or "").removeprefix("article:")
+                to_slug = str(rec.get("to") or "").removeprefix("article:")
                 if from_slug and to_slug:
                     buf_e.append((from_slug, to_slug))
                 if len(buf_e) >= BATCH:
                     _flush_edges()
                     if edge_count % 5_000_000 == 0:
-                        _set_status(key, {"status": "building", "phase": "edges",
-                                          "article_count": article_count, "edge_count": edge_count})
+                        _set_status(
+                            key,
+                            {
+                                "status": "building",
+                                "phase": "edges",
+                                "article_count": article_count,
+                                "edge_count": edge_count,
+                            },
+                        )
         _flush_edges()
         logger.info("wiki_article_graph_service: %d wiki_link edges inserted", edge_count)
 
         # Indices
-        _set_status(key, {"status": "building", "phase": "index", "article_count": article_count, "edge_count": edge_count})
+        _set_status(
+            key, {"status": "building", "phase": "index", "article_count": article_count, "edge_count": edge_count}
+        )
         con.execute("CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_slug)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_edges_to ON edges(to_slug)")
         con.close()
         logger.info("wiki_article_graph_service: build complete — %d articles, %d edges", article_count, edge_count)
-        _set_status(key, {"status": "ready", "article_count": article_count, "edge_count": edge_count, "db_path": str(db)})
+        _set_status(
+            key, {"status": "ready", "article_count": article_count, "edge_count": edge_count, "db_path": str(db)}
+        )
     except Exception as exc:
         logger.exception("wiki_article_graph_service: build failed")
         _set_status(key, {"status": "error", "error": str(exc)})
@@ -233,7 +245,12 @@ def expand_article(output_dir: Path, slug: str, *, max_neighbors: int = 40) -> d
     """Return a domain_graph_artifact.v1 subgraph centred on the given article slug."""
     db = _db_path(output_dir)
     if not db.exists():
-        return {"schema": "domain_graph_artifact.v1", "nodes": [], "edges": [], "metadata": {"error": "index_not_built"}}
+        return {
+            "schema": "domain_graph_artifact.v1",
+            "nodes": [],
+            "edges": [],
+            "metadata": {"error": "index_not_built"},
+        }
     try:
         with sqlite3.connect(str(db), timeout=10) as con:
             # Resolve seed
@@ -242,8 +259,12 @@ def expand_article(output_dir: Path, slug: str, *, max_neighbors: int = 40) -> d
                 # Try by title
                 row = con.execute("SELECT slug, title FROM articles WHERE title = ?", (slug,)).fetchone()
             if not row:
-                return {"schema": "domain_graph_artifact.v1", "nodes": [], "edges": [],
-                        "metadata": {"error": "article_not_found", "slug": slug}}
+                return {
+                    "schema": "domain_graph_artifact.v1",
+                    "nodes": [],
+                    "edges": [],
+                    "metadata": {"error": "article_not_found", "slug": slug},
+                }
             seed_slug, seed_title = row
 
             # Outgoing neighbors (articles this one links to)
@@ -284,13 +305,25 @@ def expand_article(output_dir: Path, slug: str, *, max_neighbors: int = 40) -> d
         for nslug in out_slugs:
             to_id = f"article:{nslug}"
             if to_id in slug_set:
-                edges.append({"source_id": f"article:{seed_slug}", "target_id": to_id,
-                               "relation": "wiki_link", "attributes": {"confidence": 1.0}})
+                edges.append(
+                    {
+                        "source_id": f"article:{seed_slug}",
+                        "target_id": to_id,
+                        "relation": "wiki_link",
+                        "attributes": {"confidence": 1.0},
+                    }
+                )
         for nslug in in_slugs:
             from_id = f"article:{nslug}"
             if from_id in slug_set:
-                edges.append({"source_id": from_id, "target_id": f"article:{seed_slug}",
-                               "relation": "wiki_link", "attributes": {"confidence": 1.0}})
+                edges.append(
+                    {
+                        "source_id": from_id,
+                        "target_id": f"article:{seed_slug}",
+                        "relation": "wiki_link",
+                        "attributes": {"confidence": 1.0},
+                    }
+                )
 
         return {
             "schema": "domain_graph_artifact.v1",
@@ -305,8 +338,7 @@ def expand_article(output_dir: Path, slug: str, *, max_neighbors: int = 40) -> d
         }
     except Exception as exc:
         logger.exception("wiki_article_graph_service: expand error")
-        return {"schema": "domain_graph_artifact.v1", "nodes": [], "edges": [],
-                "metadata": {"error": str(exc)}}
+        return {"schema": "domain_graph_artifact.v1", "nodes": [], "edges": [], "metadata": {"error": str(exc)}}
 
 
 def _article_node(slug: str, title: str, *, seed: bool) -> dict:
@@ -328,6 +360,7 @@ def _set_status(key: str, status: dict) -> None:
 
 
 # ── Domain Mode Functions ─────────────────────────────────────────────────────
+
 
 def _set_domain_status(key: str, status: dict) -> None:
     with _DOMAIN_LOCK:
@@ -415,7 +448,8 @@ def get_domains(output_dir: Path, mode: str, limit: int = 100) -> list[dict]:
                 return [{"id": r[0], "label": r[0], "article_count": r[1]} for r in rows]
             elif mode == "clusters":
                 rows = con.execute(
-                    "SELECT hub_slug, hub_title, article_count FROM top_clusters ORDER BY article_count DESC LIMIT ?", (limit,)
+                    "SELECT hub_slug, hub_title, article_count FROM top_clusters ORDER BY article_count DESC LIMIT ?",
+                    (limit,),
                 ).fetchall()
                 return [{"id": r[0], "label": r[1], "article_count": r[2]} for r in rows]
     except Exception as exc:
@@ -483,10 +517,15 @@ def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 1
     mode=clusters:   domain_id = hub_slug → all articles in that BFS cluster
     """
     db = _db_path(output_dir)
-    empty = {"schema": "domain_graph_artifact.v1", "source_kind": f"wiki_{mode}",
-             "source_ref": domain_id, "nodes": [], "edges": [],
-             "metadata": {"domain": domain_id, "mode": mode, "node_count": 0, "edge_count": 0},
-             "warnings": []}
+    empty = {
+        "schema": "domain_graph_artifact.v1",
+        "source_kind": f"wiki_{mode}",
+        "source_ref": domain_id,
+        "nodes": [],
+        "edges": [],
+        "metadata": {"domain": domain_id, "mode": mode, "node_count": 0, "edge_count": 0},
+        "warnings": [],
+    }
     if not db.exists():
         empty["warnings"] = ["index not built"]
         return empty
@@ -548,14 +587,22 @@ def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 1
             ).fetchall()
 
             nodes = [
-                {"node_id": f"article:{r[0]}", "node_type": "wiki_article",
-                 "attributes": {"name": r[1], "in_degree": r[2]}}
+                {
+                    "node_id": f"article:{r[0]}",
+                    "node_type": "wiki_article",
+                    "attributes": {"name": r[1], "in_degree": r[2]},
+                }
                 for r in rows
             ]
             edges = [
-                {"source_id": f"article:{r[0]}", "target_id": f"article:{r[1]}",
-                 "relation": "wiki_link", "attributes": {}}
-                for r in edge_rows if r[0] != r[1]
+                {
+                    "source_id": f"article:{r[0]}",
+                    "target_id": f"article:{r[1]}",
+                    "relation": "wiki_link",
+                    "attributes": {},
+                }
+                for r in edge_rows
+                if r[0] != r[1]
             ]
             return {
                 "schema": "domain_graph_artifact.v1",
@@ -563,8 +610,7 @@ def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 1
                 "source_ref": domain_id,
                 "nodes": nodes,
                 "edges": edges,
-                "metadata": {"domain": domain_id, "mode": mode,
-                             "node_count": len(nodes), "edge_count": len(edges)},
+                "metadata": {"domain": domain_id, "mode": mode, "node_count": len(nodes), "edge_count": len(edges)},
                 "warnings": [],
             }
     except Exception as exc:
@@ -579,6 +625,7 @@ def _table_exists(con: sqlite3.Connection, name: str) -> bool:
 
 
 # ── Article Content Index ─────────────────────────────────────────────────────
+
 
 def get_content_status(output_dir: Path) -> dict[str, Any]:
     key = str(output_dir)
@@ -607,9 +654,7 @@ def get_article_content(output_dir: Path, slug: str) -> dict[str, Any]:
         with sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10) as con:
             if not _table_exists(con, "article_intro"):
                 return {"status": "not_built"}
-            row = con.execute(
-                "SELECT title, intro FROM article_intro WHERE slug = ?", (slug,)
-            ).fetchone()
+            row = con.execute("SELECT title, intro FROM article_intro WHERE slug = ?", (slug,)).fetchone()
             if not row:
                 return {"status": "not_found", "slug": slug}
             return {"status": "found", "slug": slug, "title": row[0], "intro": row[1]}
@@ -682,7 +727,7 @@ def build_content_index(output_dir: Path, *, force: bool = False) -> None:
                 if obj.get("kind") != "wiki_detail":
                     continue
                 article_id = str(obj.get("wiki_article_id") or "")
-                slug = article_id[len("article:"):] if article_id.startswith("article:") else article_id
+                slug = article_id[len("article:") :] if article_id.startswith("article:") else article_id
                 if not slug or slug in seen:
                     continue
                 seen.add(slug)
@@ -707,6 +752,7 @@ def build_content_index(output_dir: Path, *, force: bool = False) -> None:
 
 
 # ── Internal Build Functions ──────────────────────────────────────────────────
+
 
 def _build_hubs(output_dir: Path, status_key: str) -> None:
     """Build hubs table: top articles by incoming link count."""
@@ -775,9 +821,7 @@ def _build_categories(output_dir: Path, status_key: str, corpus_path: Path) -> N
         """)
         con.execute("CREATE INDEX IF NOT EXISTS idx_ac_slug ON article_categories(slug)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_ac_cat ON article_categories(category)")
-        known_slugs: set[str] = set(
-            row[0] for row in con.execute("SELECT slug FROM articles").fetchall()
-        )
+        known_slugs: set[str] = set(row[0] for row in con.execute("SELECT slug FROM articles").fetchall())
 
     logger.info("wiki_article_graph_service: loaded %d known slugs", len(known_slugs))
     _set_domain_status(status_key, {"status": "building", "phase": "streaming_bz2", "known_slugs": len(known_slugs)})
@@ -790,14 +834,11 @@ def _build_categories(output_dir: Path, status_key: str, corpus_path: Path) -> N
     buf: list[tuple[str, str]] = []
     articles_processed = 0
     cat_pairs = 0
-    BATCH = 5000
 
     def _flush(con_inner: sqlite3.Connection) -> None:
         nonlocal cat_pairs
         if buf:
-            con_inner.executemany(
-                "INSERT INTO article_categories(slug, category) VALUES (?,?)", buf
-            )
+            con_inner.executemany("INSERT INTO article_categories(slug, category) VALUES (?,?)", buf)
             cat_pairs += len(buf)
             buf.clear()
 
@@ -832,12 +873,20 @@ def _build_categories(output_dir: Path, status_key: str, corpus_path: Path) -> N
                             con.execute("BEGIN")
                             _flush(con)
                             con.execute("COMMIT")
-                            _set_domain_status(status_key, {
-                                "status": "building", "phase": "streaming_bz2",
-                                "articles_processed": articles_processed,
-                                "category_pairs": cat_pairs,
-                            })
-                            logger.info("wiki_article_graph_service: categories %d articles, %d pairs", articles_processed, cat_pairs)
+                            _set_domain_status(
+                                status_key,
+                                {
+                                    "status": "building",
+                                    "phase": "streaming_bz2",
+                                    "articles_processed": articles_processed,
+                                    "category_pairs": cat_pairs,
+                                },
+                            )
+                            logger.info(
+                                "wiki_article_graph_service: categories %d articles, %d pairs",
+                                articles_processed,
+                                cat_pairs,
+                            )
                         in_text = False
                         text_buf = []
                 elif in_text:
@@ -874,9 +923,7 @@ def _build_clusters(output_dir: Path, status_key: str) -> None:
     _set_domain_status(status_key, {"status": "building", "phase": "loading_hubs"})
 
     with sqlite3.connect(str(db), timeout=60) as con:
-        hub_rows = con.execute(
-            "SELECT slug, title FROM hubs ORDER BY rank ASC LIMIT 40"
-        ).fetchall()
+        hub_rows = con.execute("SELECT slug, title FROM hubs ORDER BY rank ASC LIMIT 40").fetchall()
 
     if not hub_rows:
         _set_domain_status(status_key, {"status": "error", "error": "hubs table empty — build hubs first"})
@@ -904,20 +951,29 @@ def _build_clusters(output_dir: Path, status_key: str) -> None:
 
         while frontier:
             hop += 1
-            _set_domain_status(status_key, {
-                "status": "building", "phase": "bfs",
-                "hop": hop, "frontier_size": len(frontier),
-                "total_assigned": total_assigned,
-            })
+            _set_domain_status(
+                status_key,
+                {
+                    "status": "building",
+                    "phase": "bfs",
+                    "hop": hop,
+                    "frontier_size": len(frontier),
+                    "total_assigned": total_assigned,
+                },
+            )
             if hop % 5 == 0:
-                logger.info("wiki_article_graph_service: BFS hop %d, frontier=%d, assigned=%d",
-                            hop, len(frontier), total_assigned)
+                logger.info(
+                    "wiki_article_graph_service: BFS hop %d, frontier=%d, assigned=%d",
+                    hop,
+                    len(frontier),
+                    total_assigned,
+                )
 
             frontier_list = list(frontier)
             next_frontier: set[str] = set()
 
             for i in range(0, len(frontier_list), BATCH_SIZE):
-                batch = frontier_list[i:i + BATCH_SIZE]
+                batch = frontier_list[i : i + BATCH_SIZE]
                 placeholders = ",".join("?" * len(batch))
                 rows = con.execute(
                     f"SELECT from_slug, to_slug FROM edges WHERE from_slug IN ({placeholders})",
@@ -953,7 +1009,7 @@ def _build_clusters(output_dir: Path, status_key: str) -> None:
         BATCH = 10000
         items = list(assignment.items())
         for i in range(0, len(items), BATCH):
-            chunk = items[i:i + BATCH]
+            chunk = items[i : i + BATCH]
             con.execute("BEGIN")
             con.executemany(
                 "INSERT OR REPLACE INTO article_clusters(slug, hub_slug, hub_title, hop_distance) VALUES (?,?,?,?)",

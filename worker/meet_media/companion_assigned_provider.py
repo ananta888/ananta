@@ -30,12 +30,28 @@ class AssignedCompanionProvider:
     def chat(self, payload):
         self.last_completion = None
         request = deepcopy(payload)
-        reservation = self.ports.call("model", {"action": "reserve", "payload": {
-            "backend": self.backend, "model": request["model"], "request": request,
-            "tool_results": deepcopy(self.tool_results()),
-        }})
+        reservation = self.ports.call(
+            "model",
+            {
+                "action": "reserve",
+                "payload": {
+                    "backend": self.backend,
+                    "model": request["model"],
+                    "request": request,
+                    "tool_results": deepcopy(self.tool_results()),
+                },
+            },
+        )
         result = self.provider.chat(deepcopy(request))
-        self.last_completion = self.ports.call("model", {"action": "finish", "payload": {
-            "run": reservation["run"], "input_source": reservation["input_source"], "result": deepcopy(result),
-        }})
+        self.last_completion = self.ports.call(
+            "model",
+            {
+                "action": "finish",
+                "payload": {
+                    "run": reservation["run"],
+                    "input_source": reservation["input_source"],
+                    "result": deepcopy(result),
+                },
+            },
+        )
         return result

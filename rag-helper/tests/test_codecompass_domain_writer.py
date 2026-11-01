@@ -32,26 +32,25 @@ _RAG_HELPER_ROOT = _REPO_ROOT / "rag-helper"
 if str(_RAG_HELPER_ROOT) not in sys.path:
     sys.path.insert(0, str(_RAG_HELPER_ROOT))
 
-from devtools.validate_codecompass_domain_discovery import (
-    validate_boundary_line,
-    validate_coupling_payload,
-    validate_payload,
-)
-
 from rag_helper.application.processing_limits import ProcessingLimits
-from rag_helper.domain_discovery.descriptors import index_existing_descriptors
 from rag_helper.domain_discovery.inputs import AnalysisInputs
 from rag_helper.domain_discovery.writer import (
     DOMAIN_BOUNDARIES_FILENAME,
     DOMAIN_COUPLING_FILENAME,
-    DOMAINS_DETECTED_FILENAME,
-    DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME,
     DOMAIN_DESCRIPTOR_SCHEMA,
     DOMAIN_DESCRIPTOR_SUGGESTED_LIFECYCLE,
     DOMAIN_DESCRIPTOR_SUGGESTED_RUNTIME,
+    DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME,
+    DOMAINS_DETECTED_FILENAME,
     run_domain_discovery,
     write_descriptor_suggestions,
     write_domain_artifacts,
+)
+
+from devtools.validate_codecompass_domain_discovery import (
+    validate_boundary_line,
+    validate_coupling_payload,
+    validate_payload,
 )
 
 
@@ -63,9 +62,7 @@ def _build_inputs(node_count_per_domain: int = 4) -> AnalysisInputs:
     for domain in domains:
         for sub in range(node_count_per_domain):
             path = f"{domain}/mod_{sub}.py"
-            nodes.append(
-                {"id": f"{domain}.{sub}", "kind": "py_module", "file": path}
-            )
+            nodes.append({"id": f"{domain}.{sub}", "kind": "py_module", "file": path})
         for a in range(node_count_per_domain):
             for b in range(node_count_per_domain):
                 if a == b:
@@ -79,12 +76,8 @@ def _build_inputs(node_count_per_domain: int = 4) -> AnalysisInputs:
                 )
     # Force a strong cross-domain coupling so mutual_coupling fires.
     for edge_type in ("calls", "field_type_uses", "injects_dependency"):
-        edges.append(
-            {"source": "identity.0", "target": "billing.0", "type": edge_type}
-        )
-        edges.append(
-            {"source": "billing.0", "target": "identity.0", "type": edge_type}
-        )
+        edges.append({"source": "identity.0", "target": "billing.0", "type": edge_type})
+        edges.append({"source": "billing.0", "target": "identity.0", "type": edge_type})
     return AnalysisInputs.from_memory(
         index_records=[],
         detail_records=[],
@@ -101,7 +94,8 @@ class TestWriterArtifacts(unittest.TestCase):
     def _run_pipeline(self):
         inputs = _build_inputs()
         return run_domain_discovery(
-            inputs, project_root="/repo",
+            inputs,
+            project_root="/repo",
             limits=ProcessingLimits(),
             manifest={},
         )
@@ -164,9 +158,7 @@ class TestWriterArtifacts(unittest.TestCase):
             ):
                 self.assertFalse((Path(tmp) / filename).exists())
             self.assertEqual(len(written.output_files), 3)
-            self.assertEqual(
-                written.output_files[0].name, DOMAINS_DETECTED_FILENAME
-            )
+            self.assertEqual(written.output_files[0].name, DOMAINS_DETECTED_FILENAME)
 
     def test_repeated_writes_are_byte_stable(self) -> None:
         result_a = self._run_pipeline()
@@ -175,12 +167,8 @@ class TestWriterArtifacts(unittest.TestCase):
             write_domain_artifacts(result_a, tmp_a)
             write_domain_artifacts(result_b, tmp_b)
             self.assertEqual(
-                (Path(tmp_a) / DOMAINS_DETECTED_FILENAME).read_text(
-                    encoding="utf-8"
-                ),
-                (Path(tmp_b) / DOMAINS_DETECTED_FILENAME).read_text(
-                    encoding="utf-8"
-                ),
+                (Path(tmp_a) / DOMAINS_DETECTED_FILENAME).read_text(encoding="utf-8"),
+                (Path(tmp_b) / DOMAINS_DETECTED_FILENAME).read_text(encoding="utf-8"),
             )
 
 
@@ -189,7 +177,8 @@ class TestDescriptorSuggestions(unittest.TestCase):
 
     def test_suggestions_only_when_opt_in(self) -> None:
         result = run_domain_discovery(
-            _build_inputs(), project_root="/repo",
+            _build_inputs(),
+            project_root="/repo",
             limits=ProcessingLimits(),
             manifest={},
         )
@@ -203,9 +192,7 @@ class TestDescriptorSuggestions(unittest.TestCase):
 
             # Opt-in: one suggestion per candidate lands under
             # domain_descriptor_suggestions/<id>/domain.json.
-            written_on = write_descriptor_suggestions(
-                result, tmp, opt_in=True
-            )
+            written_on = write_descriptor_suggestions(result, tmp, opt_in=True)
             self.assertGreater(len(written_on.descriptor_suggestions), 0)
             self.assertTrue(suggestions_root.is_dir())
             for path in written_on.descriptor_suggestions:
@@ -225,7 +212,8 @@ class TestDescriptorSuggestions(unittest.TestCase):
     def test_existing_domains_are_not_touched(self) -> None:
         """An existing domains/<id>/domain.json must not be overwritten."""
         result = run_domain_discovery(
-            _build_inputs(), project_root="/repo",
+            _build_inputs(),
+            project_root="/repo",
             limits=ProcessingLimits(),
             manifest={},
         )
@@ -255,12 +243,7 @@ class TestDescriptorSuggestions(unittest.TestCase):
                 json.dumps(existing_descriptor, ensure_ascii=False, indent=2),
             )
             # The suggestion lives next to it, not in domains/.
-            suggestion = (
-                Path(tmp)
-                / DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME
-                / "identity"
-                / "domain.json"
-            )
+            suggestion = Path(tmp) / DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME / "identity" / "domain.json"
             self.assertTrue(suggestion.is_file())
             self.assertNotEqual(
                 existing_path.read_text(encoding="utf-8"),
@@ -270,19 +253,15 @@ class TestDescriptorSuggestions(unittest.TestCase):
     def test_suggestion_payload_is_minimal(self) -> None:
         """Suggestions expose only static analysis evidence; no runtime claims."""
         result = run_domain_discovery(
-            _build_inputs(), project_root="/repo",
+            _build_inputs(),
+            project_root="/repo",
             limits=ProcessingLimits(),
             manifest={},
         )
         with tempfile_TmpDir() as tmp:
             write_descriptor_suggestions(result, tmp, opt_in=True)
             for path in result.domain_candidates:
-                suggestion = (
-                    Path(tmp)
-                    / DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME
-                    / path.domain_id
-                    / "domain.json"
-                )
+                suggestion = Path(tmp) / DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME / path.domain_id / "domain.json"
                 payload = json.loads(suggestion.read_text(encoding="utf-8"))
                 self.assertEqual(payload["schema"], DOMAIN_DESCRIPTOR_SCHEMA)
                 self.assertEqual(

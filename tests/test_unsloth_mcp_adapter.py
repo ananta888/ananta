@@ -20,21 +20,14 @@ from agent.services.unsloth_studio_worker_adapter import (
 )
 from agent.services.workflow_runtime.security import InMemoryReplayNonceStore
 
-_FIXTURE = (
-    Path(__file__).parent
-    / "fixtures"
-    / "unsloth_studio"
-    / "mcp-tools-list.v1.json"
-)
+_FIXTURE = Path(__file__).parent / "fixtures" / "unsloth_studio" / "mcp-tools-list.v1.json"
 _TOKEN = "mcp-test-bearer-token"
 
 
 class _FakeTransport:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
-        self.tools_response: Mapping[str, Any] = json.loads(
-            _FIXTURE.read_text(encoding="utf-8")
-        )
+        self.tools_response: Mapping[str, Any] = json.loads(_FIXTURE.read_text(encoding="utf-8"))
         self.tool_content: Any = {
             "content": [
                 {
@@ -49,13 +42,9 @@ class _FakeTransport:
         self.calls.append(dict(values))
         payload = dict(values.get("payload") or {})
         if payload.get("method") == "initialize":
-            response_headers = values.get(
-                "response_headers"
-            )
+            response_headers = values.get("response_headers")
             if isinstance(response_headers, dict):
-                response_headers["Mcp-Session-Id"] = (
-                    "session-test-0001"
-                )
+                response_headers["Mcp-Session-Id"] = "session-test-0001"
             return {
                 "jsonrpc": "2.0",
                 "id": payload.get("id"),
@@ -104,16 +93,17 @@ def _adapter() -> tuple[
         hub_task_commands=commands,
         allowed_mutations=("stop_training",),
     )
-    clock = lambda: 100.0
+
+    def clock():
+        return 100.0
+
     audits: list[tuple[str, Mapping[str, object]]] = []
     adapter = UnslothMcpAdapter(
         transport=transport,
         studio_adapter=studio,
         replay_store=InMemoryReplayNonceStore(clock=clock),
         mcp_bearer_secret_ref="env://UNSLOTH_MCP_BEARER",
-        secret_resolver=OpaqueSecretReferenceService(
-            {"UNSLOTH_MCP_BEARER": _TOKEN}
-        ),
+        secret_resolver=OpaqueSecretReferenceService({"UNSLOTH_MCP_BEARER": _TOKEN}),
         tool_policies=default_unsloth_mcp_tool_policies(),
         audit_sink=lambda event, details: audits.append((event, details)),
         clock=clock,
@@ -140,11 +130,7 @@ def test_read_tool_requires_successful_probe_and_uses_separate_mcp_bearer() -> N
         "tools/list",
         "tools/call",
     ]
-    assert all(
-        call["service_bearer_secret_ref"]
-        == "env://UNSLOTH_MCP_BEARER"
-        for call in transport.calls
-    )
+    assert all(call["service_bearer_secret_ref"] == "env://UNSLOTH_MCP_BEARER" for call in transport.calls)
     assert audits[-1][1]["correlation_id"] == "correlation-status-0001"
 
 
@@ -167,7 +153,7 @@ def test_stop_training_is_queued_at_hub_and_never_called_through_mcp() -> None:
     assert [call["payload"]["method"] for call in transport.calls] == [
         "initialize",
         "notifications/initialized",
-        "tools/list"
+        "tools/list",
     ]
     assert len(commands.commands) == 1
     assert commands.commands[0].command_type == "unsloth.mcp.stop_training"
@@ -268,11 +254,7 @@ def test_argument_schemas_reject_path_url_and_shell_surfaces() -> None:
 def test_probe_rejects_missing_allowlisted_upstream_tool() -> None:
     adapter, transport, _commands, _audits = _adapter()
     response = json.loads(_FIXTURE.read_text(encoding="utf-8"))
-    response["result"]["tools"] = [
-        tool
-        for tool in response["result"]["tools"]
-        if tool.get("name") != "stop_training"
-    ]
+    response["result"]["tools"] = [tool for tool in response["result"]["tools"] if tool.get("name") != "stop_training"]
     transport.tools_response = response
     with pytest.raises(
         UnslothMcpError,

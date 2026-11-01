@@ -12,6 +12,7 @@ Prüft:
 Aufruf: python scripts/lint_tutor_texts.py
 Exit 0 = alles OK, Exit 1 = Fehler gefunden.
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,13 +22,27 @@ ROOT = Path(__file__).parent.parent
 YAML_PATH = ROOT / "client_surfaces" / "operator_tui" / "snake_tutor_texts.yaml"
 
 REQUIRED_EVENTS = [
-    "food_eaten", "collision_wall", "collision_self",
-    "level_up_5", "level_up_10", "level_up_20",
-    "zone_header", "zone_nav", "zone_content", "zone_detail",
+    "food_eaten",
+    "collision_wall",
+    "collision_self",
+    "level_up_5",
+    "level_up_10",
+    "level_up_20",
+    "zone_header",
+    "zone_nav",
+    "zone_content",
+    "zone_detail",
 ]
 REQUIRED_SECTIONS = [
-    "dashboard", "goals", "tasks", "artifacts", "knowledge",
-    "config", "system", "audit", "terminal",
+    "dashboard",
+    "goals",
+    "tasks",
+    "artifacts",
+    "knowledge",
+    "config",
+    "system",
+    "audit",
+    "terminal",
 ]
 DEPTHS = ("overview", "deep", "expert")
 MAX_LEN = {"overview": 60, "deep": 200, "expert": 400}
@@ -118,7 +133,9 @@ def main() -> int:
             print(f"  {e}")
         return 1
 
-    print(f"OK  snake_tutor_texts.yaml – keine Fehler ({len(REQUIRED_EVENTS)} Events, {len(REQUIRED_SECTIONS)} Sections geprüft)")
+    print(
+        f"OK  snake_tutor_texts.yaml – keine Fehler ({len(REQUIRED_EVENTS)} Events, {len(REQUIRED_SECTIONS)} Sections geprüft)"
+    )
     return 0
 
 

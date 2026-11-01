@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ananta_contracts.unsloth_task import unsloth_payload_sha256
 from agent.services.unsloth_completion_outbox_service import (
     UnslothCompletionOutboxReconciler,
 )
@@ -12,6 +11,7 @@ from agent.services.unsloth_model_catalog_service import (
     SqliteUnslothModelCatalogRegistry,
     UnslothModelImportResultHandler,
 )
+from ananta_contracts.unsloth_task import unsloth_payload_sha256
 
 
 def _payload() -> dict[str, Any]:
@@ -68,9 +68,7 @@ def _task_and_envelope(
         "status": "assigned",
         "verification_status": {},
         "worker_execution_context": {
-            "schema": (
-                "ananta.unsloth-worker-task-context.v1"
-            ),
+            "schema": ("ananta.unsloth-worker-task-context.v1"),
             "unsloth_task": {
                 "task_type": "ml.model.import",
                 "tenant_id": "tenant-a",
@@ -103,16 +101,11 @@ class _Tasks:
         entry: ModelImportCompletionOutboxEntry,
     ) -> bool:
         if self.fail_if_committed:
-            raise AssertionError(
-                "already committed replay must not rewrite task"
-            )
+            raise AssertionError("already committed replay must not rewrite task")
         self.commit_calls += 1
         self.task["status"] = "completed"
         self.task["verification_status"] = {
-            **dict(
-                self.task.get("verification_status")
-                or {}
-            ),
+            **dict(self.task.get("verification_status") or {}),
             **entry.projection,
         }
         return True
@@ -126,13 +119,9 @@ def _prepare_pending(
     ModelImportCompletionOutboxEntry,
     dict[str, Any],
 ]:
-    registry = SqliteUnslothModelCatalogRegistry(
-        tmp_path / "catalog.sqlite3"
-    )
+    registry = SqliteUnslothModelCatalogRegistry(tmp_path / "catalog.sqlite3")
     task, envelope = _task_and_envelope(task_id)
-    _record, entry = UnslothModelImportResultHandler(
-        registry
-    ).handle_with_completion_outbox(
+    _record, entry = UnslothModelImportResultHandler(registry).handle_with_completion_outbox(
         task_id=task_id,
         task_payload=_payload(),
         worker_result=_worker_result(),
@@ -151,9 +140,7 @@ def test_pending_outbox_recovers_task_before_catalog_publish(
     )
     tasks = _Tasks(task)
 
-    assert registry.list_versions(
-        tenant_id="tenant-a"
-    ) == ()
+    assert registry.list_versions(tenant_id="tenant-a") == ()
     assert entry.state == "pending"
 
     reconciler = UnslothCompletionOutboxReconciler(
@@ -164,12 +151,8 @@ def test_pending_outbox_recovers_task_before_catalog_publish(
 
     assert task["status"] == "completed"
     assert tasks.commit_calls == 1
-    assert len(
-        registry.list_versions(tenant_id="tenant-a")
-    ) == 1
-    stored = registry.get_completion_outbox(
-        task_id=task_id
-    )
+    assert len(registry.list_versions(tenant_id="tenant-a")) == 1
+    stored = registry.get_completion_outbox(task_id=task_id)
     assert stored is not None
     assert stored.state == "terminalized"
 
@@ -193,15 +176,11 @@ def test_replay_acknowledges_committed_task_without_rewrite(
     assert reconciler.reconcile_task(task_id) is True
     assert tasks.commit_calls == 0
 
-    _record, replayed = UnslothModelImportResultHandler(
-        registry
-    ).handle_with_completion_outbox(
+    _record, replayed = UnslothModelImportResultHandler(registry).handle_with_completion_outbox(
         task_id=task_id,
         task_payload=_payload(),
         worker_result=_worker_result(),
         worker_envelope=_task_and_envelope(task_id)[1],
     )
     assert replayed.outbox_id == entry.outbox_id
-    assert len(
-        registry.list_versions(tenant_id="tenant-a")
-    ) == 1
+    assert len(registry.list_versions(tenant_id="tenant-a")) == 1

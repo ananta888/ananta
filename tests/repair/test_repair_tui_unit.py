@@ -1,4 +1,5 @@
 """Unit tests for agent/repair_tui.py — command extraction and retry context."""
+
 from __future__ import annotations
 
 from agent.repair_tui import (
@@ -9,8 +10,8 @@ from agent.repair_tui import (
     extract_commands_from_outputs,
 )
 
-
 # ── extract_commands_from_outputs ─────────────────────────────────────────────
+
 
 def test_extract_bash_block_single_command():
     outputs = [("task-1", "```bash\nsystemctl restart nginx\n```")]
@@ -85,6 +86,7 @@ def test_extract_blank_lines_in_block_are_skipped():
 
 # ── build_retry_context ───────────────────────────────────────────────────────
 
+
 def test_build_retry_context_empty_history():
     assert build_retry_context([]) == ""
 
@@ -129,6 +131,7 @@ def test_build_retry_context_multiple_iterations():
 
 # ── RepairCommand properties ──────────────────────────────────────────────────
 
+
 def test_repair_command_succeeded_property():
     cmd = RepairCommand(command="echo ok")
     cmd.executed = True
@@ -152,6 +155,7 @@ def test_repair_command_not_executed_is_neither():
 
 
 # ── _build_failure_summary ────────────────────────────────────────────────────
+
 
 def test_build_failure_summary_only_includes_failed():
     ok_cmd = RepairCommand(command="echo ok")

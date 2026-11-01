@@ -18,15 +18,21 @@ class NativeExecutionAdmission:
 
     def authorize(self, task):
         try:
-            context = task.get('worker_execution_context') or {}
-            if ((context.get('schema'), context.get('runtime_path')) != (
-                    NATIVE_GRAPH_WORKER_CONTEXT_SCHEMA, NATIVE_GRAPH_RUNTIME_PATH)):
+            context = task.get("worker_execution_context") or {}
+            if (context.get("schema"), context.get("runtime_path")) != (
+                NATIVE_GRAPH_WORKER_CONTEXT_SCHEMA,
+                NATIVE_GRAPH_RUNTIME_PATH,
+            ):
                 return False
-            command = NativeNodeCommand.from_mapping(dict(context.get('native_node_command') or {}))
-            if command.tenant_id != task.get('tenant_id') or command.node.task_kind != task.get('task_kind'):
+            command = NativeNodeCommand.from_mapping(dict(context.get("native_node_command") or {}))
+            if command.tenant_id != task.get("tenant_id") or command.node.task_kind != task.get("task_kind"):
                 return False
-            decision = self._authorization.authorize(binding=native_command_worker_binding(command),
-                adapter_kind='native', attempt_id=command.attempt_id, fencing_token=command.fencing_token)
+            decision = self._authorization.authorize(
+                binding=native_command_worker_binding(command),
+                adapter_kind="native",
+                attempt_id=command.attempt_id,
+                fencing_token=command.fencing_token,
+            )
             return isinstance(decision, ExecutionAuthorizationDecision) and decision.allowed is True
         except Exception:
             # An unavailable/malformed Hub decision cannot allocate an extra slot.

@@ -1,24 +1,21 @@
 """Tests for ProposeStrategyOrchestrator per FA-T005."""
-from unittest.mock import Mock, MagicMock
+
+from unittest.mock import Mock
 
 import pytest
 
+from agent.services.model_recovery_signal import build_model_recovery_signal
+from agent.services.propose_policy import ProposePolicy
+from worker.core.propose import (
+    STATUS_NEEDS_REVIEW,
+    ExecutableProposal,
+    ProposeStrategyResult,
+)
 from worker.core.propose_orchestrator import (
     ProposeContext,
-    ProposeStrategyOrchestrator,
     ProposeStrategy,
+    ProposeStrategyOrchestrator,
 )
-
-from worker.core.propose import (
-    ProposeStrategyResult,
-    ExecutableProposal,
-    STATUS_EXECUTABLE,
-    STATUS_DECLINED,
-    STATUS_NEEDS_REVIEW,
-)
-
-from agent.services.propose_policy import ProposePolicy
-from agent.services.model_recovery_signal import build_model_recovery_signal
 
 
 class TestProposeStrategyOrchestrator:

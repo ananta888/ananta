@@ -38,9 +38,7 @@ def load_domain_supplement_domain(
     checkpoint: Callable[[], object] | None = None,
 ) -> tuple[DomainSupplementDomainRecords, int]:
     """Return ``((nodes, semantic_edges, declaration_edges), raw_bytes)``."""
-    records: dict[str, list[Mapping[str, object]]] = {
-        kind: [] for kind in DOMAIN_SUPPLEMENT_PAYLOAD_KIND_SET
-    }
+    records: dict[str, list[Mapping[str, object]]] = {kind: [] for kind in DOMAIN_SUPPLEMENT_PAYLOAD_KIND_SET}
     expected_ordinal = {kind: 0 for kind in DOMAIN_SUPPLEMENT_PAYLOAD_KIND_SET}
     raw_bytes = 0
     for row in iter_domain_supplement_chunk_rows(

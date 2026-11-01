@@ -53,15 +53,18 @@ def test_ready_endpoint_uses_runtime_default_provider_from_app_config(client, ap
         "lmstudio": "http://runtime-lmstudio:1234/v1",
     }
 
-    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
-        "agent.llm_integration.probe_lmstudio_runtime",
-        return_value={
-            "ok": True,
-            "status": "ok",
-            "models_url": "http://runtime-lmstudio:1234/v1/models",
-            "candidate_count": 2,
-            "candidates": [{"id": "model-a"}, {"id": "model-b"}],
-        },
+    with (
+        patch("agent.common.http.HttpClient.get") as mock_get,
+        patch(
+            "agent.llm_integration.probe_lmstudio_runtime",
+            return_value={
+                "ok": True,
+                "status": "ok",
+                "models_url": "http://runtime-lmstudio:1234/v1/models",
+                "candidate_count": 2,
+                "candidates": [{"id": "model-a"}, {"id": "model-b"}],
+            },
+        ),
     ):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -87,16 +90,19 @@ def test_ready_endpoint_probes_ollama_tags_instead_of_generate_get(client, app):
         "ollama": "http://ollama:11434/api/generate",
     }
 
-    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
-        "agent.llm_integration.probe_ollama_runtime",
-        return_value={
-            "ok": True,
-            "status": "ok",
-            "tags_url": "http://ollama:11434/api/tags",
-            "candidate_count": 2,
-            "models": [{"name": "model-a"}, {"name": "model-b"}],
-        },
-    ) as probe:
+    with (
+        patch("agent.common.http.HttpClient.get") as mock_get,
+        patch(
+            "agent.llm_integration.probe_ollama_runtime",
+            return_value={
+                "ok": True,
+                "status": "ok",
+                "tags_url": "http://ollama:11434/api/tags",
+                "candidate_count": 2,
+                "models": [{"name": "model-a"}, {"name": "model-b"}],
+            },
+        ) as probe,
+    ):
         hub_response = MagicMock()
         hub_response.status_code = 200
         mock_get.return_value = hub_response
@@ -125,13 +131,16 @@ def test_health_endpoint_marks_lmstudio_unstable_when_reachable_without_models(c
         "lmstudio": "http://runtime-lmstudio:1234/v1",
     }
 
-    with patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
-        "ok": True,
-        "status": "reachable_no_models",
-        "models_url": "http://runtime-lmstudio:1234/v1/models",
-        "candidate_count": 0,
-        "candidates": [],
-    }):
+    with patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={
+            "ok": True,
+            "status": "reachable_no_models",
+            "models_url": "http://runtime-lmstudio:1234/v1/models",
+            "candidate_count": 0,
+            "candidates": [],
+        },
+    ):
         response = client.get("/health")
 
     assert response.status_code == 200
@@ -146,16 +155,19 @@ def test_health_endpoint_marks_ollama_ok_via_tags_probe_without_get_generate(cli
     }
     app.config["PROVIDER_URLS"] = {"ollama": "http://runtime-ollama:11434/api/generate"}
 
-    with patch(
-        "agent.services.system_health_service.probe_ollama_runtime",
-        return_value={
-            "ok": True,
-            "status": "ok",
-            "tags_url": "http://runtime-ollama:11434/api/tags",
-            "candidate_count": 2,
-            "models": [{"name": "m1"}, {"name": "m2"}],
-        },
-    ) as mock_probe, patch("agent.services.system_health_service.http_client.get") as mock_http_get:
+    with (
+        patch(
+            "agent.services.system_health_service.probe_ollama_runtime",
+            return_value={
+                "ok": True,
+                "status": "ok",
+                "tags_url": "http://runtime-ollama:11434/api/tags",
+                "candidate_count": 2,
+                "models": [{"name": "m1"}, {"name": "m2"}],
+            },
+        ) as mock_probe,
+        patch("agent.services.system_health_service.http_client.get") as mock_http_get,
+    ):
         response = client.get("/health")
 
     assert response.status_code == 200
@@ -216,7 +228,10 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert data["examples"]["worker_routing_decision"]["required_capabilities"] == ["research", "repo_research"]
     assert data["examples"]["worker_routing_decision"]["research_specialization"] == "repo_research"
     assert data["examples"]["worker_routing_decision"]["preferred_backend"] == "deerflow"
-    assert data["examples"]["worker_execution_context"]["routing"]["matched_capabilities"] == ["research", "repo_research"]
+    assert data["examples"]["worker_execution_context"]["routing"]["matched_capabilities"] == [
+        "research",
+        "repo_research",
+    ]
     assert data["examples"]["worker_execution_context"]["routing"]["research_specialization"] == "repo_research"
     assert data["examples"]["task_scoped_step_propose_response"]["routing"]["effective_backend"] == "opencode"
     assert data["examples"]["task_scoped_step_propose_response"]["routing"]["required_capabilities"] == ["coding"]
@@ -233,12 +248,12 @@ def test_openapi_endpoint_is_generated_from_contract_catalog(client, admin_auth_
     assert "/step/propose" in data["paths"]
     assert "/tasks/{tid}/step/execute" in data["paths"]
     assert "task_scoped_step_execute_response" in data["components"]["schemas"]
-    request_schema = (
-        data["paths"]["/tasks/{tid}/step/execute"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"]
-    )
-    response_schema = (
-        data["paths"]["/tasks/{tid}/step/execute"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
-    )
+    request_schema = data["paths"]["/tasks/{tid}/step/execute"]["post"]["requestBody"]["content"]["application/json"][
+        "schema"
+    ]["$ref"]
+    response_schema = data["paths"]["/tasks/{tid}/step/execute"]["post"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]["$ref"]
     assert request_schema.endswith("/task_step_execute_request")
     assert response_schema.endswith("/task_scoped_step_execute_response")
 
@@ -289,15 +304,18 @@ def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
         "lmstudio": "not-a-valid-url",
     }
 
-    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
-        "agent.llm_integration.probe_lmstudio_runtime",
-        return_value={
-            "ok": False,
-            "status": "invalid_url",
-            "models_url": None,
-            "candidate_count": 0,
-            "candidates": [],
-        },
+    with (
+        patch("agent.common.http.HttpClient.get") as mock_get,
+        patch(
+            "agent.llm_integration.probe_lmstudio_runtime",
+            return_value={
+                "ok": False,
+                "status": "invalid_url",
+                "models_url": None,
+                "candidate_count": 0,
+                "candidates": [],
+            },
+        ),
     ):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -324,16 +342,19 @@ def test_ready_endpoint_reports_models_endpoint_on_lmstudio_probe_failure(client
         "lmstudio": "http://runtime-lmstudio:1234/v1/chat/completions",
     }
 
-    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
-        "agent.llm_integration.probe_lmstudio_runtime",
-        return_value={
-            "ok": False,
-            "status": "error",
-            "base_url": "http://runtime-lmstudio:1234/v1",
-            "models_url": "http://runtime-lmstudio:1234/v1/models",
-            "candidate_count": 0,
-            "candidates": [],
-        },
+    with (
+        patch("agent.common.http.HttpClient.get") as mock_get,
+        patch(
+            "agent.llm_integration.probe_lmstudio_runtime",
+            return_value={
+                "ok": False,
+                "status": "error",
+                "base_url": "http://runtime-lmstudio:1234/v1",
+                "models_url": "http://runtime-lmstudio:1234/v1/models",
+                "candidate_count": 0,
+                "candidates": [],
+            },
+        ),
     ):
         mock_response = MagicMock()
         mock_response.status_code = 200

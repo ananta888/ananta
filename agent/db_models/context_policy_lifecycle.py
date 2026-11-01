@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlalchemy as sa
-from sqlmodel import Column, Field, JSON, SQLModel
+from sqlmodel import JSON, Column, Field, SQLModel
 
 
 class ContextPolicyVersionDB(SQLModel, table=True):

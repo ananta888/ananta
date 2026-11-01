@@ -8,11 +8,7 @@ from sqlmodel import Field, SQLModel
 
 class _RedactedPublicRemoteMixin:
     def __repr__(self) -> str:
-        return (
-            f"{type(self).__name__}("
-            f"provider={getattr(self, 'provider', None)!r}, "
-            "endpoint=<redacted>)"
-        )
+        return f"{type(self).__name__}(provider={getattr(self, 'provider', None)!r}, endpoint=<redacted>)"
 
     __str__ = __repr__
 

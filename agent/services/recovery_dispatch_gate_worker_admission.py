@@ -65,10 +65,7 @@ def admit_incoming_recovery_dispatch(
     from agent.config import settings
 
     if str(settings.role or "").strip().lower() == "hub":
-        local_url = str(
-            settings.agent_url
-            or f"http://localhost:{settings.port}"
-        ).strip().rstrip("/")
+        local_url = str(settings.agent_url or f"http://localhost:{settings.port}").strip().rstrip("/")
         return admit_local(
             task_id,
             token=token,
@@ -79,10 +76,7 @@ def admit_incoming_recovery_dispatch(
         )
 
     hub_url = str(settings.hub_url or "").strip().rstrip("/")
-    worker_url = str(
-        settings.agent_url
-        or f"http://localhost:{settings.port}"
-    ).strip().rstrip("/")
+    worker_url = str(settings.agent_url or f"http://localhost:{settings.port}").strip().rstrip("/")
     if not hub_url:
         return RecoveryDispatchGateDecision(
             False,
@@ -100,15 +94,10 @@ def admit_incoming_recovery_dispatch(
                 "recovery_dispatch_worker_identity_denied",
             )
         response = requests.post(
-            (
-                f"{hub_url}/internal/tasks/{task_id}"
-                "/recovery-dispatch-admission"
-            ),
+            (f"{hub_url}/internal/tasks/{task_id}/recovery-dispatch-admission"),
             json={
                 "phase": normalize_dispatch_phase(phase),
-                "request_fingerprint": str(
-                    request_fingerprint or ""
-                ),
+                "request_fingerprint": str(request_fingerprint or ""),
             },
             headers={
                 "Authorization": f"Bearer {worker_token}",
@@ -123,34 +112,18 @@ def admit_incoming_recovery_dispatch(
                 "recovery_dispatch_hub_rejected",
             )
         body = response.json()
-        payload = (
-            body.get("data")
-            if isinstance(body, Mapping)
-            else None
-        )
-        if not isinstance(payload, Mapping) or not bool(
-            payload.get("allowed")
-        ):
+        payload = body.get("data") if isinstance(body, Mapping) else None
+        if not isinstance(payload, Mapping) or not bool(payload.get("allowed")):
             return RecoveryDispatchGateDecision(
                 False,
-                str(
-                    (payload or {}).get("reason_code")
-                    or "recovery_dispatch_hub_rejected"
-                ),
+                str((payload or {}).get("reason_code") or "recovery_dispatch_hub_rejected"),
             )
         return RecoveryDispatchGateDecision(
             True,
-            str(
-                payload.get("reason_code")
-                or "recovery_dispatch_lease_valid"
-            ),
-            source_task_id=(
-                str(payload.get("source_task_id") or "") or None
-            ),
+            str(payload.get("reason_code") or "recovery_dispatch_lease_valid"),
+            source_task_id=(str(payload.get("source_task_id") or "") or None),
             plan_id=str(payload.get("plan_id") or "") or None,
-            release_epoch=(
-                str(payload.get("release_epoch") or "") or None
-            ),
+            release_epoch=(str(payload.get("release_epoch") or "") or None),
         )
     except Exception:
         return RecoveryDispatchGateDecision(
@@ -187,14 +160,8 @@ def recovery_worker_identity_valid(
             authenticate_registered_workflow_worker,
         )
 
-        config = (
-            getattr(app, "config", None)
-            if app is not None
-            else current_app.config if has_app_context() else None
-        )
-        hub_service_token = resolve_configured_agent_token(
-            config
-        )
+        config = getattr(app, "config", None) if app is not None else current_app.config if has_app_context() else None
+        hub_service_token = resolve_configured_agent_token(config)
         user_session_secret = (
             getattr(app, "secret_key", None)
             if app is not None
@@ -205,9 +172,7 @@ def recovery_worker_identity_valid(
         identity = authenticate_registered_workflow_worker(
             str(worker_token),
             required_scope=RECOVERY_TASK_DISPATCH_SCOPE,
-            claimed_worker_id=str(
-                _value(worker, "name") or ""
-            ),
+            claimed_worker_id=str(_value(worker, "name") or ""),
             claimed_worker_url=str(worker_url),
             registered_agents=agents,
             hub_service_token=hub_service_token,
@@ -217,12 +182,6 @@ def recovery_worker_identity_valid(
     except Exception:
         return False
     required_capabilities = {
-        str(value).strip()
-        for value in (
-            _value(task, "required_capabilities") or ()
-        )
-        if str(value).strip()
+        str(value).strip() for value in (_value(task, "required_capabilities") or ()) if str(value).strip()
     }
-    return required_capabilities.issubset(
-        set(identity.capabilities)
-    )
+    return required_capabilities.issubset(set(identity.capabilities))

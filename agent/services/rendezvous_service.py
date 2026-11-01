@@ -5,13 +5,13 @@
 - Presence-Metadaten für berechtigte Teilnehmer
 - Rate-Limits gegen Invite-Bruteforce
 """
+
 from __future__ import annotations
 
 import secrets
 import time
 import uuid
 from typing import Any
-
 
 _DEFAULT_SESSION_TTL = 6 * 3600  # 6h
 _MAX_PARTICIPANTS_PER_SESSION = 20
@@ -147,8 +147,7 @@ class RendezvousService:
         parts = _participants.get(session_id, [])
         # Nur berechtigte aktive Teilnehmer dürfen abrufen
         is_member = session.get("owner_user_id") == requester_user_id or any(
-            p.get("user_id") == requester_user_id and not p.get("revoked_at")
-            for p in parts
+            p.get("user_id") == requester_user_id and not p.get("revoked_at") for p in parts
         )
         if not is_member:
             return {"ok": False, "reason": "forbidden"}
@@ -188,8 +187,7 @@ class RendezvousService:
                 continue
             parts = _participants.get(sid, [])
             is_member = session.get("owner_user_id") == requester_user_id or any(
-                p.get("user_id") == requester_user_id and not p.get("revoked_at")
-                for p in parts
+                p.get("user_id") == requester_user_id and not p.get("revoked_at") for p in parts
             )
             if not is_member:
                 continue

@@ -1,14 +1,15 @@
 """Tests for ToolCallLogService (TRANS-004)."""
+
 from __future__ import annotations
 
 import json
 
 from agent.services.tool_call_log_service import ToolCallLogService, ToolCallRecord
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _svc() -> ToolCallLogService:
     return ToolCallLogService()
@@ -38,6 +39,7 @@ def _basic_record(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_record_hashes_input_output() -> None:
     """input_data and output_data must never appear raw in the record."""
@@ -135,10 +137,7 @@ def test_export_jsonl() -> None:
     """export_run must return JSONL with one valid JSON object per line."""
     svc = _svc()
     run_id = "run-jsonl"
-    records = [
-        _basic_record(svc, run_id=run_id, tool_name=f"tool_{i}")
-        for i in range(3)
-    ]
+    records = [_basic_record(svc, run_id=run_id, tool_name=f"tool_{i}") for i in range(3)]
     # Add a record for a different run — must be excluded
     other = _basic_record(svc, run_id="run-other")
     exported = svc.export_run(run_id, records + [other])

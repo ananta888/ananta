@@ -9,9 +9,17 @@ from ananta_contracts.native_result_maintenance import MAINTENANCE_TASK_KIND
 from ananta_contracts.native_task_execution import MAX_NATIVE_TASK_HTTP_BYTES, verify_native_execution_envelope
 
 
-def create_native_execution_blueprint(*, token_provider, recipient_provider, verification_provider=None, consumer=None,
-                                      result_store_provider=None, evidence_consumer=None, result_store_resolver=None,
-                                      execution_admission=None):
+def create_native_execution_blueprint(
+    *,
+    token_provider,
+    recipient_provider,
+    verification_provider=None,
+    consumer=None,
+    result_store_provider=None,
+    evidence_consumer=None,
+    result_store_resolver=None,
+    execution_admission=None,
+):
     if verification_provider is None:
         from worker.runtime.native_graph.authorization import load_ed25519_verification_key_ring
 
@@ -48,8 +56,10 @@ def create_native_execution_blueprint(*, token_provider, recipient_provider, ver
         try:
             worker_id, worker_url = recipient_provider()
             verified = verify_native_execution_envelope(
-                request.get_json(silent=True), key_ring=verification_provider(),
-                worker_id=worker_id, worker_url=worker_url,
+                request.get_json(silent=True),
+                key_ring=verification_provider(),
+                worker_id=worker_id,
+                worker_url=worker_url,
             )
             task = verified.task
         except RequestEntityTooLarge:
@@ -60,23 +70,27 @@ def create_native_execution_blueprint(*, token_provider, recipient_provider, ver
             return jsonify(reason_code="native_execution_verification_unavailable"), 503
         if verified.evidence_assignment is not None and evidence_consumer is None:
             return jsonify(reason_code="native_execution_evidence_consumer_unavailable"), 503
-        if (task['task_kind'] == MAINTENANCE_TASK_KIND and request.path.endswith('/execute')
-                and execution_admission is not None):
+        if (
+            task["task_kind"] == MAINTENANCE_TASK_KIND
+            and request.path.endswith("/execute")
+            and execution_admission is not None
+        ):
             try:
                 if execution_admission(task) is not True:
-                    return jsonify(reason_code='native_execution_authority_denied'), 409
+                    return jsonify(reason_code="native_execution_authority_denied"), 409
             except Exception:
-                return jsonify(reason_code='native_execution_authority_unavailable'), 503
-        store_binding = ({"evidence_assignment": verified.evidence_assignment}
-                         if verified.evidence_assignment is not None else {})
+                return jsonify(reason_code="native_execution_authority_unavailable"), 503
+        store_binding = (
+            {"evidence_assignment": verified.evidence_assignment} if verified.evidence_assignment is not None else {}
+        )
         store = None
         if result_store_provider is not None or result_store_resolver is not None:
             try:
                 store = result_store_resolver(task) if result_store_resolver is not None else result_store_provider()
             except Exception:
                 return jsonify(reason_code="native_result_store_unavailable"), 503
-        if task['task_kind'] == MAINTENANCE_TASK_KIND:
-            store_binding = {**store_binding, 'expire_before': False}
+        if task["task_kind"] == MAINTENANCE_TASK_KIND:
+            store_binding = {**store_binding, "expire_before": False}
         if request.path.endswith("/result"):
             if store is None:
                 return jsonify(reason_code="native_result_store_unavailable"), 503
@@ -87,8 +101,11 @@ def create_native_execution_blueprint(*, token_provider, recipient_provider, ver
         try:
             if store is not None:
                 store.reserve(task, **store_binding)
-            result = (evidence_consumer(task, verified.evidence_assignment)
-                      if verified.evidence_assignment is not None else consumer(task))
+            result = (
+                evidence_consumer(task, verified.evidence_assignment)
+                if verified.evidence_assignment is not None
+                else consumer(task)
+            )
         except Exception:
             return jsonify(reason_code="native_execution_consumer_failed"), 409
         if not isinstance(result, dict):

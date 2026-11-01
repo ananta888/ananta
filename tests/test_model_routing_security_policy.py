@@ -1,5 +1,7 @@
 """Tests for Security Policy enforcement in model routing — AMR-016."""
+
 import pytest
+
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import (
     ModelProfileResolver,
@@ -32,31 +34,39 @@ def _local(profile_id: str = "local-p") -> ModelProfile:
 
 # ── secret pattern detection ─────────────────────────────────────────────────
 
-@pytest.mark.parametrize("text", [
-    "api_key=sk-supersecret1234567890abcdef",
-    "SECRET_KEY = abc1234567890",
-    "password: mysecretpassword",
-    "bearer eyJhbGciOiJIUzI1NiJ9.xxxxxxxxxxxxxxxxxxxxxx",
-    "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-    "sk-abcdefghijklmnopqrstuvwx1234",
-])
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "api_key=sk-supersecret1234567890abcdef",
+        "SECRET_KEY = abc1234567890",
+        "password: mysecretpassword",
+        "bearer eyJhbGciOiJIUzI1NiJ9.xxxxxxxxxxxxxxxxxxxxxx",
+        "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "sk-abcdefghijklmnopqrstuvwx1234",
+    ],
+)
 def test_context_has_secrets_true(text: str):
     checker = SecurityPolicyChecker()
     assert checker.context_has_secrets(text), f"Should detect secret in: {text!r}"
 
 
-@pytest.mark.parametrize("text", [
-    "",
-    "this is a normal coding task",
-    "implement a REST API endpoint for /users",
-    "add error handling to the file reader",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "this is a normal coding task",
+        "implement a REST API endpoint for /users",
+        "add error handling to the file reader",
+    ],
+)
 def test_context_has_secrets_false(text: str):
     checker = SecurityPolicyChecker()
     assert not checker.context_has_secrets(text), f"Should NOT detect secret in: {text!r}"
 
 
 # ── cloud blocked when secrets present ───────────────────────────────────────
+
 
 def test_cloud_profile_blocked_when_secrets_in_context():
     resolver = ModelProfileResolver(
@@ -101,6 +111,7 @@ def test_policy_can_disable_secret_blocking():
 
 # ── cloud not allowed without explicit opt-in ─────────────────────────────────
 
+
 def test_cloud_without_cloud_allowed_flag_is_blocked():
     p = ModelProfile(
         profile_id="cloud-no-opt-in",
@@ -133,6 +144,7 @@ def test_cloud_missing_block_secret_context_blocked():
 
 # ── fallback to local when cloud is blocked ───────────────────────────────────
 
+
 def test_falls_back_to_local_when_cloud_blocked():
     resolver = ModelProfileResolver(
         profiles=[_cloud("cloud-first"), _local("local-fallback")],
@@ -145,6 +157,7 @@ def test_falls_back_to_local_when_cloud_blocked():
 
 
 # ── allowed_cloud_providers allowlist ─────────────────────────────────────────
+
 
 def test_allowed_cloud_providers_blocks_unknown_provider():
     p = _cloud()  # provider_id="openai"

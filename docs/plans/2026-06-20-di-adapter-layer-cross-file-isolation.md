@@ -95,6 +95,7 @@ plus 8 weitere Module außerhalb `agent/services/` (routes, scheduler, tools, ar
 # tests/test_di_adapter.py
 def test_di_returns_singleton_object():
     from agent.services.di import get_memory_entry_repository
+
     repo_a = get_memory_entry_repository()
     repo_b = get_memory_entry_repository()
     assert repo_a is repo_b  # idempotent
@@ -115,6 +116,7 @@ in __init__ eingefroren hat.
 SOLID: DIP (Abhängigkeit von Aufrufzeit-Abstraktion), OCP (neue Repos
 ohne Service-Änderung), SRP (nur Factory-Logik).
 """
+
 from __future__ import annotations
 from typing import Any
 
@@ -135,16 +137,19 @@ __all__ = [
 def get_memory_entry_repository() -> Any:
     """Liefert das aktuelle MemoryEntryRepository-Singleton (Aufrufzeit-Lookup)."""
     from agent.repository import memory_entry_repo
+
     return memory_entry_repo
 
 
 def get_artifact_repository() -> Any:
     from agent.repository import artifact_repo
+
     return artifact_repo
 
 
 def get_task_repository() -> Any:
     from agent.repository import task_repo
+
     return task_repo
 ```
 
@@ -191,6 +196,7 @@ agent_session_repo, tool_call_repo, policy_snapshot_repo
 ```python
 def get_X_repository() -> Any:
     from agent.repository import X_repo
+
     return X_repo
 ```
 
@@ -234,6 +240,7 @@ class ResultMemoryService:
         if self._memory_entry_repository_override is not None:
             return self._memory_entry_repository_override
         from agent.services.di import get_memory_entry_repository
+
         return get_memory_entry_repository()
 ```
 
@@ -252,6 +259,8 @@ def get_result_memory_service() -> ResultMemoryService:
 ```python
 # Am Ende der Datei:
 result_memory_service: ResultMemoryService | None = None
+
+
 def _get_or_create_result_memory_service() -> ResultMemoryService:
     global result_memory_service
     if result_memory_service is None:

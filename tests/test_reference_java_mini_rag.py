@@ -5,7 +5,6 @@ from pathlib import Path
 
 from agent.services.reference_profile_service import ReferenceProfileService
 
-
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "java_security_mini"
 
 

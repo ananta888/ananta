@@ -25,4 +25,3 @@ def test_runtime_llm_interceptor_dry_run(tmp_path, capsys):
     assert code == 0
     assert "LLM interceptor bind" in out
     assert "upstreams=['local']" in out
-

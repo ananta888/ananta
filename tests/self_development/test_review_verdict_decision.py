@@ -102,9 +102,7 @@ def test_reported_findings_block_an_otherwise_clean_verdict():
         answers={"criterion_0": _answer(True), "criterion_1": _answer(True), "findings_reported": _answer(True)}
     )
     result = _producer(stage).produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
-    assert result == AcceptanceReviewResult(
-        approved=False, criteria_passed=(True, True), findings=(FINDING_REPORTED,)
-    )
+    assert result == AcceptanceReviewResult(approved=False, criteria_passed=(True, True), findings=(FINDING_REPORTED,))
 
 
 def test_engine_disagreement_blocks_the_acceptance():
@@ -157,12 +155,25 @@ def test_factory_activates_an_agreement_of_two_engines(monkeypatch):
     settings = {
         "enabled": True,
         "providers": {
-            "laya": {"enabled": True, "base_url": "http://laya:8080", "model": "",
-                     "allowed_hosts": ["laya"], "api_key_env": "LAYA_API_KEY",
-                     "timeout_seconds": 5.0, "max_retries": 1, "max_state_chars": 32000},
-            "local_decision": {"enabled": True, "base_url": "http://egpu-code:18150",
-                               "base_url_env": "", "timeout_seconds": 20.0, "max_inflight": 4,
-                               "require_cache_isolation": False, "scoped_prefix_cache": False},
+            "laya": {
+                "enabled": True,
+                "base_url": "http://laya:8080",
+                "model": "",
+                "allowed_hosts": ["laya"],
+                "api_key_env": "LAYA_API_KEY",
+                "timeout_seconds": 5.0,
+                "max_retries": 1,
+                "max_state_chars": 32000,
+            },
+            "local_decision": {
+                "enabled": True,
+                "base_url": "http://egpu-code:18150",
+                "base_url_env": "",
+                "timeout_seconds": 20.0,
+                "max_inflight": 4,
+                "require_cache_isolation": False,
+                "scoped_prefix_cache": False,
+            },
         },
     }
     monkeypatch.setattr(module, "_provider_settings", lambda: settings)

@@ -10,6 +10,7 @@ they get their own approval stage (see rollout plan).
 
 Docs: ``docs/security/ananta-worker-workspace-mutation-policy.md``.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -31,11 +32,27 @@ VALID_MUTATION_MODES = {
 
 _ALWAYS_FORBIDDEN_SEGMENTS = {".git", ".ananta", "rag_helper", "__pycache__"}
 _SECRET_NAME_PATTERNS = (
-    ".env", ".env.*", "*.pem", "*.key", "id_rsa*", "*secret*", "*credential*", ".npmrc", ".netrc",
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    "id_rsa*",
+    "*secret*",
+    "*credential*",
+    ".npmrc",
+    ".netrc",
 )
 # AWWPI-004: paths that force strict_patch_request even in controlled mode.
 _DEFAULT_STRICT_PATH_MARKERS = (
-    "auth", "oidc", "keycloak", "deployment", "kubernetes", "secret", "security", ".github", "docker-compose",
+    "auth",
+    "oidc",
+    "keycloak",
+    "deployment",
+    "kubernetes",
+    "secret",
+    "security",
+    ".github",
+    "docker-compose",
 )
 # Runtime artifacts no change scope owns -- cache and log/state output, gitignored runtime per the
 # project's output boundary (AGENTS.md). They are neither allowed changes nor violations: a worker
@@ -102,7 +119,10 @@ class AnantaWorkspaceMutationPolicyService:
             mapping = cfg.get("mode_by_task_kind") if isinstance(cfg.get("mode_by_task_kind"), dict) else {}
             mapped = str(mapping.get(str(task_kind or "").strip().lower()) or "").strip().lower()
             mode = mapped if mapped in VALID_MUTATION_MODES else MUTATION_MODE_READ_ONLY
-        escalate_risks = {str(item or "").strip().lower() for item in list(cfg.get("escalate_to_strict_risks") or ["high", "critical"])}
+        escalate_risks = {
+            str(item or "").strip().lower()
+            for item in list(cfg.get("escalate_to_strict_risks") or ["high", "critical"])
+        }
         if mode == MUTATION_MODE_CONTROLLED_WORKSPACE and str(risk or "").strip().lower() in escalate_risks:
             return MUTATION_MODE_STRICT_PATCH_REQUEST
         return mode
@@ -125,7 +145,11 @@ class AnantaWorkspaceMutationPolicyService:
 
     def is_strict_required_path(self, rel: str, *, markers: list[str] | None = None) -> bool:
         normalized = str(rel or "").replace("\\", "/").lower()
-        effective = [str(item or "").strip().lower() for item in (markers or list(_DEFAULT_STRICT_PATH_MARKERS)) if str(item or "").strip()]
+        effective = [
+            str(item or "").strip().lower()
+            for item in (markers or list(_DEFAULT_STRICT_PATH_MARKERS))
+            if str(item or "").strip()
+        ]
         return any(marker in normalized for marker in effective)
 
     def evaluate_changed_files(
@@ -199,6 +223,7 @@ class AnantaWorkspaceMutationPolicyService:
                 continue
             if domain_allowed_write_paths is not None:
                 from agent.codecompass.domain_scope import is_path_within
+
                 if not is_path_within(rel, domain_allowed_write_paths):
                     blocked.append({"path": rel, "reason": "outside_domain_write_scope"})
                     continue

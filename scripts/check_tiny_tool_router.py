@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic release gate for the tiny tool router track."""
+
 from __future__ import annotations
 
 import argparse
@@ -26,13 +27,7 @@ def main() -> int:
     benchmark = build_report()
     report = {
         "schema": "ananta.tiny_tool_router_gate.v1",
-        "status": (
-            "passed"
-            if not missing
-            and args.tests_passed
-            and benchmark["quality_gate"]["passed"]
-            else "failed"
-        ),
+        "status": ("passed" if not missing and args.tests_passed and benchmark["quality_gate"]["passed"] else "failed"),
         "checks": {
             "required_files": not missing,
             "tests_passed": args.tests_passed,

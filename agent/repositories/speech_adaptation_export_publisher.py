@@ -157,8 +157,7 @@ class SpeechAdapterExportPublisher:
                         SpeechAdaptationArtifactDB.job_id == job_id,
                         SpeechAdaptationArtifactDB.artifact_ref == source_artifact_ref,
                         SpeechAdaptationArtifactDB.sha256 == source_sha256,
-                        SpeechAdaptationArtifactDB.media_type
-                        == "application/vnd.ananta.speech-adapter",
+                        SpeechAdaptationArtifactDB.media_type == "application/vnd.ananta.speech-adapter",
                         SpeechAdaptationArtifactDB.state == "committed",
                     )
                     .with_for_update()
@@ -200,8 +199,7 @@ class SpeechAdapterExportPublisher:
                         SpeechEvidenceConsentDB.consent_digest == export_consent_digest,
                         SpeechEvidenceConsentDB.session_epoch == export_consent_session_epoch,
                         SpeechEvidenceConsentDB.consent_version == export_consent_version,
-                        SpeechEvidenceConsentDB.revocation_epoch
-                        == export_consent_revocation_epoch,
+                        SpeechEvidenceConsentDB.revocation_epoch == export_consent_revocation_epoch,
                         SpeechEvidenceConsentDB.state == "active",
                         SpeechEvidenceConsentDB.expires_at_ms > now_ms,
                     )

@@ -14,6 +14,7 @@ Usage::
         handler_id="list_files",
     )
 """
+
 from __future__ import annotations
 
 import time
@@ -34,34 +35,40 @@ def stamp_te_pipeline(
     ts = time.time()
 
     if intent_result is not None:
-        stages.append({
-            "stage": "task_intent_router",
-            "ts": ts,
-            "intent": getattr(intent_result, "intent", None),
-            "task_class": getattr(intent_result, "task_class", None),
-            "llm_required": getattr(intent_result, "llm_required", None),
-            "source": getattr(intent_result, "source", None),
-            "deterministic_handler_id": getattr(intent_result, "deterministic_handler_id", None),
-        })
+        stages.append(
+            {
+                "stage": "task_intent_router",
+                "ts": ts,
+                "intent": getattr(intent_result, "intent", None),
+                "task_class": getattr(intent_result, "task_class", None),
+                "llm_required": getattr(intent_result, "llm_required", None),
+                "source": getattr(intent_result, "source", None),
+                "deterministic_handler_id": getattr(intent_result, "deterministic_handler_id", None),
+            }
+        )
 
     if class_result is not None:
-        stages.append({
-            "stage": "task_class_resolver",
-            "ts": ts,
-            "task_class": getattr(class_result, "task_class", None),
-            "llm_required": getattr(class_result, "llm_required", None),
-            "intent": getattr(class_result, "intent", None),
-            "reason": getattr(class_result, "reason", None),
-            "deterministic_handler_id": getattr(class_result, "deterministic_handler_id", None),
-        })
+        stages.append(
+            {
+                "stage": "task_class_resolver",
+                "ts": ts,
+                "task_class": getattr(class_result, "task_class", None),
+                "llm_required": getattr(class_result, "llm_required", None),
+                "intent": getattr(class_result, "intent", None),
+                "reason": getattr(class_result, "reason", None),
+                "deterministic_handler_id": getattr(class_result, "deterministic_handler_id", None),
+            }
+        )
 
     if handler_id is not None:
-        stages.append({
-            "stage": "deterministic_handler_dispatch",
-            "ts": ts,
-            "handler_id": handler_id,
-            "bypassed_llm": bypassed_llm,
-        })
+        stages.append(
+            {
+                "stage": "deterministic_handler_dispatch",
+                "ts": ts,
+                "handler_id": handler_id,
+                "bypassed_llm": bypassed_llm,
+            }
+        )
 
     pipeline["stages"] = stages
     pipeline["task_engine_active"] = True

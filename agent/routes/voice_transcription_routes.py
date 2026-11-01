@@ -82,10 +82,7 @@ def capabilities():
     )
     correction_models = correction_catalog["correction_models"]
     semantic_speech_enabled = (
-        dict(current_app.extensions.get("semantic_media_feature_flags") or {}).get(
-            "semantic_speech_runtime"
-        )
-        is True
+        dict(current_app.extensions.get("semantic_media_feature_flags") or {}).get("semantic_speech_runtime") is True
     )
     return api_response(
         data={

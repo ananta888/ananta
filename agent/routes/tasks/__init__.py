@@ -36,12 +36,14 @@ def register_tasks_blueprints(app):
         from worker.runtime.native_graph.pi_evidence_runtime import consume_pi_evidence_task
         from worker.runtime.native_graph.result_store_runtime import configured_native_result_store_for_task
 
-        app.register_blueprint(create_native_execution_blueprint(
-            token_provider=lambda: resolve_configured_agent_token(app.config),
-            recipient_provider=lambda: (settings.agent_name, settings.agent_url),
-            result_store_resolver=configured_native_result_store_for_task,
-            evidence_consumer=consume_pi_evidence_task,
-        ))
+        app.register_blueprint(
+            create_native_execution_blueprint(
+                token_provider=lambda: resolve_configured_agent_token(app.config),
+                recipient_provider=lambda: (settings.agent_name, settings.agent_url),
+                result_store_resolver=configured_native_result_store_for_task,
+                evidence_consumer=consume_pi_evidence_task,
+            )
+        )
     app.register_blueprint(kanban_bp)
     app.register_blueprint(execution_bp)
     app.register_blueprint(management_bp)

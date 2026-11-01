@@ -12,13 +12,22 @@ from typing import Any, Protocol
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _VIEWPORT_CAPS = {
-    "hidden": (0, 0), "thumbnail": (0, 1), "standard": (1, 2), "large": (3, 3),
+    "hidden": (0, 0),
+    "thumbnail": (0, 1),
+    "standard": (1, 2),
+    "large": (3, 3),
 }
 _INTENT_CAPS = {
-    "audio_only": (0, 0), "data_saver": (0, 1), "balanced": (1, 2), "detail": (3, 3),
+    "audio_only": (0, 0),
+    "data_saver": (0, 1),
+    "balanced": (1, 2),
+    "detail": (3, 3),
 }
 _QUALITY_CAPS = {
-    "unknown": (0, 0), "degraded": (0, 1), "stable": (1, 2), "good": (3, 3),
+    "unknown": (0, 0),
+    "degraded": (0, 1),
+    "stable": (1, 2),
+    "good": (3, 3),
 }
 
 
@@ -34,8 +43,12 @@ class LayerPoint:
     temporal_id: int
 
     def __post_init__(self) -> None:
-        if type(self.spatial_id) is not int or type(self.temporal_id) is not int \
-                or not 0 <= self.spatial_id <= 3 or not 0 <= self.temporal_id <= 3:
+        if (
+            type(self.spatial_id) is not int
+            or type(self.temporal_id) is not int
+            or not 0 <= self.spatial_id <= 3
+            or not 0 <= self.temporal_id <= 3
+        ):
             raise SfuReceiverLayerPolicyError("receiver_layer_point_invalid")
 
     def payload(self) -> dict[str, int]:
@@ -48,8 +61,7 @@ class LayerCorridor:
     maximum: LayerPoint
 
     def __post_init__(self) -> None:
-        if self.minimum.spatial_id > self.maximum.spatial_id \
-                or self.minimum.temporal_id > self.maximum.temporal_id:
+        if self.minimum.spatial_id > self.maximum.spatial_id or self.minimum.temporal_id > self.maximum.temporal_id:
             raise SfuReceiverLayerPolicyError("receiver_layer_corridor_invalid")
 
     def intersect(self, other: "LayerCorridor") -> "LayerCorridor | None":
@@ -66,8 +78,10 @@ class LayerCorridor:
         return LayerCorridor(minimum, maximum)
 
     def contains(self, point: LayerPoint) -> bool:
-        return self.minimum.spatial_id <= point.spatial_id <= self.maximum.spatial_id \
+        return (
+            self.minimum.spatial_id <= point.spatial_id <= self.maximum.spatial_id
             and self.minimum.temporal_id <= point.temporal_id <= self.maximum.temporal_id
+        )
 
     def payload(self) -> dict[str, Any]:
         return {"minimum": self.minimum.payload(), "maximum": self.maximum.payload()}
@@ -153,8 +167,11 @@ class SfuReceiverLayerPolicy:
         _validate_request(request)
         corridor: LayerCorridor | None = request.hub_corridor
         for authority in (
-            request.publication_corridor, request.e2ee_corridor, request.codec_corridor,
-            request.cost_corridor, request.capacity_corridor,
+            request.publication_corridor,
+            request.e2ee_corridor,
+            request.codec_corridor,
+            request.cost_corridor,
+            request.capacity_corridor,
         ):
             corridor = corridor.intersect(authority) if corridor is not None else None
         reason = "receiver_layer_policy_applied"
@@ -226,7 +243,8 @@ def _validate_request(request: ReceiverLayerPolicyRequest) -> None:
     if type(request.issued_at_ms) is not int or request.issued_at_ms < 0:
         raise SfuReceiverLayerPolicyError("receiver_layer_issued_at_invalid")
     if request.last_observation_sequence is not None and (
-        type(request.last_observation_sequence) is not int or not 1 <= request.last_observation_sequence <= 2_147_483_647
+        type(request.last_observation_sequence) is not int
+        or not 1 <= request.last_observation_sequence <= 2_147_483_647
     ):
         raise SfuReceiverLayerPolicyError("receiver_layer_observation_sequence_invalid")
 
@@ -238,7 +256,12 @@ def _id(value: object, reason: str) -> str:
 
 
 __all__ = [
-    "HmacReceiverLayerPolicySigner", "LayerCorridor", "LayerPoint", "ReceiverLayerPolicyRequest",
-    "ReceiverLayerPolicySignerPort", "SfuReceiverLayerPolicy", "SfuReceiverLayerPolicyError",
+    "HmacReceiverLayerPolicySigner",
+    "LayerCorridor",
+    "LayerPoint",
+    "ReceiverLayerPolicyRequest",
+    "ReceiverLayerPolicySignerPort",
+    "SfuReceiverLayerPolicy",
+    "SfuReceiverLayerPolicyError",
     "SignedReceiverLayerDecision",
 ]

@@ -161,7 +161,12 @@ def _apply_worker_pool_env_values(
     parallel_cfg: dict, model_defaults: dict, worker_defaults: dict, native_kind: dict, subworkers: dict
 ) -> None:
     if "ANANTA_WORKER_POOL_ENABLED" in os.environ:
-        parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+        parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
     if "ANANTA_OLLAMA_MAX_PARALLEL" in os.environ:
         try:
             model_defaults["max_parallel_requests"] = max(1, int(os.environ.get("ANANTA_OLLAMA_MAX_PARALLEL") or 4))
@@ -187,7 +192,9 @@ def _apply_worker_parallelism_env(cfg: dict) -> None:
         ollama_cfg = parallel_cfg.get("ollama") if isinstance(parallel_cfg.get("ollama"), dict) else {}
         model_defaults = ollama_cfg.get("model_defaults") if isinstance(ollama_cfg.get("model_defaults"), dict) else {}
         worker_pool = parallel_cfg.get("worker_pool") if isinstance(parallel_cfg.get("worker_pool"), dict) else {}
-        worker_defaults = worker_pool.get("worker_defaults") if isinstance(worker_pool.get("worker_defaults"), dict) else {}
+        worker_defaults = (
+            worker_pool.get("worker_defaults") if isinstance(worker_pool.get("worker_defaults"), dict) else {}
+        )
         kinds = worker_pool.get("kinds") if isinstance(worker_pool.get("kinds"), dict) else {}
         native_kind = kinds.get("native_ananta_worker") if isinstance(kinds.get("native_ananta_worker"), dict) else {}
         subworkers = native_kind.get("subworkers") if isinstance(native_kind.get("subworkers"), dict) else {}
@@ -223,9 +230,7 @@ def _evolver_env_settings() -> dict[str, tuple[str, Any]]:
         except Exception:
             parsed_evolver_headers = {}
     allowed_hosts = [
-        item.strip()
-        for item in str(getattr(settings, "evolver_allowed_hosts", "") or "").split(",")
-        if item.strip()
+        item.strip() for item in str(getattr(settings, "evolver_allowed_hosts", "") or "").split(",") if item.strip()
     ]
     env_to_key = {
         "EVOLVER_ENABLED": ("enabled", bool(getattr(settings, "evolver_enabled", False))),
@@ -354,8 +359,7 @@ def _apply_workspace_mutation_env(cfg: dict) -> None:
         allowed_brains = {"opencode"}
         if raw_brain not in allowed_brains:
             raise ValueError(
-                f"ANANTA_WORKSPACE_MUTATION_LLM_BACKEND must be one of {sorted(allowed_brains)} "
-                f"(got {raw_brain!r})"
+                f"ANANTA_WORKSPACE_MUTATION_LLM_BACKEND must be one of {sorted(allowed_brains)} (got {raw_brain!r})"
             )
         mutation["llm_backend"] = raw_brain
     cfg["ananta_worker_workspace_mutation"] = mutation

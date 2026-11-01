@@ -1,8 +1,7 @@
-import pytest
-from agent.models import TaskStatus
-from agent.services.task_state_machine_service import can_transition_to
-from agent.services.task_runtime_service import update_local_task_status
 from agent.repository import task_repo
+from agent.services.task_runtime_service import update_local_task_status
+from agent.services.task_state_machine_service import can_transition_to
+
 
 def test_valid_transitions():
     # Linearer Pfad
@@ -15,13 +14,14 @@ def test_valid_transitions():
     # Review Pfad
     assert can_transition_to("in_progress", "waiting_for_review")[0]
     assert can_transition_to("assigned", "waiting_for_review")[0]
-    assert can_transition_to("waiting_for_review", "todo")[0] # Action: approve -> todo
+    assert can_transition_to("waiting_for_review", "todo")[0]  # Action: approve -> todo
     assert can_transition_to("waiting_for_review", "completed")[0]
     assert can_transition_to("proposing", "waiting_for_review")[0]
 
     # Fehler Pfad
     assert can_transition_to("in_progress", "verification_failed")[0]
-    assert can_transition_to("verification_failed", "todo")[0] # Action: retry -> todo
+    assert can_transition_to("verification_failed", "todo")[0]  # Action: retry -> todo
+
 
 def test_invalid_transitions():
     # Rückschritte ohne explizite Action
@@ -30,10 +30,12 @@ def test_invalid_transitions():
     # Terminale Zustände verlassen ohne retry
     assert not can_transition_to("completed", "in_progress")[0]
 
+
 def test_blocked_by_dependency():
     assert can_transition_to("todo", "blocked_by_dependency")[0]
     assert can_transition_to("in_progress", "blocked_by_dependency")[0]
     assert can_transition_to("blocked_by_dependency", "todo")[0]
+
 
 def test_update_local_task_status_blocking(app):
     with app.app_context():

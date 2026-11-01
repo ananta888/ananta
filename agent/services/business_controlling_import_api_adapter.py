@@ -59,15 +59,11 @@ class BusinessControllingImportApiAdapter:
             TabularExtractionRequest(
                 tenant_id=tenant_id,
                 project_id=project_id,
-                source_revision_id=str(
-                    request_payload.get("source_revision_id") or ""
-                ),
+                source_revision_id=str(request_payload.get("source_revision_id") or ""),
                 revision_digest=str(request_payload.get("revision_digest") or ""),
                 source_format=str(request_payload.get("source_format") or ""),
                 sheet_name=(
-                    str(request_payload["sheet_name"])
-                    if request_payload.get("sheet_name") is not None
-                    else None
+                    str(request_payload["sheet_name"]) if request_payload.get("sheet_name") is not None else None
                 ),
             )
         )
@@ -87,17 +83,15 @@ class BusinessControllingImportApiAdapter:
             "profile_digest",
             "column_mapping",
         }
-        if (
-            not set(request_payload).issubset(allowed)
-            or not {"project_id", "profile_digest", "column_mapping"}.issubset(
-                request_payload
-            )
-        ):
+        if not set(request_payload).issubset(allowed) or not {
+            "project_id",
+            "profile_digest",
+            "column_mapping",
+        }.issubset(request_payload):
             raise ValueError("controlling_mapping_shape_invalid")
         mapping = request_payload.get("column_mapping")
         if not isinstance(mapping, Mapping) or any(
-            not isinstance(key, str) or not isinstance(value, str)
-            for key, value in mapping.items()
+            not isinstance(key, str) or not isinstance(value, str) for key, value in mapping.items()
         ):
             raise ValueError("controlling_mapping_shape_invalid")
         profile_digest = str(request_payload.get("profile_digest") or "")

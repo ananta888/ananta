@@ -56,7 +56,9 @@ class OpenAICompatService:
             {
                 **m,
                 "local_ai_usage": {
-                    "context_compaction": self.local_ai_usage_enabled(workload="context_compaction", agent_cfg=agent_cfg),
+                    "context_compaction": self.local_ai_usage_enabled(
+                        workload="context_compaction", agent_cfg=agent_cfg
+                    ),
                     "cheap_classify": self.local_ai_usage_enabled(workload="cheap_classify", agent_cfg=agent_cfg),
                 },
             }
@@ -114,7 +116,11 @@ class OpenAICompatService:
             temperature=payload.get("temperature"),
         )
         created = int(time.time())
-        response_model = payload.get("model") or f"{provider_override}:{model_name}" if provider_override and model_name else (model_name or "")
+        response_model = (
+            payload.get("model") or f"{provider_override}:{model_name}"
+            if provider_override and model_name
+            else (model_name or "")
+        )
         response = {
             "id": f"chatcmpl-{created}",
             "object": "chat.completion",
@@ -139,7 +145,9 @@ class OpenAICompatService:
         raw_input = payload.get("input")
         prompt = _message_text(raw_input)
         if not prompt and isinstance(raw_input, list):
-            prompt = "\n".join(_message_text(item.get("content")) for item in raw_input if isinstance(item, dict)).strip()
+            prompt = "\n".join(
+                _message_text(item.get("content")) for item in raw_input if isinstance(item, dict)
+            ).strip()
         if not prompt:
             raise ValueError("input_required")
         provider_override, model_name = self._resolve_model(payload.get("model"))
@@ -150,7 +158,11 @@ class OpenAICompatService:
             temperature=payload.get("temperature"),
         )
         created = int(time.time())
-        response_model = payload.get("model") or f"{provider_override}:{model_name}" if provider_override and model_name else (model_name or "")
+        response_model = (
+            payload.get("model") or f"{provider_override}:{model_name}"
+            if provider_override and model_name
+            else (model_name or "")
+        )
         response = {
             "id": f"resp-{created}",
             "object": "response",

@@ -121,10 +121,7 @@ def finalize_goal_if_all_tasks_terminal(goal_id: str, *, task_repository: Any) -
         goal = goal_repo.get_by_id(goal_id)
         if not goal or goal.status not in {"planned", "in_progress", "running"}:
             return
-        tasks_by_id = {
-            str(getattr(item, "id", "") or ""): item
-            for item in goal_tasks
-        }
+        tasks_by_id = {str(getattr(item, "id", "") or ""): item for item in goal_tasks}
 
         def is_successful_terminal(item: Any) -> bool:
             item_status = normalize_task_status(
@@ -135,32 +132,17 @@ def finalize_goal_if_all_tasks_terminal(goal_id: str, *, task_repository: Any) -
                 return True
             if (
                 item_status != "cancelled"
-                or str(
-                    getattr(item, "derivation_reason", "") or ""
-                )
-                != "goal_task_recovery"
-                or str(
-                    getattr(item, "status_reason_code", "") or ""
-                )
-                != "recovery_parent_terminal"
+                or str(getattr(item, "derivation_reason", "") or "") != "goal_task_recovery"
+                or str(getattr(item, "status_reason_code", "") or "") != "recovery_parent_terminal"
             ):
                 return False
-            source = tasks_by_id.get(
-                str(getattr(item, "source_task_id", "") or "")
-            )
+            source = tasks_by_id.get(str(getattr(item, "source_task_id", "") or ""))
             return normalize_task_status(
                 getattr(source, "status", None),
                 default="todo",
             ) in {"completed", "skipped"}
 
-        new_status = (
-            "completed"
-            if statuses and all(
-                is_successful_terminal(item)
-                for item in goal_tasks
-            )
-            else "failed"
-        )
+        new_status = "completed" if statuses and all(is_successful_terminal(item) for item in goal_tasks) else "failed"
         current_preferences = dict(goal.execution_preferences or {})
         if new_status == "completed":
             raw_output_dir = str(current_preferences.get("output_dir") or "").strip()
@@ -190,8 +172,7 @@ def finalize_goal_if_all_tasks_terminal(goal_id: str, *, task_repository: Any) -
                     "workspace_file_count": file_count,
                 }
                 requires_fibonacci_evidence = (
-                    _goal_requires_fibonacci_artifacts(goal)
-                    or (resolved_output_dir / "src" / "fibonacci").exists()
+                    _goal_requires_fibonacci_artifacts(goal) or (resolved_output_dir / "src" / "fibonacci").exists()
                 )
                 if requires_fibonacci_evidence:
                     if not resolved_output_dir.exists():
@@ -226,10 +207,7 @@ def finalize_goal_if_all_tasks_terminal(goal_id: str, *, task_repository: Any) -
         get_goal_lifecycle_service().transition_goal(
             goal,
             target_status=new_status,
-            reason=str(
-                current_preferences.get("last_status_reason") or ""
-            )
-            or None,
+            reason=str(current_preferences.get("last_status_reason") or "") or None,
         )
         logging.info("Goal %s finalized as %s (all %d tasks terminal)", goal_id, new_status, len(goal_tasks))
     except Exception as exc:

@@ -71,11 +71,7 @@ class BusinessControllingReleaseGate:
             "global_switch": report.global_switch_verified,
             "catalog_switch": report.catalog_switch_verified,
         }
-        reasons.extend(
-            f"controlling_gate_{name}_failed"
-            for name, passed in checks.items()
-            if passed is not True
-        )
+        reasons.extend(f"controlling_gate_{name}_failed" for name, passed in checks.items() if passed is not True)
         if (
             report.false_positive_rate < 0
             or report.maximum_false_positive_rate < 0
@@ -91,12 +87,8 @@ class BusinessControllingReleaseGate:
         if report.automatic_financial_action_count != 0:
             reasons.append("controlling_gate_automatic_financial_action_detected")
         local_passed = not reasons
-        source_refs_valid = not any(
-            _SOURCE_REF.fullmatch(value) is None for value in report.source_refs
-        )
-        run_refs_valid = not any(
-            _RUN_REF.fullmatch(value) is None for value in report.run_refs
-        )
+        source_refs_valid = not any(_SOURCE_REF.fullmatch(value) is None for value in report.source_refs)
+        run_refs_valid = not any(_RUN_REF.fullmatch(value) is None for value in report.run_refs)
         grounded = False
         if not source_refs_valid:
             reasons.append("controlling_gate_source_ref_invalid")

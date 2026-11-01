@@ -42,8 +42,13 @@ def test_each_real_provider_request_has_a_prior_reserved_run_and_exact_completio
     @http.app.post("/chat/completions")
     def synthetic_provider():
         with http.database.connect() as connection:
-            reserved = connection.execute(select(HubRunEvidenceIdentityDB.__table__).where(
-                HubRunEvidenceIdentityDB.state == "reserved")).mappings().all()
+            reserved = (
+                connection.execute(
+                    select(HubRunEvidenceIdentityDB.__table__).where(HubRunEvidenceIdentityDB.state == "reserved")
+                )
+                .mappings()
+                .all()
+            )
         assert len(reserved) == 1, "Hub reserves before actual provider HTTP execution"
         calls.append(request.get_json())
         return jsonify(generated())
@@ -51,8 +56,11 @@ def test_each_real_provider_request_has_a_prior_reserved_run_and_exact_completio
     with running_hub(http.app) as endpoint:
         helper = process(http, endpoint)
         base = endpoint.split("/api/meet/v1/")[0]
-        execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", child(base, history=history)),
-            environment=helper.environment, ports={"model": helper})
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-u", "-c", child(base, history=history)),
+            environment=helper.environment,
+            ports={"model": helper},
+        )
         ticks = []
         try:
             assert execution.call("answer", "synthetic", cooperate=lambda: ticks.append(True)) == "synthetic answer"
@@ -73,9 +81,11 @@ def test_missing_hub_approval_prevents_actual_provider_http(http):
     http.app.config["MEET_COMPANION_ASSIGNED_MODEL_PROFILE"]["auto_execute"] = False
     with running_hub(http.app) as endpoint:
         helper = process(http, endpoint)
-        execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c",
-                                                       child(endpoint.split("/api/meet/v1/")[0])),
-            environment=helper.environment, ports={"model": helper})
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-u", "-c", child(endpoint.split("/api/meet/v1/")[0])),
+            environment=helper.environment,
+            ports={"model": helper},
+        )
         with pytest.raises(RuntimeError, match="execution_failed"):
             execution.call("answer", "synthetic", cooperate=lambda: None)
         assert execution._process.poll() is not None
@@ -92,9 +102,11 @@ def test_withdrawal_during_provider_request_prevents_reply_and_second_inference(
 
     with running_hub(http.app) as endpoint:
         helper = process(http, endpoint)
-        execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c",
-                                                       child(endpoint.split("/api/meet/v1/")[0])),
-            environment=helper.environment, ports={"model": helper})
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-u", "-c", child(endpoint.split("/api/meet/v1/")[0])),
+            environment=helper.environment,
+            ports={"model": helper},
+        )
         with pytest.raises(RuntimeError, match="execution_failed"):
             execution.call("answer", "synthetic", cooperate=lambda: None)
         assert execution._process.poll() is not None

@@ -66,8 +66,16 @@ class SyncStateStore:
 
 
 class CodeCompassLayerSyncService:
-    def __init__(self, *, snapshots: Any, contents: Any, layer_service: Any, state: SyncStateStore,
-                 clock: Any = time.time, task_status: Any = None) -> None:
+    def __init__(
+        self,
+        *,
+        snapshots: Any,
+        contents: Any,
+        layer_service: Any,
+        state: SyncStateStore,
+        clock: Any = time.time,
+        task_status: Any = None,
+    ) -> None:
         self._snapshots = snapshots
         self._contents = contents
         self._layers = layer_service
@@ -86,8 +94,10 @@ class CodeCompassLayerSyncService:
         if not isinstance(files, list) or len(files) > MAX_MANIFEST_FILES:
             raise ValueError("codecompass_layer_snapshot_files_invalid")
         paths = [str(item.get("path") or "") for item in files if isinstance(item, Mapping)]
-        if len(paths) != len(files) or len(set(paths)) != len(paths) or any(
-            not path or path.startswith("/") or ".." in path.split("/") for path in paths
+        if (
+            len(paths) != len(files)
+            or len(set(paths)) != len(paths)
+            or any(not path or path.startswith("/") or ".." in path.split("/") for path in paths)
         ):
             raise ValueError("codecompass_layer_snapshot_paths_invalid")
         revision = self._snapshots.put(manifest)
@@ -109,8 +119,9 @@ class CodeCompassLayerSyncService:
             raise ValueError("codecompass_layer_commit_sha_invalid")
         if self._snapshots.get(snapshot_ref) is None:
             raise KeyError("codecompass_snapshot_unknown")
-        state = self._state.update(profile_id, requested_snapshot=snapshot_ref, requested_commit=commit_sha,
-                                   requested_at=self._clock())
+        state = self._state.update(
+            profile_id, requested_snapshot=snapshot_ref, requested_commit=commit_sha, requested_at=self._clock()
+        )
         inflight = state.get("inflight_task") or ""
         if inflight and self._still_running(inflight, float(state.get("inflight_at") or 0)):
             return {"status": "deferred", "inflight_task": inflight, "snapshot_ref": snapshot_ref}
@@ -144,18 +155,24 @@ class CodeCompassLayerSyncService:
         missing = self._contents.missing(plan.get("content_sha256") or [])
         if missing:
             raise LayerSyncConflict(f"codecompass_layer_content_missing:{len(missing)}")
-        result = dict(self._layers.apply_update(
-            plan=plan,
-            profile_ref={"profile_id": profile_id},
-            profile_id=profile_id,
-            expected_generation=int(head.get("generation") or 0),
-            idempotency_key=f"{profile_id}:{snapshot_ref}:{int(head.get('generation') or 0)}",
-        ))
+        result = dict(
+            self._layers.apply_update(
+                plan=plan,
+                profile_ref={"profile_id": profile_id},
+                profile_id=profile_id,
+                expected_generation=int(head.get("generation") or 0),
+                idempotency_key=f"{profile_id}:{snapshot_ref}:{int(head.get('generation') or 0)}",
+            )
+        )
         if result.get("status") == "queued":
             self._state.update(profile_id, inflight_task=str(result.get("task_id") or ""), inflight_at=self._clock())
         decision = dict(plan.get("decision") or {})
-        return {**result, "snapshot_ref": snapshot_ref, "decision": decision.get("decision_type"),
-                "file_changes": len(list((plan.get("changeset") or {}).get("file_changes") or []))}
+        return {
+            **result,
+            "snapshot_ref": snapshot_ref,
+            "decision": decision.get("decision_type"),
+            "file_changes": len(list((plan.get("changeset") or {}).get("file_changes") or [])),
+        }
 
 
 class SyncCatchUpObserver:

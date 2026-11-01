@@ -1,8 +1,6 @@
 """DRR-T011: Worker RepairProcedureRunner tests."""
-from __future__ import annotations
 
-from pydantic import ValidationError
-import pytest
+from __future__ import annotations
 
 from worker.core.execution_envelope import (
     ApprovalRef,
@@ -12,7 +10,6 @@ from worker.core.execution_envelope import (
     RepairProcedure,
     RepairResultVerdict,
     RepairStep,
-    RepairStepResult,
     RepairStepResultStatus,
 )
 from worker.repair.repair_procedure_runner import (
@@ -135,15 +132,17 @@ class TestRepairProcedureRunner:
 
     def test_run_step_single_step(self) -> None:
         runner = RepairProcedureRunner()
-        step_result = runner.run_step({
-            "step": {
-                "step_id": "single-step",
-                "title": "Single step",
-                "action_class": "inspect_state",
-                "mutation_candidate": False,
-            },
-            "execution_envelope": _make_envelope(with_procedure=True, has_approval=True).model_dump(),
-        })
+        step_result = runner.run_step(
+            {
+                "step": {
+                    "step_id": "single-step",
+                    "title": "Single step",
+                    "action_class": "inspect_state",
+                    "mutation_candidate": False,
+                },
+                "execution_envelope": _make_envelope(with_procedure=True, has_approval=True).model_dump(),
+            }
+        )
         assert step_result.status == RepairStepResultStatus.success
         assert step_result.step_id == "single-step"
 

@@ -38,17 +38,11 @@ class SfuBroadcastRollbackPort(Protocol):
 
     def stop_new_admission(self, command: RollbackCommand) -> RollbackStepResult: ...
 
-    def disable_optional_features(
-        self, command: RollbackCommand
-    ) -> RollbackStepResult: ...
+    def disable_optional_features(self, command: RollbackCommand) -> RollbackStepResult: ...
 
-    def project_parent_fallback(
-        self, command: RollbackCommand
-    ) -> RollbackStepResult: ...
+    def project_parent_fallback(self, command: RollbackCommand) -> RollbackStepResult: ...
 
-    def request_graceful_drain(
-        self, command: RollbackCommand
-    ) -> RollbackStepResult: ...
+    def request_graceful_drain(self, command: RollbackCommand) -> RollbackStepResult: ...
 
     def verify_quiesced(self, command: RollbackCommand) -> RollbackStepResult: ...
 
@@ -124,10 +118,7 @@ def _validate_command(command: RollbackCommand, now: datetime) -> str | None:
         return "rollback_actor_missing"
     if not isinstance(command.reason, str) or not command.reason.strip():
         return "rollback_reason_missing"
-    if (
-        isinstance(command.expected_policy_version, bool)
-        or command.expected_policy_version < 0
-    ):
+    if isinstance(command.expected_policy_version, bool) or command.expected_policy_version < 0:
         return "rollback_policy_version_invalid"
     if now.tzinfo is None or command.deadline.tzinfo is None:
         return "rollback_deadline_timezone_missing"

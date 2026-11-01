@@ -9,8 +9,8 @@ from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 
 from agent.services.jmap_auth_service import (
-    JmapAuthService,
     JmapAuthorizationProvider,
+    JmapAuthService,
     StaticJmapAuthorizationProvider,
 )
 from agent.services.jmap_client_service import JmapClient
@@ -94,9 +94,7 @@ class JmapDiscoveryService:
         self._endpoint_policy = endpoint_policy
         self._auth_service = auth_service
         self._feature_policy = feature_policy
-        self._cache = cache or JmapDiscoveryCache(
-            ttl_seconds=feature_policy.limits.discovery_cache_ttl_seconds
-        )
+        self._cache = cache or JmapDiscoveryCache(ttl_seconds=feature_policy.limits.discovery_cache_ttl_seconds)
         self._session_state_observer = session_state_observer
 
     def discover(
@@ -180,11 +178,7 @@ class JmapDiscoveryService:
                 retry_after_ms=getattr(exc, "retry_after_ms", None),
             )
         previous_state = self._cache.put(cache_key, session)
-        if (
-            previous_state
-            and previous_state != session.state
-            and self._session_state_observer is not None
-        ):
+        if previous_state and previous_state != session.state and self._session_state_observer is not None:
             try:
                 self._session_state_observer(account.account_id, previous_state, session.state)
             except Exception:
@@ -268,9 +262,7 @@ class JmapSessionRegistry:
     ) -> MailProviderSession:
         authorization = authorization_provider
         if authorization is None:
-            authorization = StaticJmapAuthorizationProvider(
-                headers=dict(authorization_headers or {})
-            )
+            authorization = StaticJmapAuthorizationProvider(headers=dict(authorization_headers or {}))
         session_id = f"jmap-session-{uuid.uuid4().hex}"
         scheduler: JmapRequestScheduler[Any] = JmapRequestScheduler(
             maximum_concurrent_requests=document.limits.maximum_concurrent_requests,

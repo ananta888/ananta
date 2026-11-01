@@ -68,7 +68,7 @@ class PythonToJavaVerifier:
             if type_ann.get("is_optional") and type_ann.get("none_model") == "default_none":
                 # Check that the Java artifact uses Optional or nullable
                 fname = f["name"]
-                if f"Optional<" not in source and "@Nullable" not in source:
+                if "Optional<" not in source and "@Nullable" not in source:
                     result.warnings.append(f"optional_field_may_lose_nullability:{fname}")
 
         # 5. Lost defaults check
@@ -125,7 +125,7 @@ class PythonToRustVerifier:
             type_ann = f.get("type_annotation") or {}
             if type_ann.get("is_optional"):
                 fname = f["name"]
-                if f"Option<" not in source:
+                if "Option<" not in source:
                     result.checks_failed.append(f"option_not_emitted_for_optional_field:{fname}")
                 else:
                     result.checks_passed.append(f"option_emitted_for_optional_field:{fname}")

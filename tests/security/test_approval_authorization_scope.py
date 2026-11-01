@@ -70,7 +70,8 @@ def _install_visible_goal(monkeypatch) -> None:
         lambda: repositories,
     )
     monkeypatch.setattr(
-        goal_service_module, "get_goal_service",
+        goal_service_module,
+        "get_goal_service",
         lambda: goal_service,
     )
 

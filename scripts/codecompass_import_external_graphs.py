@@ -23,6 +23,7 @@ Run a diagnostic (counts only):
     python -m scripts.codecompass_import_external_graphs \\
         diagnose /ws/.code-review-graph
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,7 +37,6 @@ from agent.services.tools.graph_evidence import validate_graph_evidence
 from worker.retrieval.codecompass_crg_adapter import (
     CRG_PROVIDER_ID,
     CrgJsonAdapter,
-    CrgSqliteAdapter,
 )
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_rig_importer import import_snapshot_file
@@ -49,54 +49,72 @@ def _print(payload: dict[str, Any]) -> None:
 def cmd_validate(args: argparse.Namespace) -> int:
     payload = json.loads(Path(args.path).read_text())
     ev = payload.get("evidence") or payload
-    res = validate_graph_evidence(ev if "trust_level" in ev else {
-        "trust_level": "extracted",
-        "verification_status": "verified",
-        "evidence": {"source_kind": "crg_json_export",
-                     "source_record_id": "user-supplied",
-                     "reason": "manual_fixture"},
-        "provenance": {"source": "code-review-graph",
-                       "provider_id": "user",
-                       "provider_revision": "manual",
-                       "build_system": "unknown"},
-    })
-    _print({"ok": res.ok, "diagnostics": res.diagnostics,
-            "failures": [f.as_dict() for f in res.failures]})
+    res = validate_graph_evidence(
+        ev
+        if "trust_level" in ev
+        else {
+            "trust_level": "extracted",
+            "verification_status": "verified",
+            "evidence": {
+                "source_kind": "crg_json_export",
+                "source_record_id": "user-supplied",
+                "reason": "manual_fixture",
+            },
+            "provenance": {
+                "source": "code-review-graph",
+                "provider_id": "user",
+                "provider_revision": "manual",
+                "build_system": "unknown",
+            },
+        }
+    )
+    _print({"ok": res.ok, "diagnostics": res.diagnostics, "failures": [f.as_dict() for f in res.failures]})
     return 0 if res.ok else 1
 
 
 def cmd_import_cr(args: argparse.Namespace) -> int:
     workspace = Path(args.workspace_dir)
     if not is_enabled("crg.adapter_enabled"):
-        print("crg.adapter_enabled is off; refusing to import",
-              file=sys.stderr)
+        print("crg.adapter_enabled is off; refusing to import", file=sys.stderr)
         return 2
     adapter = CrgJsonAdapter(workspace_dir=workspace)
     snap = adapter.import_snapshot()
     if not snap.content_hash:
         _print({"ok": False, "diagnostics": snap.diagnostics})
         return 1
-    graph_store = CodeCompassGraphStore(index_path=args.index_path or
-                                       str(workspace / ".codecompass" / "graph.json"))
+    graph_store = CodeCompassGraphStore(index_path=args.index_path or str(workspace / ".codecompass" / "graph.json"))
     graph_store.rebuild_from_output_records(
         manifest_hash=snap.content_hash,
-        records=[{"_provenance": {"output_kind": "graph_nodes"},
-                  "id": r.get("id", f"crg:{i}"),
-                  "kind": r.get("kind", "symbol"),
-                  "name": (r.get("attrs") or {}).get("name"),
-                  "file": (r.get("attrs") or {}).get("file")}
-                 for i, r in enumerate(snap.graph_nodes)] +
-                [{"_provenance": {"output_kind": "graph_edges"},
-                  "source": e.get("from_id"),
-                  "target": e.get("to_id"),
-                  "type": e.get("kind", "related")}
-                 for e in snap.graph_edges],
+        records=[
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": r.get("id", f"crg:{i}"),
+                "kind": r.get("kind", "symbol"),
+                "name": (r.get("attrs") or {}).get("name"),
+                "file": (r.get("attrs") or {}).get("file"),
+            }
+            for i, r in enumerate(snap.graph_nodes)
+        ]
+        + [
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": e.get("from_id"),
+                "target": e.get("to_id"),
+                "type": e.get("kind", "related"),
+            }
+            for e in snap.graph_edges
+        ],
     )
-    _print({"ok": True, "provider_id": CRG_PROVIDER_ID,
+    _print(
+        {
+            "ok": True,
+            "provider_id": CRG_PROVIDER_ID,
             "content_hash": snap.content_hash,
             "node_count": len(snap.graph_nodes),
             "edge_count": len(snap.graph_edges),
-            "diagnostics": snap.diagnostics})
+            "diagnostics": snap.diagnostics,
+        }
+    )
     return 0
 
 
@@ -107,20 +125,23 @@ def cmd_import_rig(args: argparse.Namespace) -> int:
         write_index=args.write_index,
         index_path=Path(args.index_path) if args.index_path else None,
     )
-    _print({"ok": res.ok,
+    _print(
+        {
+            "ok": res.ok,
             "snapshot_id": res.snapshot_id,
             "content_hash": res.content_hash,
             "rig_node_count": len(res.rig_nodes),
             "rig_edge_count": len(res.rig_edges),
             "failures": list(res.failures),
-            "diagnostics": res.diagnostics})
+            "diagnostics": res.diagnostics,
+        }
+    )
     return 0 if res.ok else 1
 
 
 def cmd_diagnose(args: argparse.Namespace) -> int:
     workspace = Path(args.workspace)
-    graph_store = CodeCompassGraphStore(
-        index_path=str(workspace / ".codecompass" / "graph.json"))
+    graph_store = CodeCompassGraphStore(index_path=str(workspace / ".codecompass" / "graph.json"))
     payload = graph_store.load()
     diag = payload.get("diagnostics") or {}
     counts = {
@@ -132,28 +153,31 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
         "x86_edges": len(payload.get("x86_edges") or []),
     }
     counts["ambiguous_edges"] = sum(
-        1 for e in (payload.get("edges") or [])
+        1
+        for e in (payload.get("edges") or [])
         if isinstance(e, dict) and str(e.get("confidence_kind") or "").upper() == "AMBIGUOUS"
     )
     counts["missing_evidence"] = sum(
-        1 for e in (payload.get("edges") or [])
-        if isinstance(e, dict)
-        and not (e.get("evidence") or {}).get("source_record_id")
+        1
+        for e in (payload.get("edges") or [])
+        if isinstance(e, dict) and not (e.get("evidence") or {}).get("source_record_id")
     )
-    _print({"ok": True,
-            "diagnostics": diag,
-            "counts": counts})
+    _print({"ok": True, "diagnostics": diag, "counts": counts})
     return 0
 
 
 def cmd_probe_cr(args: argparse.Namespace) -> int:
     adapter = CrgJsonAdapter(workspace_dir=Path(args.workspace_dir))
     probe = adapter.probe()
-    _print({"provider_id": probe.provider_id,
+    _print(
+        {
+            "provider_id": probe.provider_id,
             "available": probe.available,
             "provider_revision": probe.provider_revision,
             "reason_unavailable": probe.reason_unavailable,
-            "details": probe.details})
+            "details": probe.details,
+        }
+    )
     return 0 if probe.available else 1
 
 

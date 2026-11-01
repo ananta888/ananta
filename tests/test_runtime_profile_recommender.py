@@ -40,4 +40,3 @@ def test_runtime_profile_recommender_never_enables_paid_provider_silently() -> N
     assert recommendation.provider == "ollama"
     assert recommendation.requires_explicit_provider_config is True
     assert any("never enabled silently" in note for note in recommendation.notes)
-

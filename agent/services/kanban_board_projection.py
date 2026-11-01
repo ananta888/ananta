@@ -79,11 +79,7 @@ def ordered_kanban_tasks(tasks: Iterable[TaskDB]) -> list[TaskDB]:
     grouped = {column: [] for column in COLUMN_ORDER}
     for task in tasks:
         grouped[kanban_column(task.status)].append(task)
-    return [
-        task
-        for column in COLUMN_ORDER
-        for task in sorted(grouped[column], key=kanban_sort_key)
-    ]
+    return [task for column in COLUMN_ORDER for task in sorted(grouped[column], key=kanban_sort_key)]
 
 
 def kanban_board_revision(scope: KanbanScope, tasks: Iterable[TaskDB]) -> str:
@@ -206,9 +202,7 @@ def decode_kanban_cursor_offset(cursor: str | None, revision: str) -> int:
     try:
         payload = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
         if payload.get("revision") != revision:
-            raise KanbanServiceError(
-                "kanban_cursor_stale", "the board changed while paging", status_code=409
-            )
+            raise KanbanServiceError("kanban_cursor_stale", "the board changed while paging", status_code=409)
         offset = int(payload["offset"])
         if offset < 0:
             raise ValueError
@@ -221,6 +215,4 @@ def decode_kanban_cursor_offset(cursor: str | None, revision: str) -> int:
 
 def require_kanban_page_limit(limit: int) -> None:
     if not 1 <= limit <= 200:
-        raise KanbanServiceError(
-            "kanban_limit_invalid", "limit must be between 1 and 200", status_code=400
-        )
+        raise KanbanServiceError("kanban_limit_invalid", "limit must be between 1 and 200", status_code=400)

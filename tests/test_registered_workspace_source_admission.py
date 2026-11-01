@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from agent.services.registered_workspace_source_admission import (
     RegisteredWorkspaceSourceAdmissionService,
 )
@@ -22,11 +20,9 @@ def test_workspace_admission_policy_digest_is_stable_and_budget_bound() -> None:
         allowed_file_types=frozenset({"py", "txt"}),
     )
 
-    assert (
-        RegisteredWorkspaceSourceAdmissionService._policy_digest(first)
-        == RegisteredWorkspaceSourceAdmissionService._policy_digest(same)
-    )
-    assert (
-        RegisteredWorkspaceSourceAdmissionService._policy_digest(first)
-        != RegisteredWorkspaceSourceAdmissionService._policy_digest(changed)
-    )
+    assert RegisteredWorkspaceSourceAdmissionService._policy_digest(
+        first
+    ) == RegisteredWorkspaceSourceAdmissionService._policy_digest(same)
+    assert RegisteredWorkspaceSourceAdmissionService._policy_digest(
+        first
+    ) != RegisteredWorkspaceSourceAdmissionService._policy_digest(changed)

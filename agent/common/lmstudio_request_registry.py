@@ -1,4 +1,5 @@
 """Registry for in-flight LM Studio HTTP sessions, keyed by goal_id/task_id."""
+
 from __future__ import annotations
 
 import logging

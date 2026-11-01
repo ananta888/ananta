@@ -58,8 +58,16 @@ def _config(**overrides) -> VisionDecisionConfig:
 
 
 def _field(value, probability=0.99, margin=0.98, entropy=0.05, abstain=False, **extra):
-    return {"value": value, "probability": probability, "scored_nodes": 1, "tree": True, "margin": margin,
-            "entropy": entropy, "abstain": abstain, **extra}
+    return {
+        "value": value,
+        "probability": probability,
+        "scored_nodes": 1,
+        "tree": True,
+        "margin": margin,
+        "entropy": entropy,
+        "abstain": abstain,
+        **extra,
+    }
 
 
 def _result(fields=None, abstained=None):
@@ -78,10 +86,23 @@ def _payload(results=None, model="Qwen3-VL-2B-Instruct-Q8_0.gguf"):
         "results": results if results is not None else [_result()],
         "model": model,
         "created": 1,
-        "usage": {"prompt_tokens": 200, "cached_tokens": 116, "context_tokens": 88, "scored_rows": 12,
-                  "media_chunks": 1, "media_tokens": 64, "media_cached": 1},
-        "timings": {"prefill_ms": 2200.0, "media_encode_ms": 800.0, "scoring_ms": 300.0, "total_ms": 2500.0,
-                    "rounds": 1, "per_decision_ms": 2500.0},
+        "usage": {
+            "prompt_tokens": 200,
+            "cached_tokens": 116,
+            "context_tokens": 88,
+            "scored_rows": 12,
+            "media_chunks": 1,
+            "media_tokens": 64,
+            "media_cached": 1,
+        },
+        "timings": {
+            "prefill_ms": 2200.0,
+            "media_encode_ms": 800.0,
+            "scoring_ms": 300.0,
+            "total_ms": 2500.0,
+            "rounds": 1,
+            "per_decision_ms": 2500.0,
+        },
     }
 
 
@@ -93,8 +114,9 @@ class FakeTransport:
         self.calls: list[dict] = []
 
     def request(self, method, url, *, body, headers, timeout_s):
-        self.calls.append({"method": method, "url": url, "body": json.loads(body), "headers": dict(headers),
-                           "timeout_s": timeout_s})
+        self.calls.append(
+            {"method": method, "url": url, "body": json.loads(body), "headers": dict(headers), "timeout_s": timeout_s}
+        )
         if self.exc is not None:
             raise self.exc
         return self.status, self.body
@@ -267,7 +289,12 @@ def test_ok_outcome_and_request_shape():
     assert body["model"] == "Qwen3-VL-2B-Instruct-Q8_0.gguf"
     assert "temperature" not in body  # the top-level key is one number; per-field goes into the spec
     assert body["schema"]["dark_background"]["temperature"] == 1.7
-    assert body["schema"]["count"] == {"type": "integer", "description": "How many shapes are there?", "minimum": 1, "maximum": 4}
+    assert body["schema"]["count"] == {
+        "type": "integer",
+        "description": "How many shapes are there?",
+        "minimum": 1,
+        "maximum": 4,
+    }
     image_part, text_part = body["contexts"][0]
     assert image_part["image_url"]["url"].startswith("data:image/png;base64,")
     assert text_part == {"type": "text", "text": SECRET_PROMPT}
@@ -361,7 +388,11 @@ def test_listed_in_abstained_wins_over_field_flag():
 
 
 def test_local_thresholds_escalate_even_if_server_does_not():
-    fields = {"shape": _field("circle", probability=0.7), "count": _field(2, margin=0.1), "dark_background": _field(False)}
+    fields = {
+        "shape": _field("circle", probability=0.7),
+        "count": _field(2, margin=0.1),
+        "dark_background": _field(False),
+    }
     outcome = _decide(_provider(FakeTransport(payload=_payload([_result(fields)]))))
     result = outcome.results[0]
     assert result.fields["shape"].abstain_reasons == ("low_probability",)
@@ -382,8 +413,15 @@ def test_missing_abstain_flag_escalates():
 
 @pytest.mark.parametrize(
     "status,code",
-    [(400, "invalid_request"), (401, "unauthorized"), (403, "forbidden"), (404, "not_found"),
-     (429, "rate_limited"), (500, "http_500"), (503, "unavailable")],
+    [
+        (400, "invalid_request"),
+        (401, "unauthorized"),
+        (403, "forbidden"),
+        (404, "not_found"),
+        (429, "rate_limited"),
+        (500, "http_500"),
+        (503, "unavailable"),
+    ],
 )
 def test_http_errors_are_no_decision(status, code):
     error = {"error": {"code": status, "message": "boom", "type": "x"}}
@@ -400,8 +438,15 @@ def test_http_error_with_non_json_body():
     assert not outcome.ok and outcome.error_code == "http_502"
 
 
-@pytest.mark.parametrize("exc,code", [(socket.timeout("t"), "deadline_exceeded"), (TimeoutError(), "deadline_exceeded"),
-                                      (ConnectionRefusedError(), "unavailable"), (OSError("x"), "unavailable")])
+@pytest.mark.parametrize(
+    "exc,code",
+    [
+        (socket.timeout("t"), "deadline_exceeded"),
+        (TimeoutError(), "deadline_exceeded"),
+        (ConnectionRefusedError(), "unavailable"),
+        (OSError("x"), "unavailable"),
+    ],
+)
 def test_transport_errors_are_no_decision(exc, code):
     outcome = _decide(_provider(FakeTransport(exc=exc)))
     assert not outcome.ok and outcome.error_code == code
@@ -464,8 +509,9 @@ def test_model_allowlist_is_enforced_on_the_response():
 
 
 def test_parse_is_usable_standalone():
-    outcome = parse_decision_response(200, json.dumps(_payload()).encode(), schema=SCHEMA, n_contexts=1,
-                                      min_probability=0.8, min_margin=0.3)
+    outcome = parse_decision_response(
+        200, json.dumps(_payload()).encode(), schema=SCHEMA, n_contexts=1, min_probability=0.8, min_margin=0.3
+    )
     assert outcome.ok and outcome.schema_id == "shapes-v1"
 
 
@@ -513,7 +559,9 @@ def test_image_is_downscaled_and_reencoded_without_metadata():
     exif = Image.Exif()
     exif[0x010E] = "secret description"
     Image.new("RGB", (800, 400), (10, 20, 30)).save(jpeg, format="JPEG", exif=exif)
-    outcome = _provider(transport, max_image_side=128).decide(SCHEMA, [VisionContext(images=(VisionImage(jpeg.getvalue()),))])
+    outcome = _provider(transport, max_image_side=128).decide(
+        SCHEMA, [VisionContext(images=(VisionImage(jpeg.getvalue()),))]
+    )
     assert outcome.ok
     url = transport.calls[0]["body"]["contexts"][0][0]["image_url"]["url"]
     sent = base64.b64decode(url.split(",", 1)[1])
@@ -568,7 +616,11 @@ def module_log():
 
 
 def test_logs_carry_no_image_prompt_value_or_key(module_log):
-    fields = {"shape": _field("triangle"), "count": _field(4, abstain=True, probability=0.4), "dark_background": _field(True)}
+    fields = {
+        "shape": _field("triangle"),
+        "count": _field(4, abstain=True, probability=0.4),
+        "dark_background": _field(True),
+    }
     transport = FakeTransport(payload=_payload([_result(fields)]))
     _decide(_provider(transport, api_key=KEY))
     _decide(_provider(FakeTransport(status=400, payload={"error": {"message": SECRET_PROMPT}}), api_key=KEY))

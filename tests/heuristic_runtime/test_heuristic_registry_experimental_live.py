@@ -1,9 +1,9 @@
 """Tests für HeuristicRegistry experimental_live Status (T07.02)."""
-import pytest
+
 from agent.services.heuristic_runtime.heuristic_registry_service import (
+    _VALID_STATUSES,
     HeuristicDefinition,
     HeuristicRegistry,
-    _VALID_STATUSES,
 )
 
 

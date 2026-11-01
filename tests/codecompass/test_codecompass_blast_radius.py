@@ -1,14 +1,11 @@
 """CRG-005: blast-radius query tests."""
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
-
-import pytest
 
 from worker.retrieval.codecompass_blast_radius import (
     RISK_MODEL_VERSION,
-    BlastRadiusResult,
     compute_blast_radius,
 )
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
@@ -21,14 +18,62 @@ def _seed_store(tmp_path: Path) -> CodeCompassGraphStore:
     s.rebuild_from_output_records(
         manifest_hash="m1",
         records=[
-            {"_provenance": {"output_kind": "graph_nodes"}, "id": "file:a.py", "kind": "file", "name": "a.py", "file": "a.py"},
-            {"_provenance": {"output_kind": "graph_nodes"}, "id": "file:b.py", "kind": "file", "name": "b.py", "file": "b.py"},
-            {"_provenance": {"output_kind": "graph_nodes"}, "id": "file:c.py", "kind": "file", "name": "c.py", "file": "c.py"},
-            {"_provenance": {"output_kind": "graph_nodes"}, "id": "symbol_function:file:a.py:func_a", "kind": "symbol_function", "name": "func_a", "file": "a.py"},
-            {"_provenance": {"output_kind": "graph_nodes"}, "id": "symbol_function:file:b.py:func_b", "kind": "symbol_function", "name": "func_b", "file": "b.py"},
-            {"_provenance": {"output_kind": "graph_nodes"}, "id": "symbol_function:file:c.py:test_a", "kind": "symbol_function", "name": "test_a", "file": "c.py"},
-            {"_provenance": {"output_kind": "graph_edges"}, "source": "symbol_function:file:b.py:func_b", "target": "symbol_function:file:a.py:func_a", "type": "calls", "confidence": 1.0},
-            {"_provenance": {"output_kind": "graph_edges"}, "source": "symbol_function:file:c.py:test_a", "target": "symbol_function:file:a.py:func_a", "type": "covers", "confidence": 1.0},
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "file:a.py",
+                "kind": "file",
+                "name": "a.py",
+                "file": "a.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "file:b.py",
+                "kind": "file",
+                "name": "b.py",
+                "file": "b.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "file:c.py",
+                "kind": "file",
+                "name": "c.py",
+                "file": "c.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:file:a.py:func_a",
+                "kind": "symbol_function",
+                "name": "func_a",
+                "file": "a.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:file:b.py:func_b",
+                "kind": "symbol_function",
+                "name": "func_b",
+                "file": "b.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:file:c.py:test_a",
+                "kind": "symbol_function",
+                "name": "test_a",
+                "file": "c.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "symbol_function:file:b.py:func_b",
+                "target": "symbol_function:file:a.py:func_a",
+                "type": "calls",
+                "confidence": 1.0,
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "symbol_function:file:c.py:test_a",
+                "target": "symbol_function:file:a.py:func_a",
+                "type": "covers",
+                "confidence": 1.0,
+            },
         ],
     )
     s._cached_payload = None
@@ -88,19 +133,33 @@ def test_blast_radius_warns_when_node_cap_reached(tmp_path):
     # Build a graph with a single root and many incoming edges.
     s = CodeCompassGraphStore(index_path=tmp_path / "index.json")
     records = [
-        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:root", "kind": "file", "name": "root", "file": "root.py"},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:root",
+            "kind": "file",
+            "name": "root",
+            "file": "root.py",
+        },
     ]
     for i in range(60):
-        records.append({
-            "_provenance": {"output_kind": "graph_nodes"},
-            "id": f"symbol_function:src{i}.py:fn{i}",
-            "kind": "symbol_function", "name": f"fn{i}", "file": f"src{i}.py",
-        })
-        records.append({
-            "_provenance": {"output_kind": "graph_edges"},
-            "source": f"symbol_function:src{i}.py:fn{i}",
-            "target": "f:root", "type": "calls", "confidence": 1.0,
-        })
+        records.append(
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": f"symbol_function:src{i}.py:fn{i}",
+                "kind": "symbol_function",
+                "name": f"fn{i}",
+                "file": f"src{i}.py",
+            }
+        )
+        records.append(
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": f"symbol_function:src{i}.py:fn{i}",
+                "target": "f:root",
+                "type": "calls",
+                "confidence": 1.0,
+            }
+        )
     s.rebuild_from_output_records(manifest_hash="m", records=records)
     s._cached_payload = None
     res = compute_blast_radius(

@@ -24,26 +24,24 @@ class CodeCompassHybridSourceRankingService:
         chunk_by_id: dict[str, Any] = {}
         for index, chunk in enumerate(chunks):
             is_mapping = isinstance(chunk, dict)
-            path = str(
-                (chunk.get("source") if is_mapping else getattr(chunk, "source", "")) or ""
-            ).removeprefix("/app/")
-            canonical_id = f"{path}#{index}"
-            content = str(
-                (chunk.get("content") if is_mapping else getattr(chunk, "content", "")) or ""
+            path = str((chunk.get("source") if is_mapping else getattr(chunk, "source", "")) or "").removeprefix(
+                "/app/"
             )
+            canonical_id = f"{path}#{index}"
+            content = str((chunk.get("content") if is_mapping else getattr(chunk, "content", "")) or "")
             symbol_line = next(
                 (line for line in content.splitlines()[:4] if line.lower().startswith("symbols:")),
                 "",
             )
-            symbols = tuple(
-                sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", symbol_line)))
-            )[:80]
-            candidates.append(RankingCandidate(
-                canonical_id=canonical_id,
-                path=path,
-                symbols=symbols,
-                language=language_for_path(path),
-            ))
+            symbols = tuple(sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", symbol_line))))[:80]
+            candidates.append(
+                RankingCandidate(
+                    canonical_id=canonical_id,
+                    path=path,
+                    symbols=symbols,
+                    language=language_for_path(path),
+                )
+            )
             chunk_by_id[canonical_id] = chunk
         digest = hashlib.sha256(
             json.dumps([(item.path, item.symbols) for item in candidates], sort_keys=True).encode("utf-8")

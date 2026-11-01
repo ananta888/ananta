@@ -1,4 +1,5 @@
 """SimulationModelAdapter interface (SIM-015)."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -31,8 +32,7 @@ class SimulationModelAdapter(ABC):
     """
 
     @abstractmethod
-    def generate(self, messages: list[dict[str, str]],
-                  agent_id: str, **kwargs: Any) -> AdapterResponse:
+    def generate(self, messages: list[dict[str, str]], agent_id: str, **kwargs: Any) -> AdapterResponse:
         """Send messages → return parsed ActionProposal or fallback noop."""
 
     @property

@@ -45,9 +45,7 @@ class CognitiveStyleRebenchmarkPlanner:
             stale_after_days=command.stale_after_days,
         )
         profiles_by_id = {item.profile_id: item for item in model_profiles}
-        contexts_by_id = {
-            context.model_profile_id: context for context in command.contexts
-        }
+        contexts_by_id = {context.model_profile_id: context for context in command.contexts}
         work: list[CognitiveStyleRebenchmarkWorkItem] = []
         skipped: list[str] = []
         for entry in drift.entries:
@@ -58,15 +56,17 @@ class CognitiveStyleRebenchmarkPlanner:
             if profile is None or context is None:
                 skipped.append(entry.model_profile_id)
                 continue
-            work.append(CognitiveStyleRebenchmarkWorkItem(
-                profile=profile,
-                plan=CognitiveStyleBenchmarkSuite.plan(
-                    context,
-                    repeats=command.repeats,
-                    seeds=command.seeds,
-                    temperatures=command.temperatures,
-                ),
-            ))
+            work.append(
+                CognitiveStyleRebenchmarkWorkItem(
+                    profile=profile,
+                    plan=CognitiveStyleBenchmarkSuite.plan(
+                        context,
+                        repeats=command.repeats,
+                        seeds=command.seeds,
+                        temperatures=command.temperatures,
+                    ),
+                )
+            )
         return CognitiveStyleRebenchmarkSchedule(
             drift=drift,
             work_items=tuple(work),
@@ -75,6 +75,7 @@ class CognitiveStyleRebenchmarkPlanner:
 
 
 __all__ = [
-    "CognitiveStyleRebenchmarkPlanner", "CognitiveStyleRebenchmarkSchedule",
+    "CognitiveStyleRebenchmarkPlanner",
+    "CognitiveStyleRebenchmarkSchedule",
     "CognitiveStyleRebenchmarkWorkItem",
 ]

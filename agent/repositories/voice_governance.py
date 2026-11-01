@@ -81,8 +81,7 @@ class VoiceConsentRepository:
                     VoiceGovernanceIdempotencyDB.tenant_id == principal.tenant_id,
                     VoiceGovernanceIdempotencyDB.owner_subject == principal.subject,
                     VoiceGovernanceIdempotencyDB.state == "pending",
-                    VoiceGovernanceIdempotencyDB.lease_expires_at
-                    == idempotency_lease_token,
+                    VoiceGovernanceIdempotencyDB.lease_expires_at == idempotency_lease_token,
                 )
                 .values(
                     state="completed",
@@ -286,10 +285,7 @@ class VoicePersonalizationRepository:
 
         if not items:
             raise ValueError("voice feedback batch must not be empty")
-        keys = [
-            (str(item["source_review_id"]), str(item["kind"]))
-            for item in items
-        ]
+        keys = [(str(item["source_review_id"]), str(item["kind"])) for item in items]
         if len(set(keys)) != len(keys):
             raise VoiceGovernanceError(
                 code="voice_personalization.duplicate_import_item",
@@ -573,15 +569,9 @@ class VoiceIdempotencyRepository:
         cutoff = float(now if now is not None else time.time())
         with Session(engine) as session:
             ids = session.exec(
-                select(VoiceGovernanceIdempotencyDB.id).where(
-                    VoiceGovernanceIdempotencyDB.expires_at <= cutoff
-                )
+                select(VoiceGovernanceIdempotencyDB.id).where(VoiceGovernanceIdempotencyDB.expires_at <= cutoff)
             ).all()
-            session.exec(
-                delete(VoiceGovernanceIdempotencyDB).where(
-                    VoiceGovernanceIdempotencyDB.expires_at <= cutoff
-                )
-            )
+            session.exec(delete(VoiceGovernanceIdempotencyDB).where(VoiceGovernanceIdempotencyDB.expires_at <= cutoff))
             session.commit()
             return len(ids)
 
@@ -628,9 +618,7 @@ class VoiceIdempotencyRepository:
                 return False
             metadata = dict(record.result_metadata or {})
             owns_pending_lease = bool(
-                record.state == "pending"
-                and lease_token is not None
-                and record.lease_expires_at == lease_token
+                record.state == "pending" and lease_token is not None and record.lease_expires_at == lease_token
             )
             owns_completed_result = bool(
                 record.state == "completed"
@@ -647,8 +635,7 @@ class VoiceIdempotencyRepository:
                     VoiceGovernanceIdempotencyDB.tenant_id == principal.tenant_id,
                     VoiceGovernanceIdempotencyDB.owner_subject == principal.subject,
                     VoiceGovernanceIdempotencyDB.state == record.state,
-                    VoiceGovernanceIdempotencyDB.lease_expires_at
-                    == record.lease_expires_at,
+                    VoiceGovernanceIdempotencyDB.lease_expires_at == record.lease_expires_at,
                 )
             )
             session.commit()

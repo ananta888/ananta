@@ -270,9 +270,7 @@ class TranscriptionPipeline:
                 else self._backend
             )
             result = self._candidate_runner.transcribe(
-                backend_id=policy.primary_backend
-                if policy.source == "hub_context"
-                else selected_backend.name(),
+                backend_id=policy.primary_backend if policy.source == "hub_context" else selected_backend.name(),
                 backend=selected_backend,
                 filename=filename,
                 content=content,
@@ -571,11 +569,7 @@ class TranscriptionPipeline:
                     dict.fromkeys(
                         [
                             *classic_result.warnings,
-                            *(
-                                ["classic_corrector_failed"]
-                                if len(candidates_tuple) > 1
-                                else []
-                            ),
+                            *(["classic_corrector_failed"] if len(candidates_tuple) > 1 else []),
                         ]
                     )
                 ),

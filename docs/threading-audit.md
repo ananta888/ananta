@@ -115,9 +115,9 @@ with ThreadPoolExecutor(max_workers=effective_concurrency) as executor:
 
 ```python
 per_task_hard_timeout = (
-    int(policy.get("propose_timeout", 120))   # LLM-Call-Budget
+    int(policy.get("propose_timeout", 120))  # LLM-Call-Budget
     + int(policy.get("execute_timeout", 60))  # Shell-Execute-Budget
-    + 30                                       # Puffer
+    + 30  # Puffer
 )
 ```
 
@@ -140,10 +140,10 @@ Beide Werte sind über `autopilot_security_policies.<level>.propose_timeout` /
 
 ```python
 {
-    "dispatched": int,       # Anzahl erfolgreich dispatchter Tasks
-    "completed": int,        # Davon mit completed=True
-    "failed": int,           # Fehlgeschlagene (dispatched-failed + pre-dispatch-failed)
-    "task_ids": list[str],   # IDs der dispatchten Tasks
+    "dispatched": int,  # Anzahl erfolgreich dispatchter Tasks
+    "completed": int,  # Davon mit completed=True
+    "failed": int,  # Fehlgeschlagene (dispatched-failed + pre-dispatch-failed)
+    "task_ids": list[str],  # IDs der dispatchten Tasks
     "reason": "ok",
     "debug": {...},
 }

@@ -13,9 +13,7 @@ from typing import Any, Mapping
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,511}$")
 _CAPABILITY = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,63}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
-CAPABILITY_NAMES = frozenset(
-    {"chat", "completion", "tools", "vision", "thinking", "embedding", "streaming"}
-)
+CAPABILITY_NAMES = frozenset({"chat", "completion", "tools", "vision", "thinking", "embedding", "streaming"})
 CAPABILITY_SOURCES = frozenset(
     {
         "runtime_reported",
@@ -106,8 +104,7 @@ class RuntimeModelSnapshot:
         if self.model_kind not in {"chat", "embedding", "unknown"}:
             raise ValueError("local_runtime_snapshot_kind_invalid")
         if self.context_window is not None and (
-            type(self.context_window) is not int
-            or not 1 <= self.context_window <= 100_000_000
+            type(self.context_window) is not int or not 1 <= self.context_window <= 100_000_000
         ):
             raise ValueError("local_runtime_snapshot_context_invalid")
         if self.template_family not in {"chatml", "llama3", "mistral", "gemma", "hermes", "phi", "unknown", "conflict"}:
@@ -142,23 +139,17 @@ class RuntimeModelSnapshot:
         if capability not in CAPABILITY_NAMES:
             return False
         claims = tuple(item for item in self.claims(capability) if item.active())
-        if (
-            not claims
-            or self.stale
-            or self.model_kind == "embedding" and capability == "chat"
-        ):
+        if not claims or self.stale or self.model_kind == "embedding" and capability == "chat":
             return False
         if any(
-            item.source == "observed_failure"
-            or (item.source == "runtime_reported" and not item.supported)
+            item.source == "observed_failure" or (item.source == "runtime_reported" and not item.supported)
             for item in claims
         ):
             return False
         if capability == "tools" and self.template_family == "conflict":
             return False
         return any(
-            item.supported
-            and item.source in {"runtime_reported", "profile_declared", "observed_success"}
+            item.supported and item.source in {"runtime_reported", "profile_declared", "observed_success"}
             for item in claims
         )
 

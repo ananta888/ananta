@@ -3,6 +3,7 @@
 Normalizes raw provider results to canonical ContextItem format.
 Also contains FakeContextProvider for unit tests.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -22,21 +23,23 @@ MAX_ITEMS = 20
 
 # Paths that are always blocked regardless of scope configuration.
 # Checked as path segments (any component in the path hierarchy).
-_ALWAYS_BLOCKED_SEGMENTS: frozenset[str] = frozenset({
-    ".env",
-    ".git",
-    "secrets",
-    "node_modules",
-})
+_ALWAYS_BLOCKED_SEGMENTS: frozenset[str] = frozenset(
+    {
+        ".env",
+        ".git",
+        "secrets",
+        "node_modules",
+    }
+)
 
 # Patterns used to detect and redact secrets from snippets.
 _SECRET_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"sk-[A-Za-z0-9]{20,}"),                                           # OpenAI-style keys
-    re.compile(r"AKIA[0-9A-Z]{16}"),                                               # AWS access keys
+    re.compile(r"sk-[A-Za-z0-9]{20,}"),  # OpenAI-style keys
+    re.compile(r"AKIA[0-9A-Z]{16}"),  # AWS access keys
     re.compile(r"-----BEGIN [A-Z ]+KEY-----.*?-----END [A-Z ]+KEY-----", re.DOTALL),  # PEM keys
-    re.compile(r"ghp_[A-Za-z0-9]{36}"),                                            # GitHub PAT
-    re.compile(r"xoxb-[0-9A-Za-z-]+"),                                            # Slack bot token
-    re.compile(r"(?i)(?:password|passwd|secret|token|api_key)\s*[=:]\s*\S+"),     # key=value patterns
+    re.compile(r"ghp_[A-Za-z0-9]{36}"),  # GitHub PAT
+    re.compile(r"xoxb-[0-9A-Za-z-]+"),  # Slack bot token
+    re.compile(r"(?i)(?:password|passwd|secret|token|api_key)\s*[=:]\s*\S+"),  # key=value patterns
 ]
 
 
@@ -55,12 +58,7 @@ class ContextItemNormalizer:
 
         Returns None if the item should be excluded (denied path, no snippet, etc.)
         """
-        path = (
-            raw.get("path")
-            or raw.get("file")
-            or raw.get("filepath")
-            or ""
-        )
+        path = raw.get("path") or raw.get("file") or raw.get("filepath") or ""
         if not path:
             return None
 
@@ -68,12 +66,7 @@ class ContextItemNormalizer:
         if not allowed:
             return None
 
-        snippet = (
-            raw.get("snippet")
-            or raw.get("content")
-            or raw.get("text")
-            or ""
-        )
+        snippet = raw.get("snippet") or raw.get("content") or raw.get("text") or ""
         if not snippet:
             return None
 
@@ -244,6 +237,7 @@ class FakeContextProvider:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _safe_int(value: Any) -> int | None:
     if value is None:

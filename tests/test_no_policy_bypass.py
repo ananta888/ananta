@@ -123,8 +123,7 @@ def test_repair_execution_path_requires_policy_approved_scope() -> None:
     assert result["status"] == "aborted"
     assert result["stop_reason"] == "approval_required"
     assert any(
-        item.get("code") == "approval_required_for_mutation"
-        for item in list(result.get("abort_conditions") or [])
+        item.get("code") == "approval_required_for_mutation" for item in list(result.get("abort_conditions") or [])
     )
 
 

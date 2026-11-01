@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, Literal, TypeVar
 
-
 SfuProjectionStatus = Literal[
     "pending",
     "active",

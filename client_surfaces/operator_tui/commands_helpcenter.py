@@ -2,20 +2,19 @@
 
 Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 from agent.services.helpcenter_contract_service import load_helpcenter_index
-from agent.services.helpcenter_ingest_service import ingest_github_failures, StaticGithubWorkflowApiClient
-from agent.services.planning_summary_doctor_service import doctor_file, fix_file
-from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState, PanelState
+from agent.services.helpcenter_ingest_service import StaticGithubWorkflowApiClient, ingest_github_failures
+from client_surfaces.operator_tui.models import CommandResult, OperatorState, PanelState
 
 
 def _helpcenter_repo_root() -> Path:
     return Path.cwd()
-
 
 
 def _build_helpcenter_payload(*, game: dict[str, object], repo_root: Path) -> dict[str, object]:
@@ -26,7 +25,9 @@ def _build_helpcenter_payload(*, game: dict[str, object], repo_root: Path) -> di
     if not selected_analysis_id and rows:
         selected_analysis_id = str(rows[0].get("analysis_id") or "")
         game["helpcenter_selected_analysis_id"] = selected_analysis_id
-    selected_row = next((item for item in rows if str(item.get("analysis_id") or "") == selected_analysis_id), rows[0] if rows else None)
+    selected_row = next(
+        (item for item in rows if str(item.get("analysis_id") or "") == selected_analysis_id), rows[0] if rows else None
+    )
     selected_analysis: dict[str, object] = {}
     if isinstance(selected_row, dict):
         json_ref = str(selected_row.get("json_ref") or "").strip()
@@ -94,7 +95,9 @@ def handle_helpcenter_command(args: list[str], state: OperatorState) -> CommandR
             json.dumps(payload, ensure_ascii=False),
         )
     if sub == "suggest-followup":
-        analysis_id = str(args[1]).strip() if len(args) > 1 else str(game.get("helpcenter_selected_analysis_id") or "").strip()
+        analysis_id = (
+            str(args[1]).strip() if len(args) > 1 else str(game.get("helpcenter_selected_analysis_id") or "").strip()
+        )
         if analysis_id:
             game["helpcenter_selected_analysis_id"] = analysis_id
         payload = _build_helpcenter_payload(game=game, repo_root=repo_root)
@@ -112,12 +115,17 @@ def handle_helpcenter_command(args: list[str], state: OperatorState) -> CommandR
                 panel_states=panel_states,
                 status_message="helpcenter follow-up suggestion ready (no task created)",
             ),
-            json.dumps({"analysis_id": analysis_id, "followup_suggestion": followup, "auto_create": False, "payload": payload}, ensure_ascii=False),
+            json.dumps(
+                {"analysis_id": analysis_id, "followup_suggestion": followup, "auto_create": False, "payload": payload},
+                ensure_ascii=False,
+            ),
         )
     if sub == "ingest":
         source_kind = str(args[1]).lower() if len(args) > 1 else ""
         if source_kind != "github-failures":
-            return CommandResult(state, "helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run]", handled=False)
+            return CommandResult(
+                state, "helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run]", handled=False
+            )
         repo = "ananta888/ananta"
         limit = 5
         dry_run = False
@@ -141,7 +149,9 @@ def handle_helpcenter_command(args: list[str], state: OperatorState) -> CommandR
                 i += 1
                 continue
             i += 1
-        mock_rows = [dict(item) for item in list(game.get("helpcenter_mock_github_rows") or []) if isinstance(item, dict)]
+        mock_rows = [
+            dict(item) for item in list(game.get("helpcenter_mock_github_rows") or []) if isinstance(item, dict)
+        ]
         api_client = StaticGithubWorkflowApiClient(rows=mock_rows) if mock_rows else None
         result = ingest_github_failures(
             repo=repo,

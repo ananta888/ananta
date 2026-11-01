@@ -2,22 +2,13 @@
 
 All tests run without external LLM keys or live CodeCompass infrastructure.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from agent.services.pre_model_context_orchestrator import (
-    DECISION_CANNOT_ANSWER,
-    DECISION_DETERMINISTIC,
-    DECISION_PASS_THROUGH,
-    DECISION_USE_CONTEXT,
-    DECISION_WORKER_DECIDES,
-    OrchestratorResult,
-    PreModelContextOrchestrator,
-    get_pre_model_context_orchestrator,
-)
+from agent.services.path_ai_mode_policy_service import PathAiModePolicyService, PathAiModeRule
 from agent.services.pre_model_context_config import (
-    MODE_CONTEXT_FIRST,
     MODE_DETERMINISTIC_ONLY,
     MODE_DISABLED,
     MODE_OBSERVE_ONLY,
@@ -25,22 +16,29 @@ from agent.services.pre_model_context_config import (
     MODE_PREFER_DETERMINISTIC,
     MODE_WORKER_DECIDES,
 )
-from agent.services.path_ai_mode_policy_service import PathAiModePolicyService, PathAiModeRule
+from agent.services.pre_model_context_orchestrator import (
+    DECISION_CANNOT_ANSWER,
+    DECISION_DETERMINISTIC,
+    DECISION_PASS_THROUGH,
+    DECISION_USE_CONTEXT,
+    DECISION_WORKER_DECIDES,
+    PreModelContextOrchestrator,
+    get_pre_model_context_orchestrator,
+)
 from agent.services.restricted_model_inference_service import MockInferenceAdapter, RestrictedModelInferenceService
 
 
 def _cfg(mode: str = "disabled", *, surface: str = "", surface_mode: str = "") -> dict:
     cfg: dict = {"pre_model_context": {"enabled": True, "mode": mode}}
     if surface and surface_mode:
-        cfg["pre_model_context"]["surfaces"] = {
-            surface: {"enabled": True, "mode": surface_mode}
-        }
+        cfg["pre_model_context"]["surfaces"] = {surface: {"enabled": True, "mode": surface_mode}}
     return cfg
 
 
 def _make_orc(candidates: list[dict] | None = None) -> PreModelContextOrchestrator:
     def _retrieve(task_text, domain_hint, workspace_dir, budget):
         return candidates or []
+
     return PreModelContextOrchestrator(retrieve_fn=_retrieve)
 
 
@@ -171,12 +169,16 @@ class TestPreferContextMode:
         assert payload["transformer_engine"] == "mock"
 
     def test_restricted_rerank_policy_blocked_falls_back(self):
-        policy = PathAiModePolicyService(rules=[
-            PathAiModeRule.from_raw({
-                "path_glob": "src/**",
-                "blocked_ai_modes": ["restricted_transformer_inference"],
-            })
-        ])
+        policy = PathAiModePolicyService(
+            rules=[
+                PathAiModeRule.from_raw(
+                    {
+                        "path_glob": "src/**",
+                        "blocked_ai_modes": ["restricted_transformer_inference"],
+                    }
+                )
+            ]
+        )
         svc = RestrictedModelInferenceService(
             adapters=[MockInferenceAdapter()],
             policy_service=policy,
@@ -205,9 +207,11 @@ class TestPreferContextMode:
 
 class TestDeterministicOnlyMode:
     def test_deterministic_only_with_navigation_returns_deterministic(self):
-        orc = _make_orc([
-            {"path": "agent/main.py", "record_id": "a1", "embedding_score": 0.9},
-        ])
+        orc = _make_orc(
+            [
+                {"path": "agent/main.py", "record_id": "a1", "embedding_score": 0.9},
+            ]
+        )
         result = orc.orchestrate(
             task_text="wo ist die datei für die Konfiguration?",
             user_config=_cfg(MODE_DETERMINISTIC_ONLY),
@@ -264,9 +268,7 @@ class TestSurfaceConfig:
             "pre_model_context": {
                 "enabled": True,
                 "mode": MODE_DISABLED,
-                "surfaces": {
-                    "ai_snake_chat": {"enabled": True, "mode": MODE_PREFER_CONTEXT}
-                },
+                "surfaces": {"ai_snake_chat": {"enabled": True, "mode": MODE_PREFER_CONTEXT}},
             }
         }
         orc = _make_orc([{"path": "x.py", "record_id": "x1", "embedding_score": 0.7}])
@@ -282,9 +284,7 @@ class TestSurfaceConfig:
             "pre_model_context": {
                 "enabled": True,
                 "mode": MODE_PREFER_CONTEXT,
-                "surfaces": {
-                    "ananta_worker": {"enabled": False, "mode": MODE_DISABLED}
-                },
+                "surfaces": {"ananta_worker": {"enabled": False, "mode": MODE_DISABLED}},
             }
         }
         orc = _make_orc()

@@ -2,6 +2,7 @@
 
 Parses .canvas files (Obsidian JSON format) into index/detail/relation records.
 """
+
 from __future__ import annotations
 
 import json
@@ -49,16 +50,8 @@ class CanvasExtractor:
         if title.endswith(".canvas"):
             title = title[:-7]
 
-        node_texts = [
-            n.get("text", "")[:100]
-            for n in raw_nodes
-            if n.get("type") == "text" and n.get("text")
-        ]
-        node_files = [
-            n.get("file", "")
-            for n in raw_nodes
-            if n.get("type") == "file" and n.get("file")
-        ]
+        node_texts = [n.get("text", "")[:100] for n in raw_nodes if n.get("type") == "text" and n.get("text")]
+        node_files = [n.get("file", "") for n in raw_nodes if n.get("type") == "file" and n.get("file")]
 
         embedding_text = (
             f"Canvas: {title} | "
@@ -99,26 +92,28 @@ class CanvasExtractor:
             else:
                 node_embedding = f"{title} canvas {node_type} node"
 
-            node_records.append({
-                "id": node_record_id,
-                "kind": "obsidian_canvas_node",
-                "canvas_id": canvas_id,
-                "canvas_file": rel_path,
-                "vault": vault_name,
-                "node_id": nid,
-                "node_type": node_type,
-                "text": node.get("text", "")[:500] if node_type == "text" else "",
-                "file": node.get("file", "") if node_type == "file" else "",
-                "url": node.get("url", "") if node_type == "link" else "",
-                "x": node.get("x", 0),
-                "y": node.get("y", 0),
-                "width": node.get("width", 0),
-                "height": node.get("height", 0),
-                "embedding_text": node_embedding,
-                "parent_id": canvas_id,
-                "source_type": "obsidian_vault",
-                "importance_score": 0.5,
-            })
+            node_records.append(
+                {
+                    "id": node_record_id,
+                    "kind": "obsidian_canvas_node",
+                    "canvas_id": canvas_id,
+                    "canvas_file": rel_path,
+                    "vault": vault_name,
+                    "node_id": nid,
+                    "node_type": node_type,
+                    "text": node.get("text", "")[:500] if node_type == "text" else "",
+                    "file": node.get("file", "") if node_type == "file" else "",
+                    "url": node.get("url", "") if node_type == "link" else "",
+                    "x": node.get("x", 0),
+                    "y": node.get("y", 0),
+                    "width": node.get("width", 0),
+                    "height": node.get("height", 0),
+                    "embedding_text": node_embedding,
+                    "parent_id": canvas_id,
+                    "source_type": "obsidian_vault",
+                    "importance_score": 0.5,
+                }
+            )
 
         index_records.extend(node_records)
 
@@ -150,13 +145,15 @@ class CanvasExtractor:
             from_node = edge.get("fromNode", "")
             to_node = edge.get("toNode", "")
             if from_node in node_id_map and to_node in node_id_map:
-                relation_records.append({
-                    "from": node_id_map[from_node],
-                    "to": node_id_map[to_node],
-                    "type": "obs_canvas_edge",
-                    "label": edge.get("label", ""),
-                    "edge_id": edge.get("id", ""),
-                })
+                relation_records.append(
+                    {
+                        "from": node_id_map[from_node],
+                        "to": node_id_map[to_node],
+                        "type": "obs_canvas_edge",
+                        "label": edge.get("label", ""),
+                        "edge_id": edge.get("id", ""),
+                    }
+                )
 
         # File-node relations to actual notes
         for node in raw_nodes:
@@ -166,13 +163,15 @@ class CanvasExtractor:
                 # Normalize the path
                 target_note_id = f"obs_note:{sha1_text(f'{vault_name}:{file_path}')}"
                 node_record_id = f"obs_canvas_node:{sha1_text(f'{vault_name}:{rel_path}:{nid}')}"
-                relation_records.append({
-                    "from": node_record_id,
-                    "to": target_note_id,
-                    "type": "obs_canvas_references_note",
-                    "resolved": True,
-                    "confidence": 0.9,
-                })
+                relation_records.append(
+                    {
+                        "from": node_record_id,
+                        "to": target_note_id,
+                        "type": "obs_canvas_references_note",
+                        "resolved": True,
+                        "confidence": 0.9,
+                    }
+                )
 
         stats = {
             "node_count": len(raw_nodes),

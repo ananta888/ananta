@@ -18,19 +18,14 @@ def _source_provenance(
     verified_source_ids: frozenset[str],
 ) -> dict[str, Any]:
     candidate = str(source_id or "").strip()
-    verified = (
-        _GROUNDED_SOURCE_ID_PATTERN.fullmatch(candidate) is not None
-        and candidate in verified_source_ids
-    )
+    verified = _GROUNDED_SOURCE_ID_PATTERN.fullmatch(candidate) is not None and candidate in verified_source_ids
     return {
         "source_id": candidate if verified else None,
         "retrieval_kind": str(retrieval_kind or ""),
         "score": float(score or 0.0),
         "verification_status": "verified" if verified else "unverified",
         "reason_code": (
-            "source_id_verified"
-            if verified
-            else ("source_id_unverified" if candidate else "source_id_missing")
+            "source_id_verified" if verified else ("source_id_unverified" if candidate else "source_id_missing")
         ),
     }
 
@@ -67,8 +62,7 @@ def select_candidate_files(
     verified_source_ids = frozenset(
         candidate
         for value in list(context_envelope.get("verified_source_ids") or [])
-        if (candidate := str(value or "").strip())
-        and _GROUNDED_SOURCE_ID_PATTERN.fullmatch(candidate) is not None
+        if (candidate := str(value or "").strip()) and _GROUNDED_SOURCE_ID_PATTERN.fullmatch(candidate) is not None
     )
     retrieval_refs = [item for item in list(context_envelope.get("retrieval_refs") or []) if isinstance(item, dict)]
     file_sizes = {
@@ -81,7 +75,9 @@ def select_candidate_files(
         selected_explicit = explicit[: bounded_limits.max_files]
         return {
             "status": "degraded",
-            "reason": "rag_unavailable_explicit_files_fallback" if selected_explicit else "rag_unavailable_no_candidates",
+            "reason": "rag_unavailable_explicit_files_fallback"
+            if selected_explicit
+            else "rag_unavailable_no_candidates",
             "selected_files": [
                 {
                     "path": path,
@@ -131,8 +127,7 @@ def select_candidate_files(
                 "reason": str(ref.get("reason") or "rag_ranked"),
                 "source_provenance": _source_provenance(
                     source_id=ref.get("source_id"),
-                    retrieval_kind=ref.get("retrieval_kind")
-                    or "codecompass_rag_helper",
+                    retrieval_kind=ref.get("retrieval_kind") or "codecompass_rag_helper",
                     score=ref.get("score"),
                     verified_source_ids=verified_source_ids,
                 ),
@@ -189,7 +184,10 @@ def select_candidate_files_from_hybrid_retrieval(
     service = HybridRetrievalService()
     retrieval = service.retrieve(
         query=query,
-        pipeline_contract={"channels": ["dense", "lexical", "symbol"], "fallback_order": ["dense", "lexical", "symbol"]},
+        pipeline_contract={
+            "channels": ["dense", "lexical", "symbol"],
+            "fallback_order": ["dense", "lexical", "symbol"],
+        },
         channel_results=channel_results,
         task_type=task_type,
         profile=str(execution_profile or "balanced"),

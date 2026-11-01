@@ -1,7 +1,6 @@
-from unittest.mock import patch
-
-from tests.fixtures.mock_openai_compatible_provider import make_mock_invoke_with_tools, make_mock_invoke_with_json_schema
-
+from tests.fixtures.mock_openai_compatible_provider import (
+    make_mock_invoke_with_tools,
+)
 
 TASK_ID = "T-STRATEGY-MODE-API-001"
 
@@ -11,9 +10,11 @@ def test_task_propose_accepts_strategy_mode_and_exposes_effective_mode(app, clie
     # AGENT_CONFIG is built at app init from settings (DEFAULT_PROVIDER=mock in Docker);
     # patch it here so effective_config reflects "lmstudio" during the test.
     app.config["AGENT_CONFIG"]["default_provider"] = "lmstudio"
-    tool_mock = make_mock_invoke_with_tools([
-        {"name": "write_file", "args": {"path": "app.py", "content": "print(1)\n"}},
-    ])
+    tool_mock = make_mock_invoke_with_tools(
+        [
+            {"name": "write_file", "args": {"path": "app.py", "content": "print(1)\n"}},
+        ]
+    )
     monkeypatch.setattr(
         "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
         tool_mock,

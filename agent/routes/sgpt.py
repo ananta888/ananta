@@ -74,6 +74,7 @@ def get_rate_limit_service():
 ALLOWED_BACKENDS = _sgpt_execute.ALLOWED_BACKENDS
 BACKEND_ALIASES = _sgpt_execute.BACKEND_ALIASES
 
+
 def _allowed_backends() -> set[str]:
     return _sgpt_execute.allowed_backends(ALLOWED_BACKENDS)
 
@@ -580,9 +581,13 @@ def cli_backend_provision(backend_id: str):
         from agent.cli_backends.pi_readiness import pi_readiness_projection
         from worker.runtime.workflow_adapter_runtime_composition import workflow_adapter_registration_metadata
 
-        result = {**result, "native_execution": pi_readiness_projection(
-            installation=result, runtime=workflow_adapter_registration_metadata(current_app),
-        )}
+        result = {
+            **result,
+            "native_execution": pi_readiness_projection(
+                installation=result,
+                runtime=workflow_adapter_registration_metadata(current_app),
+            ),
+        }
     return api_response(data={**result, "action": action})
 
 

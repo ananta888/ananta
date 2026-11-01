@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import ssl
 import threading
 import time
-from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Mapping, Protocol
@@ -24,9 +22,7 @@ MAX_REQUEST_BYTES = 65_536
 MAX_RESPONSE_BYTES = 65_536
 _ROUTE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _READ_PATHS = frozenset({"/v1/capabilities", "/v1/routes/observe", "/v1/health"})
-_CONTROL_PATHS = frozenset(
-    {"/v1/routes/apply", "/v1/routes/update", "/v1/routes/revoke", "/v1/drain"}
-)
+_CONTROL_PATHS = frozenset({"/v1/routes/apply", "/v1/routes/update", "/v1/routes/revoke", "/v1/drain"})
 _ALL_PATHS = _READ_PATHS | _CONTROL_PATHS
 
 
@@ -92,7 +88,7 @@ class PeerCertificateAuthorizer:
         now = self._clock()
         not_before = getattr(certificate, "not_valid_before_utc", certificate.not_valid_before.replace(tzinfo=None))
         not_after = getattr(certificate, "not_valid_after_utc", certificate.not_valid_after.replace(tzinfo=None))
-        now_value = time.gmtime(now)
+        time.gmtime(now)
         if now < not_before.timestamp() or now > not_after.timestamp():
             raise RuntimeBoundaryError("runtime_mtls_peer_expired", status_code=401)
         fingerprint = f"sha256:{certificate.fingerprint(hashes.SHA256()).hex()}"
@@ -105,9 +101,7 @@ class PeerCertificateAuthorizer:
         except x509.ExtensionNotFound as exc:
             raise RuntimeBoundaryError("runtime_mtls_peer_san_missing", status_code=403) from exc
         try:
-            usages = certificate.extensions.get_extension_for_oid(
-                ExtensionOID.EXTENDED_KEY_USAGE
-            ).value
+            usages = certificate.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE).value
         except x509.ExtensionNotFound as exc:
             raise RuntimeBoundaryError("runtime_mtls_peer_eku_missing", status_code=403) from exc
         if ExtendedKeyUsageOID.CLIENT_AUTH not in usages:
@@ -157,11 +151,7 @@ class FixedWindowRateLimiter:
         window = int(self._clock() // self._window)
         key = (fingerprint, window)
         with self._lock:
-            self._buckets = {
-                existing: count
-                for existing, count in self._buckets.items()
-                if existing[1] >= window - 1
-            }
+            self._buckets = {existing: count for existing, count in self._buckets.items() if existing[1] >= window - 1}
             if key not in self._buckets and len(self._buckets) >= self._bucket_count_max:
                 return False
             count = self._buckets.get(key, 0) + 1
@@ -205,9 +195,7 @@ class RuntimeControlApplication:
                 raise RuntimeBoundaryError("runtime_control_rate_limited", status_code=429)
             if path in _CONTROL_PATHS:
                 if self._command_guard is None:
-                    raise RuntimeBoundaryError(
-                        "runtime_command_guard_unavailable", status_code=503
-                    )
+                    raise RuntimeBoundaryError("runtime_command_guard_unavailable", status_code=503)
                 payload = self._command_guard.execute(
                     path=path,
                     envelope=body,
@@ -241,9 +229,7 @@ class RuntimeControlApplication:
         if path == "/v1/routes/revoke":
             _require_fields(
                 body,
-                frozenset(
-                    {"operation_id", "route_id", "room_name", "receiver_identities", "track_sids"}
-                ),
+                frozenset({"operation_id", "route_id", "room_name", "receiver_identities", "track_sids"}),
             )
             _validate_route_mutation(body)
             return self._backend.revoke(body)
@@ -380,9 +366,7 @@ def main() -> None:
         client_ca=Path(os.environ["ANANTA_SFU_RUNTIME_CLIENT_CA"]),
         revocation_file=Path(os.environ["ANANTA_SFU_RUNTIME_REVOCATIONS"]),
         backend=UnsupportedRuntimeControlBackend(),
-        command_guard=RuntimeCommandGuard(
-            RuntimeCommandGuardConfig.from_environment(os.environ)
-        ),
+        command_guard=RuntimeCommandGuard(RuntimeCommandGuardConfig.from_environment(os.environ)),
     )
     server.serve_forever(poll_interval=0.5)
 

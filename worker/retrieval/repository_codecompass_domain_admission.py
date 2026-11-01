@@ -159,9 +159,7 @@ class _TopLevelDomainPartitions:
 
     def groups(
         self,
-    ) -> Iterator[
-        tuple[SemanticDomainIdentity, tuple[tuple[str, dict[str, Any]], ...]]
-    ]:
+    ) -> Iterator[tuple[SemanticDomainIdentity, tuple[tuple[str, dict[str, Any]], ...]]]:
         yield from self._groups
 
 

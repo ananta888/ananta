@@ -38,8 +38,9 @@ def port(f, endpoint):
 def test_model_child_calls_only_owned_tool_port_against_actual_hub_registry(hub):
     with running_hub(hub.app) as endpoint:
         tools = port(hub, endpoint)
-        execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", CHILD),
-                                               environment=tools.environment, ports={"tool": tools})
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-u", "-c", CHILD), environment=tools.environment, ports={"tool": tools}
+        )
         ticks = []
         try:
             assert execution.call("answer", "Meet", cooperate=lambda: ticks.append(True)) == "synthetic scoped result"
@@ -76,8 +77,9 @@ def test_revocation_while_http_is_pending_keeps_owner_responsive_and_kills_both_
 
     with running_hub(hub.app) as endpoint:
         tools = port(hub, endpoint)
-        execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", CHILD),
-                                               environment=tools.environment, ports={"tool": tools})
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-u", "-c", CHILD), environment=tools.environment, ports={"tool": tools}
+        )
         try:
             with pytest.raises(PermissionError, match="task_cancelled"):
                 execution.call("answer", "Meet", cooperate=cooperate)

@@ -4,6 +4,7 @@ Owns the in-memory ownership index and its atomic authorize/bind rules.  The
 guarding lock is supplied by the owning service so that ownership checks and
 idempotency reservation keep sharing one critical section.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, ContextManager
@@ -20,11 +21,7 @@ def run_control_resource_keys(
     goal_id: str | None,
     run_id: str | None,
 ) -> tuple[ResourceKey, ...]:
-    return tuple(
-        (kind, str(value))
-        for kind, value in (("task", task_id), ("goal", goal_id), ("run", run_id))
-        if value
-    )
+    return tuple((kind, str(value)) for kind, value in (("task", task_id), ("goal", goal_id), ("run", run_id)) if value)
 
 
 def resolve_legacy_resource_principal(
@@ -137,8 +134,7 @@ class RunControlResourceOwnership:
             return False
         with self._lock_provider():
             if any(
-                existing is not None and existing != principal
-                for existing in (self.owners.get(key) for key in keys)
+                existing is not None and existing != principal for existing in (self.owners.get(key) for key in keys)
             ):
                 return False
             for key in keys:

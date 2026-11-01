@@ -78,14 +78,9 @@ class WorkspaceSnapshotStager:
             if browser_root is None:
                 browser_root = relative.browser_root
             elif relative.browser_root != browser_root:
-                raise WorkspaceSnapshotUploadError(
-                    "workspace_snapshot_browser_root_mismatch"
-                )
+                raise WorkspaceSnapshotUploadError("workspace_snapshot_browser_root_mismatch")
             directory_keys = tuple(
-                "/".join(
-                    part.casefold() for part in relative.parts[:index]
-                )
-                for index in range(1, len(relative.parts))
+                "/".join(part.casefold() for part in relative.parts[:index]) for index in range(1, len(relative.parts))
             )
             if (
                 relative.collision_key in seen_files
@@ -98,9 +93,7 @@ class WorkspaceSnapshotStager:
                 )
             stream = getattr(upload, "stream", None)
             if stream is None or not callable(getattr(stream, "read", None)):
-                raise WorkspaceSnapshotUploadError(
-                    "workspace_snapshot_file_stream_invalid"
-                )
+                raise WorkspaceSnapshotUploadError("workspace_snapshot_file_stream_invalid")
             byte_size, content_digest = self._writer.write_file(
                 stage_fd=stage_fd,
                 relative=relative,
@@ -120,9 +113,7 @@ class WorkspaceSnapshotStager:
             seen_files.add(relative.collision_key)
             seen_directories.update(directory_keys)
         if not records:
-            raise WorkspaceSnapshotUploadError(
-                "workspace_snapshot_files_required"
-            )
+            raise WorkspaceSnapshotUploadError("workspace_snapshot_files_required")
         records.sort(key=lambda item: item.relative_path)
         manifest_digest = canonical_digest(
             [

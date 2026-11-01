@@ -29,7 +29,6 @@ def validation_summary(report: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-
 def scan_pii(path: Path, *, partition: str = "train") -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8", errors="replace") as handle:

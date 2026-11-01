@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-import pytest
-
+from agent.services.embedded_tool_session_service import (
+    SESSION_TYPE_EDITOR,
+    SESSION_TYPE_TOOL,
+    EmbeddedSessionMeta,
+    EmbeddedSessionResult,
+)
 from agent.tui_contract import ShellMode
 from agent.tui_main_pane import TuiMainPaneController
 from agent.tui_shell_runtime import TuiShellRuntime
-from agent.services.embedded_tool_session_service import (
-    EmbeddedSessionMeta,
-    EmbeddedSessionResult,
-    EmbeddedToolSessionService,
-    SESSION_TYPE_EDITOR,
-    SESSION_TYPE_TOOL,
-    TuiToolPolicy,
-)
-
 
 # ── Stubs ─────────────────────────────────────────────────────────────────────
 
+
 def _meta(session_id, session_type, *, editor_id="vim", tool_id="", file_path="", readonly=False):
     import time
+
     return EmbeddedSessionMeta(
         session_id=session_id,
         session_type=session_type,
@@ -61,6 +58,7 @@ def _make_controller(*, fail=False, fail_reason="permission_denied"):
 
 
 # ── open_file ─────────────────────────────────────────────────────────────────
+
 
 def test_open_file_switches_to_embedded_editor():
     ctrl, runtime, _ = _make_controller()
@@ -117,6 +115,7 @@ def test_open_file_failure_returns_ok_false():
 
 # ── launch_tool ───────────────────────────────────────────────────────────────
 
+
 def test_launch_tool_switches_to_embedded_tool():
     ctrl, runtime, _ = _make_controller()
     result = ctrl.launch_tool("git_ui", "/ws", session_id="t1")
@@ -146,6 +145,7 @@ def test_launch_tool_failure_stays_in_dashboard():
 
 # ── return_to_dashboard ───────────────────────────────────────────────────────
 
+
 def test_return_to_dashboard_from_editor():
     ctrl, runtime, _ = _make_controller()
     ctrl.open_file("/ws/f.py", "/ws", session_id="s7")
@@ -171,6 +171,7 @@ def test_return_to_dashboard_from_dashboard_is_noop():
 
 # ── status ────────────────────────────────────────────────────────────────────
 
+
 def test_status_shows_dashboard_initially():
     ctrl, _, _ = _make_controller()
     s = ctrl.status()
@@ -191,6 +192,7 @@ def test_current_mode_returns_enum():
 
 
 # ── full flow ─────────────────────────────────────────────────────────────────
+
 
 def test_full_flow_open_return_reopen():
     ctrl, runtime, _ = _make_controller()

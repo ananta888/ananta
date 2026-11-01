@@ -1,4 +1,5 @@
 """FileChangeSet v1 — workspace before/after diff contracts."""
+
 from __future__ import annotations
 
 import hashlib

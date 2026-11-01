@@ -42,11 +42,14 @@ def test_batch_audio_admission_uses_exact_wav_duration_and_fail_closed_fallback(
         content=_wav(0.25),
         unknown_audio_seconds=30,
     ) == pytest.approx(0.25)
-    assert estimate_batch_audio_seconds(
-        filename="sample.webm",
-        content=b"opaque-compressed-audio",
-        unknown_audio_seconds=30,
-    ) == 30
+    assert (
+        estimate_batch_audio_seconds(
+            filename="sample.webm",
+            content=b"opaque-compressed-audio",
+            unknown_audio_seconds=30,
+        )
+        == 30
+    )
 
 
 def test_stream_audio_reservation_is_exact_for_pcm_and_fail_closed_for_containers() -> None:
@@ -55,11 +58,14 @@ def test_stream_audio_reservation_is_exact_for_pcm_and_fail_closed_for_container
         requested_audio_seconds=0.25,
         max_audio_seconds=30,
     ) == pytest.approx(0.25)
-    assert reserve_stream_audio_seconds(
-        media_type="audio/webm",
-        requested_audio_seconds=0.25,
-        max_audio_seconds=30,
-    ) == 30
+    assert (
+        reserve_stream_audio_seconds(
+            media_type="audio/webm",
+            requested_audio_seconds=0.25,
+            max_audio_seconds=30,
+        )
+        == 30
+    )
 
 
 def test_admission_waits_fifo_and_never_delegates_beyond_concurrency_budget() -> None:

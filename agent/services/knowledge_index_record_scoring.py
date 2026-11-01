@@ -62,23 +62,90 @@ class KnowledgeIndexRecordScorer:
     # common 2-char fragments produced by splitting words at umlauts (e.g. "erkläre"
     # → ["erkl", "re"]). Without this filter, "re" dominates large Python files
     # through "return", "service", "regex" etc. hitting the linear count formula.
-    _STOP_TOKENS: frozenset = frozenset({
-        # German articles / pronouns / prepositions
-        "der", "die", "das", "den", "dem", "des",
-        "ein", "eine", "einer", "eines", "einem",
-        "mir", "dir", "ihm", "ihr", "uns",
-        "ich", "du", "er", "sie", "wir",
-        "und", "oder", "aber", "nicht", "auch", "noch",
-        "von", "mit", "bei", "aus", "zur", "zum",
-        "ist", "sind", "war", "wird", "hat", "haben",
-        "auf", "in", "an", "zu", "am", "im",
-        "als", "bitte", "mal", "schon", "wie", "was", "wer", "wo",
-        # Common short fragments from umlaut splitting
-        "re", "de", "le", "al", "ar", "te", "se",
-        # English stop words
-        "the", "and", "for", "are", "but", "not", "you", "all",
-        "can", "has", "its", "was", "use", "one", "how", "our", "out",
-    })
+    _STOP_TOKENS: frozenset = frozenset(
+        {
+            # German articles / pronouns / prepositions
+            "der",
+            "die",
+            "das",
+            "den",
+            "dem",
+            "des",
+            "ein",
+            "eine",
+            "einer",
+            "eines",
+            "einem",
+            "mir",
+            "dir",
+            "ihm",
+            "ihr",
+            "uns",
+            "ich",
+            "du",
+            "er",
+            "sie",
+            "wir",
+            "und",
+            "oder",
+            "aber",
+            "nicht",
+            "auch",
+            "noch",
+            "von",
+            "mit",
+            "bei",
+            "aus",
+            "zur",
+            "zum",
+            "ist",
+            "sind",
+            "war",
+            "wird",
+            "hat",
+            "haben",
+            "auf",
+            "in",
+            "an",
+            "zu",
+            "am",
+            "im",
+            "als",
+            "bitte",
+            "mal",
+            "schon",
+            "wie",
+            "was",
+            "wer",
+            "wo",
+            # Common short fragments from umlaut splitting
+            "re",
+            "de",
+            "le",
+            "al",
+            "ar",
+            "te",
+            "se",
+            # English stop words
+            "the",
+            "and",
+            "for",
+            "are",
+            "but",
+            "not",
+            "you",
+            "all",
+            "can",
+            "has",
+            "its",
+            "was",
+            "use",
+            "one",
+            "how",
+            "our",
+            "out",
+        }
+    )
     FILE_KIND_BY_FAMILY = {
         "build": "config",
         "code": "code",
@@ -121,7 +188,8 @@ class KnowledgeIndexRecordScorer:
 
     def _tokenize(self, value: str) -> list[str]:
         return [
-            t for t in (token.lower() for token in self.TOKEN_PATTERN.findall(value or ""))
+            t
+            for t in (token.lower() for token in self.TOKEN_PATTERN.findall(value or ""))
             if len(t) >= 3 and t not in self._STOP_TOKENS
         ]
 
@@ -334,16 +402,18 @@ class KnowledgeIndexRecordScorer:
         record_multiplier = float((profile.get("record_kind_weights") or {}).get(record_bucket, 1.0))
         file_multiplier = float((profile.get("file_kind_weights") or {}).get(file_bucket, 1.0))
         base_score = (
-            sum(weighted_hits.values()) + symbol_hit_score + phrase_bonus + path_stem_bonus + relation_signal
+            sum(weighted_hits.values())
+            + symbol_hit_score
+            + phrase_bonus
+            + path_stem_bonus
+            + relation_signal
             + definition_bonus
         )
         importance_score = float(record.get("importance_score") or 0.0)
         importance_boost = min(0.45, importance_score * float(profile.get("importance_weight", 0.0)))
         record_id = str(record.get("id") or "").strip()
         duplicate_penalty = (
-            float(profile.get("duplicate_penalty", 0.0))
-            if record_id and record_id in duplicate_ids
-            else 0.0
+            float(profile.get("duplicate_penalty", 0.0)) if record_id and record_id in duplicate_ids else 0.0
         )
         generated_penalty = float(profile.get("generated_penalty", 0.0)) if bool(record.get("generated_code")) else 0.0
         boilerplate_penalty = (

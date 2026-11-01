@@ -1,5 +1,5 @@
-from agent.db_models import AgentInfoDB, TaskDB
 from agent.config import settings
+from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, policy_decision_repo, task_repo
 from agent.routes.tasks.orchestration_policy import choose_worker_for_task
 
@@ -66,7 +66,11 @@ class TestWorkerRoutingAPI:
         res = client.post(
             "/tasks/parent-1/delegate",
             headers=admin_auth_header,
-            json={"subtask_description": "Generate task plan", "task_kind": "planning", "required_capabilities": ["planning"]},
+            json={
+                "subtask_description": "Generate task plan",
+                "task_kind": "planning",
+                "required_capabilities": ["planning"],
+            },
         )
         assert res.status_code in {200, 502}
         if res.status_code == 200:
@@ -87,7 +91,11 @@ class TestWorkerRoutingAPI:
                 status="online",
             )
         )
-        task_repo.save(TaskDB(id="task-research-1", title="Repository research", description="Investigate repo history", status="todo"))
+        task_repo.save(
+            TaskDB(
+                id="task-research-1", title="Repository research", description="Investigate repo history", status="todo"
+            )
+        )
         with app.app_context():
             cfg = app.config.get("AGENT_CONFIG", {}) or {}
             cfg["research_backend"] = {

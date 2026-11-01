@@ -135,14 +135,19 @@ def _initialize_workflow_adapter_worker_runtime(app: Flask):
             )
             if native_executor is not None:
                 native_executor = TaskScopedNativeWorkerExecutor(
-                    runtime=get_native_worker_runtime_service(), workspaces=workspaces,
+                    runtime=get_native_worker_runtime_service(),
+                    workspaces=workspaces,
                     input_materializer=NativeInputWorkspaceMaterializer(
                         downloader=NativeArtifactInputDownloader(transport=artifact_transport),
                     ),
-                    output_materializer=NativeOutputFileMaterializer(writer=LocalNativeArtifactWriter(
-                        engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB,
-                        storage=ArtifactStore(storage_root),
-                    )),
+                    output_materializer=NativeOutputFileMaterializer(
+                        writer=LocalNativeArtifactWriter(
+                            engine=engine,
+                            artifact_model=ArtifactDB,
+                            version_model=ArtifactVersionDB,
+                            storage=ArtifactStore(storage_root),
+                        )
+                    ),
                 )
     except ValueError:
         # Artifact-producing commands fail before execution without this port.
@@ -837,6 +842,7 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
 
     run_startup_phase("self_development", initialize_self_development, app)
     from agent.bootstrap.harness_evolution import initialize_harness_evolution
+
     run_startup_phase("harness_evolution", initialize_harness_evolution, app)
     from agent.bootstrap.scrum_continuous_improvement import initialize_scrum_continuous_improvement
 

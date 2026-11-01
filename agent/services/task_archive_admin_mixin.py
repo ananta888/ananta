@@ -224,11 +224,7 @@ class TaskArchiveAdminMixin:
         deleted_ids: list[str] = []
         errors: list[dict[str, Any]] = []
         for item in self.load_all_archived_tasks():
-            archived_at = float(
-                item.get("archived_at")
-                or item.get("updated_at")
-                or 0
-            )
+            archived_at = float(item.get("archived_at") or item.get("updated_at") or 0)
             if archived_at >= cutoff:
                 continue
             if team_id and (item.get("team_id") or "") != team_id:

@@ -65,9 +65,7 @@ def _configure(app, tmp_path: Path) -> None:
             "base_models": ["local/base"],
         },
         "lora_runtime": {
-            "adapter_registry_path": str(
-                artifact_root / "adapter_registry.json"
-            ),
+            "adapter_registry_path": str(artifact_root / "adapter_registry.json"),
         },
     }
 
@@ -130,9 +128,7 @@ def test_capabilities_expose_fail_closed_unsloth_projection(
     }
     assert projection["operations"]["mcp"]["available"] is False
     assert projection["release_profile"]["available"] is False
-    assert projection["release_profile"]["reason_code"] == (
-        "unsloth_release_profile_unavailable"
-    )
+    assert projection["release_profile"]["reason_code"] == ("unsloth_release_profile_unavailable")
     assert set(projection["modalities"]) == {
         "text",
         "vision",
@@ -163,9 +159,7 @@ def test_mutation_route_requires_admin_auth_and_idempotency(
     )
     missing = client.post(route, headers=admin_auth_header, json=_body())
     assert missing.status_code == 400
-    assert missing.get_json()["data"]["error"]["code"] == (
-        "idempotency_key_invalid"
-    )
+    assert missing.get_json()["data"]["error"]["code"] == ("idempotency_key_invalid")
 
 
 def test_dry_run_confirmation_is_tenant_bound_and_idempotent(
@@ -184,9 +178,7 @@ def test_dry_run_confirmation_is_tenant_bound_and_idempotent(
     monkeypatch.setattr(
         training_routes,
         "log_audit",
-        lambda event_type, details: audit_events.append(
-            (event_type, dict(details))
-        ),
+        lambda event_type, details: audit_events.append((event_type, dict(details))),
     )
     route = "/api/ml-intern-training/unsloth/mutations/export"
 
@@ -196,9 +188,7 @@ def test_dry_run_confirmation_is_tenant_bound_and_idempotent(
         json=_body(resource_id="/host/models/private"),
     )
     assert invalid_resource.status_code == 422
-    assert invalid_resource.get_json()["data"]["error"]["code"] == (
-        "unsloth_resource_id_invalid"
-    )
+    assert invalid_resource.get_json()["data"]["error"]["code"] == ("unsloth_resource_id_invalid")
     assert executor.preview_calls == 0
     assert executor.execute_calls == 0
 
@@ -225,9 +215,7 @@ def test_dry_run_confirmation_is_tenant_bound_and_idempotent(
         ),
     )
     assert changed.status_code == 409
-    assert changed.get_json()["data"]["error"]["code"] == (
-        "unsloth_confirmation_invalid"
-    )
+    assert changed.get_json()["data"]["error"]["code"] == ("unsloth_confirmation_invalid")
     assert executor.execute_calls == 0
 
     other_tenant = client.post(
@@ -243,9 +231,7 @@ def test_dry_run_confirmation_is_tenant_bound_and_idempotent(
         ),
     )
     assert other_tenant.status_code == 409
-    assert other_tenant.get_json()["data"]["error"]["code"] == (
-        "unsloth_confirmation_invalid"
-    )
+    assert other_tenant.get_json()["data"]["error"]["code"] == ("unsloth_confirmation_invalid")
     assert executor.execute_calls == 0
 
     confirm_headers = _with_key(
@@ -261,9 +247,7 @@ def test_dry_run_confirmation_is_tenant_bound_and_idempotent(
     replayed = client.post(route, headers=confirm_headers, json=confirm_body)
 
     assert confirmed.status_code == 201
-    assert confirmed.get_json()["data"]["reason_code"] == (
-        "unsloth_mutation_completed"
-    )
+    assert confirmed.get_json()["data"]["reason_code"] == ("unsloth_mutation_completed")
     assert replayed.status_code == 200
     assert replayed.get_json()["data"]["replayed"] is True
     assert executor.execute_calls == 1
@@ -286,9 +270,7 @@ def test_incomplete_runtime_handoff_and_invalid_snapshots_fail_closed(
         executable_operations=(),
     )
     assert projection["core"]["available"] is False
-    assert projection["core"]["reason_code"] == (
-        "unsloth_capability_contract_invalid"
-    )
+    assert projection["core"]["reason_code"] == ("unsloth_capability_contract_invalid")
 
     response = client.post(
         "/api/ml-intern-training/unsloth/mutations/runtime_handoff",
@@ -296,6 +278,4 @@ def test_incomplete_runtime_handoff_and_invalid_snapshots_fail_closed(
         json=_body(operation="runtime_handoff"),
     )
     assert response.status_code == 422
-    assert response.get_json()["data"]["error"]["code"] == (
-        "runtime_handoff_artifact_id_invalid"
-    )
+    assert response.get_json()["data"]["error"]["code"] == ("runtime_handoff_artifact_id_invalid")

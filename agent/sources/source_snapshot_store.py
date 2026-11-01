@@ -61,7 +61,9 @@ class SourceSnapshotStore:
         created_at = _now_iso()
         content_hash = _sha256_json(content_payload)
         metadata_hash = _sha256_json(metadata_payload)
-        snapshot_id = f"snap_{hashlib.sha1(f'{source_id}:{created_at}:{content_hash}'.encode('utf-8')).hexdigest()[:16]}"
+        snapshot_id = (
+            f"snap_{hashlib.sha1(f'{source_id}:{created_at}:{content_hash}'.encode('utf-8')).hexdigest()[:16]}"
+        )
         snapshot = {
             "schema": "source_snapshot.v1",
             "snapshot_id": snapshot_id,

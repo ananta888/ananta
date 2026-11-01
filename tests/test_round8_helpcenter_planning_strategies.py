@@ -1,4 +1,5 @@
 """Round 8 tests: helpcenter and planning Python strategies + bootstrap JSON files."""
+
 from __future__ import annotations
 
 import json
@@ -45,9 +46,11 @@ def _ctx(
 
 # ── FailureTriageStrategy ────────────────────────────────────────────────────
 
+
 class TestFailureTriageStrategy:
     def _s(self):
         from agent.heuristics.strategies.helpcenter.failure_triage import FailureTriageStrategy
+
         return FailureTriageStrategy()
 
     def test_no_action_on_unrelated_query(self):
@@ -82,11 +85,13 @@ class TestFailureTriageStrategy:
 
 # ── GithubFailureSourceRefsStrategy ──────────────────────────────────────────
 
+
 class TestGithubFailureSourceRefsStrategy:
     def _s(self):
         from agent.heuristics.strategies.helpcenter.github_failure_refs import (
             GithubFailureSourceRefsStrategy,
         )
+
         return GithubFailureSourceRefsStrategy()
 
     def test_no_action_on_non_github_query(self):
@@ -114,11 +119,13 @@ class TestGithubFailureSourceRefsStrategy:
 
 # ── DuplicateFailureGroupingStrategy ─────────────────────────────────────────
 
+
 class TestDuplicateFailureGroupingStrategy:
     def _s(self):
         from agent.heuristics.strategies.helpcenter.duplicate_grouping import (
             DuplicateFailureGroupingStrategy,
         )
+
         return DuplicateFailureGroupingStrategy()
 
     def test_no_action_on_unrelated_query(self):
@@ -146,9 +153,11 @@ class TestDuplicateFailureGroupingStrategy:
 
 # ── NextTaskStrategy ──────────────────────────────────────────────────────────
 
+
 class TestNextTaskStrategy:
     def _s(self):
         from agent.heuristics.strategies.planning.next_task import NextTaskStrategy
+
         return NextTaskStrategy()
 
     def _pdef(self, params=None):
@@ -179,9 +188,11 @@ class TestNextTaskStrategy:
 
 # ── ArchiveDoneStrategy ───────────────────────────────────────────────────────
 
+
 class TestArchiveDoneStrategy:
     def _s(self):
         from agent.heuristics.strategies.planning.archive_done import ArchiveDoneStrategy
+
         return ArchiveDoneStrategy()
 
     def _pdef(self, params=None):
@@ -205,9 +216,11 @@ class TestArchiveDoneStrategy:
 
 # ── SummaryRecomputeStrategy ──────────────────────────────────────────────────
 
+
 class TestSummaryRecomputeStrategy:
     def _s(self):
         from agent.heuristics.strategies.planning.summary_recompute import SummaryRecomputeStrategy
+
         return SummaryRecomputeStrategy()
 
     def _pdef(self, params=None):
@@ -238,9 +251,11 @@ class TestSummaryRecomputeStrategy:
 
 # ── RelatedTodoMergeStrategy ──────────────────────────────────────────────────
 
+
 class TestRelatedTodoMergeStrategy:
     def _s(self):
         from agent.heuristics.strategies.planning.related_todo_merge import RelatedTodoMergeStrategy
+
         return RelatedTodoMergeStrategy()
 
     def _pdef(self, params=None):
@@ -324,6 +339,7 @@ class TestRound8BootstrapFiles:
 
     def test_python_strategy_modules_allowlisted(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         loader = PythonStrategyLoader()
         for fn in _ALL_NEW_FILES:
             d = self._load(fn)
@@ -332,9 +348,7 @@ class TestRound8BootstrapFiles:
             assert loader.is_allowlisted(mod, cls), f"{fn}: {mod}.{cls}"
 
     def test_index_includes_all_entries(self):
-        index = json.load(
-            open(os.path.join(os.path.dirname(__file__), "..", "heuristics", "index.json"))
-        )
+        index = json.load(open(os.path.join(os.path.dirname(__file__), "..", "heuristics", "index.json")))
         ids = {h["heuristic_id"] for h in index["heuristics"]}
         for fn in _ALL_NEW_FILES:
             hid = fn.replace(".heuristic.json", "")

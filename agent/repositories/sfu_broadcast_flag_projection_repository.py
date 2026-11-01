@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Mapping, Protocol
 
 import sqlalchemy as sa
@@ -143,8 +142,7 @@ class SqlSfuBroadcastFlagProjectionRepository:
                     )
                 ).one_or_none()
                 if state is not None and (
-                    command.flag_version < state.flag_version
-                    or command.cohort_version < state.cohort_version
+                    command.flag_version < state.flag_version or command.cohort_version < state.cohort_version
                 ):
                     raise SfuBroadcastFlagProjectionError("sfu_flag_projection_stale_version")
                 fence = max(command.minimum_fencing_token, (state.fencing_token + 1) if state else 1)
@@ -294,11 +292,7 @@ class SqlSfuBroadcastFlagProjectionRepository:
                     and result.nonce == row.nonce
                     and result.fencing_token == row.fencing_token
                 )
-                retryable = (
-                    not matching
-                    and row.attempt <= row.retry_max
-                    and row.deadline_at > now
-                )
+                retryable = not matching and row.attempt <= row.retry_max and row.deadline_at > now
                 row.status = "acknowledged" if matching else ("retry" if retryable else "rejected")
                 row.reason_code = "accepted" if matching else result.reason_code
                 row.acknowledged_at = now if matching else None
@@ -360,10 +354,14 @@ class SqlSfuBroadcastFlagProjectionRepository:
                     and row.ack_expires_at is not None
                     and row.ack_expires_at > now
                 )
-                reason = "accepted" if ready else (
-                    "sfu_flag_projection_ack_stale"
-                    if row.ack_expires_at is not None and row.ack_expires_at <= now
-                    else row.reason_code or "sfu_flag_projection_not_ready"
+                reason = (
+                    "accepted"
+                    if ready
+                    else (
+                        "sfu_flag_projection_ack_stale"
+                        if row.ack_expires_at is not None and row.ack_expires_at <= now
+                        else row.reason_code or "sfu_flag_projection_not_ready"
+                    )
                 )
                 return SfuRuntimeProjectionAdmissionState(
                     ready, reason, row.flag_version, row.cohort_version, row.fencing_token, row.ack_expires_at

@@ -6,6 +6,7 @@ Scores and ranks CandidateFile objects from all CodeCompass output kinds
 
 Does NOT read original file contents — only works with CodeCompass metadata.
 """
+
 from __future__ import annotations
 
 import math
@@ -20,7 +21,6 @@ from ananta_codecompass.output_reader import (
     extract_file_path_from_record,
 )
 from ananta_codecompass.query_parser import parse_codecompass_query
-
 
 # Path classification — used by ResolverConfig to decide which paths
 # belong in the final ranking for a given user mode.
@@ -47,13 +47,13 @@ _PATH_KIND_THIRDPARTY = "thirdparty"
 # large files with hundreds of detail/context records do not flood the ranking
 # simply by file size.
 _WEIGHT = {
-    "exact_symbol":   2.5,
-    "phrase":         1.8,
-    "broad_token":    0.6,
+    "exact_symbol": 2.5,
+    "phrase": 1.8,
+    "broad_token": 0.6,
     "embedding_text": 1.2,
     "graph_neighbor": 0.8,
-    "context_hit":    1.5,
-    "details_hit":    1.0,
+    "context_hit": 1.5,
+    "details_hit": 1.0,
 }
 # Cap on distinct source paths a single relations record may contribute to.
 # The relations graph is dense; a single source path can have 50+ outgoing
@@ -72,8 +72,13 @@ _MAX_CANDIDATES = 40
 # checked both with and without a leading slash (paths may be relative
 # "tests/foo.py" or absolute "/app/tests/foo.py" depending on provenance).
 _REPO_TEST_PATH_PARTS = (
-    "tests/", "test/", "__tests__/", ".github/workflows/test",
-    "spec/", ".spec.", ".test.",
+    "tests/",
+    "test/",
+    "__tests__/",
+    ".github/workflows/test",
+    "spec/",
+    ".spec.",
+    ".test.",
 )
 _REPO_TEST_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_TEST_PATH_PARTS)
 # Path-parts that mark a file as documentation. Split from
@@ -81,7 +86,12 @@ _REPO_TEST_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_TEST_PATH_PARTS)
 # DOC kind (controlled by include_docs) instead of grouping them with
 # workflows.
 _REPO_DOC_PATH_PARTS = (
-    "docs/", "readme", ".md", "changelog", "license", "contributing",
+    "docs/",
+    "readme",
+    ".md",
+    "changelog",
+    "license",
+    "contributing",
 )
 _REPO_DOC_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_DOC_PATH_PARTS)
 # Path-parts that mark a file as build / config / workflow material —
@@ -89,11 +99,22 @@ _REPO_DOC_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_DOC_PATH_PARTS)
 # and the CodeCompass/RAG output directories themselves (which are
 # generated artifacts, not user-authored source).
 _REPO_WORKFLOW_PATH_PARTS = (
-    "data/", "venv/", "node_modules/", "__pycache__/",
-    "project-workspaces/", ".git/", "dist/", "build/",
-    "docker-compose", "compose.", ".github/",  # CI workflow files
-    "rag-helper/out/", "rag-helper/output/",
-    "codecompass-out/", ".claude/", "artifacts/",
+    "data/",
+    "venv/",
+    "node_modules/",
+    "__pycache__/",
+    "project-workspaces/",
+    ".git/",
+    "dist/",
+    "build/",
+    "docker-compose",
+    "compose.",
+    ".github/",  # CI workflow files
+    "rag-helper/out/",
+    "rag-helper/output/",
+    "codecompass-out/",
+    ".claude/",
+    "artifacts/",
     "testsuites/",  # junit xml test cases
     "config/runs/",  # CI run configurations
     "scripts/",  # deployment / build scripts (not application source)
@@ -125,9 +146,7 @@ _REPO_THIRDPARTY_CLIENT_PREFIXES = (
 # `_classify_path` distinguishes them. Keep the union of the markers
 # available for callers that still want the combined check.
 _REPO_NONSOURCE_PATH_PARTS_LOWER = (
-    _REPO_TEST_PATH_PARTS_LOWER
-    + _REPO_DOC_PATH_PARTS_LOWER
-    + _REPO_WORKFLOW_PATH_PARTS_LOWER
+    _REPO_TEST_PATH_PARTS_LOWER + _REPO_DOC_PATH_PARTS_LOWER + _REPO_WORKFLOW_PATH_PARTS_LOWER
 )
 # Minimum length of a token in a path-stem that may trigger the source stem
 # boost. Set to 3 so short domain tokens like "hub", "tui", "cli", "rpc"
@@ -215,6 +234,7 @@ def _stem_tokens(path: str) -> set[str]:
     snake_case.
     """
     from pathlib import Path as _P
+
     stem = _P(path).stem.lower()
     return {t for t in re.findall(r"[a-z0-9]+", stem) if len(t) >= _MIN_STEM_TOKEN_LEN}
 
@@ -287,11 +307,31 @@ _CODE_SNIPPET_MARKERS = ("(", ")", ";", "{", "}", "=>")
 # expression rather than a file path. e.g. "Objects.requireNonNull(...)",
 # "List.of()", "Map.of()", "Thread.currentThread().interrupt()".
 _JAVA_BUILTIN_PREFIXES = (
-    "Objects.", "List.", "Map.", "Set.", "Collection.",
-    "Thread.", "String.", "Integer.", "Boolean.", "Long.",
-    "ArrayList.", "HashMap.", "HashSet.", "Optional.", "Arrays.",
-    "Stream.", "Collectors.", "Files.", "Paths.", "URI.",
-    "URL.", "Logger.", "System.", "Class.", "Reflect.",
+    "Objects.",
+    "List.",
+    "Map.",
+    "Set.",
+    "Collection.",
+    "Thread.",
+    "String.",
+    "Integer.",
+    "Boolean.",
+    "Long.",
+    "ArrayList.",
+    "HashMap.",
+    "HashSet.",
+    "Optional.",
+    "Arrays.",
+    "Stream.",
+    "Collectors.",
+    "Files.",
+    "Paths.",
+    "URI.",
+    "URL.",
+    "Logger.",
+    "System.",
+    "Class.",
+    "Reflect.",
     "AnantaRuntimeBootstrap.",
 )
 # A path string should look like a relative repo path: contain a path
@@ -305,30 +345,126 @@ _PATH_SEP_RE = re.compile(r"[/\\]")
 # in the string) is rejected. This blocks Java type names that happen
 # to look like file extensions (e.g. "List", "Map", "Set") and
 # unqualified FQN suffixes (e.g. "AnantaApiClient").
-_VALID_FILE_EXTENSIONS = frozenset({
-    "py", "md", "java", "json", "yaml", "yml", "ts", "tsx", "js",
-    "jsx", "html", "xml", "txt", "csv", "sh", "bash", "toml", "cfg",
-    "ini", "css", "scss", "less", "sql", "graphql", "proto", "lock",
-    "log", "cast", "png", "jpg", "jpeg", "gif", "svg", "pdf", "zip",
-    "tar", "gz", "bak", "tmp", "dat", "db", "env", "example",
-    "kt", "kts", "swift", "m", "h", "c", "cpp", "hpp", "cs", "rb",
-    "go", "rs", "php", "pl", "lua", "dart", "vue", "svelte",
-})
+_VALID_FILE_EXTENSIONS = frozenset(
+    {
+        "py",
+        "md",
+        "java",
+        "json",
+        "yaml",
+        "yml",
+        "ts",
+        "tsx",
+        "js",
+        "jsx",
+        "html",
+        "xml",
+        "txt",
+        "csv",
+        "sh",
+        "bash",
+        "toml",
+        "cfg",
+        "ini",
+        "css",
+        "scss",
+        "less",
+        "sql",
+        "graphql",
+        "proto",
+        "lock",
+        "log",
+        "cast",
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "svg",
+        "pdf",
+        "zip",
+        "tar",
+        "gz",
+        "bak",
+        "tmp",
+        "dat",
+        "db",
+        "env",
+        "example",
+        "kt",
+        "kts",
+        "swift",
+        "m",
+        "h",
+        "c",
+        "cpp",
+        "hpp",
+        "cs",
+        "rb",
+        "go",
+        "rs",
+        "php",
+        "pl",
+        "lua",
+        "dart",
+        "vue",
+        "svelte",
+    }
+)
 
 # Bare Java type names (CamelCase or lowercase primitives) that show
 # up as `target` / `target_resolved` values. When the string is
 # non-empty, has no path separator, and is in this set, it is a type
 # name — not a file.
-_JAVA_TYPE_NAMES = frozenset({
-    "string", "object", "integer", "boolean", "long", "double", "float",
-    "short", "byte", "char", "void", "file", "list", "map", "set",
-    "collection", "iterable", "array", "enum", "exception",
-    "runtimeexception", "ioexception", "nullpointerexception",
-    "throwable", "inputstream", "outputstream", "reader", "writer",
-    "bufferedreader", "bufferedwriter", "url", "uri", "path", "paths",
-    "files", "function", "predicate", "consumer", "supplier", "optional",
-    "stream", "collector", "class", "type", "method", "field",
-})
+_JAVA_TYPE_NAMES = frozenset(
+    {
+        "string",
+        "object",
+        "integer",
+        "boolean",
+        "long",
+        "double",
+        "float",
+        "short",
+        "byte",
+        "char",
+        "void",
+        "file",
+        "list",
+        "map",
+        "set",
+        "collection",
+        "iterable",
+        "array",
+        "enum",
+        "exception",
+        "runtimeexception",
+        "ioexception",
+        "nullpointerexception",
+        "throwable",
+        "inputstream",
+        "outputstream",
+        "reader",
+        "writer",
+        "bufferedreader",
+        "bufferedwriter",
+        "url",
+        "uri",
+        "path",
+        "paths",
+        "files",
+        "function",
+        "predicate",
+        "consumer",
+        "supplier",
+        "optional",
+        "stream",
+        "collector",
+        "class",
+        "type",
+        "method",
+        "field",
+    }
+)
 
 
 def _looks_like_path(s: str) -> bool:
@@ -363,7 +499,7 @@ def _looks_like_path(s: str) -> bool:
     last_dot = s.rfind(".")
     if last_dot == -1 or last_dot == len(s) - 1:
         return False
-    ext = s[last_dot + 1:].lower()
+    ext = s[last_dot + 1 :].lower()
     if ext in _JAVA_TYPE_NAMES:
         return False
     return ext in _VALID_FILE_EXTENSIONS
@@ -489,8 +625,17 @@ def _tokens_match(terms: list[str], text: str) -> list[str]:
     low = text.lower()
     return [t for t in terms if t.lower() in low]
 
+
 _SEARCHABLE_RECORD_FIELDS = (
-    "symbol", "name", "summary", "content", "embedding_text", "title", "description", "path", "file",
+    "symbol",
+    "name",
+    "summary",
+    "content",
+    "embedding_text",
+    "title",
+    "description",
+    "path",
+    "file",
 )
 _RELATION_SOURCE_FIELDS = ("file", "source_name", "path", "from_path", "from", "source")
 

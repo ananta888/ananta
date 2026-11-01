@@ -184,8 +184,7 @@ class SpreadsheetObservabilityService:
     def publish_queue_depth(self, counts: Mapping[str, int]) -> None:
         allowed = set(self._queue_depth)
         invalid_values = any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in counts.values()
+            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts.values()
         )
         if set(counts) - allowed or invalid_values:
             raise SpreadsheetObservabilityError("spreadsheet_queue_depth_invalid")

@@ -9,9 +9,7 @@ from worker.hrm_experiments.protocol import receive_message, send_message
 
 
 def main() -> int:
-    path = os.environ.get(
-        "ANANTA_HRM_RUNNER_SOCKET", "/run/ananta-hrm/runner.sock"
-    )
+    path = os.environ.get("ANANTA_HRM_RUNNER_SOCKET", "/run/ananta-hrm/runner.sock")
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
             connection.settimeout(2.0)

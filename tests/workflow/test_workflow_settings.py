@@ -1,7 +1,9 @@
 """WFG-003: tests for the workflow-layer settings module."""
+
 from __future__ import annotations
 
 import os
+
 import pytest
 
 from agent.services.workflow_settings import (
@@ -77,11 +79,21 @@ def test_negative_gate_timeout_raises() -> None:
         WorkflowSettings.from_env()
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("1", True), ("0", False), ("true", True), ("false", False),
-    ("yes", True), ("no", False), ("on", True), ("off", False),
-    ("TRUE", True), ("Yes", True),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("1", True),
+        ("0", False),
+        ("true", True),
+        ("false", False),
+        ("yes", True),
+        ("no", False),
+        ("on", True),
+        ("off", False),
+        ("TRUE", True),
+        ("Yes", True),
+    ],
+)
 def test_audit_enabled_accepts_common_truthy_strings(raw: str, expected: bool) -> None:
     os.environ["ANANTA_WORKFLOW_AUDIT_ENABLED"] = raw
     s = WorkflowSettings.from_env()

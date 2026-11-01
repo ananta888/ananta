@@ -278,9 +278,7 @@ class _SqlProjectionRepository(Generic[ProjectionT, RowT]):
                         sa.and_(order_column == first, self._model.id > row_id),
                     )
                 )
-            rows = db.exec(
-                statement.order_by(order_column, self._model.id).limit(page_size + 1)
-            ).all()
+            rows = db.exec(statement.order_by(order_column, self._model.id).limit(page_size + 1)).all()
             included = rows[:page_size]
             items = tuple(self._from_row(row) for row in included)
             next_cursor = (
@@ -308,10 +306,7 @@ class _SqlProjectionRepository(Generic[ProjectionT, RowT]):
         ).first()
 
     def _from_row(self, row) -> ProjectionT:
-        return self._domain(**{
-            field.name: getattr(row, field.name)
-            for field in fields(self._domain)
-        })
+        return self._domain(**{field.name: getattr(row, field.name) for field in fields(self._domain)})
 
     def _has_natural_conflict(self, db: Session, candidate: ProjectionT) -> bool:
         if candidate.status != "active" or candidate.tombstoned_at is not None:
@@ -324,9 +319,7 @@ class _SqlProjectionRepository(Generic[ProjectionT, RowT]):
             self._model.tombstoned_at.is_(None),
         )
         for attribute in self._natural_attributes:
-            statement = statement.where(
-                getattr(self._model, attribute) == getattr(candidate, attribute)
-            )
+            statement = statement.where(getattr(self._model, attribute) == getattr(candidate, attribute))
         return db.exec(statement.limit(1)).first() is not None
 
     def _validate_relationship(
@@ -360,9 +353,7 @@ class _SqlProjectionRepository(Generic[ProjectionT, RowT]):
         return _result("conflict", reason="projection_write_conflict")
 
 
-class SqlSfuBroadcastAudienceRepository(
-    _SqlProjectionRepository[SfuBroadcastAudience, SfuBroadcastAudienceDB]
-):
+class SqlSfuBroadcastAudienceRepository(_SqlProjectionRepository[SfuBroadcastAudience, SfuBroadcastAudienceDB]):
     def __init__(
         self,
         *,
@@ -389,14 +380,10 @@ class SqlSfuBroadcastAudienceRepository(
         page_size: int,
         cursor: str | None = None,
     ) -> SfuProjectionPage[SfuBroadcastAudience]:
-        return self._page_retention_due(
-            scope, now=now, page_size=page_size, cursor=cursor
-        )
+        return self._page_retention_due(scope, now=now, page_size=page_size, cursor=cursor)
 
 
-class SqlSfuReceiverGroupRepository(
-    _SqlProjectionRepository[SfuReceiverGroup, SfuReceiverGroupDB]
-):
+class SqlSfuReceiverGroupRepository(_SqlProjectionRepository[SfuReceiverGroup, SfuReceiverGroupDB]):
     def __init__(
         self,
         *,
@@ -448,11 +435,7 @@ class SqlSfuAtomicGroupProjectionRepository:
                     )
                     .with_for_update()
                 ).first()
-                current = (
-                    _receiver_group_from_row(group_row)
-                    if group_row is not None
-                    else None
-                )
+                current = _receiver_group_from_row(group_row) if group_row is not None else None
                 outcome, saved = _prepare_mutation(
                     mutation.mutation,
                     current=current,
@@ -469,18 +452,13 @@ class SqlSfuAtomicGroupProjectionRepository:
                 parent_row = db.exec(
                     select(SfuBroadcastAudienceDB)
                     .where(
-                        SfuBroadcastAudienceDB.id
-                        == mutation.audience_projection_id,
+                        SfuBroadcastAudienceDB.id == mutation.audience_projection_id,
                         SfuBroadcastAudienceDB.tenant_id == saved.tenant_id,
                         SfuBroadcastAudienceDB.session_id == saved.session_id,
                     )
                     .with_for_update()
                 ).first()
-                parent = (
-                    _audience_from_row(parent_row)
-                    if parent_row is not None
-                    else None
-                )
+                parent = _audience_from_row(parent_row) if parent_row is not None else None
                 parent_error = _validate_atomic_group_parent(
                     mutation,
                     parent=parent,
@@ -497,8 +475,7 @@ class SqlSfuAtomicGroupProjectionRepository:
                         SfuReceiverGroupDB.id != saved.id,
                         SfuReceiverGroupDB.status == "active",
                         SfuReceiverGroupDB.tombstoned_at.is_(None),
-                        SfuReceiverGroupDB.subscription_ref
-                        == saved.subscription_ref,
+                        SfuReceiverGroupDB.subscription_ref == saved.subscription_ref,
                     )
                 ).first()
                 if natural_conflict is not None:
@@ -520,9 +497,7 @@ class SqlSfuAtomicGroupProjectionRepository:
                     )
                     if int(getattr(updated, "rowcount", 0) or 0) != 1:
                         db.rollback()
-                        return _result(
-                            "conflict", reason="projection_version_conflict"
-                        )
+                        return _result("conflict", reason="projection_version_conflict")
                 try:
                     db.commit()
                     return _result("saved", value=saved)
@@ -533,9 +508,7 @@ class SqlSfuAtomicGroupProjectionRepository:
             return _sql_error_result(error)
 
 
-class SqlSfuFanoutRouteRepository(
-    _SqlProjectionRepository[SfuFanoutRoute, SfuFanoutRouteDB]
-):
+class SqlSfuFanoutRouteRepository(_SqlProjectionRepository[SfuFanoutRoute, SfuFanoutRouteDB]):
     def __init__(
         self,
         *,
@@ -596,12 +569,8 @@ class SqlSfuFanoutRouteRepository(
 
 
 def _audience_from_row(row: SfuBroadcastAudienceDB) -> SfuBroadcastAudience:
-    return SfuBroadcastAudience(
-        **{field.name: getattr(row, field.name) for field in fields(SfuBroadcastAudience)}
-    )
+    return SfuBroadcastAudience(**{field.name: getattr(row, field.name) for field in fields(SfuBroadcastAudience)})
 
 
 def _receiver_group_from_row(row: SfuReceiverGroupDB) -> SfuReceiverGroup:
-    return SfuReceiverGroup(
-        **{field.name: getattr(row, field.name) for field in fields(SfuReceiverGroup)}
-    )
+    return SfuReceiverGroup(**{field.name: getattr(row, field.name) for field in fields(SfuReceiverGroup)})

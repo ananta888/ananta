@@ -44,8 +44,15 @@ _TEST_RUN_KEYS = ("allowlisted_test_commands", "test_timeout_seconds", "test_out
 
 # Tools that only gather context. A run of these with no write/action means the
 # model is stuck reading; the optional nudge then tells it to act.
-_READ_ONLY_TOOL_PREFIXES = ("repo.list_files", "repo.read_file_range", "repo.grep",
-                            "codecompass.", "git.status", "git.diff_readonly", "workspace.diff")
+_READ_ONLY_TOOL_PREFIXES = (
+    "repo.list_files",
+    "repo.read_file_range",
+    "repo.grep",
+    "codecompass.",
+    "git.status",
+    "git.diff_readonly",
+    "workspace.diff",
+)
 _ACTION_NUDGE = (
     "You already have enough context. Do not read more files. Now perform the change: "
     "emit a tool_request for a write tool (repo.write_file or repo.apply_patch), or a "
@@ -78,7 +85,9 @@ def get_tool_loop_config() -> dict[str, Any]:
         "codecompass_access": str(cfg.get("codecompass_access") or "delegated"),
         "codecompass_access_overrides": {
             str(tool): str(mode) for tool, mode in dict(cfg.get("codecompass_access_overrides") or {}).items()
-        } if isinstance(cfg.get("codecompass_access_overrides"), dict) else {},
+        }
+        if isinstance(cfg.get("codecompass_access_overrides"), dict)
+        else {},
         "codecompass_access_fallback": str(cfg.get("codecompass_access_fallback") or "none"),
     }
 
@@ -206,9 +215,14 @@ def _format_tool_result_block(result: dict[str, Any], *, max_chars: int) -> str:
 def _condensed_tool_result_block(result: dict[str, Any]) -> str:
     """A one-line stand-in for an older result that no longer fits the loop's total budget."""
     excerpt = json.dumps(result.get("data") if "data" in result else result, ensure_ascii=False)[:240]
-    summary = {"tool": result.get("tool_name") or result.get("tool"), "status": result.get("status"),
-               "error": result.get("error"), "condensed": "earlier result shortened to stay within the context "
-               "budget; call the tool again if its details are needed", "excerpt": excerpt}
+    summary = {
+        "tool": result.get("tool_name") or result.get("tool"),
+        "status": result.get("status"),
+        "error": result.get("error"),
+        "condensed": "earlier result shortened to stay within the context "
+        "budget; call the tool again if its details are needed",
+        "excerpt": excerpt,
+    }
     return f"```json\n{json.dumps(summary, ensure_ascii=False)}\n```"
 
 
@@ -255,12 +269,19 @@ def build_tool_loop_prompt(
         parts += ["", "## Bisherige ToolResults (Evidence)"]
         # LCTX-012: results get what the window leaves after task and instructions (newest complete, older
         # condensed, oldest left out); the configured total stays an upper bound
-        budget = available_chars("\n".join(parts), cap_chars=int(max_total_tool_result_chars
-                                                                 or _tool_result_limits({})["max_total_tool_result_chars"]))
+        budget = available_chars(
+            "\n".join(parts),
+            cap_chars=int(max_total_tool_result_chars or _tool_result_limits({})["max_total_tool_result_chars"]),
+        )
         formatted = [_format_tool_result_block(result, max_chars=max_tool_result_chars) for result in tool_results]
         condensed_of = {block: _condensed_tool_result_block(result) for block, result in zip(formatted, tool_results)}
-        parts += fit_blocks(formatted, budget, site="tool_loop.results",
-                            condense=lambda block: condensed_of.get(block, block), iteration=iteration)
+        parts += fit_blocks(
+            formatted,
+            budget,
+            site="tool_loop.results",
+            condense=lambda block: condensed_of.get(block, block),
+            iteration=iteration,
+        )
     return "\n".join(parts)
 
 
@@ -492,7 +513,8 @@ def run_ananta_worker_tool_loop(
 
         # kind == tool_request
         tool_name, arguments, aliased_from = registry.resolve_alias(
-            str(message.get("tool_name") or "").strip(), cfg.get("allowed_tools"), dict(message.get("arguments") or {}))
+            str(message.get("tool_name") or "").strip(), cfg.get("allowed_tools"), dict(message.get("arguments") or {})
+        )
         read_only_streak = read_only_streak + 1 if _is_read_only_tool(tool_name) else 0
         if aliased_from:
             log.info("tool loop: %s answered by %s (retired search tool)", aliased_from, tool_name)

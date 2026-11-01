@@ -85,9 +85,7 @@ def test_aggregate_preview_is_reachable_and_raw_audio_defaults_closed() -> None:
 def test_raw_audio_refs_require_separate_server_verified_preview_grant() -> None:
     manifest = _manifest()
     client, app = _client(manifest)
-    app.extensions["speech_dataset_privacy_preview_service"] = SpeechDatasetPrivacyPreviewService(
-        AllowPreviewGrant()
-    )
+    app.extensions["speech_dataset_privacy_preview_service"] = SpeechDatasetPrivacyPreviewService(AllowPreviewGrant())
     app.extensions["speech_dataset_preview_artifact_port"] = PreviewArtifacts(manifest)
     endpoint = f"/v1/semantic-media/privacy/speech-datasets/{manifest['manifest_digest']}/preview"
 

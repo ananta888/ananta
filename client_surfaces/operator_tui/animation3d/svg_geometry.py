@@ -9,6 +9,7 @@ Part-id convention (ties into BuiltinBackend._rasterize color logic):
   "logo_a"      → a_color  (dark-blue regions)
   "logo_snake"  → snake_color (green regions, "snake" substring triggers it)
 """
+
 from __future__ import annotations
 
 import math
@@ -44,8 +45,7 @@ def build_geometry_from_svg(
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         png_path = f.name
     try:
-        svg2png(url=svg_path, write_to=png_path,
-                output_width=render_px, output_height=render_px)
+        svg2png(url=svg_path, write_to=png_path, output_width=render_px, output_height=render_px)
         img = Image.open(png_path).convert("RGBA")
     finally:
         try:
@@ -71,7 +71,7 @@ def build_geometry_from_svg(
 
     # ── 3. find boundary pixels ────────────────────────────────────────────
     boundary: list[tuple[int, int]] = []
-    for (x, y) in filled:
+    for x, y in filled:
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             if (x + dx, y + dy) not in filled:
                 boundary.append((x, y))
@@ -90,22 +90,22 @@ def build_geometry_from_svg(
     sampled = boundary[::step][:n_samples]
 
     # ── 6. convert to 3D vertices ──────────────────────────────────────────
-    scale = 12.0 / max(w, h)      # map render_px coordinates → [-6, 6]
+    scale = 12.0 / max(w, h)  # map render_px coordinates → [-6, 6]
     verts: list[Vertex] = []
     part_ids: list[str] = []
 
-    for (x, y) in sampled:
+    for x, y in sampled:
         nx = (x - cx) * scale
-        ny = -(y - cy) * scale    # flip Y (terminal rows increase downward)
+        ny = -(y - cy) * scale  # flip Y (terminal rows increase downward)
 
         r, g, b = colors.get((x, y), (120, 120, 120))
         # Z-depth and part-id from pixel color:
         #   dark-blue (#043E62): z forward (+) → part "logo_a"
         #   green     (#47A638): z back   (-)  → part "logo_snake" (triggers snake_color)
-        if b > r and b > 60 and r < 80:        # blue-dominant
+        if b > r and b > 60 and r < 80:  # blue-dominant
             nz = 0.8
             pid = "logo_a"
-        elif g > r * 1.3 and g > 100:          # green-dominant
+        elif g > r * 1.3 and g > 100:  # green-dominant
             nz = -0.4
             pid = "logo_snake"
         else:

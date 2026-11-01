@@ -86,29 +86,18 @@ class ScientificSkillUpdateGateService:
             removed_files=removed_files,
             modified_files=modified_files,
             added_capabilities=tuple(
-                sorted(
-                    set(candidate_profile.detected_capabilities)
-                    - set(current_profile.detected_capabilities)
-                )
+                sorted(set(candidate_profile.detected_capabilities) - set(current_profile.detected_capabilities))
             ),
             added_dependencies=tuple(
                 sorted(
-                    item.declaration
-                    for item in set(candidate_profile.dependencies)
-                    - set(current_profile.dependencies)
+                    item.declaration for item in set(candidate_profile.dependencies) - set(current_profile.dependencies)
                 )
             ),
             added_network_targets=tuple(
-                sorted(
-                    set(candidate_profile.network_targets)
-                    - set(current_profile.network_targets)
-                )
+                sorted(set(candidate_profile.network_targets) - set(current_profile.network_targets))
             ),
             added_credential_requirements=tuple(
-                sorted(
-                    set(candidate_profile.credential_requirements)
-                    - set(current_profile.credential_requirements)
-                )
+                sorted(set(candidate_profile.credential_requirements) - set(current_profile.credential_requirements))
             ),
             old_mode=current_profile.operating_mode.value,
             new_mode=candidate_profile.operating_mode.value,

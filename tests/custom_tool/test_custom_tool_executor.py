@@ -1,4 +1,5 @@
 """HDE-016: sandbox/allowlist executor boundaries."""
+
 import pytest
 
 from agent.services.custom_tool_executor import CustomToolExecutor

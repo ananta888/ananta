@@ -48,8 +48,12 @@ class HubSpecialistDatasetAdmission:
         return self._project(manifest, train, validation)
 
     def admit_evaluation(
-        self, manifest: SplitManifest, train: Sequence[Mapping[str, Any]],
-        evaluation: Sequence[Mapping[str, Any]], *, partition: str,
+        self,
+        manifest: SplitManifest,
+        train: Sequence[Mapping[str, Any]],
+        evaluation: Sequence[Mapping[str, Any]],
+        *,
+        partition: str,
     ) -> AdmittedSpecialistDataset:
         if partition not in {"validation", "holdout"}:
             raise ValueError("specialist_evaluation_partition_invalid")
@@ -59,8 +63,12 @@ class HubSpecialistDatasetAdmission:
         return self._project(manifest, train, evaluation, evaluation_partition=partition)
 
     def _project(
-        self, manifest: SplitManifest, train: Sequence[Mapping[str, Any]],
-        validation: Sequence[Mapping[str, Any]], *, evaluation_partition: str | None = None,
+        self,
+        manifest: SplitManifest,
+        train: Sequence[Mapping[str, Any]],
+        validation: Sequence[Mapping[str, Any]],
+        *,
+        evaluation_partition: str | None = None,
     ) -> AdmittedSpecialistDataset:
         encoded = {
             name: encode_specialist_partition(records)

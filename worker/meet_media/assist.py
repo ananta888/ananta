@@ -112,9 +112,7 @@ def retrieve_snippets(query, *, limit=5, project, timeout=20):
     worker deployed ahead of the Hub keeps its knowledge lookups.
     """
     try:
-        result = call_tool(
-            "codecompass.retrieve", {"query": query, "limit": limit}, project=project, timeout=timeout
-        )
+        result = call_tool("codecompass.retrieve", {"query": query, "limit": limit}, project=project, timeout=timeout)
     except ToolCallError as error:
         if error.code in ("meet_tool_http_404", "meet_media_disabled"):
             return fetch_retrieval(query, limit=limit)

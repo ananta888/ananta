@@ -44,10 +44,7 @@ def test_worker_runtime_initializer_never_imports_hub_implementations(
     original_import = builtins.__import__
 
     def guarded_import(name, *args, **kwargs):
-        if any(
-            name == prefix or name.startswith(f"{prefix}.")
-            for prefix in forbidden
-        ):
+        if any(name == prefix or name.startswith(f"{prefix}.") for prefix in forbidden):
             raise AssertionError(f"worker startup imported Hub implementation: {name}")
         return original_import(name, *args, **kwargs)
 
@@ -61,9 +58,7 @@ def test_worker_runtime_initializer_never_imports_hub_implementations(
     monkeypatch.setattr(ai_agent.settings, "role", "worker")
     monkeypatch.setattr(builtins, "__import__", guarded_import)
     app = Flask(__name__)
-    app.config["AGENT_CONFIG"] = {
-        "worker_runtime": {"workspace_root": str(tmp_path)}
-    }
+    app.config["AGENT_CONFIG"] = {"worker_runtime": {"workspace_root": str(tmp_path)}}
     app.config["PROVIDER_URLS"] = {}
 
     runtime = ai_agent._initialize_workflow_adapter_worker_runtime(app)
@@ -97,8 +92,9 @@ def test_worker_startup_injects_artifact_publication_with_local_read_only_sql(mo
         captured.update(ports)
         return ports["native_artifact_publication"]
 
-    monkeypatch.setattr("worker.runtime.workflow_adapter_runtime_composition.initialize_workflow_adapter_worker_runtime",
-                        capture)
+    monkeypatch.setattr(
+        "worker.runtime.workflow_adapter_runtime_composition.initialize_workflow_adapter_worker_runtime", capture
+    )
     app = Flask(__name__)
     app.config["AGENT_CONFIG"] = {"worker_runtime": {"workspace_root": str(tmp_path)}}
     publication = ai_agent._initialize_workflow_adapter_worker_runtime(app)

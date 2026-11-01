@@ -109,6 +109,4 @@ def test_shared_offer_preview_fixture_matches_python_derived_bindings() -> None:
         speaker_id="peer-a",
     )
     assert preview["quality_digest"] == speech_evidence_quality_policy_digest()
-    assert fixture["preview_set_digest"] == group_preview_digest(
-        (SpeechEvidenceGroupPreview.from_mapping(preview),)
-    )
+    assert fixture["preview_set_digest"] == group_preview_digest((SpeechEvidenceGroupPreview.from_mapping(preview),))

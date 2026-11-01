@@ -7,6 +7,7 @@ YAML is authoring-only. This importer:
   - Always sets status=candidate (never active)
   - Computes and embeds content_hash
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.services.heuristic_runtime.heuristic_normalizer import HeuristicNormalizer, NormalizeResult
+from agent.services.heuristic_runtime.heuristic_normalizer import HeuristicNormalizer
 
 
 @dataclass

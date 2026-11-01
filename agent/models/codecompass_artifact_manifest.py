@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any, Mapping, Sequence
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ROLES = frozenset(
@@ -157,15 +156,11 @@ class CodeCompassArtifactManifestProjector:
                 or not graph_revision.startswith("sha256:")
                 or not _SHA256.fullmatch(graph_revision[7:])
             ):
-                raise CodeCompassArtifactManifestError(
-                    "graph_binding_invalid"
-                )
+                raise CodeCompassArtifactManifestError("graph_binding_invalid")
         elif graph_schema is not None or graph_revision is not None:
             raise CodeCompassArtifactManifestError("graph_binding_without_artifacts")
         normalized_coverage = self._coverage(coverage or {})
-        normalized_exclusions = tuple(
-            self._exclusion(item) for item in exclusions
-        )
+        normalized_exclusions = tuple(self._exclusion(item) for item in exclusions)
         if len(normalized_exclusions) > 1_000:
             raise CodeCompassArtifactManifestError("exclusion_limit_exceeded")
         payload = {
@@ -236,12 +231,7 @@ class CodeCompassArtifactManifestProjector:
         if role not in _ROLES:
             raise CodeCompassArtifactManifestError("artifact_role_invalid")
         path = PurePosixPath(filename)
-        if (
-            path.is_absolute()
-            or len(path.parts) != 1
-            or filename in {"", ".", ".."}
-            or "\\" in filename
-        ):
+        if path.is_absolute() or len(path.parts) != 1 or filename in {"", ".", ".."} or "\\" in filename:
             raise CodeCompassArtifactManifestError("artifact_filename_invalid")
         if (
             not _OPAQUE_ID.fullmatch(artifact_schema)
@@ -283,10 +273,7 @@ class CodeCompassArtifactManifestProjector:
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise CodeCompassArtifactManifestError("coverage_value_invalid")
             values[name] = value
-        if (
-            values["symbol_indexed"] > values["symbol_total"]
-            or values["vector_indexed"] > values["vector_total"]
-        ):
+        if values["symbol_indexed"] > values["symbol_total"] or values["vector_indexed"] > values["vector_total"]:
             raise CodeCompassArtifactManifestError("coverage_value_invalid")
         return CodeCompassCoverage(
             **values,
@@ -311,15 +298,8 @@ class CodeCompassArtifactManifestProjector:
         if relative_path is not None:
             relative_path = str(relative_path)
             path = PurePosixPath(relative_path)
-            if (
-                path.is_absolute()
-                or ".." in path.parts
-                or "\\" in relative_path
-                or len(relative_path) > 512
-            ):
-                raise CodeCompassArtifactManifestError(
-                    "exclusion_path_invalid"
-                )
+            if path.is_absolute() or ".." in path.parts or "\\" in relative_path or len(relative_path) > 512:
+                raise CodeCompassArtifactManifestError("exclusion_path_invalid")
         return CodeCompassExclusion(
             reason_code=reason_code,
             relative_path=relative_path,

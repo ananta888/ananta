@@ -84,4 +84,3 @@ def test_worker_retrieval_degrades_vector_channel_on_provider_failure(tmp_path):
     assert payload["channel_diagnostics"]["codecompass_vector"]["reason"] == "embedding_provider_failure"
     assert payload["used_channels"] == ["lexical"]
     assert payload["selected"][0]["path"] == "docs/payment.md"
-

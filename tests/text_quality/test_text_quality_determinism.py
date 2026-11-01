@@ -7,6 +7,7 @@ AC TQAS-004:
 - Provider-/LLM-Ausfall liefert degraded mit Scanner-Ergebnis; Parser-,
   Contract- oder Grounding-Fehler koennen nie still completed werden.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -88,9 +89,7 @@ def test_avoid_ai_writing_contract_is_byte_stable_for_identical_payload():
     payload = {
         "score": 42,
         "label": "Some",
-        "issues": [
-            {"type": "generic-conclusion", "text": "in conclusion", "start": 0, "end": 13, "severity": "low"}
-        ],
+        "issues": [{"type": "generic-conclusion", "text": "in conclusion", "start": 0, "end": 13, "severity": "low"}],
         "confidence_category": "high",
         "document_classification": "mixed",
         "class_probabilities": {"ai": 0.4, "human": 0.6},

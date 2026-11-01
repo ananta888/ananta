@@ -208,12 +208,16 @@ def ops_git_pull(
     branch: str | None = None,
     approval_id: str | None = None,
 ):
-    return get_git_ops_service().pull(
-        workspace_id,
-        remote=remote,
-        branch=branch,
-        approval_id=approval_id,
-    ).to_dict()
+    return (
+        get_git_ops_service()
+        .pull(
+            workspace_id,
+            remote=remote,
+            branch=branch,
+            approval_id=approval_id,
+        )
+        .to_dict()
+    )
 
 
 @registry.register(
@@ -235,12 +239,16 @@ def ops_git_push(
     branch: str | None = None,
     approval_id: str | None = None,
 ):
-    return get_git_ops_service().push(
-        workspace_id,
-        remote=remote,
-        branch=branch,
-        approval_id=approval_id,
-    ).to_dict()
+    return (
+        get_git_ops_service()
+        .push(
+            workspace_id,
+            remote=remote,
+            branch=branch,
+            approval_id=approval_id,
+        )
+        .to_dict()
+    )
 
 
 @registry.register(
@@ -427,9 +435,13 @@ def ops_compose_project_action(
     service: str | None = None,
     approval_id: str | None = None,
 ):
-    return get_docker_compose_service().action(
-        project_id,
-        action,
-        service=service,
-        approval_id=approval_id,
-    ).to_dict()
+    return (
+        get_docker_compose_service()
+        .action(
+            project_id,
+            action,
+            service=service,
+            approval_id=approval_id,
+        )
+        .to_dict()
+    )

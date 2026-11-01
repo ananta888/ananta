@@ -32,9 +32,7 @@ class KnowledgeIndexCompletionSaga:
         source_control_completion_projector: Any | None = None,
     ) -> None:
         self._execution_binding_service = execution_binding_service
-        self._source_control_completion_projector = (
-            source_control_completion_projector
-        )
+        self._source_control_completion_projector = source_control_completion_projector
 
     def finalize(
         self,
@@ -50,41 +48,31 @@ class KnowledgeIndexCompletionSaga:
         """Accept the result durably, then continue through the saga."""
 
         if self._execution_binding_service is None:
-            raise RuntimeError(
-                "knowledge_index_execution_binding_service_unavailable"
-            )
+            raise RuntimeError("knowledge_index_execution_binding_service_unavailable")
         projection = None
         if str(materialized.get("status") or "") == "completed":
             if self._source_control_completion_projector is None:
-                raise RuntimeError(
-                    "knowledge_index_source_projection_service_unavailable"
-                )
+                raise RuntimeError("knowledge_index_source_projection_service_unavailable")
             complete_with_projection = getattr(
                 self._execution_binding_service,
                 "finalize_completed_result_with_projection",
                 None,
             )
             if not callable(complete_with_projection):
-                raise RuntimeError(
-                    "knowledge_index_completion_projection_store_unavailable"
-                )
+                raise RuntimeError("knowledge_index_completion_projection_store_unavailable")
             require_transfer_deadline(transfer_deadline)
             _record, projection = complete_with_projection(
                 job_id=str(job_id),
                 worker_result=worker_result,
                 materialized_result=materialized,
-                authenticated_worker_id=str(
-                    authenticated_worker_id or ""
-                ),
+                authenticated_worker_id=str(authenticated_worker_id or ""),
             )
         else:
             require_transfer_deadline(transfer_deadline)
             self._execution_binding_service.finalize_result(
                 job_id=str(job_id),
                 payload=worker_result,
-                authenticated_worker_id=str(
-                    authenticated_worker_id or ""
-                ),
+                authenticated_worker_id=str(authenticated_worker_id or ""),
             )
         if projection is not None:
             try:
@@ -93,9 +81,7 @@ class KnowledgeIndexCompletionSaga:
                 # The completed-result CAS and its projection outbox are
                 # durable. Continue through the Hub-only saga instead of
                 # blaming or re-dispatching the Worker.
-                raise KnowledgeIndexCompletionProjectionPending(
-                    exc
-                ) from exc
+                raise KnowledgeIndexCompletionProjectionPending(exc) from exc
             return self.apply(
                 projection=projection,
                 task=task,
@@ -114,10 +100,7 @@ class KnowledgeIndexCompletionSaga:
     ) -> dict[str, Any]:
         payload = dict(projection.payload)
         materialized = dict(payload["materialized_result"])
-        references = [
-            dict(item)
-            for item in list(payload.get("artifact_references") or [])
-        ]
+        references = [dict(item) for item in list(payload.get("artifact_references") or [])]
         context = dict(task.get("worker_execution_context") or {})
         envelope = dict(context.get("knowledge_index_job") or {})
         try:
@@ -134,14 +117,8 @@ class KnowledgeIndexCompletionSaga:
                 None,
             )
             if not callable(activate):
-                raise RuntimeError(
-                    "knowledge_index_worker_activation_service_unavailable"
-                )
-            activation_deadline = (
-                {"transfer_deadline": transfer_deadline}
-                if transfer_deadline is not None
-                else {}
-            )
+                raise RuntimeError("knowledge_index_worker_activation_service_unavailable")
+            activation_deadline = {"transfer_deadline": transfer_deadline} if transfer_deadline is not None else {}
             activated = activate(
                 job_id=str(projection.job_id),
                 result=materialized,
@@ -156,15 +133,11 @@ class KnowledgeIndexCompletionSaga:
                 None,
             )
             if not callable(marker):
-                raise RuntimeError(
-                    "knowledge_index_completion_projection_store_unavailable"
-                )
+                raise RuntimeError("knowledge_index_completion_projection_store_unavailable")
             marker(
                 job_id=str(projection.job_id),
                 expected_lock_version=int(projection.lock_version),
-                expected_projection_digest=str(
-                    projection.projection_digest
-                ),
+                expected_projection_digest=str(projection.projection_digest),
             )
             require_transfer_deadline(transfer_deadline)
             return activated

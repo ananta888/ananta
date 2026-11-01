@@ -1,4 +1,5 @@
 """SCTR-005: read-only Git tool for SnakeChat."""
+
 from __future__ import annotations
 
 import subprocess

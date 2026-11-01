@@ -22,15 +22,25 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
     question = " ".join(rest).strip()
     if not question:
         return CommandResult(
-            state.with_updates(status_message="rag why: Bitte Frage angeben — z.B. :rag why warum sehe ich keine Tests?"),
+            state.with_updates(
+                status_message="rag why: Bitte Frage angeben — z.B. :rag why warum sehe ich keine Tests?"
+            ),
             "rag why: leer",
             handled=False,
         )
 
     from client_surfaces.operator_tui.chat_state import (
-        get_chat_state, get_effective_chat_settings, active_session_id,
-        make_message, append_message, ChannelType, SenderKind, DeliveryState, Visibility,
+        ChannelType,
+        DeliveryState,
+        SenderKind,
+        Visibility,
+        active_session_id,
+        append_message,
+        get_chat_state,
+        get_effective_chat_settings,
+        make_message,
     )
+
     game = dict(state.header_logo_game or {})
     chat = get_chat_state(game)
     eff = get_effective_chat_settings(chat, game)
@@ -53,12 +63,14 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
 
     dry: dict[str, object] = {}
     try:
-        payload = json.dumps({
-            "question": question,
-            "trace_only": True,
-            "debug": True,
-            "retrieval_config": retrieval_config,
-        }).encode()
+        payload = json.dumps(
+            {
+                "question": question,
+                "trace_only": True,
+                "debug": True,
+                "retrieval_config": retrieval_config,
+            }
+        ).encode()
         req = urllib.request.Request(
             f"{endpoint}/snake/ask",
             data=payload,
@@ -76,6 +88,7 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
         try:
             from agent.services.retrieval_profile_service import resolve_profile
             from worker.retrieval.codecompass_candidate_resolver import ResolverConfig
+
             profile = resolve_profile(question, eff)
             scope = ResolverConfig.from_env()
             dry = {
@@ -108,6 +121,7 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
         sess_name = ""
         try:
             from client_surfaces.operator_tui.chat_state import get_active_session
+
             s = get_active_session(chat)
             sess_name = str((s or {}).get("name") or "") if s else ""
         except Exception:
@@ -144,8 +158,10 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
 
         scope = dry.get("resolver_scope") or {}
         if isinstance(scope, dict):
+
             def _flag(v: object) -> str:
                 return "✓" if v else "✗"
+
             lines.append(
                 f"Scope     : src={_flag(scope.get('include_source'))} "
                 f"tests={_flag(scope.get('include_test_paths'))} "
@@ -159,7 +175,7 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
             total = counts.get("total", 0)
             by_src = dict(counts.get("by_source_type") or {})
             src_detail = " ".join(f"{k}:{v}" for k, v in sorted(by_src.items())) if by_src else ""
-            lines.append(f"Kandidaten: {total}{(' ('+src_detail+')') if src_detail else ''}")
+            lines.append(f"Kandidaten: {total}{(' (' + src_detail + ')') if src_detail else ''}")
 
         top = list(dry.get("top_sources") or [])[:5]
         if top:
@@ -168,7 +184,7 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
                 p = str(src.get("path") or "?")[-55:]
                 st = str(src.get("source_type") or "?")
                 sc = src.get("score", "")
-                lines.append(f"  {p} [{st}{'|'+str(sc) if sc else ''}]")
+                lines.append(f"  {p} [{st}{'|' + str(sc) if sc else ''}]")
 
         degraded = list(dry.get("degraded_channels") or [])
         if degraded:
@@ -209,16 +225,16 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
     )
 
 
-
 def handle_te_command(args: list[str], state: OperatorState) -> CommandResult:
     sub = args[0].lower() if args else "status"
 
     if sub == "status":
         try:
             from agent.services.task_engine_status_service import get_task_engine_status_service
+
             s = get_task_engine_status_service().as_dict()
             lines = [
-                f"Task Engine Status",
+                "Task Engine Status",
                 f"  active      : {s.get('active')}",
                 f"  intent      : {s.get('intent') or '—'}",
                 f"  task_class  : {s.get('task_class') or '—'}",
@@ -231,16 +247,17 @@ def handle_te_command(args: list[str], state: OperatorState) -> CommandResult:
             msg = " | ".join(lines[:4])
         except Exception as exc:
             msg = f"te status error: {exc}"
-        from client_surfaces.operator_tui.snake_chat import make_message, append_message
-        append_message(make_message("ai:tutor", "\n".join(lines if 'lines' in dir() else [msg]), role="system"), state, game)
         return CommandResult(state.with_updates(status_message=msg), msg)
 
     if sub == "classify":
         kind = args[1] if len(args) > 1 else ""
         if not kind:
-            return CommandResult(state.with_updates(status_message="te classify: Bitte task_kind angeben"), "te classify: no kind")
+            return CommandResult(
+                state.with_updates(status_message="te classify: Bitte task_kind angeben"), "te classify: no kind"
+            )
         try:
             from agent.services.task_engine_policy_gate import TaskEnginePolicyGate
+
             gate = TaskEnginePolicyGate.from_settings()
             d = gate.evaluate({"task_kind": kind})
             msg = f"te classify '{kind}': class={d.task_class} llm={d.llm_required} handler={d.handler_id or '—'} reason={d.reason}"
@@ -248,21 +265,22 @@ def handle_te_command(args: list[str], state: OperatorState) -> CommandResult:
             msg = f"te classify error: {exc}"
         return CommandResult(state.with_updates(status_message=msg[:120]), msg)
 
-    return CommandResult(state.with_updates(status_message="te: Nutzung: :te status | :te classify <kind>"), "te: unknown sub")
-
+    return CommandResult(
+        state.with_updates(status_message="te: Nutzung: :te status | :te classify <kind>"), "te: unknown sub"
+    )
 
 
 def handle_sim_command(args: list[str], state: OperatorState) -> CommandResult:
     sub = args[0].lower() if args else "help"
     try:
         from simulation.cli.commands import cmd_sim
+
         messages: list[str] = []
-        result_data = cmd_sim([sub] + args[1:], output_fn=messages.append)
+        cmd_sim([sub] + args[1:], output_fn=messages.append)
         msg = " | ".join(messages) if messages else "sim: ok"
     except Exception as exc:
         msg = f"sim error: {exc}"
     return CommandResult(state.with_updates(status_message=msg[:160]), msg)
-
 
 
 def handle_tutorial_command(args: list[str], state: OperatorState) -> CommandResult:
@@ -270,41 +288,63 @@ def handle_tutorial_command(args: list[str], state: OperatorState) -> CommandRes
     if sub == "start":
         name = args[1] if len(args) > 1 else "intro"
         try:
-            from client_surfaces.operator_tui.snake_tutorial import make_tutorial_state
             from client_surfaces.operator_tui.snake_persistence import get_tutorial_progress
+            from client_surfaces.operator_tui.snake_tutorial import make_tutorial_state
+
             start_step = max(0, get_tutorial_progress(name))
             ts = make_tutorial_state(name, start_step=start_step)
         except Exception:
             ts = None
         if ts is None:
-            return CommandResult(state.with_updates(status_message=f"tutorial: '{name}' nicht gefunden"), f"tutorial not found: {name}", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=f"tutorial: '{name}' nicht gefunden"),
+                f"tutorial not found: {name}",
+                handled=False,
+            )
         game = dict(state.header_logo_game or {})
         game["tutorial_state"] = ts
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"tutorial: {ts['title']} gestartet"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"tutorial: {ts['title']} gestartet",
+            ),
             f"tutorial start {name}",
         )
     if sub == "stop":
         game = dict(state.header_logo_game or {})
         game["tutorial_state"] = None
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: gestoppt"),
+            state.with_updates(
+                header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: gestoppt"
+            ),
             "tutorial stop",
         )
     if sub == "skip":
         game = dict(state.header_logo_game or {})
         ts = dict(game.get("tutorial_state") or {})
         if not ts:
-            return CommandResult(state.with_updates(status_message="tutorial: kein aktives Tutorial"), "tutorial: none active", handled=False)
+            return CommandResult(
+                state.with_updates(status_message="tutorial: kein aktives Tutorial"),
+                "tutorial: none active",
+                handled=False,
+            )
         try:
             from client_surfaces.operator_tui.snake_tutorial import advance_step, get_current_step
-            step = get_current_step(ts)
+
+            get_current_step(ts)
             ts = advance_step(ts, skipped=True)
             game["tutorial_state"] = ts
         except Exception:
             pass
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: Step übersprungen"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="tutorial: Step übersprungen",
+            ),
             "tutorial skip",
         )
     if sub == "reset":
@@ -312,15 +352,21 @@ def handle_tutorial_command(args: list[str], state: OperatorState) -> CommandRes
         ts_raw = game.get("tutorial_state")
         name = str((ts_raw or {}).get("name") or "intro") if isinstance(ts_raw, dict) else "intro"
         try:
-            from client_surfaces.operator_tui.snake_tutorial import make_tutorial_state
             from client_surfaces.operator_tui.snake_persistence import reset_tutorial_progress
+            from client_surfaces.operator_tui.snake_tutorial import make_tutorial_state
+
             reset_tutorial_progress(name)
             ts = make_tutorial_state(name, start_step=0)
             game["tutorial_state"] = ts
         except Exception:
             game["tutorial_state"] = None
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"tutorial: {name} zurückgesetzt"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"tutorial: {name} zurückgesetzt",
+            ),
             f"tutorial reset {name}",
         )
     if sub == "guided":
@@ -331,17 +377,26 @@ def handle_tutorial_command(args: list[str], state: OperatorState) -> CommandRes
             ts["guided"] = True
             game["tutorial_state"] = ts
             return CommandResult(
-                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: Guided Mode aktiviert"),
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    status_message="tutorial: Guided Mode aktiviert",
+                ),
                 "tutorial guided",
             )
-        return CommandResult(state.with_updates(status_message="tutorial: erst :tutorial start <name>"), "tutorial: none active", handled=False)
+        return CommandResult(
+            state.with_updates(status_message="tutorial: erst :tutorial start <name>"),
+            "tutorial: none active",
+            handled=False,
+        )
     return CommandResult(state, "tutorial: start <name> | stop | skip | reset | guided", handled=False)
-
 
 
 def handle_tutorials_command(args: list[str], state: OperatorState) -> CommandResult:
     try:
         from client_surfaces.operator_tui.snake_tutorial import list_tutorials
+
         items = list_tutorials()
         names = ", ".join(f"{t['name']} ({t['step_count']} Steps)" for t in items) if items else "(keine)"
     except Exception:
@@ -349,11 +404,12 @@ def handle_tutorials_command(args: list[str], state: OperatorState) -> CommandRe
     return CommandResult(state.with_updates(status_message=f"tutorials: {names}"), "tutorials listed")
 
 
-
 def handle_snakes_command(args: list[str], state: OperatorState) -> CommandResult:
     game = state.header_logo_game or {}
     snakes_raw = game.get("snakes")
-    snakes = {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)} if isinstance(snakes_raw, dict) else {}
+    snakes = (
+        {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)} if isinstance(snakes_raw, dict) else {}
+    )
     if not snakes:
         return CommandResult(state.with_updates(status_message="snakes: keine aktiven Schlangen"), "snakes: empty")
     parts = []
@@ -365,26 +421,34 @@ def handle_snakes_command(args: list[str], state: OperatorState) -> CommandResul
     return CommandResult(state.with_updates(status_message="snakes: " + " ".join(parts)), "snakes listed")
 
 
-
 def handle_msg_command(args: list[str], state: OperatorState) -> CommandResult:
     if len(args) < 2:
         return CommandResult(state, "msg erwartet: <snake-id> <text>", handled=False)
     target_id = args[0].strip()
     text = " ".join(args[1:]).strip()
     if not text:
-        return CommandResult(state.with_updates(status_message="msg: leere Nachricht ignoriert"), "msg: empty", handled=False)
+        return CommandResult(
+            state.with_updates(status_message="msg: leere Nachricht ignoriert"), "msg: empty", handled=False
+        )
     if len(text) > 200:
         return CommandResult(state.with_updates(status_message="msg: max. 200 Zeichen"), "msg: too long", handled=False)
     game = dict(state.header_logo_game or {})
     outbox: list[dict] = list(game.get("snake_outbox") or [])
-    outbox.append({
-        "to": target_id,
-        "from": str(game.get("local_snake_id") or "s1"),
-        "text": text,
-        "at": __import__("time").monotonic(),
-    })
+    outbox.append(
+        {
+            "to": target_id,
+            "from": str(game.get("local_snake_id") or "s1"),
+            "text": text,
+            "at": __import__("time").monotonic(),
+        }
+    )
     game["snake_outbox"] = outbox[-20:]  # keep last 20
     return CommandResult(
-        state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"msg → {target_id}: {text[:40]}"),
+        state.with_updates(
+            header_logo_game=game,
+            mode=OperatorMode.NORMAL,
+            command_line="",
+            status_message=f"msg → {target_id}: {text[:40]}",
+        ),
         f"msg sent to {target_id}",
     )

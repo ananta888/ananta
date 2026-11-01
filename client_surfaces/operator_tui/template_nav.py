@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 _TEMPLATE_GROUPS: tuple[tuple[str, str], ...] = (
     ("Blueprints", "blueprint"),
     ("Prompt-Templates", "template"),

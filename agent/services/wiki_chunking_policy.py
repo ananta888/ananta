@@ -26,4 +26,3 @@ def split_wiki_content(text: str, *, max_chars: int = 700) -> list[str]:
     if current:
         chunks.append(current)
     return chunks
-

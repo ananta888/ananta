@@ -5,6 +5,7 @@ EW-T029: Separate stores for worker_session_memory, project_execution_memory,
           Worker can write session/project memory only when memory_write capability allows.
           Long-term updates remain proposals; approval and promotion execute only in the Hub.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,13 +21,15 @@ from worker.core.memory_authorization import WorkerMemoryAuthorizationPort, requ
 
 # ── Store kinds ───────────────────────────────────────────────────────────────
 
+
 class MemoryStoreKind(str, Enum):
-    session = "worker_session_memory"       # scoped to single execution; auto-discarded
-    project = "project_execution_memory"    # scoped to project; persisted across tasks
-    long_term = "proposed_long_term_memory" # proposal only; Hub must approve direct write
+    session = "worker_session_memory"  # scoped to single execution; auto-discarded
+    project = "project_execution_memory"  # scoped to project; persisted across tasks
+    long_term = "proposed_long_term_memory"  # proposal only; Hub must approve direct write
 
 
 # ── MemoryEntry ───────────────────────────────────────────────────────────────
+
 
 @dataclass
 class MemoryEntry:
@@ -35,8 +38,8 @@ class MemoryEntry:
     source_task_id: str
     store_kind: MemoryStoreKind
     written_at: float = field(default_factory=time.time)
-    is_proposal: bool = False    # True for long_term entries awaiting Hub approval
-    approved: bool = False       # True only after Hub approval for long_term
+    is_proposal: bool = False  # True for long_term entries awaiting Hub approval
+    approved: bool = False  # True only after Hub approval for long_term
 
     @property
     def entry_hash(self) -> str:
@@ -57,6 +60,7 @@ class MemoryEntry:
 
 # ── MemoryWriteResult ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class MemoryWriteResult:
     success: bool
@@ -67,14 +71,18 @@ class MemoryWriteResult:
 
 # ── MemoryStore ───────────────────────────────────────────────────────────────
 
+
 class MemoryStore:
     """Bounded RAM execution adapter, isolated by live Hub namespace."""
 
     def __init__(self, kind: MemoryStoreKind, *, authorization: WorkerMemoryAuthorizationPort | None = None):
         self.kind = kind
         self._authorization = authorization
-        self._scope = {MemoryStoreKind.session: MemoryScope.run, MemoryStoreKind.project: MemoryScope.workspace,
-                       MemoryStoreKind.long_term: MemoryScope.task}[kind]
+        self._scope = {
+            MemoryStoreKind.session: MemoryScope.run,
+            MemoryStoreKind.project: MemoryScope.workspace,
+            MemoryStoreKind.long_term: MemoryScope.task,
+        }[kind]
         self._entries = {}
         self._lock = RLock()
 
@@ -110,12 +118,21 @@ class MemoryStore:
                     update = self._access(MemoryOperation.update)
                     if update.namespace != access.namespace:
                         return MemoryWriteResult(False, "memory_policy_changed")
-                size = sum(len(entry.value.encode("utf-8")) for item_key, (entry, _expiry)
-                           in self._entries.items() if item_key != storage_key)
+                size = sum(
+                    len(entry.value.encode("utf-8"))
+                    for item_key, (entry, _expiry) in self._entries.items()
+                    if item_key != storage_key
+                )
                 if (storage_key not in self._entries and len(self._entries) >= 256) or size + value_bytes > 262144:
                     return MemoryWriteResult(False, "memory_store_quota_exceeded")
-                entry = MemoryEntry(key.strip(), value, task_id, self.kind,
-                                    is_proposal=self.kind == MemoryStoreKind.long_term, approved=False)
+                entry = MemoryEntry(
+                    key.strip(),
+                    value,
+                    task_id,
+                    self.kind,
+                    is_proposal=self.kind == MemoryStoreKind.long_term,
+                    approved=False,
+                )
                 self._recheck(access)
                 self._entries[storage_key] = (entry, access.expires_at)
                 reason = "memory_write_proposal" if entry.is_proposal else "memory_write_ok"
@@ -129,8 +146,9 @@ class MemoryStore:
             namespace_key = access.namespace.key(self._scope)
             with self._lock:
                 self._reap()
-                result = [deepcopy(entry) for key, (entry, _expiry) in self._entries.items()
-                          if key[:-1] == namespace_key]
+                result = [
+                    deepcopy(entry) for key, (entry, _expiry) in self._entries.items() if key[:-1] == namespace_key
+                ]
                 self._recheck(access)
                 return result
         except (ValueError, RuntimeError):
@@ -142,8 +160,11 @@ class MemoryStore:
     def search(self, query, *, max_results=10):
         if type(max_results) is not int or not 1 <= max_results <= 100:
             return []
-        results = [entry for entry in self._visible()
-                   if query.lower() in entry.key.lower() or query.lower() in entry.value.lower()]
+        results = [
+            entry
+            for entry in self._visible()
+            if query.lower() in entry.key.lower() or query.lower() in entry.value.lower()
+        ]
         return sorted(results, key=lambda entry: -entry.written_at)[:max_results]
 
     def pending_proposals(self):
@@ -165,6 +186,7 @@ class MemoryStore:
 
 
 # ── WorkerMemoryStores ────────────────────────────────────────────────────────
+
 
 class WorkerMemoryStores:
     """Container for all three memory stores per task execution. EW-T029."""
@@ -196,12 +218,14 @@ class WorkerMemoryStores:
         store = self.get_store(store_name)
         if store is None:
             return MemoryWriteResult(
-                False, "memory_store_not_found",
+                False,
+                "memory_store_not_found",
                 detail=f"store {store_name!r} does not exist",
             )
         if not has_memory_write_capability:
             return MemoryWriteResult(
-                False, "memory_write_requires_approval",
+                False,
+                "memory_write_requires_approval",
                 detail="memory_write capability is not granted in this envelope",
             )
         return store.write(key, value, task_id=task_id, hub_approved=hub_approved)

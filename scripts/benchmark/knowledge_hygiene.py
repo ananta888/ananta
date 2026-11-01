@@ -16,7 +16,6 @@ if str(ROOT) not in sys.path:
 from agent.services.knowledge_hygiene.analysis import analyze_claims
 from ananta_contracts.knowledge_hygiene import CoverageState, KnowledgeClaim, canonical_digest
 
-
 DEFAULT_FIXTURE = ROOT / "tests/fixtures/knowledge_hygiene/benchmark.v1.json"
 
 

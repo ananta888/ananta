@@ -114,9 +114,7 @@ class ToolRedactionPort(Protocol):
 class RecursiveToolRedactor:
     """Small fail-safe boundary for arguments, results and opaque secret refs."""
 
-    _SENSITIVE_KEYS = frozenset(
-        {"api_key", "authorization", "cookie", "credential", "password", "secret", "token"}
-    )
+    _SENSITIVE_KEYS = frozenset({"api_key", "authorization", "cookie", "credential", "password", "secret", "token"})
 
     @classmethod
     def _redact(cls, value: Any, *, key: str = "", secret_refs: tuple[str, ...] = ()) -> Any:

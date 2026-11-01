@@ -79,4 +79,6 @@ def test_retrieval_policy_filter_enforces_source_segregation() -> None:
     assert filtered[0]["metadata"]["source_type"] == "repo"
     assert diagnostics["segregation"]["applied"] is True
     assert diagnostics["denied_count"] == 1
-    assert any(reason.startswith("source_segregation_blocked:task_memory") for reason in diagnostics["denied_by_reason"])
+    assert any(
+        reason.startswith("source_segregation_blocked:task_memory") for reason in diagnostics["denied_by_reason"]
+    )

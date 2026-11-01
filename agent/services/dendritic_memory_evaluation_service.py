@@ -114,8 +114,7 @@ class DendriticMemoryEvaluationService:
         normalized: list[dict[str, Any]] = []
         for run in runs:
             values = {
-                key: float(run[key])
-                for key in {"forward_transfer", "backward_transfer", "forgetting", "interference"}
+                key: float(run[key]) for key in {"forward_transfer", "backward_transfer", "forgetting", "interference"}
             }
             if any(not math.isfinite(value) for value in values.values()):
                 raise ValueError("dendritic_continual_metric_invalid")
@@ -194,9 +193,7 @@ class DendriticMemoryEvaluationService:
         return {
             "repository_revision": revision,
             "worker_image_digest": require_digest(raw["worker_image_digest"], "worker_image_digest"),
-            "dependency_lock_digest": require_digest(
-                raw["dependency_lock_digest"], "dependency_lock_digest"
-            ),
+            "dependency_lock_digest": require_digest(raw["dependency_lock_digest"], "dependency_lock_digest"),
             "runtime_versions": dict(versions),
             "deterministic": raw["deterministic"],
         }

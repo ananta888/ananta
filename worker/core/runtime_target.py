@@ -11,6 +11,7 @@ The contracts are intentionally strict enough to fail closed while still being
 small and dependency-free. They are Hub-side policy contracts; UI preferences or
 prompt text must not be treated as authority without being validated here.
 """
+
 from __future__ import annotations
 
 import hashlib

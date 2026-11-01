@@ -18,17 +18,40 @@ from agent.services.sfu_broadcast_operations_read_model import (
 
 def _record(room="room-a", owner="user-a", receiver="receiver-a", tenant="tenant-a", cohort=10):
     return SfuBroadcastOperationsRecord(
-        1000, tenant, "eu-1", room, owner, receiver, cohort,
-        "active", "applied", "current", "sfu", "healthy",
-        "high", "medium", "medium", {"low": 4, "medium": 6}, 3, "none",
-        500_000, 1_000_000, 0, "converged", "none", "broadcast_25", "observe_only",
+        1000,
+        tenant,
+        "eu-1",
+        room,
+        owner,
+        receiver,
+        cohort,
+        "active",
+        "applied",
+        "current",
+        "sfu",
+        "healthy",
+        "high",
+        "medium",
+        "medium",
+        {"low": 4, "medium": 6},
+        3,
+        "none",
+        500_000,
+        1_000_000,
+        0,
+        "converged",
+        "none",
+        "broadcast_25",
+        "observe_only",
     )
 
 
 def _model(records, now=None, **kwargs):
     clock = now or [1100.0]
     source = InMemorySfuBroadcastOperationsSnapshotPort(SfuBroadcastOperationsSnapshot("snapshot-1", tuple(records)))
-    return SfuBroadcastOperationsReadModel(source=source, diagnostic_secret=b"o" * 32, clock=lambda: clock[0], **kwargs), source
+    return SfuBroadcastOperationsReadModel(
+        source=source, diagnostic_secret=b"o" * 32, clock=lambda: clock[0], **kwargs
+    ), source
 
 
 def test_user_sees_only_owned_room_and_output_has_no_original_refs_or_counts():
@@ -100,8 +123,6 @@ def test_authorized_scope_is_applied_before_source_record_limit():
         ],
         max_source_records=1,
     )
-    principal = SfuBroadcastOperationsPrincipal(
-        "operator-a", "operator", ("tenant-a",), ("eu-1",)
-    )
+    principal = SfuBroadcastOperationsPrincipal("operator-a", "operator", ("tenant-a",), ("eu-1",))
     page = model.query(principal, SfuBroadcastOperationsQuery())
     assert len(page.items) == 1

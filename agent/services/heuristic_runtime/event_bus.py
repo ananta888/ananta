@@ -6,6 +6,7 @@ Event types: pointer_move | focus_change | panel_switch | artifact_select |
 No raw file contents or sensitive data are stored in events — only
 normalized string values (hashed or truncated to 200 chars).
 """
+
 from __future__ import annotations
 
 import time
@@ -14,18 +15,20 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-_VALID_EVENT_TYPES = frozenset({
-    "pointer_move",
-    "focus_change",
-    "panel_switch",
-    "artifact_select",
-    "artifact_hover",
-    "chat_message",
-    "error_detected",
-    "build_error",
-    "goal_change",
-    "task_change",
-})
+_VALID_EVENT_TYPES = frozenset(
+    {
+        "pointer_move",
+        "focus_change",
+        "panel_switch",
+        "artifact_select",
+        "artifact_hover",
+        "chat_message",
+        "error_detected",
+        "build_error",
+        "goal_change",
+        "task_change",
+    }
+)
 
 _RING_BUFFER_DEFAULT = 100
 
@@ -95,20 +98,21 @@ class HeuristicEventBus:
 
 # ── Adapters ──────────────────────────────────────────────────────────────────
 
+
 class TuiEventSourceAdapter:
     """Adapts raw TUI events from interactive.py to normalized HeuristicEvents."""
 
     _KIND_MAP: dict[str, str] = {
-        "cursor_move":     "pointer_move",
-        "panel_focus":     "focus_change",
-        "panel_switch":    "panel_switch",
-        "artifact_click":  "artifact_select",
-        "artifact_hover":  "artifact_hover",
-        "chat_input":      "chat_message",
-        "error_event":     "error_detected",
-        "build_failed":    "build_error",
-        "goal_activated":  "goal_change",
-        "task_activated":  "task_change",
+        "cursor_move": "pointer_move",
+        "panel_focus": "focus_change",
+        "panel_switch": "panel_switch",
+        "artifact_click": "artifact_select",
+        "artifact_hover": "artifact_hover",
+        "chat_input": "chat_message",
+        "error_event": "error_detected",
+        "build_failed": "build_error",
+        "goal_activated": "goal_change",
+        "task_activated": "task_change",
     }
 
     def adapt(self, tui_event: dict[str, Any]) -> HeuristicEvent | None:
@@ -134,10 +138,10 @@ class EclipseEventSourceAdapter:
     """Adapts AnantaSnakeState change events (from Hub API or direct) to HeuristicEvents."""
 
     _STATE_MAP: dict[str, str] = {
-        "FOLLOWING":   "focus_change",
-        "LURKING":     "focus_change",
+        "FOLLOWING": "focus_change",
+        "LURKING": "focus_change",
         "ZONE_CHANGE": "panel_switch",
-        "ERROR":       "error_detected",
+        "ERROR": "error_detected",
     }
 
     def adapt(self, java_event: dict[str, Any]) -> HeuristicEvent | None:

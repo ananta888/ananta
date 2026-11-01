@@ -39,16 +39,18 @@ def hub(tmp_path):
 
 def post(app, identity=None, *, key=KEY):
     raw = encode({"project_id": "synthetic", "capabilities": ["chat.read", "chat.send"], **(identity or {})})
-    return app.test_client().post(PATH, data=raw, headers={"Content-Type": "application/json",
-                                                        "X-Ananta-Task-Signature": signature(key, raw)})
+    return app.test_client().post(
+        PATH, data=raw, headers={"Content-Type": "application/json", "X-Ananta-Task-Signature": signature(key, raw)}
+    )
 
 
 def claims(response, public_key):
     assert response.status_code == 200
     body = response.get_json()
     assert body["schema"] == "ananta.meet-companion-grant.v1"
-    value = jwt.decode(body["grant"], public_key, algorithms=["EdDSA"], issuer=ISSUER,
-                       audience="ananta-meet-machine-v2")
+    value = jwt.decode(
+        body["grant"], public_key, algorithms=["EdDSA"], issuer=ISSUER, audience="ananta-meet-machine-v2"
+    )
     assert value["roomId"] == body["room_id"] == "room-aaaaaaaaaaaaaaaaaa"
     assert value["tenantId"] == value["projectId"] == "synthetic"
     assert value["capabilities"] == ["chat.read", "chat.send"]
@@ -72,9 +74,14 @@ def test_scope_withdrawal_denies_renewal_under_previous_identity(hub):
     app, service, public = hub
     first = claims(post(app), public)
     service.allowed_scopes = frozenset()
-    response = post(app, {
-        "task_id": first["taskId"], "runtime_id": first["runtimeId"], "session_id": first["sessionId"],
-    })
+    response = post(
+        app,
+        {
+            "task_id": first["taskId"],
+            "runtime_id": first["runtimeId"],
+            "session_id": first["sessionId"],
+        },
+    )
     assert response.status_code == 403
     assert "grant" not in response.get_json()
 

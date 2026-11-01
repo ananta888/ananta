@@ -28,21 +28,18 @@ class JmapOAuthTokenAdapter(Protocol):
         username: str,
         credential: str,
         force_refresh: bool,
-    ) -> MailProviderResult[JmapOAuthAccessToken]:
-        ...
+    ) -> MailProviderResult[JmapOAuthAccessToken]: ...
 
 
 class JmapAuthorizationProvider(Protocol):
     @property
-    def supports_rotation(self) -> bool:
-        ...
+    def supports_rotation(self) -> bool: ...
 
     def headers(
         self,
         *,
         force_refresh: bool = False,
-    ) -> MailProviderResult[Mapping[str, str]]:
-        ...
+    ) -> MailProviderResult[Mapping[str, str]]: ...
 
 
 class StaticJmapAuthorizationProvider:

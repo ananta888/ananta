@@ -9,9 +9,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Iterator, Mapping
 
-RECOVERY_OWNER_TERMINAL_SCHEMA = (
-    "ananta.recovery_owner_terminal_invalidation.v1"
-)
+RECOVERY_OWNER_TERMINAL_SCHEMA = "ananta.recovery_owner_terminal_invalidation.v1"
 
 
 @dataclass(frozen=True)
@@ -20,9 +18,7 @@ class RecoveryOwnerTerminalWriteAuthority:
     marker_digest: str
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoveryOwnerTerminalWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoveryOwnerTerminalWriteAuthority | None] = ContextVar(
     "ananta_recovery_owner_terminal_write_authority",
     default=None,
 )
@@ -46,9 +42,7 @@ def _authority(
 ) -> RecoveryOwnerTerminalWriteAuthority:
     normalized_task_id = str(task_id or "").strip()
     if not normalized_task_id or not isinstance(marker, Mapping):
-        raise ValueError(
-            "recovery_owner_terminal_authority_invalid"
-        )
+        raise ValueError("recovery_owner_terminal_authority_invalid")
     return RecoveryOwnerTerminalWriteAuthority(
         task_id=normalized_task_id,
         marker_digest=_marker_digest(marker),

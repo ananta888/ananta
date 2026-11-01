@@ -10,14 +10,10 @@ from ananta_contracts.model_selection import AgentStyleProfile, RoleStyleTarget
 
 
 class _Closed(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, str_strip_whitespace=True, populate_by_name=True
-    )
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True, populate_by_name=True)
 
 
-StyleDimension = Literal[
-    "rule_correctness", "truth_exploration", "initiative_assertiveness"
-]
+StyleDimension = Literal["rule_correctness", "truth_exploration", "initiative_assertiveness"]
 
 
 class StyleMeasurementContext(_Closed):
@@ -122,15 +118,11 @@ class StyleRebenchmarkDueCommand(_Closed):
     stale_after_days: int = Field(default=90, ge=1, le=3650)
     repeats: int = Field(default=2, ge=2, le=5)
     seeds: tuple[int, ...] = Field(default=(17, 41), min_length=2, max_length=5)
-    temperatures: tuple[float, ...] = Field(
-        default=(0.0, 0.4), min_length=2, max_length=4
-    )
+    temperatures: tuple[float, ...] = Field(default=(0.0, 0.4), min_length=2, max_length=4)
 
     @field_validator("temperatures")
     @classmethod
-    def rebenchmark_temperatures_in_range(
-        cls, value: tuple[float, ...]
-    ) -> tuple[float, ...]:
+    def rebenchmark_temperatures_in_range(cls, value: tuple[float, ...]) -> tuple[float, ...]:
         if any(not 0 <= item <= 2 for item in value):
             raise ValueError("style_rebenchmark_temperature_invalid")
         return value
@@ -146,8 +138,13 @@ class StyleRebenchmarkDueCommand(_Closed):
 class StyleProfileDriftEntry(_Closed):
     model_profile_id: str
     status: Literal[
-        "current", "missing", "model_revision_drift", "measurement_context_drift",
-        "benchmark_revision_drift", "stale", "expired",
+        "current",
+        "missing",
+        "model_revision_drift",
+        "measurement_context_drift",
+        "benchmark_revision_drift",
+        "stale",
+        "expired",
     ]
     active_profile_id: str | None = None
     measured_at: str | None = None
@@ -210,10 +207,7 @@ class CognitiveStyleConfiguration(_Closed):
     @model_validator(mode="after")
     def unique_active_keys(self) -> "CognitiveStyleConfiguration":
         profile_ids = [item.profile_id for item in self.profiles]
-        target_keys = [
-            (item.target_id, item.organization_id, item.project_id)
-            for item in self.role_targets
-        ]
+        target_keys = [(item.target_id, item.organization_id, item.project_id) for item in self.role_targets]
         overlay_ids = [item.overlay_id for item in self.overlays]
         if len(profile_ids) != len(set(profile_ids)):
             raise ValueError("style_profile_duplicate")
@@ -248,8 +242,12 @@ class TeamStyleDiversityReport(_Closed):
     centroid: dict[StyleDimension, float]
     spread: dict[StyleDimension, float]
     classification: Literal[
-        "insufficient_data", "rule_oriented", "exploratory", "initiative_oriented",
-        "balanced", "homogeneous",
+        "insufficient_data",
+        "rule_oriented",
+        "exploratory",
+        "initiative_oriented",
+        "balanced",
+        "homogeneous",
     ]
     warnings: tuple[str, ...] = ()
     complementary_role_ids: tuple[str, ...] = ()
@@ -268,9 +266,7 @@ class StyleMismatchEvidence(_Closed):
     agent_id: str
     role_id: str
     model_profile_id: str
-    signal: Literal[
-        "rework", "overthinking", "rule_violation", "missing_initiative", "scope_expansion"
-    ]
+    signal: Literal["rework", "overthinking", "rule_violation", "missing_initiative", "scope_expansion"]
     observed_at: str
     correlation_score: float = Field(ge=-1, le=1)
     hypothesis: str = Field(min_length=1, max_length=1000)
@@ -282,9 +278,7 @@ class StyleMismatchEvidence(_Closed):
 class StyleEvolutionProposal(_Closed):
     proposal_id: str
     proposal_type: Literal["style_target", "role_overlay", "model_routing"]
-    status: Literal[
-        "proposed", "validated", "approved", "applied", "measuring", "rolled_back", "rejected"
-    ] = "proposed"
+    status: Literal["proposed", "validated", "approved", "applied", "measuring", "rolled_back", "rejected"] = "proposed"
     hypothesis: str = Field(min_length=1, max_length=2000)
     expected_effect: str = Field(min_length=1, max_length=1000)
     experiment_id: str | None = None
@@ -300,9 +294,7 @@ class StyleEvolutionTransitionCommand(_Closed):
         default="ananta.style-evolution-transition-command.v1", alias="schema"
     )
     expected_status: str
-    target_status: Literal[
-        "validated", "approved", "applied", "measuring", "rolled_back", "rejected"
-    ]
+    target_status: Literal["validated", "approved", "applied", "measuring", "rolled_back", "rejected"]
     review_reference: str | None = None
 
 
@@ -318,9 +310,7 @@ class StyleRetrospectiveSignal(_Closed):
     agent_id: str
     role_id: str
     model_profile_id: str
-    signal: Literal[
-        "rework", "overthinking", "rule_violation", "missing_initiative", "scope_expansion"
-    ]
+    signal: Literal["rework", "overthinking", "rule_violation", "missing_initiative", "scope_expansion"]
     observed_at: str
     severity: float = Field(ge=0, le=1)
     evidence_refs: tuple[str, ...] = Field(min_length=1, max_length=100)
@@ -426,20 +416,38 @@ class CognitiveStylePersistedState(_Closed):
 
 
 __all__ = [
-    "ComplementaryStyleExperimentCommand", "ComplementaryStyleExperimentReport",
-    "CognitiveStyleConfiguration", "CognitiveStyleMutationCommand",
-    "CognitiveStylePersistedState", "CognitiveStyleReadModel", "RoleStyleOverlay", "StyleBenchmarkObservation",
-    "StyleBenchmarkPlan", "StyleBenchmarkResult", "StyleBenchmarkRunCommand",
-    "StyleExperimentMetrics", "StyleOverlayComparisonCommand",
-    "StyleOverlayComparisonReport", "StyleProfileDriftCommand",
-    "StyleProfileDriftEntry", "StyleProfileDriftReport",
+    "ComplementaryStyleExperimentCommand",
+    "ComplementaryStyleExperimentReport",
+    "CognitiveStyleConfiguration",
+    "CognitiveStyleMutationCommand",
+    "CognitiveStylePersistedState",
+    "CognitiveStyleReadModel",
+    "RoleStyleOverlay",
+    "StyleBenchmarkObservation",
+    "StyleBenchmarkPlan",
+    "StyleBenchmarkResult",
+    "StyleBenchmarkRunCommand",
+    "StyleExperimentMetrics",
+    "StyleOverlayComparisonCommand",
+    "StyleOverlayComparisonReport",
+    "StyleProfileDriftCommand",
+    "StyleProfileDriftEntry",
+    "StyleProfileDriftReport",
     "StyleRebenchmarkDueCommand",
-    "StyleBenchmarkVariant", "StyleEvolutionProposal",
-    "StyleEvolutionFromEvidenceCommand", "StyleEvolutionProposalCommand",
+    "StyleBenchmarkVariant",
+    "StyleEvolutionProposal",
+    "StyleEvolutionFromEvidenceCommand",
+    "StyleEvolutionProposalCommand",
     "StyleEvolutionTransitionCommand",
-    "StyleEvolutionTransitionMutationCommand", "StyleMeasurementContext",
-    "StyleMismatchEvidence", "StyleMismatchRecordCommand", "StyleDimension",
-    "StyleRetrospectiveAnalysisCommand", "StyleRetrospectiveAnalysisReport",
+    "StyleEvolutionTransitionMutationCommand",
+    "StyleMeasurementContext",
+    "StyleMismatchEvidence",
+    "StyleMismatchRecordCommand",
+    "StyleDimension",
+    "StyleRetrospectiveAnalysisCommand",
+    "StyleRetrospectiveAnalysisReport",
     "StyleRetrospectiveSignal",
-    "TeamStyleDiversityCommand", "TeamStyleDiversityReport", "TeamStyleMember",
+    "TeamStyleDiversityCommand",
+    "TeamStyleDiversityReport",
+    "TeamStyleMember",
 ]

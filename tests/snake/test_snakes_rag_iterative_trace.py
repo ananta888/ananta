@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class _RecordingTrace:
     def __init__(self) -> None:
         self.events: list[dict] = []
@@ -203,14 +204,16 @@ def test_rag_iterative_tool_mode_prefers_symbol_context_over_full_files(tmp_path
     source = tmp_path / "agent" / "codecompass_context.py"
     source.parent.mkdir()
     source.write_text(
-        "\n".join([
-            "class CodeCompassContext:",
-            "    def plan_context(self):",
-            "        return 'symbol-level context'",
-            "",
-            "    def read_full_file(self):",
-            "        return 'should not be initially packed'",
-        ]),
+        "\n".join(
+            [
+                "class CodeCompassContext:",
+                "    def plan_context(self):",
+                "        return 'symbol-level context'",
+                "",
+                "    def read_full_file(self):",
+                "        return 'should not be initially packed'",
+            ]
+        ),
         encoding="utf-8",
     )
     details = tmp_path / "rag-helper" / "out" / "details_by_kind" / "python_method.jsonl"
@@ -263,8 +266,7 @@ def test_rag_iterative_tool_mode_prefers_symbol_context_over_full_files(tmp_path
             (),
             {
                 "build": lambda self, *_args, **_kwargs: (
-                    "=== CodeCompass Hierarchischer Architektur-Kontext ===\n"
-                    "- [component] Retrieval",
+                    "=== CodeCompass Hierarchischer Architektur-Kontext ===\n- [component] Retrieval",
                     {"status": "ok", "node_count": 1},
                 )
             },
@@ -277,9 +279,7 @@ def test_rag_iterative_tool_mode_prefers_symbol_context_over_full_files(tmp_path
     assert answer == "answer"
     assert "=== CodeCompass Hierarchischer Architektur-Kontext ===" in prompt
     assert "=== CodeCompass Symbol-/Graph-Kontext ===" in prompt
-    assert prompt.index("Hierarchischer Architektur-Kontext") < prompt.index(
-        "Symbol-/Graph-Kontext"
-    )
+    assert prompt.index("Hierarchischer Architektur-Kontext") < prompt.index("Symbol-/Graph-Kontext")
     assert "def plan_context" in prompt
     assert "=== Bereits gelesene CodeCompass-Top-Treffer ===" not in prompt
     assert captured["initial_evidence"] == []

@@ -39,11 +39,13 @@ class ModelRoutingTransferService:
         current = self._assignments.read()
         issues: list[ModelRoutingValidationIssue] = []
         if command.expected_revision != current.revision:
-            issues.append(ModelRoutingValidationIssue(
-                severity="error",
-                reason_code="model_routing_revision_conflict",
-                reference=str(current.revision),
-            ))
+            issues.append(
+                ModelRoutingValidationIssue(
+                    severity="error",
+                    reason_code="model_routing_revision_conflict",
+                    reference=str(current.revision),
+                )
+            )
         issues.extend(self._assignments.validation_issues(command))
         return ModelRoutingValidationReport(
             valid=not any(issue.severity == "error" for issue in issues),
@@ -68,9 +70,7 @@ class ModelRoutingTransferService:
     def apply(self, command: ModelRoutingImportCommand) -> ModelRoutingConfiguration:
         expected_digest = self._confirmation_digest(command)
         if command.confirmation_digest != expected_digest:
-            raise ModelRoutingConfirmationError(
-                "model_routing_import_confirmation_invalid"
-            )
+            raise ModelRoutingConfirmationError("model_routing_import_confirmation_invalid")
         return self._assignments.apply(self._mutation(command))
 
     @staticmethod
@@ -100,36 +100,30 @@ class ModelRoutingTransferService:
         def assignment_key(item) -> str:
             return f"{item.consumer_id}@{item.scope}:{item.scope_id}"
 
-        current_assignments = {
-            assignment_key(item): item for item in current.assignments
-        }
-        imported_assignments = {
-            assignment_key(item): item for item in imported.assignments
-        }
+        current_assignments = {assignment_key(item): item for item in current.assignments}
+        imported_assignments = {assignment_key(item): item for item in imported.assignments}
         current_groups = {item.group_id: item for item in current.fallback_groups}
         imported_groups = {item.group_id: item for item in imported.fallback_groups}
 
         return ModelRoutingDiff(
-            added_assignment_keys=tuple(sorted(
-                imported_assignments.keys() - current_assignments.keys()
-            )),
-            changed_assignment_keys=tuple(sorted(
-                key for key in imported_assignments.keys() & current_assignments.keys()
-                if imported_assignments[key] != current_assignments[key]
-            )),
-            removed_assignment_keys=tuple(sorted(
-                current_assignments.keys() - imported_assignments.keys()
-            )),
-            added_fallback_group_ids=tuple(sorted(
-                imported_groups.keys() - current_groups.keys()
-            )),
-            changed_fallback_group_ids=tuple(sorted(
-                key for key in imported_groups.keys() & current_groups.keys()
-                if imported_groups[key] != current_groups[key]
-            )),
-            removed_fallback_group_ids=tuple(sorted(
-                current_groups.keys() - imported_groups.keys()
-            )),
+            added_assignment_keys=tuple(sorted(imported_assignments.keys() - current_assignments.keys())),
+            changed_assignment_keys=tuple(
+                sorted(
+                    key
+                    for key in imported_assignments.keys() & current_assignments.keys()
+                    if imported_assignments[key] != current_assignments[key]
+                )
+            ),
+            removed_assignment_keys=tuple(sorted(current_assignments.keys() - imported_assignments.keys())),
+            added_fallback_group_ids=tuple(sorted(imported_groups.keys() - current_groups.keys())),
+            changed_fallback_group_ids=tuple(
+                sorted(
+                    key
+                    for key in imported_groups.keys() & current_groups.keys()
+                    if imported_groups[key] != current_groups[key]
+                )
+            ),
+            removed_fallback_group_ids=tuple(sorted(current_groups.keys() - imported_groups.keys())),
         )
 
 

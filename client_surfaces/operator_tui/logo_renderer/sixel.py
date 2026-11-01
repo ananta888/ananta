@@ -96,7 +96,10 @@ class SixelRenderer:
         writer=None,
     ) -> list[LogoFrame]:
         count = max(1, min(24, int(frame_count)))
-        frames = [self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer) for i in range(count)]
+        frames = [
+            self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer)
+            for i in range(count)
+        ]
         return frames
 
     def render_pixel_frame(self, frame: PixelFrame) -> str:

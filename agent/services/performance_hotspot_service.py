@@ -18,16 +18,18 @@ class PerformanceHotspotService:
         for index, item in enumerate(list(profile_observation.get("hotspots") or [])[:max_hotspots], start=1):
             symbol = str(item.get("symbol") or item.get("name") or f"hotspot-{index}")
             affected_files = self._candidate_files(symbol, workspace_dir)
-            hotspots.append({
-                "hotspot_id": f"hotspot-{index}",
-                "symbol": symbol,
-                "score": float(item.get("score") or 0.0),
-                "evidence_refs": [
-                    {"source": "profile_observation", "symbol": symbol, "evidence": item.get("evidence", "")}
-                ],
-                "suspected_layer": self._suspected_layer(symbol),
-                "affected_files": affected_files,
-            })
+            hotspots.append(
+                {
+                    "hotspot_id": f"hotspot-{index}",
+                    "symbol": symbol,
+                    "score": float(item.get("score") or 0.0),
+                    "evidence_refs": [
+                        {"source": "profile_observation", "symbol": symbol, "evidence": item.get("evidence", "")}
+                    ],
+                    "suspected_layer": self._suspected_layer(symbol),
+                    "affected_files": affected_files,
+                }
+            )
         status = "completed" if hotspots else "degraded"
         return {
             "schema": "performance_hotspot_report.v1",

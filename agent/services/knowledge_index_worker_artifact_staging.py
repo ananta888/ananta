@@ -108,10 +108,7 @@ class KnowledgeIndexWorkerArtifactStager:
     def __init__(
         self,
         *,
-        downloader: (
-            KnowledgeIndexWorkerArtifactDownloaderPort
-            | KnowledgeIndexWorkerStreamingArtifactDownloaderPort
-        ),
+        downloader: (KnowledgeIndexWorkerArtifactDownloaderPort | KnowledgeIndexWorkerStreamingArtifactDownloaderPort),
     ) -> None:
         self._downloader = downloader
 

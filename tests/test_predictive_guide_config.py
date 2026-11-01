@@ -3,9 +3,8 @@
 Covers the 7 new session-scoped settings introduced in Welle 1 and the
 3 preset functions (quiet / balanced / eager).
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from client_surfaces.operator_tui.chat_state import (
     PREDICTIVE_GUIDE_KEYS,
@@ -15,7 +14,6 @@ from client_surfaces.operator_tui.chat_state import (
     make_session,
     update_session_settings,
 )
-
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 
@@ -37,6 +35,7 @@ def test_predictive_guide_keys_constant_lists_all_seven():
 def test_default_session_settings_includes_predictive_guide_keys():
     """_DEFAULT_SESSION_SETTINGS must define a default for every PUG key."""
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
     for k in PREDICTIVE_GUIDE_KEYS:
         assert k in _DEFAULT_SESSION_SETTINGS, f"missing default for {k}"
 
@@ -79,7 +78,11 @@ def test_balanced_preset_sits_between_quiet_and_eager():
     b = PREDICTIVE_PRESETS["balanced"]
     e = PREDICTIVE_PRESETS["eager"]
     assert q["predictive_guide_dwell_ms"] >= b["predictive_guide_dwell_ms"] >= e["predictive_guide_dwell_ms"]
-    assert q["predictive_guide_min_confidence"] >= b["predictive_guide_min_confidence"] >= e["predictive_guide_min_confidence"]
+    assert (
+        q["predictive_guide_min_confidence"]
+        >= b["predictive_guide_min_confidence"]
+        >= e["predictive_guide_min_confidence"]
+    )
 
 
 def test_all_presets_set_every_predictive_key():
@@ -98,11 +101,15 @@ def test_chat_session_predictive_settings_round_trip():
     sessions = get_sessions(chat)
     sid = sessions[0]["id"]
 
-    ok = update_session_settings(chat, sid, {
-        "predictive_guide_enabled": True,
-        "predictive_guide_dwell_ms": 2500,
-        "predictive_guide_multi_candidates": 4,
-    })
+    ok = update_session_settings(
+        chat,
+        sid,
+        {
+            "predictive_guide_enabled": True,
+            "predictive_guide_dwell_ms": 2500,
+            "predictive_guide_multi_candidates": 4,
+        },
+    )
     assert ok is True
     saved = next(s for s in get_sessions(chat) if s["id"] == sid)
     assert saved["settings"]["predictive_guide_enabled"] is True
@@ -117,15 +124,24 @@ def test_none_value_resets_predictive_setting_to_default():
     chat: dict = {}
     sessions = get_sessions(chat)
     sid = sessions[0]["id"]
-    update_session_settings(chat, sid, {
-        "predictive_guide_dwell_ms": 4000,
-        "predictive_guide_min_confidence": 0.9,
-    })
-    update_session_settings(chat, sid, {
-        "predictive_guide_dwell_ms": None,
-    })
+    update_session_settings(
+        chat,
+        sid,
+        {
+            "predictive_guide_dwell_ms": 4000,
+            "predictive_guide_min_confidence": 0.9,
+        },
+    )
+    update_session_settings(
+        chat,
+        sid,
+        {
+            "predictive_guide_dwell_ms": None,
+        },
+    )
     saved = next(s for s in get_sessions(chat) if s["id"] == sid)
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
     assert saved["settings"]["predictive_guide_dwell_ms"] == _DEFAULT_SESSION_SETTINGS["predictive_guide_dwell_ms"]
     # The non-reset key stays
     assert saved["settings"]["predictive_guide_min_confidence"] == 0.9

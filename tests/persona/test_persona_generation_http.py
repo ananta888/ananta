@@ -26,14 +26,16 @@ pytestmark = pytest.mark.timeout(60)
 def authenticate(patch):
     patch.setattr(
         "agent.auth._validate_user_jwt",
-        lambda token: {
-            "sub": "actor",
-            "tenant_id": "tenant",
-            "project_id": "project",
-            "role": "user",
-        }
-        if token == "synthetic-generation"
-        else None,
+        lambda token: (
+            {
+                "sub": "actor",
+                "tenant_id": "tenant",
+                "project_id": "project",
+                "role": "user",
+            }
+            if token == "synthetic-generation"
+            else None
+        ),
     )
     patch.setattr("agent.auth._user_token_allows_current_request", lambda _: True)
     return {"Authorization": "Bearer synthetic-generation"}

@@ -175,11 +175,7 @@ def _evidence_errors(repository_root: Path, registry: FileTypeSupportRegistry) -
         for dimension in CapabilityDimension
         for evidence in descriptor.support_for(pipeline).capability(dimension).evidence
     }
-    return tuple(
-        f"missing evidence: {ref}"
-        for ref in sorted(refs)
-        if not (repository_root / ref).is_file()
-    )
+    return tuple(f"missing evidence: {ref}" for ref in sorted(refs) if not (repository_root / ref).is_file())
 
 
 def _table(result: FileTypeAuditResult) -> str:
@@ -207,8 +203,7 @@ def _table(result: FileTypeAuditResult) -> str:
     lines.extend(["", "Effective verified formats per pipeline:"])
     for pipeline in sorted({pipeline for pipeline, _dimension in effective_counts}):
         counts = " ".join(
-            f"{dimension.value}={effective_counts[(pipeline, dimension.value)]}"
-            for dimension in CapabilityDimension
+            f"{dimension.value}={effective_counts[(pipeline, dimension.value)]}" for dimension in CapabilityDimension
         )
         lines.append(f"  {pipeline}: {counts}")
     if matrix_rows:

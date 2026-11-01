@@ -4,6 +4,7 @@ HCCA-004 — Compression Policy Engine
 Decides whether a given CompressionRequest should be compressed, passed through,
 or blocked, based on content type, task intent, sensitivity, and token budget.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,8 +13,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agent.services.context_compression.adapter import CompressionRequest
-    from agent.services.context_compression.token_estimator import TokenMetrics
     from agent.services.context_compression.quality_guard import QualityResult
+    from agent.services.context_compression.token_estimator import TokenMetrics
 
 log = logging.getLogger(__name__)
 
@@ -21,36 +22,43 @@ log = logging.getLogger(__name__)
 # Defaults
 # ---------------------------------------------------------------------------
 
-NEVER_COMPRESS_TYPES: frozenset[str] = frozenset({
-    "current_user_message",
-    "active_patch",
-    "credential",
-    "secret",
-    "approval_prompt",
-})
+NEVER_COMPRESS_TYPES: frozenset[str] = frozenset(
+    {
+        "current_user_message",
+        "active_patch",
+        "credential",
+        "secret",
+        "approval_prompt",
+    }
+)
 
-PROTECT_TASK_INTENTS: frozenset[str] = frozenset({
-    "debug",
-    "fix",
-    "review",
-    "security_audit",
-    "test_failure",
-})
+PROTECT_TASK_INTENTS: frozenset[str] = frozenset(
+    {
+        "debug",
+        "fix",
+        "review",
+        "security_audit",
+        "test_failure",
+    }
+)
 
-DEFAULT_COMPRESSIBLE_TYPES: frozenset[str] = frozenset({
-    "tool_output",
-    "json",
-    "log",
-    "search_results",
-    "rag_results",
-    "old_chat_summary",
-    "codecompass_symbol_list",
-})
+DEFAULT_COMPRESSIBLE_TYPES: frozenset[str] = frozenset(
+    {
+        "tool_output",
+        "json",
+        "log",
+        "search_results",
+        "rag_results",
+        "old_chat_summary",
+        "codecompass_symbol_list",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Policy dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class CompressionPolicy:
@@ -105,6 +113,7 @@ class CompressionPolicy:
 # Policy Engine
 # ---------------------------------------------------------------------------
 
+
 class CompressionPolicyEngine:
     """Evaluate a CompressionRequest against the active CompressionPolicy."""
 
@@ -146,10 +155,7 @@ class CompressionPolicyEngine:
             return False, "task_intent_protected"
 
         # Gate 5: content type not in the compressible allow-list
-        if (
-            policy.compressible_types
-            and request.content_type not in policy.compressible_types
-        ):
+        if policy.compressible_types and request.content_type not in policy.compressible_types:
             return False, "content_type_not_compressible"
 
         # Gate 6: below minimum token threshold
@@ -162,9 +168,7 @@ class CompressionPolicyEngine:
 
         return True, "eligible"
 
-    def check_quality_gate(
-        self, quality_result: "QualityResult"
-    ) -> tuple[bool, str]:
+    def check_quality_gate(self, quality_result: "QualityResult") -> tuple[bool, str]:
         """Return (accept_compressed, reason_code).
 
         reason_code examples:

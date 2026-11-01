@@ -14,7 +14,8 @@ from agent.hub_benchmark import (
     record_hub_benchmark_sample,
     update_benchmark_run_timestamp,
 )
-from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
+from agent.llm_integration import extract_llm_text_and_usage
+from agent.llm_integration import generate_text as _generate_text
 
 
 class HubBenchmarkService:

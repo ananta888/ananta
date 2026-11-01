@@ -127,7 +127,11 @@ def test_runtime_without_explicit_opt_in_exits_before_loading_hub_or_files():
     env = dict(os.environ)
     env.pop("MEET_HUB_RESTART_GATE", None)
     result = subprocess.run(
-        [sys.executable, "-m", "tests.meet.meet_restart_hub_runtime"], env=env, capture_output=True, text=True, timeout=5
+        [sys.executable, "-m", "tests.meet.meet_restart_hub_runtime"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=5,
     )
     assert result.returncode == 1 and result.stderr == ""
     assert json.loads(result.stdout) == {"error": "test_hub_runtime_failed", "type": "ValueError"}

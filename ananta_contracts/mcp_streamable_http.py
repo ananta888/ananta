@@ -44,22 +44,16 @@ class McpStreamableHttpTransport:
         if method not in {"tools/list", "tools/call"}:
             return self._transport.request_json(**values)
         path = str(values.get("path") or "")
-        secret_ref = str(
-            values.get("service_bearer_secret_ref") or ""
-        )
+        secret_ref = str(values.get("service_bearer_secret_ref") or "")
         if path != _MCP_PATH or not secret_ref:
-            raise IncompatibleUnslothStudioContract(
-                "incompatible_upstream_contract"
-            )
+            raise IncompatibleUnslothStudioContract("incompatible_upstream_contract")
         with self._lock:
             self._ensure_initialized(
                 path=path,
                 secret_ref=secret_ref,
             )
             request_values = dict(values)
-            request_values["headers"] = self._session_headers(
-                values.get("headers")
-            )
+            request_values["headers"] = self._session_headers(values.get("headers"))
             return self._transport.request_json(**request_values)
 
     def _ensure_initialized(
@@ -102,25 +96,15 @@ class McpStreamableHttpTransport:
             or not isinstance(result.get("capabilities"), Mapping)
             or not isinstance(result.get("serverInfo"), Mapping)
         ):
-            raise IncompatibleUnslothStudioContract(
-                "incompatible_upstream_contract"
-            )
-        normalized_headers = {
-            str(name).lower(): str(value)
-            for name, value in response_headers.items()
-        }
+            raise IncompatibleUnslothStudioContract("incompatible_upstream_contract")
+        normalized_headers = {str(name).lower(): str(value) for name, value in response_headers.items()}
         session_id = normalized_headers.get("mcp-session-id")
         if session_id is not None and (
             not 1 <= len(session_id) <= 128
             or not session_id.isascii()
-            or any(
-                not 0x21 <= ord(character) <= 0x7E
-                for character in session_id
-            )
+            or any(not 0x21 <= ord(character) <= 0x7E for character in session_id)
         ):
-            raise IncompatibleUnslothStudioContract(
-                "incompatible_upstream_contract"
-            )
+            raise IncompatibleUnslothStudioContract("incompatible_upstream_contract")
         self._session_id = session_id
         self._transport.request_json(
             method="POST",
@@ -147,12 +131,7 @@ class McpStreamableHttpTransport:
     ) -> dict[str, str]:
         headers = self._base_headers()
         if isinstance(supplied, Mapping):
-            headers.update(
-                {
-                    str(name): str(value)
-                    for name, value in supplied.items()
-                }
-            )
+            headers.update({str(name): str(value) for name, value in supplied.items()})
         if self._session_id is not None:
             headers["Mcp-Session-Id"] = self._session_id
         return headers

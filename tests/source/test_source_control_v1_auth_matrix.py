@@ -65,16 +65,11 @@ def _token(*, roles=("user",)):
 
 
 def _path(rule: str) -> str:
-    return (
-        "/api/source-control/v1"
-        + rule.replace("<connection_id>", "connection-example")
-        .replace("<index_id>", "index-example")
-        .replace("<artifact_id>", "artifact-example")
-        .replace("<grant_id>", "grant-example")
-        .replace("<policy_id>", "policy-example")
-        .replace("<workspace_id>", "workspace-example")
-        .replace("<int:version>", "1")
-    )
+    return "/api/source-control/v1" + rule.replace("<connection_id>", "connection-example").replace(
+        "<index_id>", "index-example"
+    ).replace("<artifact_id>", "artifact-example").replace("<grant_id>", "grant-example").replace(
+        "<policy_id>", "policy-example"
+    ).replace("<workspace_id>", "workspace-example").replace("<int:version>", "1")
 
 
 _PROJECT_SELECTOR_SURFACES = (
@@ -110,20 +105,13 @@ def test_matrix_covers_every_v1_flask_rule(monkeypatch) -> None:
         (
             rule.endpoint.rsplit(".", 1)[-1],
             rule.rule.removeprefix("/api/source-control/v1"),
-            tuple(
-                sorted(
-                    method
-                    for method in rule.methods
-                    if method not in {"HEAD", "OPTIONS"}
-                )
-            ),
+            tuple(sorted(method for method in rule.methods if method not in {"HEAD", "OPTIONS"})),
         )
         for rule in app.url_map.iter_rules()
         if rule.endpoint.startswith("source_control_v1.")
     }
     expected = {
-        (item.endpoint, item.rule, tuple(sorted(item.methods)))
-        for item in SOURCE_CONTROL_V1_AUTHORIZATION_MATRIX
+        (item.endpoint, item.rule, tuple(sorted(item.methods))) for item in SOURCE_CONTROL_V1_AUTHORIZATION_MATRIX
     }
     assert actual == expected
 
@@ -133,21 +121,13 @@ def test_project_selector_matrices_cover_every_flask_rule() -> None:
     app.extensions["project_access_authority"] = AllowProjectAccess()
     for _, factory, _ in _PROJECT_SELECTOR_SURFACES:
         app.register_blueprint(factory(_Api()))
-    blueprint_names = {
-        blueprint_name for blueprint_name, _, _ in _PROJECT_SELECTOR_SURFACES
-    }
+    blueprint_names = {blueprint_name for blueprint_name, _, _ in _PROJECT_SELECTOR_SURFACES}
     actual = {
         (
             rule.endpoint.split(".", 1)[0],
             rule.endpoint.rsplit(".", 1)[-1],
             rule.rule.removeprefix("/api/source-control/v1"),
-            tuple(
-                sorted(
-                    method
-                    for method in rule.methods
-                    if method not in {"HEAD", "OPTIONS"}
-                )
-            ),
+            tuple(sorted(method for method in rule.methods if method not in {"HEAD", "OPTIONS"})),
         )
         for rule in app.url_map.iter_rules()
         if rule.endpoint.split(".", 1)[0] in blueprint_names
@@ -165,9 +145,7 @@ def test_project_selector_matrices_cover_every_flask_rule() -> None:
 
 
 @pytest.mark.parametrize("entry", SOURCE_CONTROL_V1_AUTHORIZATION_MATRIX)
-def test_every_v1_rule_is_unauthenticated_fail_closed(
-    monkeypatch, entry
-) -> None:
+def test_every_v1_rule_is_unauthenticated_fail_closed(monkeypatch, entry) -> None:
     monkeypatch.setattr(
         auth,
         "resolve_configured_agent_token",
@@ -198,9 +176,7 @@ def test_graph_accepts_authoritative_project_selector(monkeypatch) -> None:
             "/api/source-control/v1/connections/connection-example/graph"
             "?project_id=project-example&limit=10&view=default"
         ),
-        headers={
-            "Authorization": f"Bearer {_token(roles=('admin',))}"
-        },
+        headers={"Authorization": f"Bearer {_token(roles=('admin',))}"},
     )
 
     assert response.status_code == 200
@@ -270,9 +246,7 @@ def test_project_selector_rules_require_query_scope_and_hide_mismatch(
     assert missing.status_code == 400
     assert missing.get_json()["error"]["code"] == "project_id_required"
     assert mismatched.status_code == 404
-    assert mismatched.get_json()["error"]["code"] == (
-        "source_control_not_found"
-    )
+    assert mismatched.get_json()["error"]["code"] == ("source_control_not_found")
 
 
 @pytest.mark.parametrize("entry", SOURCE_CONTROL_V1_AUTHORIZATION_MATRIX)
@@ -307,30 +281,23 @@ def test_matrix_actions_hide_foreign_objects_and_enforce_roles(entry) -> None:
         project_id="project-example",
         owner_id="owner-example",
     )
-    assert policy.authorize(
-        principal=owner,
-        action=entry.action,
-        binding=foreign,
-    ).status_code == 404
+    assert (
+        policy.authorize(
+            principal=owner,
+            action=entry.action,
+            binding=foreign,
+        ).status_code
+        == 404
+    )
     if entry.action is SourceControlAction.policy:
-        assert policy.authorize(
-            principal=owner, action=entry.action, binding=local
-        ).status_code == 403
-        assert policy.authorize(
-            principal=admin, action=entry.action, binding=local
-        ).allowed
+        assert policy.authorize(principal=owner, action=entry.action, binding=local).status_code == 403
+        assert policy.authorize(principal=admin, action=entry.action, binding=local).allowed
     elif entry.action in {
         SourceControlAction.refresh,
         SourceControlAction.scan,
         SourceControlAction.index,
         SourceControlAction.delete,
     }:
-        assert policy.authorize(
-            principal=user, action=entry.action, binding=local
-        ).status_code == 403
-        assert policy.authorize(
-            principal=owner, action=entry.action, binding=local
-        ).allowed
-        assert policy.authorize(
-            principal=admin, action=entry.action, binding=local
-        ).allowed
+        assert policy.authorize(principal=user, action=entry.action, binding=local).status_code == 403
+        assert policy.authorize(principal=owner, action=entry.action, binding=local).allowed
+        assert policy.authorize(principal=admin, action=entry.action, binding=local).allowed

@@ -32,7 +32,9 @@ def select_next_step(
     return None
 
 
-def consume_step_budget(*, counters: dict[str, int], budgets: StepBudgets, token_cost: int, runtime_seconds: int, command_count: int) -> dict[str, Any]:
+def consume_step_budget(
+    *, counters: dict[str, int], budgets: StepBudgets, token_cost: int, runtime_seconds: int, command_count: int
+) -> dict[str, Any]:
     updated = {
         "tokens_used": int(counters.get("tokens_used") or 0) + int(token_cost),
         "runtime_used": int(counters.get("runtime_used") or 0) + int(runtime_seconds),
@@ -50,4 +52,3 @@ def consume_step_budget(*, counters: dict[str, int], budgets: StepBudgets, token
         "budget_exhausted": exhausted,
         "stop_reason": "budget_exhausted" if exhausted else "",
     }
-

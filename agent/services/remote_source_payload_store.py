@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
-from pathlib import PurePosixPath
 import re
 import time
+from dataclasses import dataclass, replace
+from pathlib import PurePosixPath
 from typing import Any, Callable, Mapping, Protocol
 
 from sqlalchemy.exc import IntegrityError
@@ -31,7 +31,6 @@ from agent.sources.git_source_connector_common import (
     GitSourceScope,
     GitStoredPayloadQuery,
 )
-
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -104,9 +103,7 @@ def authorization_binding_digest(record: RegisteredGitAuthorization) -> str:
             "connection_ref": record.connection_ref,
             "credential_ref_digest": _nullable_digest(record.credential_ref),
             "granted_scopes": sorted(record.granted_scopes),
-            "remote_url_digest": hashlib.sha256(
-                record.remote_url.encode("utf-8")
-            ).hexdigest(),
+            "remote_url_digest": hashlib.sha256(record.remote_url.encode("utf-8")).hexdigest(),
             "repository": record.repository,
         }
     )
@@ -129,15 +126,9 @@ def require_active_authorization(
         repository_identifier=repository_identifier,
     )
     required_scope = (
-        "contents:read"
-        if record is not None and record.authorization_kind.startswith("github_")
-        else "repository:read"
+        "contents:read" if record is not None and record.authorization_kind.startswith("github_") else "repository:read"
     )
-    if (
-        record is None
-        or record.authorization_state != "active"
-        or required_scope not in record.granted_scopes
-    ):
+    if record is None or record.authorization_state != "active" or required_scope not in record.granted_scopes:
         raise GitConnectorProviderError("authorization_required")
     return record, authorization_binding_digest(record)
 
@@ -203,9 +194,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             )
         except ValueError as exc:
             raise GitConnectorProviderError(str(exc)) from None
-        metrics_json = _canonical_text(
-            _metrics_mapping(metrics, elapsed_seconds=0.0)
-        )
+        metrics_json = _canonical_text(_metrics_mapping(metrics, elapsed_seconds=0.0))
         row = RemoteSourcePayloadDB(
             payload_digest=payload_digest,
             tenant_id=request.scope.tenant_id,
@@ -239,9 +228,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     db.rollback()
                     existing = self._coordinate_row(db, request)
             if existing is not None and not self._same_row(existing, row):
-                raise GitConnectorProviderError(
-                    "remote_source_payload_identity_conflict"
-                )
+                raise GitConnectorProviderError("remote_source_payload_identity_conflict")
             selected = existing or row
         return self._load_row(selected)
 
@@ -275,8 +262,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     RemoteSourcePayloadDB.connector_type == query.connector_type,
                     RemoteSourcePayloadDB.source_id == query.source_id,
                     RemoteSourcePayloadDB.connection_ref == query.connection_ref,
-                    RemoteSourcePayloadDB.repository_key
-                    == (query.repository_identifier or ""),
+                    RemoteSourcePayloadDB.repository_key == (query.repository_identifier or ""),
                     RemoteSourcePayloadDB.requested_ref == query.requested_ref,
                 )
                 .order_by(RemoteSourcePayloadDB.created_at_epoch.desc())
@@ -310,11 +296,9 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     RemoteSourcePayloadDB.connector_type == connector_type,
                     RemoteSourcePayloadDB.source_id == source_id,
                     RemoteSourcePayloadDB.connection_ref == connection_ref,
-                    RemoteSourcePayloadDB.repository_key
-                    == (repository_identifier or ""),
+                    RemoteSourcePayloadDB.repository_key == (repository_identifier or ""),
                     RemoteSourcePayloadDB.commit_sha == commit_sha,
-                    RemoteSourcePayloadDB.source_revision_digest
-                    == source_revision_digest,
+                    RemoteSourcePayloadDB.source_revision_digest == source_revision_digest,
                     RemoteSourcePayloadDB.git_manifest_digest == manifest_digest,
                 )
             ).first()
@@ -349,9 +333,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     return
                 except IntegrityError:
                     db.rollback()
-                    existing = db.get(
-                        RemoteSourcePayloadBindingDB, source_revision_id
-                    )
+                    existing = db.get(RemoteSourcePayloadBindingDB, source_revision_id)
             if existing is None or any(
                 getattr(existing, name) != getattr(row, name)
                 for name in (
@@ -363,9 +345,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     "manifest_digest",
                 )
             ):
-                raise GitConnectorProviderError(
-                    "remote_source_payload_binding_conflict"
-                )
+                raise GitConnectorProviderError("remote_source_payload_binding_conflict")
 
     def load_bound(
         self,
@@ -377,11 +357,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
     ) -> RemoteSourcePayload:
         with self._sessions() as db:
             binding = db.get(RemoteSourcePayloadBindingDB, source_revision_id)
-            row = (
-                db.get(RemoteSourcePayloadDB, binding.payload_digest)
-                if binding is not None
-                else None
-            )
+            row = db.get(RemoteSourcePayloadDB, binding.payload_digest) if binding is not None else None
         if (
             binding is None
             or row is None
@@ -391,9 +367,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             or binding.source_revision_digest != row.source_revision_digest
             or binding.manifest_digest != row.git_manifest_digest
         ):
-            raise GitConnectorProviderError(
-                "remote_source_payload_binding_missing"
-            )
+            raise GitConnectorProviderError("remote_source_payload_binding_missing")
         return self._load_row(row)
 
     def _load_row(self, row: RemoteSourcePayloadDB) -> RemoteSourcePayload:
@@ -407,13 +381,9 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             )
             document = json.loads(encoded.decode("utf-8"))
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
-            raise GitConnectorProviderError(
-                "remote_source_payload_integrity_failed"
-            ) from None
+            raise GitConnectorProviderError("remote_source_payload_integrity_failed") from None
         if not isinstance(document, Mapping) or _canonical_bytes(document) != encoded:
-            raise GitConnectorProviderError(
-                "remote_source_payload_integrity_failed"
-            )
+            raise GitConnectorProviderError("remote_source_payload_integrity_failed")
         expected = {
             "schema": _SCHEMA,
             "authority": "hub",
@@ -430,35 +400,20 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             "git_manifest_digest": row.git_manifest_digest,
         }
         if any(document.get(key) != value for key, value in expected.items()):
-            raise GitConnectorProviderError(
-                "remote_source_payload_integrity_failed"
-            )
+            raise GitConnectorProviderError("remote_source_payload_integrity_failed")
         raw_files = document.get("files")
         if not isinstance(raw_files, list) or len(raw_files) != row.file_count:
-            raise GitConnectorProviderError(
-                "remote_source_payload_integrity_failed"
-            )
+            raise GitConnectorProviderError("remote_source_payload_integrity_failed")
         files: list[RemoteSourcePayloadFile] = []
         for raw in raw_files:
-            if not isinstance(raw, Mapping) or set(raw) != {
-                "content", "mode", "relative_path", "sha256", "size_bytes"
-            }:
-                raise GitConnectorProviderError(
-                    "remote_source_payload_integrity_failed"
-                )
+            if not isinstance(raw, Mapping) or set(raw) != {"content", "mode", "relative_path", "sha256", "size_bytes"}:
+                raise GitConnectorProviderError("remote_source_payload_integrity_failed")
             content = raw["content"]
             if not isinstance(content, str):
-                raise GitConnectorProviderError(
-                    "remote_source_payload_integrity_failed"
-                )
+                raise GitConnectorProviderError("remote_source_payload_integrity_failed")
             content_bytes = content.encode("utf-8")
-            if (
-                len(content_bytes) != raw["size_bytes"]
-                or hashlib.sha256(content_bytes).hexdigest() != raw["sha256"]
-            ):
-                raise GitConnectorProviderError(
-                    "remote_source_payload_integrity_failed"
-                )
+            if len(content_bytes) != raw["size_bytes"] or hashlib.sha256(content_bytes).hexdigest() != raw["sha256"]:
+                raise GitConnectorProviderError("remote_source_payload_integrity_failed")
             files.append(
                 RemoteSourcePayloadFile(
                     relative_path=str(raw["relative_path"]),
@@ -473,9 +428,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             if not isinstance(metrics_document, Mapping):
                 raise TypeError("metrics_mapping_required")
             raw_exclusions = metrics_document.get("exclusions", [])
-            if not isinstance(raw_exclusions, list) or any(
-                not isinstance(item, Mapping) for item in raw_exclusions
-            ):
+            if not isinstance(raw_exclusions, list) or any(not isinstance(item, Mapping) for item in raw_exclusions):
                 raise TypeError("metrics_exclusions_invalid")
             metrics = GitRepositoryMetrics(
                 **{
@@ -484,13 +437,9 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                 }
             )
         except (TypeError, ValueError, json.JSONDecodeError):
-            raise GitConnectorProviderError(
-                "remote_source_payload_metrics_invalid"
-            ) from None
+            raise GitConnectorProviderError("remote_source_payload_metrics_invalid") from None
         if metrics.manifest_digest != row.git_manifest_digest:
-            raise GitConnectorProviderError(
-                "remote_source_payload_integrity_failed"
-            )
+            raise GitConnectorProviderError("remote_source_payload_integrity_failed")
         return RemoteSourcePayload(
             payload_digest=row.payload_digest,
             tenant_id=row.tenant_id,
@@ -514,31 +463,18 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
     ) -> tuple[tuple[RemoteSourcePayloadFile, ...], GitRepositoryMetrics]:
         normalized: list[RemoteSourcePayloadFile] = []
         excluded_counts: dict[str, int] = {}
-        for item in sorted(
-            materialization.files, key=lambda value: value.relative_path
-        ):
+        for item in sorted(materialization.files, key=lambda value: value.relative_path):
             path = PurePosixPath(item.relative_path)
             if (
                 path.is_absolute()
                 or str(path) != item.relative_path
                 or not path.parts
                 or item.mode not in {"100644", "100755"}
-                or any(
-                    part in {"", ".", ".."} or part.casefold() == ".git"
-                    for part in path.parts
-                )
+                or any(part in {"", ".", ".."} or part.casefold() == ".git" for part in path.parts)
             ):
-                raise GitConnectorProviderError(
-                    "remote_source_payload_path_invalid"
-                )
-            if (
-                item.byte_size != len(item.content)
-                or item.content_digest
-                != hashlib.sha256(item.content).hexdigest()
-            ):
-                raise GitConnectorProviderError(
-                    "remote_source_payload_file_invalid"
-                )
+                raise GitConnectorProviderError("remote_source_payload_path_invalid")
+            if item.byte_size != len(item.content) or item.content_digest != hashlib.sha256(item.content).hexdigest():
+                raise GitConnectorProviderError("remote_source_payload_file_invalid")
             if self._secrets.is_secret_file(item.relative_path):
                 self._increment_exclusion(
                     excluded_counts,
@@ -548,9 +484,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             try:
                 text = item.content.decode("utf-8")
             except UnicodeDecodeError:
-                raise GitConnectorProviderError(
-                    "remote_source_payload_text_required"
-                ) from None
+                raise GitConnectorProviderError("remote_source_payload_text_required") from None
             if _CONTROL.search(text):
                 self._increment_exclusion(
                     excluded_counts,
@@ -578,13 +512,8 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     content=text,
                 )
             )
-        if (
-            len(normalized) + sum(excluded_counts.values())
-            != materialization.metrics.file_count
-        ):
-            raise GitConnectorProviderError(
-                "remote_source_payload_inventory_mismatch"
-            )
+        if len(normalized) + sum(excluded_counts.values()) != materialization.metrics.file_count:
+            raise GitConnectorProviderError("remote_source_payload_inventory_mismatch")
         files = tuple(normalized)
         return files, self._filtered_metrics(
             materialization.metrics,
@@ -625,9 +554,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
         )
 
     @staticmethod
-    def _validate_request(
-        request: GitContentRequest, authorization_digest: str
-    ) -> None:
+    def _validate_request(request: GitContentRequest, authorization_digest: str) -> None:
         if (
             request.connector_type not in {"generic_git", "github_repository"}
             or not request.source_id
@@ -637,14 +564,10 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             or _DIGEST.fullmatch(request.source_revision_digest) is None
             or _DIGEST.fullmatch(authorization_digest) is None
         ):
-            raise GitConnectorProviderError(
-                "remote_source_payload_request_invalid"
-            )
+            raise GitConnectorProviderError("remote_source_payload_request_invalid")
 
     @staticmethod
-    def _coordinate_row(
-        db: Session, request: GitContentRequest
-    ) -> RemoteSourcePayloadDB | None:
+    def _coordinate_row(db: Session, request: GitContentRequest) -> RemoteSourcePayloadDB | None:
         return db.exec(
             select(RemoteSourcePayloadDB).where(
                 RemoteSourcePayloadDB.tenant_id == request.scope.tenant_id,
@@ -653,19 +576,15 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                 RemoteSourcePayloadDB.connector_type == request.connector_type,
                 RemoteSourcePayloadDB.source_id == request.source_id,
                 RemoteSourcePayloadDB.connection_ref == request.connection_ref,
-                RemoteSourcePayloadDB.repository_key
-                == (request.repository_identifier or ""),
+                RemoteSourcePayloadDB.repository_key == (request.repository_identifier or ""),
                 RemoteSourcePayloadDB.requested_ref == request.requested_ref,
                 RemoteSourcePayloadDB.commit_sha == request.commit_sha,
-                RemoteSourcePayloadDB.source_revision_digest
-                == request.source_revision_digest,
+                RemoteSourcePayloadDB.source_revision_digest == request.source_revision_digest,
             )
         ).first()
 
     @staticmethod
-    def _same_row(
-        existing: RemoteSourcePayloadDB, candidate: RemoteSourcePayloadDB
-    ) -> bool:
+    def _same_row(existing: RemoteSourcePayloadDB, candidate: RemoteSourcePayloadDB) -> bool:
         return all(
             getattr(existing, name) == getattr(candidate, name)
             for name in (
@@ -682,13 +601,9 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
         )
 
     @staticmethod
-    def _require_authorization_binding(
-        row: RemoteSourcePayloadDB, expected: str
-    ) -> None:
+    def _require_authorization_binding(row: RemoteSourcePayloadDB, expected: str) -> None:
         if row.authorization_binding_digest != expected:
-            raise GitConnectorProviderError(
-                "remote_source_payload_authorization_stale"
-            )
+            raise GitConnectorProviderError("remote_source_payload_authorization_stale")
 
 
 def _nullable_digest(value: str | None) -> str | None:
@@ -704,14 +619,10 @@ def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
 
 
 def _canonical_text(value: Mapping[str, Any]) -> str:
-    return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def _metrics_mapping(
-    metrics: GitRepositoryMetrics, *, elapsed_seconds: float
-) -> dict[str, Any]:
+def _metrics_mapping(metrics: GitRepositoryMetrics, *, elapsed_seconds: float) -> dict[str, Any]:
     return {
         "item_count": metrics.item_count,
         "object_count": metrics.object_count,

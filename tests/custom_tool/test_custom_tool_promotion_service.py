@@ -1,8 +1,10 @@
 """HDE-015: promotion pipeline pending -> validated -> approved -> active."""
+
 from __future__ import annotations
 
-import pytest
 import hashlib
+
+import pytest
 from sqlmodel import SQLModel, create_engine
 
 from agent.services.custom_tool_promotion_service import (
@@ -156,7 +158,13 @@ def test_script_digest_is_bound_into_promoted_spec(world, tmp_path):
         argument_schema={"type": "object", "properties": {}},
         path_arguments=[],
         tests=[
-            {"name": "ok", "kind": "positive", "arguments": {}, "expect_status": "ok", "expect_output_contains": ["script-ok"]},
+            {
+                "name": "ok",
+                "kind": "positive",
+                "arguments": {},
+                "expect_status": "ok",
+                "expect_output_contains": ["script-ok"],
+            },
             {"name": "neg", "kind": "negative", "arguments": {"extra": "x"}, "expect_status": "rejected"},
         ],
     )

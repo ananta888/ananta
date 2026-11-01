@@ -12,7 +12,6 @@ from typing import Any
 from agent.config import settings
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.rag_helper_index_service import get_rag_helper_index_service
-from agent.services.wiki_record_writer import compact_wiki_jsonl
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +37,19 @@ class WikiImportJobService:
                 interrupted: list[str] = []
                 for job_id, job in jobs.items():
                     if job.get("status") in {"running", "queued"}:
-                        job = {**job, "status": "interrupted", "phase": "interrupted",
-                               "error": "Hub wurde neu gestartet — Import unterbrochen", "finished_at": time.time()}
+                        job = {
+                            **job,
+                            "status": "interrupted",
+                            "phase": "interrupted",
+                            "error": "Hub wurde neu gestartet — Import unterbrochen",
+                            "finished_at": time.time(),
+                        }
                         interrupted.append(job_id[:8])
                     self._jobs[job_id] = job
                 if interrupted:
-                    logger.warning("wiki_import_job_service: %d interrupted jobs on startup: %s", len(interrupted), interrupted)
+                    logger.warning(
+                        "wiki_import_job_service: %d interrupted jobs on startup: %s", len(interrupted), interrupted
+                    )
                 logger.info("wiki_import_job_service: loaded %d jobs from disk", len(self._jobs))
         except Exception:
             logger.exception("wiki_import_job_service: failed to load jobs from disk")
@@ -77,8 +83,15 @@ class WikiImportJobService:
             job = self._jobs.get(job_id)
             if not job or job.get("status") not in {"interrupted", "failed"}:
                 return None
-            job = {**job, "status": "queued", "phase": "queued", "progress_percent": 0,
-                   "error": None, "finished_at": None, "started_at": None}
+            job = {
+                **job,
+                "status": "queued",
+                "phase": "queued",
+                "progress_percent": 0,
+                "error": None,
+                "finished_at": None,
+                "started_at": None,
+            }
             self._jobs[job_id] = job
         self._flush()
         self._executor.submit(self._run_job, job_id=job_id)
@@ -161,7 +174,15 @@ class WikiImportJobService:
         if not job:
             return
         request = dict(job.get("request") or {})
-        self._save({**job, "status": "running", "phase": "download_parse_normalize", "progress_percent": 15, "started_at": time.time()})
+        self._save(
+            {
+                **job,
+                "status": "running",
+                "phase": "download_parse_normalize",
+                "progress_percent": 15,
+                "started_at": time.time(),
+            }
+        )
 
         def _is_cancelled() -> bool:
             current = self.get_job(job_id)
@@ -174,15 +195,24 @@ class WikiImportJobService:
             ratio = min(1.0, items_done / _ESTIMATE)
             pct = 15 + int(math.log1p(ratio * (math.e - 1)) * 55)
             current = self.get_job(job_id) or {}
-            self._save({**current, "progress_percent": pct,
-                        "parse_items_done": items_done, "parse_records_done": records_done})
+            self._save(
+                {**current, "progress_percent": pct, "parse_items_done": items_done, "parse_records_done": records_done}
+            )
 
         _max_chunks = int(request.get("max_chunks_per_article") or 3)
-        _min_chars  = int(request.get("min_content_chars") or 300)
+        _min_chars = int(request.get("min_content_chars") or 300)
 
         try:
             if _is_cancelled():
-                self._save({**self.get_job(job_id), "status": "cancelled", "phase": "cancelled", "progress_percent": 100, "finished_at": time.time()})
+                self._save(
+                    {
+                        **self.get_job(job_id),
+                        "status": "cancelled",
+                        "phase": "cancelled",
+                        "progress_percent": 100,
+                        "finished_at": time.time(),
+                    }
+                )
                 return
             if bool(job.get("from_url")):
                 report = self._ingestion.import_wiki_jsonl_from_url(
@@ -211,22 +241,44 @@ class WikiImportJobService:
                 )
             current = self.get_job(job_id) or {}
             if bool(current.get("cancel_requested")):
-                self._save({**current, "status": "cancelled", "phase": "cancelled", "progress_percent": 100,
-                            "import_report": {k: v for k, v in report.items() if k != "records"}, "finished_at": time.time()})
+                self._save(
+                    {
+                        **current,
+                        "status": "cancelled",
+                        "phase": "cancelled",
+                        "progress_percent": 100,
+                        "import_report": {k: v for k, v in report.items() if k != "records"},
+                        "finished_at": time.time(),
+                    }
+                )
                 return
             if bool(current.get("pause_requested")):
-                self._save({**current, "status": "paused", "phase": "paused_after_import", "progress_percent": 74,
-                            "import_report": {k: v for k, v in report.items() if k != "records"}})
+                self._save(
+                    {
+                        **current,
+                        "status": "paused",
+                        "phase": "paused_after_import",
+                        "progress_percent": 74,
+                        "import_report": {k: v for k, v in report.items() if k != "records"},
+                    }
+                )
                 return
 
             # Pass file path directly — no in-memory load (records list is empty when write_jsonl_cache=True)
-            jsonl_cache  = report.get("jsonl_cache_path") or ""
-            links_cache  = report.get("links_cache_path") or ""
-            in_memory    = list(report.get("records") or [])
+            jsonl_cache = report.get("jsonl_cache_path") or ""
+            links_cache = report.get("links_cache_path") or ""
+            in_memory = list(report.get("records") or [])
 
             current = self.get_job(job_id) or {}
-            self._save({**current, "status": "running", "phase": "index", "progress_percent": 75,
-                        "import_report": {k: v for k, v in report.items() if k != "records"}})
+            self._save(
+                {
+                    **current,
+                    "status": "running",
+                    "phase": "index",
+                    "progress_percent": 75,
+                    "import_report": {k: v for k, v in report.items() if k != "records"},
+                }
+            )
             source_metadata = {
                 **dict(request.get("source_metadata") or {}),
                 "issues": list(report.get("issues") or []),

@@ -3,6 +3,7 @@
 Merge precedence: system_default → project → blueprint_role → task_kind_override.
 Unsafe configurations are rejected unless an explicit admin override is set.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,11 +29,13 @@ LLM_MODE_ASSISTED = "assisted"
 LLM_MODE_PRIMARY_WITH_GUARDRAILS = "primary_with_guardrails"
 
 # T003: strategies that call a real LLM provider
-LLM_STRATEGY_IDS = frozenset({
-    STRATEGY_TOOL_CALLING_LLM,
-    STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
-})
+LLM_STRATEGY_IDS = frozenset(
+    {
+        STRATEGY_TOOL_CALLING_LLM,
+        STRATEGY_JSON_SCHEMA_LLM,
+        STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+    }
+)
 
 _UNSAFE_STRATEGIES = {STRATEGY_LEGACY_SGPT}
 _ADMIN_OVERRIDE_KEY = "allow_unsafe_strategies"
@@ -45,7 +48,6 @@ SAFE_DEFAULT_STRATEGY_ORDER = [
     STRATEGY_ADVISORY_PROPOSAL,
     STRATEGY_HUMAN_REVIEW,
 ]
-
 
 
 def _compactor_output_chars(value: Any) -> int:
@@ -64,10 +66,17 @@ class ProposePolicy:
 
     strategy_order: list[str] = field(default_factory=lambda: list(SAFE_DEFAULT_STRATEGY_ORDER))
     llm_mode: str = LLM_MODE_ASSISTED
-    accepted_output_formats: list[str] = field(default_factory=lambda: [
-        "tool_calls", "strict_json", "fenced_json", "shell_block",
-        "unified_diff", "file_blocks", "natural_language",
-    ])
+    accepted_output_formats: list[str] = field(
+        default_factory=lambda: [
+            "tool_calls",
+            "strict_json",
+            "fenced_json",
+            "shell_block",
+            "unified_diff",
+            "file_blocks",
+            "natural_language",
+        ]
+    )
     allow_legacy_sgpt: bool = False
     allow_unstructured_text_as_execution: bool = False
     allow_shell_execution: bool = False  # T005: shell blocks only executable when True
@@ -104,7 +113,11 @@ class ProposePolicy:
         self.context_compactor_max_output_chars = _compactor_output_chars(self.context_compactor_max_output_chars)
         self.context_compactor_retry_attempts = max(0, min(3, int(self.context_compactor_retry_attempts or 0)))
         self.context_compactor_profile = str(self.context_compactor_profile or "default").strip().lower() or "default"
-        normalized_preserve = [str(item).strip().lower() for item in list(self.context_compactor_preserve_keywords or []) if str(item).strip()]
+        normalized_preserve = [
+            str(item).strip().lower()
+            for item in list(self.context_compactor_preserve_keywords or [])
+            if str(item).strip()
+        ]
         self.context_compactor_preserve_keywords = list(dict.fromkeys(normalized_preserve)) or [
             "security",
             "policy",
@@ -120,11 +133,12 @@ class ProposePolicy:
                 )
         if self.allow_unstructured_text_as_execution:
             if not self.admin_overrides.get(_ADMIN_OVERRIDE_KEY):
-                raise ValueError(
-                    "allow_unstructured_text_as_execution_requires_admin_override"
-                )
+                raise ValueError("allow_unstructured_text_as_execution_requires_admin_override")
         if self.llm_mode not in {
-            LLM_MODE_DISABLED, LLM_MODE_FALLBACK, LLM_MODE_ASSISTED, LLM_MODE_PRIMARY_WITH_GUARDRAILS
+            LLM_MODE_DISABLED,
+            LLM_MODE_FALLBACK,
+            LLM_MODE_ASSISTED,
+            LLM_MODE_PRIMARY_WITH_GUARDRAILS,
         }:
             raise ValueError(f"invalid_llm_mode: {self.llm_mode!r}")
         if self.on_parse_error not in {"next_strategy", "needs_review", "failed"}:
@@ -298,16 +312,30 @@ def build_policy_from_dict(raw: dict[str, Any], *, admin_overrides: dict[str, An
         "admin_overrides": dict(admin_overrides or {}),
     }
     for key in (
-        "strategy_order", "llm_mode", "accepted_output_formats",
-        "allow_legacy_sgpt", "allow_unstructured_text_as_execution", "allow_shell_execution",
-        "allow_json_schema_fallback", "allow_flexible_normalization",
-        "allow_worker_fallback", "allow_deterministic_fallback", "allow_human_review",
-        "max_strategy_attempts", "max_repair_attempts",
-        "requires_executable_step", "on_parse_error", "on_all_strategies_declined",
-        "context_compaction_enabled", "context_compaction_required",
-        "context_compactor_timeout_seconds", "context_compactor_max_output_chars",
-        "context_compactor_retry_attempts", "context_compactor_fail_open",
-        "context_compactor_profile", "context_compactor_preserve_keywords",
+        "strategy_order",
+        "llm_mode",
+        "accepted_output_formats",
+        "allow_legacy_sgpt",
+        "allow_unstructured_text_as_execution",
+        "allow_shell_execution",
+        "allow_json_schema_fallback",
+        "allow_flexible_normalization",
+        "allow_worker_fallback",
+        "allow_deterministic_fallback",
+        "allow_human_review",
+        "max_strategy_attempts",
+        "max_repair_attempts",
+        "requires_executable_step",
+        "on_parse_error",
+        "on_all_strategies_declined",
+        "context_compaction_enabled",
+        "context_compaction_required",
+        "context_compactor_timeout_seconds",
+        "context_compactor_max_output_chars",
+        "context_compactor_retry_attempts",
+        "context_compactor_fail_open",
+        "context_compactor_profile",
+        "context_compactor_preserve_keywords",
     ):
         if key in raw:
             kwargs[key] = raw[key]

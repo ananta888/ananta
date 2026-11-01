@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from agent.services.editor_tui_surface_state import (
     CAPABILITY_SURFACE_MODEL,
     COMMON_OBJECT_MODEL,
@@ -58,8 +60,6 @@ from agent.services.editor_tui_surface_state import (
     build_tui_task_filtering_grouping,
     collect_nvim_editor_context,
 )
-
-from typing import Any
 
 
 def build_editor_tui_foundation_snapshot(

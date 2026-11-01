@@ -21,12 +21,16 @@ pytestmark = pytest.mark.timeout(30)
 @pytest.fixture
 def service():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(engine, tables=[AccessRoleDB.__table__, AccessRoleBindingDB.__table__,
-                                                 AccessPolicyRevisionDB.__table__])
+    SQLModel.metadata.create_all(
+        engine, tables=[AccessRoleDB.__table__, AccessRoleBindingDB.__table__, AccessPolicyRevisionDB.__table__]
+    )
     events = []
     clock = [0.0]
-    svc = AccessRoleAdminService(AccessRoleRepository(engine), audit=lambda event, details: events.append(
-        (event, details)), clock=lambda: clock[0])
+    svc = AccessRoleAdminService(
+        AccessRoleRepository(engine),
+        audit=lambda event, details: events.append((event, details)),
+        clock=lambda: clock[0],
+    )
     svc.events, svc.clock = events, clock
     return svc
 
@@ -36,19 +40,25 @@ def service():
 
 def test_grants_are_validated_strictly():
     assert normalize_grants({"allow_groups": ["b", "a", "a"], "constraints": {"paths": ["agent/"]}}) == {
-        "allow_groups": ["a", "b"], "constraints": {"paths": ["agent/"]}}
+        "allow_groups": ["a", "b"],
+        "constraints": {"paths": ["agent/"]},
+    }
     for bad in ({"allow": ["x"]}, {"allow_groups": "x"}, {"admin": "yes"}, {"constraints": {"hosts": []}}, []):
         with pytest.raises(AccessRoleError):
             normalize_grants(bad)
 
 
 def test_a_deny_wins_and_admin_allows_the_rest():
-    roles = {"dev": {"allow_groups": ["ananta.tool.read.v1"]},
-             "no-grep": {"deny_operations": ["ananta.tool.repo.grep"]},
-             "boss": {"admin": True}}
+    roles = {
+        "dev": {"allow_groups": ["ananta.tool.read.v1"]},
+        "no-grep": {"deny_operations": ["ananta.tool.repo.grep"]},
+        "boss": {"admin": True},
+    }
     dev = effective_grants(roles, ["dev", "no-grep"])
     assert dev.allows("ananta.tool.codecompass.search", ["ananta.tool.read.v1"]) == (
-        True, "allow:role:group:ananta.tool.read.v1")
+        True,
+        "allow:role:group:ananta.tool.read.v1",
+    )
     assert dev.allows("ananta.tool.repo.grep", ["ananta.tool.read.v1"])[0] is False
     assert dev.allows("ananta.tool.repo.write_file", ["ananta.tool.write.v1"]) == (False, "deny:role:no_grant")
     boss = effective_grants(roles, ["boss", "no-grep"])
@@ -90,8 +100,12 @@ def test_builtin_roles_exist_and_are_read_only(service):
 
 
 def test_bindings_give_grants_and_every_change_is_audited_and_revisioned(service):
-    service.save_role("docs-reader", name="Doku", grants={"allow_operations": ["ananta.tool.repo.read_file_range"],
-                                                          "constraints": {"paths": ["docs/"]}}, actor="admin")
+    service.save_role(
+        "docs-reader",
+        name="Doku",
+        grants={"allow_operations": ["ananta.tool.repo.read_file_range"], "constraints": {"paths": ["docs/"]}},
+        actor="admin",
+    )
     binding_id, revision = service.add_binding("oidc_group", "ananta/docs", "docs-reader", actor="admin")
     assert revision == 2 and [event for event, _ in service.events] == ["access_policy_changed"] * 2
     grants = service.grants_for(IdentityClaims(groups=frozenset({"/ananta/docs"})))

@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -41,6 +40,14 @@ def test_quickstart_overlay_keeps_agent_only_compat_mode() -> None:
     data = _load_yaml("docker/old_way/docker-compose.quickstart-no-ollama.yml")
     services = data.get("services", {})
 
-    assert services["ai-agent-hub"]["environment"]["ANANTA_QUICKSTART_MODE"] == "${ANANTA_QUICKSTART_MODE_HUB:-agent-only}"
-    assert services["ai-agent-alpha"]["environment"]["ANANTA_QUICKSTART_MODE"] == "${ANANTA_QUICKSTART_MODE_ALPHA:-agent-only}"
-    assert services["ai-agent-beta"]["environment"]["ANANTA_QUICKSTART_MODE"] == "${ANANTA_QUICKSTART_MODE_BETA:-agent-only}"
+    assert (
+        services["ai-agent-hub"]["environment"]["ANANTA_QUICKSTART_MODE"] == "${ANANTA_QUICKSTART_MODE_HUB:-agent-only}"
+    )
+    assert (
+        services["ai-agent-alpha"]["environment"]["ANANTA_QUICKSTART_MODE"]
+        == "${ANANTA_QUICKSTART_MODE_ALPHA:-agent-only}"
+    )
+    assert (
+        services["ai-agent-beta"]["environment"]["ANANTA_QUICKSTART_MODE"]
+        == "${ANANTA_QUICKSTART_MODE_BETA:-agent-only}"
+    )

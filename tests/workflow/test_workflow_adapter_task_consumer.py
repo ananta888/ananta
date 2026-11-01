@@ -12,6 +12,7 @@ from ananta_contracts.workflow_adapter_task import (
     WORKFLOW_ADAPTER_RUNTIME_PATH,
     WORKFLOW_ADAPTER_TASK_SCHEMA,
 )
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 from worker.adapters.workflow_adapter_base import DryRunResult, WorkflowArtifactResult
 from worker.runtime.native_graph import NativeNodeCommand, NativeNodeResult
 from worker.runtime.workflow_adapter_task_consumer import (
@@ -20,7 +21,6 @@ from worker.runtime.workflow_adapter_task_consumer import (
 )
 from worker.runtime.workflow_adapter_task_execution import consume_delegated_workflow_task
 from worker.runtime.workflow_hub_gateway import HubExecutionAuthorizationAdapter
-from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 def _authorization(*, step_id: str = "step-a") -> RuntimeAuthorizationEnvelope:
@@ -56,13 +56,9 @@ def _langgraph_task(*, command: str = "execute") -> dict:
         "plan_hash": "f" * 64,
         "policy_version": "policy-v1",
         "prompt_version": "prompt-v1",
-        "provider_transport_mode": (
-            "hub_bound" if provider_binding is not None else "none"
-        ),
+        "provider_transport_mode": ("hub_bound" if provider_binding is not None else "none"),
         "provider_decision_reason": (
-            "hub_provider_policy_selected"
-            if provider_binding is not None
-            else "provider_transport_not_required"
+            "hub_provider_policy_selected" if provider_binding is not None else "provider_transport_not_required"
         ),
         "require_hub_provider_budget": provider_binding is not None,
     }
@@ -91,9 +87,7 @@ def _langgraph_task(*, command: str = "execute") -> dict:
             "attempt_id": "attempt-a",
             "fencing_token": 7,
             "authorization_envelope": _authorization().to_dict(),
-            "provider_binding": (
-                provider_binding.to_dict() if provider_binding is not None else None
-            ),
+            "provider_binding": (provider_binding.to_dict() if provider_binding is not None else None),
             "payload": {
                 "tenant_id": "malicious-tenant",
                 "graph_descriptor": {"nodes": [], "edges": []},
@@ -285,9 +279,7 @@ def test_unknown_or_stale_context_never_falls_through_to_an_adapter() -> None:
     }
     stale = _langgraph_task()
     stale_context = dict(stale["worker_execution_context"])
-    stale_context["authorization_envelope"] = replace(
-        _authorization(), tenant_id="tenant-b"
-    ).to_dict()
+    stale_context["authorization_envelope"] = replace(_authorization(), tenant_id="tenant-b").to_dict()
     stale["worker_execution_context"] = stale_context
 
     unsupported = consumer.consume(unknown)
@@ -301,11 +293,7 @@ def test_unknown_or_stale_context_never_falls_through_to_an_adapter() -> None:
 
 
 def test_consumer_surface_has_no_queue_or_worker_delegation_capability() -> None:
-    public = {
-        name
-        for name in dir(WorkflowAdapterTaskConsumer)
-        if not name.startswith("_")
-    }
+    public = {name for name in dir(WorkflowAdapterTaskConsumer) if not name.startswith("_")}
     assert public == {"consume", "supports"}
 
 
@@ -354,12 +342,8 @@ def test_worker_execution_composition_returns_canonical_verification() -> None:
 
     assert response is not None
     assert response["status"] == "completed"
-    assert response["workflow_adapter_verification"]["schema"] == (
-        "ananta.workflow-adapter-task-verification.v1"
-    )
-    assert response["workflow_adapter_verification"]["workflow_adapter_task_result"][
-        "adapter_kind"
-    ] == "langgraph"
+    assert response["workflow_adapter_verification"]["schema"] == ("ananta.workflow-adapter-task-verification.v1")
+    assert response["workflow_adapter_verification"]["workflow_adapter_task_result"]["adapter_kind"] == "langgraph"
 
 
 def test_forwarded_result_merges_native_verification_for_hub_polling(monkeypatch, forwarding_dependencies) -> None:

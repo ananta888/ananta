@@ -1,5 +1,6 @@
 from flask import Flask, request
 from werkzeug.exceptions import HTTPException
+
 from agent.common.errors import (
     AnantaError,
     PermanentError,
@@ -12,6 +13,7 @@ from agent.common.errors import (
 )
 from agent.common.logging import get_correlation_id
 from agent.services.log_service import get_log_service
+
 
 def register_error_handler(app: Flask) -> None:
     logger = get_log_service().bind(__name__)

@@ -50,13 +50,9 @@ class TaskClaimService:
                 action="claim",
             )
             if bound_denial is not None:
-                claim_decision["knowledge_index_denial"] = (
-                    bound_denial
-                )
+                claim_decision["knowledge_index_denial"] = bound_denial
                 return False, str(bound_denial["error"])
-            vector_denial = generic_vector_mutation_error(
-                task_payload
-            )
+            vector_denial = generic_vector_mutation_error(task_payload)
             if vector_denial is not None:
                 claim_decision["vector_denial"] = vector_denial
                 return False, str(vector_denial["error"])
@@ -76,28 +72,15 @@ class TaskClaimService:
             claim_validator=validate_authoritative,
         )
         if claimed is False:
-            knowledge_index_denial = claim_decision.get(
-                "knowledge_index_denial"
-            )
+            knowledge_index_denial = claim_decision.get("knowledge_index_denial")
             if isinstance(knowledge_index_denial, dict):
                 return knowledge_index_denial
-            vector_denial = claim_decision.get(
-                "vector_denial"
-            )
+            vector_denial = claim_decision.get("vector_denial")
             if isinstance(vector_denial, dict):
                 return vector_denial
-            authoritative_payload = claim_decision.get(
-                "task_payload"
-            )
-            lease_info = extract_active_lease(
-                authoritative_payload
-                if isinstance(authoritative_payload, dict)
-                else {}
-            )
-            reason = str(
-                claim_decision.get("reason")
-                or "claim_state_changed_or_recovery_gate_closed"
-            )
+            authoritative_payload = claim_decision.get("task_payload")
+            lease_info = extract_active_lease(authoritative_payload if isinstance(authoritative_payload, dict) else {})
+            reason = str(claim_decision.get("reason") or "claim_state_changed_or_recovery_gate_closed")
             persist_policy_decision(
                 decision_type="execution_claim",
                 status="blocked",
@@ -111,13 +94,7 @@ class TaskClaimService:
             return {
                 "error": reason,
                 "code": 409,
-                "data": {
-                    "lease": (
-                        lease_info.__dict__
-                        if lease_info is not None
-                        else {}
-                    )
-                },
+                "data": {"lease": (lease_info.__dict__ if lease_info is not None else {})},
             }
         persist_policy_decision(
             decision_type="execution_claim",

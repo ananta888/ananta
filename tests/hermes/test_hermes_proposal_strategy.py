@@ -1,6 +1,6 @@
 from worker.core.hermes_proposal_strategy import HermesProposalStrategy
+from worker.core.propose import STATUS_ADVISORY, STATUS_DECLINED
 from worker.core.propose_orchestrator import ProposeContext
-from worker.core.propose import STATUS_DECLINED, STATUS_ADVISORY
 
 
 def test_hermes_declines_without_prompt():

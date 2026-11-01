@@ -7,12 +7,8 @@ import tempfile
 from functools import lru_cache
 from typing import Any
 
-_SVG_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg")
-)
-_SCRIPTS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
-)
+_SVG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg"))
+_SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
 
 _RST = "\x1b[0m"
 _BG_THRESHOLD = 28
@@ -37,14 +33,15 @@ def _lerp_color(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> t
 
 # ── shared image loading ───────────────────────────────────────────────────────
 
+
 @lru_cache(maxsize=4)
 def _load_logo_image(pixel_w: int, pixel_h: int) -> Any | None:
     """Load, crop and resize the SVG logo to pixel_w × pixel_h. Cached."""
     if _SCRIPTS_DIR not in sys.path:
         sys.path.insert(0, _SCRIPTS_DIR)
     try:
-        from render_terminal_logo import svg_to_png
         from PIL import Image
+        from render_terminal_logo import svg_to_png
     except ImportError:
         return None
     if not os.path.isfile(_SVG_PATH):
@@ -65,8 +62,7 @@ def _load_logo_image(pixel_w: int, pixel_h: int) -> Any | None:
 
     # Detect background from corners
     src_w, src_h = img.size
-    corners = [img.getpixel((x, y)) for x, y in
-               [(0, 0), (src_w - 1, 0), (0, src_h - 1), (src_w - 1, src_h - 1)]]
+    corners = [img.getpixel((x, y)) for x, y in [(0, 0), (src_w - 1, 0), (0, src_h - 1), (src_w - 1, src_h - 1)]]
     bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
 
     def is_bg(r: int, g: int, b: int) -> bool:
@@ -84,10 +80,14 @@ def _load_logo_image(pixel_w: int, pixel_h: int) -> Any | None:
 
     if max_x > min_x and max_y > min_y:
         pad = max((max_x - min_x) // 20, 2)
-        img = img.crop((
-            max(0, min_x - pad), max(0, min_y - pad),
-            min(src_w, max_x + pad), min(src_h, max_y + pad),
-        ))
+        img = img.crop(
+            (
+                max(0, min_x - pad),
+                max(0, min_y - pad),
+                min(src_w, max_x + pad),
+                min(src_h, max_y + pad),
+            )
+        )
 
     img = img.resize((pixel_w, pixel_h), Image.LANCZOS)
     # Attach background detector to image object for callers
@@ -96,6 +96,7 @@ def _load_logo_image(pixel_w: int, pixel_h: int) -> Any | None:
 
 
 # ── Braille renderer (drawille — 2×4 px per char, 100×32 in 50×8) ─────────────
+
 
 def render_logo_braille(cols: int = 50, rows: int = 8) -> list[str] | None:
     """
@@ -158,7 +159,9 @@ def _cached_braille(cols: int, rows: int) -> list[str] | None:
 
 
 @lru_cache(maxsize=8)
-def _cached_braille_cells(cols: int, rows: int) -> tuple[tuple[str, ...], dict[tuple[int, int], tuple[int, int, int]]] | None:
+def _cached_braille_cells(
+    cols: int, rows: int
+) -> tuple[tuple[str, ...], dict[tuple[int, int], tuple[int, int, int]]] | None:
     try:
         import drawille
     except ImportError:
@@ -184,9 +187,7 @@ def _cached_braille_cells(cols: int, rows: int) -> tuple[tuple[str, ...], dict[t
                         canvas.set(cx * 2 + dx, cy * 4 + dy)
                         lit.append((r, g, b))
             if lit:
-                char_colors[(cx, cy)] = tuple(
-                    sum(c[i] for c in lit) // len(lit) for i in range(3)
-                )  # type: ignore[assignment]
+                char_colors[(cx, cy)] = tuple(sum(c[i] for c in lit) // len(lit) for i in range(3))  # type: ignore[assignment]
 
     return (tuple(canvas.rows()), char_colors)
 
@@ -215,6 +216,7 @@ def _compose_braille_lines(
 
 # ── Half-block renderer (fallback — 2 px per char row) ────────────────────────
 
+
 def render_logo_halfblock(cols: int = 50, rows: int = 8) -> list[str] | None:
     """
     Render SVG logo as Unicode half-block art (▀ / ▄).
@@ -242,7 +244,9 @@ def render_logo_snake_game_animated(
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
 
-    ring = _snake_ring_path(max(1, board_w // 3), max(1, board_h // 3), max(2, (board_w * 2) // 3), max(2, (board_h * 2) // 3))
+    ring = _snake_ring_path(
+        max(1, board_w // 3), max(1, board_h // 3), max(2, (board_w * 2) // 3), max(2, (board_h * 2) // 3)
+    )
     if not ring:
         return None
     head_index = int(t * speed * 9) % len(ring)
@@ -367,7 +371,7 @@ def _draw_passive_snake_roster(
         key=lambda item: (0 if item[0] == local_snake_id else 1, item[0]),
     )
     max_rows = max(1, rows - 1)
-    for idx, (sid, snap) in enumerate(ordered[: max_rows]):
+    for idx, (sid, snap) in enumerate(ordered[:max_rows]):
         y = 1 + idx
         if y >= rows:
             break
@@ -758,12 +762,15 @@ def _snake_ring_path(left: int, top: int, right: int, bottom: int) -> list[tuple
 @lru_cache(maxsize=8)
 def _cached_logo_cells(
     cols: int, rows: int
-) -> tuple[
-    dict[tuple[int, int], tuple[int, int, int]],
-    tuple[int, int, int, int],
-    tuple[int, int, int],
-    tuple[int, int, int],
-] | None:
+) -> (
+    tuple[
+        dict[tuple[int, int], tuple[int, int, int]],
+        tuple[int, int, int, int],
+        tuple[int, int, int],
+        tuple[int, int, int],
+    ]
+    | None
+):
     img = _load_logo_image(cols, rows * 2)
     if img is None:
         return None
@@ -827,7 +834,7 @@ def render_logo_halfblock_animated(
     for row in range(rows):
         line = ""
         for col in range(cols):
-            r1, g1, b1, _ = px[col, row * 2]      # type: ignore[index]
+            r1, g1, b1, _ = px[col, row * 2]  # type: ignore[index]
             r2, g2, b2, _ = px[col, row * 2 + 1]  # type: ignore[index]
             top = not is_bg(r1, g1, b1)
             bot = not is_bg(r2, g2, b2)
@@ -846,10 +853,7 @@ def render_logo_halfblock_animated(
             elif not bot:
                 line += f"{_fg(mod(r1), mod(g1), mod(b1))}▀{_RST}"
             else:
-                line += (
-                    f"{_fg(mod(r1), mod(g1), mod(b1))}"
-                    f"{_bg(mod(r2), mod(g2), mod(b2))}▀{_RST}"
-                )
+                line += f"{_fg(mod(r1), mod(g1), mod(b1))}{_bg(mod(r2), mod(g2), mod(b2))}▀{_RST}"
         lines.append(line)
     return lines
 
@@ -867,7 +871,7 @@ def _cached_halfblock(cols: int, rows: int) -> list[str] | None:
     for row in range(rows):
         line = ""
         for col in range(cols):
-            r1, g1, b1, _ = px[col, row * 2]      # type: ignore[index]
+            r1, g1, b1, _ = px[col, row * 2]  # type: ignore[index]
             r2, g2, b2, _ = px[col, row * 2 + 1]  # type: ignore[index]
             top = not is_bg(r1, g1, b1)
             bot = not is_bg(r2, g2, b2)

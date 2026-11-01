@@ -1,4 +1,5 @@
 """Job Application Domain Models — CaseFlow specialization for job hunting."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -25,6 +26,7 @@ class EmploymentType(str, Enum):
 
 class JobApplicationPayload(BaseModel):
     """Domain-specific payload stored in CaseFlowCase.domain_payload."""
+
     company_name: str = ""
     role_title: str = ""
     job_url: Optional[str] = None
@@ -46,8 +48,15 @@ class JobApplicationPayload(BaseModel):
 
 
 JOB_APPLICATION_STATUSES = [
-    "found", "interesting", "preparing", "applied",
-    "waiting_response", "interview", "offer", "rejected", "archived",
+    "found",
+    "interesting",
+    "preparing",
+    "applied",
+    "waiting_response",
+    "interview",
+    "offer",
+    "rejected",
+    "archived",
 ]
 JOB_APPLICATION_INITIAL = "found"
 JOB_APPLICATION_TERMINAL = ["archived"]

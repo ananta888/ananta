@@ -24,13 +24,9 @@ class SourceControlCatalogError(ValueError):
 class ScopedRegisteredWorkspaceCatalog:
     """Server registration catalog; local roots never cross the API boundary."""
 
-    def __init__(
-        self, workspaces: Sequence[RegisteredWorkspace] = ()
-    ) -> None:
+    def __init__(self, workspaces: Sequence[RegisteredWorkspace] = ()) -> None:
         self._lock = threading.RLock()
-        self._values: dict[
-            tuple[str, str, str, str], RegisteredWorkspace
-        ] = {}
+        self._values: dict[tuple[str, str, str, str], RegisteredWorkspace] = {}
         for workspace in workspaces:
             self.upsert(workspace)
 
@@ -56,16 +52,11 @@ class ScopedRegisteredWorkspaceCatalog:
         with self._lock:
             matches = tuple(
                 value
-                for (tenant, project, owner, identifier), value
-                in self._values.items()
+                for (tenant, project, owner, identifier), value in self._values.items()
                 if tenant == tenant_id
                 and project == project_id
                 and identifier == workspace_id
-                and (
-                    owner_id is None
-                    or not owner
-                    or owner == owner_id
-                )
+                and (owner_id is None or not owner or owner == owner_id)
             )
             return matches[0] if len(matches) == 1 else None
 
@@ -96,14 +87,10 @@ class ScopedRegisteredWorkspaceCatalog:
                 sorted(
                     (
                         value
-                        for (tenant, project, owner, _), value
-                        in self._values.items()
-                        if tenant == tenant_id and project == project_id
-                        and (
-                            owner_id is None
-                            or not owner
-                            or owner == owner_id
-                        )
+                        for (tenant, project, owner, _), value in self._values.items()
+                        if tenant == tenant_id
+                        and project == project_id
+                        and (owner_id is None or not owner or owner == owner_id)
                     ),
                     key=lambda value: value.workspace_id,
                 )
@@ -112,9 +99,7 @@ class ScopedRegisteredWorkspaceCatalog:
 
 _CATALOG_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 _WORKSPACE_TYPES = frozenset({"registered_workspace", "local_directory"})
-_HOST_PATH_FIELDS = frozenset(
-    {"absolute_path", "host_path", "local_path", "path", "root", "workspace_root"}
-)
+_HOST_PATH_FIELDS = frozenset({"absolute_path", "host_path", "local_path", "path", "root", "workspace_root"})
 
 
 class SourceRegistryRegisteredWorkspaceCatalog:
@@ -179,9 +164,7 @@ class SourceRegistryRegisteredWorkspaceCatalog:
         owner_id: str | None,
     ) -> tuple[RegisteredWorkspace, ...]:
         list_sources = getattr(self._registry, "list_sources", None)
-        resolve_workspace = getattr(
-            self._registrations, "resolve_workspace", None
-        )
+        resolve_workspace = getattr(self._registrations, "resolve_workspace", None)
         if not callable(list_sources) or not callable(resolve_workspace):
             return ()
         indexed: dict[tuple[str, str], RegisteredWorkspace] = {}
@@ -189,21 +172,9 @@ class SourceRegistryRegisteredWorkspaceCatalog:
             if not isinstance(descriptor, Mapping):
                 continue
             extensions = descriptor.get("extensions")
-            raw_binding = (
-                extensions.get("source_control")
-                if isinstance(extensions, Mapping)
-                else None
-            )
-            binding = (
-                dict(raw_binding)
-                if isinstance(raw_binding, Mapping)
-                else dict(descriptor)
-            )
-            connector_type = str(
-                binding.get("connector_type")
-                or descriptor.get("source_type")
-                or ""
-            )
+            raw_binding = extensions.get("source_control") if isinstance(extensions, Mapping) else None
+            binding = dict(raw_binding) if isinstance(raw_binding, Mapping) else dict(descriptor)
+            connector_type = str(binding.get("connector_type") or descriptor.get("source_type") or "")
             if connector_type not in _WORKSPACE_TYPES:
                 continue
             if any(name in binding for name in _HOST_PATH_FIELDS):
@@ -217,24 +188,15 @@ class SourceRegistryRegisteredWorkspaceCatalog:
                     "workspace_id",
                 )
             }
-            if any(
-                _CATALOG_ID.fullmatch(value) is None
-                for value in coordinates.values()
-            ):
+            if any(_CATALOG_ID.fullmatch(value) is None for value in coordinates.values()):
                 continue
             if (
                 coordinates["tenant_id"] != tenant_id
                 or coordinates["project_id"] != project_id
-                or (
-                    owner_id is not None
-                    and coordinates["owner_id"] != owner_id
-                )
+                or (owner_id is not None and coordinates["owner_id"] != owner_id)
             ):
                 continue
-            enabled = bool(
-                descriptor.get("enabled", True)
-                and binding.get("enabled", True)
-            )
+            enabled = bool(descriptor.get("enabled", True) and binding.get("enabled", True))
             read_only = binding.get("read_only") is True
             if not read_only:
                 continue
@@ -259,10 +221,7 @@ class SourceRegistryRegisteredWorkspaceCatalog:
                 read_only=True,
             )
             indexed[(record.owner_id or "", record.workspace_id)] = record
-        return tuple(
-            indexed[key]
-            for key in sorted(indexed, key=lambda item: (item[1], item[0]))
-        )
+        return tuple(indexed[key] for key in sorted(indexed, key=lambda item: (item[1], item[0])))
 
 
 @dataclass(frozen=True)
@@ -307,11 +266,7 @@ class SourceControlReadCatalogService:
                 },
             }
             for item in values
-            if (
-                not filters.get("enabled")
-                or str(bool(item.enabled)).lower()
-                == filters["enabled"].lower()
-            )
+            if (not filters.get("enabled") or str(bool(item.enabled)).lower() == filters["enabled"].lower())
         ]
         return self._page(
             items=items,
@@ -345,16 +300,9 @@ class SourceControlReadCatalogService:
         )
         items: list[dict[str, object]] = []
         for item in values:
-            if (
-                filters.get("state")
-                and item.authorization_state != filters["state"]
-            ):
+            if filters.get("state") and item.authorization_state != filters["state"]:
                 continue
-            kind = (
-                "github"
-                if item.authorization_kind.startswith("github_")
-                else "git"
-            )
+            kind = "github" if item.authorization_kind.startswith("github_") else "git"
             if filters.get("kind") and kind != filters["kind"]:
                 continue
             items.append(
@@ -410,27 +358,11 @@ class SourceControlReadCatalogService:
                     "is_default": bool(raw.get("is_default")),
                     "capabilities": {
                         "selection_only": True,
-                        "task_kinds": list(
-                            raw.get("task_kinds") or []
-                        ),
-                        "retrieval_intents": list(
-                            raw.get("retrieval_intents") or []
-                        ),
-                        "incremental": bool(
-                            flags.get("incremental")
-                            if isinstance(flags, Mapping)
-                            else False
-                        ),
-                        "resume": bool(
-                            flags.get("resume")
-                            if isinstance(flags, Mapping)
-                            else False
-                        ),
-                        "progress": bool(
-                            flags.get("progress")
-                            if isinstance(flags, Mapping)
-                            else False
-                        ),
+                        "task_kinds": list(raw.get("task_kinds") or []),
+                        "retrieval_intents": list(raw.get("retrieval_intents") or []),
+                        "incremental": bool(flags.get("incremental") if isinstance(flags, Mapping) else False),
+                        "resume": bool(flags.get("resume") if isinstance(flags, Mapping) else False),
+                        "progress": bool(flags.get("progress") if isinstance(flags, Mapping) else False),
                         "config_path_exposed": False,
                     },
                 }
@@ -444,22 +376,15 @@ class SourceControlReadCatalogService:
             project_id=project_id,
         )
 
-    def require_index_profile(
-        self, *, project_id: str, profile_id: str
-    ) -> None:
+    def require_index_profile(self, *, project_id: str, profile_id: str) -> None:
         page = self.list_index_profiles(
             project_id=project_id,
             cursor=None,
             limit=200,
             filters={},
         )
-        if not any(
-            item.get("profile_id") == profile_id
-            for item in page["items"]
-        ):
-            raise SourceControlCatalogError(
-                "index_profile_not_found", status_code=404
-            )
+        if not any(item.get("profile_id") == profile_id for item in page["items"]):
+            raise SourceControlCatalogError("index_profile_not_found", status_code=404)
 
     @staticmethod
     def _page(
@@ -480,21 +405,13 @@ class SourceControlReadCatalogService:
             dict(item)
             for item in ordered
             if (after is None or str(item[id_field]) > after)
-            and (
-                not needle
-                or needle
-                in " ".join(str(value) for value in item.values()).lower()
-            )
+            and (not needle or needle in " ".join(str(value) for value in item.values()).lower())
         ]
         selected = visible_candidates[: limit + 1]
         visible = selected[:limit]
         return {
             "items": visible,
-            "next_cursor": (
-                _encode_cursor(str(visible[-1][id_field]))
-                if len(selected) > limit and visible
-                else None
-            ),
+            "next_cursor": (_encode_cursor(str(visible[-1][id_field])) if len(selected) > limit and visible else None),
             "capabilities": {
                 "read_only": True,
                 "selection_mode": "server_ids_only",
@@ -504,9 +421,7 @@ class SourceControlReadCatalogService:
 
 
 def _encode_cursor(value: str) -> str:
-    return base64.urlsafe_b64encode(value.encode("utf-8")).decode(
-        "ascii"
-    ).rstrip("=")
+    return base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii").rstrip("=")
 
 
 def _decode_cursor(value: str | None) -> str | None:

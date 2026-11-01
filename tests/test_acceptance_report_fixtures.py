@@ -1,4 +1,5 @@
 """RCA-003: Tests validating the structure of minimal acceptance report fixtures."""
+
 from __future__ import annotations
 
 import json
@@ -50,6 +51,6 @@ class TestFixtureStructure:
 
     def test_fixtures_are_deterministic_no_timestamps(self):
         for name in REPORT_FIXTURES:
-            doc = _load(name)
+            _load(name)
             text = (FIXTURES_DIR / name).read_text()
             assert "generated_at" not in text, f"{name}: volatile timestamp found"

@@ -45,7 +45,10 @@ def task_timeline_events(task: dict) -> list[dict]:
                         channel=item.get("channel") or "task_history",
                         event_type=event_type,
                         timestamp=item.get("timestamp") or task.get("updated_at"),
-                        actor=item.get("actor") or item.get("delegated_to") or task.get("assigned_agent_url") or "system",
+                        actor=item.get("actor")
+                        or item.get("delegated_to")
+                        or task.get("assigned_agent_url")
+                        or "system",
                         details=item.get("details") if isinstance(item.get("details"), dict) else item,
                         task_id=tid,
                         goal_id=task.get("goal_id"),

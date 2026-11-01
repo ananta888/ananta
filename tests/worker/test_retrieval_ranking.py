@@ -8,7 +8,10 @@ def test_hybrid_retrieval_merges_channels_with_rationale() -> None:
     service = HybridRetrievalService()
     payload = service.retrieve(
         query="fix auth bug",
-        pipeline_contract={"channels": ["dense", "lexical", "symbol"], "fallback_order": ["dense", "lexical", "symbol"]},
+        pipeline_contract={
+            "channels": ["dense", "lexical", "symbol"],
+            "fallback_order": ["dense", "lexical", "symbol"],
+        },
         channel_results={
             "dense": [{"path": "src/auth.py", "content_hash": "h-auth", "score": 0.9, "text": "auth bug fix"}],
             "lexical": [{"path": "src/api.py", "content_hash": "h-api", "score": 0.8, "text": "api auth route"}],

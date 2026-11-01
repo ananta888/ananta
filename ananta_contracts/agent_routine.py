@@ -57,19 +57,32 @@ class RoutineSchedule:
 
     def to_mapping(self) -> dict:
         self.assert_valid()
-        return {"schema": ROUTINE_SCHEMA, "routine_id": self.routine_id, "days": self.days, "fire": self.fire,
-                "window_start": self.window_start, "window_end": self.window_end, "key": self.key,
-                "budget_minutes": self.budget_minutes, "browser": self.browser,
-                "concurrency_policy": self.concurrency_policy, "catch_up_policy": self.catch_up_policy}
+        return {
+            "schema": ROUTINE_SCHEMA,
+            "routine_id": self.routine_id,
+            "days": self.days,
+            "fire": self.fire,
+            "window_start": self.window_start,
+            "window_end": self.window_end,
+            "key": self.key,
+            "budget_minutes": self.budget_minutes,
+            "browser": self.browser,
+            "concurrency_policy": self.concurrency_policy,
+            "catch_up_policy": self.catch_up_policy,
+        }
 
     @classmethod
     def from_mapping(cls, payload: Mapping) -> "RoutineSchedule":
         if payload.get("schema") != ROUTINE_SCHEMA:
             raise ValueError("routine_schema_unsupported")
         schedule = cls(
-            routine_id=payload.get("routine_id"), days=payload.get("days"), fire=payload.get("fire"),
-            window_start=payload.get("window_start"), window_end=payload.get("window_end"),
-            key=payload.get("key"), budget_minutes=payload.get("budget_minutes"),
+            routine_id=payload.get("routine_id"),
+            days=payload.get("days"),
+            fire=payload.get("fire"),
+            window_start=payload.get("window_start"),
+            window_end=payload.get("window_end"),
+            key=payload.get("key"),
+            budget_minutes=payload.get("budget_minutes"),
             browser=payload.get("browser", "never"),
             concurrency_policy=payload.get("concurrency_policy", "coalesce_if_active"),
             catch_up_policy=payload.get("catch_up_policy", "skip_missed"),
@@ -100,8 +113,11 @@ def period_key(schedule: RoutineSchedule, local_date: _dt.date) -> str:
 
 def is_in_window(schedule: RoutineSchedule, local_now: _dt.datetime) -> bool:
     schedule.assert_valid()
-    return _parse_time(schedule.window_start, "") <= local_now.hour * 60 + local_now.minute <= _parse_time(
-        schedule.window_end, "")
+    return (
+        _parse_time(schedule.window_start, "")
+        <= local_now.hour * 60 + local_now.minute
+        <= _parse_time(schedule.window_end, "")
+    )
 
 
 def is_allowed_day(schedule: RoutineSchedule, local_date: _dt.date) -> bool:
@@ -123,8 +139,9 @@ def is_allowed_day(schedule: RoutineSchedule, local_date: _dt.date) -> bool:
     return False
 
 
-def should_run(schedule: RoutineSchedule, local_now: _dt.datetime, *, last_period_key: str | None,
-               active: bool = False) -> tuple[bool, str]:
+def should_run(
+    schedule: RoutineSchedule, local_now: _dt.datetime, *, last_period_key: str | None, active: bool = False
+) -> tuple[bool, str]:
     """Return ``(allowed, decision)``; ``decision`` is a stable, auditable reason code."""
     schedule.assert_valid()
     if schedule.days == "off":

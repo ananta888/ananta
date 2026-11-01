@@ -104,8 +104,7 @@ def _handle_group_key(
             "reason_code": "accepted",
             "membership_epoch": result.get("membership_epoch")
             or dict(result.get("authorization") or {}).get("membership_epoch"),
-            "group_key_epoch": result.get("group_key_epoch")
-            or dict(result.get("authorization") or {}).get("epoch"),
+            "group_key_epoch": result.get("group_key_epoch") or dict(result.get("authorization") or {}).get("epoch"),
         },
     )
     return jsonify(result), 200
@@ -186,9 +185,7 @@ def prepare_sfu_group_key_epoch():
     )
 
 
-@semantic_sfu_admission_bp.post(
-    "/v1/semantic-media/sfu/group-keys/epochs/<authorization_id>/packages"
-)
+@semantic_sfu_admission_bp.post("/v1/semantic-media/sfu/group-keys/epochs/<authorization_id>/packages")
 @check_user_auth
 def deliver_sfu_group_key_packages(authorization_id: str):
     return _handle_group_key(
@@ -217,9 +214,7 @@ def read_sfu_group_key_packages():
     return jsonify(result), 200
 
 
-@semantic_sfu_admission_bp.post(
-    "/v1/semantic-media/sfu/group-keys/epochs/<authorization_id>/ack"
-)
+@semantic_sfu_admission_bp.post("/v1/semantic-media/sfu/group-keys/epochs/<authorization_id>/ack")
 @check_user_auth
 def acknowledge_sfu_group_key_package(authorization_id: str):
     return _handle_group_key(
@@ -230,16 +225,12 @@ def acknowledge_sfu_group_key_package(authorization_id: str):
     )
 
 
-@semantic_sfu_admission_bp.get(
-    "/v1/semantic-media/sfu/group-keys/epochs/<authorization_id>"
-)
+@semantic_sfu_admission_bp.get("/v1/semantic-media/sfu/group-keys/epochs/<authorization_id>")
 @check_user_auth
 def read_sfu_group_key_epoch_status(authorization_id: str):
     try:
         actor, tenant = _identity()
-        result = _group_key_service().epoch_status(
-            authorization_id, actor_id=actor, tenant_id=tenant
-        )
+        result = _group_key_service().epoch_status(authorization_id, actor_id=actor, tenant_id=tenant)
     except (SfuAdmissionError, SfuGroupKeyError) as exc:
         return jsonify({"ok": False, "error": exc.reason_code}), exc.status_code
     return jsonify(result), 200

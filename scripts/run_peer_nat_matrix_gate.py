@@ -58,9 +58,7 @@ SOURCE_PATHS = (
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--registry-db", type=Path, default=ROOT / "data/peer-nat-evidence.sqlite3")
-    parser.add_argument(
-        "--report", type=Path, default=ROOT / "artifacts/test-gates/peer-nat-matrix.json"
-    )
+    parser.add_argument("--report", type=Path, default=ROOT / "artifacts/test-gates/peer-nat-matrix.json")
     args = parser.parse_args()
     environment = host_environment(frontend=FRONTEND)
     profile = {
@@ -110,9 +108,7 @@ def main() -> int:
             with tempfile.TemporaryDirectory(prefix="ananta-peer-nat-") as measurement_dir:
                 child_environment.update(
                     {
-                        "ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON": json.dumps(
-                            reservation.assignment, sort_keys=True
-                        ),
+                        "ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON": json.dumps(reservation.assignment, sort_keys=True),
                         "ANANTA_PEER_NAT_MEASUREMENT_DIR": measurement_dir,
                         "ANANTA_PEER_NAT_TURN_URL": f"turn:{turn_host}:{turn_port}",
                         "ANANTA_PEER_NAT_BLOCKED_TURN_URL": f"turn:{turn_host}:{blocked_port}",

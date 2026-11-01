@@ -37,12 +37,7 @@ def _task_value(task, name: str):
 
 
 def _is_terminal_task(task) -> bool:
-    status = (
-        str(_task_value(task, "status") or "")
-        .strip()
-        .lower()
-        .replace("-", "_")
-    )
+    status = str(_task_value(task, "status") or "").strip().lower().replace("-", "_")
     status = {
         "done": "completed",
         "canceled": "cancelled",
@@ -56,8 +51,7 @@ def _is_recovery_related_task(task) -> bool:
     details = dict(details) if isinstance(details, dict) else {}
     return bool(
         str(_task_value(task, "source_task_id") or "").strip()
-        or str(_task_value(task, "derivation_reason") or "").strip()
-        == "goal_task_recovery"
+        or str(_task_value(task, "derivation_reason") or "").strip() == "goal_task_recovery"
         or any(details.get(key) for key in _RECOVERY_DETAIL_KEYS)
     )
 
@@ -66,13 +60,7 @@ def _referenced_by_active_task(task_id: str, tasks) -> bool:
     normalized_id = str(task_id or "").strip()
     return any(
         not _is_terminal_task(candidate)
-        and normalized_id
-        in {
-            str(value or "").strip()
-            for value in list(
-                _task_value(candidate, "depends_on") or []
-            )
-        }
+        and normalized_id in {str(value or "").strip() for value in list(_task_value(candidate, "depends_on") or [])}
         for candidate in tasks
     )
 
@@ -116,17 +104,11 @@ def _purge_expired_non_recovery_archives(
 
     deleted = 0
     for task in archived_tasks:
-        archived_at = float(
-            _task_value(task, "archived_at")
-            or _task_value(task, "updated_at")
-            or 0.0
-        )
+        archived_at = float(_task_value(task, "archived_at") or _task_value(task, "updated_at") or 0.0)
         if (
             archived_at < cutoff
             and not _is_recovery_related_task(task)
-            and archived_task_repo.delete(
-                str(_task_value(task, "id") or "")
-            )
+            and archived_task_repo.delete(str(_task_value(task, "id") or ""))
         ):
             deleted += 1
     return deleted
@@ -294,11 +276,7 @@ def archive_old_tasks(tasks_path: str):
                 all_tasks=all_tasks,
             )
         }
-        remaining = {
-            tid: t
-            for tid, t in tasks.items()
-            if tid not in to_archive
-        }
+        remaining = {tid: t for tid, t in tasks.items() if tid not in to_archive}
 
         if to_archive:
             logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")

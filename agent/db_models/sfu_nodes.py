@@ -4,7 +4,7 @@ import time
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 

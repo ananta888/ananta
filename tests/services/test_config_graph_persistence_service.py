@@ -19,26 +19,36 @@ from agent.services.path_ai_mode_policy_service import (
 def _repo(tmp_path: Path) -> Path:
     (tmp_path / "docs/agent-profiles").mkdir(parents=True)
     (tmp_path / "AGENTS.md").write_text("# Root\n", encoding="utf-8")
-    (tmp_path / "docs/agent-profiles/profile-map.json").write_text(json.dumps({
-        "profiles": {
-            "review": {
-                "agents_file": "",
-                "primary_role": "reviewer",
-                "activation": [],
-                "allowed_task_kinds": ["review"],
-                "code_change_policy": "via_hub_task_worker",
-            }
-        }
-    }), encoding="utf-8")
-    (tmp_path / "user.json").write_text(json.dumps({
-        "path_ai_modes": [
+    (tmp_path / "docs/agent-profiles/profile-map.json").write_text(
+        json.dumps(
             {
-                "path_glob": "docs/**",
-                "blocked_ai_modes": ["code_gen"],
-                "allowed_ai_modes": [],
+                "profiles": {
+                    "review": {
+                        "agents_file": "",
+                        "primary_role": "reviewer",
+                        "activation": [],
+                        "allowed_task_kinds": ["review"],
+                        "code_change_policy": "via_hub_task_worker",
+                    }
+                }
             }
-        ]
-    }), encoding="utf-8")
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "user.json").write_text(
+        json.dumps(
+            {
+                "path_ai_modes": [
+                    {
+                        "path_glob": "docs/**",
+                        "blocked_ai_modes": ["code_gen"],
+                        "allowed_ai_modes": [],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
     return tmp_path
 
 
@@ -60,15 +70,8 @@ def test_set_data_on_agent_profile_persists_to_profile_map(tmp_path: Path) -> No
     )
 
     assert result.success is True
-    profile_map = json.loads(
-        (root / "docs/agent-profiles/profile-map.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    assert (
-        profile_map["profiles"]["review"]["primary_role"]
-        == "security_reviewer"
-    )
+    profile_map = json.loads((root / "docs/agent-profiles/profile-map.json").read_text(encoding="utf-8"))
+    assert profile_map["profiles"]["review"]["primary_role"] == "security_reviewer"
     assert profile_map["profiles"]["review"]["allowed_task_kinds"] == [
         "review",
         "audit",
@@ -83,13 +86,16 @@ def test_set_data_on_path_rule_persists_to_user_json(tmp_path: Path) -> None:
         repo_root=root,
         user_config=json.loads((root / "user.json").read_text(encoding="utf-8")),
     ).build()
-    result = ConfigGraphPersistenceService(repo_root=root).persist(graph, [
-        PatchOp(
-            op="set_data",
-            target="path_rule::docs/**",
-            data={"blocked_ai_modes": ["code_gen", "full_llm"]},
-        )
-    ])
+    result = ConfigGraphPersistenceService(repo_root=root).persist(
+        graph,
+        [
+            PatchOp(
+                op="set_data",
+                target="path_rule::docs/**",
+                data={"blocked_ai_modes": ["code_gen", "full_llm"]},
+            )
+        ],
+    )
 
     assert result.success is True
     user_json = json.loads((root / "user.json").read_text(encoding="utf-8"))
@@ -126,9 +132,9 @@ def test_path_rule_persistence_reloads_the_existing_live_policy_object(tmp_path:
 def test_readonly_instruction_layer_is_not_persistable(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     graph = ConfigGraphBuilderService(repo_root=root).build()
-    result = ConfigGraphPersistenceService(repo_root=root).persist(graph, [
-        PatchOp(op="set_data", target="instruction_layer::root", data={"content": "x"})
-    ])
+    result = ConfigGraphPersistenceService(repo_root=root).persist(
+        graph, [PatchOp(op="set_data", target="instruction_layer::root", data={"content": "x"})]
+    )
 
     assert result.success is False
     assert "readonly" in result.errors[0]
@@ -200,9 +206,5 @@ def test_rollback_restores_previous_source_content(tmp_path: Path) -> None:
     rollback = svc.rollback(result.rollback_artifact)
 
     assert rollback.success is True
-    profile_map = json.loads(
-        (root / "docs/agent-profiles/profile-map.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    profile_map = json.loads((root / "docs/agent-profiles/profile-map.json").read_text(encoding="utf-8"))
     assert profile_map["profiles"]["review"]["primary_role"] == "reviewer"

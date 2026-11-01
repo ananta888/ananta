@@ -70,8 +70,7 @@ class ResearchTrainingDispatchService:
             spec=ResearchRunSpecV1.from_mapping(run["spec"]),
             dataset=parsed_dataset,
             existing_checkpoint_count=sum(
-                bool(item.get("output_artifact_digest"))
-                and item["kind"] in {"pretrain", "sft", "rl"}
+                bool(item.get("output_artifact_digest")) and item["kind"] in {"pretrain", "sft", "rl"}
                 for item in run["stages"].values()
             ),
         )

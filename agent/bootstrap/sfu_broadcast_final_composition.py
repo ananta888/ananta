@@ -19,7 +19,6 @@ from agent.bootstrap.sfu_broadcast_services import (
     initialize_sfu_broadcast_hub_composition,
 )
 
-
 _STATUS_KEY = "sfu_broadcast_final_composition_status"
 _BLUEPRINTS_KEY = "sfu_broadcast_extension_blueprints"
 
@@ -73,14 +72,14 @@ def _wire_durable_hub_control(
     secret: bytes | None,
 ) -> None:
     from agent.database import engine
+    from agent.repositories.sfu_broadcast_user_intent_repository import (
+        SqlSfuBroadcastUserIntentRepository,
+    )
     from agent.repositories.sfu_hub_control_repository import (
         SqlSfuBroadcastCommandLedger,
         SqlSfuBroadcastOperationsSnapshotRepository,
         SqlSfuFanoutReconciliationControlRepository,
         SqlSfuScopeEpochResolver,
-    )
-    from agent.repositories.sfu_broadcast_user_intent_repository import (
-        SqlSfuBroadcastUserIntentRepository,
     )
     from agent.services.sfu_broadcast_command_execution import (
         SfuBroadcastCommandPolicyEvaluator,
@@ -101,11 +100,9 @@ def _wire_durable_hub_control(
     if secret is not None and _is_durable_component(source):
         current = extensions.get("sfu_broadcast_operations_read_model")
         if not _is_production_component(current):
-            extensions["sfu_broadcast_operations_read_model"] = (
-                SfuBroadcastOperationsReadModel(
-                    source=source,
-                    diagnostic_secret=_derive(secret, b"operations-diagnostics"),
-                )
+            extensions["sfu_broadcast_operations_read_model"] = SfuBroadcastOperationsReadModel(
+                source=source,
+                diagnostic_secret=_derive(secret, b"operations-diagnostics"),
             )
     status["operations_read_model_ready"] = _is_production_component(
         extensions.get("sfu_broadcast_operations_read_model")
@@ -127,9 +124,7 @@ def _wire_durable_hub_control(
                 db_engine=engine,
                 identity_digest_secret=_derive(secret, b"command-scope-identity"),
             )
-            extensions["sfu_broadcast_command_scope_resolver"] = (
-                command_scope_resolver
-            )
+            extensions["sfu_broadcast_command_scope_resolver"] = command_scope_resolver
         else:
             extensions.pop("sfu_broadcast_command_scope_resolver", None)
     feature_policy = extensions.get("sfu_broadcast_feature_policy")
@@ -173,12 +168,8 @@ def _wire_durable_hub_control(
     status["command_authorization_ready"] = _is_production_component(
         extensions.get("sfu_broadcast_command_authorization_port")
     )
-    status["command_executor_ready"] = _is_production_component(
-        extensions.get("sfu_broadcast_command_executor_port")
-    )
-    status["command_service_ready"] = _is_production_component(
-        extensions.get("sfu_broadcast_command_service")
-    )
+    status["command_executor_ready"] = _is_production_component(extensions.get("sfu_broadcast_command_executor_port"))
+    status["command_service_ready"] = _is_production_component(extensions.get("sfu_broadcast_command_service"))
 
     if secret is not None:
         resolver = extensions.get("sfu_scope_epoch_resolver")
@@ -190,12 +181,10 @@ def _wire_durable_hub_control(
             extensions["sfu_scope_epoch_resolver"] = resolver
         extensions["sfu_capability_admission_scope"] = resolver
         extensions["sfu_layer_projection_scope_authorizer"] = resolver
-    status["capability_scope_ready"] = _port(
-        extensions.get("sfu_capability_admission_scope"), "resolve"
-    ) is not None
-    status["layer_projection_scope_ready"] = _port(
-        extensions.get("sfu_layer_projection_scope_authorizer"), "authorize"
-    ) is not None
+    status["capability_scope_ready"] = _port(extensions.get("sfu_capability_admission_scope"), "resolve") is not None
+    status["layer_projection_scope_ready"] = (
+        _port(extensions.get("sfu_layer_projection_scope_authorizer"), "authorize") is not None
+    )
 
     control = extensions.get("sfu_fanout_route_reconciliation_control_repository")
     if secret is not None and not _is_durable_component(control):
@@ -264,10 +253,7 @@ def _wire_durable_reconciliation_adapters(
     )
     nodes = extensions.get("sfu_node_repository")
     state = extensions.get("sfu_fleet_reconciliation_state_port")
-    if (
-        _port(runtime_state, "observe") is not None
-        and not _is_durable_component(state)
-    ):
+    if _port(runtime_state, "observe") is not None and not _is_durable_component(state):
         state = SqlSfuFleetReconciliationStateRepository(
             runtime_routes=runtime_state,
             db_engine=engine,
@@ -275,9 +261,8 @@ def _wire_durable_reconciliation_adapters(
         )
         extensions["sfu_fleet_reconciliation_state_port"] = state
     mutations = extensions.get("sfu_fleet_reconciliation_mutation_port")
-    runtime_mutations_ready = (
-        _port(runtime_mutations, "fence_route") is not None
-        and callable(getattr(runtime_mutations, "reconcile_desired_route", None))
+    runtime_mutations_ready = _port(runtime_mutations, "fence_route") is not None and callable(
+        getattr(runtime_mutations, "reconcile_desired_route", None)
     )
     if (
         runtime_mutations_ready
@@ -292,9 +277,7 @@ def _wire_durable_reconciliation_adapters(
             db_engine=engine,
         )
         extensions["sfu_fleet_reconciliation_mutation_port"] = mutations
-    status["fleet_reconciliation_ports_ready"] = (
-        _is_durable_component(state) and _is_durable_component(mutations)
-    )
+    status["fleet_reconciliation_ports_ready"] = _is_durable_component(state) and _is_durable_component(mutations)
 
 
 def _wire_reconciliation_jobs(app: Flask, status: dict[str, Any]) -> None:
@@ -307,11 +290,7 @@ def _wire_reconciliation_jobs(app: Flask, status: dict[str, Any]) -> None:
     state = extensions.get("sfu_fleet_reconciliation_state_port")
     mutations = extensions.get("sfu_fleet_reconciliation_mutation_port")
     fleet_job = extensions.get("sfu_fleet_reconciliation_job")
-    if (
-        _is_durable_component(state)
-        and _is_durable_component(mutations)
-        and _port(fleet_job, "run") is None
-    ):
+    if _is_durable_component(state) and _is_durable_component(mutations) and _port(fleet_job, "run") is None:
         fleet_job = SfuFleetReconciliationScheduledJob(
             state=state,
             mutations=mutations,
@@ -321,9 +300,7 @@ def _wire_reconciliation_jobs(app: Flask, status: dict[str, Any]) -> None:
 
     reconciler = extensions.get("sfu_fanout_route_reconciliation_service")
     scopes = extensions.get("sfu_route_reconciliation_scope_page_port")
-    checkpoints = extensions.get(
-        "sfu_fanout_route_reconciliation_control_repository"
-    )
+    checkpoints = extensions.get("sfu_fanout_route_reconciliation_control_repository")
     route_job = extensions.get("sfu_fanout_route_reconciler_job")
     if (
         _is_production_component(reconciler)
@@ -342,9 +319,7 @@ def _wire_reconciliation_jobs(app: Flask, status: dict[str, Any]) -> None:
 
 def _wire_route_reconciliation_service(app: Flask, status: dict[str, Any]) -> None:
     extensions = app.extensions
-    if _is_production_component(
-        extensions.get("sfu_fanout_route_reconciliation_service")
-    ):
+    if _is_production_component(extensions.get("sfu_fanout_route_reconciliation_service")):
         status["route_reconciliation_service_ready"] = True
         return
 
@@ -379,9 +354,7 @@ def _wire_route_reconciliation_service(app: Flask, status: dict[str, Any]) -> No
             "sfu_observe_route_port_v1",
         ),
     }
-    missing = tuple(
-        name for name, value in dependencies.items() if not _is_production_component(value)
-    )
+    missing = tuple(name for name, value in dependencies.items() if not _is_production_component(value))
     if missing:
         status["route_reconciliation_service_ready"] = False
         status["route_reconciliation_missing_ports"] = missing
@@ -392,13 +365,11 @@ def _wire_route_reconciliation_service(app: Flask, status: dict[str, Any]) -> No
         SfuFanoutRouteReconciliationService,
     )
 
-    extensions["sfu_fanout_route_reconciliation_service"] = (
-        SfuFanoutRouteReconciliationService(
-            config=SfuFanoutReconciliationConfig(),
-            clock=_SystemRouteReconciliationClock(),
-            control_observer=extensions.get("sfu_broadcast_control_observer"),
-            **dependencies,
-        )
+    extensions["sfu_fanout_route_reconciliation_service"] = SfuFanoutRouteReconciliationService(
+        config=SfuFanoutReconciliationConfig(),
+        clock=_SystemRouteReconciliationClock(),
+        control_observer=extensions.get("sfu_broadcast_control_observer"),
+        **dependencies,
     )
     status["route_reconciliation_service_ready"] = True
     status.pop("route_reconciliation_missing_ports", None)
@@ -445,9 +416,7 @@ def _wire_runtime_observation(app: Flask, status: dict[str, Any]) -> None:
             SfuRuntimeObservationService,
         )
 
-        if not _is_production_component(
-            extensions.get("sfu_runtime_observation_service")
-        ):
+        if not _is_production_component(extensions.get("sfu_runtime_observation_service")):
             extensions["sfu_runtime_observation_service"] = SfuRuntimeObservationService(
                 evaluator=evaluator,
                 store=store,
@@ -510,8 +479,7 @@ def _wire_turn_control(
         pool_repository = SqlTurnPoolRepository(lambda: Session(engine))
         extensions["turn_pool_repository"] = pool_repository
     status["turn_repositories_ready"] = all(
-        _is_durable_component(value)
-        for value in (identity_repository, observation_repository, pool_repository)
+        _is_durable_component(value) for value in (identity_repository, observation_repository, pool_repository)
     )
 
     policy = extensions.get("turn_observer_trust_policy")
@@ -545,11 +513,7 @@ def _wire_turn_control(
         if not callable(observer_is_active):
             observer_is_active = None
     directory = extensions.get("turn_pool_directory")
-    if (
-        secret is not None
-        and observer_is_active is not None
-        and not _is_production_component(directory)
-    ):
+    if secret is not None and observer_is_active is not None and not _is_production_component(directory):
         directory = TurnPoolDirectory(
             pool_repository,
             selection_hmac_key=_derive(secret, b"turn-pool-selection"),
@@ -616,12 +580,10 @@ def _wire_turn_control(
         blueprints[blueprint.name] = blueprint
     extensions[_BLUEPRINTS_KEY] = tuple(blueprints.values())
     status["turn_observation_api_ready"] = "webrtc_turn_observations" in blueprints
-    status["turn_observer_admin_api_ready"] = (
-        "webrtc_turn_observer_enrollment" in blueprints
+    status["turn_observer_admin_api_ready"] = "webrtc_turn_observer_enrollment" in blueprints
+    status["turn_observation_collector_ready"] = (
+        _port(extensions.get("turn_observation_collector_job"), "run") is not None
     )
-    status["turn_observation_collector_ready"] = _port(
-        extensions.get("turn_observation_collector_job"), "run"
-    ) is not None
 
 
 def _record_digest_key_readiness(app: Flask, status: dict[str, Any]) -> None:
@@ -632,9 +594,7 @@ def _record_digest_key_readiness(app: Flask, status: dict[str, Any]) -> None:
     contract_service = extensions.get("sfu_member_digest_key_contract_service")
     kms_attestation = extensions.get("sfu_member_digest_kms_attestation")
 
-    ports_ready = all(
-        _is_production_component(value) for value in (reader, writer, crypto)
-    )
+    ports_ready = all(_is_production_component(value) for value in (reader, writer, crypto))
     contract_ready = _is_production_component(contract_service)
     kms_ready = (
         ports_ready
@@ -645,9 +605,7 @@ def _record_digest_key_readiness(app: Flask, status: dict[str, Any]) -> None:
     status["member_digest_key_ports_ready"] = ports_ready
     status["member_digest_key_contract_ready"] = contract_ready
     status["member_digest_kms_ready"] = kms_ready
-    status["tpm_attestation_ready"] = (
-        getattr(extensions.get("sfu_tpm_attestation"), "verified", False) is True
-    )
+    status["tpm_attestation_ready"] = getattr(extensions.get("sfu_tpm_attestation"), "verified", False) is True
 
 
 def _composition_secret(app: Flask) -> bytes | None:

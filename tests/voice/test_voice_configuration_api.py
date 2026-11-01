@@ -17,9 +17,7 @@ def test_voice_configuration_schema_and_safe_defaults(client, user_auth_header):
     schema_payload = schema.get_json()["data"]["schema"]
     assert schema_payload["schema_version"] == "ananta.voice-configuration.v1"
     assert schema_payload["properties"]["primary_backend"]["scopes"] == ["global", "profile", "session"]
-    assert schema_payload["properties"]["primary_backend"]["capability_reason_source"].endswith(
-        "/model_catalog"
-    )
+    assert schema_payload["properties"]["primary_backend"]["capability_reason_source"].endswith("/model_catalog")
     assert schema_payload["administrative_fields"]["session_override_allowed"] is False
     assert schema_payload["properties"]["enhancement_variants"]["items"]["enum"] == [
         "original",
@@ -99,9 +97,7 @@ def test_external_corrector_rejects_a_qualified_model_identifier_over_contract_l
     )
 
     assert response.status_code == 422
-    assert response.get_json()["data"]["error"]["code"] == (
-        "voice_configuration.invalid_corrector_model"
-    )
+    assert response.get_json()["data"]["error"]["code"] == ("voice_configuration.invalid_corrector_model")
 
 
 def test_profile_and_session_deltas_follow_precedence(client, user_auth_header):
@@ -199,10 +195,13 @@ def test_configuration_rolls_back_when_idempotency_fence_is_lost(app) -> None:
         "idempotency_key": "config-fence-key",
     }
 
-    with app.app_context(), patch.object(
-        service._repository,
-        "_complete_idempotency_claim",
-        side_effect=RuntimeError("simulated stale claim fence"),
+    with (
+        app.app_context(),
+        patch.object(
+            service._repository,
+            "_complete_idempotency_claim",
+            side_effect=RuntimeError("simulated stale claim fence"),
+        ),
     ):
         with pytest.raises(RuntimeError, match="simulated stale claim fence"):
             service.put_delta(principal, **request)
@@ -301,9 +300,7 @@ def test_global_delta_is_shared_with_subjects_in_the_same_tenant(app) -> None:
     assert effective.sources[-1]["scope"] == "global"
 
 
-def test_disabled_feature_flags_apply_compatible_effective_fallback_without_losing_delta(
-    client, user_auth_header
-):
+def test_disabled_feature_flags_apply_compatible_effective_fallback_without_losing_delta(client, user_auth_header):
     response = client.put(
         "/v1/voice/configuration",
         headers={**user_auth_header, "Idempotency-Key": "voice-config-safe-fallback"},

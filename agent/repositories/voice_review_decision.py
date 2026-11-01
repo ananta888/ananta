@@ -66,8 +66,7 @@ class VoiceReviewDecisionRepository:
     ) -> tuple[VoiceReviewDB, VoiceResultArtifactDB]:
         with Session(engine) as session:
             review = session.exec(
-                select(VoiceReviewDB)
-                .where(
+                select(VoiceReviewDB).where(
                     VoiceReviewDB.id == review_id,
                     VoiceReviewDB.tenant_id == principal.tenant_id,
                     VoiceReviewDB.owner_subject == principal.subject,

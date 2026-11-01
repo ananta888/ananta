@@ -1,4 +1,5 @@
 """PRD03.02: Rendezvous API für Teilnehmer-Findung über webrtc.ananta.de."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -51,7 +52,12 @@ def create_rendezvous_session():
     if not creds:
         return jsonify({"error": "oidc_sub_required"}), 403
     user_id, sub = creds
-    if not _rate_limiter.allow_request(namespace=_RATE_CREATE["namespace"], subject=user_id, limit=_RATE_CREATE["limit"], window_seconds=_RATE_CREATE["window_seconds"]):
+    if not _rate_limiter.allow_request(
+        namespace=_RATE_CREATE["namespace"],
+        subject=user_id,
+        limit=_RATE_CREATE["limit"],
+        window_seconds=_RATE_CREATE["window_seconds"],
+    ):
         return jsonify({"error": "rate_limited"}), 429
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     device_fingerprint = str(body.get("owner_device_fingerprint") or "").strip()
@@ -66,7 +72,10 @@ def create_rendezvous_session():
         allowed_permissions=body.get("allowed_permissions"),
         title=str(body.get("title") or "Rendezvous Session"),
     )
-    log_audit("rendezvous_session_created", {"session_id": session.get("id"), "owner_user_id": user_id, "oidc_issuer": oidc_issuer})
+    log_audit(
+        "rendezvous_session_created",
+        {"session_id": session.get("id"), "owner_user_id": user_id, "oidc_issuer": oidc_issuer},
+    )
     return jsonify({"ok": True, "data": session}), 201
 
 
@@ -79,7 +88,12 @@ def join_rendezvous_session(session_id: str):
         return jsonify({"error": "oidc_sub_required"}), 403
     user_id = str(auth.get("username") or sub).strip()
     ip = str(request.remote_addr or "unknown")
-    if not _rate_limiter.allow_request(namespace=_RATE_JOIN["namespace"], subject=ip, limit=_RATE_JOIN["limit"], window_seconds=_RATE_JOIN["window_seconds"]):
+    if not _rate_limiter.allow_request(
+        namespace=_RATE_JOIN["namespace"],
+        subject=ip,
+        limit=_RATE_JOIN["limit"],
+        window_seconds=_RATE_JOIN["window_seconds"],
+    ):
         return jsonify({"error": "rate_limited"}), 429
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     invite_code = str(body.get("invite_code") or "").strip()
@@ -99,13 +113,22 @@ def join_rendezvous_session(session_id: str):
     )
     if not result.get("ok"):
         reason = result.get("reason", "join_failed")
-        status = 404 if reason == "session_not_found" else 403 if reason in {"session_revoked", "session_expired", "oidc_issuer_mismatch", "forbidden"} else 400
+        status = (
+            404
+            if reason == "session_not_found"
+            else 403
+            if reason in {"session_revoked", "session_expired", "oidc_issuer_mismatch", "forbidden"}
+            else 400
+        )
         return jsonify({"error": reason}), status
-    log_audit("rendezvous_participant_joined", {
-        "session_id": session_id,
-        "user_sub_hash": _hash_sub(sub),
-        "device_fingerprint": device_fingerprint,
-    })
+    log_audit(
+        "rendezvous_participant_joined",
+        {
+            "session_id": session_id,
+            "user_sub_hash": _hash_sub(sub),
+            "device_fingerprint": device_fingerprint,
+        },
+    )
     return jsonify({"ok": True, "data": result.get("participant")}), 201 if not result.get("idempotent") else 200
 
 
@@ -143,4 +166,5 @@ def revoke_rendezvous_session(session_id: str):
 
 def _hash_sub(sub: str) -> str:
     import hashlib
+
     return hashlib.sha256(sub.encode()).hexdigest()[:16]

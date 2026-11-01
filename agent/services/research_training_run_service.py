@@ -229,10 +229,7 @@ class ResearchTrainingRunService:
         else:
             if failure_class not in {"transient_infrastructure", "preempted", "deterministic_input"}:
                 raise ValueError("research_stage_failure_class_invalid")
-            retryable = (
-                failure_class != "deterministic_input"
-                and int(stage["attempts"]) < int(stage["max_attempts"])
-            )
+            retryable = failure_class != "deterministic_input" and int(stage["attempts"]) < int(stage["max_attempts"])
             stage.update(
                 status="ready" if retryable else "failed",
                 attempt_id=None if retryable else attempt_id,
@@ -277,9 +274,7 @@ class ResearchTrainingRunService:
         stage = stages.get(require_id(stage_id, "stage_id"))
         if stage is None or stage["status"] != "running" or stage["attempt_id"] != attempt_id:
             raise ResearchTrainingDenied("research_stage_attempt_stale")
-        if not hmac.compare_digest(
-            self._authorization(current, stage_id, attempt_id), str(worker_authorization)
-        ):
+        if not hmac.compare_digest(self._authorization(current, stage_id, attempt_id), str(worker_authorization)):
             raise ResearchTrainingDenied("research_worker_authorization_invalid")
         if not 1 <= lease_seconds <= 3600:
             raise ValueError("research_stage_lease_invalid")
@@ -353,9 +348,7 @@ class ResearchTrainingRunService:
         stage = stages.get(require_id(stage_id, "stage_id"))
         if stage is None or stage["status"] != "running" or stage["attempt_id"] != attempt_id:
             raise ResearchTrainingDenied("research_stage_attempt_stale")
-        if not hmac.compare_digest(
-            self._authorization(current, stage_id, attempt_id), str(worker_authorization)
-        ):
+        if not hmac.compare_digest(self._authorization(current, stage_id, attempt_id), str(worker_authorization)):
             raise ResearchTrainingDenied("research_worker_authorization_invalid")
         if not isinstance(optimizer_step, int) or isinstance(optimizer_step, bool) or optimizer_step < 1:
             raise ValueError("research_preemption_optimizer_step_invalid")
@@ -393,15 +386,9 @@ class ResearchTrainingRunService:
         changed = True
         while changed:
             before = len(reset)
-            reset.update(
-                key
-                for key, stage in stages.items()
-                if set(stage["dependencies"]) & reset
-            )
+            reset.update(key for key, stage in stages.items() if set(stage["dependencies"]) & reset)
             changed = len(reset) != before
-        completed = {
-            key for key, stage in stages.items() if key not in reset and stage["status"] == "completed"
-        }
+        completed = {key for key, stage in stages.items() if key not in reset and stage["status"] == "completed"}
         for key in reset:
             stage = stages[key]
             stage.update(

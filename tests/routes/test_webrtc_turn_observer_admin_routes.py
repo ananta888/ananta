@@ -41,4 +41,3 @@ def test_admin_route_rejects_private_key_material_without_calling_handler():
 
     assert response.status_code == 400
     assert called is False
-

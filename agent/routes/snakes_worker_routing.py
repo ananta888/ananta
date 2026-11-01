@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import json
+import logging
 import os
 import secrets
 from typing import Any
@@ -14,12 +14,25 @@ from agent.config import settings
 
 from .snakes_chat_helpers import SnakeAskLimits, _fit_answer_to_chars
 
-
 _HEAVY_SNAKE_TERMS = frozenset(
     {
-        "architecture", "architektur", "bug", "code", "coding", "debug",
-        "datei", "file", "funktion", "implement", "klasse", "migration",
-        "repo", "repository", "refactor", "stacktrace", "test",
+        "architecture",
+        "architektur",
+        "bug",
+        "code",
+        "coding",
+        "debug",
+        "datei",
+        "file",
+        "funktion",
+        "implement",
+        "klasse",
+        "migration",
+        "repo",
+        "repository",
+        "refactor",
+        "stacktrace",
+        "test",
     }
 )
 
@@ -37,12 +50,16 @@ def resolve_snake_routing_task_kind(prompt: str) -> str:
 
 def snake_profile_routing_enabled() -> bool:
     return str(os.environ.get("ANANTA_AI_SNAKE_PROFILE_ROUTING") or "").strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
 
 
 def _get_snakes() -> dict:
     from agent.routes.snakes_state import _snakes
+
     return _snakes
 
 
@@ -91,8 +108,12 @@ def _pick_worker_for_ask(*, exclude_urls: set[str] | None = None) -> tuple[str, 
 def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
     """Resolve an actual LMStudio model ID, bypassing smoke/placeholder names."""
     try:
-        from agent.llm_integration import _list_lmstudio_candidates, _select_best_lmstudio_model, _prepare_lmstudio_history
         from agent.config import settings as _s
+        from agent.llm_integration import (
+            _list_lmstudio_candidates,
+            _prepare_lmstudio_history,
+            _select_best_lmstudio_model,
+        )
 
         base_url = str(getattr(_s, "lmstudio_url", "") or "").rstrip("/")
         if not base_url:
@@ -102,6 +123,7 @@ def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
             return configured
         if configured and "smoke" not in configured.lower() and "ananta" not in configured.lower():
             from agent.llm_integration import _find_matching_lmstudio_candidate
+
             matched = _find_matching_lmstudio_candidate(configured, candidates)
             if matched:
                 return str(matched.get("id") or configured)
@@ -136,11 +158,7 @@ def _worker_propose(
         return "", trace
 
     use_profile_routing = snake_profile_routing_enabled() and allow_profile_routing
-    resolved_model = (
-        None
-        if use_profile_routing
-        else (model_resolver or _resolve_lmstudio_model_for_worker)(model)
-    )
+    resolved_model = None if use_profile_routing else (model_resolver or _resolve_lmstudio_model_for_worker)(model)
     trace["model_requested"] = model
     trace["model_resolved"] = resolved_model
     payload: dict[str, Any] = {
@@ -154,9 +172,8 @@ def _worker_propose(
     }
     if use_profile_routing:
         payload["provider"] = "ananta_profile"
-        payload["routing_task_kind"] = (
-            str(routing_task_kind or "").strip()
-            or resolve_snake_routing_task_kind(grounded_prompt)
+        payload["routing_task_kind"] = str(routing_task_kind or "").strip() or resolve_snake_routing_task_kind(
+            grounded_prompt
         )
         trace["routing_task_kind"] = payload["routing_task_kind"]
         trace["routing_source"] = "hub_snake_profile_policy"
@@ -188,10 +205,15 @@ def _worker_propose(
 
     try:
         request_timeout = 300 if payload.get("routing_task_kind") in {"repo_analysis", "debugging"} else 90
+
         def _forward(url: str, credential: str | None):
             try:
                 return forward_to_worker(
-                    url, "/step/propose", payload, token=credential, timeout=request_timeout,
+                    url,
+                    "/step/propose",
+                    payload,
+                    token=credential,
+                    timeout=request_timeout,
                 )
             except TypeError as exc:
                 # Compatibility seam for injected/legacy gateway adapters that
@@ -327,14 +349,16 @@ def _worker_profile_chat(
     for index, call in enumerate(data.get("tool_calls") or []):
         if not isinstance(call, dict):
             continue
-        normalized_calls.append({
-            "id": call.get("id") or f"snake-tool-{index + 1}",
-            "type": "function",
-            "function": {
-                "name": str(call.get("name") or ""),
-                "arguments": json.dumps(call.get("args") or {}),
-            },
-        })
+        normalized_calls.append(
+            {
+                "id": call.get("id") or f"snake-tool-{index + 1}",
+                "type": "function",
+                "function": {
+                    "name": str(call.get("name") or ""),
+                    "arguments": json.dumps(call.get("args") or {}),
+                },
+            }
+        )
     worker_error = str(data.get("error") or "").strip()
     if worker_error:
         trace["error"] = worker_error[:200]
@@ -343,11 +367,13 @@ def _worker_profile_chat(
         trace["error"] = "empty_worker_response"
         return None, trace
     return {
-        "choices": [{
-            "message": {
-                "content": str(data.get("reason") or data.get("raw") or ""),
-                "tool_calls": normalized_calls,
-            },
-            "finish_reason": "tool_calls" if normalized_calls else "stop",
-        }]
+        "choices": [
+            {
+                "message": {
+                    "content": str(data.get("reason") or data.get("raw") or ""),
+                    "tool_calls": normalized_calls,
+                },
+                "finish_reason": "tool_calls" if normalized_calls else "stop",
+            }
+        ]
     }, trace

@@ -1,4 +1,5 @@
 """TGFX-015: Tests for terminal graphics capability detection and resolver selection."""
+
 from __future__ import annotations
 
 import os
@@ -11,41 +12,67 @@ from client_surfaces.operator_tui.visual.capabilities.terminal_detector import (
     ImageOutputCapabilities,
     MermaidRendererCapabilities,
     RasterRendererCapabilities,
-    detect_image_output_capabilities,
     detect_terminal_image_protocols,
-    terminal_capabilities_from_env,
 )
 from client_surfaces.operator_tui.visual.runtime.config import FallbackPair, VisualViewportConfig
 from client_surfaces.operator_tui.visual.runtime.fallback_resolver import (
     resolve_renderer_adapter_pair,
 )
 
-
 # ── Terminal protocol detection ───────────────────────────────────────────────
 
+
 def test_kitty_detected_from_kitty_window_id():
-    env = {"KITTY_WINDOW_ID": "42", "TERM": "xterm-256color", "WT_SESSION": "", "ANANTA_FORCE_KITTY": "", "ANANTA_FORCE_SIXEL": "", "SIXEL_SUPPORTED": ""}
+    env = {
+        "KITTY_WINDOW_ID": "42",
+        "TERM": "xterm-256color",
+        "WT_SESSION": "",
+        "ANANTA_FORCE_KITTY": "",
+        "ANANTA_FORCE_SIXEL": "",
+        "SIXEL_SUPPORTED": "",
+    }
     with patch.dict(os.environ, env, clear=False):
         kitty, _ = detect_terminal_image_protocols()
     assert kitty is True
 
 
 def test_kitty_detected_from_term():
-    env = {"TERM": "xterm-kitty", "KITTY_WINDOW_ID": "", "WT_SESSION": "", "ANANTA_FORCE_KITTY": "", "ANANTA_FORCE_SIXEL": "", "SIXEL_SUPPORTED": ""}
+    env = {
+        "TERM": "xterm-kitty",
+        "KITTY_WINDOW_ID": "",
+        "WT_SESSION": "",
+        "ANANTA_FORCE_KITTY": "",
+        "ANANTA_FORCE_SIXEL": "",
+        "SIXEL_SUPPORTED": "",
+    }
     with patch.dict(os.environ, env, clear=False):
         kitty, _ = detect_terminal_image_protocols()
     assert kitty is True
 
 
 def test_kitty_force_override():
-    env = {"ANANTA_FORCE_KITTY": "1", "TERM": "xterm", "KITTY_WINDOW_ID": "", "WT_SESSION": "", "ANANTA_FORCE_SIXEL": "", "SIXEL_SUPPORTED": ""}
+    env = {
+        "ANANTA_FORCE_KITTY": "1",
+        "TERM": "xterm",
+        "KITTY_WINDOW_ID": "",
+        "WT_SESSION": "",
+        "ANANTA_FORCE_SIXEL": "",
+        "SIXEL_SUPPORTED": "",
+    }
     with patch.dict(os.environ, env, clear=False):
         kitty, _ = detect_terminal_image_protocols()
     assert kitty is True
 
 
 def test_kitty_force_disable():
-    env = {"ANANTA_FORCE_KITTY": "0", "TERM": "xterm-kitty", "KITTY_WINDOW_ID": "1", "WT_SESSION": "", "ANANTA_FORCE_SIXEL": "", "SIXEL_SUPPORTED": ""}
+    env = {
+        "ANANTA_FORCE_KITTY": "0",
+        "TERM": "xterm-kitty",
+        "KITTY_WINDOW_ID": "1",
+        "WT_SESSION": "",
+        "ANANTA_FORCE_SIXEL": "",
+        "SIXEL_SUPPORTED": "",
+    }
     with patch.dict(os.environ, env, clear=False):
         kitty, _ = detect_terminal_image_protocols()
     assert kitty is False
@@ -96,8 +123,14 @@ def test_windows_terminal_kitty_can_still_be_forced():
 
 
 def test_plain_ansi_no_graphics():
-    env = {"TERM": "xterm-256color", "KITTY_WINDOW_ID": "", "WT_SESSION": "",
-           "ANANTA_FORCE_KITTY": "", "ANANTA_FORCE_SIXEL": "", "SIXEL_SUPPORTED": ""}
+    env = {
+        "TERM": "xterm-256color",
+        "KITTY_WINDOW_ID": "",
+        "WT_SESSION": "",
+        "ANANTA_FORCE_KITTY": "",
+        "ANANTA_FORCE_SIXEL": "",
+        "SIXEL_SUPPORTED": "",
+    }
     with patch.dict(os.environ, env, clear=False):
         kitty, sixel = detect_terminal_image_protocols()
     assert kitty is False
@@ -105,6 +138,7 @@ def test_plain_ansi_no_graphics():
 
 
 # ── ImageOutputCapabilities ───────────────────────────────────────────────────
+
 
 def test_can_show_mermaid_image_requires_all_layers():
     caps = ImageOutputCapabilities(
@@ -151,12 +185,19 @@ def test_degraded_reasons_include_all_missing_layers():
 def test_as_dict_contains_required_keys():
     caps = ImageOutputCapabilities()
     d = caps.as_dict()
-    for key in ("mermaid_renderer_available", "raster_renderer_available", "kitty_supported",
-                "sixel_supported", "can_show_mermaid_image", "ansi_fallback"):
+    for key in (
+        "mermaid_renderer_available",
+        "raster_renderer_available",
+        "kitty_supported",
+        "sixel_supported",
+        "can_show_mermaid_image",
+        "ansi_fallback",
+    ):
         assert key in d, f"Missing key: {key}"
 
 
 # ── Resolver: prefer_image_mode (TGFX-002) ────────────────────────────────────
+
 
 def _config_with_chain(*pairs: tuple[str, str]) -> VisualViewportConfig:
     return VisualViewportConfig(
@@ -241,6 +282,7 @@ def test_diagnostics_list_skipped_candidates():
 
 
 # ── VisualViewportConfig new fields ──────────────────────────────────────────
+
 
 def test_config_ansi_theme_default():
     cfg = VisualViewportConfig()

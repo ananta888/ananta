@@ -96,16 +96,11 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 binding=resolved.binding,
             )
             base_payload = base_store.load()
-            structural_catalog = self._graph_domains.catalog(
-                nodes=self._structural_graph_nodes(base_payload)
-            )
+            structural_catalog = self._graph_domains.catalog(nodes=self._structural_graph_nodes(base_payload))
             return self._augment_domain_inventory(
                 result=result,
                 catalog=catalog,
-                structural_node_counts={
-                    facet.key: facet.subtree_node_count
-                    for facet in structural_catalog.facets
-                },
+                structural_node_counts={facet.key: facet.subtree_node_count for facet in structural_catalog.facets},
             )
         if not domain_scope:
             return self._base_read(
@@ -119,9 +114,7 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 index_id=index_id,
                 resolved=resolved,
                 domain_scope=domain_scope,
-                include_subdomains=bool(
-                    values.get("include_subdomains", True)
-                ),
+                include_subdomains=bool(values.get("include_subdomains", True)),
             )
             if resolved is not None
             else None
@@ -140,17 +133,13 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 status=cached.status,
                 records=cached.records,
                 source_revision_id=resolved.binding.source_revision_id,
-                source_revision_digest=(
-                    resolved.binding.source_revision_digest
-                ),
+                source_revision_digest=(resolved.binding.source_revision_digest),
                 graph_revision=resolved.binding.graph_revision,
                 evidence_graph_revision=resolved.binding.graph_revision,
             )
 
         base_payload = base_store.load()
-        domain_index = self._graph_domains.prepare(
-            nodes=self._graph_nodes(base_payload)
-        )
+        domain_index = self._graph_domains.prepare(nodes=self._graph_nodes(base_payload))
         include_subdomains = bool(values.get("include_subdomains", True))
         selection = domain_index.select(
             scope_key=domain_scope,
@@ -244,13 +233,7 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
             )
             loaded_keys = frozenset(partition_records.domain_keys)
             requested_keys = frozenset(domain_keys)
-            status = (
-                "complete"
-                if loaded_keys == requested_keys
-                else "partial"
-                if loaded_keys
-                else "unavailable"
-            )
+            status = "complete" if loaded_keys == requested_keys else "partial" if loaded_keys else "unavailable"
             if not loaded_keys:
                 return base_store, self._empty_supplement_records(), status
             records, scope_proven = self._filter_supplement_records(
@@ -337,9 +320,7 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 values,
                 (str, bytes),
             ):
-                nodes.extend(
-                    item for item in values if isinstance(item, Mapping)
-                )
+                nodes.extend(item for item in values if isinstance(item, Mapping))
         return tuple(nodes)
 
     @staticmethod
@@ -361,11 +342,7 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
             path = cls._repository_relative_node_path(node)
             if path is None:
                 continue
-            parts = tuple(
-                part
-                for part in path.replace("\\", "/").split("/")
-                if part not in {"", "."}
-            )
+            parts = tuple(part for part in path.replace("\\", "/").split("/") if part not in {"", "."})
             if not parts or ".." in parts:
                 continue
             kind = cls._node_kind(node)
@@ -373,9 +350,7 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 "directory",
                 "repository",
             }:
-                keys.add(
-                    codecompass_semantic_repository_root_domain_key()
-                )
+                keys.add(codecompass_semantic_repository_root_domain_key())
             else:
                 keys.add(codecompass_semantic_domain_key(parts[0]))
         return tuple(sorted(keys))
@@ -395,12 +370,7 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 if not isinstance(raw, str):
                     continue
                 path = raw.strip().replace("\\", "/")
-                if (
-                    not path
-                    or len(path) > 4_096
-                    or path.startswith("/")
-                    or (len(path) > 1 and path[1] == ":")
-                ):
+                if not path or len(path) > 4_096 or path.startswith("/") or (len(path) > 1 and path[1] == ":"):
                     continue
                 return path
         return None
@@ -430,31 +400,22 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                 node
                 for node in records.nodes
                 if (
-                    (domain_path := cls._node_directory_domain(node))
-                    == scope_path
-                    or (
-                        include_subdomains
-                        and domain_path.startswith(prefix)
-                    )
+                    (domain_path := cls._node_directory_domain(node)) == scope_path
+                    or (include_subdomains and domain_path.startswith(prefix))
                 )
             ]
             scope_proven = True
         elif scope_source == "unassigned":
-            selected_paths = [
-                cls._repository_relative_node_path(node)
-                for node in selected_base_nodes
-            ]
+            selected_paths = [cls._repository_relative_node_path(node) for node in selected_base_nodes]
             scope_proven = bool(selected_paths) and all(
-                path is not None
-                and cls._node_directory_domain(node) == ""
+                path is not None and cls._node_directory_domain(node) == ""
                 for node, path in zip(selected_base_nodes, selected_paths)
             )
             accepted_nodes = (
                 [
                     node
                     for node in records.nodes
-                    if cls._repository_relative_node_path(node) is not None
-                    and cls._node_directory_domain(node) == ""
+                    if cls._repository_relative_node_path(node) is not None and cls._node_directory_domain(node) == ""
                 ]
                 if scope_proven
                 else []
@@ -477,14 +438,10 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                     node
                     for node in records.nodes
                     if (
-                        (path := cls._repository_relative_node_path(node))
-                        is not None
+                        (path := cls._repository_relative_node_path(node)) is not None
                         and (
                             path.strip("/") in exact_paths
-                            or any(
-                                path.strip("/").startswith(prefix)
-                                for prefix in directory_prefixes
-                            )
+                            or any(path.strip("/").startswith(prefix) for prefix in directory_prefixes)
                         )
                     )
                 ]
@@ -494,25 +451,17 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
         else:
             return cls._empty_supplement_records(), False
 
-        accepted_ids = {
-            str(node.get("id") or node.get("node_id") or "").strip()
-            for node in accepted_nodes
-        }
+        accepted_ids = {str(node.get("id") or node.get("node_id") or "").strip() for node in accepted_nodes}
         accepted_ids.discard("")
         selected_endpoint_ids = accepted_ids | {
-            str(node.get("id") or node.get("node_id") or "").strip()
-            for node in selected_base_nodes
+            str(node.get("id") or node.get("node_id") or "").strip() for node in selected_base_nodes
         }
         selected_endpoint_ids.discard("")
         semantic_edges = tuple(
-            edge
-            for edge in records.semantic_edges
-            if cls._edge_touches(edge, selected_endpoint_ids)
+            edge for edge in records.semantic_edges if cls._edge_touches(edge, selected_endpoint_ids)
         )
         declaration_edges = tuple(
-            edge
-            for edge in records.declaration_edges
-            if cls._edge_touches(edge, selected_endpoint_ids)
+            edge for edge in records.declaration_edges if cls._edge_touches(edge, selected_endpoint_ids)
         )
         return (
             CodeCompassDomainSupplementRecords(
@@ -562,18 +511,8 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
         edge: Mapping[str, object],
         node_ids: set[str],
     ) -> bool:
-        source = str(
-            edge.get("source")
-            or edge.get("source_id")
-            or edge.get("from")
-            or ""
-        ).strip()
-        target = str(
-            edge.get("target")
-            or edge.get("target_id")
-            or edge.get("to")
-            or ""
-        ).strip()
+        source = str(edge.get("source") or edge.get("source_id") or edge.get("from") or "").strip()
+        target = str(edge.get("target") or edge.get("target_id") or edge.get("to") or "").strip()
         return source in node_ids or target in node_ids
 
     @staticmethod
@@ -613,33 +552,19 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
     ) -> Mapping[str, object]:
         projected = dict(result)
         raw_metadata = projected.get("metadata")
-        metadata = (
-            dict(raw_metadata)
-            if isinstance(raw_metadata, Mapping)
-            else {}
-        )
+        metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
         metadata.update(
             {
                 "semantic_scope_status": status,
                 "semantic_scope_complete": status == "complete",
                 "semantic_scope_key": domain_scope,
-                "semantic_scope_supplement_domain_keys": list(
-                    records.domain_keys
-                ),
+                "semantic_scope_supplement_domain_keys": list(records.domain_keys),
                 "semantic_scope_source_revision_id": source_revision_id,
-                "semantic_scope_source_revision_digest": (
-                    source_revision_digest
-                ),
+                "semantic_scope_source_revision_digest": (source_revision_digest),
                 "semantic_scope_graph_revision": graph_revision,
-                "semantic_scope_supplement_node_count": (
-                    records.semantic_node_count
-                ),
-                "semantic_scope_supplement_edge_count": (
-                    records.semantic_edge_count
-                ),
-                "semantic_scope_supplement_declaration_count": (
-                    records.declaration_edge_count
-                ),
+                "semantic_scope_supplement_node_count": (records.semantic_node_count),
+                "semantic_scope_supplement_edge_count": (records.semantic_edge_count),
+                "semantic_scope_supplement_declaration_count": (records.declaration_edge_count),
                 "evidence_graph_revision": evidence_graph_revision,
             }
         )
@@ -682,20 +607,14 @@ class CodeCompassDomainSupplementGraphReadCoordinator:
                     domain_key = codecompass_semantic_domain_key(path)
             summary = summaries.get(domain_key or "")
             if summary is not None:
-                base_count = int(
-                    structural_node_counts.get(str(item.get("key") or ""), 0)
-                )
+                base_count = int(structural_node_counts.get(str(item.get("key") or ""), 0))
                 item.update(
                     {
                         "base_node_count": base_count,
                         "semantic_node_count": summary.semantic_node_count,
-                        "complete_node_count": (
-                            base_count + summary.semantic_node_count
-                        ),
+                        "complete_node_count": (base_count + summary.semantic_node_count),
                         "semantic_edge_count": summary.semantic_edge_count,
-                        "declaration_edge_count": (
-                            summary.declaration_edge_count
-                        ),
+                        "declaration_edge_count": (summary.declaration_edge_count),
                         "semantic_scope_status": "available",
                     }
                 )

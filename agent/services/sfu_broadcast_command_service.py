@@ -124,11 +124,7 @@ class InMemorySfuBroadcastCommandLedger:
         retention_seconds: int = 3600,
         delivery_retry_seconds: int = 5,
     ) -> None:
-        if (
-            max_entries <= 0
-            or retention_seconds <= 0
-            or not 1 <= delivery_retry_seconds < retention_seconds
-        ):
+        if max_entries <= 0 or retention_seconds <= 0 or not 1 <= delivery_retry_seconds < retention_seconds:
             raise ValueError("sfu_command_ledger_limits_invalid")
         self._max_entries = max_entries
         self._retention = retention_seconds
@@ -331,7 +327,9 @@ class SfuBroadcastCommandService:
             raise SfuBroadcastCommandError("sfu_command_expected_version_invalid")
         if command.confirmed is not True:
             raise SfuBroadcastCommandError("sfu_command_confirmation_required")
-        if not isinstance(idempotency_key, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{15,127}", idempotency_key):
+        if not isinstance(idempotency_key, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{15,127}", idempotency_key
+        ):
             raise SfuBroadcastCommandError("sfu_command_idempotency_key_invalid")
         if not isinstance(command.options, Mapping):
             raise SfuBroadcastCommandError("sfu_command_options_invalid")
@@ -378,11 +376,11 @@ class SfuBroadcastCommandService:
                 "room_ref": command.room_ref,
                 "action": command.action,
                 "expected_version": command.expected_version,
-            "confirmed": command.confirmed,
-            "options": dict(sorted(command.options.items())),
-            "schema": command.schema,
-            "reason": command.reason,
-        },
+                "confirmed": command.confirmed,
+                "options": dict(sorted(command.options.items())),
+                "schema": command.schema,
+                "reason": command.reason,
+            },
             sort_keys=True,
             separators=(",", ":"),
         ).encode("utf-8")

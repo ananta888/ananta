@@ -14,8 +14,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.sfu_broadcast_release_common import (  # noqa: E402
-    atomic_write_report, build_report, canonical_sha256, content_reasons,
-    parent_activation_reasons, read_bounded_json, unavailable_report,
+    atomic_write_report,
+    build_report,
+    canonical_sha256,
+    content_reasons,
+    parent_activation_reasons,
+    read_bounded_json,
+    unavailable_report,
     validate_bindings,
 )
 
@@ -62,17 +67,13 @@ def evaluate(
         if row.get("status") != "passed":
             reasons.add("game_day_scenario_failed")
         rollback = row.get("rollback")
-        if not isinstance(rollback, Mapping) or any(
-            rollback.get(name) is not True for name in rollback_invariants
-        ):
+        if not isinstance(rollback, Mapping) or any(rollback.get(name) is not True for name in rollback_invariants):
             reasons.add("game_day_rollback_not_atomic")
         duration = rollback.get("commit_milliseconds") if isinstance(rollback, Mapping) else None
         if not isinstance(duration, int) or not isinstance(maximum, int) or duration > maximum:
             reasons.add("game_day_rollback_deadline_exceeded")
         cleanup = row.get("cleanup")
-        if not isinstance(cleanup, Mapping) or any(
-            cleanup.get(name) is not True for name in cleanup_invariants
-        ):
+        if not isinstance(cleanup, Mapping) or any(cleanup.get(name) is not True for name in cleanup_invariants):
             reasons.add("game_day_cleanup_incomplete")
         if row.get("activation_attempted_under_parent_block") is True:
             reasons.add("game_day_parent_block_bypassed")
@@ -86,13 +87,12 @@ def evaluate(
             "real_execution": evidence.get("real_execution"),
             "scenario_count": len(rows),
             "atomic_rollback_count": sum(
-                isinstance(row.get("rollback"), Mapping)
-                and row["rollback"].get("atomic_transition") is True
+                isinstance(row.get("rollback"), Mapping) and row["rollback"].get("atomic_transition") is True
                 for row in rows.values()
             ),
-            "all_advanced_flags_disabled": bool(rows) and all(
-                isinstance(row.get("rollback"), Mapping)
-                and row["rollback"].get("all_advanced_flags_disabled") is True
+            "all_advanced_flags_disabled": bool(rows)
+            and all(
+                isinstance(row.get("rollback"), Mapping) and row["rollback"].get("all_advanced_flags_disabled") is True
                 for row in rows.values()
             ),
         },
@@ -112,13 +112,18 @@ def main() -> int:
     parent = read_bounded_json(args.parent_evidence) if args.parent_evidence else None
     report = (
         evaluate(
-            profile, read_bounded_json(args.external_result),
-            parent=parent, operator_approved=args.operator_approved,
+            profile,
+            read_bounded_json(args.external_result),
+            parent=parent,
+            operator_approved=args.operator_approved,
         )
         if args.external_result
         else unavailable_report(
-            schema=REPORT_SCHEMA, gate_id=GATE_ID,
-            reason="game_day_external_evidence_missing", config=profile, parent=parent,
+            schema=REPORT_SCHEMA,
+            gate_id=GATE_ID,
+            reason="game_day_external_evidence_missing",
+            config=profile,
+            parent=parent,
         )
     )
     atomic_write_report(args.output, report)

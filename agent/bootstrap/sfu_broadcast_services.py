@@ -65,8 +65,8 @@ from agent.services.sfu_layer_projection_service import (
     SfuLayerProjectionService,
 )
 from agent.services.sfu_projection_signing import (
-    EncodedSecretSfuProjectionPrivateKeySource,
     Ed25519SfuProjectionSigner,
+    EncodedSecretSfuProjectionPrivateKeySource,
     FileSfuProjectionPrivateKeySource,
     HmacSfuProjectionSigner,
     KmsEd25519SfuProjectionSigner,
@@ -74,7 +74,6 @@ from agent.services.sfu_projection_signing import (
     SfuProjectionSigningConfigurationError,
     SfuProjectionTrustedKeyset,
 )
-
 
 _ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_TRAFFIC_POLICY = _ROOT / "config" / "sfu_fanout_traffic_projection.json"
@@ -191,9 +190,7 @@ def initialize_sfu_broadcast_hub_composition(
             "ANANTA_SFU_TRAFFIC_PROJECTION_CONFIG",
             str(_DEFAULT_TRAFFIC_POLICY),
         )
-        traffic_projection = SfuFanoutTrafficProjectionService(
-            load_sfu_fanout_traffic_projection_policy(policy_path)
-        )
+        traffic_projection = SfuFanoutTrafficProjectionService(load_sfu_fanout_traffic_projection_policy(policy_path))
         app.extensions["sfu_fanout_traffic_projection_service"] = traffic_projection
     statuses["traffic_projection"] = SfuBroadcastWiringStatus(True)
 
@@ -214,9 +211,7 @@ def initialize_sfu_broadcast_hub_composition(
         app.extensions["sfu_group_projection_repository"] = group_projection_repository
     group_projection_service = app.extensions.get("sfu_group_projection_service")
     if not isinstance(group_projection_service, SfuGroupProjectionService):
-        group_projection_service = SfuGroupProjectionService(
-            repository=group_projection_repository
-        )
+        group_projection_service = SfuGroupProjectionService(repository=group_projection_repository)
         app.extensions["sfu_group_projection_service"] = group_projection_service
 
     fanout_route_repository = app.extensions.get("sfu_fanout_route_repository")
@@ -233,9 +228,7 @@ def initialize_sfu_broadcast_hub_composition(
     if not isinstance(browser_service, SfuBrowserCapabilityIngestionService):
         browser_service = SfuBrowserCapabilityIngestionService(browser_repository)
         app.extensions["sfu_browser_capability_ingestion_service"] = browser_service
-    browser_authority_ready = callable(
-        getattr(app.extensions.get("sfu_capability_admission_scope"), "resolve", None)
-    )
+    browser_authority_ready = callable(getattr(app.extensions.get("sfu_capability_admission_scope"), "resolve", None))
     statuses["browser_capability_scope"] = SfuBroadcastWiringStatus(
         browser_authority_ready,
         None if browser_authority_ready else "sfu_capability_scope_authority_unavailable",

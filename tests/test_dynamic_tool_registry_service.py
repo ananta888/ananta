@@ -1,4 +1,5 @@
 """HDE-012: persistent dynamic tool registry."""
+
 import pytest
 
 from agent.services.dynamic_tool_registry_service import DynamicToolRegistryService

@@ -10,28 +10,15 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
+from typing import Any
 
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
-
-from agent.services._deterministic_repair_constants import (
-    ENVIRONMENT_SIMILARITY_MODEL,
-)
 from agent.services import _deterministic_repair_evidence as _drr_evidence
+
 compute_environment_similarity = _drr_evidence.compute_environment_similarity
 
 
-
-
 log = logging.getLogger(__name__)
-
-
 
 
 def build_negative_learning_model(
@@ -70,9 +57,6 @@ def build_negative_learning_model(
     }
 
 
-
-
-
 def build_success_weighted_repair_recommendations(
     *,
     repair_catalog: dict[str, Any],
@@ -84,12 +68,10 @@ def build_success_weighted_repair_recommendations(
 ) -> dict[str, Any]:
     top_matches = list(signature_matching.get("matches") or [])
     match_by_problem_class = {
-        str(match.get("problem_class") or ""): float(match.get("score") or 0.0)
-        for match in top_matches
+        str(match.get("problem_class") or ""): float(match.get("score") or 0.0) for match in top_matches
     }
     anti_patterns = {
-        str(item.get("procedure_id") or ""): item
-        for item in list(negative_learning_model.get("anti_patterns") or [])
+        str(item.get("procedure_id") or ""): item for item in list(negative_learning_model.get("anti_patterns") or [])
     }
     ranked: list[dict[str, Any]] = []
     for entry in list(repair_catalog.get("entries") or []):
@@ -153,6 +135,3 @@ def build_success_weighted_repair_recommendations(
         "ranked_recommendations": ranked[: max(1, int(top_k))],
         "safety_override_rule": "ranking_never_overrides_approval_or_negative_learning_blocks",
     }
-
-
-

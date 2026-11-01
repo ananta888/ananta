@@ -44,6 +44,7 @@ def _member_to_dict(row: PairGroupMemberDB) -> dict[str, Any]:
 
 def _get_engine():
     from agent.services.share_session_service import engine
+
     return engine
 
 
@@ -56,9 +57,7 @@ def list_pair_groups():
     try:
         engine = _get_engine()
         with Session(engine) as session:
-            rows = session.exec(
-                select(PairGroupDB).where(PairGroupDB.owner_user_id == uid)
-            ).all()
+            rows = session.exec(select(PairGroupDB).where(PairGroupDB.owner_user_id == uid)).all()
             groups = [_group_to_dict(r) for r in rows]
     except SQLAlchemyError:
         groups = []
@@ -118,14 +117,14 @@ def get_pair_group(group_id: str):
                 ).first()
                 if not member:
                     return jsonify({"error": "forbidden"}), 403
-            members = session.exec(
-                select(PairGroupMemberDB).where(PairGroupMemberDB.group_id == group_id)
-            ).all()
-            return jsonify({
-                "ok": True,
-                "group": _group_to_dict(row),
-                "members": [_member_to_dict(m) for m in members],
-            }), 200
+            members = session.exec(select(PairGroupMemberDB).where(PairGroupMemberDB.group_id == group_id)).all()
+            return jsonify(
+                {
+                    "ok": True,
+                    "group": _group_to_dict(row),
+                    "members": [_member_to_dict(m) for m in members],
+                }
+            ), 200
     except SQLAlchemyError as exc:
         return jsonify({"error": "db_error", "detail": str(exc)}), 500
 
@@ -174,9 +173,7 @@ def delete_pair_group(group_id: str):
                 return jsonify({"error": "not_found"}), 404
             if str(row.owner_user_id) != uid:
                 return jsonify({"error": "forbidden"}), 403
-            members = session.exec(
-                select(PairGroupMemberDB).where(PairGroupMemberDB.group_id == group_id)
-            ).all()
+            members = session.exec(select(PairGroupMemberDB).where(PairGroupMemberDB.group_id == group_id)).all()
             for m in members:
                 session.delete(m)
             session.delete(row)
@@ -272,9 +269,7 @@ def create_group_session(group_id: str):
                 return jsonify({"error": "not_found"}), 404
             if str(row.owner_user_id) != uid:
                 return jsonify({"error": "forbidden"}), 403
-            members = session.exec(
-                select(PairGroupMemberDB).where(PairGroupMemberDB.group_id == group_id)
-            ).all()
+            members = session.exec(select(PairGroupMemberDB).where(PairGroupMemberDB.group_id == group_id)).all()
         service = get_share_session_service()
         permissions = dict(body.get("permissions") or row.default_permissions or {"chat": True})
         expires_in = float(body.get("expires_in_seconds") or 86400)
@@ -287,11 +282,13 @@ def create_group_session(group_id: str):
             permissions=permissions,
             expires_at=time.time() + expires_in,
         )
-        return jsonify({
-            "ok": True,
-            "session": session_item,
-            "member_count": len(members),
-            "invite_code": session_item.get("invite_code"),
-        }), 201
+        return jsonify(
+            {
+                "ok": True,
+                "session": session_item,
+                "member_count": len(members),
+                "invite_code": session_item.get("invite_code"),
+            }
+        ), 201
     except SQLAlchemyError as exc:
         return jsonify({"error": "db_error", "detail": str(exc)}), 500

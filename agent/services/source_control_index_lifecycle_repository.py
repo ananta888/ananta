@@ -1,5 +1,4 @@
-"""SQL repository behind the Source index lifecycle service (history, activation, purge).
-"""
+"""SQL repository behind the Source index lifecycle service (history, activation, purge)."""
 
 from __future__ import annotations
 
@@ -18,8 +17,8 @@ from agent.db_models.source_control import (
     KnowledgeIndexRunSourceBindingDB,
     KnowledgeIndexSourceBindingDB,
     SourceAccessGrantDB,
-    SourceControlIndexReferenceDB,
     SourceConnectionDB,
+    SourceControlIndexReferenceDB,
     SourceRevisionDB,
 )
 from agent.repositories.source_control_repository import (
@@ -29,11 +28,11 @@ from agent.services.source_control_production_adapters import (
     ContainedArtifactDeletionService,
 )
 from agent.services.source_control_runtime_support import (
+    SENSITIVE_SENSITIVITIES,
     decode_cursor,
     encode_cursor,
     iso_timestamp,
 )
-from agent.services.source_control_runtime_support import SENSITIVE_SENSITIVITIES
 from agent.services.source_index_lifecycle_service import (
     ActiveIndexPointer,
     PurgeBlocker,
@@ -75,26 +74,16 @@ class SQLSourceIndexLifecycleRepository:
                 KnowledgeIndexSourceBindingDB.connection_id == connection_id,
             )
             if after_id is not None:
-                statement = statement.where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id > after_id
-                )
+                statement = statement.where(KnowledgeIndexSourceBindingDB.knowledge_index_id > after_id)
             rows = list(
-                db.exec(
-                    statement.order_by(
-                        KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    ).limit(limit + 1)
-                ).all()
+                db.exec(statement.order_by(KnowledgeIndexSourceBindingDB.knowledge_index_id).limit(limit + 1)).all()
             )
             selected = rows[:limit]
             return SourceIndexHistoryPage(
                 items=tuple(self._index(db, row) for row in selected),
-                active=self._active(
-                    db, tenant_id, project_id, connection_id
-                ),
+                active=self._active(db, tenant_id, project_id, connection_id),
                 next_cursor=(
-                    encode_cursor(selected[-1].knowledge_index_id)
-                    if len(rows) > limit and selected
-                    else None
+                    encode_cursor(selected[-1].knowledge_index_id) if len(rows) > limit and selected else None
                 ),
             )
 
@@ -108,8 +97,7 @@ class SQLSourceIndexLifecycleRepository:
         with Session(self._engine) as db:
             row = db.exec(
                 select(KnowledgeIndexSourceBindingDB).where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
                 )
@@ -142,8 +130,7 @@ class SQLSourceIndexLifecycleRepository:
         with Session(self._engine) as db:
             row = db.exec(
                 select(KnowledgeIndexSourceBindingDB).where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
                 )
@@ -161,11 +148,7 @@ class SQLSourceIndexLifecycleRepository:
             current_source_revision_id=source_revision_id,
             current_policy_snapshot_digest=policy_digest,
             expected_generation=expected_generation,
-            action=(
-                "rollback"
-                if reason_code == "index_rolled_back"
-                else "activate"
-            ),
+            action=("rollback" if reason_code == "index_rolled_back" else "activate"),
         )
         pointer = self.get_active(
             tenant_id=tenant_id,
@@ -204,11 +187,7 @@ class SQLSourceIndexLifecycleRepository:
             )
             if mutation.rowcount != 1:
                 db.rollback()
-                raise SourceIndexLifecycleError(
-                    self._connection_failure(
-                        db, tenant_id, project_id, connection_id
-                    )
-                )
+                raise SourceIndexLifecycleError(self._connection_failure(db, tenant_id, project_id, connection_id))
             db.commit()
         return expected_version + 1
 
@@ -226,12 +205,10 @@ class SQLSourceIndexLifecycleRepository:
             mutation = db.exec(
                 update(KnowledgeIndexSourceBindingDB)
                 .where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
-                    KnowledgeIndexSourceBindingDB.lock_version
-                    == expected_version,
+                    KnowledgeIndexSourceBindingDB.lock_version == expected_version,
                 )
                 .values(
                     status="tombstoned",
@@ -241,11 +218,7 @@ class SQLSourceIndexLifecycleRepository:
             )
             if mutation.rowcount != 1:
                 db.rollback()
-                raise SourceIndexLifecycleError(
-                    self._index_failure(
-                        db, tenant_id, project_id, knowledge_index_id
-                    )
-                )
+                raise SourceIndexLifecycleError(self._index_failure(db, tenant_id, project_id, knowledge_index_id))
             db.commit()
         return expected_version + 1
 
@@ -260,21 +233,17 @@ class SQLSourceIndexLifecycleRepository:
         with Session(self._engine) as db:
             index = db.exec(
                 select(KnowledgeIndexSourceBindingDB).where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
                 )
             ).first()
             if index is None:
-                raise SourceIndexLifecycleError(
-                    "knowledge_index_not_found"
-                )
+                raise SourceIndexLifecycleError("knowledge_index_not_found")
             runs = list(
                 db.exec(
                     select(KnowledgeIndexRunSourceBindingDB).where(
-                        KnowledgeIndexRunSourceBindingDB.knowledge_index_id
-                        == knowledge_index_id,
+                        KnowledgeIndexRunSourceBindingDB.knowledge_index_id == knowledge_index_id,
                         KnowledgeIndexRunSourceBindingDB.tenant_id == tenant_id,
                         KnowledgeIndexRunSourceBindingDB.project_id == project_id,
                     )
@@ -285,8 +254,7 @@ class SQLSourceIndexLifecycleRepository:
                     select(SourceAccessGrantDB).where(
                         SourceAccessGrantDB.tenant_id == tenant_id,
                         SourceAccessGrantDB.project_id == project_id,
-                        SourceAccessGrantDB.source_revision_id
-                        == index.source_revision_id,
+                        SourceAccessGrantDB.source_revision_id == index.source_revision_id,
                         SourceAccessGrantDB.state == "active",
                         SourceAccessGrantDB.expires_at_epoch > now,
                     )
@@ -295,17 +263,11 @@ class SQLSourceIndexLifecycleRepository:
             leases = list(
                 db.exec(
                     select(KnowledgeIndexExecutionBindingDB).where(
-                        KnowledgeIndexExecutionBindingDB.tenant_id
-                        == tenant_id,
-                        KnowledgeIndexExecutionBindingDB.project_id
-                        == project_id,
-                        KnowledgeIndexExecutionBindingDB.source_revision_id
-                        == index.source_revision_id,
-                        KnowledgeIndexExecutionBindingDB.lease_expires_epoch_ms
-                        > int(now * 1000),
-                        KnowledgeIndexExecutionBindingDB.state.notin_(
-                            ("completed", "failed", "cancelled", "expired")
-                        ),
+                        KnowledgeIndexExecutionBindingDB.tenant_id == tenant_id,
+                        KnowledgeIndexExecutionBindingDB.project_id == project_id,
+                        KnowledgeIndexExecutionBindingDB.source_revision_id == index.source_revision_id,
+                        KnowledgeIndexExecutionBindingDB.lease_expires_epoch_ms > int(now * 1000),
+                        KnowledgeIndexExecutionBindingDB.state.notin_(("completed", "failed", "cancelled", "expired")),
                     )
                 ).all()
             )
@@ -314,35 +276,25 @@ class SQLSourceIndexLifecycleRepository:
                     select(SourceControlIndexReferenceDB).where(
                         SourceControlIndexReferenceDB.tenant_id == tenant_id,
                         SourceControlIndexReferenceDB.project_id == project_id,
-                        SourceControlIndexReferenceDB.knowledge_index_id
-                        == knowledge_index_id,
+                        SourceControlIndexReferenceDB.knowledge_index_id == knowledge_index_id,
                         SourceControlIndexReferenceDB.state == "active",
                     )
                 ).all()
             )
-        blockers: list[PurgeBlocker] = [
-            PurgeBlocker("active_grant", row.grant_id) for row in grants
-        ]
-        blockers.extend(
-            PurgeBlocker("active_lease", row.lease_id) for row in leases
-        )
+        blockers: list[PurgeBlocker] = [PurgeBlocker("active_grant", row.grant_id) for row in grants]
+        blockers.extend(PurgeBlocker("active_lease", row.lease_id) for row in leases)
         blockers.extend(
             PurgeBlocker(row.reference_kind, row.reference_id)
             for row in references
-            if row.expires_at_epoch is None
-            or float(row.expires_at_epoch) > now
+            if row.expires_at_epoch is None or float(row.expires_at_epoch) > now
         )
         artifacts_deleted = bool(
             self._artifact_deletion is not None
-            and self._artifact_deletion.is_deleted(
-                knowledge_index_id=knowledge_index_id
-            )
+            and self._artifact_deletion.is_deleted(knowledge_index_id=knowledge_index_id)
         )
         if self._artifact_deletion is None and not artifacts_deleted:
             blockers.extend(
-                PurgeBlocker("artifact_ref", row.index_run_id)
-                for row in runs
-                if row.artifact_manifest_digest
+                PurgeBlocker("artifact_ref", row.index_run_id) for row in runs if row.artifact_manifest_digest
             )
         return tuple(blockers)
 
@@ -360,8 +312,7 @@ class SQLSourceIndexLifecycleRepository:
         with Session(self._engine) as db:
             row = db.exec(
                 select(KnowledgeIndexSourceBindingDB).where(
-                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
                 )
@@ -372,8 +323,7 @@ class SQLSourceIndexLifecycleRepository:
                 raise SourceIndexLifecycleError("index_version_conflict")
             db.exec(
                 delete(KnowledgeIndexRunSourceBindingDB).where(
-                    KnowledgeIndexRunSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexRunSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexRunSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexRunSourceBindingDB.project_id == project_id,
                 )
@@ -405,40 +355,24 @@ class SQLSourceIndexLifecycleRepository:
         )
 
     @staticmethod
-    def _index(
-        db: Session, row: KnowledgeIndexSourceBindingDB
-    ) -> SourceIndexRecord:
+    def _index(db: Session, row: KnowledgeIndexSourceBindingDB) -> SourceIndexRecord:
         runs = list(
             db.exec(
                 select(KnowledgeIndexRunSourceBindingDB).where(
-                    KnowledgeIndexRunSourceBindingDB.knowledge_index_id
-                    == row.knowledge_index_id
+                    KnowledgeIndexRunSourceBindingDB.knowledge_index_id == row.knowledge_index_id
                 )
             ).all()
         )
-        run = max(
-            runs, key=lambda item: float(item.created_at_epoch), default=None
-        )
+        run = max(runs, key=lambda item: float(item.created_at_epoch), default=None)
         revision = db.get(SourceRevisionDB, row.source_revision_id)
         if revision is None:
-            raise SourceIndexLifecycleError(
-                "source_revision_projection_missing"
-            )
-        manifest_digest = (
-            (run.artifact_manifest_digest if run is not None else None)
-            or row.artifact_manifest_digest
-        )
+            raise SourceIndexLifecycleError("source_revision_projection_missing")
+        manifest_digest = (run.artifact_manifest_digest if run is not None else None) or row.artifact_manifest_digest
         if not manifest_digest:
-            raise SourceIndexLifecycleError(
-                "artifact_manifest_projection_missing"
-            )
+            raise SourceIndexLifecycleError("artifact_manifest_projection_missing")
         return SourceIndexRecord(
             knowledge_index_id=row.knowledge_index_id,
-            run_id=(
-                run.index_run_id
-                if run is not None
-                else row.knowledge_index_id
-            ),
+            run_id=(run.index_run_id if run is not None else row.knowledge_index_id),
             connection_id=row.connection_id,
             source_revision_id=row.source_revision_id,
             revision_digest=revision.revision_digest,
@@ -446,22 +380,14 @@ class SQLSourceIndexLifecycleRepository:
             manifest_digest=manifest_digest,
             status=row.status,
             coverage={},
-            artifact_verified=bool(
-                run.artifacts_verified if run is not None else False
-            ),
-            completed_at=(
-                iso_timestamp(run.completed_at_epoch) if run is not None else None
-            ),
+            artifact_verified=bool(run.artifacts_verified if run is not None else False),
+            completed_at=(iso_timestamp(run.completed_at_epoch) if run is not None else None),
             tombstoned=row.status == "tombstoned",
-            sensitive=bool(
-                revision is not None and revision.sensitivity in SENSITIVE_SENSITIVITIES
-            ),
+            sensitive=bool(revision is not None and revision.sensitivity in SENSITIVE_SENSITIVITIES),
         )
 
     @staticmethod
-    def _connection_failure(
-        db: Session, tenant_id: str, project_id: str, connection_id: str
-    ) -> str:
+    def _connection_failure(db: Session, tenant_id: str, project_id: str, connection_id: str) -> str:
         row = db.exec(
             select(SourceConnectionDB).where(
                 SourceConnectionDB.connection_id == connection_id,
@@ -469,29 +395,18 @@ class SQLSourceIndexLifecycleRepository:
                 SourceConnectionDB.project_id == project_id,
             )
         ).first()
-        return (
-            "connection_version_conflict"
-            if row is not None
-            else "connection_not_found"
-        )
+        return "connection_version_conflict" if row is not None else "connection_not_found"
 
     @staticmethod
-    def _index_failure(
-        db: Session, tenant_id: str, project_id: str, knowledge_index_id: str
-    ) -> str:
+    def _index_failure(db: Session, tenant_id: str, project_id: str, knowledge_index_id: str) -> str:
         row = db.exec(
             select(KnowledgeIndexSourceBindingDB).where(
-                KnowledgeIndexSourceBindingDB.knowledge_index_id
-                == knowledge_index_id,
+                KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
                 KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                 KnowledgeIndexSourceBindingDB.project_id == project_id,
             )
         ).first()
-        return (
-            "index_version_conflict"
-            if row is not None
-            else "knowledge_index_not_found"
-        )
+        return "index_version_conflict" if row is not None else "knowledge_index_not_found"
 
 
 __all__ = ["SQLSourceIndexLifecycleRepository"]

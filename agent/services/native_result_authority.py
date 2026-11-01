@@ -24,53 +24,88 @@ class SQLAlchemyNativeResultAuthority:
     def require_current(self, *, session, command, task, now):
         if not math.isfinite(now):
             raise ValueError(f"{self._reason_prefix}_clock_invalid")
-        ownership_row = _locked_row(session, WorkflowExecutionOwnershipDB, stable_row_id(
-            "wfro", command.tenant_id, command.run_id, command.node.node_id,
-        ))
+        ownership_row = _locked_row(
+            session,
+            WorkflowExecutionOwnershipDB,
+            stable_row_id(
+                "wfro",
+                command.tenant_id,
+                command.run_id,
+                command.node.node_id,
+            ),
+        )
         ownership = execution_ownership_from_row(ownership_row)
         expected = {
-            "tenant_id": command.tenant_id, "workflow_id": command.workflow_id,
-            "run_id": command.run_id, "step_id": command.node.node_id,
-            "attempt_id": command.attempt_id, "fencing_token": command.fencing_token,
+            "tenant_id": command.tenant_id,
+            "workflow_id": command.workflow_id,
+            "run_id": command.run_id,
+            "step_id": command.node.node_id,
+            "attempt_id": command.attempt_id,
+            "fencing_token": command.fencing_token,
         }
         if (
             any(getattr(ownership, field) != value for field, value in expected.items())
             or ownership.owner_id != f"hub-native:{command.run_id}:{command.node.node_id}"
-            or ownership.status != "active" or ownership.lease_expires_at <= now
+            or ownership.status != "active"
+            or ownership.lease_expires_at <= now
         ):
             raise ValueError(f"{self._reason_prefix}_lease_not_current")
-        assignment = _locked_row(session, WorkflowWorkerAssignmentDB, stable_row_id(
-            "wfra", command.tenant_id, command.run_id, command.node.node_id,
-        ))
+        assignment = _locked_row(
+            session,
+            WorkflowWorkerAssignmentDB,
+            stable_row_id(
+                "wfra",
+                command.tenant_id,
+                command.run_id,
+                command.node.node_id,
+            ),
+        )
         if (
             any(getattr(assignment, field) != value for field, value in expected.items())
-            or assignment.hub_task_id != task.id or assignment.worker_url != task.assigned_agent_url
-            or type(assignment.revision) is not int or assignment.revision < 1
-            or not math.isfinite(assignment.assigned_at) or not 0 < assignment.assigned_at <= now
+            or assignment.hub_task_id != task.id
+            or assignment.worker_url != task.assigned_agent_url
+            or type(assignment.revision) is not int
+            or assignment.revision < 1
+            or not math.isfinite(assignment.assigned_at)
+            or not 0 < assignment.assigned_at <= now
         ):
             raise ValueError(f"{self._reason_prefix}_assignment_not_current")
         worker = _locked_row(session, AgentInfoDB, assignment.worker_url)
         capabilities = worker.authorized_capabilities
         required = {"workflow.adapter.native", *self._required_capabilities, *command.node.required_capabilities}
         if (
-            worker.name != assignment.worker_id or worker.role != "worker"
+            worker.name != assignment.worker_id
+            or worker.role != "worker"
             or worker.registration_validated is not True
             or worker.registration_provenance != STRICT_WORKER_REGISTRATION_PROVENANCE
-            or not isinstance(capabilities, list) or any(not isinstance(item, str) for item in capabilities)
+            or not isinstance(capabilities, list)
+            or any(not isinstance(item, str) for item in capabilities)
             or not required.issubset(capabilities)
         ):
             raise ValueError(f"{self._reason_prefix}_worker_not_authorized")
         envelope = command.authorization
         envelope.verify(
-            key_ring=self._key_ring(), tenant_id=command.tenant_id, workflow_id=command.workflow_id,
-            run_id=command.run_id, step_id=command.node.node_id,
-            plan_hash=command.plan_hash, policy_version=command.policy_version, now=now,
+            key_ring=self._key_ring(),
+            tenant_id=command.tenant_id,
+            workflow_id=command.workflow_id,
+            run_id=command.run_id,
+            step_id=command.node.node_id,
+            plan_hash=command.plan_hash,
+            policy_version=command.policy_version,
+            now=now,
         )
         grant = require_current_workflow_grant_row(
-            _locked_row(session, WorkflowAuthorizationGrantDB, envelope.envelope_id), envelope, now=now,
+            _locked_row(session, WorkflowAuthorizationGrantDB, envelope.envelope_id),
+            envelope,
+            now=now,
         )
         return NativeResultAuthority(
-            assignment.id, assignment.revision, worker.name, worker.url, ownership.revision, grant.revision,
+            assignment.id,
+            assignment.revision,
+            worker.name,
+            worker.url,
+            ownership.revision,
+            grant.revision,
         )
 
 

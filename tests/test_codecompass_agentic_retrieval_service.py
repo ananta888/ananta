@@ -24,11 +24,12 @@ from agent.services.codecompass_agentic_retrieval_planner import (
 from agent.services.codecompass_agentic_retrieval_service import (
     CodeCompassAgenticRetrievalService,
 )
+from agent.services.codecompass_context_planner_service import CodeCompassContextPlanner
 from agent.services.codecompass_retrieval_capability_service import (
     bind_retrieval_capability,
 )
-from agent.services.codecompass_context_planner_service import CodeCompassContextPlanner
 from worker.retrieval.vector_store_contract import VectorStoreFailClosedError
+
 
 def _schema() -> dict:
     return __import__("json").loads(Path("schemas/codecompass.agentic-retrieval.v1.json").read_text())
@@ -182,12 +183,14 @@ def test_hybrid_keeps_exact_hit_ahead_of_stronger_vector_hit() -> None:
 
 def test_hybrid_preserves_one_successful_graph_result() -> None:
     result = _service(
-        exact_search=lambda *_args, **_kwargs: [{
-            "id": "exact",
-            "path": "src/payment.py",
-            "content": "PaymentService",
-            "score": 10.0,
-        }],
+        exact_search=lambda *_args, **_kwargs: [
+            {
+                "id": "exact",
+                "path": "src/payment.py",
+                "content": "PaymentService",
+                "score": 10.0,
+            }
+        ],
         vector_search=lambda *_args, **_kwargs: [],
         graph_search=lambda *_args, **_kwargs: [
             {
@@ -211,19 +214,23 @@ def test_hybrid_preserves_one_successful_graph_result() -> None:
 
 def test_hybrid_preserves_graph_signal_when_all_graph_paths_are_deduplicated() -> None:
     result = _service(
-        exact_search=lambda *_args, **_kwargs: [{
-            "id": "exact",
-            "path": "src/payment.py",
-            "content": "PaymentService",
-            "score": 10.0,
-        }],
+        exact_search=lambda *_args, **_kwargs: [
+            {
+                "id": "exact",
+                "path": "src/payment.py",
+                "content": "PaymentService",
+                "score": 10.0,
+            }
+        ],
         vector_search=lambda *_args, **_kwargs: [],
-        graph_search=lambda *_args, **_kwargs: [{
-            "id": "graph",
-            "path": "src/payment.py",
-            "content": "PaymentService graph node",
-            "score": 1.0,
-        }],
+        graph_search=lambda *_args, **_kwargs: [
+            {
+                "id": "graph",
+                "path": "src/payment.py",
+                "content": "PaymentService graph node",
+                "score": 1.0,
+            }
+        ],
     ).retrieve(_request(query="architecture of payment", mode="auto"))
 
     assert any("graph" in row["signals"] for row in result["evidence"])
@@ -267,9 +274,7 @@ def test_bound_capability_is_fail_closed_on_empty_paths() -> None:
 
 def test_request_cannot_widen_workspace_or_paths() -> None:
     service = _service(
-        exact_search=lambda *a, **k: [
-            {"id": "other", "path": "secret/other.py", "content": "nope", "score": 1.0}
-        ]
+        exact_search=lambda *a, **k: [{"id": "other", "path": "secret/other.py", "content": "nope", "score": 1.0}]
     )
     widened = service.retrieve(
         _request(scope={"workspace_id": "ws-other", "allowed_paths": ["secret"]}),
@@ -334,18 +339,22 @@ def test_max_tokens_is_a_hard_budget() -> None:
 
 
 def test_continuation_is_query_scope_and_revision_bound() -> None:
-    hits = [
-        {"id": f"row-{index}", "path": f"src/f{index}.py", "content": "x", "score": 1.0}
-        for index in range(4)
-    ]
+    hits = [{"id": f"row-{index}", "path": f"src/f{index}.py", "content": "x", "score": 1.0} for index in range(4)]
     service = _service(exact_search=lambda query, **_kwargs: hits, continuation_secret=b"x" * 32)
     first = service.retrieve(_request(mode="exact", budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}))
     handle = first["continuation_handle"]
     changed_query = service.retrieve(
-        _request(query="different", mode="exact", continuation_handle=handle, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8})
+        _request(
+            query="different",
+            mode="exact",
+            continuation_handle=handle,
+            budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8},
+        )
     )
     changed_revision = service.retrieve(
-        _request(mode="exact", continuation_handle=handle, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}),
+        _request(
+            mode="exact", continuation_handle=handle, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}
+        ),
         capability=_capability(revision="rev-other"),
     )
     assert changed_query["reason_code"] == "invalid_continuation_handle"
@@ -361,7 +370,11 @@ def test_tampered_continuation_fails_closed() -> None:
     first = service.retrieve(_request(mode="exact", budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}))
     handle = first["continuation_handle"]
     tampered = handle[:-1] + ("0" if handle[-1] != "0" else "1")
-    result = service.retrieve(_request(mode="exact", continuation_handle=tampered, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}))
+    result = service.retrieve(
+        _request(
+            mode="exact", continuation_handle=tampered, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}
+        )
+    )
     assert result["reason_code"] == "invalid_continuation_handle"
 
 
@@ -442,7 +455,13 @@ def test_architecture_consumer_uses_shared_service(monkeypatch) -> None:
     [
         ("PaymentService", "exact", "src/payment_service.py", "docs/pay.md", "src/payment_service.py"),
         ("retry policy concept", "vector", "src/payment_service.py", "docs/retry.md", "docs/retry.md"),
-        ("how is payment timeout implemented", "hybrid", "src/payment_service.py", "docs/pay.md", "src/payment_service.py"),
+        (
+            "how is payment timeout implemented",
+            "hybrid",
+            "src/payment_service.py",
+            "docs/pay.md",
+            "src/payment_service.py",
+        ),
     ],
 )
 def test_e2e_fixture_matrix(query, mode, exact_path, vector_path, expect_path) -> None:
@@ -454,10 +473,10 @@ def test_e2e_fixture_matrix(query, mode, exact_path, vector_path, expect_path) -
             {"id": "ve", "path": vector_path, "content": "semantic retry policy", "score": 0.95}
         ],
         graph_search=lambda q, **_kwargs: [],
-        ).retrieve(
-            _request(query=query, mode=mode),
-            capability=_capability(allowed_paths=["src", "docs"]),
-        )
+    ).retrieve(
+        _request(query=query, mode=mode),
+        capability=_capability(allowed_paths=["src", "docs"]),
+    )
     assert result["status"] in {"ok", "degraded"}
     assert result["evidence"][0]["path"] == expect_path
 

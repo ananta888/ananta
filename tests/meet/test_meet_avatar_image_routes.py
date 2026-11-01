@@ -74,9 +74,11 @@ def test_selection_route_is_user_owned_closed_and_requires_no_interactive_approv
     monkeypatch.setattr(
         auth,
         "_validate_user_jwt",
-        lambda token: {"sub": "actor", "tenant_id": "tenant", "project_id": "project", "role": "user"}
-        if token == "synthetic-user"
-        else None,
+        lambda token: (
+            {"sub": "actor", "tenant_id": "tenant", "project_id": "project", "role": "user"}
+            if token == "synthetic-user"
+            else None
+        ),
     )
     monkeypatch.setattr(auth, "_user_token_allows_current_request", lambda _: True)
     selector = getattr(runtime, "select_" + source.replace("-", "_"))

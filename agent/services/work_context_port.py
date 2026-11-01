@@ -3,6 +3,7 @@
 IDE/Editor-Arbeitskontext als optionales Ranking-Signal.
 Erweitert niemals allowed_paths — verändert ausschließlich Ranking-Gewichte.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -11,14 +12,26 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 SECRET_PATH_PATTERNS = [
-    ".env", ".env.local", ".env.production", ".envrc",
-    "*.pem", "*.key", "*.p12", "*.pfx", "*.p8",
-    "secrets.json", "credentials.json", ".netrc",
-    "id_rsa", "id_ed25519", "id_ecdsa",
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".envrc",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*.p8",
+    "secrets.json",
+    "credentials.json",
+    ".netrc",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
 ]
 
 
 # ── Dataclasses ───────────────────────────────────────────────────────────────
+
 
 @dataclass
 class FileRange:
@@ -33,12 +46,13 @@ class WorkContextSnapshot:
     active_file: str | None
     selection: FileRange | None
     active_branch: str | None
-    dirty_files: list[str]           # uncommitted changes
-    dirty_secret_files: list[str]    # dirty files matching SECRET_PATH_PATTERNS (redacted)
-    source: str                      # "ide_plugin" | "cli_introspection" | "null" | "manual"
+    dirty_files: list[str]  # uncommitted changes
+    dirty_secret_files: list[str]  # dirty files matching SECRET_PATH_PATTERNS (redacted)
+    source: str  # "ide_plugin" | "cli_introspection" | "null" | "manual"
 
 
 # ── Protocol ──────────────────────────────────────────────────────────────────
+
 
 @runtime_checkable
 class WorkContext(Protocol):
@@ -47,6 +61,7 @@ class WorkContext(Protocol):
 
 
 # ── NullWorkContext ───────────────────────────────────────────────────────────
+
 
 class NullWorkContext:
     """Safe default: no context available. Never fails."""
@@ -68,6 +83,7 @@ class NullWorkContext:
 
 # ── StaticWorkContext ─────────────────────────────────────────────────────────
 
+
 class StaticWorkContext:
     """Test helper: returns a fixed snapshot."""
 
@@ -82,6 +98,7 @@ class StaticWorkContext:
 
 
 # ── WorkContextRankingBoost ───────────────────────────────────────────────────
+
 
 class WorkContextRankingBoost:
     """Computes score boosts for context items based on WorkContext.
@@ -123,9 +140,7 @@ class WorkContextRankingBoost:
                 return True
         return False
 
-    def get_redacted_dirty_files(
-        self, dirty_files: list[str]
-    ) -> tuple[list[str], list[str]]:
+    def get_redacted_dirty_files(self, dirty_files: list[str]) -> tuple[list[str], list[str]]:
         """Returns (clean_files, secret_files). Secret files are listed separately."""
         clean_files: list[str] = []
         secret_files: list[str] = []

@@ -8,9 +8,7 @@ def test_adapter_maps_paths_to_territories_with_explicit_risk() -> None:
     game_map = build_game_map_from_repository(
         repo_paths=["agent/services", "docs/ananta-game"],
         risk_overrides={"agent/services": "high"},
-        context_overrides={
-            "agent/services": {"visibility": "allow", "allowed_roles": ["planner"], "local_only": True}
-        },
+        context_overrides={"agent/services": {"visibility": "allow", "allowed_roles": ["planner"], "local_only": True}},
     )
 
     assert game_map.degraded is False

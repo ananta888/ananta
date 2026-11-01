@@ -28,6 +28,7 @@ V13     otherwise (calibrated, confident, informational or low-risk action)   al
 decision value is a permission by itself (``gate_vision_decision`` keeps ``grants_permission=False``
 and turns policy exceptions into ``deny``).
 """
+
 from __future__ import annotations
 
 import math
@@ -120,7 +121,11 @@ _SHAPES = _task(
     "shapes-v1",
     {
         "shape": {"type": "enum", "choices": ["circle", "square", "triangle"], "description": "Which shape is drawn?"},
-        "color": {"type": "enum", "choices": ["red", "green", "blue", "yellow"], "description": "What colour are the shapes?"},
+        "color": {
+            "type": "enum",
+            "choices": ["red", "green", "blue", "yellow"],
+            "description": "What colour are the shapes?",
+        },
         "count": {"type": "integer", "minimum": 1, "maximum": 4, "description": "How many shapes are there?"},
         # The model answers this with p=1.0 even on mid grey: never trust it without a human.
         "dark_background": {"type": "boolean", "description": "Is the background dark?", "hub": {"confirm_only": True}},

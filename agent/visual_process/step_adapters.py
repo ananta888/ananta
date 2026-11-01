@@ -24,6 +24,7 @@ CodeCompass (codecompass_*), Evolution (evolution_*), and domain_cluster
 have implementation_state=registered_only — no adapter here, dry-run marks
 them not_executable until dedicated adapters are built.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -72,20 +73,24 @@ from agent.visual_process.step_adapters_ml_intern_training import (
 )
 from agent.visual_process.step_executor import StepAdapter, StepExecutionResult
 
-_BUILTIN_TOKEN_OVERLAP_RERANKER_DIGEST = "sha256:" + hashlib.sha256(
-    b"ananta.visual-process.token-overlap-reranker.v1"
-).hexdigest()
+_BUILTIN_TOKEN_OVERLAP_RERANKER_DIGEST = (
+    "sha256:" + hashlib.sha256(b"ananta.visual-process.token-overlap-reranker.v1").hexdigest()
+)
 
 
 # ── Reranker ──────────────────────────────────────────────────────────────────
+
 
 class RerankAdapter(StepAdapter):
     @property
     def kind(self) -> str:
         return "rerank"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         from worker.retrieval.reranker import Reranker
+
         query = str(artifacts.get("query") or step.metadata.get("query") or "")
         candidates = list(artifacts.get("candidates") or [])
         # ``reranker_weight`` is a read-only compatibility alias. New writes
@@ -109,6 +114,7 @@ class RerankAdapter(StepAdapter):
 
 # ── Embed API ─────────────────────────────────────────────────────────────────
 
+
 class EmbedApiAdapter(StepAdapter):
     def __init__(self, *, secret_resolver: Any | None = None) -> None:
         if secret_resolver is None:
@@ -123,12 +129,15 @@ class EmbedApiAdapter(StepAdapter):
     def kind(self) -> str:
         return "embed_api"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         texts_raw = artifacts.get("texts") or step.metadata.get("texts") or []
         texts: list[str] = [texts_raw] if isinstance(texts_raw, str) else list(texts_raw)
         if not texts:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 execution_reason="embed_api: no texts provided in artifacts['texts'] or metadata['texts']",
                 backend_service="EmbeddingProvider",
             )
@@ -138,7 +147,8 @@ class EmbedApiAdapter(StepAdapter):
             embeddings = provider.embed_texts(texts)
         except Exception as exc:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 diagnostics={"error": str(exc)},
                 execution_reason=f"embed_api: provider={provider_name!r} failed",
                 backend_service=f"EmbeddingProvider({provider_name})",
@@ -157,6 +167,7 @@ class EmbedApiAdapter(StepAdapter):
             HashEmbeddingProvider,
             OpenAICompatibleEmbeddingProvider,
         )
+
         dims = int(step.metadata.get("dimensions") or 12)
         if provider_name in ("hash", ""):
             return HashEmbeddingProvider(dimensions=dims)
@@ -182,17 +193,22 @@ class EmbedApiAdapter(StepAdapter):
 
 # ── Sign rotation (TQ-011) ────────────────────────────────────────────────────
 
+
 class SignRotationAdapter(StepAdapter):
     @property
     def kind(self) -> str:
         return "sign_rotation"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         from worker.retrieval.turboquant_encoding import DeterministicSignRotation
+
         vector = list(artifacts.get("vector") or step.metadata.get("vector") or [])
         if not vector:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 execution_reason="sign_rotation: no vector provided",
                 backend_service="DeterministicSignRotation",
             )
@@ -210,28 +226,33 @@ class SignRotationAdapter(StepAdapter):
 
 # ── TurboQuant MSE (TQ-012, experimental) ────────────────────────────────────
 
+
 class TurboQuantMseAdapter(StepAdapter):
     @property
     def kind(self) -> str:
         return "turboquant_mse"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         from worker.retrieval.turboquant_encoding import TurboQuantMseEncoder
+
         vector = list(artifacts.get("vector") or step.metadata.get("vector") or [])
         if not vector:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 execution_reason="turboquant_mse: no vector provided",
                 backend_service="TurboQuantMseEncoder",
-                warnings=["TQ-012 is experimental (no production codebook). TQ-013 ProdStub is a separate unused stub."],
+                warnings=[
+                    "TQ-012 is experimental (no production codebook). TQ-013 ProdStub is a separate unused stub."
+                ],
             )
         seed = int(step.metadata.get("seed", 888))
         levels = int(step.metadata.get("levels", 7))
         encoder = TurboQuantMseEncoder(seed=seed, levels=levels)
         encoded = encoder.encode(vector)
-        outputs: dict[str, Any] = (
-            dict(encoded) if isinstance(encoded, dict) else {"quantized": encoded}
-        )
+        outputs: dict[str, Any] = dict(encoded) if isinstance(encoded, dict) else {"quantized": encoded}
         outputs.update({"seed": seed, "levels": levels})
         return StepExecutionResult(
             status="success",
@@ -245,32 +266,40 @@ class TurboQuantMseAdapter(StepAdapter):
 
 # ── Workspace snapshot ────────────────────────────────────────────────────────
 
+
 class WorkspaceSnapshotAdapter(StepAdapter):
     @property
     def kind(self) -> str:
         return "workspace_snapshot"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         import os
         from pathlib import Path
+
         try:
             from agent.services.workspace_diff_service import WorkspaceDiffService
         except ImportError as exc:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 diagnostics={"error": str(exc)},
                 execution_reason="workspace_snapshot: WorkspaceDiffService not available",
                 backend_service="WorkspaceDiffService",
             )
-        workspace_root = Path(str(
-            step.metadata.get("workspace_root")
-            or artifacts.get("workspace_root")
-            or context.get("workspace_root")
-            or os.getcwd()
-        ))
+        workspace_root = Path(
+            str(
+                step.metadata.get("workspace_root")
+                or artifacts.get("workspace_root")
+                or context.get("workspace_root")
+                or os.getcwd()
+            )
+        )
         if not workspace_root.exists():
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 diagnostics={"workspace_root": str(workspace_root)},
                 execution_reason=f"workspace_snapshot: path does not exist: {workspace_root}",
                 backend_service="WorkspaceDiffService",
@@ -280,7 +309,8 @@ class WorkspaceSnapshotAdapter(StepAdapter):
             snapshot_id, file_map = svc.take_before_snapshot(workspace_root)
         except Exception as exc:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 diagnostics={"error": str(exc)},
                 execution_reason=f"workspace_snapshot: take_before_snapshot failed: {exc}",
                 backend_service="WorkspaceDiffService",
@@ -296,29 +326,36 @@ class WorkspaceSnapshotAdapter(StepAdapter):
 
 # ── Workspace diff ────────────────────────────────────────────────────────────
 
+
 class WorkspaceDiffAdapter(StepAdapter):
     @property
     def kind(self) -> str:
         return "workspace_diff"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         import os
         from pathlib import Path
+
         try:
             from agent.services.workspace_diff_service import WorkspaceDiffService
         except ImportError as exc:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 diagnostics={"error": str(exc)},
                 execution_reason="workspace_diff: WorkspaceDiffService not available",
                 backend_service="WorkspaceDiffService",
             )
-        workspace_root = Path(str(
-            step.metadata.get("workspace_root")
-            or artifacts.get("workspace_root")
-            or context.get("workspace_root")
-            or os.getcwd()
-        ))
+        workspace_root = Path(
+            str(
+                step.metadata.get("workspace_root")
+                or artifacts.get("workspace_root")
+                or context.get("workspace_root")
+                or os.getcwd()
+            )
+        )
         before_snapshot_id = str(artifacts.get("before_snapshot_id") or "before")
         before_snapshot: dict[str, str] = dict(artifacts.get("before_snapshot") or {})
         after_snapshot_id = str(artifacts.get("after_snapshot_id") or "after")
@@ -346,7 +383,8 @@ class WorkspaceDiffAdapter(StepAdapter):
             )
         except Exception as exc:
             return StepExecutionResult(
-                status="failed", executable=True,
+                status="failed",
+                executable=True,
                 diagnostics={"error": str(exc)},
                 execution_reason=f"workspace_diff: compute_diff/synthesize_manifest failed: {exc}",
                 backend_service="WorkspaceDiffService",

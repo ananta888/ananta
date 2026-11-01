@@ -1,4 +1,5 @@
 """TRM-004: Unit tests for pass/fail criteria logic, scenario loading, and report serialization."""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +14,7 @@ def _load_runner():
     if mod_name in sys.modules:
         return sys.modules[mod_name]
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(
         mod_name,
         pathlib.Path(__file__).parent.parent / "scripts" / "first_goal_acceptance_runner.py",
@@ -81,12 +83,16 @@ class TestScenarioLoading:
 
     def test_load_valid_scenarios(self, mod, tmp_path):
         f = tmp_path / "scenarios.json"
-        f.write_text(json.dumps({
-            "scenarios": [
-                {"id": "s1", "label": "Scenario 1", "config_profile": "ananta_ollama_local"},
-                {"id": "s2", "label": "Scenario 2", "config_profile": "opencode_ollama_local"},
-            ]
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "scenarios": [
+                        {"id": "s1", "label": "Scenario 1", "config_profile": "ananta_ollama_local"},
+                        {"id": "s2", "label": "Scenario 2", "config_profile": "opencode_ollama_local"},
+                    ]
+                }
+            )
+        )
         result = mod.load_scenarios_from_file(str(f))
         assert len(result) == 2
         assert result[0]["id"] == "s1"
@@ -103,8 +109,14 @@ class TestScenarioLoading:
 class TestReportSerialization:
     def test_aggregate_returns_required_keys(self, mod):
         summary = mod.aggregate([])
-        for key in ("schema", "total_runs", "completed_runs", "write_phase_runs",
-                    "autopilot_progress_runs", "repeatability_pass"):
+        for key in (
+            "schema",
+            "total_runs",
+            "completed_runs",
+            "write_phase_runs",
+            "autopilot_progress_runs",
+            "repeatability_pass",
+        ):
             assert key in summary, f"Missing key: {key}"
 
     def test_aggregate_counts_completed_runs(self, mod):

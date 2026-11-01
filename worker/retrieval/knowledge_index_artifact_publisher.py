@@ -45,9 +45,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
     _MAX_OUTPUT_BYTES = 128 * 1024 * 1024
     _MAX_GRAPH_OUTPUT_BYTES = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
     _GRAPH_OUTPUT_ROLES = frozenset({"graph_index", "graph_visual_metrics"})
-    _REVISION_BOUND_OUTPUT_ROLES = _GRAPH_OUTPUT_ROLES | frozenset(
-        {DOMAIN_SUPPLEMENT_OUTPUT_ROLE}
-    )
+    _REVISION_BOUND_OUTPUT_ROLES = _GRAPH_OUTPUT_ROLES | frozenset({DOMAIN_SUPPLEMENT_OUTPUT_ROLE})
     _READ_CHUNK_BYTES = 1024 * 1024
 
     def publish(
@@ -114,10 +112,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
             if path.is_symlink() or not path.is_file():
                 raise RuntimeError("knowledge_index_output_artifact_invalid")
             size_bytes = path.stat().st_size
-            if (
-                role in self._GRAPH_OUTPUT_ROLES
-                and size_bytes > self._MAX_GRAPH_OUTPUT_BYTES
-            ):
+            if role in self._GRAPH_OUTPUT_ROLES and size_bytes > self._MAX_GRAPH_OUTPUT_BYTES:
                 raise RuntimeError("knowledge_index_graph_artifact_too_large")
             if size_bytes < 0 or size_bytes > self._MAX_OUTPUT_BYTES:
                 raise RuntimeError("knowledge_index_output_artifact_too_large")
@@ -129,9 +124,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
             if len(content) != size_bytes:
                 raise RuntimeError("knowledge_index_output_artifact_size_mismatch")
             upload_kwargs = (
-                {"execution_checkpoint": execution_deadline.checkpoint}
-                if execution_deadline is not None
-                else {}
+                {"execution_checkpoint": execution_deadline.checkpoint} if execution_deadline is not None else {}
             )
             initial_artifact_metadata = {
                 "system_artifact_kind": "knowledge_index_worker_output",
@@ -139,11 +132,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "knowledge_index_id": str(knowledge_index.get("id") or ""),
                 "knowledge_index_run_id": str(run.get("id") or ""),
                 "output_role": role,
-                **(
-                    graph_binding.get(role, {})
-                    if role in self._REVISION_BOUND_OUTPUT_ROLES
-                    else {}
-                ),
+                **(graph_binding.get(role, {}) if role in self._REVISION_BOUND_OUTPUT_ROLES else {}),
             }
             artifact, version, _collection = get_ingestion_service().upload_artifact(
                 filename=f"{job_id}-{run.get('id')}-{filename}",
@@ -233,8 +222,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
             "graph_index": {
                 "artifact_schema": "codecompass_graph_index.v1",
                 "graph_revision": graph_revision,
-                "graph_content_hash": "sha256:"
-                + hashlib.sha256(graph_bytes).hexdigest(),
+                "graph_content_hash": "sha256:" + hashlib.sha256(graph_bytes).hexdigest(),
             },
             "graph_visual_metrics": {
                 "artifact_schema": "graph_visual_metrics.v1",
@@ -250,37 +238,22 @@ class WorkerKnowledgeIndexArtifactPublisher:
             )
 
             try:
-                supplement = (
-                    WorkerCodeCompassDomainSupplementMaterializer.inspect_published(
-                        output_dir / DOMAIN_SUPPLEMENT_FILENAME,
-                        execution_deadline=execution_deadline,
-                    )
+                supplement = WorkerCodeCompassDomainSupplementMaterializer.inspect_published(
+                    output_dir / DOMAIN_SUPPLEMENT_FILENAME,
+                    execution_deadline=execution_deadline,
                 )
             except (OSError, ValueError) as exc:
-                raise RuntimeError(
-                    "knowledge_index_domain_supplement_invalid"
-                ) from exc
+                raise RuntimeError("knowledge_index_domain_supplement_invalid") from exc
             expected_supplement = {
                 "graph_revision": graph_revision,
                 "knowledge_index_id": str(knowledge_index.get("id") or ""),
-                "source_scope": str(
-                    revision_binding.get("source_scope") or ""
-                ),
+                "source_scope": str(revision_binding.get("source_scope") or ""),
                 "source_id": str(revision_binding.get("source_id") or ""),
-                "source_revision_id": str(
-                    revision_binding.get("source_revision_id") or ""
-                ),
-                "source_revision_digest": str(
-                    revision_binding.get("source_revision_digest") or ""
-                ),
+                "source_revision_id": str(revision_binding.get("source_revision_id") or ""),
+                "source_revision_digest": str(revision_binding.get("source_revision_digest") or ""),
             }
-            if any(
-                str(supplement.get(field) or "") != expected
-                for field, expected in expected_supplement.items()
-            ):
-                raise RuntimeError(
-                    "knowledge_index_domain_supplement_binding_mismatch"
-                )
+            if any(str(supplement.get(field) or "") != expected for field, expected in expected_supplement.items()):
+                raise RuntimeError("knowledge_index_domain_supplement_binding_mismatch")
             binding[DOMAIN_SUPPLEMENT_OUTPUT_ROLE] = {
                 key: value
                 for key, value in supplement.items()
@@ -325,14 +298,10 @@ class WorkerKnowledgeIndexArtifactPublisher:
                     break
                 received += len(chunk)
                 if received > expected_size:
-                    raise RuntimeError(
-                        "knowledge_index_output_artifact_size_mismatch"
-                    )
+                    raise RuntimeError("knowledge_index_output_artifact_size_mismatch")
                 chunks.append(chunk)
         if received != expected_size:
-            raise RuntimeError(
-                "knowledge_index_output_artifact_size_mismatch"
-            )
+            raise RuntimeError("knowledge_index_output_artifact_size_mismatch")
         return b"".join(chunks)
 
 

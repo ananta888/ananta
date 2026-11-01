@@ -21,7 +21,6 @@ from agent.services.sfu_member_digest_key_contract import (
     SfuMemberDigestScope,
 )
 
-
 NOW = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)
 
 
@@ -102,12 +101,15 @@ def test_shared_repository_produces_identical_digest_across_hub_instances() -> N
 
 def test_scope_domain_separates_publications_and_key_epochs() -> None:
     assert _scope("publication-1").fingerprint() != _scope("publication-2").fingerprint()
-    assert _scope().fingerprint() != SfuMemberDigestScope(
-        tenant_id="tenant-1",
-        room_id="room-1",
-        publication_id="publication-1",
-        key_epoch=8,
-    ).fingerprint()
+    assert (
+        _scope().fingerprint()
+        != SfuMemberDigestScope(
+            tenant_id="tenant-1",
+            room_id="room-1",
+            publication_id="publication-1",
+            key_epoch=8,
+        ).fingerprint()
+    )
 
 
 def test_rotation_is_cas_versioned_and_compromise_skips_dual_read() -> None:

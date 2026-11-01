@@ -51,9 +51,7 @@ class StaticSymbolLanguageAdapter:
     script_regions_only: bool = False
     component_from_filename: bool = False
     semantic_kinds: tuple[str, ...] = ()
-    symbol_identity: (
-        SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort
-    ) = field(
+    symbol_identity: SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort = field(
         default_factory=DeterministicSemanticSymbolIdentityFactory,
         repr=False,
         compare=False,
@@ -123,10 +121,7 @@ class StaticSymbolLanguageAdapter:
         parsed = self.parse(path, content)
         nodes: list[dict] = []
         for item in parsed["symbols"]:
-            canonical_id = (
-                f"semantic:{self.language}:symbol:"
-                f"{item['kind']}:{item['name']}"
-            )
+            canonical_id = f"semantic:{self.language}:symbol:{item['kind']}:{item['name']}"
             node_id = semantic_occurrence_symbol_id(
                 self.symbol_identity,
                 language=self.language,
@@ -217,9 +212,7 @@ def default_static_symbol_adapters() -> tuple[StaticSymbolLanguageAdapter, ...]:
         "variable",
         r"^\s*(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+(?P<name>[A-Za-z_$][\w$]*)\b",
     )
-    ecma_imports = (
-        r"^\s*import\s+(?:[^\n;]*?\s+from\s+)?[\"'](?P<module>[^\"']+)[\"']",
-    )
+    ecma_imports = (r"^\s*import\s+(?:[^\n;]*?\s+from\s+)?[\"'](?P<module>[^\"']+)[\"']",)
     sfc_limits = (
         *_COMMON_LIMITS,
         "only closed script regions are inspected; template and style content is not parsed",
@@ -308,9 +301,7 @@ def default_static_symbol_adapters() -> tuple[StaticSymbolLanguageAdapter, ...]:
                 ),
                 _pattern("variable", r"^\s*local\s+(?P<name>[A-Za-z_]\w*)\b"),
             ),
-            import_patterns=(
-                r"^\s*(?:local\s+[A-Za-z_]\w*\s*=\s*)?require\s*\(?\s*[\"'](?P<module>[^\"']+)[\"']",
-            ),
+            import_patterns=(r"^\s*(?:local\s+[A-Za-z_]\w*\s*=\s*)?require\s*\(?\s*[\"'](?P<module>[^\"']+)[\"']",),
             known_limits=(*_COMMON_LIMITS, "metatables and dynamically assigned module members are not resolved"),
             confidence=0.5,
         ),
@@ -404,9 +395,7 @@ def _extract_imports(content: str, patterns: tuple[str, ...], *, confidence: flo
             if (module, line) in seen:
                 continue
             seen.add((module, line))
-            imports.append(
-                {"name": module, "kind": "import", "line_start": line, "confidence": confidence}
-            )
+            imports.append({"name": module, "kind": "import", "line_start": line, "confidence": confidence})
     return sorted(imports, key=lambda item: (item["line_start"], item["name"]))
 
 

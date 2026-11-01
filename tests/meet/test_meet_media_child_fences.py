@@ -10,8 +10,8 @@ from agent.db_models import OrganizationInstanceDB, OrganizationRoleAssignmentDB
 from agent.services.meet_contract import MeetError
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
 from tests.meet.test_meet_dialog_audio import runtime
-from tests.test_meet_media import turn
 from tests.meet.test_meet_media_child_scope import organized_dialog
+from tests.test_meet_media import turn
 
 pytestmark = pytest.mark.timeout(45)
 

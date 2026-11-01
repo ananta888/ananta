@@ -16,12 +16,8 @@ def _utcnow() -> datetime:
 class SfuBroadcastUserIntentDB(SQLModel, table=True):
     __tablename__ = "sfu_broadcast_user_intents"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "room_id", name="uq_sfu_user_intent_tenant_room"
-        ),
-        sa.CheckConstraint(
-            "state IN ('inactive','active')", name="ck_sfu_user_intent_state"
-        ),
+        sa.UniqueConstraint("tenant_id", "room_id", name="uq_sfu_user_intent_tenant_room"),
+        sa.CheckConstraint("state IN ('inactive','active')", name="ck_sfu_user_intent_state"),
         sa.CheckConstraint(
             "requested_action IN ('start','stop','set_preferences','data_saver','audio_only','quality_preference')",
             name="ck_sfu_user_intent_action",

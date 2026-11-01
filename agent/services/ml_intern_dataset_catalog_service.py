@@ -49,6 +49,8 @@ from agent.services.specialist_evaluation_dataset_purpose import evaluation_data
 
 _CATALOG_LOCK = threading.RLock()
 _DATASET_ID = re.compile(r"^ds-[a-f0-9]{32}$")
+
+
 class MlInternDatasetCatalogService:
     """Catalog, validate and atomically version immutable training datasets."""
 
@@ -71,9 +73,7 @@ class MlInternDatasetCatalogService:
         self._audit_sink = audit_sink or (lambda _action, _details: None)
         self._id_factory = id_factory or (lambda: f"ds-{uuid.uuid4().hex}")
         self._clock = clock or time.time
-        self._transaction = InterProcessFileTransaction(
-            Path(storage_root) / ".dataset-catalog.lock"
-        )
+        self._transaction = InterProcessFileTransaction(Path(storage_root) / ".dataset-catalog.lock")
 
     @property
     def max_records(self) -> int:
@@ -779,9 +779,7 @@ class MlInternDatasetCatalogService:
             return None
         key = _idempotency_key(idempotency_key)
         key_digest = hashlib.sha256((owner_key + ":" + key).encode()).hexdigest()
-        path = self._security.resolve_relative(
-            f"tenants/{tenant_key}/dataset-idempotency/{key_digest}.json"
-        )
+        path = self._security.resolve_relative(f"tenants/{tenant_key}/dataset-idempotency/{key_digest}.json")
         if not path.exists():
             return None
         try:

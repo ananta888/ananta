@@ -115,9 +115,7 @@ class MlInternTrainingAuditEvents:
             epoch=epoch,
             job_ref=job.id,
             lease_ref=f"training-execution:{lease.slot}:{job.id}",
-            idempotency_key=(
-                f"ml-training:{transition}:{job.id}:{lease.slot}:{generation}:{epoch}"
-            ),
+            idempotency_key=(f"ml-training:{transition}:{job.id}:{lease.slot}:{generation}:{epoch}"),
         )
 
     def attempt(

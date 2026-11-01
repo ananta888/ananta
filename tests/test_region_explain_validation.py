@@ -14,6 +14,7 @@ Key behaviours from VisualGuideService.handle_region_explain:
 - At most 12 steps are processed
 - Mixed valid/invalid steps: valid ones produce guide output
 """
+
 from __future__ import annotations
 
 import json
@@ -21,18 +22,19 @@ import unittest.mock as mock
 
 import pytest
 
-from agent.services.visual_guide.service import VisualGuideService, _VISUAL_SESSION_ID
-
+from agent.services.visual_guide.service import _VISUAL_SESSION_ID, VisualGuideService
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def svc(monkeypatch) -> VisualGuideService:
     """Return a fresh VisualGuideService with background-disabled check bypassed.
     Clears _visual_state before/after to prevent cross-test leakage."""
     import agent.services.visual_guide.service as svc_mod
+
     svc_mod._visual_state.clear()
     # Bypass _background_threads_disabled so handle_region_explain actually runs
     monkeypatch.setattr(svc_mod, "_background_threads_disabled", lambda: False)
@@ -46,9 +48,15 @@ def _make_fake_openai_client(explanations: list[str]):
     raw_json = json.dumps(explanations)
 
     class _FakeCompletion:
-        choices = [type("C", (), {
-            "message": type("M", (), {"content": raw_json})(),
-        })()]
+        choices = [
+            type(
+                "C",
+                (),
+                {
+                    "message": type("M", (), {"content": raw_json})(),
+                },
+            )()
+        ]
 
     class _FakeCompletions:
         @staticmethod
@@ -59,7 +67,9 @@ def _make_fake_openai_client(explanations: list[str]):
         completions = _FakeCompletions()
 
     class _FakeClient:
-        def __init__(self, **_): pass
+        def __init__(self, **_):
+            pass
+
         chat = _FakeChat()
 
     return _FakeClient
@@ -73,10 +83,11 @@ def _make_fake_config(model: str = "test-model"):
 # Helper: run handle_region_explain with mocked LLM and capture output
 # ---------------------------------------------------------------------------
 
+
 def _run_region_explain(svc_instance, region_steps, route="", *, explanations=None):
     """Run handle_region_explain with mocked LLM and config; return captured messages."""
     n = max(len(region_steps), 1)
-    expl = explanations or [f"Erklärung {i+1}" for i in range(n)]
+    expl = explanations or [f"Erklärung {i + 1}" for i in range(n)]
     fake_cls = _make_fake_openai_client(expl)
 
     captured = []
@@ -84,14 +95,14 @@ def _run_region_explain(svc_instance, region_steps, route="", *, explanations=No
 
     # Mock _call_llm_for_region_explain to bypass the full LLM stack
     def _mock_llm(self, steps, route):
-        return expl[:len(steps)]
+        return expl[: len(steps)]
 
-    with mock.patch("openai.OpenAI", fake_cls), \
-         mock.patch("agent.routes.ai_snake_config._current_config",
-                    return_value=_make_fake_config()), \
-         mock.patch.object(svc_mod, "_append_room_ai_message",
-                           side_effect=lambda **kw: captured.append(kw)), \
-         mock.patch.object(VisualGuideService, "_call_llm_for_region_explain", _mock_llm):
+    with (
+        mock.patch("openai.OpenAI", fake_cls),
+        mock.patch("agent.routes.ai_snake_config._current_config", return_value=_make_fake_config()),
+        mock.patch.object(svc_mod, "_append_room_ai_message", side_effect=lambda **kw: captured.append(kw)),
+        mock.patch.object(VisualGuideService, "_call_llm_for_region_explain", _mock_llm),
+    ):
         svc_instance.handle_region_explain(
             snake_id="test-snake",
             region_steps=region_steps,
@@ -105,14 +116,18 @@ def _run_region_explain(svc_instance, region_steps, route="", *, explanations=No
 # Tests: early-exit paths
 # ---------------------------------------------------------------------------
 
+
 class TestRegionExplainEarlyExit:
     def test_empty_region_steps_returns_immediately(self, svc, monkeypatch):
         """Empty list → early exit, no LLM call at all."""
-        import agent.services.visual_guide.service as svc_mod
+
         llm_called = []
 
-        with mock.patch.object(VisualGuideService, "_call_llm_for_region_explain",
-                               side_effect=lambda *a, **kw: llm_called.append(True) or []):
+        with mock.patch.object(
+            VisualGuideService,
+            "_call_llm_for_region_explain",
+            side_effect=lambda *a, **kw: llm_called.append(True) or [],
+        ):
             svc.handle_region_explain(snake_id="s1", region_steps=[], route="/teams")
 
         assert not llm_called, "LLM must not be called for empty region_steps"
@@ -122,10 +137,10 @@ class TestRegionExplainEarlyExit:
         The LLM path is still entered (since rule_bubbles is empty → no early rule exit),
         but _call_llm_for_region_explain returns [] for empty labels, producing no guide."""
         import agent.services.visual_guide.service as svc_mod
+
         guide_appended = []
 
-        with mock.patch.object(svc_mod, "_append_room_ai_message",
-                               side_effect=lambda **kw: guide_appended.append(kw)):
+        with mock.patch.object(svc_mod, "_append_room_ai_message", side_effect=lambda **kw: guide_appended.append(kw)):
             steps = [{"x": 100, "y": 200, "waypoint": "some.el"}]  # no bubble
             svc.handle_region_explain(snake_id="s1", region_steps=steps, route="/teams")
 
@@ -136,6 +151,7 @@ class TestRegionExplainEarlyExit:
 # ---------------------------------------------------------------------------
 # Tests: step sanitisation — out-of-bounds coordinates
 # ---------------------------------------------------------------------------
+
 
 class TestRegionExplainStepValidation:
     def test_steps_with_x_out_of_bounds_are_skipped(self, svc):
@@ -198,15 +214,17 @@ class TestRegionExplainStepValidation:
             for i in range(1, 20)  # 19 steps
         ]
         call_counts = []
-        original_call = VisualGuideService._call_llm_for_region_explain
 
         def counting_llm(self, r_steps, route):
             call_counts.append(len(r_steps))
             return [f"E{i}" for i in range(len(r_steps))]
 
         import agent.services.visual_guide.service as svc_mod
-        with mock.patch.object(VisualGuideService, "_call_llm_for_region_explain", counting_llm), \
-             mock.patch.object(svc_mod, "_append_room_ai_message"):
+
+        with (
+            mock.patch.object(VisualGuideService, "_call_llm_for_region_explain", counting_llm),
+            mock.patch.object(svc_mod, "_append_room_ai_message"),
+        ):
             svc.handle_region_explain(snake_id="s1", region_steps=steps, route="/teams")
 
         # The LLM may not be called if the rule engine covers everything, but if called,
@@ -217,10 +235,7 @@ class TestRegionExplainStepValidation:
     def test_12_steps_cap_at_service_level(self, svc):
         """The _MAX_REGION_STEPS cap of 12 is applied before any processing."""
         # Verify _build_guide_steps with 19 inputs after cap
-        steps = [
-            {"bubble": f"El {i}", "x": 10 * i, "y": 10 * i}
-            for i in range(1, 20)
-        ]
+        steps = [{"bubble": f"El {i}", "x": 10 * i, "y": 10 * i} for i in range(1, 20)]
         explanations = [f"E{i}" for i in range(19)]
         # _build_guide_steps is a static method we can call directly
         result = VisualGuideService._build_guide_steps(
@@ -232,9 +247,9 @@ class TestRegionExplainStepValidation:
     def test_mixed_valid_and_out_of_bounds_steps(self, svc):
         """Valid and invalid steps mixed — only valid appear in guide."""
         steps = [
-            {"bubble": "Erster",    "x": 100,   "y": 100,   "waypoint": "el.1"},
-            {"bubble": "Außerhalb", "x": 99999,  "y": 300,   "waypoint": "el.bad"},
-            {"bubble": "Dritter",   "x": 300,    "y": 300,   "waypoint": "el.3"},
+            {"bubble": "Erster", "x": 100, "y": 100, "waypoint": "el.1"},
+            {"bubble": "Außerhalb", "x": 99999, "y": 300, "waypoint": "el.bad"},
+            {"bubble": "Dritter", "x": 300, "y": 300, "waypoint": "el.3"},
         ]
         captured = _run_region_explain(svc, steps, "/chats", explanations=["E1", "Ebad", "E3"])
         guide_msgs = [m for m in captured if "__GUIDE__:" in (m.get("text") or "")]
@@ -260,12 +275,12 @@ class TestRegionExplainStepValidation:
 # Tests: guide output structure
 # ---------------------------------------------------------------------------
 
+
 class TestRegionExplainOutput:
     def test_output_contains_guide_marker(self, svc):
         """The appended message must contain the __GUIDE__: marker."""
         steps = [{"bubble": "Klick mich", "x": 100, "y": 200, "waypoint": "el.a"}]
-        captured = _run_region_explain(svc, steps, "/dashboard",
-                                       explanations=["Zeigt das Dashboard"])
+        captured = _run_region_explain(svc, steps, "/dashboard", explanations=["Zeigt das Dashboard"])
         assert captured
         texts = [m.get("text", "") for m in captured]
         assert any("__GUIDE__:" in t for t in texts)
@@ -273,8 +288,7 @@ class TestRegionExplainOutput:
     def test_output_guide_steps_carry_original_coordinates(self, svc):
         """x/y from the original steps are preserved in the guide output."""
         steps = [{"bubble": "Button", "x": 42.5, "y": 77.0, "waypoint": "el.btn"}]
-        captured = _run_region_explain(svc, steps, "/workspace",
-                                       explanations=["Drücke hier"])
+        captured = _run_region_explain(svc, steps, "/workspace", explanations=["Drücke hier"])
         guide_msgs = [m for m in captured if "__GUIDE__:" in (m.get("text") or "")]
         assert guide_msgs
         guide_data = json.loads(guide_msgs[0]["text"].split("__GUIDE__:")[1])
@@ -294,8 +308,7 @@ class TestRegionExplainOutput:
         """AI-generated bubble text longer than 120 chars is truncated."""
         long_explanation = "X" * 200
         steps = [{"bubble": "El", "x": 100, "y": 100, "waypoint": "el.a"}]
-        captured = _run_region_explain(svc, steps, "/teams",
-                                       explanations=[long_explanation])
+        captured = _run_region_explain(svc, steps, "/teams", explanations=[long_explanation])
         guide_msgs = [m for m in captured if "__GUIDE__:" in (m.get("text") or "")]
         assert guide_msgs
         guide_data = json.loads(guide_msgs[0]["text"].split("__GUIDE__:")[1])
@@ -306,6 +319,7 @@ class TestRegionExplainOutput:
 # ---------------------------------------------------------------------------
 # Tests: _build_guide_steps unit tests (pure function)
 # ---------------------------------------------------------------------------
+
 
 class TestBuildGuideSteps:
     def test_valid_step_included(self):

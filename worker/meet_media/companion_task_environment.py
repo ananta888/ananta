@@ -19,7 +19,13 @@ def assigned_model_environment(assignment, *, environment=None):
     for name in tuple(child):
         if name.startswith("MEET_HUB_") or name == "MEET_WORKER_KEY_FILE":
             child.pop(name)
-    child.update({"ANANTA_MEET_AVATAR_CODECOMPASS": "0", "MEET_COMPANION_TOOLS": "0",
-                  "MEET_COMPANION_RAG_PREFIX": "0", "MEET_COMPANION_PROJECT": value["project_id"],
-                  "MEET_LLM_TOOL_RESULT_CHARS": "6000"})
+    child.update(
+        {
+            "ANANTA_MEET_AVATAR_CODECOMPASS": "0",
+            "MEET_COMPANION_TOOLS": "0",
+            "MEET_COMPANION_RAG_PREFIX": "0",
+            "MEET_COMPANION_PROJECT": value["project_id"],
+            "MEET_LLM_TOOL_RESULT_CHARS": "6000",
+        }
+    )
     return child

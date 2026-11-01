@@ -1,9 +1,9 @@
 """Unit-Tests für BrowserCamofoxAdapter (task.007)."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 
 from agent.services.browser_camofox_adapter import BrowserCamofoxAdapter, build_camofox_adapter
@@ -30,6 +30,7 @@ def _adapter(base_url="http://localhost:9377") -> BrowserCamofoxAdapter:
 # ---------------------------------------------------------------
 # health_check
 # ---------------------------------------------------------------
+
 
 def test_health_check_success():
     adapter = _adapter()
@@ -71,6 +72,7 @@ def test_health_check_timeout():
 # navigate — allowed domain
 # ---------------------------------------------------------------
 
+
 def test_navigate_allowed_domain():
     adapter = _adapter()
     contract = _contract(allowed_domains=["example.com"])
@@ -98,6 +100,7 @@ def test_navigate_blocked_domain():
 # ---------------------------------------------------------------
 # blocked hosts (localhost / private IPs)
 # ---------------------------------------------------------------
+
 
 def test_navigate_localhost_blocked():
     adapter = _adapter()
@@ -131,6 +134,7 @@ def test_navigate_metadata_ip_blocked():
 # ---------------------------------------------------------------
 # download
 # ---------------------------------------------------------------
+
 
 def test_download_denied_by_default():
     adapter = _adapter()
@@ -173,6 +177,7 @@ def test_download_allowed_by_whitelist(tmp_path):
 # screenshot
 # ---------------------------------------------------------------
 
+
 def test_screenshot_denied_when_policy_none():
     adapter = _adapter()
     contract = _contract(screenshot_policy="none")
@@ -199,6 +204,7 @@ def test_screenshot_allowed_on_error_policy():
 # server error mapped to adapter error
 # ---------------------------------------------------------------
 
+
 def test_server_error_mapped_to_adapter_error():
     adapter = _adapter()
     contract = _contract(allowed_domains=["example.com"])
@@ -216,6 +222,7 @@ def test_server_error_mapped_to_adapter_error():
 # close_session
 # ---------------------------------------------------------------
 
+
 def test_close_session_calls_delete():
     adapter = _adapter()
     mock_resp = MagicMock()
@@ -232,6 +239,7 @@ def test_close_session_calls_delete():
 # build_camofox_adapter factory
 # ---------------------------------------------------------------
 
+
 def test_build_camofox_adapter_defaults():
     adapter = build_camofox_adapter({})
     assert adapter._base_url == "http://localhost:9377"
@@ -247,6 +255,7 @@ def test_build_camofox_adapter_custom_url():
 # ---------------------------------------------------------------
 # No sensitive data in logs (structural check)
 # ---------------------------------------------------------------
+
 
 def test_no_session_token_in_action_result():
     """CamofoxActionResult enthält keine Session-Token oder Cookies."""

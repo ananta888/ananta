@@ -1,15 +1,17 @@
 """OHA-004: Tests für ToolOutputCompactionService."""
+
 import pytest
+
 from agent.services.tool_output_compaction_service import (
     CompactionResult,
     ToolOutputCompactionService,
     _build_from_config,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _svc(**kwargs) -> ToolOutputCompactionService:
     defaults = dict(
@@ -32,6 +34,7 @@ def _long_output(n_lines: int = 300, prefix: str = "line") -> str:
 # ---------------------------------------------------------------------------
 # Short output — pass-through
 # ---------------------------------------------------------------------------
+
 
 def test_short_output_returned_unchanged():
     svc = _svc(max_input_chars_for_compaction=10000)
@@ -58,6 +61,7 @@ def test_none_output_handled():
 # Compaction triggers
 # ---------------------------------------------------------------------------
 
+
 def test_long_shell_output_is_compacted_with_result_fields():
     svc = _svc()
     long = _long_output(300)
@@ -76,27 +80,29 @@ def test_long_shell_output_is_compacted_with_result_fields():
 # Security / error signal preservation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("signal_line", [
-    "ERROR: something went wrong",
-    "FAILED tests/test_foo.py::test_bar",
-    "Traceback (most recent call last):",
-    "AssertionError: expected True",
-    "permission denied: /etc/shadow",
-    "security policy blocked the action",
-    "credential not found",
-    "CRITICAL: disk full",
-    "unauthorized access attempt",
-    "forbidden: 403",
-])
+
+@pytest.mark.parametrize(
+    "signal_line",
+    [
+        "ERROR: something went wrong",
+        "FAILED tests/test_foo.py::test_bar",
+        "Traceback (most recent call last):",
+        "AssertionError: expected True",
+        "permission denied: /etc/shadow",
+        "security policy blocked the action",
+        "credential not found",
+        "CRITICAL: disk full",
+        "unauthorized access attempt",
+        "forbidden: 403",
+    ],
+)
 def test_security_signal_always_preserved(signal_line: str):
     svc = _svc()
     # Embed signal in the middle of long filler
     filler = "\n".join(f"verbose log line {i}" for i in range(200))
     output = f"{filler}\n{signal_line}\n{filler}"
     result = svc.compact(tool_name="shell_execute", output=output)
-    assert signal_line in result.compacted_text, (
-        f"Signal line not preserved: {signal_line!r}"
-    )
+    assert signal_line in result.compacted_text, f"Signal line not preserved: {signal_line!r}"
     assert signal_line in result.preserved_signals
 
 
@@ -113,6 +119,7 @@ def test_multiple_signals_all_preserved():
 # ---------------------------------------------------------------------------
 # Tool-specific rules
 # ---------------------------------------------------------------------------
+
 
 def test_pytest_output_compacted():
     svc = _svc()
@@ -146,6 +153,7 @@ def test_generic_tool_compacted():
 # Result fields
 # ---------------------------------------------------------------------------
 
+
 def test_original_ref_is_16_hex_chars():
     svc = _svc()
     result = svc.compact(tool_name="pytest", output="hello world")
@@ -172,6 +180,7 @@ def test_input_output_chars_reported():
 # Error parameter
 # ---------------------------------------------------------------------------
 
+
 def test_error_appended_to_output():
     svc = _svc(max_input_chars_for_compaction=10000)
     result = svc.compact(
@@ -193,6 +202,7 @@ def test_error_not_duplicated_if_already_in_output():
 # Disabled service
 # ---------------------------------------------------------------------------
 
+
 def test_disabled_service_passes_through():
     svc = _svc(enabled=False)
     long = _long_output(300)
@@ -204,6 +214,7 @@ def test_disabled_service_passes_through():
 # ---------------------------------------------------------------------------
 # Factory from config
 # ---------------------------------------------------------------------------
+
 
 def test_build_from_config_defaults():
     svc = _build_from_config({})

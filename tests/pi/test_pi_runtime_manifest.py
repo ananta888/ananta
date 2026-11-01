@@ -9,9 +9,16 @@ from ananta_contracts.pi_runtime_manifest import PiRuntimeManifest
 
 def manifest():
     return PiRuntimeManifest(
-        tenant_id="synthetic-tenant", project_id="synthetic-project", worker_id="synthetic-worker",
-        worker_url="http://synthetic-worker:5000", repository_revision="a" * 40, image_digest="sha256:" + "b" * 64,
-        node_version="24.18.0", pi_version="0.85.1", evidence_scope="test", synthetic=True,
+        tenant_id="synthetic-tenant",
+        project_id="synthetic-project",
+        worker_id="synthetic-worker",
+        worker_url="http://synthetic-worker:5000",
+        repository_revision="a" * 40,
+        image_digest="sha256:" + "b" * 64,
+        node_version="24.18.0",
+        pi_version="0.85.1",
+        evidence_scope="test",
+        synthetic=True,
     )
 
 
@@ -27,17 +34,34 @@ def test_manifest_is_an_immutable_bound_fact_projection_not_an_evidence_identity
         value.project_id = "changed"
 
 
-@pytest.mark.parametrize("field,value", [
-    ("tenant_id", "foreign tenant"), ("project_id", ""), ("worker_id", 1),
-    ("worker_url", "http://user:secret@worker:5000"), ("worker_url", "file:///tmp/worker"),
-    ("worker_url", "http://worker:99999"), ("worker_url", "http://worker:5000/"),
-    ("worker_url", "http://worker:5000?token=private"), ("worker_url", "http://[malformed"),
-    ("repository_revision", "main"), ("image_digest", "ananta:latest"),
-    ("node_version", "22.18.9"), ("node_version", "24.18.0-nightly"), ("node_version", True),
-    ("pi_version", "latest"), ("pi_version", "0.85.0"), ("execution_profile", "tools-enabled"),
-    ("evidence_scope", "production"), ("evidence_scope", "local"), ("evidence_scope", []),
-    ("synthetic", "false"), ("synthetic", 1), ("schema", "unknown"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("tenant_id", "foreign tenant"),
+        ("project_id", ""),
+        ("worker_id", 1),
+        ("worker_url", "http://user:secret@worker:5000"),
+        ("worker_url", "file:///tmp/worker"),
+        ("worker_url", "http://worker:99999"),
+        ("worker_url", "http://worker:5000/"),
+        ("worker_url", "http://worker:5000?token=private"),
+        ("worker_url", "http://[malformed"),
+        ("repository_revision", "main"),
+        ("image_digest", "ananta:latest"),
+        ("node_version", "22.18.9"),
+        ("node_version", "24.18.0-nightly"),
+        ("node_version", True),
+        ("pi_version", "latest"),
+        ("pi_version", "0.85.0"),
+        ("execution_profile", "tools-enabled"),
+        ("evidence_scope", "production"),
+        ("evidence_scope", "local"),
+        ("evidence_scope", []),
+        ("synthetic", "false"),
+        ("synthetic", 1),
+        ("schema", "unknown"),
+    ],
+)
 def test_manifest_rejects_coercive_unpinned_or_broadened_facts(field, value):
     raw = manifest().to_dict()
     raw[field] = value

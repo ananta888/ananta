@@ -34,9 +34,7 @@ class CompositeRegisteredRemoteCatalog:
                 project_id=project_id,
                 owner_id=owner_id,
             ):
-                reference = str(
-                    getattr(record, "connection_ref", "") or ""
-                )
+                reference = str(getattr(record, "connection_ref", "") or "")
                 by_origin.setdefault(reference, set()).add(index)
                 values.append((index, record))
         return tuple(

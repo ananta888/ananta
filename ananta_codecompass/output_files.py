@@ -237,4 +237,3 @@ def _semantic_partition_metadata_present(
     if present and present != _SEMANTIC_OUTPUT_KEYS:
         raise ValueError("semantic_partition_manifest_incomplete")
     return bool(present)
-

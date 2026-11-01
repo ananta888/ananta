@@ -114,11 +114,7 @@ class ScrumRetrospectiveService:
             "process_signals": signals,
             "architecture_revision_id": sprint["architecture_handoff"]["architecture_revision_id"],
             "architecture_finding_ids": sorted(
-                {
-                    finding
-                    for snapshot in snapshots
-                    for finding in snapshot["architecture_finding_ids"]
-                }
+                {finding for snapshot in snapshots for finding in snapshot["architecture_finding_ids"]}
             ),
             "raw_prompts_included": False,
         }
@@ -138,11 +134,7 @@ class ScrumRetrospectiveService:
             raise ValueError("retrospective_perspectives_incomplete")
         hypotheses = []
         for signal in bundle["process_signals"]:
-            related = [
-                value
-                for value in normalized
-                if signal["signal_id"] in value["supported_signal_ids"]
-            ]
+            related = [value for value in normalized if signal["signal_id"] in value["supported_signal_ids"]]
             if not related:
                 continue
             hypotheses.append(
@@ -305,9 +297,10 @@ class ScrumRetrospectiveService:
         sprint = self._sprints.require(sprint_id)
         if commitment_id not in sprint["improvement_commitment_ids"] or not 1 <= treatment_basis_points <= 9999:
             raise ValueError("improvement_experiment_invalid")
-        bucket = int.from_bytes(
-            hashlib.sha256(f"{commitment_id}\0{sprint_id}\0{subject_id}".encode()).digest()[:8], "big"
-        ) % 10_000
+        bucket = (
+            int.from_bytes(hashlib.sha256(f"{commitment_id}\0{sprint_id}\0{subject_id}".encode()).digest()[:8], "big")
+            % 10_000
+        )
         return {
             "schema": "ananta.scrum-improvement-experiment-assignment.v1",
             "commitment_id": commitment_id,

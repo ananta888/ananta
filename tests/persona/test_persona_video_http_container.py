@@ -169,14 +169,16 @@ def assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch, ret
     # policy, Hub task, Registry receipt and filesystem remain real.
     monkeypatch.setattr(
         "agent.auth._validate_user_jwt",
-        lambda token: {
-            "sub": "actor",
-            "tenant_id": "tenant",
-            "project_id": "project",
-            "role": "user",
-        }
-        if token == "synthetic-video-api"
-        else None,
+        lambda token: (
+            {
+                "sub": "actor",
+                "tenant_id": "tenant",
+                "project_id": "project",
+                "role": "user",
+            }
+            if token == "synthetic-video-api"
+            else None
+        ),
     )
     monkeypatch.setattr("agent.auth._user_token_allows_current_request", lambda _: True)
     http = app.test_client()

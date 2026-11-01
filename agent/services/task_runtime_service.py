@@ -24,18 +24,13 @@ from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
 
-_TASK_STATUS_CAS_REPOSITORY_OWNED_FIELDS = frozenset(
-    {"id", "status", "updated_at", "history"}
-)
+_TASK_STATUS_CAS_REPOSITORY_OWNED_FIELDS = frozenset({"id", "status", "updated_at", "history"})
 
 
 def _is_recovery_related_task(task: Any) -> bool:
-    details = dict(
-        getattr(task, "status_reason_details", None) or {}
-    )
+    details = dict(getattr(task, "status_reason_details", None) or {})
     return bool(
-        str(getattr(task, "derivation_reason", "") or "")
-        == "goal_task_recovery"
+        str(getattr(task, "derivation_reason", "") or "") == "goal_task_recovery"
         or isinstance(details.get("model_recovery"), dict)
         or isinstance(
             details.get("model_recovery_strategy"),
@@ -55,6 +50,8 @@ def _maybe_finalize_goal(goal_id: str) -> None:
 
 _task_subscribers = []
 _subscribers_lock = threading.Lock()
+
+
 def task_status_mutation_lock(task_id: str):
     """Return the shared local/distributed mutation boundary for one task."""
 
@@ -63,9 +60,7 @@ def task_status_mutation_lock(task_id: str):
     )
 
     task = task_repo.get_by_id(str(task_id or ""))
-    source_task_id = str(
-        getattr(task, "source_task_id", "") or ""
-    ).strip()
+    source_task_id = str(getattr(task, "source_task_id", "") or "").strip()
     lock_ids = {str(task_id or "")}
     if source_task_id:
         lock_ids.add(source_task_id)
@@ -83,8 +78,12 @@ def _task_engine():
 class TaskRuntimeService:
     def notify_native_task_cancelled(self, task, *, previous_status):
         _run_task_status_post_commit(
-            task=task, tid=task.id, old_status=previous_status, normalized_status="cancelled",
-            event_type="workflow_node_task_cancelled", force=False,
+            task=task,
+            tid=task.id,
+            old_status=previous_status,
+            normalized_status="cancelled",
+            event_type="workflow_node_task_cancelled",
+            force=False,
         )
 
     def get_local_task_status(self, tid: str) -> dict[str, Any] | None:
@@ -117,9 +116,7 @@ class TaskRuntimeService:
         status: str,
         *,
         expected_statuses: set[str] | list[str] | tuple[str, ...],
-        authoritative_predicate: (
-            Callable[[TaskDB], bool] | None
-        ) = None,
+        authoritative_predicate: (Callable[[TaskDB], bool] | None) = None,
         event_type: str | None = None,
         event_actor: str = "system",
         event_details: dict | None = None,
@@ -158,16 +155,32 @@ def get_local_task_status(tid: str) -> dict[str, Any] | None:
 # synced task does not set, so they correlate without claiming a row.  The
 # plan reference is not lost — it is recorded in the sync event and in
 # worker_execution_context, where nothing enforces it.
-_TASK_SYNC_FIELDS: frozenset[str] = frozenset({
-    "title", "description", "priority", "task_kind",
-    "goal_id", "goal_trace_id", "plan_node_id",
-    "retrieval_intent", "required_context_scope", "preferred_bundle_mode",
-    "required_capabilities", "context_bundle_id",
-    "worker_execution_context", "worker_execution_contract",
-    "expected_artifacts",
-    "verification_spec", "status_reason_details", "depends_on",
-    "parent_task_id", "source_task_id", "derivation_reason", "derivation_depth",
-})
+_TASK_SYNC_FIELDS: frozenset[str] = frozenset(
+    {
+        "title",
+        "description",
+        "priority",
+        "task_kind",
+        "goal_id",
+        "goal_trace_id",
+        "plan_node_id",
+        "retrieval_intent",
+        "required_context_scope",
+        "preferred_bundle_mode",
+        "required_capabilities",
+        "context_bundle_id",
+        "worker_execution_context",
+        "worker_execution_contract",
+        "expected_artifacts",
+        "verification_spec",
+        "status_reason_details",
+        "depends_on",
+        "parent_task_id",
+        "source_task_id",
+        "derivation_reason",
+        "derivation_depth",
+    }
+)
 
 _hub_sync_client = None
 
@@ -176,6 +189,7 @@ def _get_hub_sync_client():
     global _hub_sync_client
     if _hub_sync_client is None:
         from agent.common.http import HttpClient
+
         _hub_sync_client = HttpClient(timeout=10, retries=1)
     return _hub_sync_client
 
@@ -189,6 +203,7 @@ def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
     persistence still skips FK-constrained and execution-state fields.
     """
     from agent.config import settings
+
     role = str(getattr(settings, "role", "") or "").strip().lower()
     if role == "hub":
         return None
@@ -206,12 +221,8 @@ def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
         )
 
         worker_token = resolve_configured_agent_token()
-        worker_id = str(
-            getattr(settings, "agent_name", "") or ""
-        ).strip()
-        worker_url = str(
-            getattr(settings, "agent_url", "") or ""
-        ).strip().rstrip("/")
+        worker_id = str(getattr(settings, "agent_name", "") or "").strip()
+        worker_url = str(getattr(settings, "agent_url", "") or "").strip().rstrip("/")
         if not worker_token or not worker_id or not worker_url:
             logging.warning(
                 "Cannot sync task %s: registered worker identity unavailable",
@@ -219,10 +230,7 @@ def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
             )
             return None
         resp = _get_hub_sync_client().get(
-            (
-                f"{hub_url}/internal/tasks/{tid}"
-                "/recovery-child-manifest"
-            ),
+            (f"{hub_url}/internal/tasks/{tid}/recovery-child-manifest"),
             timeout=10,
             return_response=True,
             silent=True,
@@ -238,8 +246,7 @@ def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
         manifest = body.get("data") if isinstance(body, dict) else None
         if (
             not isinstance(manifest, dict)
-            or manifest.get("schema")
-            != RECOVERY_TASK_MANIFEST_SCHEMA
+            or manifest.get("schema") != RECOVERY_TASK_MANIFEST_SCHEMA
             or not isinstance(manifest.get("task"), dict)
         ):
             logging.warning(
@@ -264,24 +271,10 @@ def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
         )
 
         if recovery_task_role(task_data) == "child":
-            release = dict(
-                (
-                    task_data.get("status_reason_details") or {}
-                ).get("model_recovery_release")
-                or {}
-            )
-            expected_digest = str(
-                release.get("task_payload_digest") or ""
-            )
-            actual_digest = (
-                calculate_recovery_task_payload_digest(
-                    SimpleNamespace(**task_data)
-                )
-            )
-            if (
-                not expected_digest
-                or expected_digest != actual_digest
-            ):
+            release = dict((task_data.get("status_reason_details") or {}).get("model_recovery_release") or {})
+            expected_digest = str(release.get("task_payload_digest") or "")
+            actual_digest = calculate_recovery_task_payload_digest(SimpleNamespace(**task_data))
+            if not expected_digest or expected_digest != actual_digest:
                 logging.warning(
                     "Rejected recovery task sync %s: payload digest mismatch",
                     tid,
@@ -293,11 +286,7 @@ def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
                 tid,
             )
             return None
-        kwargs = {
-            k: task_data[k]
-            for k in _TASK_SYNC_FIELDS
-            if k in task_data and task_data[k] is not None
-        }
+        kwargs = {k: task_data[k] for k in _TASK_SYNC_FIELDS if k in task_data and task_data[k] is not None}
         update_local_task_status(
             tid,
             "todo",
@@ -321,7 +310,10 @@ def notify_task_update(tid: str) -> None:
 
 
 def append_task_history_event(
-    task: TaskDB, event_type: str, actor: str = "system", details: dict | None = None,
+    task: TaskDB,
+    event_type: str,
+    actor: str = "system",
+    details: dict | None = None,
 ) -> None:
     history = list(task.history or [])
     history.append(build_task_history_event(task, event_type, actor=actor, details=details, timestamp=time.time()))
@@ -344,8 +336,7 @@ def _cancel_recovery_children_for_terminal_source(
             child
             for child in list(task_repo.get_by_goal_id(goal_id) or [])
             if str(getattr(child, "source_task_id", "") or "") == task_id
-            and str(getattr(child, "derivation_reason", "") or "")
-            == "goal_task_recovery"
+            and str(getattr(child, "derivation_reason", "") or "") == "goal_task_recovery"
         ]
         cancelled_child_ids: list[str] = []
         from agent.services.recovery_dispatch_gate_service import (
@@ -368,6 +359,7 @@ def _cancel_recovery_children_for_terminal_source(
             if changed:
                 cancelled_child_ids.append(child_id)
         if cancelled_child_ids:
+
             def cancel_worker_requests() -> None:
                 from agent.services.request_cancellation_service import (
                     get_request_cancellation_service,
@@ -429,12 +421,7 @@ def _run_task_status_post_commit(
                 get_execution_audit_service,
             )
 
-            trace_id = (
-                str(
-                    getattr(task, "goal_trace_id", "") or ""
-                ).strip()
-                or None
-            )
+            trace_id = str(getattr(task, "goal_trace_id", "") or "").strip() or None
             audit_service = get_execution_audit_service()
             audit_service.emit_workflow_transition(
                 trace_id=trace_id,
@@ -452,22 +439,10 @@ def _run_task_status_post_commit(
                 task_id=tid,
                 goal_id=getattr(task, "goal_id", None),
                 target_path_class="task_state",
-                write_reason=str(
-                    event_type or "status_update"
-                ),
+                write_reason=str(event_type or "status_update"),
                 approval_source="task_state_machine",
-                verification_result=(
-                    "verified"
-                    if normalized_status
-                    in _TERMINAL_TASK_STATUSES
-                    else "pending"
-                ),
-                risk_level=(
-                    "low"
-                    if normalized_status
-                    in {"todo", "in_progress", "completed"}
-                    else "high"
-                ),
+                verification_result=("verified" if normalized_status in _TERMINAL_TASK_STATUSES else "pending"),
+                risk_level=("low" if normalized_status in {"todo", "in_progress", "completed"} else "high"),
                 actor_role="hub",
                 details={
                     "from_status": str(old_status or ""),
@@ -510,9 +485,7 @@ def _run_task_status_post_commit(
             return RecoverySourceCallbackDelivery(
                 delivered=True,
                 callback_required=False,
-                reason_code=(
-                    "recovery_source_callback_not_configured"
-                ),
+                reason_code=("recovery_source_callback_not_configured"),
             )
         return
 
@@ -521,9 +494,7 @@ def _run_task_status_post_commit(
 
         if agent.common.context.shutdown_requested:
             if synchronous_delivery:
-                raise RuntimeError(
-                    "task callback delivery skipped during shutdown"
-                )
+                raise RuntimeError("task callback delivery skipped during shutdown")
             return
         try:
             payload = {
@@ -531,17 +502,8 @@ def _run_task_status_post_commit(
                 "status": normalized_status,
                 "parent_task_id": task.parent_task_id,
             }
-            post_commit_marker = dict(
-                (
-                    dict(task.status_reason_details or {}).get(
-                        "recovery_source_post_commit"
-                    )
-                    or {}
-                )
-            )
-            transition_id = str(
-                post_commit_marker.get("transition_id") or ""
-            ).strip()
+            post_commit_marker = dict((dict(task.status_reason_details or {}).get("recovery_source_post_commit") or {}))
+            transition_id = str(post_commit_marker.get("transition_id") or "").strip()
             if transition_id:
                 payload["status_transition_id"] = transition_id
                 payload["idempotency_key"] = transition_id
@@ -554,18 +516,12 @@ def _run_task_status_post_commit(
                 project_recovery_source_callback_artifacts,
             )
 
-            callback_artifacts = (
-                project_recovery_source_callback_artifacts(task)
-            )
+            callback_artifacts = project_recovery_source_callback_artifacts(task)
             if callback_artifacts is None:
                 # Backward-compatible projection for ordinary tasks. Recovery
                 # source rows never fall back after Hub ownership is proven.
-                verification_status = dict(
-                    task.verification_status or {}
-                )
-                execution_artifacts = verification_status.get(
-                    "execution_artifacts"
-                )
+                verification_status = dict(task.verification_status or {})
+                execution_artifacts = verification_status.get("execution_artifacts")
                 if isinstance(execution_artifacts, list):
                     callback_artifacts = execution_artifacts
             if isinstance(callback_artifacts, list):
@@ -584,32 +540,20 @@ def _run_task_status_post_commit(
                     idempotency_key=transition_id or None,
                 )
                 if response is None:
-                    raise RuntimeError(
-                        "recovery_source_callback_no_response"
-                    )
+                    raise RuntimeError("recovery_source_callback_no_response")
                 status_code = getattr(
                     response,
                     "status_code",
                     None,
                 )
-                if (
-                    isinstance(status_code, bool)
-                    or not isinstance(status_code, int)
-                ):
-                    raise RuntimeError(
-                        "recovery_source_callback_invalid_response"
-                    )
+                if isinstance(status_code, bool) or not isinstance(status_code, int):
+                    raise RuntimeError("recovery_source_callback_invalid_response")
                 if status_code < 200 or status_code >= 300:
-                    raise RuntimeError(
-                        "recovery_source_callback_http_"
-                        f"{status_code}"
-                    )
+                    raise RuntimeError(f"recovery_source_callback_http_{status_code}")
                 delivery = RecoverySourceCallbackDelivery(
                     delivered=True,
                     callback_required=True,
-                    reason_code=(
-                        "recovery_source_callback_delivered"
-                    ),
+                    reason_code=("recovery_source_callback_delivered"),
                     status_code=status_code,
                 )
             else:
@@ -639,6 +583,7 @@ def _run_task_status_post_commit(
 
     thread = threading.Thread(target=send_callback, daemon=True)
     import agent.common.context
+
     agent.common.context.active_threads.append(thread)
     thread.start()
 
@@ -695,9 +640,7 @@ def update_local_task_status(
     post_commit: tuple[TaskDB, str | None, str] | None = None
     with task_status_mutation_lock(tid) as lock_acquired:
         if not lock_acquired:
-            raise RuntimeError(
-                f"task_status_mutation_lock_unavailable:{tid}"
-            )
+            raise RuntimeError(f"task_status_mutation_lock_unavailable:{tid}")
         post_commit = _update_local_task_status_unlocked(
             tid,
             status,
@@ -725,9 +668,7 @@ def compare_and_set_local_task_status(
     status: str,
     *,
     expected_statuses: set[str] | list[str] | tuple[str, ...],
-    authoritative_predicate: (
-        Callable[[TaskDB], bool] | None
-    ) = None,
+    authoritative_predicate: (Callable[[TaskDB], bool] | None) = None,
     event_type: str | None = None,
     event_actor: str = "system",
     event_details: dict | None = None,
@@ -742,9 +683,7 @@ def compare_and_set_local_task_status(
     """
 
     requested_fields = set(kwargs)
-    unknown_fields = sorted(
-        requested_fields.difference(TaskDB.model_fields)
-    )
+    unknown_fields = sorted(requested_fields.difference(TaskDB.model_fields))
     if unknown_fields:
         logging.warning(
             "Rejected task status CAS %s with unknown fields: %s",
@@ -752,10 +691,7 @@ def compare_and_set_local_task_status(
             ",".join(unknown_fields),
         )
         return False
-    repository_owned_fields = sorted(
-        requested_fields
-        & _TASK_STATUS_CAS_REPOSITORY_OWNED_FIELDS
-    )
+    repository_owned_fields = sorted(requested_fields & _TASK_STATUS_CAS_REPOSITORY_OWNED_FIELDS)
     if repository_owned_fields:
         logging.warning(
             "Rejected task status CAS %s with repository-owned fields: %s",
@@ -777,11 +713,7 @@ def compare_and_set_local_task_status(
         return True
 
     normalized_target = normalize_task_status(status)
-    normalized_expected = {
-        normalize_task_status(value)
-        for value in expected_statuses
-        if str(value or "").strip()
-    }
+    normalized_expected = {normalize_task_status(value) for value in expected_statuses if str(value or "").strip()}
     allowed_expected = {
         old_status
         for old_status in normalized_expected
@@ -860,14 +792,12 @@ def _update_local_task_status_unlocked(
 
     if (
         _is_recovery_related_task(task)
-        and normalize_task_status(old_status)
-        in _TERMINAL_TASK_STATUSES
+        and normalize_task_status(old_status) in _TERMINAL_TASK_STATUSES
         and normalized_status != normalize_task_status(old_status)
         and not (
             normalize_task_status(old_status) == "completed"
             and normalized_status == "verification_failed"
-            and event_type
-            == "recovery_result_verification_failed"
+            and event_type == "recovery_result_verification_failed"
         )
     ):
         logging.warning(
@@ -916,8 +846,7 @@ def _update_local_task_status_unlocked(
     persisted_status = normalize_task_status(task.status)
     if persisted_status != normalized_status:
         logging.warning(
-            "Task mutation %s was rejected by the authoritative repository: "
-            "requested=%s persisted=%s",
+            "Task mutation %s was rejected by the authoritative repository: requested=%s persisted=%s",
             tid,
             normalized_status,
             persisted_status,
@@ -933,9 +862,7 @@ def forward_to_worker(
     token: str | None = None,
     timeout: int | None = None,
 ) -> Any:
-    return get_worker_gateway().forward_task(
-        worker_url, endpoint, data, token=token, timeout=timeout
-    )
+    return get_worker_gateway().forward_task(worker_url, endpoint, data, token=token, timeout=timeout)
 
 
 task_runtime_service = TaskRuntimeService()

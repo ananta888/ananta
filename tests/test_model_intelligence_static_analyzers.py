@@ -75,9 +75,7 @@ def test_static_analysis_rejects_payload_offsets_outside_file(
         }
     }
     encoded = json.dumps(header).encode("utf-8")
-    (tmp_path / "broken.safetensors").write_bytes(
-        len(encoded).to_bytes(8, "little") + encoded
-    )
+    (tmp_path / "broken.safetensors").write_bytes(len(encoded).to_bytes(8, "little") + encoded)
 
     with pytest.raises(ModelAnalysisError) as captured:
         StaticTensorAnalyzer().analyze(
@@ -124,9 +122,7 @@ def test_tokenizer_analysis_reports_metadata_without_template_content(
 def test_quantization_analysis_distinguishes_missing_and_inconsistent(
     tmp_path: Path,
 ) -> None:
-    missing = QuantizationAnalyzer().analyze(
-        snapshot_root=tmp_path
-    ).to_dict()
+    missing = QuantizationAnalyzer().analyze(snapshot_root=tmp_path).to_dict()
     (tmp_path / "config.json").write_text(
         json.dumps(
             {
@@ -139,9 +135,7 @@ def test_quantization_analysis_distinguishes_missing_and_inconsistent(
         ),
         encoding="utf-8",
     )
-    inconsistent = QuantizationAnalyzer().analyze(
-        snapshot_root=tmp_path
-    ).to_dict()
+    inconsistent = QuantizationAnalyzer().analyze(snapshot_root=tmp_path).to_dict()
 
     assert missing["status"] == "not_available"
     assert inconsistent["status"] == "failed"

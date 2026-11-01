@@ -159,11 +159,7 @@ def _rag_metadata_summary(raw: dict | None) -> dict:
     return {
         key: value
         for key in allowed
-        if key in payload
-        and (
-            (value := payload.get(key)) is None
-            or isinstance(value, (str, int, float, bool))
-        )
+        if key in payload and ((value := payload.get(key)) is None or isinstance(value, (str, int, float, bool)))
     }
 
 
@@ -284,9 +280,7 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
             result_rows = repos.worker_result_repo.get_by_worker_job(job.id)
             payload["counts"]["worker_results"] += len(result_rows)
             memory_rows = [
-                entry
-                for entry in task_memory_entries
-                if str(entry.worker_job_id or "").strip() == str(job.id)
+                entry for entry in task_memory_entries if str(entry.worker_job_id or "").strip() == str(job.id)
             ]
             returned_refs: list[dict] = []
             for entry in memory_rows:
@@ -319,9 +313,7 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
                         {
                             **dict(ref or {}),
                             "artifact": _artifact_summary(
-                                str(
-                                    (ref or {}).get("artifact_id") or ""
-                                ).strip(),
+                                str((ref or {}).get("artifact_id") or "").strip(),
                                 repos=repos,
                             )
                             if str((ref or {}).get("artifact_id") or "").strip()
@@ -335,7 +327,8 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
                 }
             )
             _touch_worker_group(
-                worker_groups, worker_url=job.worker_url,
+                worker_groups,
+                worker_url=job.worker_url,
                 worker_name=_display_agent_name(url=job.worker_url),
                 task_id=task_id,
                 worker_job_id=job.id,
@@ -343,7 +336,8 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
                 assignment=job_assignment,
             )
             _touch_assignment_group(
-                assignment_groups, assignment=job_assignment,
+                assignment_groups,
+                assignment=job_assignment,
                 task_id=task_id,
                 worker_job_id=job.id,
                 artifacts=[*job_sent_artifacts, *job_returned_artifacts],
@@ -371,9 +365,7 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
                         item = {
                             "source": row.source,
                             "score": row.score,
-                            "metadata": _rag_metadata_summary(
-                                dict(row.metadata or {})
-                            ),
+                            "metadata": _rag_metadata_summary(dict(row.metadata or {})),
                         }
                         if effective["rag_include_content"]:
                             item["content"] = row.content
@@ -430,11 +422,7 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
             ),
             key=lambda group: (
                 -(len(group.get("artifacts") or [])),
-                str(
-                    group.get("worker_name")
-                    or group.get("worker_url")
-                    or ""
-                ),
+                str(group.get("worker_name") or group.get("worker_url") or ""),
             ),
         ),
         "by_assignment": sorted(

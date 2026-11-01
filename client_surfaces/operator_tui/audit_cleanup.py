@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
 _CLEANUP_ACTIONS: tuple[dict[str, Any], ...] = (
     {
         "id": "overview",

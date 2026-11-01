@@ -75,7 +75,7 @@ class LivekitBroadcastDataAdapter:
         try:
             destinations = command.audience.destination_handles
             batches = tuple(
-                destinations[offset:offset + self._limits.destination_identities_per_publish_max]
+                destinations[offset : offset + self._limits.destination_identities_per_publish_max]
                 for offset in range(0, len(destinations), self._limits.destination_identities_per_publish_max)
             )
             if not batches or len(batches) > self._limits.batch_count_max:
@@ -118,20 +118,22 @@ class LivekitBroadcastDataAdapter:
 
     @staticmethod
     def _digest(command: EncryptedSfuDataCommandV1) -> str:
-        binding = "\x1f".join((
-            command.topic,
-            command.reliability.value,
-            command.audience.tenant_ref,
-            command.audience.room_ref,
-            command.audience.publication_ref,
-            command.audience.audience_ref,
-            str(command.audience.membership_epoch),
-            str(command.audience.route_epoch),
-            str(command.audience.key_epoch),
-            command.audience.fencing_token,
-            *command.audience.destination_handles,
-            str(command.sequence),
-        )).encode("utf-8")
+        binding = "\x1f".join(
+            (
+                command.topic,
+                command.reliability.value,
+                command.audience.tenant_ref,
+                command.audience.room_ref,
+                command.audience.publication_ref,
+                command.audience.audience_ref,
+                str(command.audience.membership_epoch),
+                str(command.audience.route_epoch),
+                str(command.audience.key_epoch),
+                command.audience.fencing_token,
+                *command.audience.destination_handles,
+                str(command.sequence),
+            )
+        ).encode("utf-8")
         return sha256(binding + b"\0" + command.encrypted_packet).hexdigest()
 
     @staticmethod

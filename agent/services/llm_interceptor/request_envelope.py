@@ -55,14 +55,12 @@ def build_request_envelope(
     body = dict(payload or {})
     hdrs = {str(k): v for k, v in dict(headers or {}).items()}
     request_id = str(
-        body.get("request_id")
-        or hdrs.get("X-Request-ID")
-        or hdrs.get("x-request-id")
-        or f"llmi-{uuid.uuid4()}"
+        body.get("request_id") or hdrs.get("X-Request-ID") or hdrs.get("x-request-id") or f"llmi-{uuid.uuid4()}"
     ).strip()
-    correlation_id = str(
-        body.get("correlation_id") or hdrs.get("X-Correlation-ID") or hdrs.get("x-correlation-id") or ""
-    ).strip() or None
+    correlation_id = (
+        str(body.get("correlation_id") or hdrs.get("X-Correlation-ID") or hdrs.get("x-correlation-id") or "").strip()
+        or None
+    )
 
     messages = list(body.get("messages") or [])
     model = str(body.get("model") or "").strip()
@@ -84,4 +82,3 @@ def build_request_envelope(
         expected_contract=expected_contract,
         raw_payload=body,
     )
-

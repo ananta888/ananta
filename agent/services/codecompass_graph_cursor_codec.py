@@ -32,9 +32,7 @@ def staged_graph_scope_digest(
 
 
 def inventory_graph_scope_digest(*, index_id: str, facet: str) -> str:
-    return graph_cursor_scope_digest(
-        {"view": "inventory", "facet": facet, "index_id": index_id}
-    )
+    return graph_cursor_scope_digest({"view": "inventory", "facet": facet, "index_id": index_id})
 
 
 def graph_cursor_scope_digest(scope: Mapping[str, object]) -> str:

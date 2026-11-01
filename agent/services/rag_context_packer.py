@@ -1,10 +1,10 @@
 """Budget-based initial context packing for iterative RAG."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 import pathlib as _pl
+from dataclasses import dataclass
 from typing import Any
-
 
 _CODECOMPASS_GENERATED_PREFIXES = (
     "rag-helper/out/",
@@ -57,7 +57,11 @@ def should_skip_initial_pack(source: str) -> bool:
     """Return True for generated/index data that should not be embedded as prompt body."""
     normalized = source.strip().replace("\\", "/")
     if any(normalized.startswith(prefix) for prefix in _CODECOMPASS_GENERATED_PREFIXES):
-        return normalized.endswith(_CODECOMPASS_GENERATED_SUFFIXES) or "/index_by_kind/" in normalized or "/details_by_kind/" in normalized
+        return (
+            normalized.endswith(_CODECOMPASS_GENERATED_SUFFIXES)
+            or "/index_by_kind/" in normalized
+            or "/details_by_kind/" in normalized
+        )
     return False
 
 

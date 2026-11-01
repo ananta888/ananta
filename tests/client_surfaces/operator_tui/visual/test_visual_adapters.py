@@ -85,4 +85,3 @@ def test_noop_adapter_records_draw_calls_without_writing() -> None:
     assert result.reason == "noop"
     assert adapter.draw_count == 1
     assert out.getvalue() == ""
-

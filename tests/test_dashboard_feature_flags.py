@@ -45,41 +45,41 @@ def test_dashboard_feature_flags_allow_independent_activation():
 
 
 def test_model_rollout_flags_fall_back_compatibly_but_can_be_split():
-    compatible = resolve_dashboard_feature_flags({
-        "feature_angular_model_dashboard_enabled": True,
-    })
+    compatible = resolve_dashboard_feature_flags(
+        {
+            "feature_angular_model_dashboard_enabled": True,
+        }
+    )
     assert compatible.model_catalog_v2 is True
     assert compatible.model_routing_editor is True
     assert compatible.legacy_model_picker_deprecation is False
 
-    staged = resolve_dashboard_feature_flags({
-        "feature_angular_model_dashboard_enabled": True,
-        "feature_model_catalog_v2_enabled": True,
-        "feature_model_routing_editor_enabled": False,
-        "feature_legacy_model_picker_deprecation_enabled": True,
-    })
+    staged = resolve_dashboard_feature_flags(
+        {
+            "feature_angular_model_dashboard_enabled": True,
+            "feature_model_catalog_v2_enabled": True,
+            "feature_model_routing_editor_enabled": False,
+            "feature_legacy_model_picker_deprecation_enabled": True,
+        }
+    )
     assert staged.model_catalog_v2 is True
     assert staged.model_routing_editor is False
     assert staged.legacy_model_picker_deprecation is True
 
 
 def test_feature_flag_update_requires_json_booleans():
-    assert normalize_feature_flag_update(
-        {"feature_tui_kanban_enabled": True, "unrelated": "kept"}
-    ) == {"feature_tui_kanban_enabled": True}
+    assert normalize_feature_flag_update({"feature_tui_kanban_enabled": True, "unrelated": "kept"}) == {
+        "feature_tui_kanban_enabled": True
+    }
 
     with pytest.raises(
         DashboardFeatureFlagError,
         match="invalid_feature_tui_kanban_enabled",
     ):
-        normalize_feature_flag_update(
-            {"feature_tui_kanban_enabled": "true"}
-        )
+        normalize_feature_flag_update({"feature_tui_kanban_enabled": "true"})
 
     with pytest.raises(
         DashboardFeatureFlagError,
         match="invalid_feature_model_routing_editor_enabled",
     ):
-        normalize_feature_flag_update(
-            {"feature_model_routing_editor_enabled": 1}
-        )
+        normalize_feature_flag_update({"feature_model_routing_editor_enabled": 1})

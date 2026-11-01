@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 SECTION_KEYS = {
     "filters",
     "limits",
@@ -28,8 +27,7 @@ def _load_yaml_config(path: Path) -> dict:
         import yaml
     except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
         raise SystemExit(
-            "YAML-Konfigurationsdateien erfordern PyYAML. "
-            "Installiere 'PyYAML' oder nutze eine JSON-Konfiguration."
+            "YAML-Konfigurationsdateien erfordern PyYAML. Installiere 'PyYAML' oder nutze eine JSON-Konfiguration."
         ) from exc
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     return data or {}

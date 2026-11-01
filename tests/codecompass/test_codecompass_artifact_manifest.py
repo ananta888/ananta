@@ -114,7 +114,5 @@ def test_coverage_and_exclusions_are_bounded() -> None:
             run_id="run-example",
             source_revision_id="revision-example",
             references=_references(),
-            exclusions=[
-                {"reason_code": "excluded", "relative_path": "../secret"}
-            ],
+            exclusions=[{"reason_code": "excluded", "relative_path": "../secret"}],
         )

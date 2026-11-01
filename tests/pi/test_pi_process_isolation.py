@@ -42,21 +42,30 @@ def run_sdk(scope, code, **options):
     workspace, config, entry, sdk, _secret = scope
     entry.write_text(code)
     return BoundedCodingAgentProcess(launch_context=pi_process.pi_execution_launch).run(
-        (sys.executable, str(entry), str(sdk), str(config)), cwd=workspace,
-        environment={"PATH": os.defpath, "PI_CODING_AGENT_DIR": str(config),
-                     "ANANTA_PI_API_KEY": "synthetic-provider-key", "AGENT_TOKEN": "synthetic-hub-token",
-                     "LD_PRELOAD": "/tmp/attack.so"},
-        timeout_seconds=options.pop("timeout_seconds", 5), cancellation=Event(), maximum_output_chars=4096,
+        (sys.executable, str(entry), str(sdk), str(config)),
+        cwd=workspace,
+        environment={
+            "PATH": os.defpath,
+            "PI_CODING_AGENT_DIR": str(config),
+            "ANANTA_PI_API_KEY": "synthetic-provider-key",
+            "AGENT_TOKEN": "synthetic-hub-token",
+            "LD_PRELOAD": "/tmp/attack.so",
+        },
+        timeout_seconds=options.pop("timeout_seconds", 5),
+        cancellation=Event(),
+        maximum_output_chars=4096,
         **options,
     )
 
 
 def test_sdk_reads_selected_config_and_credential_but_cannot_access_private_store(isolated_pi):
     _workspace, config, _entry, _sdk, secret = isolated_pi
-    result = run_sdk(isolated_pi, f"""
+    result = run_sdk(
+        isolated_pi,
+        f"""
 import json, os, sys
 from pathlib import Path
-assert json.loads(Path({str(config / 'models.json')!r}).read_text()) == 'synthetic-bound-model'
+assert json.loads(Path({str(config / "models.json")!r}).read_text()) == 'synthetic-bound-model'
 assert os.environ['ANANTA_PI_API_KEY'] == 'synthetic-provider-key'
 assert 'AGENT_TOKEN' not in os.environ and 'LD_PRELOAD' not in os.environ
 assert sys.stdin.read() == 'synthetic delegated prompt\\n'
@@ -67,13 +76,15 @@ except PermissionError:
 else:
     raise AssertionError('private_store_escape')
 try:
-    Path({str(config / 'models.json')!r}).write_text('changed')
+    Path({str(config / "models.json")!r}).write_text('changed')
 except PermissionError:
     pass
 else:
     raise AssertionError('config_mutation')
 print('bounded_sdk_completed')
-""", input_text="synthetic delegated prompt\n")
+""",
+        input_text="synthetic delegated prompt\n",
+    )
     assert result.return_code == 0, result.stderr
     assert result.stdout == "bounded_sdk_completed\n"
     assert secret.read_text() == "synthetic-private-result-canary"
@@ -88,7 +99,9 @@ def test_sdk_cancellation_and_output_bounds_survive_launcher(isolated_pi):
 
 def test_sdk_can_read_system_dns_configuration_but_not_private_results(isolated_pi):
     secret = isolated_pi[-1]
-    result = run_sdk(isolated_pi, f"""
+    result = run_sdk(
+        isolated_pi,
+        f"""
 from pathlib import Path
 for filename in ['/etc/hosts', '/etc/resolv.conf']:
     path = Path(filename)
@@ -101,9 +114,10 @@ except PermissionError:
 else:
     raise AssertionError('private_store_escape')
 print('dns_configuration_readable_private_store_denied')
-""")
+""",
+    )
     assert result.return_code == 0, result.stderr
-    assert result.stdout == 'dns_configuration_readable_private_store_denied\n'
+    assert result.stdout == "dns_configuration_readable_private_store_denied\n"
 
 
 def test_sdk_cancellation_stops_guarded_child(isolated_pi):
@@ -114,9 +128,12 @@ def test_sdk_cancellation_stops_guarded_child(isolated_pi):
         workspace, config, entry, sdk, _secret = isolated_pi
         entry.write_text("import time\ntime.sleep(5)")
         result = BoundedCodingAgentProcess(launch_context=pi_process.pi_execution_launch).run(
-            (sys.executable, str(entry), str(sdk), str(config)), cwd=workspace,
+            (sys.executable, str(entry), str(sdk), str(config)),
+            cwd=workspace,
             environment={"PATH": os.defpath, "PI_CODING_AGENT_DIR": str(config)},
-            timeout_seconds=3, cancellation=cancellation, maximum_output_chars=1024,
+            timeout_seconds=3,
+            cancellation=cancellation,
+            maximum_output_chars=1024,
         )
         assert result.reason_code == "cancelled" and result.duration_ms < 2000
     finally:
@@ -126,13 +143,17 @@ def test_sdk_cancellation_stops_guarded_child(isolated_pi):
 def test_foreign_configuration_or_package_layout_never_launches(isolated_pi, monkeypatch):
     workspace, config, entry, sdk, _secret = isolated_pi
     entry.write_text("raise AssertionError('must not launch')")
-    monkeypatch.setattr("agent.cli_backends.coding_agent_process.subprocess.Popen",
-                        lambda *a, **k: pytest.fail("must not launch"))
+    monkeypatch.setattr(
+        "agent.cli_backends.coding_agent_process.subprocess.Popen", lambda *a, **k: pytest.fail("must not launch")
+    )
     with pytest.raises(PermissionError, match="configuration_binding"):
         BoundedCodingAgentProcess(launch_context=pi_process.pi_execution_launch).run(
-            (sys.executable, str(entry), str(sdk), str(config)), cwd=workspace,
-            environment={"PI_CODING_AGENT_DIR": "/foreign"}, timeout_seconds=1,
-            cancellation=Event(), maximum_output_chars=1024,
+            (sys.executable, str(entry), str(sdk), str(config)),
+            cwd=workspace,
+            environment={"PI_CODING_AGENT_DIR": "/foreign"},
+            timeout_seconds=1,
+            cancellation=Event(),
+            maximum_output_chars=1024,
         )
 
 
@@ -153,9 +174,12 @@ else:
 """)
     binary.chmod(0o700)
     result = pi_process.PiProbeProcess().run(
-        (str(binary), "--version"), cwd=binary.parent,
+        (str(binary), "--version"),
+        cwd=binary.parent,
         environment={"PATH": os.defpath, "ANANTA_PI_API_KEY": "synthetic-provider", "AGENT_TOKEN": "synthetic-hub"},
-        timeout_seconds=5, cancellation=Event(), maximum_output_chars=4096,
+        timeout_seconds=5,
+        cancellation=Event(),
+        maximum_output_chars=4096,
     )
     assert result.return_code == 0 and result.stdout == "probe_isolated\n", result.stderr
 
@@ -184,20 +208,28 @@ def test_real_node_reads_sdk_resources_but_not_private_store(isolated_pi, node_b
     entry.write_text(f"""
 import {{ readFileSync, writeFileSync }} from 'node:fs';
 import assert from 'node:assert/strict';
-assert.equal(readFileSync({json.dumps(str(config / 'models.json'))}, 'utf8'), '"synthetic-bound-model"');
+assert.equal(readFileSync({json.dumps(str(config / "models.json"))}, 'utf8'), '"synthetic-bound-model"');
 assert.equal(process.env.ANANTA_PI_API_KEY, 'synthetic-provider');
 assert.equal(process.env.AGENT_TOKEN, undefined);
 assert.equal(readFileSync(0, 'utf8'), 'delegated prompt');
 assert.throws(() => readFileSync({json.dumps(str(secret))}), {{ code: 'EACCES' }});
-assert.throws(() => writeFileSync({json.dumps(str(config / 'models.json'))}, 'changed'), {{ code: 'EACCES' }});
+assert.throws(() => writeFileSync({json.dumps(str(config / "models.json"))}, 'changed'), {{ code: 'EACCES' }});
 writeFileSync('delegated-output.txt', 'workspace writable');
 console.log('node_sdk_isolated');
 """)
     result = BoundedCodingAgentProcess(launch_context=pi_process.pi_execution_launch).run(
-        (node_binary, str(entry), str(sdk), str(config)), cwd=workspace,
-        environment={"PATH": str(Path(node_binary).parent), "PI_CODING_AGENT_DIR": str(config),
-                     "ANANTA_PI_API_KEY": "synthetic-provider", "AGENT_TOKEN": "synthetic-hub"},
-        input_text="delegated prompt", timeout_seconds=5, cancellation=Event(), maximum_output_chars=4096,
+        (node_binary, str(entry), str(sdk), str(config)),
+        cwd=workspace,
+        environment={
+            "PATH": str(Path(node_binary).parent),
+            "PI_CODING_AGENT_DIR": str(config),
+            "ANANTA_PI_API_KEY": "synthetic-provider",
+            "AGENT_TOKEN": "synthetic-hub",
+        },
+        input_text="delegated prompt",
+        timeout_seconds=5,
+        cancellation=Event(),
+        maximum_output_chars=4096,
     )
     assert result.return_code == 0, result.stderr
     assert result.stdout == "node_sdk_isolated\n"
@@ -221,10 +253,16 @@ console.log('0.85.1');
 """)
     binary.chmod(0o700)
     result = pi_process.PiProbeProcess().run(
-        (str(binary), "--version"), cwd=binary.parent,
-        environment={"PATH": str(Path(node_binary).parent), "ANANTA_PI_API_KEY": "synthetic-provider",
-                     "AGENT_TOKEN": "synthetic-hub"},
-        timeout_seconds=5, cancellation=Event(), maximum_output_chars=4096,
+        (str(binary), "--version"),
+        cwd=binary.parent,
+        environment={
+            "PATH": str(Path(node_binary).parent),
+            "ANANTA_PI_API_KEY": "synthetic-provider",
+            "AGENT_TOKEN": "synthetic-hub",
+        },
+        timeout_seconds=5,
+        cancellation=Event(),
+        maximum_output_chars=4096,
     )
     assert result.return_code == 0, result.stderr
     assert result.stdout == "0.85.1\n"

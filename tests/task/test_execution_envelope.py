@@ -1,6 +1,5 @@
 """Tests for worker/core/execution_envelope.py (EW-T007)."""
-import hashlib
-import json
+
 import time
 
 import pytest
@@ -10,21 +9,18 @@ from worker.core.execution_envelope import (
     ApprovalRef,
     CapabilityGrant,
     ExecutionEnvelope,
-    FilesystemScope,
     LegacyEnvelopeAdapter,
     ModelPolicy,
-    NetworkScope,
     ToolPolicy,
     TraceBundle,
-    TraceEvent,
     WorkerResult,
     WorkerResultStatus,
     _capability_hash,
     make_trace,
 )
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _minimal_envelope(**overrides) -> ExecutionEnvelope:
     defaults = dict(
@@ -46,6 +42,7 @@ def _minimal_trace() -> TraceBundle:
 
 
 # ── CapabilityGrant ────────────────────────────────────────────────────────────
+
 
 class TestCapabilityGrant:
     def test_known_capabilities_accepted_with_order_independent_snapshot_hash(self):
@@ -73,6 +70,7 @@ class TestCapabilityGrant:
 
 
 # ── ModelPolicy ───────────────────────────────────────────────────────────────
+
 
 class TestModelPolicy:
     def test_cloud_blocked_when_cloud_allowed_false(self):
@@ -112,6 +110,7 @@ class TestModelPolicy:
 
 # ── ToolPolicy ────────────────────────────────────────────────────────────────
 
+
 class TestToolPolicy:
     def test_empty_allowlist_denies_by_default(self):
         p = ToolPolicy()
@@ -141,6 +140,7 @@ class TestToolPolicy:
 
 # ── ApprovalRef ───────────────────────────────────────────────────────────────
 
+
 class TestApprovalRef:
     def test_valid_approval_ref(self):
         ref = ApprovalRef(
@@ -166,6 +166,7 @@ class TestApprovalRef:
 
 
 # ── ExecutionEnvelope ─────────────────────────────────────────────────────────
+
 
 class TestExecutionEnvelope:
     def test_minimal_valid_envelope(self):
@@ -243,6 +244,7 @@ class TestExecutionEnvelope:
 
 # ── TraceBundle ───────────────────────────────────────────────────────────────
 
+
 class TestTraceBundle:
     def test_append_records_typed_timestamped_events_with_payload(self):
         before = time.time()
@@ -258,6 +260,7 @@ class TestTraceBundle:
 
 
 # ── WorkerResult ──────────────────────────────────────────────────────────────
+
 
 class TestWorkerResult:
     def test_denied_factory(self):
@@ -291,6 +294,7 @@ class TestWorkerResult:
 
 # ── LegacyEnvelopeAdapter ─────────────────────────────────────────────────────
 
+
 class TestLegacyEnvelopeAdapter:
     @pytest.mark.parametrize(
         "mode,granted,not_granted",
@@ -322,13 +326,21 @@ class TestLegacyEnvelopeAdapter:
 
     def test_all_known_modes_produce_valid_envelope(self):
         adapter = LegacyEnvelopeAdapter()
-        for mode in ["plan_only", "patch_propose", "patch_apply", "command_plan",
-                     "command_execute", "test_run", "verify"]:
+        for mode in [
+            "plan_only",
+            "patch_propose",
+            "patch_apply",
+            "command_plan",
+            "command_execute",
+            "test_run",
+            "verify",
+        ]:
             env = adapter.wrap(task_id=f"t-{mode}", mode=mode)
             assert isinstance(env, ExecutionEnvelope)
 
 
 # ── make_trace helper ─────────────────────────────────────────────────────────
+
 
 class TestMakeTrace:
     def test_trace_inherits_correlation_id_and_snapshot_hash_from_envelope(self):
@@ -339,6 +351,7 @@ class TestMakeTrace:
 
 
 # ── _capability_hash helper ───────────────────────────────────────────────────
+
 
 class TestCapabilityHash:
     def test_deterministic(self):

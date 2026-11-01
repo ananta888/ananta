@@ -5,6 +5,7 @@ Each account action is one small handler registered in
 the action up. Account persistence and provider discovery stay behind
 ``MailApplicationService``.
 """
+
 from __future__ import annotations
 
 import hashlib

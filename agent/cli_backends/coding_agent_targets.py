@@ -18,9 +18,7 @@ from agent.config import settings
 from agent.local_llm_backends import resolve_local_openai_backend
 from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
 
-_HOSTED_PROVIDER_MODEL_PREFIXES = frozenset(
-    {"anthropic", "gemini", "groq", "openai", "openrouter", "xai"}
-)
+_HOSTED_PROVIDER_MODEL_PREFIXES = frozenset({"anthropic", "gemini", "groq", "openai", "openrouter", "xai"})
 _PROVIDER_API_KEY_ENVIRONMENT = {
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
@@ -46,15 +44,18 @@ def resolve_aider_inference_target(
     aider_cfg = cfg.get("aider_cli") if isinstance(cfg.get("aider_cli"), dict) else {}
     default_provider = str(cfg.get("default_provider") or _get_runtime_default_provider() or "").strip().lower()
     configured_provider = str(aider_cfg.get("target_provider") or "").strip().lower() or None
-    requested_model = str(
-        model
-        or aider_cfg.get("model")
-        or aider_cfg.get("default_model")
-        or getattr(settings, "aider_default_model", None)
-        or cfg.get("default_model")
-        or cfg.get("model")
-        or ""
-    ).strip() or None
+    requested_model = (
+        str(
+            model
+            or aider_cfg.get("model")
+            or aider_cfg.get("default_model")
+            or getattr(settings, "aider_default_model", None)
+            or cfg.get("default_model")
+            or cfg.get("model")
+            or ""
+        ).strip()
+        or None
+    )
 
     explicit_prefix, unprefixed_model = _split_recognized_model(
         requested_model,
@@ -67,13 +68,17 @@ def resolve_aider_inference_target(
     api_key: str | None = None
     api_key_source: str | None = None
 
-    local_target = resolve_local_openai_backend(
-        provider_id,
-        agent_cfg=cfg,
-        provider_urls=urls,
-        default_provider=default_provider,
-        default_model=str(cfg.get("default_model") or ""),
-    ) if provider_id else None
+    local_target = (
+        resolve_local_openai_backend(
+            provider_id,
+            agent_cfg=cfg,
+            provider_urls=urls,
+            default_provider=default_provider,
+            default_model=str(cfg.get("default_model") or ""),
+        )
+        if provider_id
+        else None
+    )
     if provider_id == "ollama":
         base_url = _normalize_ollama_openai_base_url(
             str(urls.get("ollama") or getattr(settings, "ollama_url", None) or "")

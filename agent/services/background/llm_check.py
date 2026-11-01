@@ -1,28 +1,36 @@
 import logging
 import threading
 import time
+
 from agent.config import settings
+
 
 def _sleep_with_shutdown(total_seconds: int) -> None:
     import agent.common.context
+
     for _ in range(total_seconds):
         if agent.common.context.shutdown_requested:
             break
         time.sleep(1)
 
+
 def _get_llm_target(app) -> tuple[str, str] | None:
-    provider = str((app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "")
+    provider = str(
+        (app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or ""
+    )
     url = app.config["PROVIDER_URLS"].get(provider)
     if not url or provider in ["openai", "anthropic"]:
         logging.info(f"LLM-Check fuer {provider} uebersprungen (Cloud-Provider oder keine URL).")
         return None
     return provider, url
 
+
 def _handle_llm_probe_result(provider: str, url: str, latency: float, is_ok: bool, last_state_ok: bool | None) -> bool:
     if is_ok:
         if latency > 2.0:
             logging.warning(f"LLM-Latenz-Warnung: {provider} antwortet langsam ({latency:.2f}s).")
             from agent.llm_integration import _report_llm_failure
+
             _report_llm_failure(provider)
         if last_state_ok is not True:
             logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR. (Latenz: {latency:.2f}s)")
@@ -56,6 +64,7 @@ def _probe_provider_reachability(provider: str, url: str, timeout_seconds: int) 
     res = check_client.get(url, timeout=timeout_seconds, silent=True, return_response=True)
     return res is not None and 200 <= int(res.status_code) < 400
 
+
 def _run_llm_check_loop(app) -> None:
     import agent.common.context
 
@@ -80,9 +89,11 @@ def _run_llm_check_loop(app) -> None:
         _sleep_with_shutdown(300)
     logging.info("LLM-Monitoring-Task beendet.")
 
+
 def start_llm_check_thread(app):
     """Prueft periodisch die Erreichbarkeit des konfigurierten LLM-Providers."""
     t = threading.Thread(target=lambda: _run_llm_check_loop(app), daemon=True)
     import agent.common.context
+
     agent.common.context.active_threads.append(t)
     t.start()

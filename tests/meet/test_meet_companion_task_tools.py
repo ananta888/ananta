@@ -43,16 +43,23 @@ def hub(assigned, monkeypatch):
     app.register_blueprint(meet_bp)
     app.extensions["meet_media_worker_key"] = KEY
     database = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(database, tables=[HubRunEvidenceIdentityDB.__table__,
-                                                 HubSourceEvidenceIdentityDB.__table__])
+    SQLModel.metadata.create_all(
+        database, tables=[HubRunEvidenceIdentityDB.__table__, HubSourceEvidenceIdentityDB.__table__]
+    )
     store = SqlCompanionToolSources(database)
     store.initialize()
     attempts = SqlCompanionToolAttempts(database, max_calls=3)
     attempts.initialize()
     registry = HubEvidenceRegistryService(SqlEvidenceIdentityRepository(database))
-    capability = {"workspace_id": "workspace", "repository_id": "repo", "source_scope": "repository",
-                  "revision": "1" * 40, "allowed_paths": ["worker/"], "allowed_index_ids": ["index"],
-                  "allowed_signals": ["exact"]}
+    capability = {
+        "workspace_id": "workspace",
+        "repository_id": "repo",
+        "source_scope": "repository",
+        "revision": "1" * 40,
+        "allowed_paths": ["worker/"],
+        "allowed_index_ids": ["index"],
+        "allowed_signals": ["exact"],
+    }
     resolver = Mock()
     resolver.resolve.side_effect = lambda **_kwargs: dict(capability)
     app.extensions["codecompass_retrieval_capability_resolver"] = resolver
@@ -69,19 +76,29 @@ def hub(assigned, monkeypatch):
 
     backend.call_tool.side_effect = execute
     policy = HubCompanionToolPolicy(app, get_operation_registry_service(), get_operation_policy_service())
-    service = MeetCompanionTaskTools(f.authority, policy, HubCompanionToolExecution(app, backend), store,
-                                    registry, attempts=attempts, synthetic=True)
+    service = MeetCompanionTaskTools(
+        f.authority, policy, HubCompanionToolExecution(app, backend), store, registry, attempts=attempts, synthetic=True
+    )
     app.extensions["meet_companion_task_tools"] = service
-    request = {"schema": REQUEST_SCHEMA, "nonce": "a" * 32, "sent_at": int(time.time()),
-               "assignment": assignment, "tool": "codecompass.retrieve", "arguments": {"query": "Meet"}}
+    request = {
+        "schema": REQUEST_SCHEMA,
+        "nonce": "a" * 32,
+        "sent_at": int(time.time()),
+        "assignment": assignment,
+        "tool": "codecompass.retrieve",
+        "arguments": {"query": "Meet"},
+    }
     yield SimpleNamespace(**locals())
     database.dispose()
 
 
 def post(f, value=None, **headers):
     raw = encode(f.request if value is None else value)
-    result = f.app.test_client().post(PATH, data=raw, headers={"Content-Type": "application/json",
-                          SIGNATURE_HEADER: request_signature(KEY, raw), **headers})
+    result = f.app.test_client().post(
+        PATH,
+        data=raw,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(KEY, raw), **headers},
+    )
     return raw, result
 
 
@@ -91,8 +108,12 @@ def test_signed_tool_response_has_actual_registered_sources_and_pre_reserved_run
     assert response.headers[SIGNATURE_HEADER] == response_signature(KEY, raw, response.data)
     assert response.headers["Cache-Control"] == "no-store"
     value = response.get_json()
-    source = hub.registry.require_source_identity(tenant_id="tenant", project_id="project",
-        source_id=value["sources"][0]["source_id"], expected_binding_digest=value["sources"][0]["binding_digest"])
+    source = hub.registry.require_source_identity(
+        tenant_id="tenant",
+        project_id="project",
+        source_id=value["sources"][0]["source_id"],
+        expected_binding_digest=value["sources"][0]["binding_digest"],
+    )
     assert source.synthetic and source.evidence_scope == "test"
     with hub.database.connect() as connection:
         run = connection.execute(select(HubRunEvidenceIdentityDB.__table__)).mappings().one()
@@ -103,8 +124,10 @@ def test_signed_tool_response_has_actual_registered_sources_and_pre_reserved_run
     assert post(hub)[1].status_code == 409 and len(hub.calls) == 1
 
 
-@pytest.mark.parametrize("field,value", [("project_id", "foreign"), ("lease_id", "stale"),
-                                        ("runtime_id", "replacement"), ("session_id", "foreign")])
+@pytest.mark.parametrize(
+    "field,value",
+    [("project_id", "foreign"), ("lease_id", "stale"), ("runtime_id", "replacement"), ("session_id", "foreign")],
+)
 def test_foreign_or_stale_assignment_never_executes(hub, field, value):
     packet = hub.request | {"assignment": hub.request["assignment"] | {field: value}}
     assert post(hub, packet)[1].status_code == 403
@@ -135,8 +158,9 @@ def test_withdrawal_during_tool_discards_output_and_fails_reserved_run(hub, with
     assert run["state"] == "failed" and len(admitted) == 1
 
 
-@pytest.mark.parametrize("patch", [{"source_id": "SRC_caller"}, {"run_id": "RUN_caller"},
-                                 {"nonce": "x"}, {"sent_at": 1}, {"sent_at": True}])
+@pytest.mark.parametrize(
+    "patch", [{"source_id": "SRC_caller"}, {"run_id": "RUN_caller"}, {"nonce": "x"}, {"sent_at": 1}, {"sent_at": True}]
+)
 def test_caller_evidence_and_invalid_envelopes_are_rejected(hub, patch):
     assert post(hub, hub.request | patch)[1].status_code == 403
     assert not hub.calls
@@ -220,8 +244,11 @@ def test_worker_rejects_missing_auth_foreign_evidence_and_request_replay(hub, fa
                 value["sources"][0]["source_id"] = "SRC_caller"
             response.set_data(encode(value))
             raw = request_body[0]
-            response.headers[SIGNATURE_HEADER] = ("" if failure == "unsigned" else
-                response_signature(KEY, raw + (b" " if failure == "replay_response" else b""), response.data))
+            response.headers[SIGNATURE_HEADER] = (
+                ""
+                if failure == "unsigned"
+                else response_signature(KEY, raw + (b" " if failure == "replay_response" else b""), response.data)
+            )
         return response
 
     request_body = []
@@ -272,11 +299,14 @@ def test_sql_budget_atomically_admits_only_three_concurrent_calls(tmp_path):
         database.dispose()
 
 
-@pytest.mark.parametrize("policy", [
-    {"enabled": True, "allow_groups": ["api.read.v1"]},
-    {"enabled": True, "deny_operations": ["mcp.tool.codecompass.retrieve"]},
-    {"enabled": True, "require_approval_for_risks": ["low", "medium", "high", "critical"]},
-])
+@pytest.mark.parametrize(
+    "policy",
+    [
+        {"enabled": True, "allow_groups": ["api.read.v1"]},
+        {"enabled": True, "deny_operations": ["mcp.tool.codecompass.retrieve"]},
+        {"enabled": True, "require_approval_for_risks": ["low", "medium", "high", "critical"]},
+    ],
+)
 def test_operation_denial_or_mandatory_approval_is_a_bounded_refusal(hub, policy):
     hub.app.config["AGENT_CONFIG"] = {"operation_policy": policy}
     assert post(hub)[1].status_code == 403 and not hub.calls

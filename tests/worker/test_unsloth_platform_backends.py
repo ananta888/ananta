@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from worker.training.backends.base import TrainingBackendError
 from worker.training.backends.unsloth import UnslothTrainingBackend
 from worker.training.backends.unsloth_audio import UnslothAudioTrainingBackend
 from worker.training.backends.unsloth_embedding import _embedding_rows
 from worker.training.backends.unsloth_vision import UnslothVisionTrainingBackend
-from worker.training.backends.base import TrainingBackendError
 from worker.training.vram_admission import VramAdmissionError, VramAdmissionPolicy
 
 

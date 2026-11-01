@@ -1,15 +1,14 @@
 """SS02.01: Tests für lokale Device-Key-Verwaltung."""
+
 from __future__ import annotations
 
 import json
-import os
+
 import pytest
-import tempfile
-from pathlib import Path
 
 from client_surfaces.operator_tui.device_keys import (
-    DeviceKeyManager,
     DeviceKeyError,
+    DeviceKeyManager,
     _fingerprint_from_pubkey_bytes,
 )
 

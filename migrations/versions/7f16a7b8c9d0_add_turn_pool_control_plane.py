@@ -59,7 +59,9 @@ def upgrade() -> None:
         sa.Column("revoked_at", sa.Float(), nullable=True),
         sa.Column("created_at", sa.Float(), nullable=False),
     )
-    op.create_index("ix_turn_observer_credential_identity_status", "turn_observer_credentials", ["identity_id", "status"])
+    op.create_index(
+        "ix_turn_observer_credential_identity_status", "turn_observer_credentials", ["identity_id", "status"]
+    )
     op.create_table(
         "turn_observer_identity_mutations",
         sa.Column("id", sa.String(), primary_key=True),
@@ -78,7 +80,11 @@ def upgrade() -> None:
         sa.Column("audited_at", sa.Float(), nullable=False),
         sa.UniqueConstraint("actor", "idempotency_key_digest", name="uq_turn_observer_mutation_actor_key"),
     )
-    op.create_index("ix_turn_observer_mutation_scope_version", "turn_observer_identity_mutations", ["pool_id", "instance_id", "result_version"])
+    op.create_index(
+        "ix_turn_observer_mutation_scope_version",
+        "turn_observer_identity_mutations",
+        ["pool_id", "instance_id", "result_version"],
+    )
     op.create_table(
         "turn_observer_enrollment_rate_limits",
         sa.Column("id", sa.String(), primary_key=True),
@@ -131,7 +137,9 @@ def upgrade() -> None:
         sa.Column("accepted_at", sa.Float(), nullable=False),
         sa.Column("expires_at", sa.Float(), nullable=False),
     )
-    op.create_index("ix_turn_observation_replay_scope_expiry", "turn_observation_replays", ["pool_id", "instance_id", "expires_at"])
+    op.create_index(
+        "ix_turn_observation_replay_scope_expiry", "turn_observation_replays", ["pool_id", "instance_id", "expires_at"]
+    )
     op.create_table(
         "turn_pool_nodes",
         sa.Column("id", sa.String(), primary_key=True),
@@ -166,7 +174,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("pool_id", "instance_id", name="uq_turn_pool_node_scope"),
         sa.CheckConstraint("version > 0", name="ck_turn_pool_node_version_positive"),
     )
-    op.create_index("ix_turn_pool_node_selection", "turn_pool_nodes", ["region", "status", "health_status", "capacity_status"])
+    op.create_index(
+        "ix_turn_pool_node_selection", "turn_pool_nodes", ["region", "status", "health_status", "capacity_status"]
+    )
     op.create_table(
         "turn_pool_node_mutations",
         sa.Column("id", sa.String(), primary_key=True),

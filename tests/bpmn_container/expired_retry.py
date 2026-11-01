@@ -34,12 +34,21 @@ def exercise_expired_retry(app, base, token, orchestrator, xml, journal):
     def control(kind, name):
         checkpoint = orchestrator.checkpoint(request)
         command = SignedWorkflowCommand.issue(
-            key_ring=keys, command_type=kind, tenant_id=checkpoint.tenant_id,
-            workflow_id=checkpoint.workflow_id, run_id=checkpoint.run_id, step_id="__workflow__",
-            checkpoint_id=checkpoint.checkpoint_id, expected_revision=checkpoint.revision,
-            plan_hash=checkpoint.plan_hash, policy_version=checkpoint.policy_version,
-            actor_id="synthetic-retry-admin", actor_roles=("admin",), now=time.time(),
-            command_id=name, nonce=name,
+            key_ring=keys,
+            command_type=kind,
+            tenant_id=checkpoint.tenant_id,
+            workflow_id=checkpoint.workflow_id,
+            run_id=checkpoint.run_id,
+            step_id="__workflow__",
+            checkpoint_id=checkpoint.checkpoint_id,
+            expected_revision=checkpoint.revision,
+            plan_hash=checkpoint.plan_hash,
+            policy_version=checkpoint.policy_version,
+            actor_id="synthetic-retry-admin",
+            actor_roles=("admin",),
+            now=time.time(),
+            command_id=name,
+            nonce=name,
         )
         print("BPMN_EXPIRED_STAGE=" + kind + ":" + name, flush=True)
         try:
@@ -47,8 +56,11 @@ def exercise_expired_retry(app, base, token, orchestrator, xml, journal):
         except Exception as exc:
             import traceback
 
-            print("BPMN_EXPIRED_FAILURE=" + str([(frame.name, frame.lineno) for frame in
-                  traceback.extract_tb(exc.__traceback__)]), flush=True)
+            print(
+                "BPMN_EXPIRED_FAILURE="
+                + str([(frame.name, frame.lineno) for frame in traceback.extract_tb(exc.__traceback__)]),
+                flush=True,
+            )
             raise
 
     cancelled = control("cancel", "synthetic-expired-cancel")
@@ -61,13 +73,20 @@ def exercise_expired_retry(app, base, token, orchestrator, xml, journal):
         raise AssertionError("uncertain_retry_without_policy")
     with Session(engine) as session:
         assert len(list(session.exec(select(NativeDispatchDB)))) == 1
-    app.config["ANANTA_NATIVE_UNCERTAIN_RETRY_POLICY"] = [{
-        "purpose": "native.retry.unknown_dispatch", "tenant_id": request.plan.tenant_id,
-        "workflow_id": request.plan.workflow_id, "run_id": request.run_id, "plan_hash": original["plan_hash"],
-        "policy_version": request.plan.policy_version, "step_id": original["node"]["node_id"],
-        "actor_id": "synthetic-retry-admin", "dispatch_binding_digest": journal.binding_digest,
-        "maximum_attempts": 2,
-    }]
+    app.config["ANANTA_NATIVE_UNCERTAIN_RETRY_POLICY"] = [
+        {
+            "purpose": "native.retry.unknown_dispatch",
+            "tenant_id": request.plan.tenant_id,
+            "workflow_id": request.plan.workflow_id,
+            "run_id": request.run_id,
+            "plan_hash": original["plan_hash"],
+            "policy_version": request.plan.policy_version,
+            "step_id": original["node"]["node_id"],
+            "actor_id": "synthetic-retry-admin",
+            "dispatch_binding_digest": journal.binding_digest,
+            "maximum_attempts": 2,
+        }
+    ]
     result = control("retry", "synthetic-authorized-retry")
     deadline = time.monotonic() + 25
     while result.status != "completed" and time.monotonic() < deadline:
@@ -76,8 +95,11 @@ def exercise_expired_retry(app, base, token, orchestrator, xml, journal):
         result = orchestrator.advance(request)
         time.sleep(0.02)
     assert result.status == "completed", "authorized_fresh_attempt_not_completed"
-    tasks = [task for task in task_repo.get_all() if
-             (task.worker_execution_context or {}).get("native_node_command", {}).get("run_id") == request.run_id]
+    tasks = [
+        task
+        for task in task_repo.get_all()
+        if (task.worker_execution_context or {}).get("native_node_command", {}).get("run_id") == request.run_id
+    ]
     assert len(tasks) == 2
     fresh = next(task for task in tasks if task.id != old.id)
     command = fresh.worker_execution_context["native_node_command"]
@@ -87,14 +109,22 @@ def exercise_expired_retry(app, base, token, orchestrator, xml, journal):
     with Session(engine) as session:
         rows = list(session.exec(select(NativeDispatchDB)))
     assert len(rows) == 2 and {row.state for row in rows} == {"unknown", "accepted"}
-    evidence = app.extensions['bpmn_synthetic_task_evidence']
+    evidence = app.extensions["bpmn_synthetic_task_evidence"]
     original_evidence = evidence.pending(task_repo.get_by_id(old.id))
     fresh_evidence = evidence.complete(fresh)
-    assert original_evidence['run_id'] != fresh_evidence['run_id'], 'expired_retry_registry_identity_reused'
-    return {"passed": True, "expired_result_admitted": False, "retry_without_policy_denied": True,
-            "exact_hub_policy_permitted_fresh_attempt": True, "new_task_and_attempt": True,
-            "higher_fencing_token": True, "old_journal_unknown": True, "workflow_status": "completed",
-            "production_release_evidence": False,
-            "fixture": "Explicit SQL expiry and exact Hub policy; synthetic handler",
-            'hub_registry_original_run': original_evidence, 'hub_registry_fresh_run': fresh_evidence,
-            'hub_registry_control_runs': app.extensions['bpmn_synthetic_control_evidence'].observations[request.run_id]}
+    assert original_evidence["run_id"] != fresh_evidence["run_id"], "expired_retry_registry_identity_reused"
+    return {
+        "passed": True,
+        "expired_result_admitted": False,
+        "retry_without_policy_denied": True,
+        "exact_hub_policy_permitted_fresh_attempt": True,
+        "new_task_and_attempt": True,
+        "higher_fencing_token": True,
+        "old_journal_unknown": True,
+        "workflow_status": "completed",
+        "production_release_evidence": False,
+        "fixture": "Explicit SQL expiry and exact Hub policy; synthetic handler",
+        "hub_registry_original_run": original_evidence,
+        "hub_registry_fresh_run": fresh_evidence,
+        "hub_registry_control_runs": app.extensions["bpmn_synthetic_control_evidence"].observations[request.run_id],
+    }

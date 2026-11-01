@@ -1,22 +1,20 @@
 """AFH-T017: Retry policy matrix tests for artifact-first task execution."""
+
 from __future__ import annotations
 
-import pytest
-
 from agent.services.task_retry_policy_service import (
-    get_task_retry_policy_service,
-    REASON_PLANNER_LLM_PARSE_FAILED,
-    REASON_ADVISORY_JSON_PARSE_FAILED,
-    REASON_MISSING_REQUIRED_ARTIFACT,
-    REASON_MANIFEST_INVALID,
-    REASON_VERIFICATION_FAILED,
-    REASON_WORKER_EXECUTION_FAILED,
+    CLASS_IGNORED,
+    CLASS_NEEDS_REVIEW,
     CLASS_NON_RETRYABLE,
     CLASS_RETRYABLE,
-    CLASS_NEEDS_REVIEW,
-    CLASS_IGNORED,
+    REASON_ADVISORY_JSON_PARSE_FAILED,
+    REASON_MANIFEST_INVALID,
+    REASON_MISSING_REQUIRED_ARTIFACT,
+    REASON_PLANNER_LLM_PARSE_FAILED,
+    REASON_VERIFICATION_FAILED,
+    REASON_WORKER_EXECUTION_FAILED,
+    get_task_retry_policy_service,
 )
-
 
 svc = get_task_retry_policy_service()
 

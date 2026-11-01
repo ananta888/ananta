@@ -40,12 +40,20 @@ class HubRegisteredReleaseEvidence:
 
     def require_execution_bindings(self, bindings: Iterable[ReleaseExecutionBinding]) -> None:
         actual = tuple(bindings)
-        expected = tuple(ReleaseExecutionBinding(
-            pin.task_id, pin.assignment_id, pin.dispatch_lease_id, pin.input_digest, str(pin.result_digest or ""),
-        ) for pin in self._runs.values())
+        expected = tuple(
+            ReleaseExecutionBinding(
+                pin.task_id,
+                pin.assignment_id,
+                pin.dispatch_lease_id,
+                pin.input_digest,
+                str(pin.result_digest or ""),
+            )
+            for pin in self._runs.values()
+        )
         if len(set(actual)) != len(actual) or len(actual) != len(expected) or set(actual) != set(expected):
             raise EvidenceVerificationError(
-                "release_evidence_execution_mismatch", "Release runs do not bind the current Hub executions",
+                "release_evidence_execution_mismatch",
+                "Release runs do not bind the current Hub executions",
             )
         self.resolve(
             source_ids={source for pin in self._runs.values() for source in pin.source_ids},
@@ -66,17 +74,27 @@ class HubRegisteredReleaseEvidence:
             pin = self._runs[run_id]
             try:
                 self._registry.require_run_result(
-                    tenant_id=pin.tenant_id, project_id=pin.project_id, run_id=pin.run_id,
-                    task_id=pin.task_id, assignment_id=pin.assignment_id, dispatch_lease_id=pin.dispatch_lease_id,
-                    input_digest=pin.input_digest, source_ids=pin.source_ids,
-                    result_digest=str(pin.result_digest or ""), expected_binding_digest=pin.binding_digest,
+                    tenant_id=pin.tenant_id,
+                    project_id=pin.project_id,
+                    run_id=pin.run_id,
+                    task_id=pin.task_id,
+                    assignment_id=pin.assignment_id,
+                    dispatch_lease_id=pin.dispatch_lease_id,
+                    input_digest=pin.input_digest,
+                    source_ids=pin.source_ids,
+                    result_digest=str(pin.result_digest or ""),
+                    expected_binding_digest=pin.binding_digest,
                 )
             except HubEvidenceRegistryError as exc:
                 raise EvidenceVerificationError(exc.reason_code, str(exc)) from exc
             verified = self._registry.verify_release_binding(
-                tenant_id=pin.tenant_id, project_id=pin.project_id, run_id=pin.run_id,
-                required_scope="production", task_id=pin.task_id,
-                repository_revision=pin.repository_revision, source_ids=pin.source_ids,
+                tenant_id=pin.tenant_id,
+                project_id=pin.project_id,
+                run_id=pin.run_id,
+                required_scope="production",
+                task_id=pin.task_id,
+                repository_revision=pin.repository_revision,
+                source_ids=pin.source_ids,
             )
             if not verified.verified:
                 raise EvidenceVerificationError(verified.reason_code, "Hub production release binding refused")

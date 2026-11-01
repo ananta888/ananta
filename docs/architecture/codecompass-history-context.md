@@ -13,6 +13,7 @@ ein ergänzendes Signal mit explizitem Freshness-Tracking, kein primärer Wahrhe
 ```python
 from typing import Protocol
 
+
 class HistoryProvider(Protocol):
     def get_commits(self, paths: list[str], limit: int) -> list[CommitRecord]: ...
     def get_prs(self, paths: list[str], limit: int) -> list[PRRecord]: ...
@@ -40,7 +41,8 @@ class CommitRecord:
     timestamp: datetime
     message: str
     changed_paths: list[str]
-    confidence: float = 1.0        # lokale Git-History ist deterministisch
+    confidence: float = 1.0  # lokale Git-History ist deterministisch
+
 
 @dataclass
 class PRRecord:
@@ -51,7 +53,8 @@ class PRRecord:
     changed_paths: list[str]
     description: str
     review_comments: list[str]
-    confidence: float = 0.9        # API-Daten, leicht unsicherer als lokales Git
+    confidence: float = 0.9  # API-Daten, leicht unsicherer als lokales Git
+
 
 @dataclass
 class IssueRecord:
@@ -61,7 +64,8 @@ class IssueRecord:
     created_at: datetime
     closed_at: datetime | None
     labels: list[str]
-    confidence: float = 0.7        # Issues beschreiben Kontext, nicht Code-Wahrheit
+    confidence: float = 0.7  # Issues beschreiben Kontext, nicht Code-Wahrheit
+
 
 @dataclass
 class ADRRecord:
@@ -84,8 +88,8 @@ werden als `stale` markiert:
 @dataclass
 class HistoryHit:
     record: CommitRecord | PRRecord | IssueRecord | ADRRecord
-    freshness: float    # 1.0 = heute, 0.0 = sehr alt (linear abfallend)
-    is_stale: bool      # True wenn älter als history_stale_days
+    freshness: float  # 1.0 = heute, 0.0 = sehr alt (linear abfallend)
+    is_stale: bool  # True wenn älter als history_stale_days
     stale_reason: str | None
 ```
 

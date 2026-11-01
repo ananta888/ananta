@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Protocol
 
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
@@ -47,9 +47,7 @@ def _digest(value: object) -> str:
 
 def _is_sha256(value: object) -> bool:
     text = str(value or "")
-    return len(text) == 64 and all(
-        character in "0123456789abcdef" for character in text
-    )
+    return len(text) == 64 and all(character in "0123456789abcdef" for character in text)
 
 
 def _epoch(value: object) -> float:
@@ -99,36 +97,20 @@ class SourceRegistrySnapshotReader:
         owner_id: str,
     ) -> tuple[LegacySourceSnapshot, ...]:
         projected: list[LegacySourceSnapshot] = []
-        for descriptor in self._registry.list_sources(
-            include_disabled=True
-        ):
+        for descriptor in self._registry.list_sources(include_disabled=True):
             source_id = str(descriptor.get("source_id") or "").strip()
-            connector_type = str(
-                descriptor.get("source_type") or ""
-            ).strip()
+            connector_type = str(descriptor.get("source_type") or "").strip()
             if not source_id or connector_type not in _CONNECTOR_TYPES:
                 continue
             extensions = dict(descriptor.get("extensions") or {})
-            sensitivity = str(
-                extensions.get("sensitivity") or "internal"
-            ).strip()
-            identity_digest = str(
-                extensions.get("descriptor_hash") or ""
-            ).strip()
+            sensitivity = str(extensions.get("sensitivity") or "internal").strip()
+            identity_digest = str(extensions.get("descriptor_hash") or "").strip()
             if not _is_sha256(identity_digest):
                 identity_digest = _digest(descriptor)
-            for snapshot in self._snapshots.list_snapshots(
-                source_id=source_id
-            ):
-                content_digest = str(
-                    snapshot.get("content_hash") or ""
-                ).strip()
-                metadata_digest = str(
-                    snapshot.get("metadata_hash") or ""
-                ).strip()
-                descriptor_digest = str(
-                    snapshot.get("descriptor_hash") or ""
-                ).strip()
+            for snapshot in self._snapshots.list_snapshots(source_id=source_id):
+                content_digest = str(snapshot.get("content_hash") or "").strip()
+                metadata_digest = str(snapshot.get("metadata_hash") or "").strip()
+                descriptor_digest = str(snapshot.get("descriptor_hash") or "").strip()
                 if not all(
                     _is_sha256(value)
                     for value in (
@@ -169,22 +151,16 @@ class SourceRegistrySnapshotReader:
                 projected.append(
                     LegacySourceSnapshot(
                         legacy_source_key=source_id,
-                        legacy_snapshot_key=str(
-                            snapshot.get("snapshot_id") or ""
-                        ),
+                        legacy_snapshot_key=str(snapshot.get("snapshot_id") or ""),
                         tenant_id=tenant_id,
                         project_id=project_id,
                         owner_id=owner_id,
                         connector_type=connector_type,
-                        display_name=str(
-                            descriptor.get("display_name") or source_id
-                        ),
+                        display_name=str(descriptor.get("display_name") or source_id),
                         sensitivity=sensitivity,
                         enabled=bool(descriptor.get("enabled", True)),
                         connection_identity_digest=identity_digest,
-                        revision_token=str(
-                            snapshot.get("snapshot_id") or ""
-                        ),
+                        revision_token=str(snapshot.get("snapshot_id") or ""),
                         revision_digest=revision_digest,
                         content_manifest_id=f"manifest_{manifest_digest}",
                         content_manifest_digest=manifest_digest,
@@ -222,9 +198,7 @@ class SQLLegacyKnowledgePolicyReader:
     ]:
         with Session(self._engine) as db:
             policy_rows = db.exec(
-                select(ContextAccessPolicyDB).where(
-                    ContextAccessPolicyDB.project_id == project_id
-                )
+                select(ContextAccessPolicyDB).where(ContextAccessPolicyDB.project_id == project_id)
             ).all()
             index_rows = db.exec(select(KnowledgeIndexDB)).all()
             run_rows = db.exec(select(KnowledgeIndexRunDB)).all()
@@ -247,9 +221,7 @@ class SQLLegacyKnowledgePolicyReader:
                     tenant_id=tenant_id,
                     project_id=project_id,
                     owner_id=owner_id,
-                    policy_snapshot_id=(
-                        f"policy-snapshot-{policy_digest[:32]}"
-                    ),
+                    policy_snapshot_id=(f"policy-snapshot-{policy_digest[:32]}"),
                     policy_version=f"{row.policy_id}:v{row.version}",
                     policy_snapshot_digest=policy_digest,
                 )
@@ -259,12 +231,8 @@ class SQLLegacyKnowledgePolicyReader:
         index_key_by_id: dict[str, str] = {}
         for row in index_rows:
             metadata = dict(row.index_metadata or {})
-            snapshot_key = str(
-                metadata.get("source_snapshot_id") or ""
-            ).strip()
-            policy_id = str(
-                metadata.get("context_policy_id") or ""
-            ).strip()
+            snapshot_key = str(metadata.get("source_snapshot_id") or "").strip()
+            policy_id = str(metadata.get("context_policy_id") or "").strip()
             policy_version = metadata.get("context_policy_version")
             if (
                 not snapshot_key
@@ -275,9 +243,7 @@ class SQLLegacyKnowledgePolicyReader:
             ):
                 continue
             artifact_digest = metadata.get("artifact_manifest_digest")
-            if artifact_digest is not None and not _is_sha256(
-                artifact_digest
-            ):
+            if artifact_digest is not None and not _is_sha256(artifact_digest):
                 artifact_digest = None
             key = f"knowledge-index:{row.id}"
             index_key_by_id[row.id] = key
@@ -288,10 +254,7 @@ class SQLLegacyKnowledgePolicyReader:
                     legacy_snapshot_key=snapshot_key,
                     legacy_policy_key=f"{policy_id}:{policy_version}",
                     status=str(row.status or "pending"),
-                    index_contract_version=str(
-                        metadata.get("index_contract_version")
-                        or "legacy-knowledge-index-v1"
-                    ),
+                    index_contract_version=str(metadata.get("index_contract_version") or "legacy-knowledge-index-v1"),
                     artifact_manifest_digest=artifact_digest,
                     created_at_epoch=float(row.created_at),
                     updated_at_epoch=float(row.updated_at),
@@ -305,14 +268,9 @@ class SQLLegacyKnowledgePolicyReader:
                 continue
             metadata = dict(row.run_metadata or {})
             artifact_digest = metadata.get("artifact_manifest_digest")
-            if artifact_digest is not None and not _is_sha256(
-                artifact_digest
-            ):
+            if artifact_digest is not None and not _is_sha256(artifact_digest):
                 artifact_digest = None
-            verified = bool(
-                metadata.get("artifacts_verified", False)
-                and artifact_digest
-            )
+            verified = bool(metadata.get("artifacts_verified", False) and artifact_digest)
             runs.append(
                 LegacyKnowledgeIndexRun(
                     legacy_run_key=f"knowledge-attempt:{row.id}",
@@ -322,11 +280,7 @@ class SQLLegacyKnowledgePolicyReader:
                     artifact_manifest_digest=artifact_digest,
                     artifacts_verified=verified,
                     created_at_epoch=float(row.created_at),
-                    completed_at_epoch=(
-                        float(row.finished_at)
-                        if row.finished_at is not None
-                        else None
-                    ),
+                    completed_at_epoch=(float(row.finished_at) if row.finished_at is not None else None),
                 )
             )
         return (
@@ -342,9 +296,7 @@ class SQLLegacyKnowledgePolicyReader:
                     key=lambda item: item.legacy_index_key,
                 )
             ),
-            tuple(
-                sorted(runs, key=lambda item: item.legacy_run_key)
-            ),
+            tuple(sorted(runs, key=lambda item: item.legacy_run_key)),
         )
 
 

@@ -33,8 +33,10 @@ def native_artifact_ingress(task_id):
     identity = dict(getattr(g, "service_identity", {}) or {})
     try:
         result = get_native_artifact_runtime().execute(
-            worker_id=identity.get("worker_id", ""), worker_url=identity.get("worker_url", ""),
-            task_id=task_id, transfer=transfer,
+            worker_id=identity.get("worker_id", ""),
+            worker_url=identity.get("worker_url", ""),
+            task_id=task_id,
+            transfer=transfer,
         )
     except (ValueError, WorkflowRuntimeError) as exc:
         reason = str(exc)
@@ -52,8 +54,10 @@ def native_artifact_input(task_id, input_name):
     identity = dict(getattr(g, "service_identity", {}) or {})
     try:
         result = get_native_artifact_runtime().read_input(
-            worker_id=identity.get("worker_id", ""), worker_url=identity.get("worker_url", ""),
-            task_id=task_id, input_name=input_name,
+            worker_id=identity.get("worker_id", ""),
+            worker_url=identity.get("worker_url", ""),
+            task_id=task_id,
+            input_name=input_name,
         )
     except (ValueError, WorkflowRuntimeError) as exc:
         reason = str(exc)

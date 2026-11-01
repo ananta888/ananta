@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 CSHARP_SYSTEM_TYPES = {
     "Action": "System.Action",
     "DateTime": "System.DateTime",
@@ -107,10 +106,12 @@ def parse_using_namespaces(usings: list[str]) -> list[str]:
 def find_resolution_conflicts(type_name: str, resolved_candidates: list[str]) -> list[dict[str, object]]:
     if not type_name or len(resolved_candidates) <= 1:
         return []
-    return [{
-        "type_name": type_name,
-        "candidates": resolved_candidates,
-    }]
+    return [
+        {
+            "type_name": type_name,
+            "candidates": resolved_candidates,
+        }
+    ]
 
 
 def uniq_conflicts(items: list[dict[str, object]]) -> list[dict[str, object]]:

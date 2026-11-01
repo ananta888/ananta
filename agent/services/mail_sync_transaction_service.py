@@ -28,21 +28,17 @@ class MailSyncUnitOfWork(Protocol):
         *,
         delta: MailSyncDelta,
         replace_scope: bool,
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
     def stage_checkpoint(
         self,
         *,
         checkpoint: JmapSyncCheckpoint,
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
-    def commit(self) -> MailProviderResult[None]:
-        ...
+    def commit(self) -> MailProviderResult[None]: ...
 
-    def rollback(self) -> None:
-        ...
+    def rollback(self) -> None: ...
 
 
 class MailSyncTransactionPort(Protocol):
@@ -53,8 +49,7 @@ class MailSyncTransactionPort(Protocol):
         provider_account_id: str,
         scope: str,
         query_fingerprint: str,
-    ) -> MailProviderResult[JmapSyncCheckpoint | None]:
-        ...
+    ) -> MailProviderResult[JmapSyncCheckpoint | None]: ...
 
     def begin(
         self,

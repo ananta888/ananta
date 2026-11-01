@@ -88,9 +88,7 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
             env=environment,
         )
     except Exception as exc:
-        raise WorkspaceGitInitError(
-            f"git {args[0]} failed: {exc}", workspace_dir=cwd
-        ) from exc
+        raise WorkspaceGitInitError(f"git {args[0]} failed: {exc}", workspace_dir=cwd) from exc
 
 
 def _audit_commit_and_push(
@@ -223,9 +221,13 @@ class WorkspaceGitService:
                 return False
             commit = _run_git(
                 [
-                    "-c", "user.name=ananta-worker",
-                    "-c", "user.email=worker@ananta",
-                    "commit", "-m", message,
+                    "-c",
+                    "user.name=ananta-worker",
+                    "-c",
+                    "user.email=worker@ananta",
+                    "commit",
+                    "-m",
+                    message,
                 ],
                 cwd=workspace_dir,
             )
@@ -249,9 +251,7 @@ class WorkspaceGitService:
                     commit_sha=commit_sha,
                 )
                 return False
-            local_remote = self._managed_local_remote(
-                remote.stdout.strip()
-            )
+            local_remote = self._managed_local_remote(remote.stdout.strip())
             if local_remote is not None:
                 res = _run_git(
                     [
@@ -285,14 +285,10 @@ class WorkspaceGitService:
                     remote_url=remote.stdout.strip(),
                     operation="push",
                 )
-                authorized_remote = self._remote_policy.authorize(
-                    policy_request
-                )
-                transport_authorization = (
-                    GitTransportAuthorization.create(
-                        authorized=authorized_remote,
-                        request=policy_request,
-                    )
+                authorized_remote = self._remote_policy.authorize(policy_request)
+                transport_authorization = GitTransportAuthorization.create(
+                    authorized=authorized_remote,
+                    request=policy_request,
                 )
                 transport_authorization.validate()
             except GitRemotePolicyError as exc:
@@ -353,11 +349,7 @@ class WorkspaceGitService:
         workspace_dir = Path(workspace_dir)
         authorized_remote = None
         transport_authorization = None
-        local_remote = (
-            self._managed_local_remote(remote_url)
-            if remote_url
-            else None
-        )
+        local_remote = self._managed_local_remote(remote_url) if remote_url else None
         if remote_url:
             try:
                 if local_remote is None:
@@ -370,14 +362,10 @@ class WorkspaceGitService:
                         recurse_submodules=False,
                         lfs_mode="pointer_only",
                     )
-                    authorized_remote = self._remote_policy.authorize(
-                        policy_request
-                    )
-                    transport_authorization = (
-                        GitTransportAuthorization.create(
-                            authorized=authorized_remote,
-                            request=policy_request,
-                        )
+                    authorized_remote = self._remote_policy.authorize(policy_request)
+                    transport_authorization = GitTransportAuthorization.create(
+                        authorized=authorized_remote,
+                        request=policy_request,
                     )
                     transport_authorization.validate()
             except GitRemotePolicyError as exc:
@@ -408,9 +396,7 @@ class WorkspaceGitService:
         if git_dir.exists():
             actual_remote = _run_git(["remote", "get-url", "origin"], cwd=workspace_dir)
             if actual_remote.returncode == 0:
-                actual_local = self._managed_local_remote(
-                    actual_remote.stdout.strip()
-                )
+                actual_local = self._managed_local_remote(actual_remote.stdout.strip())
                 try:
                     actual_authorization = None
                     if actual_local is None:
@@ -427,10 +413,7 @@ class WorkspaceGitService:
                         workspace_dir=workspace_dir,
                         reason_code=exc.reason_code,
                     ) from exc
-                if actual_local is not None and (
-                    local_remote is not None
-                    and actual_local != local_remote
-                ):
+                if actual_local is not None and (local_remote is not None and actual_local != local_remote):
                     raise WorkspaceGitInitError(
                         "Existing local Git remote does not match configured remote",
                         workspace_dir=workspace_dir,
@@ -439,8 +422,7 @@ class WorkspaceGitService:
                 if (
                     authorized_remote is not None
                     and actual_authorization is not None
-                    and actual_authorization.canonical_url
-                    != authorized_remote.canonical_url
+                    and actual_authorization.canonical_url != authorized_remote.canonical_url
                 ):
                     raise WorkspaceGitInitError(
                         "Existing Git remote does not match configured remote",
@@ -494,7 +476,7 @@ class WorkspaceGitService:
                             "--no-recurse-submodules",
                             authorized_remote.canonical_url,
                             str(workspace_dir),
-                        ]
+                        ],
                     ),
                     cwd=workspace_dir.parent,
                 )

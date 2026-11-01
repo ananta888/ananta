@@ -74,6 +74,7 @@ def _log():
     except RuntimeError:
         return log
 
+
 AUTO_PLANNER_STATE_KEY = "auto_planner_state"
 
 
@@ -198,7 +199,9 @@ class AutoPlanner:
     def _resolve_runtime_profile(self, llm_config: dict) -> dict:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         planning_policy = agent_cfg.get("planning_policy") if isinstance(agent_cfg.get("planning_policy"), dict) else {}
-        profiles = planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
+        profiles = (
+            planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
+        )
         default_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
         explicit_profile_id = str(llm_config.get("planner_runtime_profile") or "").strip()
         provider = str(llm_config.get("provider") or "").strip().lower()
@@ -288,7 +291,9 @@ class AutoPlanner:
         calibrated = self._preflight_calibrate_runtime(llm_config, runtime_profile)
         last_exc: Optional[Exception] = None
         retry_attempts = max(1, min(int(runtime_profile.get("retry_attempts") or self.llm_retry_attempts), 5))
-        retry_backoff = max(0.1, min(float(runtime_profile.get("retry_backoff_seconds") or self.llm_retry_backoff), 10.0))
+        retry_backoff = max(
+            0.1, min(float(runtime_profile.get("retry_backoff_seconds") or self.llm_retry_backoff), 10.0)
+        )
         for attempt in range(1, retry_attempts + 1):
             try:
                 llm_temperature = temperature
@@ -474,9 +479,7 @@ class AutoPlanner:
             "mode_data": mode_data,
         }
         if initial_plan_rationale is not None:
-            planning_arguments["initial_plan_rationale"] = dict(
-                initial_plan_rationale
-            )
+            planning_arguments["initial_plan_rationale"] = dict(initial_plan_rationale)
         result = get_planning_service().plan_goal(**planning_arguments)
 
         created_ids = list(result.get("created_task_ids") or [])
@@ -593,6 +596,7 @@ class AutoPlanner:
             self._ensure_autopilot_running(goal_id=task_dict.get("goal_id"), team_id=task_dict.get("team_id"))
             try:
                 from agent.routes.tasks.autopilot import autonomous_loop
+
                 autonomous_loop.wake()
             except Exception:
                 pass

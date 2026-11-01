@@ -47,7 +47,9 @@ class RuntimeObservationExporterConfig:
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str]) -> "RuntimeObservationExporterConfig":
-        required = lambda name: str(environment.get(name) or "").strip()
+        def required(name):
+            return str(environment.get(name) or "").strip()
+
         return cls(
             destination_url=required("ANANTA_SFU_OBSERVATION_URL"),
             runtime_id=required("ANANTA_SFU_RUNTIME_ID"),
@@ -146,7 +148,9 @@ class RuntimeObservationExporter:
                 "liveness": sample.get("liveness"),
                 "control_ready": sample.get("liveness"),
                 "media_ready": sample.get("liveness"),
-                "admission_ready": sample.get("liveness") if all(value is not None for value in pressure.values()) else None,
+                "admission_ready": sample.get("liveness")
+                if all(value is not None for value in pressure.values())
+                else None,
             },
             "capacity": capacity,
             "pressure": pressure,
@@ -290,11 +294,7 @@ class RuntimeObservationExporter:
     def _pressure(self, sample: Mapping[str, object]) -> dict[str, float | None]:
         memory_limit = self._cgroup_limit("memory.max")
         memory_current = self._cgroup_limit("memory.current")
-        memory_ratio = (
-            None
-            if not memory_limit or memory_current is None
-            else min(1.0, memory_current / memory_limit)
-        )
+        memory_ratio = None if not memory_limit or memory_current is None else min(1.0, memory_current / memory_limit)
         return {
             "cpu_ratio": None,
             "memory_ratio": memory_ratio,
@@ -305,9 +305,7 @@ class RuntimeObservationExporter:
 
 
 def _canonical(value: object) -> bytes:
-    return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
-    ).encode("ascii")
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("ascii")
 
 
 def main() -> None:

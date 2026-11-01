@@ -10,6 +10,7 @@ first-match semantics after sorting by specificity).
 Default (no config / no matching rule): all modes are allowed — existing
 behavior is completely unchanged.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -33,15 +34,23 @@ AI_MODE_EXTERNAL_CLOUD = "external_cloud_llm"
 AI_MODE_CHAT_GENERATION = "chat_generation"
 AI_MODE_CODE_GENERATION = "code_generation"
 
-ALL_AI_MODES = frozenset({
-    AI_MODE_FULL_LLM, AI_MODE_DIRECT_LLM, AI_MODE_EMBEDDING_ONLY,
-    AI_MODE_CODECOMPASS_ONLY, AI_MODE_RESTRICTED_TRANSFORMER,
-    AI_MODE_DETERMINISTIC_ONLY, AI_MODE_EXTERNAL_CLOUD,
-    AI_MODE_CHAT_GENERATION, AI_MODE_CODE_GENERATION,
-})
+ALL_AI_MODES = frozenset(
+    {
+        AI_MODE_FULL_LLM,
+        AI_MODE_DIRECT_LLM,
+        AI_MODE_EMBEDDING_ONLY,
+        AI_MODE_CODECOMPASS_ONLY,
+        AI_MODE_RESTRICTED_TRANSFORMER,
+        AI_MODE_DETERMINISTIC_ONLY,
+        AI_MODE_EXTERNAL_CLOUD,
+        AI_MODE_CHAT_GENERATION,
+        AI_MODE_CODE_GENERATION,
+    }
+)
 
 
 # ── Per-rule config ───────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class PathAiModeRule:
@@ -56,10 +65,10 @@ class PathAiModeRule:
     allow_tool_decision_from_model_text: bool = True
     allow_code_generation: bool = True
     require_controlled_write_policy: bool = False
-    max_input_chars: int = 0          # 0 = no limit
-    max_batch_size: int = 0           # 0 = no limit
-    llm_scope: str = ""               # e.g. "local_only", "external_allowed"
-    priority: int = 0                 # higher = evaluated first
+    max_input_chars: int = 0  # 0 = no limit
+    max_batch_size: int = 0  # 0 = no limit
+    llm_scope: str = ""  # e.g. "local_only", "external_allowed"
+    priority: int = 0  # higher = evaluated first
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> "PathAiModeRule":
@@ -104,9 +113,11 @@ class PathAiModeRule:
 
 # ── Policy result ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class PolicyResult:
     """Decision output for a single path + mode query."""
+
     path: str
     matched_rule: PathAiModeRule | None
     allowed_modes: frozenset[str]
@@ -164,6 +175,7 @@ _OPEN_RESULT = PolicyResult(
 
 # ── Policy service ────────────────────────────────────────────────────────────
 
+
 class PathAiModePolicyService:
     """Resolves AI mode policy for a given file path.
 
@@ -173,9 +185,7 @@ class PathAiModePolicyService:
 
     def __init__(self, rules: list[PathAiModeRule] | None = None) -> None:
         self._lock = threading.RLock()
-        self._rules: list[PathAiModeRule] = sorted(
-            rules or [], key=lambda r: r.priority, reverse=True
-        )
+        self._rules: list[PathAiModeRule] = sorted(rules or [], key=lambda r: r.priority, reverse=True)
 
     @classmethod
     def from_config(cls, config: dict[str, Any] | None) -> "PathAiModePolicyService":
@@ -227,9 +237,7 @@ class PathAiModePolicyService:
         with self._lock:
             self._rules = list(replacement._rules)
 
-    def resolve_for_candidates(
-        self, paths: list[str]
-    ) -> dict[str, PolicyResult]:
+    def resolve_for_candidates(self, paths: list[str]) -> dict[str, PolicyResult]:
         """Batch resolve; returns dict keyed by path."""
         return {p: self.resolve(p) for p in paths}
 
@@ -238,6 +246,7 @@ class PathAiModePolicyService:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _normalise(path: str) -> str:
     return path.replace("\\", "/").lstrip("/")
@@ -264,9 +273,7 @@ def get_path_ai_mode_policy_service() -> PathAiModePolicyService:
     if _policy_service is None:
         from agent.services.user_config_service import get_user_config_service
 
-        _policy_service = PathAiModePolicyService.from_config(
-            get_user_config_service().config
-        )
+        _policy_service = PathAiModePolicyService.from_config(get_user_config_service().config)
     return _policy_service
 
 

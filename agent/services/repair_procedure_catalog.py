@@ -5,6 +5,7 @@ supported_platforms, preconditions, steps, safety_class, required_approval,
 verification, and rollback_hints. Command templates use strict parameter
 validation — no unbound user-controlled string interpolation.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,10 +16,18 @@ from pydantic import BaseModel, Field, field_validator
 # ── Command template parameter validation ────────────────────────────────────
 
 # Only these parameter names are allowed in command template strings
-_ALLOWED_PARAMS: frozenset[str] = frozenset({
-    "port", "service_name", "package_name", "config_path",
-    "timeout_seconds", "log_lines", "target_dir", "runtime_name",
-})
+_ALLOWED_PARAMS: frozenset[str] = frozenset(
+    {
+        "port",
+        "service_name",
+        "package_name",
+        "config_path",
+        "timeout_seconds",
+        "log_lines",
+        "target_dir",
+        "runtime_name",
+    }
+)
 
 _SAFE_PARAM_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
@@ -33,13 +42,13 @@ def validate_command_template(template: str) -> str:
     for param in placeholders:
         if param not in _ALLOWED_PARAMS:
             raise ValueError(
-                f"disallowed template parameter {param!r} in {template!r}; "
-                f"allowed: {sorted(_ALLOWED_PARAMS)}"
+                f"disallowed template parameter {param!r} in {template!r}; allowed: {sorted(_ALLOWED_PARAMS)}"
             )
     return template
 
 
 # ── Catalog models ────────────────────────────────────────────────────────────
+
 
 class CatalogStep(BaseModel):
     step_id: str
@@ -92,8 +101,13 @@ class CatalogEntry(BaseModel):
     @classmethod
     def _validate_problem_class(cls, v: str) -> str:
         known = {
-            "package_install_failure", "service_start_failure", "port_conflict",
-            "path_issue", "permission_issue", "compose_failure", "runtime_health_failure",
+            "package_install_failure",
+            "service_start_failure",
+            "port_conflict",
+            "path_issue",
+            "permission_issue",
+            "compose_failure",
+            "runtime_health_failure",
         }
         if v not in known:
             raise ValueError(f"unknown problem_class: {v!r}")
@@ -324,6 +338,7 @@ INITIAL_CATALOG_ENTRIES: list[CatalogEntry] = [
 
 # ── Catalog access ────────────────────────────────────────────────────────────
 
+
 def get_catalog() -> list[CatalogEntry]:
     return list(INITIAL_CATALOG_ENTRIES)
 
@@ -355,13 +370,15 @@ def lookup_catalog(
         ranking_reason = "exact_problem_class_match"
         if platform and platform in [p.lower() for p in entry.supported_platforms]:
             ranking_reason = "exact_problem_class_and_platform_match"
-        matched.append({
-            "entry": entry.model_dump(),
-            "procedure_id": entry.procedure_id,
-            "safety_class": entry.safety_class,
-            "mutation_count": sum(1 for s in entry.steps if s.mutation_candidate),
-            "ranking_reason": ranking_reason,
-        })
+        matched.append(
+            {
+                "entry": entry.model_dump(),
+                "procedure_id": entry.procedure_id,
+                "safety_class": entry.safety_class,
+                "mutation_count": sum(1 for s in entry.steps if s.mutation_candidate),
+                "ranking_reason": ranking_reason,
+            }
+        )
 
     safety_order = {"safe": 0, "review_first": 1, "confirm_required": 2, "high_risk": 3}
     matched.sort(key=lambda item: safety_order.get(item["safety_class"], 99))

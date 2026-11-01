@@ -35,9 +35,15 @@ def test_cli_goal_and_artifact_regression_flow_remains_explicit_and_safe() -> No
 
 
 def test_approval_regression_covers_allow_deny_and_stale_paths() -> None:
-    approved = _run_tui("--fixture", "--selected-task-id", "T-1", "--approval-action", "approve", "--confirm-approval-action")
-    stale = _run_tui("--fixture", "--selected-task-id", "T-2", "--approval-action", "reject", "--confirm-approval-action")
-    denied = _run_tui("--fixture", "--selected-task-id", "T-3", "--approval-action", "approve", "--confirm-approval-action")
+    approved = _run_tui(
+        "--fixture", "--selected-task-id", "T-1", "--approval-action", "approve", "--confirm-approval-action"
+    )
+    stale = _run_tui(
+        "--fixture", "--selected-task-id", "T-2", "--approval-action", "reject", "--confirm-approval-action"
+    )
+    denied = _run_tui(
+        "--fixture", "--selected-task-id", "T-3", "--approval-action", "approve", "--confirm-approval-action"
+    )
 
     assert approved.returncode == 0
     assert stale.returncode == 0

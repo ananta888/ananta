@@ -10,13 +10,15 @@ from agent.services.local_runtime_response_policy import (
 
 def response(*, content: str, reasoning: str | None = None, tool_calls=None) -> dict:
     return {
-        "choices": [{
-            "message": {
-                "content": content,
-                "reasoning_content": reasoning,
-                "tool_calls": tool_calls or [],
+        "choices": [
+            {
+                "message": {
+                    "content": content,
+                    "reasoning_content": reasoning,
+                    "tool_calls": tool_calls or [],
+                }
             }
-        }]
+        ]
     }
 
 
@@ -81,11 +83,13 @@ def test_native_tool_calls_survive_without_using_reasoning_as_authority() -> Non
         response(
             content="",
             reasoning="I considered the safe lookup",
-            tool_calls=[{
-                "id": "call-1",
-                "type": "function",
-                "function": {"name": "search_code", "arguments": "{}"},
-            }],
+            tool_calls=[
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "search_code", "arguments": "{}"},
+                }
+            ],
         ),
         policy_id="qwen3_reasoning_safe",
         tools_requested=True,
@@ -98,9 +102,7 @@ def test_native_tool_calls_survive_without_using_reasoning_as_authority() -> Non
 def test_unconfigured_policy_is_a_json_copy_without_semantic_changes() -> None:
     payload = response(content="<think>plain text</think>")
 
-    projected = LocalRuntimeResponsePolicy().apply(
-        payload, policy_id=None, tools_requested=True
-    )
+    projected = LocalRuntimeResponsePolicy().apply(payload, policy_id=None, tools_requested=True)
 
     assert projected == payload
     assert projected is not payload

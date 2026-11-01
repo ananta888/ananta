@@ -125,11 +125,5 @@ class MailAccountService:
             raise ValueError("mail_account_not_found")
         if account.enabled:
             raise ValueError("mail_account_disable_required")
-        self._save(
-            [
-                candidate
-                for candidate in self.list_accounts()
-                if candidate.account_id != account.account_id
-            ]
-        )
+        self._save([candidate for candidate in self.list_accounts() if candidate.account_id != account.account_id])
         return account

@@ -15,7 +15,8 @@ def validate_forwarded_pi_result(*, task_id, dispatched_task, response, load_tas
     command = pi_task_command(authoritative)
     dispatched_context = task_value(dispatched_task, "worker_execution_context") or {}
     if (
-        task_value(dispatched_task, "id") != task_id or authoritative.id != task_id
+        task_value(dispatched_task, "id") != task_id
+        or authoritative.id != task_id
         or task_value(dispatched_task, "assigned_agent_url") != authoritative.assigned_agent_url
         or native_context_digest(dispatched_context.get("native_node_command"))
         != native_context_digest(command.to_dict())

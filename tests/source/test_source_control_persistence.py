@@ -172,12 +172,15 @@ def test_scoped_connection_cas_and_revision_append_only(tmp_path) -> None:
     )
     service, connection, revision = _seed(repository)
 
-    assert repository.get_connection(
-        tenant_id=connection.tenant_id,
-        project_id=connection.project_id,
-        owner_id="other-owner",
-        connection_id=connection.connection_id,
-    ) is None
+    assert (
+        repository.get_connection(
+            tenant_id=connection.tenant_id,
+            project_id=connection.project_id,
+            owner_id="other-owner",
+            connection_id=connection.connection_id,
+        )
+        is None
+    )
     disabled = service.transition_connection(
         connection,
         target_state=ConnectionState.DISABLED,
@@ -266,12 +269,15 @@ def test_grant_preview_lifecycle_rollback_and_audit(tmp_path) -> None:
 
     assert rolled_back.contract.state is GrantState.ACTIVE
     assert rolled_back.rollback_of_grant_id == superseded.contract.grant_id
-    assert [event.action for event in repository.list_grant_audit(
-        grant_id=draft.contract.grant_id
-    )] == ["create", "preview", "active", "superseded"]
-    assert [event.action for event in repository.list_grant_audit(
-        grant_id=rolled_back.contract.grant_id
-    )] == ["rollback"]
+    assert [event.action for event in repository.list_grant_audit(grant_id=draft.contract.grant_id)] == [
+        "create",
+        "preview",
+        "active",
+        "superseded",
+    ]
+    assert [event.action for event in repository.list_grant_audit(grant_id=rolled_back.contract.grant_id)] == [
+        "rollback"
+    ]
 
 
 def test_index_activation_projection_and_rollback_are_deterministic(
@@ -359,9 +365,7 @@ def test_activation_crash_rolls_back_and_reconciliation_repairs(tmp_path) -> Non
     crashing = SQLSourceControlRepository(
         engine,
         clock=lambda: 4_001.0,
-        activation_fault_hook=lambda: (_ for _ in ()).throw(
-            RuntimeError("simulated_crash")
-        ),
+        activation_fault_hook=lambda: (_ for _ in ()).throw(RuntimeError("simulated_crash")),
     )
     with pytest.raises(RuntimeError, match="simulated_crash"):
         crashing.activate_index(
@@ -375,12 +379,15 @@ def test_activation_crash_rolls_back_and_reconciliation_repairs(tmp_path) -> Non
             expected_generation=0,
             action="activate",
         )
-    assert repository.get_active_index(
-        tenant_id=revision.tenant_id,
-        project_id=revision.project_id,
-        owner_id=revision.owner_id,
-        connection_id=connection.connection_id,
-    ) is None
+    assert (
+        repository.get_active_index(
+            tenant_id=revision.tenant_id,
+            project_id=revision.project_id,
+            owner_id=revision.owner_id,
+            connection_id=connection.connection_id,
+        )
+        is None
+    )
 
     repaired = repository.reconcile_activation(
         tenant_id=revision.tenant_id,
@@ -393,12 +400,8 @@ def test_activation_crash_rolls_back_and_reconciliation_repairs(tmp_path) -> Non
     assert repaired.repaired is True
     assert repaired.active is not None
     assert repaired.active.knowledge_index_id == candidate.knowledge_index_id
-    events = repository.list_activation_events(
-        active_index_id=repaired.active.active_index_id
-    )
-    assert [(event.action, event.generation) for event in events] == [
-        ("reconcile", 1)
-    ]
+    events = repository.list_activation_events(active_index_id=repaired.active.active_index_id)
+    assert [(event.action, event.generation) for event in events] == [("reconcile", 1)]
 
 
 def test_two_concurrent_promotions_cannot_win_the_same_generation(

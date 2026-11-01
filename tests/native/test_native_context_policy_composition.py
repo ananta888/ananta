@@ -40,12 +40,18 @@ def configured_app(tmp_path, policy_setup, *, task, bundle):
     document = policy_setup[4].active.return_value.document
     actor = ContextPolicyActor("synthetic-owner", task["tenant_id"], task["project_id"], frozenset({"project_owner"}))
     draft = lifecycle.create_draft(
-        actor=actor, policy_id="policy-1", document=document,
-        expected_latest_version=None, idempotency_key="synthetic-draft",
+        actor=actor,
+        policy_id="policy-1",
+        document=document,
+        expected_latest_version=None,
+        idempotency_key="synthetic-draft",
     )
     active = lifecycle.activate(
-        actor=actor, policy_id="policy-1", version=draft.version,
-        if_match=draft.etag, idempotency_key="synthetic-activation",
+        actor=actor,
+        policy_id="policy-1",
+        version=draft.version,
+        if_match=draft.etag,
+        idempotency_key="synthetic-activation",
     )
     app = Flask("native-context-synthetic")
     tasks, bundles = Mock(), Mock()
@@ -67,8 +73,11 @@ def test_real_persistent_policy_grants_then_revokes_context_without_human_input(
         assert "def example(): return 1" in response["content"]
         assert "unapproved assembled" not in response["content"]
         lifecycle.revoke(
-            actor=actor, policy_id="policy-1", version=active.version,
-            if_match=active.etag, idempotency_key="synthetic-revocation",
+            actor=actor,
+            policy_id="policy-1",
+            version=active.version,
+            if_match=active.etag,
+            idempotency_key="synthetic-revocation",
         )
         with pytest.raises(WorkflowHubDecisionError, match="native_context_active_policy_required"):
             client.command("native_context_read", **request)
@@ -93,12 +102,20 @@ def test_actual_native_worker_consumes_persisted_hub_policy_projection(tmp_path,
     bundle = policy_setup[2] | {"id": "bundle-1", "task_id": task["id"]}
     app, reader, *_ = configured_app(tmp_path, policy_setup, task=task, bundle=bundle)
     context_reader.target = reader
-    content = json.dumps([
-        {"source_ref": "docs/public/example.py", "content": "def example(): return 1"},
-    ], ensure_ascii=True, separators=(",", ":"))
-    runner.prompt = json.dumps({
-        "task": "Explain this code.", "context_bundle": {"id": "bundle-1", "content": content},
-    }, ensure_ascii=True)
+    content = json.dumps(
+        [
+            {"source_ref": "docs/public/example.py", "content": "def example(): return 1"},
+        ],
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+    runner.prompt = json.dumps(
+        {
+            "task": "Explain this code.",
+            "context_bundle": {"id": "bundle-1", "content": content},
+        },
+        ensure_ascii=True,
+    )
     with app.app_context():
         result = adapter.execute_task(task)
     assert result.status == "completed" and len(runner.calls) == 1
@@ -107,7 +124,8 @@ def test_actual_native_worker_consumes_persisted_hub_policy_projection(tmp_path,
 
 
 @pytest.mark.parametrize(
-    "status", [None, "unknown", "archived", "aborted", "timeout", "verification_failed", "skipped"],
+    "status",
+    [None, "unknown", "archived", "aborted", "timeout", "verification_failed", "skipped"],
 )
 def test_inactive_task_never_reaches_context_policy(status):
     client, request, task, _, policy, _ = setup_context()

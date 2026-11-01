@@ -40,17 +40,17 @@ from agent.services.sira_index_task_ingress_policy import (
     find_reserved_sira_index_marker,
     reserved_sira_index_ingress_error,
 )
+from agent.services.task_dependency_policy import (
+    followup_exists,
+    normalize_depends_on,
+    validate_dependencies_and_cycles,
+)
 from agent.services.task_management_mutation_guards import (
     apply_instruction_selection_to_payload,
     critical_state_mutation,
     enforce_task_state_mutation_gate,
     recovery_mutation_conflict,
     vector_admin_error,
-)
-from agent.services.task_dependency_policy import (
-    followup_exists,
-    normalize_depends_on,
-    validate_dependencies_and_cycles,
 )
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status

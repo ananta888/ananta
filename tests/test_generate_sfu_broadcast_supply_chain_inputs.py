@@ -82,29 +82,33 @@ def test_digest_named_files_binds_names_order_and_bytes(tmp_path: Path) -> None:
 
 
 def test_scanner_normalizers_count_unknown_licenses_and_unique_findings() -> None:
-    inventory = summarize_spdx({
-        "spdxVersion": "SPDX-2.3",
-        "packages": [
-            {"licenseDeclared": "MIT", "licenseConcluded": "NOASSERTION"},
-            {"licenseDeclared": "NOASSERTION", "licenseConcluded": "NONE"},
-        ],
-    })
-    findings = summarize_grype({
-        "matches": [
-            {
-                "vulnerability": {"id": "CVE-1", "severity": "Critical"},
-                "artifact": {"name": "lib-a", "version": "1"},
-            },
-            {
-                "vulnerability": {"id": "CVE-1", "severity": "Critical"},
-                "artifact": {"name": "lib-a", "version": "1"},
-            },
-            {
-                "vulnerability": {"id": "CVE-2", "severity": "High"},
-                "artifact": {"name": "lib-b", "version": "2"},
-            },
-        ],
-    })
+    inventory = summarize_spdx(
+        {
+            "spdxVersion": "SPDX-2.3",
+            "packages": [
+                {"licenseDeclared": "MIT", "licenseConcluded": "NOASSERTION"},
+                {"licenseDeclared": "NOASSERTION", "licenseConcluded": "NONE"},
+            ],
+        }
+    )
+    findings = summarize_grype(
+        {
+            "matches": [
+                {
+                    "vulnerability": {"id": "CVE-1", "severity": "Critical"},
+                    "artifact": {"name": "lib-a", "version": "1"},
+                },
+                {
+                    "vulnerability": {"id": "CVE-1", "severity": "Critical"},
+                    "artifact": {"name": "lib-a", "version": "1"},
+                },
+                {
+                    "vulnerability": {"id": "CVE-2", "severity": "High"},
+                    "artifact": {"name": "lib-b", "version": "2"},
+                },
+            ],
+        }
+    )
 
     assert inventory == PackageInventory(package_count=2, unknown_license_count=1)
     assert findings == VulnerabilityInventory(critical_open=1, high_open=1)
@@ -196,32 +200,31 @@ def test_builder_binds_real_digests_and_leaves_unobserved_claims_unknown() -> No
 
     assert sbom["bindings"] == scans["bindings"] == containers["bindings"]
     assert sbom["bindings"]["image_digests"]["sfu"] == "3" * 64
-    assert {
-        row["component_id"] for row in sbom["components"]
-    } == set(policy["required_components"])
-    assert next(
-        row for row in sbom["components"] if row["component_id"] == "hub"
-    )["floating_reference"] is False
-    assert next(
-        row for row in sbom["components"] if row["component_id"] == "frontend"
-    )["floating_reference"] is True
+    assert {row["component_id"] for row in sbom["components"]} == set(policy["required_components"])
+    assert next(row for row in sbom["components"] if row["component_id"] == "hub")["floating_reference"] is False
+    assert next(row for row in sbom["components"] if row["component_id"] == "frontend")["floating_reference"] is True
     assert scans["critical_open"] == 0
     assert scans["high_open"] == 0
     assert scans["malware_detected"] is None
     assert scans["secrets_detected"] is None
     assert all(row["signature_verified"] is False for row in scans["provenance"])
     assert all(row["builder_verified"] is False for row in scans["provenance"])
-    assert next(
-        row for row in sbom["components"] if row["component_id"] == "sfu"
-    )["local_image_sha256"] == "c" * 64
+    assert next(row for row in sbom["components"] if row["component_id"] == "sfu")["local_image_sha256"] == "c" * 64
 
 
 def test_free_security_observations_cannot_create_formal_claims() -> None:
     policy = {
         "required_image_ids": ["hub", "frontend", "sfu", "turn", "browser"],
-        "required_components": list((
-            "hub", "frontend", "sfu", "turn", "browser-adapter", "livekit-sdk",
-        )),
+        "required_components": list(
+            (
+                "hub",
+                "frontend",
+                "sfu",
+                "turn",
+                "browser-adapter",
+                "livekit-sdk",
+            )
+        ),
         "required_container_controls": ["non_root"],
     }
     image_refs = {
@@ -248,12 +251,14 @@ def test_free_security_observations_cannot_create_formal_claims() -> None:
         security_observations={
             "malware_detected": 0,
             "secrets_detected": 0,
-            "provenance": [{
-                "component_id": "hub",
-                "signature_verified": True,
-                "builder_verified": True,
-                "subject_sha256": "1" * 64,
-            }],
+            "provenance": [
+                {
+                    "component_id": "hub",
+                    "signature_verified": True,
+                    "builder_verified": True,
+                    "subject_sha256": "1" * 64,
+                }
+            ],
             "exceptions": [{"approval_signature_verified": True}],
         },
     )
@@ -280,10 +285,14 @@ def test_unapproved_scanner_images_are_rejected() -> None:
 
 class _InspectRunner:
     def run(self, command: Sequence[str]) -> str:
-        return json.dumps([{
-            "Id": "sha256:" + "a" * 64,
-            "RepoDigests": ["registry.example/sfu@sha256:" + "b" * 64],
-        }])
+        return json.dumps(
+            [
+                {
+                    "Id": "sha256:" + "a" * 64,
+                    "RepoDigests": ["registry.example/sfu@sha256:" + "b" * 64],
+                }
+            ]
+        )
 
 
 def test_docker_identity_separates_manifest_from_local_image_id() -> None:

@@ -133,9 +133,7 @@ class _OAuthAdapter:
         return MailProviderResult(
             ok=True,
             reason_code="ok",
-            value=JmapOAuthAccessToken(
-                access_token="rotated-token" if force else "stale-token"
-            ),
+            value=JmapOAuthAccessToken(access_token="rotated-token" if force else "stale-token"),
         )
 
 

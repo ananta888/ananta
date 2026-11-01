@@ -1,8 +1,8 @@
 import pytest
 from sqlalchemy.exc import ProgrammingError
 
-from agent.repositories.memory import MemoryEntryRepository
 import agent.repositories.memory as memory_module
+from agent.repositories.memory import MemoryEntryRepository
 
 
 class _MissingTableSession:

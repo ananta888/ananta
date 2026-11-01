@@ -143,22 +143,24 @@ def _composition(
     source_group_digest = preview_source_digest or str(parsed_payload["source_digest"])
     revision = preview_revision or int(parsed_payload["revision"])
     group_id = group_preview_group_id(source_group_digest, revision)
-    preview = SpeechEvidenceGroupPreview.from_mapping({
-        "preview_version": GROUP_PREVIEW_VERSION,
-        "group_id": group_id,
-        "source_group_digest": source_group_digest,
-        "speaker_scope_digest": speech_evidence_speaker_scope_digest(
-            pair_id=consent.pair_id,
-            epoch=consent.session_epoch,
-            speaker_id=consent.speaker_id,
-        ),
-        "quality_basis": "policy",
-        "quality_digest": speech_evidence_quality_policy_digest(),
-        "resolution_digest": group_preview_resolution_digest(source_group_digest, revision),
-        **comparison_preview(source_group_digest, revision, prefix),
-        "revision": revision,
-        "size_bytes": len(payload),
-    })
+    preview = SpeechEvidenceGroupPreview.from_mapping(
+        {
+            "preview_version": GROUP_PREVIEW_VERSION,
+            "group_id": group_id,
+            "source_group_digest": source_group_digest,
+            "speaker_scope_digest": speech_evidence_speaker_scope_digest(
+                pair_id=consent.pair_id,
+                epoch=consent.session_epoch,
+                speaker_id=consent.speaker_id,
+            ),
+            "quality_basis": "policy",
+            "quality_digest": speech_evidence_quality_policy_digest(),
+            "resolution_digest": group_preview_resolution_digest(source_group_digest, revision),
+            **comparison_preview(source_group_digest, revision, prefix),
+            "revision": revision,
+            "size_bytes": len(payload),
+        }
+    )
     offer = SpeechEvidenceOfferRecord(
         offer_id=f"offer-{prefix}",
         proposal_verification_digest=digest("proposal"),
@@ -342,18 +344,24 @@ def test_invalidation_after_authorization_fences_curation_before_any_descendant(
     assert len(outcome) == 1
     assert getattr(outcome[0], "reason_code", None) == "speech_evidence_curation_offer_stale"
     with Session(engine) as session:
-        assert session.exec(
-            select(SpeechPeerEvidenceCurationDB).where(
-                SpeechPeerEvidenceCurationDB.tenant_id == principal.tenant_id,
-                SpeechPeerEvidenceCurationDB.offer_id == offer.offer_id,
-            )
-        ).all() == []
-        assert session.exec(
-            select(SpeechEvidenceDB).where(
-                SpeechEvidenceDB.tenant_id == principal.tenant_id,
-                SpeechEvidenceDB.owner_subject == principal.subject,
-            )
-        ).all() == []
+        assert (
+            session.exec(
+                select(SpeechPeerEvidenceCurationDB).where(
+                    SpeechPeerEvidenceCurationDB.tenant_id == principal.tenant_id,
+                    SpeechPeerEvidenceCurationDB.offer_id == offer.offer_id,
+                )
+            ).all()
+            == []
+        )
+        assert (
+            session.exec(
+                select(SpeechEvidenceDB).where(
+                    SpeechEvidenceDB.tenant_id == principal.tenant_id,
+                    SpeechEvidenceDB.owner_subject == principal.subject,
+                )
+            ).all()
+            == []
+        )
 
 
 def test_privacy_finding_never_creates_a_curation_task() -> None:
@@ -450,23 +458,27 @@ def test_authenticated_worker_result_builds_exactly_one_canonical_dataset_versio
             SpeechLineageNode("adapter", adapter_digest),
         ),
         edges=(
-            SpeechLineageEdge(
-                "manifest", published.dataset_manifest_digest, "job", job_digest, "trained_by"
-            ),
+            SpeechLineageEdge("manifest", published.dataset_manifest_digest, "job", job_digest, "trained_by"),
             SpeechLineageEdge("job", job_digest, "adapter", adapter_digest, "produced"),
         ),
     )
 
-    assert service.fence_offer(
-        principal,
-        offer_id=offer.offer_id,
-        reason_code="speech_evidence_user_revoked",
-    ) == 1
-    assert service.fence_offer(
-        principal,
-        offer_id=offer.offer_id,
-        reason_code="speech_evidence_user_revoked",
-    ) == 1
+    assert (
+        service.fence_offer(
+            principal,
+            offer_id=offer.offer_id,
+            reason_code="speech_evidence_user_revoked",
+        )
+        == 1
+    )
+    assert (
+        service.fence_offer(
+            principal,
+            offer_id=offer.offer_id,
+            reason_code="speech_evidence_user_revoked",
+        )
+        == 1
+    )
     assert training.reports
     impacted = {(str(node["kind"]), str(node["digest"])) for node in training.reports[-1].nodes}
     assert {("job", job_digest), ("adapter", adapter_digest)} <= impacted
@@ -480,9 +492,7 @@ def test_authenticated_worker_result_builds_exactly_one_canonical_dataset_versio
             )
         ).one()
         artifact_row = session.exec(
-            select(SpeechPeerCurationArtifactDB).where(
-                SpeechPeerCurationArtifactDB.task_id == record.curation_task_id
-            )
+            select(SpeechPeerCurationArtifactDB).where(SpeechPeerCurationArtifactDB.task_id == record.curation_task_id)
         ).one()
         descendants = session.exec(
             select(SpeechLineageNodeDB).where(

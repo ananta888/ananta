@@ -163,9 +163,7 @@ def _normalise_distance(value: str) -> str:
 
 def compatibility_fingerprint(spec: CompatibilitySpec) -> str:
     payload = compatibility_payload(spec)
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def compatibility_payload(spec: CompatibilitySpec) -> dict[str, Any]:
@@ -224,9 +222,7 @@ def compare_compatibility(
 def missing_compatibility_fields(spec: CompatibilitySpec) -> tuple[str, ...]:
     payload = compatibility_payload(spec)
     return tuple(
-        field_name
-        for field_name in _REQUIRED_COMPATIBILITY_FIELDS
-        if not str(payload.get(field_name) or "").strip()
+        field_name for field_name in _REQUIRED_COMPATIBILITY_FIELDS if not str(payload.get(field_name) or "").strip()
     )
 
 
@@ -300,10 +296,7 @@ def _bounded_payload_text(
 def _normalise_role_labels(value: Any) -> list[str]:
     if value is None:
         return []
-    if (
-        isinstance(value, (str, bytes, bytearray))
-        or not isinstance(value, SequenceABC)
-    ):
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, SequenceABC):
         raise QdrantSchemaError(VECTOR_PAYLOAD_INVALID)
     if len(value) > MAX_ROLE_LABELS:
         raise QdrantSchemaError(VECTOR_PAYLOAD_TOO_LARGE)
@@ -328,11 +321,7 @@ def _normalise_importance_score(value: Any) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise QdrantSchemaError(VECTOR_PAYLOAD_INVALID)
     score = float(value)
-    if (
-        not math.isfinite(score)
-        or score < MIN_IMPORTANCE_SCORE
-        or score > MAX_IMPORTANCE_SCORE
-    ):
+    if not math.isfinite(score) or score < MIN_IMPORTANCE_SCORE or score > MAX_IMPORTANCE_SCORE:
         raise QdrantSchemaError(VECTOR_PAYLOAD_INVALID)
     return score
 
@@ -366,10 +355,7 @@ def _normalise_metadata_value(
             if not isinstance(raw_key, str):
                 raise QdrantSchemaError(VECTOR_PAYLOAD_INVALID)
             key = raw_key.strip()
-            if not key or any(
-                ord(character) < 32 or ord(character) == 127
-                for character in key
-            ):
+            if not key or any(ord(character) < 32 or ord(character) == 127 for character in key):
                 raise QdrantSchemaError(VECTOR_PAYLOAD_INVALID)
             if len(key.encode("utf-8")) > MAX_METADATA_KEY_BYTES:
                 raise QdrantSchemaError(VECTOR_PAYLOAD_TOO_LARGE)
@@ -421,14 +407,17 @@ def sanitise_payload_metadata(value: Any) -> dict[str, Any]:
         depth=0,
         entry_budget=[0],
     )
-    if len(
-        json.dumps(
-            normalised,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-    ) > MAX_METADATA_BYTES:
+    if (
+        len(
+            json.dumps(
+                normalised,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        )
+        > MAX_METADATA_BYTES
+    ):
         raise QdrantSchemaError(VECTOR_PAYLOAD_TOO_LARGE)
     return normalised
 
@@ -499,13 +488,9 @@ def point_payload(
             strip=True,
         ),
         "role_labels": _normalise_role_labels(source.get("role_labels")),
-        "importance_score": _normalise_importance_score(
-            source.get("importance_score")
-        ),
+        "importance_score": _normalise_importance_score(source.get("importance_score")),
     }
-    if len([part for part in payload["file"].replace("\\", "/").split("/") if part]) > (
-        MAX_FILE_SEGMENTS
-    ):
+    if len([part for part in payload["file"].replace("\\", "/").split("/") if part]) > (MAX_FILE_SEGMENTS):
         raise QdrantSchemaError(VECTOR_PAYLOAD_TOO_LARGE)
     payload["file_prefixes"] = _file_prefixes(payload["file"])
     payload["metadata"] = sanitise_payload_metadata(source.get("metadata"))
@@ -570,10 +555,7 @@ def staging_collection_name(
     if not token:
         raise QdrantSchemaError("staging_token_required")
     token_digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
-    return (
-        f"{versioned_collection_name(prefix, scope, index_version)}"
-        f"-staging-{token_digest}"
-    )
+    return f"{versioned_collection_name(prefix, scope, index_version)}-staging-{token_digest}"
 
 
 def manifest_client_point(

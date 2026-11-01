@@ -22,9 +22,7 @@ def _service(tmp_path: Path) -> tuple[MailApplicationService, MailMetadataStore]
     metadata = MailMetadataStore(store_path=tmp_path / "metadata.json")
     return (
         MailApplicationService(
-            account_service=MailAccountService(
-                store_path=tmp_path / "accounts.json"
-            ),
+            account_service=MailAccountService(store_path=tmp_path / "accounts.json"),
             metadata_store=metadata,
             legacy=NullLegacyMailBridge(),
             task_service_factory=lambda: None,

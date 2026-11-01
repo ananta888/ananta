@@ -55,6 +55,5 @@ def validate_bridge_envelope(envelope: dict[str, Any]) -> list[str]:
     return problems
 
 
-
 def build_execution_report(*, correlation_id: str, script_hash: str, status: str) -> dict[str, str]:
     return {"correlation_id": correlation_id, "script_hash": script_hash, "status": status}

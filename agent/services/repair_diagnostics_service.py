@@ -4,6 +4,7 @@ DRR-T034: Operators need visibility into repair engine readiness:
 signatures, catalog, feature flags, outcome persistence, runner state,
 and safety policy summary. No secrets or raw logs.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,12 +13,11 @@ from typing import Any
 from agent.services.deterministic_repair_path_service import (
     build_initial_failure_signature_catalog,
     get_initial_diagnosis_playbooks,
-    build_initial_repair_procedure_catalog,
 )
 from agent.services.repair_procedure_catalog import get_catalog
 
-
 # ── RepairDiagnosticsReadModel (DRR-T034) ─────────────────────────────────────
+
 
 @dataclass
 class RepairDiagnosticsReadModel:
@@ -25,6 +25,7 @@ class RepairDiagnosticsReadModel:
 
     Never exposes raw logs, evidence, or secrets.
     """
+
     deterministic_repair_analysis_enabled: bool
     deterministic_repair_preview_enabled: bool
     deterministic_repair_execution_enabled: bool
@@ -56,6 +57,7 @@ class RepairDiagnosticsReadModel:
 
     def has_secrets(self) -> bool:
         _sensitive = frozenset({"api_key", "secret", "password", "token", "credential"})
+
         def _scan(obj: Any) -> bool:
             if isinstance(obj, dict):
                 for k, v in obj.items():
@@ -66,6 +68,7 @@ class RepairDiagnosticsReadModel:
             elif isinstance(obj, (list, tuple)):
                 return any(_scan(i) for i in obj)
             return False
+
         return _scan(self.as_dict())
 
 
@@ -102,6 +105,7 @@ def build_repair_diagnostics_read_model(
     runner_ready = True
     try:
         from worker.repair.repair_procedure_runner import RepairProcedureRunner
+
         RepairProcedureRunner()
     except Exception:
         runner_ready = False

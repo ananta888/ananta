@@ -16,12 +16,14 @@ def test_descriptor_projects_evidence_aware_profile_without_promoting_it() -> No
         aliases=["ornith-1.5-9b"],
         input_modalities=["text", "image"],
         output_modalities=["text"],
-        capability_claims=[{
-            "capability_id": "vision",
-            "value": "supported",
-            "evidence": "declared",
-            "source_id": "hf:ornith-9b",
-        }],
+        capability_claims=[
+            {
+                "capability_id": "vision",
+                "value": "supported",
+                "evidence": "declared",
+                "source_id": "hf:ornith-9b",
+            }
+        ],
         nominal_context_tokens=262144,
         verified_context_tokens=None,
         hardware_class="rtx3080-10gb",
@@ -29,9 +31,7 @@ def test_descriptor_projects_evidence_aware_profile_without_promoting_it() -> No
         release_state="experimental",
     )
 
-    descriptor = ConfiguredProfileModelInventoryAdapter(lambda: "")._descriptor(
-        profile, {}
-    )
+    descriptor = ConfiguredProfileModelInventoryAdapter(lambda: "")._descriptor(profile, {})
 
     assert descriptor.availability is ModelAvailability.UNAVAILABLE
     assert descriptor.aliases == ("ornith-1.5-9b",)

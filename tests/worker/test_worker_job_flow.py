@@ -29,11 +29,7 @@ class TestWorkerJobFlow:
         service._worker_pool_scheduler_service = type(
             "Scheduler",
             (),
-            {
-                "release_for_job": staticmethod(
-                    lambda slot_lease_id: released.append(slot_lease_id)
-                )
-            },
+            {"release_for_job": staticmethod(lambda slot_lease_id: released.append(slot_lease_id))},
         )()
 
         persisted = service.fail_dispatch(
@@ -95,10 +91,24 @@ class TestWorkerJobFlow:
                         retrieval_run_id=run.id,
                         task_id=parent_task_id,
                         bundle_type="worker_execution_context",
-                        context_text="" if (context_policy or {}).get("include_context_text") is False else "selected worker context",
-                        chunks=[{"engine": "repository_map", "source": "README.md", "content": "ctx", "score": 1.0, "metadata": {}}],
+                        context_text=""
+                        if (context_policy or {}).get("include_context_text") is False
+                        else "selected worker context",
+                        chunks=[
+                            {
+                                "engine": "repository_map",
+                                "source": "README.md",
+                                "content": "ctx",
+                                "score": 1.0,
+                                "metadata": {},
+                            }
+                        ],
                         token_estimate=12,
-                        bundle_metadata={"query": query, "policy_version": "v1", "context_policy": dict(context_policy or {})},
+                        bundle_metadata={
+                            "query": query,
+                            "policy_version": "v1",
+                            "context_policy": dict(context_policy or {}),
+                        },
                     )
                 )
 
@@ -173,7 +183,9 @@ class TestWorkerJobFlow:
                     "routing": dict(routing_decision or {}),
                 }
 
-            def build_job_metadata(self, *, routing_decision, task_kind, required_capabilities, context_policy=None, extra_metadata=None):
+            def build_job_metadata(
+                self, *, routing_decision, task_kind, required_capabilities, context_policy=None, extra_metadata=None
+            ):
                 return {
                     **dict(extra_metadata or {}),
                     "routing_decision": dict(routing_decision or {}),
@@ -239,7 +251,9 @@ class TestWorkerJobFlow:
                         (),
                         {
                             "get_local_task_status": staticmethod(
-                                __import__("agent.services.task_runtime_service", fromlist=["get_local_task_status"]).get_local_task_status
+                                __import__(
+                                    "agent.services.task_runtime_service", fromlist=["get_local_task_status"]
+                                ).get_local_task_status
                             )
                         },
                     )(),
@@ -259,7 +273,9 @@ class TestWorkerJobFlow:
         monkeypatch.setattr(
             "agent.services.task_orchestration_service.forward_to_worker",
             lambda worker_url, endpoint, data, token=None: (
-                forwarded_payload.update({"worker_url": worker_url, "endpoint": endpoint, "data": dict(data), "token": token})
+                forwarded_payload.update(
+                    {"worker_url": worker_url, "endpoint": endpoint, "data": dict(data), "token": token}
+                )
                 or {"status": "success", "data": {"accepted": True, "task_id": data["id"]}}
             ),
         )
@@ -381,14 +397,23 @@ def test_worker_job_service_persists_selection_trace_and_budget_metadata():
                 "bundle_type": "retrieval_context",
                 "policy_version": "v1",
                 "chunks": [
-                    {"engine": "knowledge_index", "source": "docs/abc.md", "content": "ctx", "score": 2.1, "metadata": {}}
+                    {
+                        "engine": "knowledge_index",
+                        "source": "docs/abc.md",
+                        "content": "ctx",
+                        "score": 2.1,
+                        "metadata": {},
+                    }
                 ],
                 "token_estimate": 17,
                 "strategy": {"fusion": {"candidate_counts": {"all": 3, "final": 1}}},
                 "context_policy": {"mode": "standard", "window_profile": "standard_32k"},
                 "budget": {"total_tokens": 32000, "retrieval_utilization": 0.4},
                 "why_this_context": {"summary": "task_kind=implement | selected_chunks=1 | mode=standard"},
-                "explainability": {"engines": ["knowledge_index"], "sources": [{"source": "docs/abc.md", "score": 2.1}]},
+                "explainability": {
+                    "engines": ["knowledge_index"],
+                    "sources": [{"source": "docs/abc.md", "score": 2.1}],
+                },
                 "retrieval_trace": {
                     "trace_id": "retrieval-task-parent",
                     "context_hash": "a" * 64,

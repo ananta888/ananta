@@ -30,9 +30,31 @@ class _Executor:
 
 def _record():
     return SfuBroadcastOperationsRecord(
-        1000, "tenant-a", "eu-1", "room-a", "user-a", "receiver-a", 10,
-        "active", "applied", "current", "sfu", "healthy", "high", "medium", "medium",
-        {"medium": 10}, 1, "none", 100, 1000, 0, "converged", "none", "broadcast_25", "observe_only",
+        1000,
+        "tenant-a",
+        "eu-1",
+        "room-a",
+        "user-a",
+        "receiver-a",
+        10,
+        "active",
+        "applied",
+        "current",
+        "sfu",
+        "healthy",
+        "high",
+        "medium",
+        "medium",
+        {"medium": 10},
+        1,
+        "none",
+        100,
+        1000,
+        0,
+        "converged",
+        "none",
+        "broadcast_25",
+        "observe_only",
     )
 
 
@@ -46,7 +68,10 @@ def _app():
         source=source, diagnostic_secret=b"r" * 32, clock=lambda: 1100
     )
     app.extensions["sfu_broadcast_command_service"] = SfuBroadcastCommandService(
-        authorizer=_Authorizer(), executor=_Executor(), ledger=InMemorySfuBroadcastCommandLedger(), diagnostic_secret=b"r" * 32
+        authorizer=_Authorizer(),
+        executor=_Executor(),
+        ledger=InMemorySfuBroadcastCommandLedger(),
+        diagnostic_secret=b"r" * 32,
     )
     return app
 
@@ -65,7 +90,9 @@ def test_operations_route_is_authenticated_read_only_and_content_free():
     assert response.status_code == 200
     assert len(response.get_json()["items"]) == 1
     assert "room-a" not in response.get_data(as_text=True)
-    assert client.get("/v1/semantic-media/sfu/broadcast/operations?payload=forged", headers=_headers()).status_code == 400
+    assert (
+        client.get("/v1/semantic-media/sfu/broadcast/operations?payload=forged", headers=_headers()).status_code == 400
+    )
     assert client.post("/v1/semantic-media/sfu/broadcast/operations", headers=_headers()).status_code == 405
 
 

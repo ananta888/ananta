@@ -38,9 +38,7 @@ def test_autopilot_status_writer_leaves_bound_v2_task_to_hub_cas(
     monkeypatch.setattr(
         task_utils,
         "update_local_task_status",
-        lambda *args, **kwargs: writes.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        lambda *args, **kwargs: writes.append({"args": args, "kwargs": kwargs}),
     )
 
     result = task_utils._update_local_task_status(
@@ -62,16 +60,12 @@ def test_autopilot_trace_writer_does_not_touch_bound_v2_task(
     monkeypatch.setattr(
         support_module,
         "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
-            task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)
-        ),
+        lambda _app=None: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
     monkeypatch.setattr(
         support_module,
         "update_local_task_status",
-        lambda *args, **kwargs: writes.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        lambda *args, **kwargs: writes.append({"args": args, "kwargs": kwargs}),
     )
 
     AutopilotSupportService().append_trace_event(
@@ -94,9 +88,7 @@ def test_autopilot_status_writer_still_updates_ordinary_tasks(
     monkeypatch.setattr(
         task_utils,
         "update_local_task_status",
-        lambda *args, **kwargs: writes.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        lambda *args, **kwargs: writes.append({"args": args, "kwargs": kwargs}),
     )
 
     task_utils._update_local_task_status(

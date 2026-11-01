@@ -11,9 +11,17 @@ from agent.config import settings
 from agent.repository import agent_repo
 from agent.services.lmstudio_request_registry import (
     active_counts as local_active_goal_counts,
+)
+from agent.services.lmstudio_request_registry import (
     active_task_counts as local_active_task_counts,
+)
+from agent.services.lmstudio_request_registry import (
     cancel_all as local_cancel_all,
+)
+from agent.services.lmstudio_request_registry import (
     cancel_goal as local_cancel_goal,
+)
+from agent.services.lmstudio_request_registry import (
     cancel_task as local_cancel_task,
 )
 
@@ -52,7 +60,9 @@ class RequestCancellationService:
             _LOG.debug("request_cancel_worker_target_scan_failed", exc_info=True)
         return targets
 
-    def _post(self, url: str, endpoint: str, *, token: str | None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _post(
+        self, url: str, endpoint: str, *, token: str | None, payload: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """POST to a worker endpoint with retry on connection errors and 5xx responses (PRI-008).
 
         4xx responses are not retried (client errors — retrying won't help).
@@ -88,14 +98,25 @@ class RequestCancellationService:
             if attempt < self._retry_attempts - 1:
                 _LOG.debug(
                     "worker_cancel_retry attempt=%s url=%s error=%s",
-                    attempt + 1, full_url, last_error,
+                    attempt + 1,
+                    full_url,
+                    last_error,
                 )
                 time.sleep(self._retry_delay_s)
         _LOG.warning(
             "worker_cancel_failed_all_attempts url=%s attempts=%s status=%s error=%s",
-            full_url, self._retry_attempts, last_status, last_error,
+            full_url,
+            self._retry_attempts,
+            last_status,
+            last_error,
         )
-        return {"url": full_url, "ok": False, "status_code": last_status, "error": last_error, "attempts": self._retry_attempts}
+        return {
+            "url": full_url,
+            "ok": False,
+            "status_code": last_status,
+            "error": last_error,
+            "attempts": self._retry_attempts,
+        }
 
     def _fanout(self, endpoint: str, *, payload: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         targets = self._worker_targets()

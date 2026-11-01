@@ -25,7 +25,9 @@ class FakeHttpResponse:
 
 
 class FakeOpener:
-    def __init__(self, responses: list[FakeHttpResponse] | None = None, *, http_error: error.HTTPError | None = None) -> None:
+    def __init__(
+        self, responses: list[FakeHttpResponse] | None = None, *, http_error: error.HTTPError | None = None
+    ) -> None:
         self.responses = list(responses or [])
         self.http_error = http_error
         self.requests = []
@@ -62,7 +64,9 @@ def test_http_transport_posts_json_payloads() -> None:
     settings = FreecadWorkbenchSettings(endpoint="https://hub.local", transport_mode="http")
     client = FreecadHubClient.with_http_transport(settings, opener=opener)
 
-    response = client.submit_goal(goal="Inspect", context={"document": {"name": "Doc"}}, capability_id="freecad.model.inspect")
+    response = client.submit_goal(
+        goal="Inspect", context={"document": {"name": "Doc"}}, capability_id="freecad.model.inspect"
+    )
 
     request_obj, _timeout = opener.requests[0]
     body = json.loads(request_obj.data.decode("utf-8"))
@@ -81,7 +85,9 @@ def test_http_transport_maps_http_error_to_structured_status() -> None:
         fp=io.BytesIO(json.dumps({"reason": "approval_required"}).encode("utf-8")),
     )
     opener = FakeOpener(http_error=http_error)
-    transport = HttpJsonTransport(FreecadWorkbenchSettings(endpoint="https://hub.local", transport_mode="http"), opener=opener)
+    transport = HttpJsonTransport(
+        FreecadWorkbenchSettings(endpoint="https://hub.local", transport_mode="http"), opener=opener
+    )
 
     response = transport.send("approval_decision", {"approval_id": "APR-1", "decision": "approve"})
 

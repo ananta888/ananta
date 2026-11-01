@@ -1,4 +1,5 @@
 """FailureTriageStrategy — helpcenter_failure_triage_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, CodeCompassReadPort, HeuristicStrategyBase
@@ -8,9 +9,20 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _FAILURE_KEYWORDS = [
-    "fail", "failure", "broken", "regression", "flaky", "timeout",
-    "assertion", "assert", "test fail", "ci fail", "build fail",
-    "pipeline", "exit code", "nonzero",
+    "fail",
+    "failure",
+    "broken",
+    "regression",
+    "flaky",
+    "timeout",
+    "assertion",
+    "assert",
+    "test fail",
+    "ci fail",
+    "build fail",
+    "pipeline",
+    "exit code",
+    "nonzero",
 ]
 _MIN_SCORE = 0.15
 

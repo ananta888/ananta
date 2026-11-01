@@ -116,7 +116,7 @@ class TestFullAutopilotLoop:
         task_payload = response.json["data"]
         ingest_events = [h for h in (task_payload.get("history") or []) if h.get("event_type") == "trigger_created"]
         assert ingest_events
-        details = (ingest_events[0].get("details") or {})
+        details = ingest_events[0].get("details") or {}
         assert "trigger_policy_precheck" in details
 
     def test_scheduler_goal_scheduling(self, client, app, admin_auth_header, monkeypatch):

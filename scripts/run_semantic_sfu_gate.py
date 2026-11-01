@@ -30,10 +30,7 @@ DEFAULT_FAILOVER = ROOT / "artifacts/domain/semantic-sfu-live-failover.json"
 DEFAULT_GROUP = ROOT / "artifacts/e2e/semantic-media-group-report.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/semantic-sfu.json"
 DIGEST = "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
-TURN_REFERENCE = (
-    "coturn/coturn:4.6.3-r3@sha256:"
-    "71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
-)
+TURN_REFERENCE = "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
 SFU_SOURCE_PATHS = (
     ".env.example",
     "agent/db_models/semantic_media.py",
@@ -191,10 +188,7 @@ def recompute_evidence(
     ):
         reasons.append("group_capture_evidence_invalid")
     expected_group_source, expected_group_config = expected_group_evidence_binding()
-    if (
-        group.get("source_sha256") != expected_group_source
-        or group.get("config_sha256") != expected_group_config
-    ):
+    if group.get("source_sha256") != expected_group_source or group.get("config_sha256") != expected_group_config:
         reasons.append("group_capture_evidence_source_stale")
     capture_checks = {
         "sfu_boundary_capture_verified": True,
@@ -391,15 +385,11 @@ def main() -> int:
             "live_failover_browser_engine_count": len(failover.get("engines", []))
             if isinstance(failover.get("engines"), list)
             else 0,
-            "sfu_boundary_packet_count": int(
-                dict(group.get("measurements") or {}).get("sfu_boundary_packet_count", 0)
-            ),
+            "sfu_boundary_packet_count": int(dict(group.get("measurements") or {}).get("sfu_boundary_packet_count", 0)),
             "turn_boundary_packet_count": int(
                 dict(group.get("measurements") or {}).get("turn_boundary_packet_count", 0)
             ),
-            "turn_relay_engine_count": int(
-                dict(group.get("measurements") or {}).get("turn_relay_engine_count", 0)
-            ),
+            "turn_relay_engine_count": int(dict(group.get("measurements") or {}).get("turn_relay_engine_count", 0)),
         },
         "reasons": reasons,
         "verdict": "pass" if not reasons else "fail",

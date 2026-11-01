@@ -33,8 +33,23 @@ TESTS = ROOT / "tests"
 PINNING_DIRS = ("artifacts", "scripts", "config/test-gates", "config/release-gates")
 # never rewritten: hashed gate evidence, dependencies, generated output
 _EXCLUDED_DIRS = frozenset(
-    {".git", "node_modules", "artifacts", "project-workspaces", "data", "data_test", "rag-helper", "ci-artifacts",
-     "test-results", "test-reports", "autoimport-state", "vendor", "__pycache__", ".venv", "venv"}
+    {
+        ".git",
+        "node_modules",
+        "artifacts",
+        "project-workspaces",
+        "data",
+        "data_test",
+        "rag-helper",
+        "ci-artifacts",
+        "test-results",
+        "test-reports",
+        "autoimport-state",
+        "vendor",
+        "__pycache__",
+        ".venv",
+        "venv",
+    }
 )
 _TEXT_SUFFIXES = frozenset(
     {".py", ".md", ".json", ".yml", ".yaml", ".toml", ".sh", ".txt", ".mjs", ".js", ".ts", ".cfg", ".ini", ".ps1"}
@@ -127,7 +142,10 @@ def pinned_files(candidates: list[Path], hashed: set[Path] | None = None) -> set
 
 
 _ANCHORS = (
-    (re.compile(r"(Path\(__file__\)(?:\.resolve\(\))?\.parents\[)(\d+)(\])"), lambda m: f"{m.group(1)}{int(m.group(2)) + 1}{m.group(3)}"),
+    (
+        re.compile(r"(Path\(__file__\)(?:\.resolve\(\))?\.parents\[)(\d+)(\])"),
+        lambda m: f"{m.group(1)}{int(m.group(2)) + 1}{m.group(3)}",
+    ),
     (re.compile(r"(Path\(__file__\)(?:\.resolve\(\))?\.parent)(?!s)"), lambda m: f"{m.group(1)}.parent"),
     (re.compile(r"os\.path\.dirname\(__file__\)"), lambda m: "os.path.dirname(os.path.dirname(__file__))"),
 )
@@ -169,8 +187,12 @@ def rewrite_references(source: str, moves: dict[str, str]) -> str:
                 for target, items in groups.items()
             )
 
-        source = re.sub(r"(?m)^([ \t]*)from tests import ([A-Za-z0-9_, ]+(?: as [A-Za-z0-9_]+)?)$", _split_from_tests, source)
-        module_pattern = re.compile(r"(?<![A-Za-z0-9_.])tests\.(" + "|".join(map(re.escape, sorted(stems, key=len, reverse=True))) + r")\b")
+        source = re.sub(
+            r"(?m)^([ \t]*)from tests import ([A-Za-z0-9_, ]+(?: as [A-Za-z0-9_]+)?)$", _split_from_tests, source
+        )
+        module_pattern = re.compile(
+            r"(?<![A-Za-z0-9_.])tests\.(" + "|".join(map(re.escape, sorted(stems, key=len, reverse=True))) + r")\b"
+        )
         source = module_pattern.sub(lambda m: f"tests.{stems[m.group(1)]}.{m.group(1)}", source)
     return source
 

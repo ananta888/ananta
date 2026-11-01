@@ -369,22 +369,16 @@ class RestrictedInferenceConfigService:
             ]
 
         raw_tasks_value = raw.get("tasks")
-        raw_tasks: dict[str, Any] = (
-            dict(raw_tasks_value) if isinstance(raw_tasks_value, dict) else {}
-        )
+        raw_tasks: dict[str, Any] = dict(raw_tasks_value) if isinstance(raw_tasks_value, dict) else {}
         tasks = {
             task_id: RestrictedInferenceTaskConfig.from_raw(task_id, raw_tasks.get(task_id))
             for task_id in sorted(KNOWN_TASKS)
         }
         raw_worker_allowlist = raw.get("worker_allowed_endpoints")
         if isinstance(raw_worker_allowlist, str):
-            worker_allowed_endpoints = [
-                item.strip() for item in raw_worker_allowlist.split(",") if item.strip()
-            ]
+            worker_allowed_endpoints = [item.strip() for item in raw_worker_allowlist.split(",") if item.strip()]
         elif isinstance(raw_worker_allowlist, list):
-            worker_allowed_endpoints = [
-                str(item).strip() for item in raw_worker_allowlist if str(item).strip()
-            ]
+            worker_allowed_endpoints = [str(item).strip() for item in raw_worker_allowlist if str(item).strip()]
         else:
             worker_allowed_endpoints = []
         return RestrictedInferenceConfig(

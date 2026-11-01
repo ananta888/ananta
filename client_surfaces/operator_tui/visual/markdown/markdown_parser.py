@@ -76,12 +76,12 @@ _HR_PATTERNS = frozenset({"---", "***", "___"})
 
 # Inline span parsing regex: inline code, bold, italic, links
 _INLINE_RE = re.compile(
-    r"`(?P<code>[^`]+)`"           # `inline code`
+    r"`(?P<code>[^`]+)`"  # `inline code`
     r"|(?P<link_all>\[(?P<link_label>[^\]]+)\]\((?P<link_url>[^)]+)\))"  # [label](url)
-    r"|\*\*(?P<bold>[^*]+)\*\*"   # **bold**
-    r"|__(?P<bold2>[^_]+)__"       # __bold__
-    r"|\*(?P<italic>[^*]+)\*"      # *italic*
-    r"|_(?P<italic2>[^_]+)_"       # _italic_
+    r"|\*\*(?P<bold>[^*]+)\*\*"  # **bold**
+    r"|__(?P<bold2>[^_]+)__"  # __bold__
+    r"|\*(?P<italic>[^*]+)\*"  # *italic*
+    r"|_(?P<italic2>[^_]+)_"  # _italic_
 )
 
 
@@ -91,7 +91,7 @@ def parse_inline_spans(text: str) -> tuple[tuple[str, str], ...]:
     pos = 0
     for m in _INLINE_RE.finditer(text):
         if m.start() > pos:
-            spans.append(("text", text[pos:m.start()]))
+            spans.append(("text", text[pos : m.start()]))
         if m.group("code"):
             spans.append(("code", m.group("code")))
         elif m.group("bold"):
@@ -168,7 +168,9 @@ def parse_markdown(text: str) -> list[MarkdownBlock]:
             if i < len(lines):
                 i += 1
             source = "\n".join(code_lines)
-            blocks.append(MermaidBlock(source=source) if lang == "mermaid" else FencedCodeBlock(language=lang, source=source))
+            blocks.append(
+                MermaidBlock(source=source) if lang == "mermaid" else FencedCodeBlock(language=lang, source=source)
+            )
             continue
 
         if _is_hr(stripped):
@@ -223,7 +225,7 @@ def parse_markdown(text: str) -> list[MarkdownBlock]:
             while i < len(lines) and _is_numbered_item(lines[i].strip()):
                 s = lines[i].strip()
                 dot = s.index(". ")
-                num_items.append(s[dot + 2:].strip())
+                num_items.append(s[dot + 2 :].strip())
                 i += 1
             if num_items:
                 blocks.append(NumberedListBlock(items=tuple(num_items)))

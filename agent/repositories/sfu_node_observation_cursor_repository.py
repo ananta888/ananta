@@ -139,15 +139,11 @@ class SqlSfuNodeObservationCursorRepository:
                 )
             except IntegrityError as exc:
                 if attempt == 2:
-                    raise SfuNodeObservationCursorError(
-                        "sfu_observation_cursor_cas_conflict"
-                    ) from exc
+                    raise SfuNodeObservationCursorError("sfu_observation_cursor_cas_conflict") from exc
             except SfuNodeObservationCursorError:
                 raise
             except SQLAlchemyError as exc:
-                raise SfuNodeObservationCursorError(
-                    "sfu_observation_cursor_store_unavailable"
-                ) from exc
+                raise SfuNodeObservationCursorError("sfu_observation_cursor_store_unavailable") from exc
         raise SfuNodeObservationCursorError("sfu_observation_cursor_cas_conflict")
 
     def _accept_once(
@@ -188,9 +184,7 @@ class SqlSfuNodeObservationCursorRepository:
                 ).first()
                 if replay is not None:
                     if replay.payload_digest != payload_digest:
-                        raise SfuNodeObservationCursorError(
-                            "sfu_observation_sequence_payload_conflict"
-                        )
+                        raise SfuNodeObservationCursorError("sfu_observation_sequence_payload_conflict")
                     return _duplicate_acceptance(cursor, replay)
 
             if now >= fresh_until:
@@ -261,9 +255,7 @@ class SqlSfuNodeObservationCursorRepository:
                 if boot_id in retired_boot_ids:
                     raise SfuNodeObservationCursorError("sfu_observation_boot_replay")
                 if sequence > boot_sequence_start_max:
-                    raise SfuNodeObservationCursorError(
-                        "sfu_observation_boot_sequence_invalid"
-                    )
+                    raise SfuNodeObservationCursorError("sfu_observation_boot_sequence_invalid")
                 retired_boot_ids = (*retired_boot_ids, cursor.current_boot_id)[-entries_max:]
                 acceptance_status = "accepted"
                 next_highest = sequence
@@ -274,9 +266,7 @@ class SqlSfuNodeObservationCursorRepository:
                 acceptance_status = "accepted_reordered"
                 next_highest = cursor.highest_sequence
             else:
-                raise SfuNodeObservationCursorError(
-                    "sfu_observation_sequence_outside_window"
-                )
+                raise SfuNodeObservationCursorError("sfu_observation_sequence_outside_window")
 
             next_version = cursor.version + 1
             values: dict[str, object] = {
@@ -346,14 +336,10 @@ class SqlSfuNodeObservationCursorRepository:
             with Session(self._engine) as db:
                 receipt = db.get(SfuNodeObservationReplayDB, receipt_id)
                 if receipt is None:
-                    raise SfuNodeObservationCursorError(
-                        "sfu_observation_receipt_not_found"
-                    )
+                    raise SfuNodeObservationCursorError("sfu_observation_receipt_not_found")
                 if receipt.applied_node_version is not None:
                     if receipt.applied_node_version != node_version:
-                        raise SfuNodeObservationCursorError(
-                            "sfu_observation_applied_version_conflict"
-                        )
+                        raise SfuNodeObservationCursorError("sfu_observation_applied_version_conflict")
                     return
                 updated = db.exec(
                     sa.update(SfuNodeObservationReplayDB)
@@ -365,16 +351,12 @@ class SqlSfuNodeObservationCursorRepository:
                 )
                 if updated.rowcount != 1:
                     db.rollback()
-                    raise SfuNodeObservationCursorError(
-                        "sfu_observation_receipt_cas_conflict"
-                    )
+                    raise SfuNodeObservationCursorError("sfu_observation_receipt_cas_conflict")
                 db.commit()
         except SfuNodeObservationCursorError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuNodeObservationCursorError(
-                "sfu_observation_cursor_store_unavailable"
-            ) from exc
+            raise SfuNodeObservationCursorError("sfu_observation_cursor_store_unavailable") from exc
 
 
 def _duplicate_acceptance(
@@ -438,11 +420,7 @@ def _trim_replays(db: Session, *, cursor_id: str, entries_max: int, now: float) 
         ).all()
     )
     if stale_ids:
-        db.exec(
-            sa.delete(SfuNodeObservationReplayDB).where(
-                SfuNodeObservationReplayDB.id.in_(stale_ids)
-            )
-        )
+        db.exec(sa.delete(SfuNodeObservationReplayDB).where(SfuNodeObservationReplayDB.id.in_(stale_ids)))
 
 
 def _validate_inputs(**values: object) -> None:
@@ -480,9 +458,7 @@ def _validate_inputs(**values: object) -> None:
         raise SfuNodeObservationCursorError("sfu_observation_cursor_ttl_invalid")
 
 
-def _cursor_id(
-    *, tenant_id: str, cluster_id: str, node_id: str | None, producer_mode: str
-) -> str:
+def _cursor_id(*, tenant_id: str, cluster_id: str, node_id: str | None, producer_mode: str) -> str:
     material = json.dumps(
         [tenant_id, cluster_id, _subject_key(node_id), producer_mode],
         ensure_ascii=True,
@@ -505,18 +481,12 @@ def _bounded_json_copy(value: Mapping[str, object]) -> dict[str, object]:
             separators=(",", ":"),
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
-        raise SfuNodeObservationCursorError(
-            "sfu_observation_normalized_payload_invalid"
-        ) from exc
+        raise SfuNodeObservationCursorError("sfu_observation_normalized_payload_invalid") from exc
     if len(encoded) > 32_768:
-        raise SfuNodeObservationCursorError(
-            "sfu_observation_normalized_payload_oversize"
-        )
+        raise SfuNodeObservationCursorError("sfu_observation_normalized_payload_oversize")
     decoded = json.loads(encoded.decode("utf-8"))
     if not isinstance(decoded, dict):
-        raise SfuNodeObservationCursorError(
-            "sfu_observation_normalized_payload_invalid"
-        )
+        raise SfuNodeObservationCursorError("sfu_observation_normalized_payload_invalid")
     return decoded
 
 

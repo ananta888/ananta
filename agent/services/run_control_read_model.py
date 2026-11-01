@@ -4,6 +4,7 @@ Read-only projections over the command, instruction and branch stores owned
 by ``RunControlService``.  The service is supplied through the narrow
 ``RunControlStateSource`` port, so this module never mutates Run-Control state.
 """
+
 from __future__ import annotations
 
 import time
@@ -91,7 +92,8 @@ def _pending_approval_view(a: Any) -> dict[str, Any]:
         "digest_prefix": str(a.arguments_digest or "")[:12],
         "target_fingerprint_prefix": str(a.target_fingerprint or "")[:12],
         "scope_summary": {
-            k: v for k, v in dict(a.scope or {}).items()
+            k: v
+            for k, v in dict(a.scope or {}).items()
             if k in {"approval_class", "pre_approval", "goal_id", "source", "reason_code"}
         },
         "expires_at": a.expires_at,
@@ -137,6 +139,7 @@ class RunControlReadModel:
         if task_id:
             try:
                 from agent.services.repository_registry import get_repository_registry
+
                 task = get_repository_registry().task_repo.get_by_id(str(task_id))
                 if task:
                     task_status = str(getattr(task, "status", "") or "") or None
@@ -148,14 +151,11 @@ class RunControlReadModel:
         approvals = svc.list_requests(status="pending", task_id=task_id, goal_id=goal_id)
         pending_approvals = [_pending_approval_view(a) for a in approvals]
 
-        active_instr = self._source.get_active_instruction(
-            task_id=task_id, goal_id=goal_id, principal=principal
-        )
+        active_instr = self._source.get_active_instruction(task_id=task_id, goal_id=goal_id, principal=principal)
         active_instruction = active_instr.as_dict() if active_instr else None
 
         branches = [
-            b.as_dict()
-            for b in self._source.list_branches(task_id=task_id, goal_id=goal_id, principal=principal)
+            b.as_dict() for b in self._source.list_branches(task_id=task_id, goal_id=goal_id, principal=principal)
         ]
 
         def matches_resource(cmd: RunCommand) -> bool:
@@ -166,8 +166,7 @@ class RunControlReadModel:
             )
 
         recent_commands = sorted(
-            [cmd.as_dict() for cmd in self._commands.values()
-             if matches_resource(cmd) and _owned_by(cmd, principal)],
+            [cmd.as_dict() for cmd in self._commands.values() if matches_resource(cmd) and _owned_by(cmd, principal)],
             key=lambda c: c["requested_at"],
             reverse=True,
         )[:20]
@@ -186,10 +185,9 @@ class RunControlReadModel:
             "task_status": task_status,
             "run_status": run_status,
             "pending_commands": [
-                cmd.as_dict() for cmd in self._commands.values()
-                if cmd.status == "pending_safe_point"
-                and matches_resource(cmd)
-                and _owned_by(cmd, principal)
+                cmd.as_dict()
+                for cmd in self._commands.values()
+                if cmd.status == "pending_safe_point" and matches_resource(cmd) and _owned_by(cmd, principal)
             ],
             "active_instruction": active_instruction,
             "pending_approvals": pending_approvals,
@@ -214,18 +212,21 @@ class RunControlReadModel:
         pending = svc.list_requests(status="pending")
         task_ids: set[str] = {str(a.task_id or "") for a in pending if a.task_id}
         task_ids |= {
-            str(cmd.task_id or "")
-            for cmd in self._commands.values()
-            if cmd.task_id and _owned_by(cmd, principal)
+            str(cmd.task_id or "") for cmd in self._commands.values() if cmd.task_id and _owned_by(cmd, principal)
         }
         task_ids |= {
-            str(i.task_id or "") for i in self._instructions.values()
+            str(i.task_id or "")
+            for i in self._instructions.values()
             if i.status == "active" and i.task_id and _owned_by(i, principal)
         }
         try:
             active_statuses = {
-                "in_progress", "assigned", "delegated", "proposing",
-                "paused", "blocked_by_dependency",
+                "in_progress",
+                "assigned",
+                "delegated",
+                "proposing",
+                "paused",
+                "blocked_by_dependency",
             }
             for t in get_repository_registry().task_repo.get_all():
                 if str(getattr(t, "status", "") or "") in active_statuses:
@@ -235,7 +236,7 @@ class RunControlReadModel:
 
         task_ids.discard("")
         result = []
-        for tid in list(task_ids)[:max(1, min(int(limit), 200))]:
+        for tid in list(task_ids)[: max(1, min(int(limit), 200))]:
             try:
                 result.append(self.get_control_state(task_id=tid, principal=principal))
             except RunControlAuthorizationError:
@@ -249,18 +250,25 @@ class RunControlReadModel:
         limit: int = 50,
         principal: RunControlPrincipal | None = None,
     ) -> list[dict[str, Any]]:
-        if principal is not None and (task_id or goal_id) and not self._source.authorize_resources(
-            principal=principal,
-            task_id=task_id,
-            goal_id=goal_id,
+        if (
+            principal is not None
+            and (task_id or goal_id)
+            and not self._source.authorize_resources(
+                principal=principal,
+                task_id=task_id,
+                goal_id=goal_id,
+            )
         ):
             raise RunControlAuthorizationError(RunControlAuthorizationError.reason_code)
         cmds = sorted(
-            [cmd.as_dict() for cmd in self._commands.values()
-             if (not task_id or cmd.task_id == task_id)
-             and (not goal_id or cmd.goal_id == goal_id)
-             and _owned_by(cmd, principal)],
+            [
+                cmd.as_dict()
+                for cmd in self._commands.values()
+                if (not task_id or cmd.task_id == task_id)
+                and (not goal_id or cmd.goal_id == goal_id)
+                and _owned_by(cmd, principal)
+            ],
             key=lambda c: c["requested_at"],
             reverse=True,
         )
-        return cmds[:max(1, min(int(limit), 500))]
+        return cmds[: max(1, min(int(limit), 500))]

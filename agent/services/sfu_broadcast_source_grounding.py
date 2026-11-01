@@ -13,7 +13,6 @@ from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import Iterable, Mapping
 
-
 _SOURCE_ID = re.compile(r"^SRC_[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")
 _RUN_ID = re.compile(r"^RUN_[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")
 _SHA256 = re.compile(r"^(?:sha256:)?[0-9a-f]{64}$")

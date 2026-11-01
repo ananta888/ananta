@@ -1,33 +1,30 @@
 """ProposeStrategyOrchestrator — central policy-driven proposal engine. FA-T005."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List
 
-from worker.core.propose import (
-    ProposeStrategyResult,
-    ProposalBase,
-    STATUS_ADVISORY,
-    STATUS_FAILED,
-    STATUS_NEEDS_REVIEW,
-    STATUS_DECLINED,
-)
-
-from agent.services.propose_policy import ProposePolicy, LLM_STRATEGY_IDS
+from agent.services.propose_policy import LLM_STRATEGY_IDS, ProposePolicy
 from ananta_contracts.model_recovery import aggregate_model_recovery_signals
+from worker.core.propose import (
+    STATUS_DECLINED,
+    ProposeStrategyResult,
+)
 
 
 @dataclass
 class ProposeContext:
     """Context passed to every propose strategy."""
+
     goal_id: str
     task_id: str
     task: dict[str, Any]
     base_prompt: str
     research_context: dict[str, Any] | None = None
-    cli_runner: 'Callable' = None
-    tool_definitions_resolver: 'Callable' = None
+    cli_runner: "Callable" = None
+    tool_definitions_resolver: "Callable" = None
     policy: ProposePolicy | None = None  # T003: strategies may read policy
     effective_config: dict[str, Any] | None = None  # CPR-003: goal-scoped config passed through
     instruction_stack: dict[str, Any] | None = None
@@ -81,18 +78,18 @@ class ProposeStrategyOrchestrator:
 
         for strategy_id in strategy_order:
             if not self.policy.is_strategy_enabled(strategy_id):
-                attempted.append({
-                    "strategy_id": strategy_id,
-                    "status": STATUS_DECLINED,
-                    "reason": "disabled_by_strategy_mode",
-                })
+                attempted.append(
+                    {
+                        "strategy_id": strategy_id,
+                        "status": STATUS_DECLINED,
+                        "reason": "disabled_by_strategy_mode",
+                    }
+                )
                 continue
 
             strategy = self.strategies.get(strategy_id)
             if strategy is None:
-                result = ProposeStrategyResult.declined(
-                    strategy_id, reason="strategy_not_available"
-                )
+                result = ProposeStrategyResult.declined(strategy_id, reason="strategy_not_available")
             else:
                 result = strategy.run(context)
             if isinstance(getattr(result, "metadata", None), dict):
@@ -116,11 +113,13 @@ class ProposeStrategyOrchestrator:
                     ]
                     collected_recovery_signals.append(signal)
 
-            attempted.append({
-                "strategy_id": strategy_id,
-                "status": result.status,
-                "reason": result.reason,
-            })
+            attempted.append(
+                {
+                    "strategy_id": strategy_id,
+                    "status": result.status,
+                    "reason": result.reason,
+                }
+            )
 
             # Track LLM unavailability for T003 enforcement
             if strategy_id in LLM_STRATEGY_IDS and result.status == STATUS_DECLINED:
@@ -136,9 +135,7 @@ class ProposeStrategyOrchestrator:
                     if collected_fallback_decisions:
                         result.metadata["fallback_decisions"] = list(collected_fallback_decisions[-32:])
                     if not result.is_executable:
-                        recovery_signal = aggregate_model_recovery_signals(
-                            collected_recovery_signals
-                        )
+                        recovery_signal = aggregate_model_recovery_signals(collected_recovery_signals)
                         if recovery_signal is not None:
                             result.metadata["model_recovery_signal"] = recovery_signal
                 return result
@@ -148,9 +145,7 @@ class ProposeStrategyOrchestrator:
                 llm_required
                 and llm_strategy_count > 0
                 and llm_unavailable_count == llm_strategy_count
-                and strategy_id == _last_llm_strategy(
-                    [s for s in strategy_order if self.policy.is_strategy_enabled(s)]
-                )
+                and strategy_id == _last_llm_strategy([s for s in strategy_order if self.policy.is_strategy_enabled(s)])
             ):
                 meta = {
                     "attempted_strategies": attempted,
@@ -183,12 +178,14 @@ class ProposeStrategyOrchestrator:
         match self.policy.on_all_strategies_declined:
             case "needs_review":
                 r = ProposeStrategyResult.needs_review(
-                    "orchestrator", "all_strategies_declined_needs_review",
+                    "orchestrator",
+                    "all_strategies_declined_needs_review",
                     metadata=fallback_meta,
                 )
             case "failed":
                 r = ProposeStrategyResult.failed(
-                    "orchestrator", "all_strategies_declined_failed",
+                    "orchestrator",
+                    "all_strategies_declined_failed",
                     metadata=fallback_meta,
                 )
             case "advisory":
@@ -198,9 +195,7 @@ class ProposeStrategyOrchestrator:
                     metadata=fallback_meta,
                 )
             case _:
-                raise ValueError(
-                    f"invalid_on_all_strategies_declined: {self.policy.on_all_strategies_declined}"
-                )
+                raise ValueError(f"invalid_on_all_strategies_declined: {self.policy.on_all_strategies_declined}")
         return r
 
 
@@ -215,6 +210,7 @@ def _last_llm_strategy(strategy_order: list[str]) -> str | None:
 
 class StubStrategy(ProposeStrategy):
     """Placeholder for unimplemented strategies. Always declines with diagnostics."""
+
     def __init__(self, strategy_id: str):
         self.strategy_id = strategy_id
 

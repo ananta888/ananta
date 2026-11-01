@@ -1,8 +1,9 @@
 """DRR-T006: RepairProcedureExecutionPlan generator tests."""
+
 from __future__ import annotations
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from agent.services.repair_execution_plan_service import (
     RepairActionType,
@@ -240,7 +241,12 @@ class TestGenerateRepairExecutionPlan:
                 "procedure": {
                     "id": "proc-service-start-v1",
                     "steps": [
-                        {"id": "verify-01", "title": "Check service", "step_type": "verification_check", "mutation_candidate": False},
+                        {
+                            "id": "verify-01",
+                            "title": "Check service",
+                            "step_type": "verification_check",
+                            "mutation_candidate": False,
+                        },
                     ],
                 },
             },

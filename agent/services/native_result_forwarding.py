@@ -19,13 +19,22 @@ def validate_forwarded_native_result(*, task_id, dispatched_task, response, load
     command = native_task_command(authoritative)
     context = task_value(dispatched_task, "worker_execution_context") or {}
     if (
-        task_value(dispatched_task, "id") != task_id or authoritative.id != task_id
+        task_value(dispatched_task, "id") != task_id
+        or authoritative.id != task_id
         or task_value(dispatched_task, "assigned_agent_url") != authoritative.assigned_agent_url
         or native_context_digest(context.get("native_node_command")) != native_context_digest(command.to_dict())
     ):
         raise ValueError("native_result_dispatch_projection_mismatch")
-    fields = {"status", "output", "exit_code", "reason_code", "adapter_kind", "artifacts", "sources",
-              "workflow_adapter_verification"}
+    fields = {
+        "status",
+        "output",
+        "exit_code",
+        "reason_code",
+        "adapter_kind",
+        "artifacts",
+        "sources",
+        "workflow_adapter_verification",
+    }
     if not isinstance(response, dict) or set(response) - {"handler_contract"} != fields:
         raise ValueError("native_result_envelope_invalid")
     witness = response["workflow_adapter_verification"]
@@ -36,20 +45,32 @@ def validate_forwarded_native_result(*, task_id, dispatched_task, response, load
     native = nested.get("verification") if isinstance(nested, dict) else None
     if not isinstance(native, dict):
         raise ValueError("native_result_required")
-    candidate = SimpleNamespace(**{
-        name: getattr(authoritative, name) for name in (
-            "id", "tenant_id", "task_kind", "derivation_reason", "worker_execution_context",
-        )
-    })
+    candidate = SimpleNamespace(
+        **{
+            name: getattr(authoritative, name)
+            for name in (
+                "id",
+                "tenant_id",
+                "task_kind",
+                "derivation_reason",
+                "worker_execution_context",
+            )
+        }
+    )
     candidate.status, candidate.last_output, candidate.last_exit_code = (
-        response["status"], response["output"], response["exit_code"],
+        response["status"],
+        response["output"],
+        response["exit_code"],
     )
     candidate.verification_status = {
-        "workflow_adapter_task_result": outer, "native_node_result": native.get("native_node_result"),
+        "workflow_adapter_task_result": outer,
+        "native_node_result": native.get("native_node_result"),
     }
     result = native_task_result(candidate, command)
     if (
-        response["adapter_kind"] != "native" or response["reason_code"] != result.reason_code
-        or response["artifacts"] != outer.get("artifacts") or response["sources"] != outer.get("sources")
+        response["adapter_kind"] != "native"
+        or response["reason_code"] != result.reason_code
+        or response["artifacts"] != outer.get("artifacts")
+        or response["sources"] != outer.get("sources")
     ):
         raise ValueError("native_result_envelope_invalid")

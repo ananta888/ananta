@@ -12,10 +12,12 @@ FIXTURE_DIR = Path("tests/fixtures/x86")
 
 # ===== X86CC-028: Worker context handoff =====
 
+
 def test_x86_handoff_module_importable():
     """The x86 context-handoff surface must be importable as a module so workers
     can require it without crashing on import."""
     from agent.codecompass.x86 import handoff  # type: ignore[import-not-found]
+
     assert handoff is not None
 
 
@@ -25,10 +27,20 @@ def test_x86_handoff_builds_context_for_function(tmp_path):
     from agent.codecompass.x86.handoff import build_x86_worker_context  # type: ignore[attr-defined]
 
     nodes = [
-        {"id": "fn-1", "kind": "function", "source_type": "fixture",
-         "address": 0x401000, "attributes": {"name": "main"}},
-        {"id": "ins-1", "kind": "instruction", "source_type": "fixture",
-         "address": 0x401000, "attributes": {"mnemonic": "mov", "operands": ["rax", "rdi"]}},
+        {
+            "id": "fn-1",
+            "kind": "function",
+            "source_type": "fixture",
+            "address": 0x401000,
+            "attributes": {"name": "main"},
+        },
+        {
+            "id": "ins-1",
+            "kind": "instruction",
+            "source_type": "fixture",
+            "address": 0x401000,
+            "attributes": {"mnemonic": "mov", "operands": ["rax", "rdi"]},
+        },
     ]
     edges = []
     ctx = build_x86_worker_context(nodes=nodes, edges=edges, function_id="fn-1")
@@ -41,19 +53,26 @@ def test_x86_handoff_builds_context_for_function(tmp_path):
 
 def test_x86_handoff_missing_function_id_returns_error():
     from agent.codecompass.x86.handoff import build_x86_worker_context  # type: ignore[attr-defined]
+
     ctx = build_x86_worker_context(nodes=[], edges=[], function_id="")
     assert ctx.get("status") == "error"
 
 
 # ===== X86CC-029: Viewer model =====
 
+
 def test_viewer_builds_function_overview():
     from agent.codecompass.x86.viewer import build_function_overview
+
     nodes = [
-        {"id": "fn", "kind": "function", "source_type": "fixture",
-         "address": 0x401000, "attributes": {"name": "main"}},
-        {"id": "imp", "kind": "import_symbol", "source_type": "fixture",
-         "address": None, "attributes": {"name": "printf", "dll": "msvcrt"}},
+        {"id": "fn", "kind": "function", "source_type": "fixture", "address": 0x401000, "attributes": {"name": "main"}},
+        {
+            "id": "imp",
+            "kind": "import_symbol",
+            "source_type": "fixture",
+            "address": None,
+            "attributes": {"name": "printf", "dll": "msvcrt"},
+        },
     ]
     edges = [{"source": "fn", "target": "imp", "edge_type": "calls"}]
     model = build_function_overview(nodes, edges)
@@ -67,9 +86,15 @@ def test_viewer_builds_function_overview():
 
 def test_viewer_truncation_flag_when_functions_exceed_limit():
     from agent.codecompass.x86.viewer import build_function_overview
+
     nodes = [
-        {"id": f"fn-{i}", "kind": "function", "source_type": "fixture",
-         "address": 0x400000 + i, "attributes": {"name": f"f{i}"}}
+        {
+            "id": f"fn-{i}",
+            "kind": "function",
+            "source_type": "fixture",
+            "address": 0x400000 + i,
+            "attributes": {"name": f"f{i}"},
+        }
         for i in range(10)
     ]
     model = build_function_overview(nodes, [], limits={"max_functions": 3})
@@ -79,6 +104,7 @@ def test_viewer_truncation_flag_when_functions_exceed_limit():
 
 def test_viewer_cfg_indirect_jump_warning():
     from agent.codecompass.x86.viewer import build_function_overview
+
     nodes = [
         {"id": "bb-1", "kind": "basic_block", "source_type": "fixture", "address": 0x401000},
     ]
@@ -91,9 +117,9 @@ def test_viewer_cfg_indirect_jump_warning():
 
 def test_viewer_payload_is_json_serializable():
     from agent.codecompass.x86.viewer import build_function_overview
+
     nodes = [
-        {"id": "fn", "kind": "function", "source_type": "fixture",
-         "address": 0x401000, "attributes": {"name": "main"}},
+        {"id": "fn", "kind": "function", "source_type": "fixture", "address": 0x401000, "attributes": {"name": "main"}},
     ]
     model = build_function_overview(nodes, [])
     blob = json.dumps(model.as_dict())
@@ -147,11 +173,14 @@ def test_each_fixture_has_metadata(name):
 
 # ===== X86CC-031: Regression — existing CodeCompass tests unchanged =====
 
+
 def test_existing_codecompass_graph_api_still_passes_shape():
     """Smoke check: the existing graph-store API still has the fields it had
     before the x86 extension was added."""
-    from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
     import inspect
+
+    from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+
     sig = inspect.signature(CodeCompassGraphStore.rebuild_from_output_records)
     params = sig.parameters
     assert "records" in params
@@ -159,20 +188,35 @@ def test_existing_codecompass_graph_api_still_passes_shape():
 
 
 def test_existing_codecompass_load_payload_has_all_back_compat_fields():
+    import os
+    import tempfile
+
     from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
-    import tempfile, os
+
     with tempfile.TemporaryDirectory() as td:
         store = CodeCompassGraphStore(index_path=os.path.join(td, "g.json"))
         payload = store.load()
     # all original fields must still be present (not removed by the x86 extension)
-    for field in ("state", "nodes", "edges", "semantic_nodes", "semantic_edges",
-                  "equivalence_rules", "translation_contracts", "transform_artifacts",
-                  "node_index", "semantic_index", "outgoing_index", "incoming_index",
-                  "diagnostics"):
+    for field in (
+        "state",
+        "nodes",
+        "edges",
+        "semantic_nodes",
+        "semantic_edges",
+        "equivalence_rules",
+        "translation_contracts",
+        "transform_artifacts",
+        "node_index",
+        "semantic_index",
+        "outgoing_index",
+        "incoming_index",
+        "diagnostics",
+    ):
         assert field in payload, f"regression: {field} missing from graph-store payload"
 
 
 # ===== X86CC-032: Documentation =====
+
 
 def test_documentation_present_and_complete():
     doc_path = Path("docs/codecompass-x86-assembly-core-extension.md")

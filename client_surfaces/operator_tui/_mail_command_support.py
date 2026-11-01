@@ -6,6 +6,7 @@ subcommand handler modules (``commands_mail``, ``commands_mail_account`` and
 ``commands_mail_content``) depend on one small support module instead of on
 each other.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -83,16 +84,11 @@ def build_mail_payload(*, game: dict[str, Any], repo_root: Path) -> dict[str, An
     mock_rows = [dict(item) for item in list(game.get("mail_mock_messages") or []) if isinstance(item, Mapping)]
     if mock_rows:
         flattened = [
-            {**dict(item.get("message_ref") or {}), **dict(item.get("header_meta") or {}), **item}
-            for item in mock_rows
+            {**dict(item.get("message_ref") or {}), **dict(item.get("header_meta") or {}), **item} for item in mock_rows
         ]
         rows.extend(application.sanitize_message_metadata_rows(flattened, default_protocol="imap"))
     if selected_account_id:
-        rows = [
-            row
-            for row in rows
-            if str(_message_ref(row).get("account_id") or "") == selected_account_id
-        ]
+        rows = [row for row in rows if str(_message_ref(row).get("account_id") or "") == selected_account_id]
 
     mailbox_set = sorted({mailbox for row in rows for mailbox in _mailboxes(row)})
     if not mailbox_set:

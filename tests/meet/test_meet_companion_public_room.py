@@ -202,10 +202,21 @@ class FakePage:
             return {"joined": True, "peers": 1, "e2ee": "active", "chat": []}
         elif "chat.open" in script:
             room = world.joins[-1]
-            return {"origin": "https://meet.invalid", "tenant_id": "tenant", "project_id": "project",
-                    "task_id": "task-1", "runtime_id": "runtime-1", "session_id": "session-" + room[-4:],
-                    "lease_id": "lease", "room_id": room, "own_peer_id": "machine", "generation": 1,
-                    "membership_epoch": 1, "policy_revision": 1, "deadline_ms": 3_000_000_000_000}
+            return {
+                "origin": "https://meet.invalid",
+                "tenant_id": "tenant",
+                "project_id": "project",
+                "task_id": "task-1",
+                "runtime_id": "runtime-1",
+                "session_id": "session-" + room[-4:],
+                "lease_id": "lease",
+                "room_id": room,
+                "own_peer_id": "machine",
+                "generation": 1,
+                "membership_epoch": 1,
+                "policy_revision": 1,
+                "deadline_ms": 3_000_000_000_000,
+            }
         elif "chat.poll" in script:
             return {"schema": "ananta.meet-chat-batch.draft1", "events": []}
         return None
@@ -244,8 +255,11 @@ def world(companion, monkeypatch, tmp_path):
 
 def test_join_self_heals_first_and_advertises_the_rebound_room(companion, monkeypatch, world):
     order = []
-    monkeypatch.setattr(companion, "ensure_public_room", lambda: order.append("ensure") or {
-        "room_id": ROOM_B, "invite_url": invite(ROOM_B)})
+    monkeypatch.setattr(
+        companion,
+        "ensure_public_room",
+        lambda: order.append("ensure") or {"room_id": ROOM_B, "invite_url": invite(ROOM_B)},
+    )
     monkeypatch.setattr(companion, "fetch_grant", lambda identity=None: order.append("grant") or grant(ROOM_B))
     companion.main()
     assert order[:2] == ["ensure", "grant"]

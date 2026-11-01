@@ -15,13 +15,20 @@ from worker.meet_media.companion_task_execution import AssignedCompanionExecutio
 @pytest.mark.parametrize("mode", ["normal", "speech_paused", "chat_paused", "send_failed"])
 def test_assigned_round_never_replies_after_chat_pause_or_speaks_after_speech_pause(mode):
     now, controls, state, _pool = fixture()
-    process = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", """
+    process = CompanionExecutionProcess(
+        command=(
+            sys.executable,
+            "-u",
+            "-c",
+            """
 import base64,json,sys,time
 for line in sys.stdin:
     value=json.loads(line);time.sleep(.05)
     result='synthetic answer' if value['kind']=='answer' else base64.b64encode(b'\\x00\\x01'*50).decode()
     print(json.dumps({'kind':value['kind'],'result':result}),flush=True)
-"""))
+""",
+        )
+    )
     sent, spoken = Mock(return_value=mode != "send_failed"), Mock()
     calls = [0]
 

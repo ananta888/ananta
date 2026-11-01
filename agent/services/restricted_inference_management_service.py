@@ -73,9 +73,7 @@ class RestrictedInferenceManagementService:
         if configured_allowlist is None:
             configured_allowlist = tuple(
                 item.strip()
-                for item in str(
-                    os.getenv("ANANTA_RESTRICTED_INFERENCE_ALLOWED_ENDPOINTS", "")
-                ).split(",")
+                for item in str(os.getenv("ANANTA_RESTRICTED_INFERENCE_ALLOWED_ENDPOINTS", "")).split(",")
                 if item.strip()
             )
         token = str(bearer_token or os.getenv("ANANTA_RESTRICTED_INFERENCE_TOKEN", "")).strip()
@@ -105,9 +103,7 @@ class RestrictedInferenceManagementService:
         self._timeout = float(timeout_seconds)
         self._max_response_bytes = int(max_response_bytes)
         self._resolver = resolver
-        self._circuit_breaker = (
-            circuit_breaker or get_restricted_inference_management_circuit_breaker()
-        )
+        self._circuit_breaker = circuit_breaker or get_restricted_inference_management_circuit_breaker()
         self._opener = opener or urllib.request.build_opener(
             urllib.request.ProxyHandler({}),
             _NoRedirectHandler(),

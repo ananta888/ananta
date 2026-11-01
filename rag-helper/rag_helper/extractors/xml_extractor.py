@@ -61,26 +61,28 @@ class XmlExtractor:
         namespaces = dict(root.nsmap) if root.nsmap else {}
         root_tag = self._strip_ns(root.tag)
 
-        index_records.append({
-            "kind": "xml_file",
-            "file": rel_path,
-            "id": f"xml_file:{safe_id(rel_path)}",
-            "root": root_tag,
-            "namespaces": namespaces,
-            "xml_kind": xml_kind,
-            "embedding_text": build_embedding_text(
-                self.embedding_text_mode,
-                (
-                f"XML file {rel_path}. Root tag {root_tag}. "
-                f"XML kind {xml_kind}. "
-                f"Namespaces: {', '.join([f'{k}={v}' for k, v in namespaces.items()][:10]) or 'none'}."
+        index_records.append(
+            {
+                "kind": "xml_file",
+                "file": rel_path,
+                "id": f"xml_file:{safe_id(rel_path)}",
+                "root": root_tag,
+                "namespaces": namespaces,
+                "xml_kind": xml_kind,
+                "embedding_text": build_embedding_text(
+                    self.embedding_text_mode,
+                    (
+                        f"XML file {rel_path}. Root tag {root_tag}. "
+                        f"XML kind {xml_kind}. "
+                        f"Namespaces: {', '.join([f'{k}={v}' for k, v in namespaces.items()][:10]) or 'none'}."
+                    ),
+                    (
+                        f"XML {rel_path}. Root {root_tag}. Kind {xml_kind}. "
+                        f"Namespaces {compact_list([f'{k}={v}' for k, v in namespaces.items()], limit=4)}."
+                    ),
                 ),
-                (
-                f"XML {rel_path}. Root {root_tag}. Kind {xml_kind}. "
-                f"Namespaces {compact_list([f'{k}={v}' for k, v in namespaces.items()], limit=4)}."
-                ),
-            ),
-        })
+            }
+        )
 
         idx, det, rel = self._extract_xml(rel_path, root)
         index_records.extend(idx)
@@ -125,11 +127,7 @@ class XmlExtractor:
     def _looks_like_config_xml(self, rel_path: str, root) -> bool:
         rel_path_lower = rel_path.lower()
         root_tag = self._strip_ns(root.tag).lower()
-        namespace_values = {
-            value.lower()
-            for value in (root.nsmap or {}).values()
-            if isinstance(value, str)
-        }
+        namespace_values = {value.lower() for value in (root.nsmap or {}).values() if isinstance(value, str)}
 
         if any(token in rel_path_lower for token in ("spring", "beans", "context", "mapper", "mybatis")):
             return True
@@ -161,11 +159,7 @@ class XmlExtractor:
         dominant_count = max(tag_counts.values(), default=0)
         dominant_ratio = dominant_count / len(children) if children else 0.0
 
-        return (
-            dominant_ratio >= 0.7
-            and len(attribute_name_sets) <= 3
-            and text_like_children <= len(children) // 2
-        )
+        return dominant_ratio >= 0.7 and len(attribute_name_sets) <= 3 and text_like_children <= len(children) // 2
 
     def _strip_ns(self, tag: str) -> str:
         if "}" in tag:
@@ -236,92 +230,102 @@ class XmlExtractor:
                     if relation_key in seen_tag_relations:
                         continue
                     seen_tag_relations.add(relation_key)
-                    relation_records.append(self._make_relation(
+                    relation_records.append(
+                        self._make_relation(
+                            file=rel_path,
+                            source_id=f"xml_tag:{safe_id(rel_path, tag)}",
+                            source_kind="xml_tag",
+                            source_name=tag,
+                            relation="contains_child_tag",
+                            target=child_tag,
+                            target_resolved=f"xml_tag:{safe_id(rel_path, child_tag)}",
+                        )
+                    )
+                    continue
+                relation_records.append(
+                    self._make_relation(
                         file=rel_path,
-                        source_id=f"xml_tag:{safe_id(rel_path, tag)}",
-                        source_kind="xml_tag",
-                        source_name=tag,
+                        source_id=node_id,
+                        source_kind="xml_node",
+                        source_name=path,
                         relation="contains_child_tag",
                         target=child_tag,
-                        target_resolved=f"xml_tag:{safe_id(rel_path, child_tag)}",
-                    ))
-                    continue
-                relation_records.append(self._make_relation(
-                    file=rel_path,
-                    source_id=node_id,
-                    source_kind="xml_node",
-                    source_name=path,
-                    relation="contains_child_tag",
-                    target=child_tag,
-                    target_resolved=None,
-                ))
+                        target_resolved=None,
+                    )
+                )
 
             if self.include_xml_node_details:
-                detail_records.append({
-                    "kind": "xml_node_detail",
-                    "file": rel_path,
-                    "id": f"xml_node_detail:{safe_id(rel_path, path)}",
-                    "tag": tag,
-                    "path": path,
-                    "attributes": attrs,
-                    "text": text[:500],
-                    "children": child_tags[:100],
-                    "embedding_text": build_embedding_text(
-                        self.embedding_text_mode,
-                        (
-                        f"XML node {tag} in file {rel_path}. Path {path}. "
-                        f"Attributes: {', '.join(attrs.keys()) or 'none'}. "
-                        f"Children: {', '.join(child_tags[:20]) or 'none'}. "
-                        f"Text: {text[:200] or 'none'}."
+                detail_records.append(
+                    {
+                        "kind": "xml_node_detail",
+                        "file": rel_path,
+                        "id": f"xml_node_detail:{safe_id(rel_path, path)}",
+                        "tag": tag,
+                        "path": path,
+                        "attributes": attrs,
+                        "text": text[:500],
+                        "children": child_tags[:100],
+                        "embedding_text": build_embedding_text(
+                            self.embedding_text_mode,
+                            (
+                                f"XML node {tag} in file {rel_path}. Path {path}. "
+                                f"Attributes: {', '.join(attrs.keys()) or 'none'}. "
+                                f"Children: {', '.join(child_tags[:20]) or 'none'}. "
+                                f"Text: {text[:200] or 'none'}."
+                            ),
+                            (
+                                f"XML node {tag}. Path {path}. "
+                                f"Attrs {compact_list(list(attrs.keys()), limit=6)}. "
+                                f"Children {compact_list(child_tags, limit=6)}. "
+                                f"Text {compact_text(text, 100)}."
+                            ),
                         ),
-                        (
-                        f"XML node {tag}. Path {path}. "
-                        f"Attrs {compact_list(list(attrs.keys()), limit=6)}. "
-                        f"Children {compact_list(child_tags, limit=6)}. "
-                        f"Text {compact_text(text, 100)}."
-                        ),
-                    ),
-                })
+                    }
+                )
 
         if self.index_mode == "summary":
             index_records.append(self._build_xml_tag_summary(rel_path, tag_first_seen, tag_attrs, tag_children))
             return index_records, detail_records, relation_records
 
         for tag, first_path in tag_first_seen.items():
-            index_records.append({
-                "kind": "xml_tag",
-                "file": rel_path,
-                "id": f"xml_tag:{safe_id(rel_path, tag)}",
-                "tag": tag,
-                "first_path": first_path,
-                "attribute_names": sorted(tag_attrs[tag])[:12],
-                "child_tags": sorted(tag_children[tag])[:12],
-                "embedding_text": build_embedding_text(
-                    self.embedding_text_mode,
-                    (
-                    f"XML tag {tag} in file {rel_path}. First path {first_path}. "
-                    f"Attributes: {', '.join(sorted(tag_attrs[tag])[:12]) or 'none'}. "
-                    f"Possible children: {', '.join(sorted(tag_children[tag])[:12]) or 'none'}."
+            index_records.append(
+                {
+                    "kind": "xml_tag",
+                    "file": rel_path,
+                    "id": f"xml_tag:{safe_id(rel_path, tag)}",
+                    "tag": tag,
+                    "first_path": first_path,
+                    "attribute_names": sorted(tag_attrs[tag])[:12],
+                    "child_tags": sorted(tag_children[tag])[:12],
+                    "embedding_text": build_embedding_text(
+                        self.embedding_text_mode,
+                        (
+                            f"XML tag {tag} in file {rel_path}. First path {first_path}. "
+                            f"Attributes: {', '.join(sorted(tag_attrs[tag])[:12]) or 'none'}. "
+                            f"Possible children: {', '.join(sorted(tag_children[tag])[:12]) or 'none'}."
+                        ),
+                        (
+                            f"XML tag {tag}. Path {first_path}. "
+                            f"Attrs {compact_list(sorted(tag_attrs[tag]), limit=6)}. "
+                            f"Children {compact_list(sorted(tag_children[tag]), limit=6)}."
+                        ),
                     ),
-                    (
-                    f"XML tag {tag}. Path {first_path}. "
-                    f"Attrs {compact_list(sorted(tag_attrs[tag]), limit=6)}. "
-                    f"Children {compact_list(sorted(tag_children[tag]), limit=6)}."
-                    ),
-                ),
-            })
+                }
+            )
 
         return index_records, detail_records, relation_records
 
     def _build_xml_tag_summary(self, rel_path: str, tag_first_seen, tag_attrs, tag_children) -> dict[str, Any]:
         tag_items = []
         for tag, first_path in sorted(tag_first_seen.items()):
-            tag_items.append({
-                "tag": tag,
-                "first_path": first_path,
-                "attribute_names": sorted(tag_attrs[tag])[:6],
-                "child_tags": sorted(tag_children[tag])[:6],
-            })
+            tag_items.append(
+                {
+                    "tag": tag,
+                    "first_path": first_path,
+                    "attribute_names": sorted(tag_attrs[tag])[:6],
+                    "child_tags": sorted(tag_children[tag])[:6],
+                }
+            )
         top_tags = tag_items[:25]
         return {
             "kind": "xml_tag_summary",

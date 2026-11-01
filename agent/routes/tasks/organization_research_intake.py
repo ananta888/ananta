@@ -45,18 +45,14 @@ def _configured_worker_url() -> str:
     return worker_url
 
 
-@organization_research_intake_bp.post(
-    "/internal/tasks/organization-planning-research"
-)
+@organization_research_intake_bp.post("/internal/tasks/organization-planning-research")
 @check_service_auth
 def admit_organization_planning_research():
     if str(settings.role or "").strip().lower() != "worker":
         return api_response(
             status="error",
             message="organization_research_worker_role_required",
-            data={
-                "reason_code": "organization_research_worker_role_required"
-            },
+            data={"reason_code": "organization_research_worker_role_required"},
             code=403,
         )
     raw = request.get_json(silent=True)
@@ -64,25 +60,15 @@ def admit_organization_planning_research():
         return api_response(
             status="error",
             message="organization_research_dispatch_payload_invalid",
-            data={
-                "reason_code": (
-                    "organization_research_dispatch_payload_invalid"
-                )
-            },
+            data={"reason_code": ("organization_research_dispatch_payload_invalid")},
             code=400,
         )
     worker_url = _configured_worker_url()
     if not worker_url:
         return api_response(
             status="error",
-            message=(
-                "organization_research_worker_identity_unavailable"
-            ),
-            data={
-                "reason_code": (
-                    "organization_research_worker_identity_unavailable"
-                )
-            },
+            message=("organization_research_worker_identity_unavailable"),
+            data={"reason_code": ("organization_research_worker_identity_unavailable")},
             code=503,
         )
     try:
@@ -110,9 +96,7 @@ def admit_organization_planning_research():
         "organization_research_dispatch_admitted",
         {
             "task_id": str(result.get("task_id") or ""),
-            "context_bundle_id": str(
-                result.get("context_bundle_id") or ""
-            ),
+            "context_bundle_id": str(result.get("context_bundle_id") or ""),
             "replayed": bool(result.get("replayed")),
         },
     )

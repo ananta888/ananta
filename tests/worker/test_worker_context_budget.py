@@ -37,11 +37,19 @@ def test_the_tool_loop_prompt_fits_the_window_even_with_a_large_task():
     from agent.cli_backends.tool_loop import build_tool_loop_prompt
 
     task = "Auftrag mit Hub-Kontext: " + "k" * 60_000  # ~15k tokens of task alone
-    results = [{"tool_name": f"repo.read_file_range#{i}", "status": "ok", "data": {"text": str(i % 10) * 7900}}
-               for i in range(12)]
-    prompt = build_tool_loop_prompt(original_prompt=task, instructions="Regeln", tool_results=results,
-                                    iteration=12, max_iterations=12, max_tool_result_chars=8000,
-                                    max_total_tool_result_chars=400_000)
+    results = [
+        {"tool_name": f"repo.read_file_range#{i}", "status": "ok", "data": {"text": str(i % 10) * 7900}}
+        for i in range(12)
+    ]
+    prompt = build_tool_loop_prompt(
+        original_prompt=task,
+        instructions="Regeln",
+        tool_results=results,
+        iteration=12,
+        max_iterations=12,
+        max_tool_result_chars=8000,
+        max_total_tool_result_chars=400_000,
+    )
     assert _fits(prompt)
     assert "1" * 7900 in prompt  # the newest result (index 11) is complete
     assert "repo.read_file_range#0" in prompt or "ausgelassen" in prompt  # older ones condensed or noted
@@ -52,8 +60,9 @@ def test_the_batch_loop_no_longer_loses_early_findings_silently():
 
     progress = "\n\n---\n\n".join(f"## Schritt {i}\nErkenntnis {i}: " + "e" * 2500 for i in range(1, 9))
     batch = [{"rel_path": "a.py", "content": "print(1)\n" * 400, "lang": "python"}]
-    prompt = _build_iteration_prompt("Analysiere das Repo", batch=batch, progress_so_far=progress, step=9,
-                                     total_steps=10)
+    prompt = _build_iteration_prompt(
+        "Analysiere das Repo", batch=batch, progress_so_far=progress, step=9, total_steps=10
+    )
     assert _fits(prompt)
     for i in range(1, 9):  # 8 steps of ~2.5k chars fit: nothing is cut any more (before: only the last 6000 chars)
         assert f"Erkenntnis {i}:" in prompt
@@ -67,9 +76,14 @@ def test_the_mutation_loop_evidence_fits_the_window():
     from agent.cli_backends.workspace_mutation.prompts import build_iteration_prompt
 
     evidence = [{"tool": "test.run", "output": "F" * 12_000} for _ in range(6)]
-    prompt = build_iteration_prompt(original_prompt="Fix " + "t" * 80_000, instructions="Regeln",
-                                    evidence_blocks=evidence, iteration=4, max_iterations=6,
-                                    max_chars_per_block=12_000)
+    prompt = build_iteration_prompt(
+        original_prompt="Fix " + "t" * 80_000,
+        instructions="Regeln",
+        evidence_blocks=evidence,
+        iteration=4,
+        max_iterations=6,
+        max_chars_per_block=12_000,
+    )
     assert _fits(prompt)
 
 
@@ -109,10 +123,13 @@ def test_the_mutation_loop_evidence_also_survives_the_prompt_budget_gate():
 
 def test_fit_blocks_verified_passes_the_block_through_when_the_gate_accepts():
     blocks = [f"## Schritt {i}\n" + "x" * 500 for i in range(3)]
-    fitted = cb.fit_blocks_verified(blocks, budget_chars=10_000,
-                                    render=lambda kept: "PREFIX\n" + "\n".join(kept),
-                                    allowed=lambda prompt: True,
-                                    site="mutation_loop.evidence")
+    fitted = cb.fit_blocks_verified(
+        blocks,
+        budget_chars=10_000,
+        render=lambda kept: "PREFIX\n" + "\n".join(kept),
+        allowed=lambda prompt: True,
+        site="mutation_loop.evidence",
+    )
     assert fitted == blocks
 
 
@@ -120,14 +137,24 @@ def test_fit_blocks_verified_shrinks_the_budget_until_the_gate_accepts():
     blocks = [f"## Schritt {i}\n" + "y" * 5000 for i in range(8)]
     gate_limit = 90_000
     render = lambda kept: "X" * 60_000 + "\n".join(kept)  # noqa: E731
-    fitted = cb.fit_blocks_verified(blocks, budget_chars=50_000, render=render,
-                                    allowed=lambda prompt: len(prompt) <= gate_limit,
-                                    site="mutation_loop.evidence")
+    fitted = cb.fit_blocks_verified(
+        blocks,
+        budget_chars=50_000,
+        render=render,
+        allowed=lambda prompt: len(prompt) <= gate_limit,
+        site="mutation_loop.evidence",
+    )
     assert fitted and len(render(fitted)) <= gate_limit
     assert any("Schritt" in block for block in fitted)  # real evidence, not only a notice
 
 
 def test_fit_blocks_verified_returns_no_evidence_when_the_gate_never_accepts():
-    fitted = cb.fit_blocks_verified(["a" * 1000], budget_chars=1000, render=lambda kept: "X" * 100,
-                                    allowed=lambda prompt: False, site="x", max_rounds=3)
+    fitted = cb.fit_blocks_verified(
+        ["a" * 1000],
+        budget_chars=1000,
+        render=lambda kept: "X" * 100,
+        allowed=lambda prompt: False,
+        site="x",
+        max_rounds=3,
+    )
     assert fitted == []

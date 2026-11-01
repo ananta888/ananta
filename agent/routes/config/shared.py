@@ -110,11 +110,17 @@ def normalize_doom_loop_policy_config(value: dict | None) -> dict:
     return {
         "enabled": bool(payload.get("enabled", True)),
         "lookback_signals": _clamp_int(payload.get("lookback_signals"), default=40, minimum=8, maximum=200),
-        "repeated_tool_call_threshold": _clamp_int(payload.get("repeated_tool_call_threshold"), default=4, minimum=2, maximum=50),
-        "repeated_failure_threshold": _clamp_int(payload.get("repeated_failure_threshold"), default=4, minimum=2, maximum=50),
+        "repeated_tool_call_threshold": _clamp_int(
+            payload.get("repeated_tool_call_threshold"), default=4, minimum=2, maximum=50
+        ),
+        "repeated_failure_threshold": _clamp_int(
+            payload.get("repeated_failure_threshold"), default=4, minimum=2, maximum=50
+        ),
         "no_progress_threshold": _clamp_int(payload.get("no_progress_threshold"), default=5, minimum=2, maximum=80),
         "oscillation_threshold": _clamp_int(payload.get("oscillation_threshold"), default=4, minimum=4, maximum=50),
-        "critical_abort_threshold": _clamp_int(payload.get("critical_abort_threshold"), default=8, minimum=4, maximum=120),
+        "critical_abort_threshold": _clamp_int(
+            payload.get("critical_abort_threshold"), default=8, minimum=4, maximum=120
+        ),
         "severity_actions": severity_actions,
         "enforce_pause_abort": bool(payload.get("enforce_pause_abort", False)),
     }
@@ -153,7 +159,9 @@ def normalize_unified_approval_policy_config(value: dict | None) -> dict:
     for mode, default in defaults.items():
         mode_cfg = overrides_raw.get(mode) if isinstance(overrides_raw.get(mode), dict) else {}
         normalized_overrides[mode] = {
-            "confirm_required": _normalize_action_classes(mode_cfg.get("confirm_required"), default["confirm_required"]),
+            "confirm_required": _normalize_action_classes(
+                mode_cfg.get("confirm_required"), default["confirm_required"]
+            ),
             "blocked": _normalize_action_classes(mode_cfg.get("blocked"), default["blocked"]),
         }
     return {
@@ -238,7 +246,9 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     if interactive_launch_mode not in {"run", "tui"}:
         interactive_launch_mode = "run"
     target_provider = str(payload.get("target_provider") or "").strip().lower() or None
-    if target_provider and any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for character in target_provider):
+    if target_provider and any(
+        character not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for character in target_provider
+    ):
         target_provider = None
     target_profile = str(payload.get("target_profile") or "").strip() or None
     target_model = str(payload.get("target_model") or payload.get("model") or "").strip() or None
@@ -367,11 +377,15 @@ def planning_policy_settings_summary(cfg: dict) -> dict:
 
 
 def planning_learning_settings_summary(cfg: dict) -> dict:
-    planning_policy = normalize_planning_policy_config((cfg or {}).get("planning_policy") if isinstance(cfg, dict) else {})
+    planning_policy = normalize_planning_policy_config(
+        (cfg or {}).get("planning_policy") if isinstance(cfg, dict) else {}
+    )
     try:
         from agent.services.planning_learning_loop_service import get_planning_learning_loop_service
 
-        snapshot = get_planning_learning_loop_service().build_snapshot(planning_policy={"learning_loop": planning_policy.get("learning_loop") or {}})
+        snapshot = get_planning_learning_loop_service().build_snapshot(
+            planning_policy={"learning_loop": planning_policy.get("learning_loop") or {}}
+        )
     except Exception:
         snapshot = {
             "enabled": bool((planning_policy.get("learning_loop") or {}).get("enabled", False)),
@@ -388,12 +402,17 @@ def planning_learning_settings_summary(cfg: dict) -> dict:
         learning_state = dict(profile.get("learning_state") or {})
         state = str(learning_state.get("state") or "unknown").strip().lower() or "unknown"
         state_counts[state] = state_counts.get(state, 0) + 1
-        output_shape = str(
-            learning_state.get("observed_output_shape")
-            or learning_state.get("observed_output_format")
-            or (snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape", {}).get("value")
+        output_shape = (
+            str(
+                learning_state.get("observed_output_shape")
+                or learning_state.get("observed_output_format")
+                or (snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape", {}).get("value")
+                or "unknown"
+            )
+            .strip()
+            .lower()
             or "unknown"
-        ).strip().lower() or "unknown"
+        )
         preferred_formats[output_shape] = preferred_formats.get(output_shape, 0) + 1
     return {
         "requested": planning_policy.get("learning_loop") or {},
@@ -405,8 +424,12 @@ def planning_learning_settings_summary(cfg: dict) -> dict:
             "stable_profile_count": state_counts.get("stable", 0),
             "candidate_profile_count": state_counts.get("candidate", 0),
             "degraded_profile_count": state_counts.get("degraded", 0),
-            "preferred_output_shape": dict((snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape") or {}),
-            "preferred_output_format": dict((snapshot.get("behavior_aggregation") or {}).get("preferred_output_format") or {}),
+            "preferred_output_shape": dict(
+                (snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape") or {}
+            ),
+            "preferred_output_format": dict(
+                (snapshot.get("behavior_aggregation") or {}).get("preferred_output_format") or {}
+            ),
         },
         "source": {
             "learning_loop": "planning_policy.learning_loop",
@@ -483,7 +506,10 @@ def resolve_provider_api_key(
             return selected_profile.strip() or None
         if isinstance(selected_profile, dict):
             profile_provider = str(selected_profile.get("provider") or "").strip().lower()
-            if not profile_provider or profile_provider in {provider_name, provider_alias(provider_name, agent_cfg=agent_cfg)}:
+            if not profile_provider or profile_provider in {
+                provider_name,
+                provider_alias(provider_name, agent_cfg=agent_cfg),
+            }:
                 value = str(selected_profile.get("api_key") or "").strip()
                 if value:
                     return value
@@ -591,7 +617,9 @@ def hub_copilot_settings_summary(cfg: dict) -> dict:
 
 
 def context_bundle_policy_settings_summary(cfg: dict) -> dict:
-    requested = normalize_context_bundle_policy_config((cfg or {}).get("context_bundle_policy") if isinstance(cfg, dict) else {})
+    requested = normalize_context_bundle_policy_config(
+        (cfg or {}).get("context_bundle_policy") if isinstance(cfg, dict) else {}
+    )
     effective = resolve_context_bundle_policy(requested)
     return {
         "requested": requested,

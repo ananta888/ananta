@@ -19,11 +19,15 @@ Beweis (`resolve_codex_runtime_config`, Z. 462–465):
 ```python
 target_provider = str(codex_cfg.get("target_provider") or "").strip().lower() or None
 ...
-local_target = resolve_local_openai_backend(
-    target_provider,
-    agent_cfg=agent_cfg,
-    provider_urls=provider_urls,
-) if target_provider else None
+local_target = (
+    resolve_local_openai_backend(
+        target_provider,
+        agent_cfg=agent_cfg,
+        provider_urls=provider_urls,
+    )
+    if target_provider
+    else None
+)
 ```
 
 Es gibt **kein** filter wie in `resolve_opencode_runtime_config` (Z.

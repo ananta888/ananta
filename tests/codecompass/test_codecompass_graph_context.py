@@ -40,4 +40,3 @@ def test_graph_context_builder_groups_seed_and_neighbors_with_clipped_content():
     assert chunks[1]["metadata"]["expanded_from"] == "method:A.m1"
     assert chunks[1]["metadata"]["relation_path"] == "calls_probable_target"
     assert "sk-secret-token-1234567890" not in chunks[1]["content"]
-

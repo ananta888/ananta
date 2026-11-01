@@ -16,7 +16,8 @@ def require_specialist_dataset_execution_purpose(job_type: str, dataset: Any) ->
     if purpose == "specialist_evaluation" and job_type != "evaluate_lora":
         raise MlInternTrainingContractError(
             "specialist_evaluation_dataset_training_forbidden",
-            "specialist evaluation datasets may only be used for evaluation", status_code=409,
+            "specialist evaluation datasets may only be used for evaluation",
+            status_code=409,
         )
 
 

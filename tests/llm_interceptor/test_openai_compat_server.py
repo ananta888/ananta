@@ -90,7 +90,7 @@ def test_chat_completions_accepts_valid_body_and_returns_openai_shape():
 def test_streaming_passthrough_returns_sse():
     server = OpenAICompatInterceptorServer(_cfg())
     app = server.create_app()
-    server._router.forward_chat_stream = lambda **_kwargs: iter(["data: {\"id\":\"1\"}\n\n", "data: [DONE]\n\n"])
+    server._router.forward_chat_stream = lambda **_kwargs: iter(['data: {"id":"1"}\n\n', "data: [DONE]\n\n"])
     client = app.test_client()
     resp = client.post(
         "/v1/chat/completions",
@@ -105,7 +105,7 @@ def test_streaming_passthrough_returns_sse():
 def test_streaming_invalid_chunk_gets_safe_terminal_error():
     server = OpenAICompatInterceptorServer(_cfg())
     app = server.create_app()
-    server._router.forward_chat_stream = lambda **_kwargs: iter(["{\"bad\":1}\n\n"])
+    server._router.forward_chat_stream = lambda **_kwargs: iter(['{"bad":1}\n\n'])
     client = app.test_client()
     resp = client.post(
         "/v1/chat/completions",

@@ -27,10 +27,12 @@ def test_ai_snake_config_writes_runtime_file_when_repo_seed_exists(tmp_path, mon
 def test_ai_snake_config_reads_seed_then_runtime_overrides(tmp_path, monkeypatch):
     (tmp_path / ".git").mkdir()
     (tmp_path / "user.json").write_text(
-        json.dumps({
-            "schema_version": "user_config.v1",
-            "settings": {"chat_backend": "seed", "chat_history_turns": 3},
-        }),
+        json.dumps(
+            {
+                "schema_version": "user_config.v1",
+                "settings": {"chat_backend": "seed", "chat_history_turns": 3},
+            }
+        ),
         encoding="utf-8",
     )
     runtime = tmp_path / "data" / "user.json"

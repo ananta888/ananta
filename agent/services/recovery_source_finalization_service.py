@@ -52,13 +52,7 @@ def _mapping(value: Any) -> dict[str, Any]:
 
 
 def _ids(values: Any) -> tuple[str, ...]:
-    return tuple(
-        dict.fromkeys(
-            str(value or "").strip()
-            for value in list(values or [])
-            if str(value or "").strip()
-        )
-    )
+    return tuple(dict.fromkeys(str(value or "").strip() for value in list(values or []) if str(value or "").strip()))
 
 
 def _artifact_path(artifact: dict[str, Any]) -> str:
@@ -131,11 +125,7 @@ class RecoverySourceFinalizationService:
         source_id = str(source_task_id or "").strip()
         repos = self._repos()
         initial_source = repos.task_repo.get_by_id(source_id)
-        if (
-            not source_id
-            or initial_source is None
-            or recovery_task_role(initial_source) != "source"
-        ):
+        if not source_id or initial_source is None or recovery_task_role(initial_source) != "source":
             return RecoverySourceFinalizationDecision(
                 False,
                 "not_ready",
@@ -154,9 +144,7 @@ class RecoverySourceFinalizationService:
                 )
             ).get("model_recovery")
         )
-        fallback_child_ids = _ids(
-            recovery.get("created_task_ids")
-        )
+        fallback_child_ids = _ids(recovery.get("created_task_ids"))
         if initial_binding is None:
             return self._commit_binding_failure(
                 repos=repos,
@@ -187,10 +175,7 @@ class RecoverySourceFinalizationService:
             if (
                 source is None
                 or recovery_task_role(source) != "source"
-                or normalize_task_status(
-                    getattr(source, "status", None)
-                )
-                not in {"blocked", "blocked_by_dependency"}
+                or normalize_task_status(getattr(source, "status", None)) not in {"blocked", "blocked_by_dependency"}
             ):
                 return RecoverySourceFinalizationDecision(
                     False,
@@ -209,24 +194,14 @@ class RecoverySourceFinalizationService:
                     children=[],
                     child_statuses={},
                     target_status="verification_failed",
-                    reason_code=(
-                        binding_error
-                        if binding is None
-                        else "recovery_source_binding_changed"
-                    ),
+                    reason_code=(binding_error if binding is None else "recovery_source_binding_changed"),
                     quality_gate_reason="binding_verification_failed",
                     artifacts=[],
                     output="",
                 )
 
             goal = repos.goal_repo.get_by_id(binding.goal_id)
-            if (
-                goal is None
-                or str(getattr(goal, "status", "") or "")
-                .strip()
-                .lower()
-                in _TERMINAL_GOAL_STATUSES
-            ):
+            if goal is None or str(getattr(goal, "status", "") or "").strip().lower() in _TERMINAL_GOAL_STATUSES:
                 return RecoverySourceFinalizationDecision(
                     False,
                     "not_ready",
@@ -234,17 +209,12 @@ class RecoverySourceFinalizationService:
                     binding.child_ids,
                 )
 
-            children = [
-                repos.task_repo.get_by_id(child_id)
-                for child_id in binding.child_ids
-            ]
+            children = [repos.task_repo.get_by_id(child_id) for child_id in binding.child_ids]
             if any(child is None for child in children):
                 return self._commit(
                     repos=repos,
                     source=source,
-                    children=[
-                        child for child in children if child is not None
-                    ],
+                    children=[child for child in children if child is not None],
                     child_statuses={},
                     target_status="verification_failed",
                     reason_code="recovery_source_child_missing",
@@ -252,9 +222,7 @@ class RecoverySourceFinalizationService:
                     artifacts=[],
                     output="",
                 )
-            child_rows = [
-                child for child in children if child is not None
-            ]
+            child_rows = [child for child in children if child is not None]
             static_binding_error = self._validate_child_bindings(
                 repos=repos,
                 source=source,
@@ -298,10 +266,7 @@ class RecoverySourceFinalizationService:
                 )
 
             child_statuses = self._statuses(child_rows)
-            if any(
-                status in _FAILURE_STATUSES
-                for status in child_statuses.values()
-            ):
+            if any(status in _FAILURE_STATUSES for status in child_statuses.values()):
                 return self._commit(
                     repos=repos,
                     source=source,
@@ -314,10 +279,7 @@ class RecoverySourceFinalizationService:
                     output="",
                     result_evidence=self._result_evidence(child_rows),
                 )
-            if any(
-                status != "completed"
-                for status in child_statuses.values()
-            ):
+            if any(status != "completed" for status in child_statuses.values()):
                 return RecoverySourceFinalizationDecision(
                     False,
                     "not_ready",
@@ -338,9 +300,7 @@ class RecoverySourceFinalizationService:
                     child_statuses=child_statuses,
                     target_status="verification_failed",
                     reason_code=result_error,
-                    quality_gate_reason=(
-                        "result_acceptance_verification_failed"
-                    ),
+                    quality_gate_reason=("result_acceptance_verification_failed"),
                     artifacts=[],
                     output="",
                     result_evidence=self._result_evidence(child_rows),
@@ -351,29 +311,18 @@ class RecoverySourceFinalizationService:
             failed_child_verifications: list[str] = []
             for child in child_rows:
                 child_id = str(getattr(child, "id", "") or "")
-                output = str(
-                    getattr(child, "last_output", "") or ""
-                ).strip()
+                output = str(getattr(child, "last_output", "") or "").strip()
                 if output:
                     outputs.append(f"[{child_id}]\n{output}")
-                verification = _mapping(
-                    getattr(child, "verification_status", None)
-                )
+                verification = _mapping(getattr(child, "verification_status", None))
                 results = _mapping(verification.get("results"))
                 if (
-                    str(verification.get("status") or "")
-                    .strip()
-                    .lower()
-                    != "passed"
+                    str(verification.get("status") or "").strip().lower() != "passed"
                     or results.get("final_passed") is not True
-                    or not str(
-                        verification.get("record_id") or ""
-                    ).strip()
+                    or not str(verification.get("record_id") or "").strip()
                 ):
                     failed_child_verifications.append(child_id)
-                for artifact in list(
-                    verification.get("execution_artifacts") or []
-                ):
+                for artifact in list(verification.get("execution_artifacts") or []):
                     if (
                         isinstance(artifact, dict)
                         and artifact.get("_exists") is True
@@ -382,29 +331,18 @@ class RecoverySourceFinalizationService:
                         artifacts.append(dict(artifact))
 
             aggregate_output = "\n\n".join(outputs)[:32_000]
-            if (
-                validate_recovery_source_artifact_aggregate(
-                    artifacts
-                )
-                is None
-            ):
+            if validate_recovery_source_artifact_aggregate(artifacts) is None:
                 return self._commit(
                     repos=repos,
                     source=source,
                     children=child_rows,
                     child_statuses=child_statuses,
                     target_status="verification_failed",
-                    reason_code=(
-                        "recovery_source_artifact_aggregate_invalid"
-                    ),
-                    quality_gate_reason=(
-                        "artifact_aggregate_verification_failed"
-                    ),
+                    reason_code=("recovery_source_artifact_aggregate_invalid"),
+                    quality_gate_reason=("artifact_aggregate_verification_failed"),
                     artifacts=[],
                     output=aggregate_output,
-                    result_evidence=self._result_evidence(
-                        child_rows
-                    ),
+                    result_evidence=self._result_evidence(child_rows),
                 )
             quality_passed, quality_reason = evaluate_quality_gates(
                 source,
@@ -414,50 +352,24 @@ class RecoverySourceFinalizationService:
             )
             expected_artifacts = [
                 dict(value)
-                for value in list(
-                    _mapping(
-                        getattr(source, "verification_spec", None)
-                    ).get("expected_artifacts")
-                    or []
-                )
-                if isinstance(value, dict)
-                and bool(value.get("required", True))
+                for value in list(_mapping(getattr(source, "verification_spec", None)).get("expected_artifacts") or [])
+                if isinstance(value, dict) and bool(value.get("required", True))
             ]
-            present_paths = {
-                path
-                for artifact in artifacts
-                if (path := _artifact_path(artifact))
-            }
+            present_paths = {path for artifact in artifacts if (path := _artifact_path(artifact))}
             missing_paths = [
                 path
                 for item in expected_artifacts
-                if (
-                    path := str(
-                        item.get("relative_path")
-                        or item.get("path")
-                        or ""
-                    ).strip()
-                )
+                if (path := str(item.get("relative_path") or item.get("path") or "").strip())
                 and path not in present_paths
             ]
-            passed = bool(
-                quality_passed
-                and not failed_child_verifications
-                and not missing_paths
-            )
+            passed = bool(quality_passed and not failed_child_verifications and not missing_paths)
             return self._commit(
                 repos=repos,
                 source=source,
                 children=child_rows,
                 child_statuses=child_statuses,
-                target_status=(
-                    "completed" if passed else "verification_failed"
-                ),
-                reason_code=(
-                    "recovery_children_verified"
-                    if passed
-                    else "recovery_children_verification_failed"
-                ),
+                target_status=("completed" if passed else "verification_failed"),
+                reason_code=("recovery_children_verified" if passed else "recovery_children_verification_failed"),
                 quality_gate_reason=quality_reason,
                 artifacts=artifacts,
                 output=aggregate_output,
@@ -471,9 +383,7 @@ class RecoverySourceFinalizationService:
         repos: Any,
         source: Any,
     ) -> tuple[_RecoveryBinding | None, str]:
-        details = _mapping(
-            getattr(source, "status_reason_details", None)
-        )
+        details = _mapping(getattr(source, "status_reason_details", None))
         recovery = _mapping(details.get("model_recovery"))
         plan_id = str(recovery.get("plan_id") or "").strip()
         goal_id = str(getattr(source, "goal_id", "") or "").strip()
@@ -481,28 +391,17 @@ class RecoverySourceFinalizationService:
             return None, "recovery_source_binding_incomplete"
         plan = repos.plan_repo.get_by_id(plan_id)
         goal = repos.goal_repo.get_by_id(goal_id)
-        nodes = list(
-            repos.plan_node_repo.get_by_plan_id(plan_id) or []
-        )
+        nodes = list(repos.plan_node_repo.get_by_plan_id(plan_id) or [])
         rationale = _mapping(getattr(plan, "rationale", None))
         if plan is None or goal is None or not nodes:
             return None, "recovery_source_plan_binding_missing"
         if (
             str(getattr(plan, "goal_id", "") or "") != goal_id
-            or str(rationale.get("source_task_id") or "")
-            != str(getattr(source, "id", "") or "")
-            or str(getattr(plan, "status", "") or "").lower()
-            != "materialized"
-            or str(
-                rationale.get("materialization_release_state") or ""
-            )
-            not in {"committed", "completed"}
-            or str(rationale.get("plan_digest") or "")
-            != calculate_recovery_plan_digest(plan, nodes)
-            or str(
-                rationale.get("materialization_inputs_digest")
-                or ""
-            )
+            or str(rationale.get("source_task_id") or "") != str(getattr(source, "id", "") or "")
+            or str(getattr(plan, "status", "") or "").lower() != "materialized"
+            or str(rationale.get("materialization_release_state") or "") not in {"committed", "completed"}
+            or str(rationale.get("plan_digest") or "") != calculate_recovery_plan_digest(plan, nodes)
+            or str(rationale.get("materialization_inputs_digest") or "")
             != calculate_recovery_materialization_inputs_digest(goal)
         ):
             return None, "recovery_source_plan_binding_mismatch"
@@ -513,15 +412,8 @@ class RecoverySourceFinalizationService:
                 str(getattr(node, "id", "") or ""),
             ),
         )
-        child_ids = tuple(
-            str(
-                getattr(node, "materialized_task_id", "") or ""
-            ).strip()
-            for node in ordered_nodes
-        )
-        approved_child_ids = _ids(
-            recovery.get("created_task_ids")
-        )
+        child_ids = tuple(str(getattr(node, "materialized_task_id", "") or "").strip() for node in ordered_nodes)
+        approved_child_ids = _ids(recovery.get("created_task_ids"))
         if (
             not child_ids
             or any(not child_id for child_id in child_ids)
@@ -529,38 +421,15 @@ class RecoverySourceFinalizationService:
             or child_ids != approved_child_ids
         ):
             return None, "recovery_source_child_set_mismatch"
-        source_dependencies = _ids(
-            getattr(source, "depends_on", None)
-        )
-        dependency_binding = _mapping(
-            recovery.get("dependency_binding")
-        )
-        plan_binding_digest = str(
-            rationale.get(
-                "materialization_dependency_binding_digest"
-            )
-            or ""
-        ).strip()
+        source_dependencies = _ids(getattr(source, "depends_on", None))
+        dependency_binding = _mapping(recovery.get("dependency_binding"))
+        plan_binding_digest = str(rationale.get("materialization_dependency_binding_digest") or "").strip()
         if dependency_binding or plan_binding_digest:
             try:
-                expected_binding = (
-                    build_recovery_dependency_binding(
-                        source_task_id=str(
-                            getattr(source, "id", "") or ""
-                        ),
-                        preexisting_dependency_ids=list(
-                            dependency_binding.get(
-                                "preexisting_dependency_ids"
-                            )
-                            or []
-                        ),
-                        child_task_ids=list(
-                            dependency_binding.get(
-                                "child_task_ids"
-                            )
-                            or []
-                        ),
-                    )
+                expected_binding = build_recovery_dependency_binding(
+                    source_task_id=str(getattr(source, "id", "") or ""),
+                    preexisting_dependency_ids=list(dependency_binding.get("preexisting_dependency_ids") or []),
+                    child_task_ids=list(dependency_binding.get("child_task_ids") or []),
                 )
             except (TypeError, ValueError):
                 return (
@@ -570,28 +439,15 @@ class RecoverySourceFinalizationService:
             if (
                 dependency_binding != expected_binding
                 or not plan_binding_digest
-                or plan_binding_digest
-                != str(expected_binding.get("digest") or "")
-                or _ids(
-                    expected_binding.get("child_task_ids")
-                )
-                != child_ids
-                or _ids(
-                    expected_binding.get(
-                        "authoritative_dependency_ids"
-                    )
-                )
-                != source_dependencies
+                or plan_binding_digest != str(expected_binding.get("digest") or "")
+                or _ids(expected_binding.get("child_task_ids")) != child_ids
+                or _ids(expected_binding.get("authoritative_dependency_ids")) != source_dependencies
             ):
                 return (
                     None,
                     "recovery_source_dependency_binding_mismatch",
                 )
-            external_dependency_ids = _ids(
-                expected_binding.get(
-                    "preexisting_dependency_ids"
-                )
-            )
+            external_dependency_ids = _ids(expected_binding.get("preexisting_dependency_ids"))
         else:
             # Compatibility path for already-materialized v1 runs. New
             # materializations always carry the exact binding above.
@@ -601,9 +457,7 @@ class RecoverySourceFinalizationService:
                     "recovery_source_dependency_binding_mismatch",
                 )
             external_dependency_ids = tuple(
-                dependency_id
-                for dependency_id in source_dependencies
-                if dependency_id not in set(child_ids)
+                dependency_id for dependency_id in source_dependencies if dependency_id not in set(child_ids)
             )
         return (
             _RecoveryBinding(
@@ -619,11 +473,7 @@ class RecoverySourceFinalizationService:
     @staticmethod
     def _statuses(children: list[Any]) -> dict[str, str]:
         return {
-            str(getattr(child, "id", "") or ""): (
-                normalize_task_status(
-                    getattr(child, "status", None)
-                )
-            )
+            str(getattr(child, "id", "") or ""): (normalize_task_status(getattr(child, "status", None)))
             for child in children
         }
 
@@ -638,9 +488,7 @@ class RecoverySourceFinalizationService:
             repository_provider=lambda: repos,
         )
         failure_present = any(
-            normalize_task_status(getattr(child, "status", None))
-            in _FAILURE_STATUSES
-            for child in children
+            normalize_task_status(getattr(child, "status", None)) in _FAILURE_STATUSES for child in children
         )
         for child in children:
             decision = gate.evaluate_task(
@@ -649,9 +497,7 @@ class RecoverySourceFinalizationService:
                 allow_terminal_task=True,
             )
             if not decision.allowed and not (
-                failure_present
-                and decision.reason_code
-                == "recovery_dispatch_dependency_incomplete"
+                failure_present and decision.reason_code == "recovery_dispatch_dependency_incomplete"
             ):
                 return decision.reason_code
         return ""
@@ -667,11 +513,7 @@ class RecoverySourceFinalizationService:
             dependency = repos.task_repo.get_by_id(dependency_id)
             if dependency is None:
                 return "recovery_source_external_dependency_missing"
-            statuses.append(
-                normalize_task_status(
-                    getattr(dependency, "status", None)
-                )
-            )
+            statuses.append(normalize_task_status(getattr(dependency, "status", None)))
         if any(status in _FAILURE_STATUSES for status in statuses):
             return "recovery_source_external_dependency_failed"
         if any(status != "completed" for status in statuses):
@@ -681,30 +523,18 @@ class RecoverySourceFinalizationService:
     @staticmethod
     def _validate_accepted_results(children: list[Any]) -> str:
         for child in children:
-            details = _mapping(
-                getattr(child, "status_reason_details", None)
-            )
-            lease = _mapping(
-                details.get("recovery_dispatch_lease")
-            )
+            details = _mapping(getattr(child, "status_reason_details", None))
+            lease = _mapping(details.get("recovery_dispatch_lease"))
             if str(lease.get("state") or "") != "result_accepted":
                 return "recovery_child_result_not_accepted"
             if (
-                str(lease.get("accepted_result_phase") or "")
-                != "execute"
-                or str(lease.get("accepted_result_status") or "")
-                != "completed"
+                str(lease.get("accepted_result_phase") or "") != "execute"
+                or str(lease.get("accepted_result_status") or "") != "completed"
                 or lease.get("accepted_result_terminal") is not True
             ):
                 return "recovery_child_terminal_result_not_accepted"
-            expected_digest = str(
-                lease.get("accepted_result_digest") or ""
-            )
-            if (
-                not expected_digest
-                or expected_digest
-                != recovery_accepted_result_digest(child)
-            ):
+            expected_digest = str(lease.get("accepted_result_digest") or "")
+            if not expected_digest or expected_digest != recovery_accepted_result_digest(child):
                 return "recovery_child_result_digest_mismatch"
         return ""
 
@@ -734,9 +564,7 @@ class RecoverySourceFinalizationService:
                         "accepted_result_digest",
                     }
                 },
-                "verification_record_id": _mapping(
-                    getattr(child, "verification_status", None)
-                ).get("record_id"),
+                "verification_record_id": _mapping(getattr(child, "verification_status", None)).get("record_id"),
             }
             for child in children
         }
@@ -749,9 +577,7 @@ class RecoverySourceFinalizationService:
         child_ids: tuple[str, ...],
         reason_code: str,
     ) -> RecoverySourceFinalizationDecision:
-        if normalize_task_status(
-            getattr(source, "status", None)
-        ) not in {"blocked", "blocked_by_dependency"}:
+        if normalize_task_status(getattr(source, "status", None)) not in {"blocked", "blocked_by_dependency"}:
             return RecoverySourceFinalizationDecision(
                 False,
                 "not_ready",
@@ -771,9 +597,7 @@ class RecoverySourceFinalizationService:
                     "recovery_source_lock_unavailable",
                     child_ids,
                 )
-            authoritative = repos.task_repo.get_by_id(
-                str(getattr(source, "id", "") or "")
-            )
+            authoritative = repos.task_repo.get_by_id(str(getattr(source, "id", "") or ""))
             if authoritative is None:
                 return RecoverySourceFinalizationDecision(
                     False,
@@ -813,23 +637,13 @@ class RecoverySourceFinalizationService:
             append_task_history_event,
         )
 
-        old_status = normalize_task_status(
-            getattr(source, "status", None)
-        )
+        old_status = normalize_task_status(getattr(source, "status", None))
         now = time.time()
-        details = _mapping(
-            getattr(source, "status_reason_details", None)
-        )
-        verification = _mapping(
-            getattr(source, "verification_status", None)
-        )
+        details = _mapping(getattr(source, "status_reason_details", None))
+        verification = _mapping(getattr(source, "verification_status", None))
         recovery_state = {
             **_mapping(details.get("model_recovery")),
-            "status": (
-                "completed"
-                if target_status == "completed"
-                else "failed"
-            ),
+            "status": ("completed" if target_status == "completed" else "failed"),
             "reason_code": reason_code,
             "completed_at": now,
         }
@@ -839,17 +653,10 @@ class RecoverySourceFinalizationService:
             "reason_code": reason_code,
             "updated_at": now,
         }
-        child_ids = [
-            str(getattr(child, "id", "") or "")
-            for child in children
-        ]
+        child_ids = [str(getattr(child, "id", "") or "") for child in children]
         evidence = {
             "schema": RECOVERY_SOURCE_RESULT_SCHEMA,
-            "status": (
-                "passed"
-                if target_status == "completed"
-                else "failed"
-            ),
+            "status": ("passed" if target_status == "completed" else "failed"),
             "reason_code": reason_code,
             "quality_gate_reason": quality_gate_reason,
             "child_statuses": dict(child_statuses),
@@ -858,9 +665,7 @@ class RecoverySourceFinalizationService:
             "artifact_count": len(artifacts),
             "artifacts": artifacts,
             "missing_artifacts": list(missing_artifacts or []),
-            "failed_child_verifications": list(
-                failed_child_verifications or []
-            ),
+            "failed_child_verifications": list(failed_child_verifications or []),
             "finalized_at": now,
         }
         transition_key = (
@@ -869,9 +674,7 @@ class RecoverySourceFinalizationService:
             f"{str(recovery_state.get('release_epoch') or '')}\0"
             f"{target_status}\0{reason_code}"
         )
-        transition_id = hashlib.sha256(
-            transition_key.encode("utf-8")
-        ).hexdigest()
+        transition_id = hashlib.sha256(transition_key.encode("utf-8")).hexdigest()
         source.status = target_status
         source.status_reason_code = reason_code
         source.status_reason_details = {
@@ -895,9 +698,7 @@ class RecoverySourceFinalizationService:
             "model_recovery_result": evidence,
         }
         source.last_output = output or None
-        source.last_exit_code = (
-            0 if target_status == "completed" else 1
-        )
+        source.last_exit_code = 0 if target_status == "completed" else 1
         source.updated_at = now
         append_task_history_event(
             source,
@@ -913,13 +714,9 @@ class RecoverySourceFinalizationService:
             authorize_recovery_source_finalization_write,
         )
 
-        with authorize_recovery_source_finalization_write(
-            str(getattr(source, "id", "") or "")
-        ):
+        with authorize_recovery_source_finalization_write(str(getattr(source, "id", "") or "")):
             persisted = repos.task_repo.save(source)
-        persisted_status = normalize_task_status(
-            getattr(persisted, "status", None)
-        )
+        persisted_status = normalize_task_status(getattr(persisted, "status", None))
         if persisted_status != target_status:
             return RecoverySourceFinalizationDecision(
                 False,
@@ -939,7 +736,5 @@ class RecoverySourceFinalizationService:
 _service = RecoverySourceFinalizationService()
 
 
-def get_recovery_source_finalization_service() -> (
-    RecoverySourceFinalizationService
-):
+def get_recovery_source_finalization_service() -> RecoverySourceFinalizationService:
     return _service

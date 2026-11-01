@@ -29,13 +29,9 @@ from pydantic import (
 SOURCE_CONNECTION_SCHEMA = "ananta.source-control.source-connection.v1"
 SOURCE_REVISION_SCHEMA = "ananta.source-control.source-revision.v1"
 SOURCE_REF_MAPPING_SCHEMA = "ananta.source-control.source-ref-mapping.v1"
-DESTINATION_DESCRIPTOR_SCHEMA = (
-    "ananta.source-control.destination-descriptor.v1"
-)
+DESTINATION_DESCRIPTOR_SCHEMA = "ananta.source-control.destination-descriptor.v1"
 SOURCE_ACCESS_GRANT_SCHEMA = "ananta.source-control.source-access-grant.v1"
-DELEGATED_SOURCE_MANIFEST_REF_SCHEMA = (
-    "ananta.source-control.delegated-source-manifest-ref.v1"
-)
+DELEGATED_SOURCE_MANIFEST_REF_SCHEMA = "ananta.source-control.delegated-source-manifest-ref.v1"
 MAX_SOURCE_ADMISSION_FILES = 20_000
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -83,24 +79,12 @@ RevisionToken = Annotated[
     ),
 ]
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
-ConnectionId = Annotated[
-    str, StringConstraints(pattern=r"^conn_[0-9a-f]{64}$")
-]
-SourceRevisionId = Annotated[
-    str, StringConstraints(pattern=r"^srev_[0-9a-f]{64}$")
-]
-SourceRefId = Annotated[
-    str, StringConstraints(pattern=r"^sref_[0-9a-f]{64}$")
-]
-DestinationId = Annotated[
-    str, StringConstraints(pattern=r"^dst_[0-9a-f]{64}$")
-]
-GrantId = Annotated[
-    str, StringConstraints(pattern=r"^grant_[0-9a-f]{64}$")
-]
-ManifestId = Annotated[
-    str, StringConstraints(pattern=r"^manifest_[0-9a-f]{64}$")
-]
+ConnectionId = Annotated[str, StringConstraints(pattern=r"^conn_[0-9a-f]{64}$")]
+SourceRevisionId = Annotated[str, StringConstraints(pattern=r"^srev_[0-9a-f]{64}$")]
+SourceRefId = Annotated[str, StringConstraints(pattern=r"^sref_[0-9a-f]{64}$")]
+DestinationId = Annotated[str, StringConstraints(pattern=r"^dst_[0-9a-f]{64}$")]
+GrantId = Annotated[str, StringConstraints(pattern=r"^grant_[0-9a-f]{64}$")]
+ManifestId = Annotated[str, StringConstraints(pattern=r"^manifest_[0-9a-f]{64}$")]
 
 ContractKind = Literal[
     "source_connection",
@@ -235,9 +219,7 @@ def derive_source_connection_id(
     )
 
 
-def derive_source_revision_id(
-    *, connection_id: str, revision_digest: str
-) -> str:
+def derive_source_revision_id(*, connection_id: str, revision_digest: str) -> str:
     return _derived_id(
         "srev",
         {
@@ -247,9 +229,7 @@ def derive_source_revision_id(
     )
 
 
-def derive_source_ref_id(
-    *, source_revision_id: str, provenance_digest: str
-) -> str:
+def derive_source_ref_id(*, source_revision_id: str, provenance_digest: str) -> str:
     return _derived_id(
         "sref",
         {
@@ -336,18 +316,16 @@ class _ClosedHubContract(BaseModel):
 
 
 class SourceConnection(_ClosedHubContract):
-    schema_version: Literal[
-        "ananta.source-control.source-connection.v1"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.source-control.source-connection.v1"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     connection_id: ConnectionId
     tenant_id: Identifier
     project_id: Identifier
     owner_id: Identifier
     connector_type: ConnectorType
     connection_identity_digest: Sha256
-    display_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
-    ]
+    display_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
     sensitivity: Sensitivity
     state: ConnectionState
     created_at: AwareDatetime
@@ -379,9 +357,9 @@ class SourceConnection(_ClosedHubContract):
 
 
 class SourceRevision(_ClosedHubContract):
-    schema_version: Literal[
-        "ananta.source-control.source-revision.v1"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.source-control.source-revision.v1"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     source_revision_id: SourceRevisionId
     connection_id: ConnectionId
     tenant_id: Identifier
@@ -419,9 +397,9 @@ class SourceRevision(_ClosedHubContract):
 
 
 class SourceRefMapping(_ClosedHubContract):
-    schema_version: Literal[
-        "ananta.source-control.source-ref-mapping.v1"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.source-control.source-ref-mapping.v1"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     source_ref_id: SourceRefId
     connection_id: ConnectionId
     source_revision_id: SourceRevisionId
@@ -454,9 +432,9 @@ class SourceRefMapping(_ClosedHubContract):
 
 
 class DestinationDescriptor(_ClosedHubContract):
-    schema_version: Literal[
-        "ananta.source-control.destination-descriptor.v1"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.source-control.destination-descriptor.v1"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     destination_id: DestinationId
     worker_id: Identifier
     worker_kind: Identifier
@@ -512,9 +490,9 @@ class DestinationDescriptor(_ClosedHubContract):
 
 
 class SourceAccessGrant(_ClosedHubContract):
-    schema_version: Literal[
-        "ananta.source-control.source-access-grant.v1"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.source-control.source-access-grant.v1"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     grant_id: GrantId
     version: Annotated[int, Field(ge=1)]
     tenant_id: Identifier
@@ -571,9 +549,9 @@ class SourceAccessGrant(_ClosedHubContract):
 class DelegatedSourceManifestRef(_ClosedHubContract):
     """The complete source-control payload a delegated worker may receive."""
 
-    schema_version: Literal[
-        "ananta.source-control.delegated-source-manifest-ref.v1"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.source-control.delegated-source-manifest-ref.v1"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     manifest_id: ManifestId
     manifest_digest: Sha256
     source_revision_id: SourceRevisionId
@@ -600,9 +578,7 @@ def parse_source_control_contract(
 
     contract_type = _CONTRACT_TYPES.get(str(kind))
     if contract_type is None:
-        raise SourceControlContractError(
-            SourceControlReasonCode.CONTRACT_INVALID
-        )
+        raise SourceControlContractError(SourceControlReasonCode.CONTRACT_INVALID)
     try:
         return contract_type.model_validate(dict(payload))
     except (TypeError, ValueError, ValidationError) as exc:

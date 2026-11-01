@@ -41,8 +41,9 @@ def _context_limit(provider: str | None, max_context_tokens: int | None) -> int 
     cloud/subscription providers are trimmed only to an explicit or declared limit (``agent.context_profile``)."""
     from agent.context_profile import window_for_provider
 
-    return window_for_provider(str(provider or "").strip().lower() or None,
-                               requested=int(max_context_tokens) if max_context_tokens else None)
+    return window_for_provider(
+        str(provider or "").strip().lower() or None, requested=int(max_context_tokens) if max_context_tokens else None
+    )
 
 
 def _request_url(provider: Optional[str], url: str) -> str:
@@ -294,11 +295,7 @@ class OllamaStrategy(LLMStrategy):
                 "eval_count": normalized["usage"]["completion_tokens"],
             }
             result: dict[str, Any] = {"text": normalized["content"], "usage": usage}
-            metadata = {
-                key: normalized[key]
-                for key in ("tool_calls", "thinking", "finish_reason")
-                if normalized[key]
-            }
+            metadata = {key: normalized[key] for key in ("tool_calls", "thinking", "finish_reason") if normalized[key]}
             if metadata:
                 result["metadata"] = metadata
             return result

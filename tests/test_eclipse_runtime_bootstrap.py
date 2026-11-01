@@ -128,10 +128,46 @@ def test_eclipse_runtime_bootstrap_files_exist() -> None:
         / "views"
         / "eclipse"
         / "AbstractAnantaRuntimeViewPart.java",
-        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "chat" / "ChatRuntimeModel.java",
-        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "patch" / "ApprovalGatedPatchApplier.java",
-        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "project" / "NewAnantaProjectWizard.java",
-        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "completion" / "AnantaCompletionProposalComputer.java",
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "chat"
+        / "ChatRuntimeModel.java",
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "patch"
+        / "ApprovalGatedPatchApplier.java",
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "project"
+        / "NewAnantaProjectWizard.java",
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "completion"
+        / "AnantaCompletionProposalComputer.java",
         ROOT / "scripts" / "build_eclipse_runtime_plugin.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_bootstrap.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_headless.py",
@@ -307,7 +343,9 @@ def test_eclipse_runtime_status_stays_mvp_until_p2_workbench_verifier_passes() -
     surface_status = dict(status_payload.get("surface_status") or {})
     assert surface_status.get("eclipse_plugin") == "runtime_mvp"
     assert surface_status.get("eclipse_views_extension") == "runtime_mvp"
-    ui_report = json.loads((ROOT / "ci-artifacts" / "eclipse" / "eclipse-ui-golden-path-report.json").read_text(encoding="utf-8"))
+    ui_report = json.loads(
+        (ROOT / "ci-artifacts" / "eclipse" / "eclipse-ui-golden-path-report.json").read_text(encoding="utf-8")
+    )
     assert "p2_install_from_update_site" in {str(item.get("check_id")) for item in list(ui_report.get("checks") or [])}
     assert ui_report.get("skipped") is False
     assert ui_report.get("runtime_complete_claim_allowed") is False

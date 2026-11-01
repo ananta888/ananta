@@ -53,14 +53,18 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     visual_on = bool(game.get("tutorial_mode"))
     codecompass_on = bool(game.get("ai_visual_use_codecompass"))
     chat_use_codecompass = _resolve_bool_pref(game, "chat_use_codecompass", "ANANTA_TUI_CHAT_USE_CODECOMPASS", True)
-    chat_include_local_project = _resolve_bool_pref(game, "chat_include_local_project", "ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", True)
-    chat_include_wikipedia = _resolve_bool_pref(game, "chat_include_wikipedia", "ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", False)
-    chat_include_task_memory = _resolve_bool_pref(game, "chat_include_task_memory", "ANANTA_TUI_CHAT_INCLUDE_TASK_MEMORY", True)
+    chat_include_local_project = _resolve_bool_pref(
+        game, "chat_include_local_project", "ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", True
+    )
+    chat_include_wikipedia = _resolve_bool_pref(
+        game, "chat_include_wikipedia", "ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", False
+    )
+    chat_include_task_memory = _resolve_bool_pref(
+        game, "chat_include_task_memory", "ANANTA_TUI_CHAT_INCLUDE_TASK_MEMORY", True
+    )
     chat_code_questions_repo_first = _resolve_bool_pref(game, "chat_code_questions_repo_first", "", False)
     chat_source_pack_id = str(
-        game.get("chat_source_pack_id")
-        or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK")
-        or "ananta-dev-default"
+        game.get("chat_source_pack_id") or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK") or "ananta-dev-default"
     ).strip()
     timeout_default = _DEFAULTS.get("chat_ask_timeout_s", 45.0)
     timeout_value_raw = game.get("chat_ask_timeout_s")
@@ -80,38 +84,62 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     context_default = int(_DEFAULTS.get("chat_context_chars", 3000))
     context_chars_raw = game.get("chat_context_chars")
     try:
-        context_chars = int(context_chars_raw) if context_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", str(context_default)))
+        context_chars = (
+            int(context_chars_raw)
+            if context_chars_raw is not None
+            else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", str(context_default)))
+        )
     except (TypeError, ValueError):
         context_chars = context_default
     context_chars = max(500, min(20000, context_chars))
     max_tokens_default = int(_DEFAULTS.get("chat_max_tokens", 400))
     max_tokens_raw = game.get("chat_max_tokens")
     try:
-        max_tokens = int(max_tokens_raw) if max_tokens_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", str(max_tokens_default)))
+        max_tokens = (
+            int(max_tokens_raw)
+            if max_tokens_raw is not None
+            else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", str(max_tokens_default)))
+        )
     except (TypeError, ValueError):
         max_tokens = max_tokens_default
     max_tokens = max(100, min(8000, max_tokens))
     top_k_default = int(_DEFAULTS.get("chat_rag_top_k", 24))
     top_k_raw = game.get("chat_rag_top_k")
     try:
-        chat_rag_top_k = int(top_k_raw) if top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", str(top_k_default)))
+        chat_rag_top_k = (
+            int(top_k_raw)
+            if top_k_raw is not None
+            else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", str(top_k_default)))
+        )
     except (TypeError, ValueError):
         chat_rag_top_k = top_k_default
     chat_rag_top_k = max(8, min(120, chat_rag_top_k))
     answer_chars_raw = game.get("chat_answer_chars")
     try:
-        chat_answer_chars = int(answer_chars_raw) if answer_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", str(_DEFAULTS.get("chat_answer_chars", 12000))))
+        chat_answer_chars = (
+            int(answer_chars_raw)
+            if answer_chars_raw is not None
+            else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", str(_DEFAULTS.get("chat_answer_chars", 12000))))
+        )
     except (TypeError, ValueError):
         chat_answer_chars = int(_DEFAULTS.get("chat_answer_chars", 12000))
     chat_answer_chars = max(600, min(50000, chat_answer_chars))
-    answer_overflow_policy = str(game.get("chat_answer_overflow_policy") or _DEFAULTS.get("chat_answer_overflow_policy", "allow")).strip()
+    answer_overflow_policy = str(
+        game.get("chat_answer_overflow_policy") or _DEFAULTS.get("chat_answer_overflow_policy", "allow")
+    ).strip()
     if answer_overflow_policy not in {"allow", "summarize", "truncate"}:
         answer_overflow_policy = "allow"
     chat_never_truncate_answers = _resolve_bool_pref(game, "chat_never_truncate_answers", "", True)
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
-        {"key": "visual_provider", "label": "Visual Provider", "type": "choice", "value": visual_provider, "options": visual_providers},
+        {
+            "key": "visual_provider",
+            "label": "Visual Provider",
+            "type": "choice",
+            "value": visual_provider,
+            "options": visual_providers,
+        },
         {"key": "visual_codecompass", "label": "Visual CodeCompass", "type": "bool", "value": codecompass_on},
         {
             "key": "chat_backend",
@@ -142,7 +170,12 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "options": timeout_options,
         },
         {"key": "chat_use_codecompass", "label": "Chat CodeCompass", "type": "bool", "value": chat_use_codecompass},
-        {"key": "chat_include_local_project", "label": "Chat Local Project", "type": "bool", "value": chat_include_local_project},
+        {
+            "key": "chat_include_local_project",
+            "label": "Chat Local Project",
+            "type": "bool",
+            "value": chat_include_local_project,
+        },
         {"key": "chat_include_wikipedia", "label": "Chat Wikipedia", "type": "bool", "value": chat_include_wikipedia},
         {
             "key": "chat_source_pack_id",
@@ -317,8 +350,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "group": "Kontext / RAG",
         },
         # ── Chat Context/Memory (CMW-012) ─────────────────────────────────────
-        {"key": "chat_use_history", "label": "Chat Verlauf nutzen", "type": "bool",
-         "value": _resolve_bool_pref(game, "chat_use_history", "", True), "group": "Chat Memory"},
+        {
+            "key": "chat_use_history",
+            "label": "Chat Verlauf nutzen",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "chat_use_history", "", True),
+            "group": "Chat Memory",
+        },
         {
             "key": "chat_history_turns",
             "label": "Chat History Turns",
@@ -335,8 +373,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "options": ["600", "1200", "1800", "3000", "5000"],
             "group": "Chat Memory",
         },
-        {"key": "chat_use_summary", "label": "Chat Zusammenfassung", "type": "bool",
-         "value": _resolve_bool_pref(game, "chat_use_summary", "", True), "group": "Chat Memory"},
+        {
+            "key": "chat_use_summary",
+            "label": "Chat Zusammenfassung",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "chat_use_summary", "", True),
+            "group": "Chat Memory",
+        },
         {
             "key": "chat_summary_chars",
             "label": "Chat Summary Chars",
@@ -354,8 +397,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "group": "Chat Memory",
         },
         # ── Worker/Backend (CMW-010) ──────────────────────────────────────────
-        {"key": "chat_pass_memory_to_worker", "label": "Memory an Worker", "type": "bool",
-         "value": _resolve_bool_pref(game, "chat_pass_memory_to_worker", "", True), "group": "Chat Backend"},
+        {
+            "key": "chat_pass_memory_to_worker",
+            "label": "Memory an Worker",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "chat_pass_memory_to_worker", "", True),
+            "group": "Chat Backend",
+        },
         {
             "key": "chat_worker_mode",
             "label": "Worker Modus",
@@ -372,13 +420,28 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "options": ["none", "lmstudio", "local_knowledge"],
             "group": "Chat Backend",
         },
-        {"key": "chat_include_runtime_status", "label": "TUI-Status in Prompt", "type": "bool",
-         "value": _resolve_bool_pref(game, "chat_include_runtime_status", "", False), "group": "Chat Memory"},
+        {
+            "key": "chat_include_runtime_status",
+            "label": "TUI-Status in Prompt",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "chat_include_runtime_status", "", False),
+            "group": "Chat Memory",
+        },
         # ── Input History Persistence ─────────────────────────────────────────
-        {"key": "input_history_chat_enabled", "label": "Chat-Eingaben speichern", "type": "bool",
-         "value": _resolve_bool_pref(game, "input_history_chat_enabled", "", True), "group": "Input-Verlauf"},
-        {"key": "input_history_command_enabled", "label": "Befehle speichern", "type": "bool",
-         "value": _resolve_bool_pref(game, "input_history_command_enabled", "", True), "group": "Input-Verlauf"},
+        {
+            "key": "input_history_chat_enabled",
+            "label": "Chat-Eingaben speichern",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "input_history_chat_enabled", "", True),
+            "group": "Input-Verlauf",
+        },
+        {
+            "key": "input_history_command_enabled",
+            "label": "Befehle speichern",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "input_history_command_enabled", "", True),
+            "group": "Input-Verlauf",
+        },
         {
             "key": "input_history_max_entries",
             "label": "Max. Verlauf-Einträge",
@@ -395,14 +458,20 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "value": _resolve_text_pref(game, "chat_system_prompt", "ANANTA_TUI_CHAT_SYSTEM_PROMPT", ""),
             "group": "Advanced Chat",
         },
-        {"key": "chat_streaming", "label": "Chat Streaming",
-         "type": "bool",
-         "value": _resolve_bool_pref(game, "chat_streaming", "ANANTA_TUI_CHAT_STREAMING", True),
-         "group": "Advanced Chat"},
-        {"key": "chat_use_embedding_api", "label": "Chat Embedding API",
-         "type": "bool",
-         "value": _resolve_bool_pref(game, "chat_use_embedding_api", "ANANTA_TUI_CHAT_USE_EMBEDDING_API", False),
-         "group": "Advanced Chat"},
+        {
+            "key": "chat_streaming",
+            "label": "Chat Streaming",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "chat_streaming", "ANANTA_TUI_CHAT_STREAMING", True),
+            "group": "Advanced Chat",
+        },
+        {
+            "key": "chat_use_embedding_api",
+            "label": "Chat Embedding API",
+            "type": "bool",
+            "value": _resolve_bool_pref(game, "chat_use_embedding_api", "ANANTA_TUI_CHAT_USE_EMBEDDING_API", False),
+            "group": "Advanced Chat",
+        },
         {
             "key": "chat_embedding_model",
             "label": "Chat Embedding Model",
@@ -448,9 +517,7 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
     configured_base = str(game.get("chat_backend_api_base") or "").strip()
     worker_base = str(game.get("chat_worker_api_base") or "").strip()
     env_base = str(
-        os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL")
-        or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
-        or ""
+        os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL") or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL") or ""
     ).strip()
     hub_base = str(os.environ.get("ANANTA_BASE_URL") or "").strip()
     base_candidates: list[str] = []

@@ -11,6 +11,7 @@ AWF-T028: SkillRegistry with disabled-by-default loading
 AWF-T029: SkillRunner through PreflightGate and ToolInvocationEnvelope
 AWF-T030: SkillProposalArtifact instead of direct self-modifying skills
 """
+
 from __future__ import annotations
 
 import time
@@ -23,11 +24,15 @@ def _record_with_grant(service, **request):
     from ananta_contracts.memory_access import MemoryOperation, MemoryScope
     from tests.security.memory_fixtures import synthetic_memory_access
 
-    scope = {"session": MemoryScope.run, "project": MemoryScope.workspace,
-             "task": MemoryScope.task}[request.get("memory_scope") or "task"]
+    scope = {"session": MemoryScope.run, "project": MemoryScope.workspace, "task": MemoryScope.task}[
+        request.get("memory_scope") or "task"
+    ]
     with synthetic_memory_access(
-        task_id=request["task_id"], goal_id=request.get("goal_id"),
-        channels=("hub-result-memory",), scopes=(scope,), operations=(MemoryOperation.append,),
+        task_id=request["task_id"],
+        goal_id=request.get("goal_id"),
+        channels=("hub-result-memory",),
+        scopes=(scope,),
+        operations=(MemoryOperation.append,),
     ):
         return service.record_worker_result_memory(**request)
 
@@ -36,9 +41,11 @@ def _record_with_grant(service, **request):
 # AWF-T021: Grounded prompt assembly contract
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT021GroundedPromptContract:
     def _assemble(self, **kwargs):
         from worker.core.prompt_contract import assemble_grounded_prompt
+
         defaults = dict(
             task_description="Fix the import error in main.py",
             policy_constraints=["no network calls", "read-only filesystem"],
@@ -98,6 +105,7 @@ class TestT021GroundedPromptContract:
 
     def test_injection_attempt_blocked(self):
         from worker.core.prompt_contract import assemble_grounded_prompt
+
         result = assemble_grounded_prompt(
             task_description="Fix import",
             policy_constraints=[],
@@ -112,20 +120,29 @@ class TestT021GroundedPromptContract:
 
     def test_context_hash_required(self):
         from worker.core.prompt_contract import assemble_grounded_prompt
+
         with pytest.raises(ValueError, match="context_hash_required"):
             assemble_grounded_prompt(
-                task_description="x", policy_constraints=[], allowed_tools=[],
-                context_blocks=[], expected_artifacts=[], output_schema="{}", context_hash="",
+                task_description="x",
+                policy_constraints=[],
+                allowed_tools=[],
+                context_blocks=[],
+                expected_artifacts=[],
+                output_schema="{}",
+                context_hash="",
             )
 
     def test_context_budget_respected(self):
         from worker.core.prompt_contract import assemble_grounded_prompt
+
         big_block = "x" * 20_000
         result = assemble_grounded_prompt(
             task_description="task",
-            policy_constraints=[], allowed_tools=[],
+            policy_constraints=[],
+            allowed_tools=[],
             context_blocks=[big_block],
-            expected_artifacts=[], output_schema="{}",
+            expected_artifacts=[],
+            output_schema="{}",
             context_hash="abc",
             max_context_chars=500,
         )
@@ -136,9 +153,11 @@ class TestT021GroundedPromptContract:
 # AWF-T022: MemoryPolicy before ResultMemoryService persists
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT022MemoryPolicy:
     def _policy(self, **kwargs):
         from agent.services.result_memory_service import normalize_result_memory_policy
+
         return normalize_result_memory_policy(kwargs if kwargs else None)
 
     def test_defaults_are_safe(self):
@@ -159,12 +178,18 @@ class TestT022MemoryPolicy:
 
     def test_enabled_false_skips_write(self, tmp_path, monkeypatch):
         from agent.services.result_memory_service import ResultMemoryService
+
         svc = ResultMemoryService()
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
-        result = _record_with_grant(svc,
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="some output",
+        result = _record_with_grant(
+            svc,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
+            title="t",
+            output="some output",
             policy={"enabled": False},
         )
         assert result is None
@@ -172,12 +197,18 @@ class TestT022MemoryPolicy:
 
     def test_redaction_before_persist_flag_in_metadata(self, monkeypatch):
         from agent.services.result_memory_service import ResultMemoryService
+
         svc = ResultMemoryService()
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
-        _record_with_grant(svc,
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="some output",
+        _record_with_grant(
+            svc,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
+            title="t",
+            output="some output",
             policy={"redact_before_persist": True},
         )
         assert len(saved) == 1
@@ -187,12 +218,18 @@ class TestT022MemoryPolicy:
 
     def test_secret_pattern_redacted(self, monkeypatch):
         from agent.services.result_memory_service import ResultMemoryService
+
         svc = ResultMemoryService()
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
-        _record_with_grant(svc,
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="API_KEY=sk-secret123456",
+        _record_with_grant(
+            svc,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
+            title="t",
+            output="API_KEY=sk-secret123456",
             policy={"redact_before_persist": True},
         )
         assert len(saved) == 1
@@ -205,15 +242,24 @@ class TestT022MemoryPolicy:
 # AWF-T023: Separate session/project/long-term memory scopes
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT023MemoryScopes:
     def _save(self, monkeypatch, *, scope="task", **kwargs):
         from agent.services.result_memory_service import ResultMemoryService
+
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
         svc = ResultMemoryService()
-        _record_with_grant(svc,
-            task_id="t-scope", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="output", memory_scope=scope, **kwargs
+        _record_with_grant(
+            svc,
+            task_id="t-scope",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
+            title="t",
+            output="output",
+            memory_scope=scope,
+            **kwargs,
         )
         return saved[0] if saved else None
 
@@ -233,8 +279,12 @@ class TestT023MemoryScopes:
     def test_scope_filter_in_repository(self):
         from agent.db_models import MemoryEntryDB
         from agent.repositories.memory import _matches_scope
+
         entry = MemoryEntryDB(
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
             memory_metadata={"memory_scope": "project"},
         )
         assert _matches_scope(entry, "project") is True
@@ -246,9 +296,11 @@ class TestT023MemoryScopes:
 # AWF-T024: MemoryProposalArtifact
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT024MemoryProposal:
     def _svc(self):
         from agent.services.result_memory_service import ResultMemoryService
+
         return ResultMemoryService()
 
     def test_proposal_has_required_fields(self):
@@ -275,9 +327,7 @@ class TestT024MemoryProposal:
         assert len(saved) == 0
 
     def test_proposal_has_sensitivity(self):
-        proposal = self._svc().build_memory_proposal(
-            title="t", rationale="r", sensitivity="confidential"
-        )
+        proposal = self._svc().build_memory_proposal(title="t", rationale="r", sensitivity="confidential")
         assert proposal.sensitivity == "confidential"
 
 
@@ -285,15 +335,16 @@ class TestT024MemoryProposal:
 # AWF-T025: Memory retrieval provenance and trust scoring
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT025MemoryProvenance:
     def _save_entry(self, monkeypatch, **kwargs):
         from agent.services.result_memory_service import ResultMemoryService
+
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
         svc = ResultMemoryService()
-        _record_with_grant(svc,
-            task_id="t-prov", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="result", **kwargs
+        _record_with_grant(
+            svc, task_id="t-prov", goal_id=None, trace_id=None, worker_job_id=None, title="t", output="result", **kwargs
         )
         return saved[0] if saved else None
 
@@ -315,21 +366,30 @@ class TestT025MemoryProvenance:
 # AWF-T026: Memory cleanup/TTL policy
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT026MemoryTTL:
     def test_no_ttl_by_default(self):
         from agent.services.result_memory_service import normalize_result_memory_policy
+
         p = normalize_result_memory_policy(None)
         assert p["default_ttl_seconds"] is None
 
     def test_ttl_sets_expires_at(self, monkeypatch):
         from agent.services.result_memory_service import ResultMemoryService
+
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
         before = time.time()
         svc = ResultMemoryService()
-        _record_with_grant(svc,
-            task_id="t-ttl", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="r", policy={"default_ttl_seconds": 3600},
+        _record_with_grant(
+            svc,
+            task_id="t-ttl",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
+            title="t",
+            output="r",
+            policy={"default_ttl_seconds": 3600},
         )
         after = time.time()
         entry = saved[0]
@@ -340,9 +400,13 @@ class TestT026MemoryTTL:
     def test_expired_entry_filtered(self):
         from agent.db_models import MemoryEntryDB
         from agent.repositories.memory import _is_expired
+
         past = time.time() - 1
         entry = MemoryEntryDB(
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
             memory_metadata={"expires_at": past},
         )
         assert _is_expired(entry) is True
@@ -350,9 +414,13 @@ class TestT026MemoryTTL:
     def test_fresh_entry_not_expired(self):
         from agent.db_models import MemoryEntryDB
         from agent.repositories.memory import _is_expired
+
         future = time.time() + 3600
         entry = MemoryEntryDB(
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
             memory_metadata={"expires_at": future},
         )
         assert _is_expired(entry) is False
@@ -360,20 +428,31 @@ class TestT026MemoryTTL:
     def test_no_expires_at_not_expired(self):
         from agent.db_models import MemoryEntryDB
         from agent.repositories.memory import _is_expired
+
         entry = MemoryEntryDB(
-            task_id="t-1", goal_id=None, trace_id=None, worker_job_id=None,
+            task_id="t-1",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
             memory_metadata={},
         )
         assert _is_expired(entry) is False
 
     def test_retention_class_stored(self, monkeypatch):
         from agent.services.result_memory_service import ResultMemoryService
+
         saved = []
         monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e) or e)
         svc = ResultMemoryService()
-        _record_with_grant(svc,
-            task_id="t-ret", goal_id=None, trace_id=None, worker_job_id=None,
-            title="t", output="r", policy={"retention_class": "session"},
+        _record_with_grant(
+            svc,
+            task_id="t-ret",
+            goal_id=None,
+            trace_id=None,
+            worker_job_id=None,
+            title="t",
+            output="r",
+            policy={"retention_class": "session"},
         )
         assert dict(saved[0].memory_metadata)["retention_class"] == "session"
 
@@ -382,12 +461,19 @@ class TestT026MemoryTTL:
 # AWF-T027: SkillManifest schema
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _minimal_manifest(**kwargs):
     from worker.skills.skill_manifest import SkillManifest
+
     defaults = dict(
-        id="test_skill", version="1.0", name="Test Skill",
-        description="A test skill", risk_class="low",
-        allowed_tools=[], denied_tools=[], required_capabilities=[],
+        id="test_skill",
+        version="1.0",
+        name="Test Skill",
+        description="A test skill",
+        risk_class="low",
+        allowed_tools=[],
+        denied_tools=[],
+        required_capabilities=[],
     )
     defaults.update(kwargs)
     return SkillManifest(**defaults)
@@ -396,47 +482,55 @@ def _minimal_manifest(**kwargs):
 class TestT027SkillManifest:
     def test_valid_manifest_no_errors(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest()
         assert validate_skill_manifest(m) == []
 
     def test_missing_id_invalid(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(id="")
         errors = validate_skill_manifest(m)
         assert any("id_required" in e for e in errors)
 
     def test_missing_version_invalid(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(version="")
         errors = validate_skill_manifest(m)
         assert any("version_required" in e for e in errors)
 
     def test_unknown_risk_class_invalid(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(risk_class="ultra")
         errors = validate_skill_manifest(m)
         assert any("unknown_risk_class" in e for e in errors)
 
     def test_unknown_capability_invalid(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(required_capabilities=["nonexistent_cap"])
         errors = validate_skill_manifest(m, known_capabilities={"shell_plan", "shell_execute"})
         assert any("unknown_capability" in e for e in errors)
 
     def test_known_capability_valid(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(required_capabilities=["shell_plan"])
         errors = validate_skill_manifest(m, known_capabilities={"shell_plan", "shell_execute"})
         assert errors == []
 
     def test_low_risk_with_shell_execute_invalid(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(risk_class="low", allowed_tools=["run_shell"])
         errors = validate_skill_manifest(m)
         assert any("risk_class_too_low_for_tools" in e for e in errors)
 
     def test_medium_risk_with_shell_execute_ok(self):
         from worker.skills.skill_manifest import validate_skill_manifest
+
         m = _minimal_manifest(risk_class="medium", allowed_tools=["run_shell"])
         assert validate_skill_manifest(m) == []
 
@@ -452,9 +546,11 @@ class TestT027SkillManifest:
 
     def test_schema_file_exists(self):
         from pathlib import Path
+
         schema_path = Path(__file__).parents[2] / "schemas" / "worker" / "skill_manifest.v1.json"
         assert schema_path.exists()
         import json
+
         schema = json.loads(schema_path.read_text())
         assert schema.get("type") == "object"
         assert "risk_class" in schema.get("properties", {})
@@ -464,9 +560,11 @@ class TestT027SkillManifest:
 # AWF-T028: SkillRegistry
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT028SkillRegistry:
     def _registry(self):
         from worker.skills.skill_registry import SkillRegistry
+
         return SkillRegistry()
 
     def test_skill_disabled_by_default(self):
@@ -538,10 +636,14 @@ class TestT028SkillRegistry:
 # AWF-T029: SkillRunner
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _skill_envelope(capabilities=("skill_execute",)):
     from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+
     return ExecutionEnvelope(
-        task_id="t-1", actor_ref="hub", audit_correlation_id="audit",
+        task_id="t-1",
+        actor_ref="hub",
+        audit_correlation_id="audit",
         context_envelope_ref="ctx",
         capability_grant=CapabilityGrant(capabilities=list(capabilities)),
     )
@@ -552,6 +654,7 @@ class TestT029SkillRunner:
         from worker.core.tool_registry import build_default_registry
         from worker.skills.skill_registry import SkillRegistry
         from worker.skills.skill_runner import SkillRunner
+
         reg = SkillRegistry()
         m = manifest_override or _minimal_manifest()
         reg.register(m)
@@ -597,6 +700,7 @@ class TestT029SkillRunner:
     def test_skill_not_found_returns_failed(self):
         from worker.skills.skill_registry import SkillRegistry
         from worker.skills.skill_runner import SkillRunner
+
         reg = SkillRegistry()
         runner = SkillRunner(reg)
         result = runner.run("no_such_skill", inputs={}, envelope=_skill_envelope())
@@ -612,6 +716,7 @@ class TestT029SkillRunner:
         from worker.core.tool_registry import WorkerToolRegistry
         from worker.skills.skill_registry import SkillRegistry
         from worker.skills.skill_runner import SkillRunner
+
         m = _minimal_manifest(allowed_tools=["nonexistent_tool_xyz"])
         reg = SkillRegistry()
         reg.register(m)
@@ -627,12 +732,14 @@ class TestT029SkillRunner:
 # AWF-T030: SkillProposalArtifact
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT030SkillProposal:
     def _envelope(self, caps=("skill_propose",)):
         return _skill_envelope(capabilities=caps)
 
     def test_emit_proposal_with_capability(self):
         from worker.skills.skill_proposal import emit_skill_proposal
+
         env = self._envelope()
         manifest = _minimal_manifest().as_dict()
         proposal = emit_skill_proposal(
@@ -650,6 +757,7 @@ class TestT030SkillProposal:
 
     def test_emit_proposal_without_capability_raises(self):
         from worker.skills.skill_proposal import emit_skill_proposal
+
         env = self._envelope(caps=["shell_plan"])  # no skill_propose
         with pytest.raises(PermissionError, match="skill_propose"):
             emit_skill_proposal(
@@ -661,6 +769,7 @@ class TestT030SkillProposal:
     def test_proposal_does_not_mutate_registry(self):
         from worker.skills.skill_proposal import emit_skill_proposal
         from worker.skills.skill_registry import SkillRegistry
+
         reg = SkillRegistry()
         env = self._envelope()
         emit_skill_proposal(
@@ -673,6 +782,7 @@ class TestT030SkillProposal:
 
     def test_proposal_has_proposed_by_from_envelope_task_id(self):
         from worker.skills.skill_proposal import emit_skill_proposal
+
         env = self._envelope()
         proposal = emit_skill_proposal(
             envelope=env,
@@ -683,6 +793,7 @@ class TestT030SkillProposal:
 
     def test_proposal_inherits_required_capabilities(self):
         from worker.skills.skill_proposal import emit_skill_proposal
+
         env = self._envelope()
         manifest = {"required_capabilities": ["code_read", "patch_apply"]}
         proposal = emit_skill_proposal(envelope=env, proposed_manifest=manifest, rationale="r")

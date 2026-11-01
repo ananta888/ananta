@@ -79,9 +79,7 @@ def handle_strategy_exhaustion(
     terminalize_no_exec = _should_terminalize_no_executable_strategy(strategy_failures)
     cooldown_seconds = 0
     reason_code = (
-        "autopilot_strategy_invalid_proposal_terminal"
-        if terminalize_no_exec
-        else "autopilot_strategy_exhausted"
+        "autopilot_strategy_invalid_proposal_terminal" if terminalize_no_exec else "autopilot_strategy_exhausted"
     )
     existing_strategy_state = dict(strategy_state or {})
     repair_rounds = int(existing_strategy_state.get("repair_rounds") or 0)
@@ -114,15 +112,10 @@ def handle_strategy_exhaustion(
             "reason_code": "task_recovery_coordinator_failed",
             "error_type": type(recovery_exc).__name__,
         }
-    recovery_pending = (
-        str(recovery_outcome.get("status") or "").strip().lower()
-        == "pending_approval"
+    recovery_pending = str(recovery_outcome.get("status") or "").strip().lower() == "pending_approval"
+    recovery_terminal_handled = (
+        bool(recovery_outcome.get("terminal_model_chain_handled")) or verified_terminal_model_signal_seen
     )
-    recovery_terminal_handled = bool(
-        recovery_outcome.get(
-            "terminal_model_chain_handled"
-        )
-    ) or verified_terminal_model_signal_seen
     schedule_repair_retry = (
         terminalize_no_exec
         and not allow_human_review
@@ -136,26 +129,13 @@ def handle_strategy_exhaustion(
         cooldown_seconds = 0
         reason_code = "model_recovery_plan_pending_approval"
     elif rejected_terminal_model_signal_seen:
-        retry_status = (
-            "waiting_for_review"
-            if allow_human_review
-            else "failed"
-        )
+        retry_status = "waiting_for_review" if allow_human_review else "failed"
         cooldown_seconds = 0
-        reason_code = (
-            "invalid_terminal_model_recovery_signal"
-        )
+        reason_code = "invalid_terminal_model_recovery_signal"
     elif recovery_terminal_handled:
-        retry_status = (
-            "waiting_for_review"
-            if allow_human_review
-            else "failed"
-        )
+        retry_status = "waiting_for_review" if allow_human_review else "failed"
         cooldown_seconds = 0
-        reason_code = str(
-            recovery_outcome.get("reason_code")
-            or "model_recovery_stopped"
-        )[:160]
+        reason_code = str(recovery_outcome.get("reason_code") or "model_recovery_stopped")[:160]
     elif schedule_repair_retry:
         retry_status = "todo"
         cooldown_seconds = repair_delay_seconds
@@ -199,35 +179,13 @@ def handle_strategy_exhaustion(
         **(
             {
                 "model_recovery_strategy": {
-                    "schema": (
-                        "ananta.model_recovery_strategy.v1"
-                    ),
-                    "status": recovery_outcome.get(
-                        "status"
-                    ),
-                    "reason_code": recovery_outcome.get(
-                        "reason_code"
-                    ),
-                    "recovery_actions": list(
-                        recovery_outcome.get(
-                            "recovery_actions"
-                        )
-                        or []
-                    ),
-                    "policy_hash": recovery_outcome.get(
-                        "policy_hash"
-                    ),
-                    "compaction": dict(
-                        recovery_outcome.get(
-                            "compaction"
-                        )
-                        or {}
-                    ),
-                    "compacted_context_hash": (
-                        recovery_outcome.get(
-                            "compacted_context_hash"
-                        )
-                    ),
+                    "schema": ("ananta.model_recovery_strategy.v1"),
+                    "status": recovery_outcome.get("status"),
+                    "reason_code": recovery_outcome.get("reason_code"),
+                    "recovery_actions": list(recovery_outcome.get("recovery_actions") or []),
+                    "policy_hash": recovery_outcome.get("policy_hash"),
+                    "compaction": dict(recovery_outcome.get("compaction") or {}),
+                    "compacted_context_hash": (recovery_outcome.get("compacted_context_hash")),
                 }
             }
             if recovery_terminal_handled
@@ -240,16 +198,11 @@ def handle_strategy_exhaustion(
         model_meta=model_meta if isinstance(model_meta, dict) else None,
         preferred_profile=collected_llm_profiles,
         allow_synthetic_fallback=bool(
-            ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get(
-                "allow_synthetic_fallback", False
-            )
+            ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get("allow_synthetic_fallback", False)
         ),
     )
     if recovery_pending:
-        authoritative_task = (
-            ctx.dependencies.repository_registry(app_ctx)
-            .task_repo.get_by_id(task.id)
-        )
+        authoritative_task = ctx.dependencies.repository_registry(app_ctx).task_repo.get_by_id(task.id)
         authoritative_recovery = dict(
             (
                 getattr(
@@ -261,9 +214,7 @@ def handle_strategy_exhaustion(
             ).get("model_recovery")
             or {}
         )
-        authoritative_recovery_status = str(
-            authoritative_recovery.get("status") or ""
-        ).strip().lower()
+        authoritative_recovery_status = str(authoritative_recovery.get("status") or "").strip().lower()
         if authoritative_recovery_status not in {
             "",
             "pending_approval",
@@ -272,26 +223,15 @@ def handle_strategy_exhaustion(
                 task.id,
                 "autopilot_recovery_state_write_skipped",
                 delegated_to=target_worker.url,
-                authoritative_recovery_status=(
-                    authoritative_recovery_status
-                ),
-                recovery_plan_id=(
-                    authoritative_recovery.get("plan_id")
-                ),
+                authoritative_recovery_status=(authoritative_recovery_status),
+                recovery_plan_id=(authoritative_recovery.get("plan_id")),
             )
             result.dispatched = True
-            result.failed = (
-                authoritative_recovery_status
-                not in {
-                    "materialized",
-                    "materialized_waiting_for_children",
-                }
-            )
-            result.failure_type = (
-                None
-                if not result.failed
-                else authoritative_recovery_status
-            )
+            result.failed = authoritative_recovery_status not in {
+                "materialized",
+                "materialized_waiting_for_children",
+            }
+            result.failure_type = None if not result.failed else authoritative_recovery_status
             return result
     latest_status = current_task_status(task.id, app=app_ctx)
     if _is_terminal_status(latest_status):
@@ -305,9 +245,7 @@ def handle_strategy_exhaustion(
         result.dispatched = True
         result.completed = latest_status == "completed"
         result.failed = latest_status != "completed"
-        result.failure_type = (
-            None if result.completed else latest_status
-        )
+        result.failure_type = None if result.completed else latest_status
         return result
     update_local_task_status(
         task.id,
@@ -334,39 +272,13 @@ def handle_strategy_exhaustion(
             **(
                 {
                     "model_recovery_strategy": {
-                        "schema": (
-                            "ananta.model_recovery_strategy.v1"
-                        ),
-                        "status": recovery_outcome.get(
-                            "status"
-                        ),
-                        "reason_code": (
-                            recovery_outcome.get(
-                                "reason_code"
-                            )
-                        ),
-                        "recovery_actions": list(
-                            recovery_outcome.get(
-                                "recovery_actions"
-                            )
-                            or []
-                        ),
-                        "policy_hash": (
-                            recovery_outcome.get(
-                                "policy_hash"
-                            )
-                        ),
-                        "compaction": dict(
-                            recovery_outcome.get(
-                                "compaction"
-                            )
-                            or {}
-                        ),
-                        "compacted_context_hash": (
-                            recovery_outcome.get(
-                                "compacted_context_hash"
-                            )
-                        ),
+                        "schema": ("ananta.model_recovery_strategy.v1"),
+                        "status": recovery_outcome.get("status"),
+                        "reason_code": (recovery_outcome.get("reason_code")),
+                        "recovery_actions": list(recovery_outcome.get("recovery_actions") or []),
+                        "policy_hash": (recovery_outcome.get("policy_hash")),
+                        "compaction": dict(recovery_outcome.get("compaction") or {}),
+                        "compacted_context_hash": (recovery_outcome.get("compacted_context_hash")),
                     }
                 }
                 if recovery_terminal_handled
@@ -426,10 +338,6 @@ def handle_strategy_exhaustion(
     result.failure_type = (
         "recovery_plan_pending_approval"
         if recovery_pending
-        else (
-            str(recovery_outcome.get("reason_code"))
-            if recovery_terminal_handled
-            else "strategy_exhausted"
-        )
+        else (str(recovery_outcome.get("reason_code")) if recovery_terminal_handled else "strategy_exhausted")
     )
     return result

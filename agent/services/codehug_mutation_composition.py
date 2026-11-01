@@ -15,7 +15,6 @@ from ananta_contracts.source_control import (
     GrantTransformation,
 )
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -183,32 +182,25 @@ class CodeHugMutationCompositionService:
             project_id=project_id,
             destination_id=intent.destination_id,
         )
-        if (
-            revision is None
-            or revision.source_revision_id != intent.source_revision_id
-        ):
-            raise CodeHugMutationCompositionError(
-                "source_revision_not_found", status_code=404
-            )
-        if (
-            destination is None
-            or destination.destination_id != intent.destination_id
-        ):
-            raise CodeHugMutationCompositionError(
-                "destination_not_found", status_code=404
-            )
+        if revision is None or revision.source_revision_id != intent.source_revision_id:
+            raise CodeHugMutationCompositionError("source_revision_not_found", status_code=404)
+        if destination is None or destination.destination_id != intent.destination_id:
+            raise CodeHugMutationCompositionError("destination_not_found", status_code=404)
         self._validate_bindings(intent, revision, destination)
-        if self._approvals.consume(
-            approval_id=intent.approval_id,
-            tenant_id=tenant_id,
-            project_id=project_id,
-            actor_id=actor_id,
-            intent_id=intent.intent_id,
-            source_revision_id=intent.source_revision_id,
-            destination_id=intent.destination_id,
-            tool_id=intent.tool_id,
-            transformation=intent.transformation.value,
-        ) is not True:
+        if (
+            self._approvals.consume(
+                approval_id=intent.approval_id,
+                tenant_id=tenant_id,
+                project_id=project_id,
+                actor_id=actor_id,
+                intent_id=intent.intent_id,
+                source_revision_id=intent.source_revision_id,
+                destination_id=intent.destination_id,
+                tool_id=intent.tool_id,
+                transformation=intent.transformation.value,
+            )
+            is not True
+        ):
             raise CodeHugMutationCompositionError(
                 "codehug_mutation_approval_required",
                 status_code=403,
@@ -231,12 +223,8 @@ class CodeHugMutationCompositionService:
                 assignment_id=intent.assignment_id,
                 lease_id=intent.lease_id,
                 payload_reference_id=intent.payload_reference_id,
-                source_access_grant_id=(
-                    revision.source_access_grant_id
-                ),
-                source_access_grant_digest=(
-                    revision.source_access_grant_digest
-                ),
+                source_access_grant_id=(revision.source_access_grant_id),
+                source_access_grant_digest=(revision.source_access_grant_digest),
             )
         )
 

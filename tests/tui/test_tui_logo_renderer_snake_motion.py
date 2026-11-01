@@ -17,4 +17,6 @@ def test_pixel_boost_speed_uses_intent_levels() -> None:
     base = 2.0
     assert pixel_boost_speed(base_speed=base, artifact_intent="none") == base
     assert pixel_boost_speed(base_speed=base, artifact_intent="likely") > base
-    assert pixel_boost_speed(base_speed=base, artifact_intent="confirmed") > pixel_boost_speed(base_speed=base, artifact_intent="likely")
+    assert pixel_boost_speed(base_speed=base, artifact_intent="confirmed") > pixel_boost_speed(
+        base_speed=base, artifact_intent="likely"
+    )

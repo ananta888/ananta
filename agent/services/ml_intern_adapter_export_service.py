@@ -57,11 +57,7 @@ class MlInternAdapterExportService:
         # would let out-of-band tampering become the newly announced hash.
         self._write_zip(output, adapter_dir, manifest)
         digest = self._validate_export_bundle(output, artifact_id)
-        if (
-            self._storage_catalog is not None
-            and tenant_id is not None
-            and owner_subject is not None
-        ):
+        if self._storage_catalog is not None and tenant_id is not None and owner_subject is not None:
             relative = output.relative_to(self._root.resolve()).as_posix()
             parts = PurePosixPath(relative).parts
             try:
@@ -197,9 +193,7 @@ class MlInternAdapterExportService:
                     owner_subject,
                 )
                 matches = tuple(
-                    self._root.glob(
-                        f"tenants/{scope_directory}/jobs/*/attempts/*/exports/{artifact_id}.zip"
-                    )
+                    self._root.glob(f"tenants/{scope_directory}/jobs/*/attempts/*/exports/{artifact_id}.zip")
                 )
                 if len(matches) != 1:
                     raise AdapterExportError(
@@ -362,8 +356,5 @@ def _scope_directory(tenant_id: str | None, owner_subject: str | None) -> str:
 
 def _tenant_scope_digest(tenant_id: str, owner_subject: str) -> str:
     return hashlib.sha256(
-        (
-            "ananta.ml-intern-training.scope.v1\x00"
-            f"{tenant_id}\x00{owner_subject}"
-        ).encode("utf-8")
+        (f"ananta.ml-intern-training.scope.v1\x00{tenant_id}\x00{owner_subject}").encode("utf-8")
     ).hexdigest()

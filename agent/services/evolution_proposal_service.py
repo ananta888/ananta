@@ -7,12 +7,7 @@ from typing import Any
 from agent.db_models import EvolutionProposalDB
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.critical_workflow_state_service import WorkflowTransitionError, get_critical_workflow_state_service
-from agent.services.execution_audit_service import get_execution_audit_service
-from agent.services.execution_risk_policy_service import evaluate_execution_risk
-from agent.services.mutation_gate_service import get_mutation_gate_service
-from agent.services.repository_registry import get_repository_registry
 from agent.services.evolution.context_builder import EvolutionContextBuilder
-from agent.services.evolution.payload_redaction import bounded_payload as _bounded_payload
 from agent.services.evolution.models import (
     ApplyResult,
     EvolutionCapability,
@@ -21,10 +16,13 @@ from agent.services.evolution.models import (
     EvolutionProposal,
     EvolutionResult,
     EvolutionTrigger,
-    EvolutionTriggerType,
-    PersistedEvolutionAnalysis,
     ValidationResult,
 )
+from agent.services.evolution.payload_redaction import bounded_payload as _bounded_payload
+from agent.services.execution_audit_service import get_execution_audit_service
+from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.mutation_gate_service import get_mutation_gate_service
+from agent.services.repository_registry import get_repository_registry
 
 
 def _extract_mutation_approval_artifact(payload: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -141,10 +139,7 @@ def _with_capability_matrix(
     }
     enriched = dict(descriptor)
     enriched["capability_matrix"] = matrix
-    enriched["fail_closed"] = any(
-        entry["supported"] and not entry["available"]
-        for entry in matrix.values()
-    )
+    enriched["fail_closed"] = any(entry["supported"] and not entry["available"] for entry in matrix.values())
     return enriched
 
 
@@ -172,7 +167,6 @@ def _provider_config(provider_name: str, *, config: dict[str, Any] | None) -> di
 
 
 class EvolutionProposalService:
-
     def __init__(
         self,
         *,
@@ -200,7 +194,9 @@ class EvolutionProposalService:
         for item in list(target_refs or []):
             if not isinstance(item, dict):
                 continue
-            path = str(item.get("path") or item.get("file") or item.get("file_path") or item.get("target_path") or "").strip()
+            path = str(
+                item.get("path") or item.get("file") or item.get("file_path") or item.get("target_path") or ""
+            ).strip()
             artifact_id = str(item.get("artifact_id") or "").strip()
             entry = {
                 "path": path or None,
@@ -366,7 +362,9 @@ class EvolutionProposalService:
             target_refs=list(proposal.target_refs or []),
         )
         gate_service = get_mutation_gate_service()
-        normalized_target = gate_service.normalize_target(command=None, tool_calls=mutation_tool_calls, task=task_payload)
+        normalized_target = gate_service.normalize_target(
+            command=None, tool_calls=mutation_tool_calls, task=task_payload
+        )
         approval_payload_obj = get_approval_policy_service().evaluate(
             command=None,
             tool_calls=mutation_tool_calls,
@@ -424,7 +422,8 @@ class EvolutionProposalService:
                 "approval_scope": mutation_gate.get("approval_scope"),
                 "source": source,
                 "proposal_id": proposal.proposal_id,
-                "approval_artifact_id": str((mutation_approval_artifact or {}).get("approval_id") or "").strip() or None,
+                "approval_artifact_id": str((mutation_approval_artifact or {}).get("approval_id") or "").strip()
+                or None,
                 "approval_policy_classification": approval_payload.get("classification"),
                 "approval_policy_operation_class": approval_payload.get("operation_class"),
                 "prewrite_scope_required": bool(require_scoped_approval),
@@ -851,7 +850,11 @@ class EvolutionProposalService:
                         details={"proposal_id": proposal_id},
                     )
                 proposal_metadata["workflow_state"] = workflow_state
-                proposal_metadata["last_fallback"] = {"reason": "apply_execution_fallback", "cause": error_code, "timestamp": time.time()}
+                proposal_metadata["last_fallback"] = {
+                    "reason": "apply_execution_fallback",
+                    "cause": error_code,
+                    "timestamp": time.time(),
+                }
                 persisted.proposal_metadata = proposal_metadata
                 persisted.status = str(workflow_state.get("state") or persisted.status)
                 repos.evolution_proposal_repo.save(persisted)

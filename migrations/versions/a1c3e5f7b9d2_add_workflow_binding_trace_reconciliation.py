@@ -59,11 +59,7 @@ def upgrade() -> None:
                 server_default=(
                     sa.text("'%s'" % server_default)
                     if isinstance(column_type, sa.String)
-                    else (
-                        sa.false()
-                        if isinstance(column_type, sa.Boolean)
-                        else sa.text(server_default)
-                    )
+                    else (sa.false() if isinstance(column_type, sa.Boolean) else sa.text(server_default))
                 ),
             ),
         )

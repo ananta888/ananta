@@ -94,6 +94,7 @@ class EditorResolver:
         if self._registry is not None:
             return self._registry
         from agent.services.tui_tool_registry import get_tui_tool_registry
+
         return get_tui_tool_registry()
 
     def resolve(

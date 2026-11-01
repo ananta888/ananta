@@ -68,12 +68,7 @@ class ResearchTrainingEvaluationService:
             "release_eligible": not reasons,
             "reason_codes": sorted(set(reasons)),
             "production_eligible": False,
-            "claims_verified": bool(
-                checked_sources
-                and checked_runs
-                and self._source_refs
-                and self._run_refs
-            ),
+            "claims_verified": bool(checked_sources and checked_runs and self._source_refs and self._run_refs),
             "human_intervention_required": False,
         }
         result["evaluation_digest"] = canonical_digest(result)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from agent.common.redaction import redact
@@ -44,7 +44,9 @@ class PromptContextBundleService:
         except (TypeError, ValueError):
             return int(default)
 
-    def _bounded_chunks(self, chunks: list[dict[str, Any]], *, max_chunks: int, total_budget_tokens: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    def _bounded_chunks(
+        self, chunks: list[dict[str, Any]], *, max_chunks: int, total_budget_tokens: int
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         filter_candidates = []
         for item in chunks:
             filter_candidates.append(
@@ -136,8 +138,14 @@ class PromptContextBundleService:
                 "instruction_stack_present": bool(instruction_stack),
                 "instruction_stack_checksum": str(instruction_stack.get("checksum") or "").strip() or None,
                 "instruction_stack_summary": {
-                    "applied_layers": [str((item or {}).get("layer") or "") for item in list(instruction_stack.get("applied_layers") or [])],
-                    "suppressed_layers": [str((item or {}).get("layer") or "") for item in list(instruction_stack.get("suppressed_layers") or [])],
+                    "applied_layers": [
+                        str((item or {}).get("layer") or "")
+                        for item in list(instruction_stack.get("applied_layers") or [])
+                    ],
+                    "suppressed_layers": [
+                        str((item or {}).get("layer") or "")
+                        for item in list(instruction_stack.get("suppressed_layers") or [])
+                    ],
                     "role_template_context": redact(self._safe_dict(instruction_stack.get("role_template_context"))),
                 }
                 if instruction_stack
@@ -155,7 +163,9 @@ class PromptContextBundleService:
                     "goal_id": str(planning_provenance.get("goal_id") or ""),
                     "blueprint_id": str(planning_provenance.get("blueprint_id") or ""),
                     "blueprint_role_name": str(planning_provenance.get("blueprint_role_name") or ""),
-                    "blueprint_role_defaults": redact(self._safe_dict(planning_provenance.get("blueprint_role_defaults"))),
+                    "blueprint_role_defaults": redact(
+                        self._safe_dict(planning_provenance.get("blueprint_role_defaults"))
+                    ),
                 },
             },
             policy_summary={

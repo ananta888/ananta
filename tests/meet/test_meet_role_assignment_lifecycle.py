@@ -5,9 +5,9 @@ from sqlmodel import Session
 
 from agent.db_models import AgentInfoDB, OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
 from agent.services.meet_contract import MeetError
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_media_child_scope import organized_dialog
+from tests.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 
 pytestmark = pytest.mark.timeout(45)
 

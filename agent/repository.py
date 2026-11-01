@@ -93,10 +93,7 @@ class _OrganizationWorkflowTaskCompletionPolicy:
             candidate_task=candidate_task,
             session=session,
         )
-        if (
-            authoritative_task is not None
-            and decision.reason_code == "organization_workflow_step_binding_immutable"
-        ):
+        if authoritative_task is not None and decision.reason_code == "organization_workflow_step_binding_immutable":
             authoritative_context = dict(authoritative_task.worker_execution_context or {})
             candidate_context = dict(candidate_task.worker_execution_context or {})
             candidate_context["organization_workflow_step_binding"] = copy.deepcopy(
@@ -123,7 +120,9 @@ class _HubTaskCompletionPolicy:
         from agent.common.pi_task_result_binding import is_pi_task
 
         candidate_task = _OrganizationWorkflowTaskCompletionPolicy().apply(
-            authoritative_task=authoritative_task, candidate_task=candidate_task, session=session,
+            authoritative_task=authoritative_task,
+            candidate_task=candidate_task,
+            session=session,
         )
         from agent.common.native_task_result_binding import is_native_task
 
@@ -134,17 +133,21 @@ class _HubTaskCompletionPolicy:
             from agent.services.native_result_completion_policy import NativeResultCompletionPolicy
             from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
 
-            candidate_task = NativeResultCompletionPolicy(authority=SQLAlchemyNativeResultAuthority(
-                key_ring=get_workflow_authorization_key_ring,
-            )).apply(authoritative_task=authoritative_task, candidate_task=candidate_task, session=session)
+            candidate_task = NativeResultCompletionPolicy(
+                authority=SQLAlchemyNativeResultAuthority(
+                    key_ring=get_workflow_authorization_key_ring,
+                )
+            ).apply(authoritative_task=authoritative_task, candidate_task=candidate_task, session=session)
         if is_pi_task(authoritative_task) or is_pi_task(candidate_task):
             from agent.services.pi_result_authority import SQLAlchemyPiResultAuthority
             from agent.services.pi_result_completion_policy import PiResultCompletionPolicy
             from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
 
-            candidate_task = PiResultCompletionPolicy(authority=SQLAlchemyPiResultAuthority(
-                key_ring=get_workflow_authorization_key_ring,
-            )).apply(authoritative_task=authoritative_task, candidate_task=candidate_task, session=session)
+            candidate_task = PiResultCompletionPolicy(
+                authority=SQLAlchemyPiResultAuthority(
+                    key_ring=get_workflow_authorization_key_ring,
+                )
+            ).apply(authoritative_task=authoritative_task, candidate_task=candidate_task, session=session)
         return candidate_task
 
 

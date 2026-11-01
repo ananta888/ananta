@@ -19,7 +19,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-
 ED25519_ALGORITHM = "Ed25519"
 LEGACY_HMAC_ALGORITHM = "HMAC-SHA-256"
 SIGNATURE_ALGORITHM_VERSION = 1
@@ -98,11 +97,7 @@ class FileSfuProjectionPrivateKeySource:
             raise SfuProjectionSigningConfigurationError("sfu_projection_private_key_unavailable") from exc
         try:
             metadata = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_mode & 0o077
-                or not 0 < metadata.st_size <= 8192
-            ):
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & 0o077 or not 0 < metadata.st_size <= 8192:
                 raise SfuProjectionSigningConfigurationError("sfu_projection_private_key_permissions_invalid")
             value = bytearray()
             while len(value) <= 8192:
@@ -181,9 +176,7 @@ class KmsEd25519SfuProjectionSigner:
         key_version: int,
     ) -> None:
         _validate_key_metadata(key_id, key_version)
-        if not callable(getattr(adapter, "sign", None)) or not callable(
-            getattr(adapter, "public_key_bytes", None)
-        ):
+        if not callable(getattr(adapter, "sign", None)) or not callable(getattr(adapter, "public_key_bytes", None)):
             raise SfuProjectionSigningConfigurationError("sfu_projection_kms_adapter_invalid")
         public = bytes(adapter.public_key_bytes())
         if len(public) != 32:

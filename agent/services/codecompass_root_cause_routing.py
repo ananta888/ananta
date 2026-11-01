@@ -140,7 +140,6 @@ def build_conflict_set(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         "schema": "codecompass.conflict-set.v1",
         "task_kind": ROOT_CAUSE_KIND,
         "conflicts": [
-            {"claim_a": left, "claim_b": right, "status": "unresolved", "evidence_ids": []}
-            for left, right in pairs
+            {"claim_a": left, "claim_b": right, "status": "unresolved", "evidence_ids": []} for left, right in pairs
         ],
     }

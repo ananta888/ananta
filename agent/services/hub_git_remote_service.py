@@ -1,4 +1,5 @@
 """HubGitRemoteService — manages bare git repos that act as the hub-side remote for goal workspaces."""
+
 from __future__ import annotations
 
 import logging
@@ -39,7 +40,9 @@ class HubGitRemoteService:
         repo.mkdir(parents=True, exist_ok=True)
         res = subprocess.run(
             ["git", "init", "--bare", str(repo)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if res.returncode != 0:
             raise HubGitRemoteError(f"git init --bare failed for goal {goal_id}: {res.stderr}")
@@ -84,7 +87,9 @@ class HubGitRemoteService:
             return []
         res = subprocess.run(
             ["git", "--git-dir", str(repo), "for-each-ref", "--format=%(refname:short)", "refs/heads"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if res.returncode != 0:
             return []
@@ -102,20 +107,27 @@ class HubGitRemoteService:
         repo = self._repo_path(goal_id)
         if not repo.exists():
             raise HubGitRemoteError(f"Repo for goal {goal_id} does not exist")
-        import tempfile, shutil
+        import shutil
+        import tempfile
+
         tmp = Path(tempfile.mkdtemp(prefix="ananta-merge-"))
         try:
             res = subprocess.run(
                 ["git", "clone", f"file://{repo}", str(tmp), "--no-local"],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if res.returncode != 0:
                 raise HubGitRemoteError(f"Clone for merge failed: {res.stderr}")
 
             def _git(*args):
                 return subprocess.run(
-                    ["git"] + list(args), cwd=str(tmp),
-                    capture_output=True, text=True, timeout=30,
+                    ["git"] + list(args),
+                    cwd=str(tmp),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
 
             # Checkout or create target

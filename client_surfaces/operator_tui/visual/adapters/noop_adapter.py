@@ -29,4 +29,3 @@ class NoopDiagnosticsAdapter:
                 "frame_type": frame.frame_type,
             },
         )
-

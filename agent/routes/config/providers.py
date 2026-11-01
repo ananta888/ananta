@@ -8,6 +8,7 @@ tests (catalog/routing service factories, ``get_voice_provider_service``,
 ``ModelDefaultSelectionCommand``, ``build_persisted_default_selection_service``)
 stay defined here.
 """
+
 from __future__ import annotations
 
 import os
@@ -110,6 +111,7 @@ providers_bp = Blueprint("config_providers", __name__)
 _MODEL_INVENTORY_SERVICE: ModelInventoryService | None = None
 _MODEL_INVENTORY_LOCK = threading.Lock()
 
+
 def _model_consumer_registry() -> ModelConsumerRegistry:
     role = str(current_app.config.get("ROLE") or runtime_settings.role or "worker").strip().lower()
     extensions = tuple(current_app.extensions.get("model_consumer_extensions", ())) if role == "hub" else ()
@@ -166,6 +168,7 @@ def _model_routing_legacy_migration_service() -> ModelRoutingLegacyMigrationServ
         legacy_config=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
         model_profiles_path=_configured_model_profiles_path(),
     )
+
 
 class _ProviderModuleRoutingServices:
     """Model-routing collaborators for :mod:`.providers_model_routing`.

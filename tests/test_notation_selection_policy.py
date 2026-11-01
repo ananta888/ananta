@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
-
 from agent.services.pattern_selection_policy import (
     DEFAULT_ALLOWLIST,
     NOTATION_PATTERN_IDS,
     PatternSelectionPolicy,
     is_notation_pattern,
 )
-
 
 # ---------------------------------------------------------------------------
 # Allow-list defaults
@@ -44,17 +41,27 @@ def test_default_allowlist_includes_diagram_bpmn():
 
 def test_is_notation_pattern_true_for_diagram_ids():
     for pid in [
-        "mermaid.class", "mermaid.sequence", "mermaid.state",
-        "mermaid.usecase", "mermaid.activity",
-        "bpmn.process", "bpmn.pool_lane", "bpmn.collaboration",
+        "mermaid.class",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.usecase",
+        "mermaid.activity",
+        "bpmn.process",
+        "bpmn.pool_lane",
+        "bpmn.collaboration",
     ]:
         assert is_notation_pattern(pid), f"{pid} should be a notation pattern"
 
 
 def test_is_notation_pattern_false_for_code_patterns():
-    for pid in ["python.strategy", "java.strategy", "ts.strategy",
-                "python.function_stub", "cli.retry_wrap",
-                "workflow.sequential_emit"]:
+    for pid in [
+        "python.strategy",
+        "java.strategy",
+        "ts.strategy",
+        "python.function_stub",
+        "cli.retry_wrap",
+        "workflow.sequential_emit",
+    ]:
         assert not is_notation_pattern(pid), f"{pid} must not be a notation pattern"
 
 
@@ -122,8 +129,7 @@ def test_notation_patterns_are_not_marked_risky():
         assert pid not in risky, f"{pid} must not be marked risky"
         decision = p.decide(
             pattern_id=pid,
-            task_kind=("diagram_mermaid" if pid.startswith("mermaid.")
-                       else "diagram_bpmn"),
+            task_kind=("diagram_mermaid" if pid.startswith("mermaid.") else "diagram_bpmn"),
             allow_risky_patterns=False,
             catalogue_ids=set(NOTATION_PATTERN_IDS),
         )

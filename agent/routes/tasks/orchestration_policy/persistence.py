@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+
 def _repos():
     return get_repository_registry()
+
 
 from agent.common.audit import log_audit
 from agent.db_models import PolicyDecisionDB

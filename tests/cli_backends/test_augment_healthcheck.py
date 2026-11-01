@@ -1,4 +1,5 @@
 from unittest.mock import patch
+
 from agent.services.augment.augment_healthcheck import AugmentHealthcheck
 
 
@@ -34,6 +35,7 @@ def test_is_ready_for_cli_worker_false_without_binary():
 
 def test_timeout_does_not_crash():
     import subprocess
+
     hc = AugmentHealthcheck()
     with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("auggie", 5)):
         with patch("shutil.which", return_value="/usr/bin/auggie"):
@@ -74,6 +76,7 @@ def test_check_auggie_binary_not_found():
 
 def test_check_auggie_version_timeout():
     import subprocess
+
     hc = AugmentHealthcheck()
     with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("auggie", 5)):
         result = hc._check_auggie_version()

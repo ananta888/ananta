@@ -29,11 +29,14 @@ def channel_signals(path: str, source: str) -> tuple[str, ...]:
             keyword.arg == "table" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True
             for keyword in node.keywords
         ):
-            table_names = [statement.value.value for statement in node.body
-                           if isinstance(statement, ast.Assign) and isinstance(statement.value, ast.Constant)
-                           and isinstance(statement.value.value, str)
-                           and any(isinstance(target, ast.Name) and target.id == "__tablename__"
-                                   for target in statement.targets)]
+            table_names = [
+                statement.value.value
+                for statement in node.body
+                if isinstance(statement, ast.Assign)
+                and isinstance(statement.value, ast.Constant)
+                and isinstance(statement.value.value, str)
+                and any(isinstance(target, ast.Name) and target.id == "__tablename__" for target in statement.targets)
+            ]
             signals.update(f"sql_table:{table}" for table in table_names)
             if not table_names:
                 signals.add("sql_table_definition")
@@ -53,8 +56,13 @@ def channel_signals(path: str, source: str) -> tuple[str, ...]:
         if method in {"lru_cache", "cache", "TTLCache", "LRUCache"}:
             signals.add("process_cache")
         if method in {"open", "fdopen"}:
-            mode = node.args[1] if len(node.args) > 1 else next(
-                (kw.value for kw in node.keywords if kw.arg == "mode"), None,
+            mode = (
+                node.args[1]
+                if len(node.args) > 1
+                else next(
+                    (kw.value for kw in node.keywords if kw.arg == "mode"),
+                    None,
+                )
             )
             if isinstance(mode, ast.Constant) and isinstance(mode.value, str) and any(c in mode.value for c in "wax+"):
                 signals.add("filesystem_write")

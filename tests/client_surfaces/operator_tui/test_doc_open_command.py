@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState

@@ -117,7 +117,8 @@ class DecisionRequest:
 
     def __post_init__(self) -> None:
         if self.assignment_token is not None and (
-            not isinstance(self.assignment_token, str) or not 1 <= len(self.assignment_token) <= 8192
+            not isinstance(self.assignment_token, str)
+            or not 1 <= len(self.assignment_token) <= 8192
             or not re.fullmatch(r"[A-Za-z0-9_=-]+\.[A-Za-z0-9_=-]+", self.assignment_token)
         ):
             raise DecisionProviderError("decision_assignment_token_invalid")
@@ -164,9 +165,15 @@ class DecisionAnswer:
         return None if self.score is None else int(round(self.score))
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"key": self.key, "kind": self.kind, "choice": self.choice, "score": self.score,
-                "probability": self.probability, "probabilities": dict(self.probabilities),
-                "confidence": self.confidence}
+        return {
+            "key": self.key,
+            "kind": self.kind,
+            "choice": self.choice,
+            "score": self.score,
+            "probability": self.probability,
+            "probabilities": dict(self.probabilities),
+            "confidence": self.confidence,
+        }
 
 
 @dataclass(frozen=True)
@@ -191,9 +198,17 @@ class DecisionResult:
         return self.answers[key]
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"provider_id": self.provider_id, "model": self.model, "request_id": self.request_id,
-                "latency_ms": round(self.latency_ms, 1), "attempts": self.attempts,
-                "usage": {"input_tokens": self.usage.input_tokens, "output_tokens": self.usage.output_tokens,
-                          "cost_usd": self.usage.cost_usd},
-                "answers": {key: answer.to_mapping() for key, answer in self.answers.items()},
-                **({"diagnostics": dict(self.diagnostics)} if self.diagnostics else {})}
+        return {
+            "provider_id": self.provider_id,
+            "model": self.model,
+            "request_id": self.request_id,
+            "latency_ms": round(self.latency_ms, 1),
+            "attempts": self.attempts,
+            "usage": {
+                "input_tokens": self.usage.input_tokens,
+                "output_tokens": self.usage.output_tokens,
+                "cost_usd": self.usage.cost_usd,
+            },
+            "answers": {key: answer.to_mapping() for key, answer in self.answers.items()},
+            **({"diagnostics": dict(self.diagnostics)} if self.diagnostics else {}),
+        }

@@ -104,9 +104,7 @@ def _fixture(
         **active_lease,
         "state": "worker_admitted",
     }
-    record = dict(
-        details.get("recovery_hub_tool_run_record") or {}
-    )
+    record = dict(details.get("recovery_hub_tool_run_record") or {})
     output = _answer()
     candidate = ToolRunCatalogService().build_run_entry(
         task_id="recovery-child-1",
@@ -118,27 +116,15 @@ def _fixture(
         stderr="",
         started_at=2.0,
         ended_at=3.0,
-        source_id=(
-            str(record.get("source_id") or "RUN_0001")
-        ),
-        run_id=(
-            str(record.get("record_id") or "worker-forged-record")
-        ),
+        source_id=(str(record.get("source_id") or "RUN_0001")),
+        run_id=(str(record.get("record_id") or "worker-forged-record")),
     )
     if tamper_candidate:
         candidate["stdout_hash"] = "f" * 32
     boundary = SimpleNamespace(
         task_id="recovery-child-1",
         phase="execute",
-        mutations=[
-            {
-                "verification_projection": {
-                    "answer_verification": {
-                        "tool_run_refs": [candidate]
-                    }
-                }
-            }
-        ],
+        mutations=[{"verification_projection": {"answer_verification": {"tool_run_refs": [candidate]}}}],
     )
     envelope = RecoveryWorkerResultService().build(boundary)
     task = SimpleNamespace(
@@ -165,9 +151,7 @@ def _fixture(
         updated_at=1.0,
     )
     repository = TaskRepository(task)
-    service._repository_provider = lambda: SimpleNamespace(
-        task_repo=repository
-    )
+    service._repository_provider = lambda: SimpleNamespace(task_repo=repository)
     response = {
         "status": "completed",
         "output": output,
@@ -191,19 +175,11 @@ def _fixture(
         "execute",
         request,
     )
-    task.status_reason_details["recovery_dispatch_lease"][
-        "request_fingerprint"
-    ] = fingerprint
+    task.status_reason_details["recovery_dispatch_lease"]["request_fingerprint"] = fingerprint
     if include_record:
-        task.status_reason_details[
-            "recovery_hub_tool_run_record"
-        ]["execute_lease"]["request_fingerprint"] = fingerprint
-        record_value = task.status_reason_details[
-            "recovery_hub_tool_run_record"
-        ]
-        record_value["record_digest"] = service._record_digest(
-            record_value
-        )
+        task.status_reason_details["recovery_hub_tool_run_record"]["execute_lease"]["request_fingerprint"] = fingerprint
+        record_value = task.status_reason_details["recovery_hub_tool_run_record"]
+        record_value["record_digest"] = service._record_digest(record_value)
     return service, repository, task, response, request
 
 
@@ -220,20 +196,14 @@ def test_hub_persists_only_pre_reserved_result_bound_run_evidence() -> None:
     assert entries[0]["source_id"] == "RUN_0001"
     assert entries[0]["run_id"] == "hub-tool-record-1"
     assert entries[0]["task_id"] == task.id
-    assert entries[0]["evidence_binding"][
-        "lease_revision"
-    ] == 2
-    assert entries[0]["evidence_binding"][
-        "worker_result_digest"
-    ] == response["recovery_worker_result"]["digest"]
+    assert entries[0]["evidence_binding"]["lease_revision"] == 2
+    assert entries[0]["evidence_binding"]["worker_result_digest"] == response["recovery_worker_result"]["digest"]
     assert service.for_task(task.id) == entries
     assert len(repository.save_calls) == 1
 
 
 def test_worker_run_candidate_tampering_is_rejected() -> None:
-    service, repository, task, response, request = _fixture(
-        tamper_candidate=True
-    )
+    service, repository, task, response, request = _fixture(tamper_candidate=True)
 
     with pytest.raises(
         RecoveryHubRunEvidenceError,
@@ -246,21 +216,20 @@ def test_worker_run_candidate_tampering_is_rejected() -> None:
         )
 
     assert repository.save_calls == []
-    assert "recovery_hub_run_evidence" not in (
-        task.verification_status
-    )
+    assert "recovery_hub_run_evidence" not in (task.verification_status)
 
 
 def test_worker_run_candidate_without_hub_record_never_becomes_authority() -> None:
-    service, repository, task, response, request = _fixture(
-        include_record=False
-    )
+    service, repository, task, response, request = _fixture(include_record=False)
 
-    assert service.accept_worker_result(
-        task_id=task.id,
-        response=response,
-        request_data=request,
-    ) == []
+    assert (
+        service.accept_worker_result(
+            task_id=task.id,
+            response=response,
+            request_data=request,
+        )
+        == []
+    )
     assert service.for_task(task.id) is None
     assert repository.save_calls == []
 
@@ -324,9 +293,7 @@ def test_persisted_catalog_tampering_fails_closed() -> None:
         response=response,
         request_data=request,
     )
-    task.verification_status["recovery_hub_run_evidence"][
-        "entries"
-    ][0]["stdout_hash"] = "0" * 32
+    task.verification_status["recovery_hub_run_evidence"]["entries"][0]["stdout_hash"] = "0" * 32
 
     with pytest.raises(
         RecoveryHubRunEvidenceError,
@@ -345,18 +312,14 @@ def test_grounding_default_port_reads_hub_persisted_evidence(
         request_data=request,
     )
     monkeypatch.setattr(
-        "agent.services.recovery_hub_run_evidence_service."
-        "get_recovery_hub_run_evidence_service",
+        "agent.services.recovery_hub_run_evidence_service.get_recovery_hub_run_evidence_service",
         lambda: service,
     )
     from agent.services.recovery_grounding_verification_service import (
         RecoveryGroundingVerificationService,
     )
 
-    values, available, error = (
-        RecoveryGroundingVerificationService()
-        ._hub_run_evidence(task.id)
-    )
+    values, available, error = RecoveryGroundingVerificationService()._hub_run_evidence(task.id)
 
     assert values == expected
     assert available is True
@@ -396,9 +359,7 @@ def test_split_db_worker_uses_fingerprint_bound_request_context_without_resync(
         "source_task_id": "source-1",
         "plan_id": "plan-1",
         "derivation_reason": "goal_task_recovery",
-        "status_reason_details": {
-            "model_recovery_release": {"release_epoch": "epoch-1"}
-        },
+        "status_reason_details": {"model_recovery_release": {"release_epoch": "epoch-1"}},
     }
     request = TaskStepExecuteRequest(
         task_id=worker_task["id"],
@@ -431,8 +392,7 @@ def test_split_db_worker_uses_fingerprint_bound_request_context_without_resync(
 
     monkeypatch.setattr(settings, "role", "worker")
     monkeypatch.setattr(
-        "agent.services.recovery_dispatch_gate_service."
-        "get_recovery_dispatch_gate_service",
+        "agent.services.recovery_dispatch_gate_service.get_recovery_dispatch_gate_service",
         lambda: WorkerGate(),
     )
 
@@ -443,9 +403,7 @@ def test_split_db_worker_uses_fingerprint_bound_request_context_without_resync(
         phase="execute",
     )
     assert admission["error"] is None
-    assert fingerprints == [
-        recovery_dispatch_request_fingerprint("execute", request)
-    ]
+    assert fingerprints == [recovery_dispatch_request_fingerprint("execute", request)]
     without_context = request.model_dump()
     without_context["recovery_run_evidence_context"] = None
     assert fingerprints[0] != recovery_dispatch_request_fingerprint(
@@ -457,9 +415,7 @@ def test_split_db_worker_uses_fingerprint_bound_request_context_without_resync(
         task=worker_task,
         request_data=request,
     )
-    assert worker_task["status_reason_details"][
-        "recovery_tool_run_context"
-    ] == context
+    assert worker_task["status_reason_details"]["recovery_tool_run_context"] == context
     from ananta_contracts.recovery_run_evidence import (
         recovery_tool_run_context_from_task,
     )

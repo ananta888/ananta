@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from agent.db_models import GoalDB, TaskDB
 from agent.repository import goal_repo, task_repo
 from agent.services.task_runtime_service import _maybe_finalize_goal, update_local_task_status
@@ -58,7 +56,9 @@ def test_goal_finalization_fibonacci_requires_source_tests_and_pytest_evidence(t
     (output_dir / "src" / "fibonacci").mkdir(parents=True, exist_ok=True)
     (output_dir / "tests").mkdir(parents=True, exist_ok=True)
     (output_dir / "src" / "fibonacci" / "service.py").write_text("def fib(n): return n\n", encoding="utf-8")
-    (output_dir / "tests" / "test_fibonacci_service.py").write_text("def test_smoke(): assert 1 == 1\n", encoding="utf-8")
+    (output_dir / "tests" / "test_fibonacci_service.py").write_text(
+        "def test_smoke(): assert 1 == 1\n", encoding="utf-8"
+    )
 
     goal_repo.save(
         GoalDB(
@@ -93,7 +93,9 @@ def test_goal_finalization_fibonacci_succeeds_with_required_evidence(tmp_path):
     (output_dir / "tests").mkdir(parents=True, exist_ok=True)
     (output_dir / "artifacts").mkdir(parents=True, exist_ok=True)
     (output_dir / "src" / "fibonacci" / "service.py").write_text("def fib(n): return n\n", encoding="utf-8")
-    (output_dir / "tests" / "test_fibonacci_service.py").write_text("def test_smoke(): assert 1 == 1\n", encoding="utf-8")
+    (output_dir / "tests" / "test_fibonacci_service.py").write_text(
+        "def test_smoke(): assert 1 == 1\n", encoding="utf-8"
+    )
     (output_dir / "artifacts" / "pytest-report.txt").write_text("1 passed\n", encoding="utf-8")
 
     goal_repo.save(

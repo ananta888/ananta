@@ -1,10 +1,11 @@
 """WSM-T002: bounded agent-loop tool calling strategy."""
+
 from __future__ import annotations
 
 from copy import deepcopy
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 
 
@@ -28,7 +29,9 @@ class AgentLoopToolCallingStrategy(ProposeStrategy):
         attempted: list[dict] = []
         feedback: list[str] = []
         for iteration in range(1, max_iterations + 1):
-            loop_context = self._loop_context(context, feedback=feedback, iteration=iteration, max_iterations=max_iterations)
+            loop_context = self._loop_context(
+                context, feedback=feedback, iteration=iteration, max_iterations=max_iterations
+            )
             result = ToolCallingLLMStrategy().run(loop_context)
             attempted.append(
                 {
@@ -59,7 +62,9 @@ class AgentLoopToolCallingStrategy(ProposeStrategy):
         )
 
     @staticmethod
-    def _loop_context(context: ProposeContext, *, feedback: list[str], iteration: int, max_iterations: int) -> ProposeContext:
+    def _loop_context(
+        context: ProposeContext, *, feedback: list[str], iteration: int, max_iterations: int
+    ) -> ProposeContext:
         task = deepcopy(context.task or {})
         loop_note = f"[agent_loop] iteration {iteration}/{max_iterations}"
         if feedback:
@@ -70,12 +75,20 @@ class AgentLoopToolCallingStrategy(ProposeStrategy):
             task_id=context.task_id,
             task=task,
             base_prompt=prompt,
-            research_context=deepcopy(context.research_context) if isinstance(context.research_context, dict) else context.research_context,
+            research_context=deepcopy(context.research_context)
+            if isinstance(context.research_context, dict)
+            else context.research_context,
             cli_runner=context.cli_runner,
             tool_definitions_resolver=context.tool_definitions_resolver,
             policy=context.policy,
-            effective_config=deepcopy(context.effective_config) if isinstance(context.effective_config, dict) else context.effective_config,
-            instruction_stack=deepcopy(context.instruction_stack) if isinstance(context.instruction_stack, dict) else context.instruction_stack,
+            effective_config=deepcopy(context.effective_config)
+            if isinstance(context.effective_config, dict)
+            else context.effective_config,
+            instruction_stack=deepcopy(context.instruction_stack)
+            if isinstance(context.instruction_stack, dict)
+            else context.instruction_stack,
             rendered_system_prompt=context.rendered_system_prompt,
-            instruction_diagnostics=deepcopy(context.instruction_diagnostics) if isinstance(context.instruction_diagnostics, dict) else context.instruction_diagnostics,
+            instruction_diagnostics=deepcopy(context.instruction_diagnostics)
+            if isinstance(context.instruction_diagnostics, dict)
+            else context.instruction_diagnostics,
         )

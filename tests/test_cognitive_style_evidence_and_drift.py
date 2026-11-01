@@ -48,7 +48,7 @@ def _profile(
             truth_exploration=scores[1],
             initiative_assertiveness=scores[2],
         ),
-        confidence=.9,
+        confidence=0.9,
         sample_count=48,
         benchmark_revision="behavior-style-v3",
         measured_at=measured_at or datetime.now(timezone.utc).isoformat(),
@@ -80,9 +80,10 @@ def _context(revision: str = "r1") -> StyleMeasurementContext:
 
 
 def test_drift_never_overwrites_history_and_marks_revision_or_age_for_rebenchmark():
-    current = _profile("current", (.8, .5, .4))
+    current = _profile("current", (0.8, 0.5, 0.4))
     stale = _profile(
-        "stale", (.8, .5, .4),
+        "stale",
+        (0.8, 0.5, 0.4),
         measured_at=(datetime.now(timezone.utc) - timedelta(days=120)).isoformat(),
     )
     service = CognitiveStyleDriftService()
@@ -96,7 +97,7 @@ def test_drift_never_overwrites_history_and_marks_revision_or_age_for_rebenchmar
 
 
 def test_rebenchmark_planner_schedules_only_due_registered_profiles():
-    current = _profile("current", (.8, .5, .4))
+    current = _profile("current", (0.8, 0.5, 0.4))
     command = StyleRebenchmarkDueCommand(
         expected_revision=4,
         contexts=(
@@ -107,9 +108,13 @@ def test_rebenchmark_planner_schedules_only_due_registered_profiles():
     schedule = CognitiveStyleRebenchmarkPlanner().plan(
         command=command,
         style_profiles=(current,),
-        model_profiles=(ModelProfile(
-            profile_id="model-a", provider_id="lmstudio", model="lfm",
-        ),),
+        model_profiles=(
+            ModelProfile(
+                profile_id="model-a",
+                provider_id="lmstudio",
+                model="lfm",
+            ),
+        ),
     )
 
     assert schedule.drift.rebenchmark_due_count == 1
@@ -123,10 +128,14 @@ def test_rebenchmark_planner_builds_fixed_suite_for_revision_drift():
             expected_revision=0,
             contexts=(_context("r2"),),
         ),
-        style_profiles=(_profile("old", (.8, .5, .4), revision="r1"),),
-        model_profiles=(ModelProfile(
-            profile_id="model-a", provider_id="lmstudio", model="lfm",
-        ),),
+        style_profiles=(_profile("old", (0.8, 0.5, 0.4), revision="r1"),),
+        model_profiles=(
+            ModelProfile(
+                profile_id="model-a",
+                provider_id="lmstudio",
+                model="lfm",
+            ),
+        ),
     )
 
     assert len(schedule.work_items) == 1
@@ -142,29 +151,33 @@ def test_overlay_before_after_comparison_requires_same_base_context_and_never_ch
             overlay_id="standard.evidence-review.v1",
         ),
         profiles=(
-            _profile("before", (.8, .5, .4), role_digest="sha256:plain"),
-            _profile("after", (.8, .8, .4), role_digest="sha256:overlay"),
+            _profile("before", (0.8, 0.5, 0.4), role_digest="sha256:plain"),
+            _profile("after", (0.8, 0.8, 0.4), role_digest="sha256:overlay"),
         ),
         overlays=standard_role_style_overlays(),
     )
 
     assert report.comparable is True
-    assert report.score_deltas["truth_exploration"] == .3
+    assert report.score_deltas["truth_exploration"] == 0.3
     assert report.reinforced_dimensions_improved == ("truth_exploration",)
     assert report.permission_delta == "none"
 
 
 def test_retrospective_keeps_alternative_causes_and_only_creates_reviewed_proposal():
     service = CognitiveStyleRetrospectiveService()
-    report = service.analyze((StyleRetrospectiveSignal(
-        agent_id="agent-a",
-        role_id="reviewer",
-        model_profile_id="model-a",
-        signal="overthinking",
-        observed_at="2026-08-25T00:00:00Z",
-        severity=.6,
-        evidence_refs=("RUN_supplied_by_caller",),
-    ),))
+    report = service.analyze(
+        (
+            StyleRetrospectiveSignal(
+                agent_id="agent-a",
+                role_id="reviewer",
+                model_profile_id="model-a",
+                signal="overthinking",
+                observed_at="2026-08-25T00:00:00Z",
+                severity=0.6,
+                evidence_refs=("RUN_supplied_by_caller",),
+            ),
+        )
+    )
     evidence = report.hypotheses[0]
     proposal = service.proposal_from_evidence(
         evidence,
@@ -182,28 +195,48 @@ def test_retrospective_keeps_alternative_causes_and_only_creates_reviewed_propos
 
 def test_complementary_experiment_supports_and_can_falsify_hypothesis():
     service = ComplementaryStyleExperimentService()
-    supported = service.evaluate(ComplementaryStyleExperimentCommand(
-        experiment_id="experiment-good",
-        complementary=StyleExperimentMetrics(
-            quality_score=.9, rework_count=1, cost_units=12,
-            duration_seconds=40, gates_passed=4, gates_total=4,
-        ),
-        homogeneous_control=StyleExperimentMetrics(
-            quality_score=.7, rework_count=2, cost_units=10,
-            duration_seconds=35, gates_passed=3, gates_total=4,
-        ),
-    ))
-    falsified = service.evaluate(ComplementaryStyleExperimentCommand(
-        experiment_id="experiment-bad",
-        complementary=StyleExperimentMetrics(
-            quality_score=.5, rework_count=3, cost_units=12,
-            duration_seconds=50, gates_passed=2, gates_total=4,
-        ),
-        homogeneous_control=StyleExperimentMetrics(
-            quality_score=.8, rework_count=1, cost_units=10,
-            duration_seconds=35, gates_passed=4, gates_total=4,
-        ),
-    ))
+    supported = service.evaluate(
+        ComplementaryStyleExperimentCommand(
+            experiment_id="experiment-good",
+            complementary=StyleExperimentMetrics(
+                quality_score=0.9,
+                rework_count=1,
+                cost_units=12,
+                duration_seconds=40,
+                gates_passed=4,
+                gates_total=4,
+            ),
+            homogeneous_control=StyleExperimentMetrics(
+                quality_score=0.7,
+                rework_count=2,
+                cost_units=10,
+                duration_seconds=35,
+                gates_passed=3,
+                gates_total=4,
+            ),
+        )
+    )
+    falsified = service.evaluate(
+        ComplementaryStyleExperimentCommand(
+            experiment_id="experiment-bad",
+            complementary=StyleExperimentMetrics(
+                quality_score=0.5,
+                rework_count=3,
+                cost_units=12,
+                duration_seconds=50,
+                gates_passed=2,
+                gates_total=4,
+            ),
+            homogeneous_control=StyleExperimentMetrics(
+                quality_score=0.8,
+                rework_count=1,
+                cost_units=10,
+                duration_seconds=35,
+                gates_passed=4,
+                gates_total=4,
+            ),
+        )
+    )
 
     assert supported.outcome == "supported"
     assert falsified.outcome == "falsified"
@@ -214,19 +247,13 @@ def test_must_have_and_avoid_ranges_are_explainable_soft_penalties_only():
     target = RoleStyleTarget(
         target_id="target-review",
         role_id="reviewer",
-        rule_correctness=StyleRange(minimum=.5, maximum=1),
-        truth_exploration=StyleRange(minimum=.6, maximum=1),
-        initiative_assertiveness=StyleRange(minimum=.2, maximum=.8),
-        must_have={"truth_exploration": StyleRange(minimum=.8, maximum=1, weight=3)},
-        avoid_ranges={
-            "initiative_assertiveness": (
-                StyleRange(minimum=.8, maximum=1, weight=5),
-            )
-        },
+        rule_correctness=StyleRange(minimum=0.5, maximum=1),
+        truth_exploration=StyleRange(minimum=0.6, maximum=1),
+        initiative_assertiveness=StyleRange(minimum=0.2, maximum=0.8),
+        must_have={"truth_exploration": StyleRange(minimum=0.8, maximum=1, weight=3)},
+        avoid_ranges={"initiative_assertiveness": (StyleRange(minimum=0.8, maximum=1, weight=5),)},
     )
-    decision = CognitiveStyleFitPolicy().evaluate(
-        _profile("risky", (.8, .4, .9)), target
-    )
+    decision = CognitiveStyleFitPolicy().evaluate(_profile("risky", (0.8, 0.4, 0.9)), target)
 
     names = {name for name, _score in decision.contributions}
     assert "must_have:truth_exploration" in names

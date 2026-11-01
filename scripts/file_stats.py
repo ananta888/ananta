@@ -5,31 +5,55 @@ import argparse
 import json
 import os
 import sys
-import pathspec
 from collections import defaultdict
 
+import pathspec
+
 TOKEN_MODELS = {
-    "gpt-4":     4.0,   # OpenAI GPT-4 (cl100k_base)
-    "gpt-4o":    4.2,
-    "claude":    3.7,   # Anthropic Claude (denser tokenizer)
-    "llama":     4.5,   # Llama 2/3 SentencePiece
-    "gemma":     4.5,   # Gemma 2B/7B (SentencePiece, wie Llama)
-    "phi":       4.0,   # Phi-3/3.5/4 (cl100k_base, wie GPT-4)
-    "mistral":   4.5,   # Mistral / Mixtral (SentencePiece)
-    "qwen":      4.0,   # Qwen2 (eigener Tokenizer)
-    "deepseek":  4.3,
-    "gemini":    4.0,
-    "code":      3.5,   # Code-heavy (mehr Tokens pro Char)
+    "gpt-4": 4.0,  # OpenAI GPT-4 (cl100k_base)
+    "gpt-4o": 4.2,
+    "claude": 3.7,  # Anthropic Claude (denser tokenizer)
+    "llama": 4.5,  # Llama 2/3 SentencePiece
+    "gemma": 4.5,  # Gemma 2B/7B (SentencePiece, wie Llama)
+    "phi": 4.0,  # Phi-3/3.5/4 (cl100k_base, wie GPT-4)
+    "mistral": 4.5,  # Mistral / Mixtral (SentencePiece)
+    "qwen": 4.0,  # Qwen2 (eigener Tokenizer)
+    "deepseek": 4.3,
+    "gemini": 4.0,
+    "code": 3.5,  # Code-heavy (mehr Tokens pro Char)
 }
 
 CHARS_PER_A4_PAGE = 1500.0
 
 ALWAYS_IGNORE = {
-    ".git", "__pycache__", "node_modules", ".venv", "venv", "env",
-    ".tox", ".eggs", "eggs", "dist", "build", ".next", ".nuxt",
-    ".cache", ".sass-cache", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", ".hypothesis", ".coverage", "coverage",
-    ".svn", ".hg", "target", "bin", "obj", ".idea", ".vscode",
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    ".tox",
+    ".eggs",
+    "eggs",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    ".cache",
+    ".sass-cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".hypothesis",
+    ".coverage",
+    "coverage",
+    ".svn",
+    ".hg",
+    "target",
+    "bin",
+    "obj",
+    ".idea",
+    ".vscode",
 }
 
 
@@ -38,8 +62,7 @@ def load_gitignore_patterns(root):
     gitignore_path = os.path.join(root, ".gitignore")
     if os.path.isfile(gitignore_path):
         with open(gitignore_path) as f:
-            lines = [l.split("#")[0].strip() for l in f
-                     if l.strip() and not l.strip().startswith("#")]
+            lines = [l.split("#")[0].strip() for l in f if l.strip() and not l.strip().startswith("#")]
             if lines:
                 specs.append(pathspec.PathSpec.from_lines("gitwildmatch", lines))
     return specs
@@ -63,8 +86,7 @@ def walk(root, specs, no_ignore):
         if rel_dir == ".":
             rel_dir = ""
         dirnames[:] = [
-            d for d in dirnames
-            if not is_ignored(os.path.join(rel_dir, d) if rel_dir else d, specs, no_ignore)
+            d for d in dirnames if not is_ignored(os.path.join(rel_dir, d) if rel_dir else d, specs, no_ignore)
         ]
         dirnames.sort()
         for f in sorted(filenames):
@@ -96,27 +118,31 @@ def main():
             "  %(prog)s -v                                 # per-file details\n"
         ),
     )
-    parser.add_argument("path", nargs="?", default=".",
-                        help="Root directory to scan (default: .)")
-    parser.add_argument("-m", "--token-model",
-                        choices=list(TOKEN_MODELS) + ["custom"],
-                        default="gpt-4",
-                        help="Tokenization model preset (default: gpt-4)")
-    parser.add_argument("-c", "--chars-per-token", type=float,
-                        help="Custom chars/token ratio (overrides --token-model)")
-    parser.add_argument("-p", "--chars-per-page", type=float,
-                        default=CHARS_PER_A4_PAGE,
-                        help=f"Chars per DIN A4 page (default: {CHARS_PER_A4_PAGE:.0f})")
-    parser.add_argument("-n", "--min-files", type=int, default=1,
-                        help="Minimum file count to show an extension (default: 1)")
-    parser.add_argument("-t", "--top", type=int,
-                        help="Show only top N extensions")
-    parser.add_argument("-o", "--output",
-                        help="Export result as JSON to FILE")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Show per-file details")
-    parser.add_argument("--no-ignore", action="store_true",
-                        help="Do not respect .gitignore")
+    parser.add_argument("path", nargs="?", default=".", help="Root directory to scan (default: .)")
+    parser.add_argument(
+        "-m",
+        "--token-model",
+        choices=list(TOKEN_MODELS) + ["custom"],
+        default="gpt-4",
+        help="Tokenization model preset (default: gpt-4)",
+    )
+    parser.add_argument(
+        "-c", "--chars-per-token", type=float, help="Custom chars/token ratio (overrides --token-model)"
+    )
+    parser.add_argument(
+        "-p",
+        "--chars-per-page",
+        type=float,
+        default=CHARS_PER_A4_PAGE,
+        help=f"Chars per DIN A4 page (default: {CHARS_PER_A4_PAGE:.0f})",
+    )
+    parser.add_argument(
+        "-n", "--min-files", type=int, default=1, help="Minimum file count to show an extension (default: 1)"
+    )
+    parser.add_argument("-t", "--top", type=int, help="Show only top N extensions")
+    parser.add_argument("-o", "--output", help="Export result as JSON to FILE")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show per-file details")
+    parser.add_argument("--no-ignore", action="store_true", help="Do not respect .gitignore")
     args = parser.parse_args()
 
     chars_per_token = args.chars_per_token or TOKEN_MODELS[args.token_model]
@@ -157,7 +183,7 @@ def main():
     sorted_exts = sorted(ext_stats.items(), key=lambda x: x[1]["tokens"], reverse=True)
     sorted_exts = [(e, s) for e, s in sorted_exts if s["files"] >= args.min_files]
     if args.top:
-        sorted_exts = sorted_exts[:args.top]
+        sorted_exts = sorted_exts[: args.top]
 
     print(f"\nModell: {args.token_model} ({chars_per_token} Zeichen/Token)")
     print(f"{'Extension':<18} {'Files':>8} {'Chars':>12} {'Size':>10} {'Tokens':>10} {'A4 Pages':>10}")
@@ -169,7 +195,9 @@ def main():
     print("-" * 70)
     a4_total = total["tokens"] / tokens_per_page
     size_h = format_size(total["chars"])
-    print(f"{'Total':<18} {total['files']:>8} {total['chars']:>12,} {size_h:>10} {total['tokens']:>10,.0f} {a4_total:>10.1f}")
+    print(
+        f"{'Total':<18} {total['files']:>8} {total['chars']:>12,} {size_h:>10} {total['tokens']:>10,.0f} {a4_total:>10.1f}"
+    )
 
     if args.verbose:
         print(f"\n--- Per-File Details ({len(per_file)} Dateien) ---")

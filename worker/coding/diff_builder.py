@@ -73,7 +73,7 @@ def build_unified_diff(*, repository_root: Path, base_ref: str = "HEAD") -> Buil
                         f"diff --git a/{escaped} b/{escaped}",
                         "new file mode 100644",
                         "index 0000000..0000000",
-                        f"--- /dev/null",
+                        "--- /dev/null",
                         f"+++ b/{escaped}",
                         f"@@ -0,0 +1,{max(1, len(lines))} @@",
                         *([f"+{line}" for line in lines] if lines else ["+"]),

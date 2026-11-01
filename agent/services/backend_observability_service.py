@@ -45,11 +45,7 @@ class BackendObservabilityService:
 
         repos = get_repository_registry()
         tasks = list(repos.task_repo.get_all() or [])
-        recent_tasks = [
-            task
-            for task in tasks
-            if float(getattr(task, "updated_at", 0.0) or 0.0) >= since_ts
-        ]
+        recent_tasks = [task for task in tasks if float(getattr(task, "updated_at", 0.0) or 0.0) >= since_ts]
 
         by_backend: dict[str, dict[str, Any]] = {}
         for task in recent_tasks:
@@ -58,7 +54,9 @@ class BackendObservabilityService:
             status = str(getattr(task, "status", "") or "unknown").strip().lower()
             verification_status = self._safe_dict(getattr(task, "verification_status", None))
             strategy = self._safe_dict(verification_status.get("autopilot_strategy"))
-            reason_code = str(strategy.get("reason_code") or getattr(task, "status_reason_code", "") or "").strip() or None
+            reason_code = (
+                str(strategy.get("reason_code") or getattr(task, "status_reason_code", "") or "").strip() or None
+            )
             failures = list(strategy.get("last_failures") or [])
 
             bucket = by_backend.setdefault(
@@ -104,8 +102,7 @@ class BackendObservabilityService:
                 "task_count": int(bucket["task_count"]),
                 "status_counts": dict(bucket["status_counts"]),
                 "status_ratios": {
-                    key: round(float(val) / float(task_count), 4)
-                    for key, val in dict(bucket["status_counts"]).items()
+                    key: round(float(val) / float(task_count), 4) for key, val in dict(bucket["status_counts"]).items()
                 },
                 "reason_codes": dict(bucket["reason_codes"]),
                 "failure_types": dict(bucket["failure_types"]),
@@ -139,4 +136,3 @@ _SERVICE = BackendObservabilityService()
 
 def get_backend_observability_service() -> BackendObservabilityService:
     return _SERVICE
-

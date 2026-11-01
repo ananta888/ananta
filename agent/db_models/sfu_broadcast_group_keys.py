@@ -5,7 +5,6 @@ import time
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-
 _ACTIVE = sa.text("status = 'active'")
 
 
@@ -13,22 +12,31 @@ class SfuBroadcastGroupKeyAuthorizationDB(SQLModel, table=True):
     __tablename__ = "sfu_broadcast_group_key_authorizations"
     __table_args__ = (
         sa.UniqueConstraint(
-            "tenant_id", "room_id", "publication_id", "key_epoch",
+            "tenant_id",
+            "room_id",
+            "publication_id",
+            "key_epoch",
             name="uq_sfu_group_key_authorization_epoch",
         ),
         sa.Index(
             "uq_sfu_group_key_authorization_active",
-            "tenant_id", "room_id", "publication_id",
+            "tenant_id",
+            "room_id",
+            "publication_id",
             unique=True,
             sqlite_where=_ACTIVE,
             postgresql_where=_ACTIVE,
         ),
         sa.Index(
             "ix_sfu_group_key_authorization_expiry",
-            "status", "expires_at_ms", "updated_at",
+            "status",
+            "expires_at_ms",
+            "updated_at",
         ),
         sa.CheckConstraint("membership_epoch > 0 AND key_epoch > 0", name="ck_sfu_group_key_epochs"),
-        sa.CheckConstraint("previous_key_epoch >= 0 AND previous_key_epoch < key_epoch", name="ck_sfu_group_key_transition"),
+        sa.CheckConstraint(
+            "previous_key_epoch >= 0 AND previous_key_epoch < key_epoch", name="ck_sfu_group_key_transition"
+        ),
         sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_group_key_fence_version"),
         sa.CheckConstraint("package_count >= 0 AND total_package_bytes >= 0", name="ck_sfu_group_key_bounds"),
         sa.CheckConstraint("distribution_mode = 'bounded_rewrap'", name="ck_sfu_group_key_distribution_mode"),
@@ -71,14 +79,28 @@ class SfuBroadcastGroupKeyPackageDB(SQLModel, table=True):
     __tablename__ = "sfu_broadcast_group_key_packages"
     __table_args__ = (
         sa.ForeignKeyConstraint(
-            ["authorization_id"], ["sfu_broadcast_group_key_authorizations.id"],
-            name="fk_sfu_group_key_package_authorization", ondelete="CASCADE",
+            ["authorization_id"],
+            ["sfu_broadcast_group_key_authorizations.id"],
+            name="fk_sfu_group_key_package_authorization",
+            ondelete="CASCADE",
         ),
         sa.UniqueConstraint("authorization_id", "recipient_digest", name="uq_sfu_group_key_package_recipient"),
         sa.CheckConstraint("membership_epoch > 0 AND key_epoch > 0", name="ck_sfu_group_key_package_epochs"),
-        sa.CheckConstraint("package_bytes > 0 AND version > 0 AND fencing_token > 0", name="ck_sfu_group_key_package_bounds"),
-        sa.CheckConstraint("status IN ('delivered','acknowledged','revoked','expired','tombstoned')", name="ck_sfu_group_key_package_status"),
-        sa.Index("ix_sfu_group_key_package_delivery", "tenant_id", "session_id", "recipient_digest", "status", "expires_at_ms"),
+        sa.CheckConstraint(
+            "package_bytes > 0 AND version > 0 AND fencing_token > 0", name="ck_sfu_group_key_package_bounds"
+        ),
+        sa.CheckConstraint(
+            "status IN ('delivered','acknowledged','revoked','expired','tombstoned')",
+            name="ck_sfu_group_key_package_status",
+        ),
+        sa.Index(
+            "ix_sfu_group_key_package_delivery",
+            "tenant_id",
+            "session_id",
+            "recipient_digest",
+            "status",
+            "expires_at_ms",
+        ),
     )
 
     id: str = Field(primary_key=True)
@@ -115,7 +137,10 @@ class SfuBroadcastGroupKeyReceiptDB(SQLModel, table=True):
     __tablename__ = "sfu_broadcast_group_key_receipts"
     __table_args__ = (
         sa.UniqueConstraint(
-            "tenant_id", "actor_digest", "operation", "idempotency_key_digest",
+            "tenant_id",
+            "actor_digest",
+            "operation",
+            "idempotency_key_digest",
             name="uq_sfu_group_key_receipt_idempotency",
         ),
         sa.CheckConstraint("operation IN ('prepare','deliver')", name="ck_sfu_group_key_receipt_operation"),

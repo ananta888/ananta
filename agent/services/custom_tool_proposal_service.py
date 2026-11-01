@@ -14,6 +14,7 @@ passes the ShellCommandAnalyzer at execution time (HDE-016).
 
 Contract: ``docs/contracts/tool-proposal-artifact.md``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -167,7 +168,14 @@ def validate_proposal_payload(payload: dict[str, Any]) -> list[str]:
     if not isinstance(output_max, int) or not (1 <= output_max <= 100_000):
         errors.append("invalid_output_max_chars")
 
-    for list_field in ("allowed_paths", "denied_paths", "env_allowlist", "intent_aliases", "example_prompts", "negative_examples"):
+    for list_field in (
+        "allowed_paths",
+        "denied_paths",
+        "env_allowlist",
+        "intent_aliases",
+        "example_prompts",
+        "negative_examples",
+    ):
         value = payload.get(list_field)
         if value is not None and not isinstance(value, list):
             errors.append(f"invalid_list_field:{list_field}")
@@ -246,7 +254,9 @@ class CustomToolProposalService:
         proposal.pop("validation_report_ref", None)
         if str(proposal.get("execution_kind") or "") == "script":
             try:
-                proposal[SCRIPT_BODY_DIGEST_FIELD] = _script_digest(self._data_root, str(proposal.get("script_body_ref") or ""))
+                proposal[SCRIPT_BODY_DIGEST_FIELD] = _script_digest(
+                    self._data_root, str(proposal.get("script_body_ref") or "")
+                )
             except (OSError, ValueError) as exc:
                 raise ValueError(f"invalid_tool_proposal:{exc}") from exc
         digest = compute_proposal_digest(proposal)
@@ -297,7 +307,14 @@ class CustomToolProposalService:
         proposal = self.get_proposal(digest)
         if proposal is None:
             return None
-        allowed_keys = {"status", "approval_status", "approval_request_id", "validated_digest", "validation_report_ref", "updated_at"}
+        allowed_keys = {
+            "status",
+            "approval_status",
+            "approval_request_id",
+            "validated_digest",
+            "validation_report_ref",
+            "updated_at",
+        }
         for key, value in (updates or {}).items():
             if key in allowed_keys:
                 proposal[key] = value

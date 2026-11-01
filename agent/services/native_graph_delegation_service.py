@@ -67,7 +67,8 @@ class NativeGraphDelegationService:
         emit: Callable[..., Any],
     ) -> None:
         missing_inputs = sorted(
-            name for name in node.input_artifacts
+            name
+            for name in node.input_artifacts
             if not isinstance(state.artifact_refs.get(name), str) or not state.artifact_refs[name].strip()
         )
         if missing_inputs:

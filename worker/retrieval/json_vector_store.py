@@ -37,9 +37,7 @@ class JsonVectorStore:
         *,
         index_path: str | Path,
         legacy_scope: VectorScope | None = None,
-        search_index_factory: Callable[
-            [Sequence[Sequence[float]]], CosineSearchIndexPort
-        ] = create_cosine_search_index,
+        search_index_factory: Callable[[Sequence[Sequence[float]]], CosineSearchIndexPort] = create_cosine_search_index,
     ) -> None:
         self._index_path = Path(index_path)
         self._legacy_scope = legacy_scope
@@ -47,9 +45,7 @@ class JsonVectorStore:
         self._cached_signature: tuple[int, int, int, int] | None = None
         self._cached_payload: dict[str, Any] | None = None
         self._search_index_factory = search_index_factory
-        self._cached_search_key: tuple[
-            tuple[int, int, int, int] | None, str
-        ] | None = None
+        self._cached_search_key: tuple[tuple[int, int, int, int] | None, str] | None = None
         self._cached_search_index: CosineSearchIndexPort | None = None
         self._last_diagnostic = VectorStoreDiagnostic(
             status="degraded",
@@ -432,9 +428,7 @@ class JsonVectorStore:
         if self._cached_search_key != search_key or self._cached_search_index is None:
             self._cached_search_index = self._search_index_factory(vectors)
             self._cached_search_key = search_key
-        candidate_indices = [
-            index for index, entry in enumerate(entries) if self._matches(entry, query)
-        ]
+        candidate_indices = [index for index, entry in enumerate(entries) if self._matches(entry, query)]
         ranked = self._cached_search_index.rank(
             query.query_vector,
             candidate_indices=candidate_indices,

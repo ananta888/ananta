@@ -183,15 +183,18 @@ def test_chat_send_rejects_user_mismatch_and_requires_owned_session(client, monk
         client.application,
         owned_chat_session_snapshot=lambda session_id, principal: (
             {"id": session_id, "settings": {}, "profile_id": "general"}
-            if session_id == "session-a"
-            and (principal.tenant_id, principal.subject_id) == ("alice", "alice")
+            if session_id == "session-a" and (principal.tenant_id, principal.subject_id) == ("alice", "alice")
             else None
         ),
     )
 
     spoof = client.post(
         f"/snakes/{snake_id}/chat/messages",
-        headers={"Authorization": f"Bearer {snake_token}", "X-Ananta-Device-Id": "alice-dev", "X-Ananta-User-Authorization": f"Bearer {bob_token}"},
+        headers={
+            "Authorization": f"Bearer {snake_token}",
+            "X-Ananta-Device-Id": "alice-dev",
+            "X-Ananta-User-Authorization": f"Bearer {bob_token}",
+        },
         json={
             "channel_type": "room",
             "text": "spoof",
@@ -261,9 +264,7 @@ def test_message_reads_are_exactly_tenant_session_bound_and_non_draining(client,
             "session_id": "session-a",
         },
     )
-    unauthenticated = client.get(
-        f"/snakes/{created['id']}/chat/messages?session_id=session-a"
-    )
+    unauthenticated = client.get(f"/snakes/{created['id']}/chat/messages?session_id=session-a")
     foreign = client.get(
         f"/snakes/{created['id']}/chat/messages?session_id=session-a",
         headers={
@@ -309,8 +310,7 @@ def test_direct_message_cannot_target_foreign_principal(client, monkeypatch):
         client.application,
         owned_chat_session_snapshot=lambda session_id, principal: (
             {"id": session_id, "settings": {}, "profile_id": "general"}
-            if session_id == "session-a"
-            and (principal.tenant_id, principal.subject_id) == ("tenant-a", "alice")
+            if session_id == "session-a" and (principal.tenant_id, principal.subject_id) == ("tenant-a", "alice")
             else None
         ),
     )
@@ -349,10 +349,13 @@ def test_snake_control_and_legacy_messages_are_exactly_owner_bound(client):
     foreign_list = client.get("/snakes", headers=foreign_headers)
     assert foreign_list.status_code == 200
     assert foreign_list.get_json()["snakes"] == []
-    assert client.delete(
-        f"/snakes/{created['id']}",
-        headers=foreign_headers,
-    ).status_code == 404
+    assert (
+        client.delete(
+            f"/snakes/{created['id']}",
+            headers=foreign_headers,
+        ).status_code
+        == 404
+    )
 
     legacy_send = client.post(
         f"/snakes/{created['id']}/messages",
@@ -360,10 +363,13 @@ def test_snake_control_and_legacy_messages_are_exactly_owner_bound(client):
         json={"from_id": created["id"], "text": "private legacy message"},
     )
     assert legacy_send.status_code == 202
-    assert client.get(
-        f"/snakes/{created['id']}/messages",
-        headers=foreign_headers,
-    ).status_code == 404
+    assert (
+        client.get(
+            f"/snakes/{created['id']}/messages",
+            headers=foreign_headers,
+        ).status_code
+        == 404
+    )
     legacy_read = client.get(
         f"/snakes/{created['id']}/messages",
         headers=alice_headers,
@@ -374,7 +380,10 @@ def test_snake_control_and_legacy_messages_are_exactly_owner_bound(client):
 
     owned_list = client.get("/snakes", headers=alice_headers)
     assert [item["id"] for item in owned_list.get_json()["snakes"]] == [created["id"]]
-    assert client.delete(
-        f"/snakes/{created['id']}",
-        headers=alice_headers,
-    ).status_code == 200
+    assert (
+        client.delete(
+            f"/snakes/{created['id']}",
+            headers=alice_headers,
+        ).status_code
+        == 200
+    )

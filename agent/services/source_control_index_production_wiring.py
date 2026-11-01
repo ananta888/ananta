@@ -86,11 +86,7 @@ from ananta_contracts.source_control import (
     SourceAccessGrant,
 )
 
-_READ_FLAGS = (
-    os.O_RDONLY
-    | getattr(os, "O_CLOEXEC", 0)
-    | getattr(os, "O_NOFOLLOW", 0)
-)
+_READ_FLAGS = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
 _DIRECTORY_FLAGS = _READ_FLAGS | getattr(os, "O_DIRECTORY", 0)
 
 
@@ -124,13 +120,10 @@ def _admission_receipt(
         .where(
             SourceAdmissionReceiptDB.tenant_id == revision.tenant_id,
             SourceAdmissionReceiptDB.project_id == revision.project_id,
-            SourceAdmissionReceiptDB.source_revision_id
-            == revision.source_revision_id,
+            SourceAdmissionReceiptDB.source_revision_id == revision.source_revision_id,
             SourceAdmissionReceiptDB.decision_state == "admitted",
-            SourceAdmissionReceiptDB.revision_digest
-            == revision.revision_digest,
-            SourceAdmissionReceiptDB.manifest_digest
-            == revision.content_manifest_digest,
+            SourceAdmissionReceiptDB.revision_digest == revision.revision_digest,
+            SourceAdmissionReceiptDB.manifest_digest == revision.content_manifest_digest,
         )
         .order_by(SourceAdmissionReceiptDB.evaluated_at_epoch.desc())
     ).first()
@@ -171,7 +164,7 @@ class SQLBoundSourceRevisionAuthorityAdapter:
                 source_revision_digest=revision.revision_digest,
                 content_manifest_digest=revision.content_manifest_digest,
                 connector_type=revision.connector_type,
-            source_id=f"source-control:{revision.connection_id}",
+                source_id=f"source-control:{revision.connection_id}",
                 admission_state=receipt.decision_state,
                 admission_digest=receipt.admission_digest,
             )
@@ -208,26 +201,18 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
             "github_repository",
         }:
             if self._remote_payloads is None:
-                raise BoundSourceRevisionPlanningError(
-                    "source_revision_payload_connector_unsupported"
-                )
+                raise BoundSourceRevisionPlanningError("source_revision_payload_connector_unsupported")
             return self._remote_payloads.load_bound_revision_payload(revision)
         if revision.connector_type not in {
             "registered_workspace",
             "local_directory",
         }:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_connector_unsupported"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_connector_unsupported")
         with Session(self._engine) as session:
             row = session.get(SourceRevisionDB, revision.source_revision_id)
-            selector = session.get(
-                SourceConnectionSelectorDB, revision.connection_id
-            )
+            selector = session.get(SourceConnectionSelectorDB, revision.connection_id)
         if row is None or selector is None:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_binding_missing"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_binding_missing")
         workspace = self._workspaces.get(
             workspace_id=selector.selector_id,
             tenant_id=revision.tenant_id,
@@ -235,9 +220,7 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
             owner_id=row.owner_id,
         )
         if workspace is None:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_workspace_unavailable"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_workspace_unavailable")
         snapshot = self._connector.inventory(
             tenant_id=revision.tenant_id,
             project_id=revision.project_id,
@@ -258,12 +241,9 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
             not scan.scan.completed
             or scan.scan.scan_error_count
             or scan.inventory.revision_digest != revision.source_revision_digest
-            or scan.inventory.manifest_digest
-            != revision.content_manifest_digest
+            or scan.inventory.manifest_digest != revision.content_manifest_digest
         ):
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_scan_failed"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_scan_failed")
 
         files: list[dict[str, object]] = []
         records: list[dict[str, object]] = []
@@ -278,9 +258,7 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
             try:
                 text = content.decode("utf-8")
             except UnicodeDecodeError as exc:
-                raise BoundSourceRevisionPlanningError(
-                    "source_revision_payload_text_required"
-                ) from exc
+                raise BoundSourceRevisionPlanningError("source_revision_payload_text_required") from exc
             files.append(
                 {
                     "relative_path": entry.relative_path,
@@ -324,9 +302,7 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
             if part not in {"", "."}
         ]
         if not parts or any(part == ".." or "/" in part for part in parts):
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_path_invalid"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_path_invalid")
         descriptors: list[int] = []
         try:
             root_fd = os.open(workspace_root, _DIRECTORY_FLAGS)
@@ -338,9 +314,7 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
                 descriptors.append(current_fd)
                 opened = os.fstat(current_fd)
                 if opened.st_dev != root_stat.st_dev:
-                    raise BoundSourceRevisionPlanningError(
-                        "source_revision_payload_mount_changed"
-                    )
+                    raise BoundSourceRevisionPlanningError("source_revision_payload_mount_changed")
             file_fd = os.open(parts[-1], _READ_FLAGS, dir_fd=current_fd)
             descriptors.append(file_fd)
             before = os.fstat(file_fd)
@@ -350,9 +324,7 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
                 or before.st_nlink != 1
                 or before.st_size != expected_size
             ):
-                raise BoundSourceRevisionPlanningError(
-                    "source_revision_payload_file_invalid"
-                )
+                raise BoundSourceRevisionPlanningError("source_revision_payload_file_invalid")
             chunks: list[bytes] = []
             remaining = expected_size + 1
             while remaining > 0:
@@ -370,14 +342,10 @@ class RegisteredWorkspaceBoundSourcePayloadAdapter:
                 or before.st_mtime_ns != after.st_mtime_ns
                 or hashlib.sha256(content).hexdigest() != expected_digest
             ):
-                raise BoundSourceRevisionPlanningError(
-                    "source_revision_payload_file_changed"
-                )
+                raise BoundSourceRevisionPlanningError("source_revision_payload_file_changed")
             return content
         except OSError as exc:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_read_failed"
-            ) from exc
+            raise BoundSourceRevisionPlanningError("source_revision_payload_read_failed") from exc
         finally:
             for descriptor in reversed(descriptors):
                 os.close(descriptor)
@@ -407,8 +375,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
                 select(SourceAccessGrantDB).where(
                     SourceAccessGrantDB.tenant_id == revision.tenant_id,
                     SourceAccessGrantDB.project_id == revision.project_id,
-                    SourceAccessGrantDB.source_revision_id
-                    == revision.source_revision_id,
+                    SourceAccessGrantDB.source_revision_id == revision.source_revision_id,
                     SourceAccessGrantDB.operation == "index",
                     SourceAccessGrantDB.transformation == "redacted",
                     SourceAccessGrantDB.purpose == "knowledge-index",
@@ -419,9 +386,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
             ).all()
             candidates = []
             for grant_row in grants:
-                policy = session.get(
-                    SourceAccessGrantExecutionPolicyDB, grant_row.grant_id
-                )
+                policy = session.get(SourceAccessGrantExecutionPolicyDB, grant_row.grant_id)
                 descriptor = self._destinations.get(
                     tenant_id=revision.tenant_id,
                     project_id=revision.project_id,
@@ -437,57 +402,39 @@ class SQLBoundSourceIndexAuthorityAdapter:
                 )
                 resolved = self._resolver.resolve(selection)
                 if (
-                    resolved.descriptor.destination_id
-                    != grant_row.destination_id
+                    resolved.descriptor.destination_id != grant_row.destination_id
                     or resolved.destination_digest != policy.destination_digest
                     or not grant_row.policy_snapshot_digest
                 ):
                     continue
                 candidates.append((grant_row, policy, selection, resolved))
             if len(candidates) != 1:
-                raise BoundSourceRevisionPlanningError(
-                    "source_index_authority_unambiguous_grant_required"
-                )
+                raise BoundSourceRevisionPlanningError("source_index_authority_unambiguous_grant_required")
             grant_row, _policy, selection, resolved = candidates[0]
             target_runtime_seconds = 900
-            planning_reserve_seconds = (
-                KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS
-            )
+            planning_reserve_seconds = KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS
             existing = session.exec(
                 select(KnowledgeIndexExecutionBindingDB).where(
-                    KnowledgeIndexExecutionBindingDB.tenant_id
-                    == revision.tenant_id,
-                    KnowledgeIndexExecutionBindingDB.project_id
-                    == revision.project_id,
-                    KnowledgeIndexExecutionBindingDB.idempotency_key_digest
-                    == key_digest,
+                    KnowledgeIndexExecutionBindingDB.tenant_id == revision.tenant_id,
+                    KnowledgeIndexExecutionBindingDB.project_id == revision.project_id,
+                    KnowledgeIndexExecutionBindingDB.idempotency_key_digest == key_digest,
                 )
             ).first()
             if existing is not None:
                 if (
                     existing.source_revision_id != revision.source_revision_id
-                    or existing.source_revision_digest
-                    != revision.source_revision_digest
+                    or existing.source_revision_digest != revision.source_revision_digest
                     or existing.admission_digest != revision.admission_digest
-                    or existing.destination_id
-                    != resolved.descriptor.destination_id
+                    or existing.destination_id != resolved.descriptor.destination_id
                     or existing.source_access_grant_id != grant_row.grant_id
                 ):
-                    raise BoundSourceRevisionPlanningError(
-                        "source_index_idempotency_authority_conflict"
-                    )
-                existing_job = KnowledgeIndexExecutionJob.model_validate(
-                    dict(existing.envelope_json)
-                )
+                    raise BoundSourceRevisionPlanningError("source_index_idempotency_authority_conflict")
+                existing_job = KnowledgeIndexExecutionJob.model_validate(dict(existing.envelope_json))
                 assignment = existing_job.assignment
-                max_runtime_seconds = (
-                    existing_job.resources.max_runtime_seconds
-                )
+                max_runtime_seconds = existing_job.resources.max_runtime_seconds
             else:
                 now_ms = int(now * 1000)
-                grant_remaining_seconds = int(
-                    float(grant_row.expires_at_epoch) - now
-                )
+                grant_remaining_seconds = int(float(grant_row.expires_at_epoch) - now)
                 max_runtime_seconds = min(
                     target_runtime_seconds,
                     # Preserve one full second across SQL timestamp
@@ -498,9 +445,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
                     - 1,
                 )
                 if max_runtime_seconds < 1:
-                    raise BoundSourceRevisionPlanningError(
-                        "source_index_grant_runtime_window_insufficient"
-                    )
+                    raise BoundSourceRevisionPlanningError("source_index_grant_runtime_window_insufficient")
                 expires_ms = min(
                     int(grant_row.expires_at_epoch * 1000),
                     now_ms
@@ -512,11 +457,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
                     * 1000,
                 )
                 coordinate = hashlib.sha256(
-                    (
-                        revision.source_revision_id
-                        + resolved.descriptor.destination_id
-                        + idempotency_key
-                    ).encode("utf-8")
+                    (revision.source_revision_id + resolved.descriptor.destination_id + idempotency_key).encode("utf-8")
                 ).hexdigest()
                 assignment = KnowledgeIndexExecutionAssignment(
                     assignment_id=f"assignment_{coordinate}",
@@ -561,9 +502,7 @@ class SQLCurrentKnowledgeIndexAuthorityAdapter:
         with Session(self._engine) as session:
             revision = session.get(SourceRevisionDB, source_revision_id)
             grant_row = session.get(SourceAccessGrantDB, source_access_grant_id)
-            policy = session.get(
-                SourceAccessGrantExecutionPolicyDB, source_access_grant_id
-            )
+            policy = session.get(SourceAccessGrantExecutionPolicyDB, source_access_grant_id)
             if (
                 revision is None
                 or grant_row is None
@@ -624,13 +563,9 @@ class IngestionKnowledgeIndexPayloadStore:
             filename=f"knowledge-index-payload-{fingerprint}.json",
             content=content,
             created_by=created_by or "knowledge-index-api",
-            media_type=(
-                "application/vnd.ananta.knowledge-index-job+json"
-            ),
+            media_type=("application/vnd.ananta.knowledge-index-job+json"),
             artifact_metadata={
-                "system_artifact_kind": (
-                    "knowledge_index_job_payload"
-                ),
+                "system_artifact_kind": ("knowledge_index_job_payload"),
                 "idempotency_fingerprint": fingerprint,
             },
         )
@@ -679,9 +614,7 @@ def build_source_control_index_production_composition(
     core = get_core_services(app)
     remote_payload_adapter = None
     remote_payload_store = app.extensions.get("remote_source_payload_store")
-    remote_registry = app.extensions.get(
-        "source_control_registered_remote_catalog"
-    )
+    remote_registry = app.extensions.get("source_control_registered_remote_catalog")
     if remote_payload_store is not None and remote_registry is not None:
         from agent.services.remote_git_bound_payload import (
             RemoteGitBoundSourcePayloadAdapter,
@@ -705,18 +638,14 @@ def build_source_control_index_production_composition(
         knowledge_index_repository=repositories.knowledge_index_repo,
         knowledge_index_run_repository=repositories.knowledge_index_run_repo,
     )
-    source_control_completion = (
-        KnowledgeIndexSourceControlCompletionProjector(
-            repository=SQLSourceControlRepository(engine)
-        )
+    source_control_completion = KnowledgeIndexSourceControlCompletionProjector(
+        repository=SQLSourceControlRepository(engine)
     )
     from agent.services.knowledge_index_worker_directory import (
         RegisteredKnowledgeIndexWorkerDirectory,
     )
 
-    worker_directory = RegisteredKnowledgeIndexWorkerDirectory(
-        repositories.agent_repo
-    )
+    worker_directory = RegisteredKnowledgeIndexWorkerDirectory(repositories.agent_repo)
     job_service = build_strict_governed_knowledge_index_job_service(
         StrictGovernedKnowledgeIndexDependencies(
             destination_catalog=destination_catalog,
@@ -727,13 +656,9 @@ def build_source_control_index_production_composition(
             task_repository=repositories.task_repo,
             payload_store=payload_store,
             worker_artifact_service=worker_artifacts,
-            source_control_completion_projector=(
-                source_control_completion
-            ),
+            source_control_completion_projector=(source_control_completion),
             worker_directory=worker_directory,
-            source_access_manifest_verifier=(
-                source_access_manifest_verifier
-            ),
+            source_access_manifest_verifier=(source_access_manifest_verifier),
         )
     )
     planner = BoundSourceRevisionAuthorityPlanner(
@@ -751,9 +676,7 @@ def build_source_control_index_production_composition(
             destinations=destination_catalog,
         ),
         destinations=SourceDestinationResolutionService(destination_catalog),
-        grants=SQLSourceAccessEnforcementAdapter(
-            engine, allow_legacy_reusable_grants=False
-        ),
+        grants=SQLSourceAccessEnforcementAdapter(engine, allow_legacy_reusable_grants=False),
     )
     register_core_service_override(
         app,

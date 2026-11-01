@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
 
 

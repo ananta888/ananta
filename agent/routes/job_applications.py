@@ -6,6 +6,7 @@ PUT  /api/caseflow/jobs/<case_id>/fit-score     — set manual fit score
 GET  /api/caseflow/jobs/<case_id>/document-bundle — get document bundle
 POST /api/caseflow/jobs/<case_id>/posting       — add/normalize job posting
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -14,7 +15,7 @@ from flask import Blueprint, jsonify, request
 
 from agent.caseflow.models import CaseFlowCase
 from agent.job_module.document_bundle import ApplicationDocumentBundle, DocumentStatus
-from agent.job_module.fit_scoring import JobFitScore, SubScore
+from agent.job_module.fit_scoring import JobFitScore
 from agent.job_module.models import JobApplicationPayload
 from agent.job_module.posting_normalizer import normalize_posting
 
@@ -26,6 +27,7 @@ _fit_scores: dict[str, JobFitScore] = {}
 
 def _get_job_cases() -> list[CaseFlowCase]:
     from agent.routes.caseflow import _cases
+
     return [c for c in _cases.values() if c.case_type == "job_application" and not c.is_deleted]
 
 
@@ -59,6 +61,7 @@ def list_job_applications():
 @job_app_bp.route("/<case_id>", methods=["GET"])
 def get_job_application(case_id: str):
     from agent.routes.caseflow import _cases
+
     case = _cases.get(case_id)
     if not case or case.case_type != "job_application" or case.is_deleted:
         return jsonify({"error": "not_found"}), 404
@@ -68,6 +71,7 @@ def get_job_application(case_id: str):
 @job_app_bp.route("/<case_id>/fit-score", methods=["GET"])
 def get_fit_score(case_id: str):
     from agent.routes.caseflow import _cases
+
     case = _cases.get(case_id)
     if not case or case.case_type != "job_application":
         return jsonify({"error": "not_found"}), 404
@@ -81,6 +85,7 @@ def get_fit_score(case_id: str):
 @job_app_bp.route("/<case_id>/fit-score", methods=["PUT"])
 def set_manual_fit_score(case_id: str):
     from agent.routes.caseflow import _cases
+
     case = _cases.get(case_id)
     if not case or case.case_type != "job_application":
         return jsonify({"error": "not_found"}), 404
@@ -100,6 +105,7 @@ def set_manual_fit_score(case_id: str):
 @job_app_bp.route("/<case_id>/document-bundle", methods=["GET"])
 def document_bundle(case_id: str):
     from agent.routes.caseflow import _artifacts, _cases
+
     case = _cases.get(case_id)
     if not case or case.case_type != "job_application":
         return jsonify({"error": "not_found"}), 404
@@ -122,8 +128,9 @@ def document_bundle(case_id: str):
 
 @job_app_bp.route("/<case_id>/posting", methods=["POST"])
 def add_job_posting(case_id: str):
-    from agent.routes.caseflow import _artifacts, _cases
     from agent.caseflow.artifacts import CaseArtifact
+    from agent.routes.caseflow import _artifacts, _cases
+
     case = _cases.get(case_id)
     if not case or case.case_type != "job_application":
         return jsonify({"error": "not_found"}), 404
@@ -143,8 +150,8 @@ def add_job_posting(case_id: str):
         metadata=posting.model_dump(exclude={"raw_text"}),
     )
     _artifacts.setdefault(case_id, []).append(artifact)
-    from agent.caseflow.artifacts import ArtifactStatus
     from agent.caseflow.timeline import CaseEvent, append_event
+
     evt = CaseEvent(
         case_id=case_id,
         event_type="artifact_added",
@@ -154,6 +161,7 @@ def add_job_posting(case_id: str):
     )
     append_event(case_id, evt)
     from agent.routes.caseflow import _artifact_to_dict
+
     return jsonify(_artifact_to_dict(artifact)), 201
 
 

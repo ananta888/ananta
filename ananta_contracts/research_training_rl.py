@@ -75,17 +75,21 @@ class ResearchRlConfigV1:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> ResearchRlConfigV1:
-        if set(value) != {
-            "schema",
-            "algorithm",
-            "samples_per_prompt",
-            "maximum_new_tokens",
-            "temperature",
-            "learning_rate",
-            "maximum_steps",
-            "seed",
-            "reward",
-        } or value.get("schema") != cls.SCHEMA:
+        if (
+            set(value)
+            != {
+                "schema",
+                "algorithm",
+                "samples_per_prompt",
+                "maximum_new_tokens",
+                "temperature",
+                "learning_rate",
+                "maximum_steps",
+                "seed",
+                "reward",
+            }
+            or value.get("schema") != cls.SCHEMA
+        ):
             raise ResearchTrainingContractError("research_rl_config_fields_invalid")
         if value.get("algorithm") not in {"reinforce_v1", "group_relative_v1"}:
             raise ResearchTrainingContractError("research_rl_algorithm_invalid")

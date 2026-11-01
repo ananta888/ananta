@@ -15,8 +15,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.sfu_broadcast_release_common import (  # noqa: E402
-    atomic_write_report, build_report, canonical_sha256, content_reasons,
-    read_bounded_json, unavailable_report, validate_bindings,
+    atomic_write_report,
+    build_report,
+    canonical_sha256,
+    content_reasons,
+    read_bounded_json,
+    unavailable_report,
+    validate_bindings,
     validate_exceptions,
 )
 
@@ -57,9 +62,7 @@ def evaluate(
     observed_browsers = {
         row.get("browser")
         for row in processes
-        if isinstance(row, Mapping)
-        and row.get("real_process") is True
-        and row.get("viewport_emulation_only") is False
+        if isinstance(row, Mapping) and row.get("real_process") is True and row.get("viewport_emulation_only") is False
     }
     if observed_browsers != set(profile.get("required_browsers", [])):
         reasons.add("accessibility_browser_matrix_incomplete")
@@ -85,11 +88,13 @@ def evaluate(
         reasons.add("accessibility_axe_adapter_mismatch")
     if axe.get("violations") != 0:
         reasons.add("accessibility_axe_violation")
-    reasons.update(validate_exceptions(
-        axe.get("exceptions"),
-        as_of=as_of,
-        allowed_scopes=set(profile.get("required_browsers", [])),
-    ))
+    reasons.update(
+        validate_exceptions(
+            axe.get("exceptions"),
+            as_of=as_of,
+            allowed_scopes=set(profile.get("required_browsers", [])),
+        )
+    )
 
     lifecycle = evidence.get("lifecycle")
     if not isinstance(lifecycle, Mapping):
@@ -113,9 +118,7 @@ def evaluate(
             reasons.add(f"accessibility_cleanup_{scenario}_incomplete")
 
     screen_reader = evidence.get("screen_reader")
-    claimed = isinstance(screen_reader, Mapping) and screen_reader.get(
-        "compatibility_claimed"
-    ) is True
+    claimed = isinstance(screen_reader, Mapping) and screen_reader.get("compatibility_claimed") is True
     if claimed:
         accepted = set(profile.get("screen_reader", {}).get("accepted_automation", []))
         if (
@@ -127,15 +130,13 @@ def evaluate(
     elif not isinstance(screen_reader, Mapping) or screen_reader.get("status") != "not_claimed":
         reasons.add("accessibility_screen_reader_status_ambiguous")
 
-    peak_memory = evidence.get("resource_peaks", {}).get("memory_bytes") if isinstance(
-        evidence.get("resource_peaks"), Mapping
-    ) else None
+    peak_memory = (
+        evidence.get("resource_peaks", {}).get("memory_bytes")
+        if isinstance(evidence.get("resource_peaks"), Mapping)
+        else None
+    )
     maximum_memory = profile.get("limits", {}).get("memory_bytes_max")
-    if (
-        not isinstance(peak_memory, int)
-        or not isinstance(maximum_memory, int)
-        or peak_memory > maximum_memory
-    ):
+    if not isinstance(peak_memory, int) or not isinstance(maximum_memory, int) or peak_memory > maximum_memory:
         reasons.add("accessibility_memory_limit_invalid")
 
     return build_report(
@@ -166,13 +167,17 @@ def main() -> int:
     parent = read_bounded_json(args.parent_evidence) if args.parent_evidence else None
     report = (
         evaluate(
-            profile, read_bounded_json(args.external_result),
-            as_of=args.as_of, parent=parent,
+            profile,
+            read_bounded_json(args.external_result),
+            as_of=args.as_of,
+            parent=parent,
         )
         if args.external_result
         else unavailable_report(
-            schema=REPORT_SCHEMA, gate_id=GATE_ID,
-            reason="accessibility_external_evidence_missing", config=profile,
+            schema=REPORT_SCHEMA,
+            gate_id=GATE_ID,
+            reason="accessibility_external_evidence_missing",
+            config=profile,
             parent=parent,
         )
     )

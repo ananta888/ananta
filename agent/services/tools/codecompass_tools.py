@@ -12,6 +12,7 @@ This module stays the public tool facade; semantic translation tools live in
 ``codecompass_x86_tools`` and graph store resolution in
 ``codecompass_graph_store_access`` (all re-exported here).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -199,22 +200,22 @@ def _source_excerpt(workspace_dir: str, ref: Mapping[str, Any], *, max_chars: in
     """
     try:
         root = Path(workspace_dir).resolve()
-        path = (root / str(ref.get('path') or '')).resolve()
+        path = (root / str(ref.get("path") or "")).resolve()
         if not path.is_relative_to(root) or not path.is_file():
-            return ''
-        line_start = max(1, int(ref.get('line_start') or 1))
-        line_end = max(line_start, int(ref.get('line_end') or line_start))
+            return ""
+        line_start = max(1, int(ref.get("line_start") or 1))
+        line_end = max(line_start, int(ref.get("line_end") or line_start))
         lines: list[str] = []
-        with path.open('r', encoding='utf-8', errors='replace') as stream:
+        with path.open("r", encoding="utf-8", errors="replace") as stream:
             for number, line in enumerate(stream, start=1):
                 if number < line_start:
                     continue
                 if number > line_end:
                     break
-                lines.append(line.rstrip('\n'))
-        return '\n'.join(lines)[:max_chars].strip()
+                lines.append(line.rstrip("\n"))
+        return "\n".join(lines)[:max_chars].strip()
     except (OSError, ValueError):
-        return ''
+        return ""
 
 
 def codecompass_get_domain_map(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
@@ -532,7 +533,9 @@ def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], t
     )
 
 
-def codecompass_architecture_query(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_architecture_query(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
     args = arguments or {}
     query_type = str(args.get("query_type") or args.get("question") or "").strip()
     seed = str(args.get("seed") or "").strip()

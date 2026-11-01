@@ -37,10 +37,8 @@ from agent.services.context_providers.context_provider_port import FakeContextPr
 
 # 1. Fake-Provider konfigurieren
 fake_items = [
-    ContextItem(item_id="1", provider="fake", path="src/auth.py",
-                snippet="def authenticate(user): ...", score=0.9),
-    ContextItem(item_id="2", provider="fake", path="src/user.py",
-                snippet="class User: ...", score=0.8),
+    ContextItem(item_id="1", provider="fake", path="src/auth.py", snippet="def authenticate(user): ...", score=0.9),
+    ContextItem(item_id="2", provider="fake", path="src/user.py", snippet="class User: ...", score=0.8),
 ]
 fake_provider = FakeContextProvider(items=fake_items)
 
@@ -52,9 +50,9 @@ for item in result.items:
 
 # 3. Metrics
 from agent.services.augment.augment_metrics import AugmentMetricsCollector, ProviderLabel
+
 metrics = AugmentMetricsCollector()
-metrics.record(provider=ProviderLabel.FAKE, operation="retrieve",
-               latency_ms=10, items_returned=len(result.items))
+metrics.record(provider=ProviderLabel.FAKE, operation="retrieve", latency_ms=10, items_returned=len(result.items))
 print(metrics.compare_providers(query_used="find authentication code").to_markdown())
 ```
 
@@ -64,6 +62,7 @@ print(metrics.compare_providers(query_used="find authentication code").to_markdo
 
 ```python
 import shutil
+
 if not shutil.which("auggie"):
     print("auggie not installed — run in fake mode instead")
     exit(0)
@@ -83,6 +82,7 @@ if not provider.is_enabled():
     exit(1)
 
 from agent.services.context_providers.context_provider_port import ContextScope
+
 scope = ContextScope(workspace_id="demo", allowed_paths=["src/"], denied_paths=[".env"])
 result = provider.retrieve("find authentication code", scope=scope)
 print(f"Retrieved {len(result.items)} items from Augment MCP")

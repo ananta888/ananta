@@ -343,8 +343,13 @@ class HybridOrchestrator:
             if len(result.content or "") < len(content or ""):
                 from agent.context_window import estimate_tokens, record_truncation
 
-                record_truncation("context_compression", "condense", before_tokens=estimate_tokens(content),
-                                  after_tokens=estimate_tokens(result.content), content_type=content_type)
+                record_truncation(
+                    "context_compression",
+                    "condense",
+                    before_tokens=estimate_tokens(content),
+                    after_tokens=estimate_tokens(result.content),
+                    content_type=content_type,
+                )
             return result.content
         except Exception:
             return content  # always safe passthrough on any error

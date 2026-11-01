@@ -41,10 +41,7 @@ class PythonCosineSearchIndex:
         candidate_indices: Sequence[int],
         top_k: int,
     ) -> tuple[tuple[int, float], ...]:
-        ranked = [
-            (int(index), _cosine_similarity(query, self._vectors[int(index)]))
-            for index in candidate_indices
-        ]
+        ranked = [(int(index), _cosine_similarity(query, self._vectors[int(index)])) for index in candidate_indices]
         ranked.sort(key=lambda item: (-item[1], item[0]))
         return tuple(ranked[: max(0, int(top_k))])
 
@@ -80,9 +77,7 @@ class NumpyCosineSearchIndex:
         candidate_norms = self._norms[indices]
         if query_norm > 1e-9:
             nonzero = candidate_norms > 1e-9
-            scores[nonzero] = (
-                self._matrix[indices[nonzero]] @ query_array
-            ) / (candidate_norms[nonzero] * query_norm)
+            scores[nonzero] = (self._matrix[indices[nonzero]] @ query_array) / (candidate_norms[nonzero] * query_norm)
         # Secondary ordering by original entry index preserves the stable tie
         # behavior of the reference implementation.
         order = np.lexsort((indices, -scores))[:count]

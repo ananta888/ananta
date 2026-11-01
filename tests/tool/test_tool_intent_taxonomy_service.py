@@ -18,4 +18,3 @@ def test_tool_intent_taxonomy_classifies_known_and_unknown_tools() -> None:
     assert shell["intent"] == "shell_command"
     assert shell["tool_class"] == "admin"
     assert unknown["intent"] == "unknown"
-

@@ -52,19 +52,10 @@ def _chat_workflow_principal() -> ChatSessionPrincipal | None:
         return ChatSessionPrincipal("test-user", "test-user") if current_app.testing else None
     if isinstance(identity, dict):
         subject = identity.get("sub") or identity.get("username") or ""
-        tenant_id = (
-            identity.get("tenant_id")
-            or identity.get("tenant")
-            or identity.get("organization_id")
-            or subject
-        )
+        tenant_id = identity.get("tenant_id") or identity.get("tenant") or identity.get("organization_id") or subject
     else:
         subject = getattr(identity, "username", "") or getattr(identity, "id", "")
-        tenant_id = (
-            getattr(identity, "tenant_id", "")
-            or getattr(identity, "organization_id", "")
-            or subject
-        )
+        tenant_id = getattr(identity, "tenant_id", "") or getattr(identity, "organization_id", "") or subject
     try:
         return ChatSessionPrincipal(
             tenant_id=require_canonical_identity(tenant_id, field_name="tenant_id"),

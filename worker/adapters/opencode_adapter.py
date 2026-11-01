@@ -14,7 +14,11 @@ class OpenCodeAdapter:
     def descriptor(self) -> AdapterDescriptor:
         available = shutil.which("opencode") is not None
         enabled = self._enabled and available
-        reason = "ready" if enabled else ("opencode_unavailable_or_archived" if self._enabled else "explicit_opt_in_required")
+        reason = (
+            "ready"
+            if enabled
+            else ("opencode_unavailable_or_archived" if self._enabled else "explicit_opt_in_required")
+        )
         return AdapterDescriptor(
             adapter_id="adapter.opencode",
             display_name="OpenCode",

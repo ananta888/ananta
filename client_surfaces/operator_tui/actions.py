@@ -5,7 +5,6 @@ from typing import Any
 
 from client_surfaces.operator_tui.models import ActionDispatchResult, ActionRisk, OperatorAction
 
-
 READ_ONLY_ACTIONS = {"inspect", "refresh", "open_browser", "copy_reference"}
 MUTATION_ACTIONS = {"goal_create", "task_assign", "task_execute", "artifact_index"}
 
@@ -28,9 +27,13 @@ def dispatch_action(action: OperatorAction, *, confirmed: bool = False) -> Actio
     if action.name not in MUTATION_ACTIONS:
         return ActionDispatchResult(False, f"unknown action: {action.name}", audit_context)
     if action.requires_confirmation and not confirmed:
-        return ActionDispatchResult(False, f"confirmation required: {action.name}", audit_context, pending_action=action)
+        return ActionDispatchResult(
+            False, f"confirmation required: {action.name}", audit_context, pending_action=action
+        )
     if action.risk in {ActionRisk.HIGH, ActionRisk.DESTRUCTIVE} and not confirmed:
-        return ActionDispatchResult(False, f"confirmation required: {action.name}", audit_context, pending_action=action)
+        return ActionDispatchResult(
+            False, f"confirmation required: {action.name}", audit_context, pending_action=action
+        )
     return ActionDispatchResult(True, f"mutation action prepared for hub dispatch: {action.name}", audit_context)
 
 

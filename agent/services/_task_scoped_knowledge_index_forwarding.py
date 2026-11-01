@@ -62,16 +62,12 @@ def _is_typed_knowledge_index_result_pending(
     reason_details = details.get("details")
     return bool(
         str(response.get("status") or "").strip().lower() == "error"
-        and http_status
-        == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS
-        and response.get("message")
-        == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
-        and details.get("error_type")
-        == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE
+        and http_status == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS
+        and response.get("message") == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
+        and details.get("error_type") == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE
         and details.get("retryable") is True
         and isinstance(reason_details, Mapping)
-        and reason_details.get("reason_code")
-        == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
+        and reason_details.get("reason_code") == KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
     )
 
 
@@ -81,37 +77,19 @@ def _governed_knowledge_index_retry_expiries(
     prepared_payload: Mapping[str, Any],
 ) -> tuple[int, int]:
     context = task.get("worker_execution_context")
-    job = (
-        context.get("knowledge_index_job")
-        if isinstance(context, Mapping)
-        else None
-    )
+    job = context.get("knowledge_index_job") if isinstance(context, Mapping) else None
     assignment = job.get("assignment") if isinstance(job, Mapping) else None
     marker = prepared_payload.get("knowledge_index_dispatch")
-    manifest = (
-        marker.get(SOURCE_ACCESS_MANIFEST_FIELD)
-        if isinstance(marker, Mapping)
-        else None
-    )
-    lease_expires = (
-        assignment.get("lease_expires_epoch_ms")
-        if isinstance(assignment, Mapping)
-        else None
-    )
-    grant_expires = (
-        manifest.get("grant_expires_at_epoch_ms")
-        if isinstance(manifest, Mapping)
-        else None
-    )
+    manifest = marker.get(SOURCE_ACCESS_MANIFEST_FIELD) if isinstance(marker, Mapping) else None
+    lease_expires = assignment.get("lease_expires_epoch_ms") if isinstance(assignment, Mapping) else None
+    grant_expires = manifest.get("grant_expires_at_epoch_ms") if isinstance(manifest, Mapping) else None
     if (
         isinstance(lease_expires, bool)
         or not isinstance(lease_expires, int)
         or isinstance(grant_expires, bool)
         or not isinstance(grant_expires, int)
     ):
-        raise _permanent_codecompass_forwarding_error(
-            "knowledge_index_exact_retry_authority_window_invalid"
-        )
+        raise _permanent_codecompass_forwarding_error("knowledge_index_exact_retry_authority_window_invalid")
     return lease_expires, grant_expires
 
 
@@ -125,24 +103,16 @@ def _require_governed_knowledge_index_retry_window(
     """Keep exact replay inside the original deadline and capabilities."""
 
     remaining_transport = transport_deadline.require_remaining_seconds()
-    lease_expires, grant_expires = (
-        _governed_knowledge_index_retry_expiries(
-            task=task,
-            prepared_payload=prepared_payload,
-        )
+    lease_expires, grant_expires = _governed_knowledge_index_retry_expiries(
+        task=task,
+        prepared_payload=prepared_payload,
     )
     now_epoch_ms = int(clock() * 1000)
     if now_epoch_ms >= lease_expires:
-        raise _permanent_codecompass_forwarding_error(
-            "knowledge_index_execution_lease_stale"
-        )
+        raise _permanent_codecompass_forwarding_error("knowledge_index_execution_lease_stale")
     if now_epoch_ms >= grant_expires:
-        raise _permanent_codecompass_forwarding_error(
-            "knowledge_index_source_access_grant_expired"
-        )
-    remaining_authority = (
-        min(lease_expires, grant_expires) - now_epoch_ms
-    ) / 1000.0
+        raise _permanent_codecompass_forwarding_error("knowledge_index_source_access_grant_expired")
+    remaining_authority = (min(lease_expires, grant_expires) - now_epoch_ms) / 1000.0
     return min(remaining_transport, remaining_authority)
 
 
@@ -171,9 +141,7 @@ def _invoke_governed_knowledge_index_forwarder(
             transport_deadline=transport_deadline,
         )
     if transport_deadline is None:
-        raise _permanent_codecompass_forwarding_error(
-            "worker_forward_transport_deadline_missing"
-        )
+        raise _permanent_codecompass_forwarding_error("worker_forward_transport_deadline_missing")
     if retry_policy is None:
         retry_policy = _current_dependencies().knowledge_index_retry
     for attempt in range(
@@ -195,11 +163,7 @@ def _invoke_governed_knowledge_index_forwarder(
                 raise
             response = None
             response_lost = True
-        result_pending = (
-            False
-            if response_lost
-            else _is_typed_knowledge_index_result_pending(response)
-        )
+        result_pending = False if response_lost else _is_typed_knowledge_index_result_pending(response)
         if not response_lost and not result_pending:
             return response
         if attempt >= retry_policy.max_forward_attempts:
@@ -265,52 +229,27 @@ def _materialize_forwarded_knowledge_index_result(
     }
     framework_fields = {"handler_contract"}
     if result_schema == "ananta.knowledge_index_execution_result.v2":
-        candidate = {
-            field: value
-            for field, value in response.items()
-            if field not in framework_fields
-        }
+        candidate = {field: value for field, value in response.items() if field not in framework_fields}
     else:
         unknown_fields = set(response) - result_fields - framework_fields
         if unknown_fields:
-            raise ValueError(
-                "knowledge_index_result_forwarding_fields_unknown"
-            )
-        candidate = {
-            field: response.get(field) for field in result_fields
-        }
+            raise ValueError("knowledge_index_result_forwarding_fields_unknown")
+        candidate = {field: response.get(field) for field in result_fields}
     if hub_state is None or index_jobs is None:
         dependencies = _current_dependencies()
         hub_state = hub_state or dependencies.hub_state
         index_jobs = index_jobs or dependencies.index_jobs
-    execution_context = dict(
-        task.get("worker_execution_context") or {}
-    )
-    execution_job = dict(
-        execution_context.get("knowledge_index_job") or {}
-    )
-    if (
-        execution_job.get("schema")
-        == "ananta.knowledge_index_execution_job.v2"
-    ):
+    execution_context = dict(task.get("worker_execution_context") or {})
+    execution_job = dict(execution_context.get("knowledge_index_job") or {})
+    if execution_job.get("schema") == "ananta.knowledge_index_execution_job.v2":
         job_service = index_jobs.governed_index_job_service()
-        assigned_worker_url = str(
-            task.get("assigned_agent_url") or ""
-        ).strip()
+        assigned_worker_url = str(task.get("assigned_agent_url") or "").strip()
         assigned_worker = (
-            hub_state.repositories().agent_repo.get_by_url(
-                assigned_worker_url
-            )
-            if assigned_worker_url
-            else None
+            hub_state.repositories().agent_repo.get_by_url(assigned_worker_url) if assigned_worker_url else None
         )
-        authenticated_worker_id = str(
-            getattr(assigned_worker, "name", "") or ""
-        ).strip()
+        authenticated_worker_id = str(getattr(assigned_worker, "name", "") or "").strip()
         if not authenticated_worker_id:
-            raise ValueError(
-                "knowledge_index_result_worker_identity_missing"
-            )
+            raise ValueError("knowledge_index_result_worker_identity_missing")
     else:
         job_service = hub_state.core_services().knowledge_index_job_service
         authenticated_worker_id = None

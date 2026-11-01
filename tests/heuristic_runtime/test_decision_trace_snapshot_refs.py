@@ -1,5 +1,4 @@
 """Tests für DecisionTrace mit Snapshot-Referenzen (v2)."""
-import pytest
 
 from agent.services.heuristic_runtime.decision_trace import DecisionTrace
 
@@ -106,10 +105,9 @@ def test_missing_snapshot_fields_do_not_block_resolve():
 def test_from_decision_result_backward_compat():
     """from_decision_result() funktioniert ohne Snapshot-Refs."""
     from agent.services.heuristic_runtime.decision_result import DecisionResult
+
     result = DecisionResult.heuristic_follow(dx=1, dy=0, strategy_id="test_strategy")
-    trace = DecisionTrace.from_decision_result(
-        result, surface="tui_snake", context_hash="ctx_hash"
-    )
+    trace = DecisionTrace.from_decision_result(result, surface="tui_snake", context_hash="ctx_hash")
     assert trace.surface == "tui_snake"
     assert trace.context_hash == "ctx_hash"
     assert trace.snapshot_hash is None

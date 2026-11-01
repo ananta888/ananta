@@ -28,7 +28,7 @@ def test_sanitize_input_keeps_benign_words_with_dan_substring() -> None:
 
 
 def test_extract_json_payload_handles_markdown_wrapper() -> None:
-    payload = extract_json_payload("```json\n[{\"title\":\"A\"}]\n```")
+    payload = extract_json_payload('```json\n[{"title":"A"}]\n```')
     assert payload == '[{"title":"A"}]'
 
 
@@ -43,26 +43,20 @@ def test_parse_subtasks_from_llm_response_normalizes_priority_and_depends_on() -
 
 
 def test_parse_subtasks_from_llm_response_accepts_python_literal_payload() -> None:
-    subtasks = parse_subtasks_from_llm_response(
-        "[{'title':'Task 1','description':'Desc 1','priority':'high'}]"
-    )
+    subtasks = parse_subtasks_from_llm_response("[{'title':'Task 1','description':'Desc 1','priority':'high'}]")
     assert len(subtasks) == 1
     assert subtasks[0]["title"] == "Task 1"
     assert subtasks[0]["priority"] == "High"
 
 
 def test_parse_diagnostics_strict_json() -> None:
-    _tasks, diag = parse_subtasks_with_diagnostics(
-        '[{"title":"Task 1","description":"Desc","priority":"high"}]'
-    )
+    _tasks, diag = parse_subtasks_with_diagnostics('[{"title":"Task 1","description":"Desc","priority":"high"}]')
     assert diag["parse_mode"] == "strict_json"
     assert diag["confidence"] == "high"
 
 
 def test_parse_diagnostics_python_literal() -> None:
-    _tasks, diag = parse_subtasks_with_diagnostics(
-        "[{'title':'Task 1','description':'Desc 1','priority':'high'}]"
-    )
+    _tasks, diag = parse_subtasks_with_diagnostics("[{'title':'Task 1','description':'Desc 1','priority':'high'}]")
     assert diag["parse_mode"] == "python_literal"
     assert diag["confidence"] == "medium"
 

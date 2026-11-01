@@ -1,4 +1,5 @@
 """Token-budget adapter for CLI backend command execution."""
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,7 @@ def _configured_opencode_model() -> str:
         if has_app_context():
             cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
             runtime = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
-            configured = (runtime.get("target_model") or runtime.get("model") or cfg.get("opencode_default_model"))
+            configured = runtime.get("target_model") or runtime.get("model") or cfg.get("opencode_default_model")
             if configured:
                 return str(configured)
     except Exception:  # noqa: BLE001

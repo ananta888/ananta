@@ -77,10 +77,7 @@ def token_scope_allows_request(
         if not snake_events_stream_identity_is_bound(claims):
             return False
         snake_id = str(claims.get("stream_snake_id") or "")
-        return (
-            str(method).upper() == "GET"
-            and str(path) == f"/snakes/{snake_id}/events/stream"
-        )
+        return str(method).upper() == "GET" and str(path) == f"/snakes/{snake_id}/events/stream"
     return True
 
 

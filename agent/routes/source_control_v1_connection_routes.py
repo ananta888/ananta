@@ -1,5 +1,4 @@
-"""Connection intake, catalog and connection read routes of the Source Control v1 API.
-"""
+"""Connection intake, catalog and connection read routes of the Source Control v1 API."""
 
 from __future__ import annotations
 
@@ -37,7 +36,8 @@ def register_connection_intake_routes(
     @check_auth
     @boundary
     def validate_connection():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_connection",
             collection=True,
@@ -58,7 +58,8 @@ def register_connection_intake_routes(
     @check_auth
     @boundary
     def create_connection():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_connection",
             collection=True,
@@ -81,7 +82,8 @@ def register_connection_intake_routes(
     @check_auth
     @boundary
     def validate_content_admission():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_connection",
             collection=True,
@@ -99,7 +101,8 @@ def register_connection_intake_routes(
     @check_auth
     @boundary
     def create_content_admission():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.INDEX,
             resource_kind="source_connection",
             collection=True,
@@ -120,10 +123,9 @@ def register_connection_intake_routes(
         catalog: str,
         allowed: frozenset[str],
     ):
-        principal, project_id, cursor, limit, filters = request_guard.catalog_request(
-            allowed=allowed
-        )
-        denied = request_guard.authorize(api,
+        principal, project_id, cursor, limit, filters = request_guard.catalog_request(allowed=allowed)
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.LIST,
             resource_kind="source_connection",
             collection=True,
@@ -148,9 +150,7 @@ def register_connection_intake_routes(
     def list_workspaces():
         return catalog_response(
             catalog="workspaces",
-            allowed=frozenset(
-                {"project_id", "cursor", "limit", "q", "enabled"}
-            ),
+            allowed=frozenset({"project_id", "cursor", "limit", "q", "enabled"}),
         )
 
     @blueprint.get("/registered-remotes")
@@ -177,9 +177,7 @@ def register_connection_intake_routes(
     def list_index_profiles():
         return catalog_response(
             catalog="index_profiles",
-            allowed=frozenset(
-                {"project_id", "cursor", "limit", "q", "source"}
-            ),
+            allowed=frozenset({"project_id", "cursor", "limit", "q", "source"}),
         )
 
 
@@ -196,7 +194,8 @@ def register_connection_read_routes(
     @check_auth
     @boundary
     def list_connections():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.LIST,
             resource_kind="source_connection",
             collection=True,
@@ -231,7 +230,8 @@ def register_connection_read_routes(
     @check_auth
     @boundary
     def get_connection(connection_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.DETAIL,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -250,7 +250,8 @@ def register_connection_read_routes(
     @check_auth
     @boundary
     def run_history(connection_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.DETAIL,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -284,14 +285,16 @@ def register_connection_read_routes(
         )
         left = required_string(payload, "left_index_id")
         right = required_string(payload, "right_index_id")
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.DETAIL,
             resource_kind="knowledge_index",
             resource_id=left,
         )
         if denied is not None:
             return denied
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.DETAIL,
             resource_kind="knowledge_index",
             resource_id=right,

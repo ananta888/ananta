@@ -14,8 +14,7 @@ class ModelProviderResult:
 
 
 class WorkerModelProvider(Protocol):
-    def complete(self, *, prompt: str, prompt_template_version: str) -> ModelProviderResult:
-        ...
+    def complete(self, *, prompt: str, prompt_template_version: str) -> ModelProviderResult: ...
 
 
 class OpenAICompatibleModelProvider:

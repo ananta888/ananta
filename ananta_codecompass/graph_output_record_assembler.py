@@ -317,9 +317,8 @@ def _semantic_translation_diagnostics(
         }
     if normalized_semantic_budget:
         semantic_translation["semantic_budget"] = normalized_semantic_budget
-        if (
-            bool(normalized_semantic_budget.get("truncated"))
-            or int(normalized_semantic_budget.get("unresolved_edge_count") or 0)
+        if bool(normalized_semantic_budget.get("truncated")) or int(
+            normalized_semantic_budget.get("unresolved_edge_count") or 0
         ):
             semantic_translation["status"] = "degraded"
             semantic_translation["reason"] = "semantic_graph_partial"
@@ -371,11 +370,7 @@ def _repository_intelligence(
         "schema": "codecompass_repository_intelligence.v1",
         "nodes": rig_nodes_list,
         "edges": rig_edges_list,
-        "nodes_by_id": {
-            n["id"]: n
-            for n in rig_nodes_list
-            if isinstance(n, dict) and n.get("id")
-        },
+        "nodes_by_id": {n["id"]: n for n in rig_nodes_list if isinstance(n, dict) and n.get("id")},
         "node_count": len(rig_nodes_list),
         "edge_count": len(rig_edges_list),
     }

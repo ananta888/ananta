@@ -96,9 +96,7 @@ def test_strict_session_packages_confirmation_and_replay_gate(client, admin_auth
     assert final_contract["offer"]["key_epoch"] == 2
     assert "private" not in json.dumps(package_data).lower()
 
-    alice_packages = client.get(
-        f"/share-sessions/{session_id}/security/key-packages", headers=alice_headers
-    ).get_json()
+    alice_packages = client.get(f"/share-sessions/{session_id}/security/key-packages", headers=alice_headers).get_json()
 
     tag = base64.b64encode(b"t" * 32).decode()
     forged = client.post(
@@ -159,9 +157,7 @@ def test_strict_session_packages_confirmation_and_replay_gate(client, admin_auth
         "message_id": "secure-1",
         "encrypted_payload": json.dumps(sealed.to_dict()),
     }
-    not_confirmed = client.post(
-        f"/share-sessions/{session_id}/view/push", headers=admin_auth_header, json=relay_body
-    )
+    not_confirmed = client.post(f"/share-sessions/{session_id}/view/push", headers=admin_auth_header, json=relay_body)
     assert not_confirmed.status_code == 409
     assert not_confirmed.get_json()["error"] == "bidirectional_key_confirmation_required"
 
@@ -354,9 +350,7 @@ def test_strict_session_packages_confirmation_and_replay_gate(client, admin_auth
         json={"id": "chat-secure-1", "encrypted_payload": json.dumps(sealed_chat.to_dict())},
     )
     assert sent_chat.status_code == 201
-    relayed_chat = client.get(
-        f"/share-sessions/{session_id}/chat/messages", headers=alice_headers
-    )
+    relayed_chat = client.get(f"/share-sessions/{session_id}/chat/messages", headers=alice_headers)
     assert relayed_chat.status_code == 200
     relayed_document = relayed_chat.get_json()
     assert canary not in json.dumps(relayed_document)

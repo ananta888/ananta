@@ -1,7 +1,7 @@
 """CLI commands for the Emergence Simulation Lab (SIM-037)."""
+
 from __future__ import annotations
 
-import json
 from typing import Any
 
 
@@ -39,15 +39,14 @@ def cmd_sim(args: list[str], output_fn: Any = print) -> dict[str, Any]:
 
 
 def _help(output_fn: Any) -> dict[str, Any]:
-    output_fn(
-        "sim: :sim list | :sim run <scenario> [--ticks N] | :sim status"
-    )
+    output_fn("sim: :sim list | :sim run <scenario> [--ticks N] | :sim status")
     return {"ok": True, "sub": "help"}
 
 
 def _list_scenarios(output_fn: Any) -> dict[str, Any]:
     try:
         from simulation.scenarios.standard_scenarios import list_scenarios
+
         names = list_scenarios()
         output_fn("Available scenarios: " + ", ".join(names))
         return {"ok": True, "scenarios": names}
@@ -58,22 +57,19 @@ def _list_scenarios(output_fn: Any) -> dict[str, Any]:
 
 def _run_scenario(name: str, ticks: int, output_fn: Any) -> dict[str, Any]:
     try:
-        from simulation.engine.batch_runner import BatchRunner, _build_world
-        from simulation.scenarios.standard_scenarios import get_scenario
+        from simulation.engine.batch_runner import BatchRunner
         from simulation.models.scenario import BudgetConfig
+        from simulation.scenarios.standard_scenarios import get_scenario
 
         scenario = get_scenario(name)
         # Override tick limit
-        patched = scenario.model_copy(
-            update={"budget": BudgetConfig(max_ticks=ticks, stop_on_extinction=True)}
-        )
+        patched = scenario.model_copy(update={"budget": BudgetConfig(max_ticks=ticks, stop_on_extinction=True)})
         runner = BatchRunner()
         results = runner.run([patched])
         r = results[0]
         output_fn(f"[sim] {name} done — {r.ticks_run} ticks in {r.elapsed_seconds:.1f}s")
         outcome = r.report.get("outcome", {})
-        output_fn(f"[sim] outcome: {outcome.get('category')} ({outcome.get('severity')}): "
-                  f"{outcome.get('description')}")
+        output_fn(f"[sim] outcome: {outcome.get('category')} ({outcome.get('severity')}): {outcome.get('description')}")
         return {"ok": True, "run_id": r.run_id, "report": r.report}
     except Exception as exc:
         output_fn(f"[sim] error: {exc}")

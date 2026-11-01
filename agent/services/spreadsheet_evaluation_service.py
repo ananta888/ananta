@@ -118,8 +118,7 @@ class SpreadsheetEvaluationService:
             "schema_valid": adapter_metrics["schema_valid_rate"] == 1.0,
             "action_valid": adapter_metrics["action_valid_rate"] == 1.0,
             "safe_rejection": (
-                adapter_metrics["safe_rejection_case_count"] > 0
-                and adapter_metrics["safe_rejection_rate"] == 1.0
+                adapter_metrics["safe_rejection_case_count"] > 0 and adapter_metrics["safe_rejection_rate"] == 1.0
             ),
             "safe_policy": adapter_metrics["safe_policy_rate"] == 1.0,
             "execution_success": adapter_metrics["execution_success_rate"] == 1.0,

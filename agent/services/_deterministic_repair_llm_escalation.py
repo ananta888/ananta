@@ -10,23 +10,14 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 from agent.services._deterministic_repair_constants import (
     LLM_ESCALATION_POLICY_MODEL,
 )
 
 log = logging.getLogger(__name__)
-
-
 
 
 def decide_llm_escalation(
@@ -64,9 +55,6 @@ def decide_llm_escalation(
             "forbidden_when": list(LLM_ESCALATION_POLICY_MODEL["forbidden_when"]),
         },
     }
-
-
-
 
 
 def build_bounded_escalation_prompt(
@@ -115,9 +103,6 @@ def build_bounded_escalation_prompt(
     }
 
 
-
-
-
 def curate_escalation_feedback(
     *,
     escalation_decision: dict[str, Any],
@@ -152,6 +137,3 @@ def curate_escalation_feedback(
         "candidates": candidates,
         "explicit_curation_step_required": True,
     }
-
-
-

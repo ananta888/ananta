@@ -4,6 +4,7 @@ Authenticates against the Hub, submits index records to the Hub task queue
 and polls the delegated index job. The script only talks to the Hub; the
 Hub remains the owner of the index job.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,20 +43,22 @@ def post_index(
     source_metadata: dict | None = None,
     urlopen: Callable[..., Any] | None = None,
 ) -> dict:
-    payload = json.dumps({
-        "source_scope": SOURCE_SCOPE,
-        "source_id": source_id,
-        "records": records,
-        # Index builds are delegated to the persistent Hub task queue.  The
-        # field remains explicit for compatibility with older Hub versions.
-        "async": True,
-        "profile_name": "deep_code",
-        "source_metadata": {
-            "project": "ananta",
-            "indexed_by": "setup_codecompass_index.py",
-            **dict(source_metadata or {}),
-        },
-    }).encode()
+    payload = json.dumps(
+        {
+            "source_scope": SOURCE_SCOPE,
+            "source_id": source_id,
+            "records": records,
+            # Index builds are delegated to the persistent Hub task queue.  The
+            # field remains explicit for compatibility with older Hub versions.
+            "async": True,
+            "profile_name": "deep_code",
+            "source_metadata": {
+                "project": "ananta",
+                "indexed_by": "setup_codecompass_index.py",
+                **dict(source_metadata or {}),
+            },
+        }
+    ).encode()
     req = urllib.request.Request(
         f"{hub.rstrip('/')}/knowledge/sources/index-records",
         data=payload,

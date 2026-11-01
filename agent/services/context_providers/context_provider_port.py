@@ -3,9 +3,10 @@
 Neutral interface for context retrieval providers. No Augment-specific types.
 Supports CodeCompass, Augment, and Fake/test providers transparently.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -27,21 +28,21 @@ class ContextItem:
 
     item_id: str
     provider: str
-    path: str                   # relative path in workspace
-    symbol: str | None          # function/class name if applicable
+    path: str  # relative path in workspace
+    symbol: str | None  # function/class name if applicable
     line_start: int | None
     line_end: int | None
-    snippet: str                # max 2000 chars, may be truncated
-    score: float                # 0.0-1.0 relevance score
-    reason: str                 # why this is relevant
-    source_kind: str            # "ast_call" | "import" | "doc" | "keyword" | "semantic"
-    redaction_state: str        # "clean" | "truncated" | "redacted" | "blocked"
+    snippet: str  # max 2000 chars, may be truncated
+    score: float  # 0.0-1.0 relevance score
+    reason: str  # why this is relevant
+    source_kind: str  # "ast_call" | "import" | "doc" | "keyword" | "semantic"
+    redaction_state: str  # "clean" | "truncated" | "redacted" | "blocked"
     warnings: list[str]
     correlation_id: str | None
 
     # Evidence/Confidence (extended for COSMOS-014 compatibility)
-    confidence: float = 0.5     # 0.0-1.0
-    freshness: float = 1.0      # 0.0-1.0
+    confidence: float = 0.5  # 0.0-1.0
+    freshness: float = 1.0  # 0.0-1.0
     policy_status: str = "allowed"  # "allowed" | "denied" | "uncertain"
 
 
@@ -49,7 +50,7 @@ class ContextItem:
 class ContextProviderResult:
     """Normalized result from any context provider."""
 
-    provider: str               # "codecompass" | "augment" | "fake"
+    provider: str  # "codecompass" | "augment" | "fake"
     query: str
     workspace_ref: str
     items: list[ContextItem]
@@ -61,9 +62,9 @@ class ContextProviderResult:
 @dataclass
 class ProviderHealth:
     provider: str
-    status: str                 # "ok" | "degraded" | "unavailable" | "misconfigured"
+    status: str  # "ok" | "degraded" | "unavailable" | "misconfigured"
     message: str
-    checks: dict[str, bool]     # {check_name: passed}
+    checks: dict[str, bool]  # {check_name: passed}
 
 
 @dataclass

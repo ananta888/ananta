@@ -105,4 +105,3 @@ def downgrade() -> None:
         op.drop_table("instruction_overlays")
     if _table_exists("user_instruction_profiles"):
         op.drop_table("user_instruction_profiles")
-

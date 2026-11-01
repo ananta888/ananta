@@ -36,4 +36,3 @@ def build_relation_explanation(
             "expansion_reason": reason,
         },
     }
-

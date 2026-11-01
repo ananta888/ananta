@@ -6,8 +6,8 @@ import pytest
 from flask import Flask
 
 from agent.routes import organization_planning as routes
-from agent.routes.organization_planning_dependencies import ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES
 from agent.routes import organization_planning_request_parsing as request_parsing
+from agent.routes.organization_planning_dependencies import ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES
 from agent.services.organization_membership_service import OrganizationAccessPrincipal
 from agent.services.organization_planning_composition import (
     OrganizationPlanningCompositionError,

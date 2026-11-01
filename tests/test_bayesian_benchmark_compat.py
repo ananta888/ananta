@@ -11,19 +11,19 @@ Verifies that:
 
 Covers BAYES-015.
 """
+
 import json
 import os
-import tempfile
 import time
 
 import pytest
 
 import agent.hub_benchmark as hub
-import agent.ollama_benchmark as ollama
 import agent.llm_benchmarks as llm
-
+import agent.ollama_benchmark as ollama
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
+
 
 def _write_json(path: str, data: dict) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -154,6 +154,7 @@ def _llm_db(provider: str = "openai", model: str = "gpt-4o-mini", n_samples: int
 
 # ── Hub backward compatibility ────────────────────────────────────────────────
 
+
 class TestHubBenchmarkCompat:
     @pytest.fixture()
     def data_dir(self, tmp_path):
@@ -217,6 +218,7 @@ class TestHubBenchmarkCompat:
 
 # ── Ollama backward compatibility ──────────────────────────────────────────────
 
+
 class TestOllamaBenchmarkCompat:
     @pytest.fixture()
     def data_dir(self, tmp_path):
@@ -254,6 +256,7 @@ class TestOllamaBenchmarkCompat:
 
 # ── llm_benchmarks backward compatibility ────────────────────────────────────
 
+
 class TestLlmBenchmarkCompat:
     @pytest.fixture()
     def data_dir(self, tmp_path):
@@ -262,9 +265,7 @@ class TestLlmBenchmarkCompat:
         return str(tmp_path)
 
     def test_recommend_models_for_context_default_keys_without_bayesian(self, data_dir):
-        results = llm.recommend_models_for_context(
-            data_dir=data_dir, task_kind="analysis", min_samples=1
-        )
+        results = llm.recommend_models_for_context(data_dir=data_dir, task_kind="analysis", min_samples=1)
         assert results
         for key in ("provider", "model", "task_kind", "sample_count", "score"):
             assert key in results[0], f"missing key: {key}"
@@ -301,6 +302,7 @@ class TestLlmBenchmarkCompat:
 
 
 # ── Cross-system: malformed payloads ──────────────────────────────────────────
+
 
 class TestMalformedPayloadHandling:
     def test_hub_null_samples_in_db(self, tmp_path):

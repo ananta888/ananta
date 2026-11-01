@@ -18,7 +18,6 @@ from ananta_contracts.knowledge_hygiene import (
     canonical_digest,
 )
 
-
 _SAFE_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _SAFE_PROJECT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 
@@ -70,8 +69,7 @@ class AtomicMarkdownProjector:
             "aliases": list(page.aliases),
         }
         metadata = "\n".join(
-            f"{key}: {json.dumps(value, ensure_ascii=True, sort_keys=True)}"
-            for key, value in frontmatter.items()
+            f"{key}: {json.dumps(value, ensure_ascii=True, sort_keys=True)}" for key, value in frontmatter.items()
         )
         warning = ""
         if page.conflict_refs:

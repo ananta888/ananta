@@ -27,9 +27,14 @@ from agent.services.unsloth_storage_contracts import StorageReferencePort
 
 
 def build_hub_specialist_promotion(
-    *, registry: MlInternAdapterRegistryService, artifact_root: Path,
-    record: AdapterRecord, decision: PromotionDecision, receipts: SpecialistPromotionReceiptPort,
-    evaluation_evidence: EvaluationPromotionReadPort, release_evidence: HubRegisteredReleaseEvidence,
+    *,
+    registry: MlInternAdapterRegistryService,
+    artifact_root: Path,
+    record: AdapterRecord,
+    decision: PromotionDecision,
+    receipts: SpecialistPromotionReceiptPort,
+    evaluation_evidence: EvaluationPromotionReadPort,
+    release_evidence: HubRegisteredReleaseEvidence,
     repository: SpecialistReleaseJobPort,
     outcomes: SpecialistOutcomePort,
     audit_sink: Callable[[str, Mapping[str, Any]], None],
@@ -39,29 +44,41 @@ def build_hub_specialist_promotion(
     if not isinstance(release_evidence, HubRegisteredReleaseEvidence):
         raise ValueError("specialist_promotion_hub_evidence_required")
     reader = SpecialistRegisteredBenchmarkReader(
-        registry=registry, reports=SpecialistBenchmarkProjectionStore(artifact_root=artifact_root),
+        registry=registry,
+        reports=SpecialistBenchmarkProjectionStore(artifact_root=artifact_root),
         allow_promotion_replay=True,
     )
     evaluations = SpecialistPromotionEvaluationReadModel(
-        record=record, decision=decision, benchmarks=reader, receipts=receipts,
+        record=record,
+        decision=decision,
+        benchmarks=reader,
+        receipts=receipts,
         evaluation_evidence=evaluation_evidence,
         execution_bindings=SpecialistReleaseExecutionBindings(
-            repository=repository, evidence=release_evidence, outcomes=outcomes,
+            repository=repository,
+            evidence=release_evidence,
+            outcomes=outcomes,
         ),
     )
     return MlInternEvaluationPromotionFacade(
-        registry=registry, evaluations=evaluations,
-        trusted_source_ids=(), trusted_run_ids=(), evidence_registry=release_evidence,
-        audit_sink=audit_sink, storage_references=storage_references,
+        registry=registry,
+        evaluations=evaluations,
+        trusted_source_ids=(),
+        trusted_run_ids=(),
+        evidence_registry=release_evidence,
+        audit_sink=audit_sink,
+        storage_references=storage_references,
         promotion_guard=_SpecialistReleaseGuard(
-            quality=SpecialistBenchmarkPromotionGuard(reader=reader, decision=decision), evaluations=evaluations,
+            quality=SpecialistBenchmarkPromotionGuard(reader=reader, decision=decision),
+            evaluations=evaluations,
         ),
     )
 
 
 class _SpecialistReleaseGuard:
-    def __init__(self, *, quality: SpecialistBenchmarkPromotionGuard,
-                 evaluations: SpecialistPromotionEvaluationReadModel):
+    def __init__(
+        self, *, quality: SpecialistBenchmarkPromotionGuard, evaluations: SpecialistPromotionEvaluationReadModel
+    ):
         self._quality = quality
         self._evaluations = evaluations
 

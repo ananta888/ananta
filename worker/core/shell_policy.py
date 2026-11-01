@@ -4,41 +4,41 @@ EW-T015: command_plan produces CommandPlanArtifact only.
           command_execute requires shell_execute capability + approval when confirm_required.
           Commands outside workspace or environment constraints are refused.
 """
+
 from __future__ import annotations
 
-import os
 import re
 import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 # ── Unsafe command patterns (deny-list) ───────────────────────────────────────
 
 _UNSAFE_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f\b"),        # rm -rf
-    re.compile(r"\bmkfs\b"),                                 # format filesystem
-    re.compile(r"\bdd\s+.*of=/dev/"),                        # dd to block device
-    re.compile(r"\bchmod\s+[0-9]*7[0-9]*\s+/"),             # world-writable root paths
-    re.compile(r"\bcurl\b.*\|\s*(bash|sh|zsh)\b"),           # pipe-to-shell download
+    re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f\b"),  # rm -rf
+    re.compile(r"\bmkfs\b"),  # format filesystem
+    re.compile(r"\bdd\s+.*of=/dev/"),  # dd to block device
+    re.compile(r"\bchmod\s+[0-9]*7[0-9]*\s+/"),  # world-writable root paths
+    re.compile(r"\bcurl\b.*\|\s*(bash|sh|zsh)\b"),  # pipe-to-shell download
     re.compile(r"\bwget\b.*-O\s*-.*\|\s*(bash|sh|zsh)\b"),  # wget pipe-to-shell
-    re.compile(r"\bsudo\b"),                                 # privilege escalation
-    re.compile(r"\bsu\s+-"),                                 # switch user
-    re.compile(r">\s*/dev/(sd|nvme|hd)[a-z]"),              # write to block device
-    re.compile(r"\bkill\s+-9\s+1\b"),                        # kill init
-    re.compile(r"\bpkill\s+.*-9\b"),                         # mass kill
-    re.compile(r"\biptables\b"),                             # firewall manipulation
-    re.compile(r"\bnftables?\b"),                            # firewall manipulation
+    re.compile(r"\bsudo\b"),  # privilege escalation
+    re.compile(r"\bsu\s+-"),  # switch user
+    re.compile(r">\s*/dev/(sd|nvme|hd)[a-z]"),  # write to block device
+    re.compile(r"\bkill\s+-9\s+1\b"),  # kill init
+    re.compile(r"\bpkill\s+.*-9\b"),  # mass kill
+    re.compile(r"\biptables\b"),  # firewall manipulation
+    re.compile(r"\bnftables?\b"),  # firewall manipulation
 ]
 
 _WORKSPACE_ESCAPE_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"\.\./\.\./"),   # multiple levels of ../ traversal
-    re.compile(r"~[/\\]"),       # home directory escape
+    re.compile(r"\.\./\.\./"),  # multiple levels of ../ traversal
+    re.compile(r"~[/\\]"),  # home directory escape
 ]
 
 
 # ── CommandPlanArtifact ───────────────────────────────────────────────────────
+
 
 @dataclass
 class PlannedCommand:
@@ -53,6 +53,7 @@ class PlannedCommand:
 @dataclass
 class CommandPlanArtifact:
     """Produced by plan_shell — no execution occurs. EW-T015."""
+
     task_id: str
     goal: str
     workspace_root: str
@@ -82,6 +83,7 @@ class CommandPlanArtifact:
 
 # ── ShellPolicyResult ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class ShellPolicyResult:
     allowed: bool
@@ -90,6 +92,7 @@ class ShellPolicyResult:
 
 
 # ── ShellPolicy ───────────────────────────────────────────────────────────────
+
 
 class ShellPolicy:
     """Validates shell commands against workspace scope and unsafe patterns.
@@ -110,14 +113,16 @@ class ShellPolicy:
 
         if self._matches_unsafe(command):
             return ShellPolicyResult(
-                False, "shell_command_unsafe",
+                False,
+                "shell_command_unsafe",
                 f"command matches unsafe pattern: {command[:80]!r}",
             )
 
         effective_cwd = cwd or workspace_root
         if workspace_root and not self._within_workspace(command, workspace_root, effective_cwd):
             return ShellPolicyResult(
-                False, "tool_scope_violation",
+                False,
+                "tool_scope_violation",
                 f"command references path outside workspace {workspace_root!r}",
             )
 
@@ -134,7 +139,8 @@ class ShellPolicy:
             return ShellPolicyResult(True, "cwd_ok")
         except ValueError:
             return ShellPolicyResult(
-                False, "tool_scope_violation",
+                False,
+                "tool_scope_violation",
                 f"cwd {cwd!r} is outside workspace {workspace_root!r}",
             )
 
@@ -169,13 +175,15 @@ class ShellPolicy:
         for i, cmd in enumerate(commands, start=1):
             result = self.check_command(cmd, workspace_root=workspace_root)
             requires_approval = not result.allowed or bool(self.classify_side_effects(cmd))
-            artifact.steps.append(PlannedCommand(
-                step=i,
-                command=cmd,
-                cwd=workspace_root,
-                side_effects=self.classify_side_effects(cmd),
-                requires_approval=requires_approval,
-            ))
+            artifact.steps.append(
+                PlannedCommand(
+                    step=i,
+                    command=cmd,
+                    cwd=workspace_root,
+                    side_effects=self.classify_side_effects(cmd),
+                    requires_approval=requires_approval,
+                )
+            )
             if not result.allowed:
                 artifact.warnings.append(f"step {i}: {result.detail}")
         return artifact

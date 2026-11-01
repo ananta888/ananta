@@ -5,7 +5,6 @@ import pytest
 from agent.config import settings
 from agent.llm_integration import generate_text
 
-
 pytestmark = pytest.mark.usefixtures("public_provider_dns")
 
 

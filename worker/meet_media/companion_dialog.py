@@ -134,8 +134,10 @@ def context_block(snippets, *, max_chars=1400, preserve_lines=False, show_score=
         symbol = str(item.get("symbol") or "").strip()
         line, line_end = item.get("line"), item.get("line_end")
         raw = str(item.get("excerpt") or "")
-        excerpt = "\n".join(part.rstrip() for part in raw.strip("\n").splitlines()) if preserve_lines else " ".join(
-            raw.split()
+        excerpt = (
+            "\n".join(part.rstrip() for part in raw.strip("\n").splitlines())
+            if preserve_lines
+            else " ".join(raw.split())
         )
         if not excerpt.strip():
             continue
@@ -288,7 +290,8 @@ class CompanionDialog:
                 self._tools.force(choice.tool, dict(choice.arguments))
                 trace.codecompass_used = True
                 trace.observe(
-                    f"{choice.tool} chosen by the decision fast path (p={choice.confidence:.2f}) before the model call")
+                    f"{choice.tool} chosen by the decision fast path (p={choice.confidence:.2f}) before the model call"
+                )
                 grounded = True
         if decision.route == MEET_RUNTIME_CURRENT_DIALOG:
             runtime = str(self._runtime_context() or "").strip()

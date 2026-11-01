@@ -122,10 +122,7 @@ def run_execute_workspace_path(
 
             reason_code = "native_worker_in_process_execution_disabled"
             execution_run = LocalExecutionResult(
-                output=(
-                    "native_worker_runtime degraded: dedicated Worker delegation "
-                    f"required ({reason_code})"
-                ),
+                output=(f"native_worker_runtime degraded: dedicated Worker delegation required ({reason_code})"),
                 exit_code=1,
                 retries_used=0,
                 failure_type="runtime_failure",
@@ -146,9 +143,7 @@ def run_execute_workspace_path(
                 },
                 "runtime_path": "delegated_worker_required",
             }
-            policy_classification_summary = (
-                "denied:hub_in_process_execution_disabled"
-            )
+            policy_classification_summary = "denied:hub_in_process_execution_disabled"
         else:
             execution_run = get_core_services().task_execution_service.execute_local_step(
                 tid=tid,
@@ -161,9 +156,13 @@ def run_execute_workspace_path(
                 exec_started_at=exec_started_at,
                 working_directory=str(workspace_ctx.workspace_dir),
             )
-            if used_last_proposal and cli_runner and (
-                is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type)
-                or is_command_not_found_failure(execution_run.output, execution_run.failure_type)
+            if (
+                used_last_proposal
+                and cli_runner
+                and (
+                    is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type)
+                    or is_command_not_found_failure(execution_run.output, execution_run.failure_type)
+                )
             ):
                 repaired_execution = attempt_repaired_execute_after_meta_block(
                     tid=tid,
@@ -195,9 +194,10 @@ def run_execute_workspace_path(
         from pathlib import Path
 
         from worker.core.file_change_set import diff_snapshots
+
         before_id = hashlib.sha256(str(sorted(before_workspace_snapshot.items())).encode()).hexdigest()[:16]
         after_id = hashlib.sha256(str(sorted(after_workspace_snapshot.items())).encode()).hexdigest()[:16]
-        exec_id = f"exec-{tid}-{int(time.time()*1000)}"
+        exec_id = f"exec-{tid}-{int(time.time() * 1000)}"
         fcs = diff_snapshots(
             task_id=tid,
             execution_id=exec_id,
@@ -212,12 +212,15 @@ def run_execute_workspace_path(
         if git_ctx is not None and getattr(git_ctx, "is_clone", False) and meaningful_changed_files:
             try:
                 from agent.services.workspace_git_service import get_workspace_git_service
-                git_pushed = bool(get_workspace_git_service().commit_and_push(
-                    git_ctx.workspace_dir,
-                    branch=git_ctx.branch,
-                    message=f"task {str(tid)[:12]}: {str(task.get('title') or tid)[:60]}",
-                    task_id=str(tid),
-                ))
+
+                git_pushed = bool(
+                    get_workspace_git_service().commit_and_push(
+                        git_ctx.workspace_dir,
+                        branch=git_ctx.branch,
+                        message=f"task {str(tid)[:12]}: {str(task.get('title') or tid)[:60]}",
+                        task_id=str(tid),
+                    )
+                )
             except Exception as _git_push_err:
                 logging.warning("git commit+push failed for task %s: %s", tid, _git_push_err)
 
@@ -255,14 +258,8 @@ def run_execute_workspace_path(
                     ],
                     started_at=exec_started_at,
                     ended_at=time.time(),
-                    source_id=(
-                        str(run_record.get("source_id") or "")
-                        or None
-                    ),
-                    run_id=(
-                        str(run_record.get("record_id") or "")
-                        or None
-                    ),
+                    source_id=(str(run_record.get("source_id") or "") or None),
+                    run_id=(str(run_record.get("record_id") or "") or None),
                 )
                 tool_run_refs = [run_entry]
         except Exception:
@@ -337,15 +334,9 @@ def run_execute_workspace_path(
             },
         )
         if execution_run.status == "completed":
-            worker_execution_context = dict(
-                task.get("worker_execution_context") or {}
-            )
+            worker_execution_context = dict(task.get("worker_execution_context") or {})
             worker_execution_contract = dict(
-                task.get("worker_execution_contract")
-                or worker_execution_context.get(
-                    "worker_execution_contract"
-                )
-                or {}
+                task.get("worker_execution_contract") or worker_execution_context.get("worker_execution_contract") or {}
             )
             expected_paths = [
                 str(item.get("relative_path") or "").strip()
@@ -434,6 +425,7 @@ def run_execute_workspace_path(
         answer_verification.setdefault("answer_schema", "grounded_answer.v1")
         if answer_payload and source_catalog_sources:
             from agent.services.citation_verification_service import get_citation_verification_service
+
             verification_result = get_citation_verification_service().verify(
                 task_id=str(tid),
                 answer_payload=answer_payload,

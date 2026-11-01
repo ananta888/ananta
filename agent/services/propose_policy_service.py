@@ -2,13 +2,14 @@
 
 Merge precedence: system_default → project → blueprint_role → task_kind_override.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from agent.services.propose_policy import (
-    ProposePolicy,
     SAFE_DEFAULT_STRATEGY_ORDER,
+    ProposePolicy,
     build_policy_from_dict,
     get_task_kind_preset,
 )
@@ -88,8 +89,13 @@ class ProposePolicyService:
             "strategy_order": list(SAFE_DEFAULT_STRATEGY_ORDER),
             "llm_mode": "primary_with_guardrails",
             "accepted_output_formats": [
-                "tool_calls", "strict_json", "fenced_json",
-                "shell_block", "unified_diff", "file_blocks", "natural_language",
+                "tool_calls",
+                "strict_json",
+                "fenced_json",
+                "shell_block",
+                "unified_diff",
+                "file_blocks",
+                "natural_language",
             ],
             "allow_legacy_sgpt": False,
             "allow_unstructured_text_as_execution": False,
@@ -148,7 +154,13 @@ class ProposePolicyService:
         # runtimes keep the same execution contract as other OpenAI-compatible
         # providers.
         order = [str(s).strip() for s in list(result.get("strategy_order") or []) if str(s).strip()]
-        preferred = ["tool_calling_llm", "flexible_llm_normalization", "worker_strategy", "advisory_proposal", "human_review"]
+        preferred = [
+            "tool_calling_llm",
+            "flexible_llm_normalization",
+            "worker_strategy",
+            "advisory_proposal",
+            "human_review",
+        ]
         normalized: list[str] = []
         for sid in preferred + order:
             if sid not in normalized:
@@ -176,13 +188,25 @@ class ProposePolicyService:
             elif "ollama" in runtime_profile:
                 profile = "ollama_rtx3080"
         if profile == "lmstudio_laptop":
-            result["context_compactor_timeout_seconds"] = min(int(result.get("context_compactor_timeout_seconds") or 45), 40)
-            result["context_compactor_max_output_chars"] = min(int(result.get("context_compactor_max_output_chars") or 12000), 8000)
-            result["context_compactor_retry_attempts"] = min(int(result.get("context_compactor_retry_attempts") or 1), 1)
+            result["context_compactor_timeout_seconds"] = min(
+                int(result.get("context_compactor_timeout_seconds") or 45), 40
+            )
+            result["context_compactor_max_output_chars"] = min(
+                int(result.get("context_compactor_max_output_chars") or 12000), 8000
+            )
+            result["context_compactor_retry_attempts"] = min(
+                int(result.get("context_compactor_retry_attempts") or 1), 1
+            )
         elif profile == "ollama_rtx3080":
-            result["context_compactor_timeout_seconds"] = min(120, max(45, int(result.get("context_compactor_timeout_seconds") or 60)))
-            result["context_compactor_max_output_chars"] = min(24000, max(10000, int(result.get("context_compactor_max_output_chars") or 16000)))
-            result["context_compactor_retry_attempts"] = min(3, max(1, int(result.get("context_compactor_retry_attempts") or 2)))
+            result["context_compactor_timeout_seconds"] = min(
+                120, max(45, int(result.get("context_compactor_timeout_seconds") or 60))
+            )
+            result["context_compactor_max_output_chars"] = min(
+                24000, max(10000, int(result.get("context_compactor_max_output_chars") or 16000))
+            )
+            result["context_compactor_retry_attempts"] = min(
+                3, max(1, int(result.get("context_compactor_retry_attempts") or 2))
+            )
         result["context_compactor_profile"] = profile
         return result
 

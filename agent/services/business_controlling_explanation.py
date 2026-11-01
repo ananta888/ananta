@@ -49,9 +49,7 @@ class EvidenceStatement:
             or len(self.bounded_text) > 500
             or any(ord(character) < 32 and character not in "\t\n" for character in self.bounded_text)
         ):
-            raise BusinessControllingExplanationError(
-                "controlling_explanation_evidence_invalid"
-            )
+            raise BusinessControllingExplanationError("controlling_explanation_evidence_invalid")
 
 
 @dataclass(frozen=True)
@@ -93,19 +91,14 @@ class BusinessControllingExplanationService:
     ) -> EvidenceBoundedExplanation:
         bounded = tuple(statements)
         if not bounded or len(bounded) > 50:
-            raise BusinessControllingExplanationError(
-                "controlling_explanation_evidence_required"
-            )
+            raise BusinessControllingExplanationError("controlling_explanation_evidence_required")
         for statement in bounded:
             statement.validate()
         if not any(
-            statement.evidence_digest
-            in {finding.evidence_digest, finding.execution_receipt_digest}
+            statement.evidence_digest in {finding.evidence_digest, finding.execution_receipt_digest}
             for statement in bounded
         ):
-            raise BusinessControllingExplanationError(
-                "controlling_explanation_finding_binding_missing"
-            )
+            raise BusinessControllingExplanationError("controlling_explanation_finding_binding_missing")
         required_kind = {
             FindingKind.DETERMINISTIC_VIOLATION: EvidenceStatementKind.RULE,
             FindingKind.RECONCILIATION_MISMATCH: EvidenceStatementKind.CALCULATION,
@@ -113,27 +106,23 @@ class BusinessControllingExplanationService:
             FindingKind.ADVISORY_EXPLANATION: EvidenceStatementKind.CALCULATION,
         }[finding.kind]
         if not any(statement.kind is required_kind for statement in bounded):
-            raise BusinessControllingExplanationError(
-                "controlling_explanation_required_evidence_missing"
-            )
+            raise BusinessControllingExplanationError("controlling_explanation_required_evidence_missing")
 
         calculation = tuple(
             _literal(statement)
             for statement in bounded
-            if statement.kind in {
+            if statement.kind
+            in {
                 EvidenceStatementKind.RULE,
                 EvidenceStatementKind.CALCULATION,
             }
         )
         hypotheses = tuple(
-            _literal(statement)
-            for statement in bounded
-            if statement.kind is EvidenceStatementKind.STATISTICAL_RECEIPT
+            _literal(statement) for statement in bounded if statement.kind is EvidenceStatementKind.STATISTICAL_RECEIPT
         )
         checks = _requested_checks(finding.kind)
         evidence_refs = tuple(
-            f"{statement.kind.value}:{statement.source_id}:{statement.evidence_digest}"
-            for statement in bounded
+            f"{statement.kind.value}:{statement.source_id}:{statement.evidence_digest}" for statement in bounded
         )
         material = {
             "finding_id": finding.finding_id,
@@ -154,9 +143,7 @@ class BusinessControllingExplanationService:
             requested_checks=checks,
             evidence_refs=evidence_refs,
             permitted_dispositions=tuple(
-                disposition.value
-                for disposition in FindingDisposition
-                if disposition is not FindingDisposition.OPEN
+                disposition.value for disposition in FindingDisposition if disposition is not FindingDisposition.OPEN
             ),
             explanation_digest=explanation_digest,
         )
@@ -170,18 +157,10 @@ def _literal(statement: EvidenceStatement) -> str:
 
 def _requested_checks(kind: FindingKind) -> tuple[str, ...]:
     return {
-        FindingKind.DETERMINISTIC_VIOLATION: (
-            "Verify the mapped field and the approved rule parameters.",
-        ),
-        FindingKind.RECONCILIATION_MISMATCH: (
-            "Verify aggregation grain, exclusions, currency and tolerance.",
-        ),
-        FindingKind.STATISTICAL_ANOMALY: (
-            "Check whether the event is seasonal, one-off or missing context.",
-        ),
-        FindingKind.ADVISORY_EXPLANATION: (
-            "Confirm the cited evidence before recording a disposition.",
-        ),
+        FindingKind.DETERMINISTIC_VIOLATION: ("Verify the mapped field and the approved rule parameters.",),
+        FindingKind.RECONCILIATION_MISMATCH: ("Verify aggregation grain, exclusions, currency and tolerance.",),
+        FindingKind.STATISTICAL_ANOMALY: ("Check whether the event is seasonal, one-off or missing context.",),
+        FindingKind.ADVISORY_EXPLANATION: ("Confirm the cited evidence before recording a disposition.",),
     }[kind]
 
 

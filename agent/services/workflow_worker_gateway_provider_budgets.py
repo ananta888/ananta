@@ -64,9 +64,7 @@ class WorkflowWorkerProviderBudgetCommands:
             reserved_cost = int(str(raw.get("reserved_cost_micros")))
             requested.assert_valid()
             if requested.maximum_attempts < 1:
-                raise ProviderBudgetError(
-                    "provider_budget_limits_invalid"
-                )
+                raise ProviderBudgetError("provider_budget_limits_invalid")
         except (TypeError, ValueError, ProviderBudgetError) as exc:
             raise WorkflowWorkerGatewayError(
                 "provider_budget_reservation_invalid",
@@ -77,16 +75,8 @@ class WorkflowWorkerProviderBudgetCommands:
             binding,
             raw,
             requested_budget={
-                **(
-                    {"tokens": requested.maximum_tokens}
-                    if requested.maximum_tokens
-                    else {}
-                ),
-                **(
-                    {"cost_micros": requested.maximum_cost_micros}
-                    if requested.maximum_cost_micros
-                    else {}
-                ),
+                **({"tokens": requested.maximum_tokens} if requested.maximum_tokens else {}),
+                **({"cost_micros": requested.maximum_cost_micros} if requested.maximum_cost_micros else {}),
             },
         )
         plan_entry = self._authorized_provider_plan_entry(
@@ -99,11 +89,7 @@ class WorkflowWorkerProviderBudgetCommands:
             reserved_tokens=reserved_tokens,
             reserved_cost_micros=reserved_cost,
         )
-        attempt_budget_name = (
-            "provider_attempts"
-            if "provider_attempts" in envelope.budgets
-            else "attempts"
-        )
+        attempt_budget_name = "provider_attempts" if "provider_attempts" in envelope.budgets else "attempts"
         raw_attempt_limit = envelope.budgets.get(attempt_budget_name)
         if (
             raw_attempt_limit is None
@@ -125,22 +111,18 @@ class WorkflowWorkerProviderBudgetCommands:
                 current_profile_id=plan_entry.profile_id,
                 reservation_id=reservation_id,
             )
-            aggregate_reservation_id = (
-                self._aggregate_provider_reservation_id(
-                    binding=binding,
-                    attempt_id=attempt_id,
-                    profile_id=plan_entry.profile_id,
-                    provider_binding_id=plan_entry.binding_id,
-                    reservation_id=reservation_id,
-                )
+            aggregate_reservation_id = self._aggregate_provider_reservation_id(
+                binding=binding,
+                attempt_id=attempt_id,
+                profile_id=plan_entry.profile_id,
+                provider_binding_id=plan_entry.binding_id,
+                reservation_id=reservation_id,
             )
         limits = ProviderBudgetLimits(
             # A signed profile route owns call-count enforcement in the
             # step/attempt/profile-scoped retry ledger above. The provider
             # store remains run-aggregate for tokens and cost only.
-            maximum_attempts=(
-                0 if plan_entry is not None else signed_attempt_limit
-            ),
+            maximum_attempts=(0 if plan_entry is not None else signed_attempt_limit),
             maximum_tokens=int(
                 envelope.budgets.get(
                     "provider_run_tokens",
@@ -182,11 +164,7 @@ class WorkflowWorkerProviderBudgetCommands:
                 "reservation_id": reservation_id,
                 "attempt_id": attempt_id,
                 "fencing_token": fencing_token,
-                "attempts": (
-                    snapshot.profile_attempts
-                    if snapshot.profile_attempts is not None
-                    else snapshot.attempts
-                ),
+                "attempts": (snapshot.profile_attempts if snapshot.profile_attempts is not None else snapshot.attempts),
                 "tokens": snapshot.tokens,
                 "cost_micros": snapshot.cost_micros,
             },
@@ -229,14 +207,12 @@ class WorkflowWorkerProviderBudgetCommands:
                 current_profile_id=plan_entry.profile_id,
                 reservation_id=reservation_id,
             )
-            aggregate_reservation_id = (
-                self._aggregate_provider_reservation_id(
-                    binding=binding,
-                    attempt_id=attempt_id,
-                    profile_id=plan_entry.profile_id,
-                    provider_binding_id=plan_entry.binding_id,
-                    reservation_id=reservation_id,
-                )
+            aggregate_reservation_id = self._aggregate_provider_reservation_id(
+                binding=binding,
+                attempt_id=attempt_id,
+                profile_id=plan_entry.profile_id,
+                provider_binding_id=plan_entry.binding_id,
+                reservation_id=reservation_id,
             )
         scoped_budget = self._provider_node_budget_reservation(
             envelope=envelope,
@@ -267,9 +243,7 @@ class WorkflowWorkerProviderBudgetCommands:
                 "tokens": snapshot.tokens,
                 "cost_micros": snapshot.cost_micros,
                 "reason_code": snapshot.reason_code,
-                "scoped_budget_overrun": (
-                    snapshot.scoped_budget_overrun
-                ),
+                "scoped_budget_overrun": (snapshot.scoped_budget_overrun),
             },
         )
         return self._provider_budget_receipt(
@@ -329,11 +303,7 @@ class WorkflowWorkerProviderBudgetCommands:
                     "provider_authorization_profile_required",
                 )
                 plan_entry = next(
-                    (
-                        item
-                        for item in envelope.provider_attempt_plan
-                        if item.profile_id == profile_id
-                    ),
+                    (item for item in envelope.provider_attempt_plan if item.profile_id == profile_id),
                     None,
                 )
                 if (
@@ -359,9 +329,7 @@ class WorkflowWorkerProviderBudgetCommands:
         reservation_id: str,
     ) -> ProviderProfileAttemptReservation:
         predecessors: list[ProviderAttemptScope] = []
-        for profile_index, entry in enumerate(
-            envelope.provider_attempt_plan
-        ):
+        for profile_index, entry in enumerate(envelope.provider_attempt_plan):
             if entry.profile_id == current_profile_id:
                 value = ProviderProfileAttemptReservation(
                     current=ProviderAttemptScope(
@@ -414,25 +382,14 @@ class WorkflowWorkerProviderBudgetCommands:
         signed_tokens = envelope.budgets.get("tokens")
         signed_cost = envelope.budgets.get("cost_micros")
         if (
-            (
-                signed_tokens is not None
-                and not isinstance(signed_tokens, bool)
-                and reserved_tokens > int(signed_tokens)
-            )
+            (signed_tokens is not None and not isinstance(signed_tokens, bool) and reserved_tokens > int(signed_tokens))
             or (
                 signed_cost is not None
                 and not isinstance(signed_cost, bool)
                 and reserved_cost_micros > int(signed_cost)
             )
-            or (
-                requested.maximum_tokens
-                and reserved_tokens > requested.maximum_tokens
-            )
-            or (
-                requested.maximum_cost_micros
-                and reserved_cost_micros
-                > requested.maximum_cost_micros
-            )
+            or (requested.maximum_tokens and reserved_tokens > requested.maximum_tokens)
+            or (requested.maximum_cost_micros and reserved_cost_micros > requested.maximum_cost_micros)
         ):
             raise WorkflowWorkerGatewayError(
                 "authorization_budget_exceeded",
@@ -464,10 +421,7 @@ class WorkflowWorkerProviderBudgetCommands:
             ensure_ascii=False,
             separators=(",", ":"),
         )
-        return (
-            "provider-attempt-scope:"
-            + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-        )
+        return "provider-attempt-scope:" + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _provider_node_budget_reservation(
@@ -488,16 +442,11 @@ class WorkflowWorkerProviderBudgetCommands:
             separators=(",", ":"),
         )
         value = ProviderScopedBudgetReservation(
-            scope_id=(
-                "provider-node-budget:"
-                + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-            ),
+            scope_id=("provider-node-budget:" + hashlib.sha256(rendered.encode("utf-8")).hexdigest()),
             limits=ProviderBudgetLimits(
                 maximum_attempts=0,
                 maximum_tokens=int(envelope.budgets.get("tokens", 0)),
-                maximum_cost_micros=int(
-                    envelope.budgets.get("cost_micros", 0)
-                ),
+                maximum_cost_micros=int(envelope.budgets.get("cost_micros", 0)),
             ),
         )
         value.assert_valid()
@@ -524,10 +473,7 @@ class WorkflowWorkerProviderBudgetCommands:
             ensure_ascii=False,
             separators=(",", ":"),
         )
-        return (
-            "provider-reservation:"
-            + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-        )
+        return "provider-reservation:" + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _provider_budget_receipt(
@@ -541,13 +487,10 @@ class WorkflowWorkerProviderBudgetCommands:
             payload.update(
                 {
                     "attempts": snapshot.profile_attempts,
-                    "maximum_attempts": (
-                        snapshot.profile_maximum_attempts
-                    ),
+                    "maximum_attempts": (snapshot.profile_maximum_attempts),
                     "remaining_attempts": max(
                         0,
-                        int(snapshot.profile_maximum_attempts or 0)
-                        - int(snapshot.profile_attempts),
+                        int(snapshot.profile_maximum_attempts or 0) - int(snapshot.profile_attempts),
                     ),
                 }
             )

@@ -446,9 +446,7 @@ class RestrictedModelInferenceService:
         )
         if not request_paths:
             self._audit_blocked(operation, path, "path_scope_required")
-            raise self.InferenceBlockedError(
-                "restricted inference worker dispatch requires an explicit path scope"
-            )
+            raise self.InferenceBlockedError("restricted inference worker dispatch requires an explicit path scope")
         invocation = context or self._invocation_context_provider(operation)
         try:
             manifest_id = self._manifest_resolver(operation)
@@ -572,9 +570,7 @@ class RestrictedModelInferenceService:
         for request_path in request_paths:
             path_policy = self._policy.resolve(request_path)
             policy["allow_attention"] = bool(policy["allow_attention"] and path_policy.allow_attention)
-            policy["allow_hidden_states"] = bool(
-                policy["allow_hidden_states"] and path_policy.allow_hidden_states
-            )
+            policy["allow_hidden_states"] = bool(policy["allow_hidden_states"] and path_policy.allow_hidden_states)
             if path_policy.max_batch_size > 0:
                 policy["max_batch_size"] = min(
                     policy["max_batch_size"],
@@ -686,9 +682,7 @@ class RestrictedModelInferenceService:
             invocation.task_id,
             "completed" if succeeded else "failed",
             status_reason_code=None if succeeded else reason_code,
-            status_reason_details=(
-                {} if succeeded or error is None else {"error_type": type(error).__name__}
-            ),
+            status_reason_details=({} if succeeded or error is None else {"error_type": type(error).__name__}),
             verification_status={
                 "restricted_inference_request": {
                     "status": "verified" if succeeded else "failed",
@@ -696,9 +690,7 @@ class RestrictedModelInferenceService:
                 }
             },
             event_type=(
-                "restricted_inference_request_completed"
-                if succeeded
-                else "restricted_inference_request_failed"
+                "restricted_inference_request_completed" if succeeded else "restricted_inference_request_failed"
             ),
             event_actor="hub",
             event_details={"status": "completed" if succeeded else "failed"},
@@ -895,16 +887,10 @@ def get_restricted_model_inference_service() -> RestrictedModelInferenceService:
     if _service is None:
         from agent.services.user_config_service import get_user_config_service
 
-        config_service = RestrictedInferenceConfigService(
-            global_config=get_user_config_service().config
-        )
+        config_service = RestrictedInferenceConfigService(global_config=get_user_config_service().config)
         _service = RestrictedModelInferenceService(
             config_service=config_service,
-            legacy_local_enabled=(
-                False
-                if str(os.getenv("ANANTA_RESTRICTED_INFERENCE_URL", "")).strip()
-                else None
-            ),
+            legacy_local_enabled=(False if str(os.getenv("ANANTA_RESTRICTED_INFERENCE_URL", "")).strip() else None),
         )
     return _service
 

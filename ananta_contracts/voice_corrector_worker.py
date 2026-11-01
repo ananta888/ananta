@@ -107,11 +107,7 @@ class VoiceCorrectorEdit:
         operation = raw.get("operation")
         original_text = raw.get("original_text")
         corrected_text = raw.get("corrected_text")
-        if (
-            not isinstance(operation, str)
-            or not isinstance(original_text, str)
-            or not isinstance(corrected_text, str)
-        ):
+        if not isinstance(operation, str) or not isinstance(original_text, str) or not isinstance(corrected_text, str):
             raise VoiceCorrectorContractError("invalid_edit", "edit values are invalid")
         return cls(
             operation=operation,
@@ -244,11 +240,7 @@ class VoiceCorrectorWorkerRequest:
         original_text = _text(raw.get("original_text"), field="original_text", maximum=MAX_TEXT_CHARS)
         model_id = _model_identifier(raw.get("model_id"))
         language_raw = raw.get("language")
-        language = (
-            _identifier(language_raw, field="language")
-            if language_raw is not None
-            else None
-        )
+        language = _identifier(language_raw, field="language") if language_raw is not None else None
         return cls(
             request_id=request_id,
             task_id=task_id,
@@ -291,8 +283,7 @@ class VoiceCorrectorWorkerResponse:
                 raise VoiceCorrectorContractError("invalid_response", "failed worker response is invalid")
             _identifier(self.reason_code, field="reason_code")
             if any(
-                value is not None
-                for value in (self.model_id, self.model_revision, self.engine_id, self.prompt_version)
+                value is not None for value in (self.model_id, self.model_revision, self.engine_id, self.prompt_version)
             ):
                 raise VoiceCorrectorContractError("invalid_response", "failed response contains model metadata")
             return

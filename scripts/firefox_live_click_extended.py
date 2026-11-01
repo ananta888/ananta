@@ -5,10 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from test_env_cleanup import cleanup_ollama_runtime, cleanup_test_environment
-
 from firefox_automation._benchmark import phase_benchmark
-from firefox_automation._browser_utils import step_nav
 from firefox_automation._config import (
     APP_BASE,
     BASE,
@@ -22,6 +19,7 @@ from firefox_automation._config import (
 from firefox_automation._phases import phase_execution, phase_goal, phase_review, phase_setup
 from firefox_automation._reporting import default_goal_text_for_benchmark, parse_phases
 from firefox_automation._webdriver import wd
+from test_env_cleanup import cleanup_ollama_runtime, cleanup_test_environment
 
 
 def run_phase(
@@ -72,6 +70,9 @@ def write_report(report: dict, path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding="utf-8")
     print("report_written", str(path), flush=True)
+
+
+import argparse
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -299,7 +300,9 @@ def main():
             print("quit_error", str(e), flush=True)
         if not args.skip_created_resource_cleanup:
             try:
-                explicit_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+                explicit_targets = (
+                    report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+                )
                 cleanup = cleanup_test_environment(
                     hub_base_url=HUB_BASE,
                     hub_container=HUB_CONTAINER,

@@ -11,19 +11,19 @@ from agent.database import engine
 from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
 from agent.models import TemplateCreateRequest, TemplatePreviewRequest, TemplateValidationRequest
 from agent.services.repository_registry import get_repository_registry
+from agent.services.team_definition_version_service import serialize_template_with_version
 from agent.services.template_variable_registry import (
+    build_template_runtime_contract_payload,
     build_template_sample_contexts_payload,
     build_template_validation_diagnostics,
-    build_template_runtime_contract_payload,
     build_template_variable_registry_payload,
     normalize_template_context_scope,
     render_template_preview,
+    resolve_allowed_template_variables,
     resolve_template_sample_context,
     resolve_template_validation_context,
-    resolve_allowed_template_variables,
     validate_template_variables_with_context,
 )
-from agent.services.team_definition_version_service import serialize_template_with_version
 from agent.utils import validate_request
 
 templates_bp = Blueprint("config_templates", __name__)
@@ -84,8 +84,7 @@ def _template_warnings(prompt_template: str, context_scope: str | None = None) -
             {
                 "type": "context_unavailable_variables",
                 "details": (
-                    f"Unavailable in context '{context_label}': "
-                    f"{', '.join(validation['context_invalid_variables'])}"
+                    f"Unavailable in context '{context_label}': {', '.join(validation['context_invalid_variables'])}"
                 ),
                 "context_scope": context_label,
                 "allowed_for_context": validation.get("available_variables_for_context") or [],
@@ -95,10 +94,7 @@ def _template_warnings(prompt_template: str, context_scope: str | None = None) -
         warnings.append(
             {
                 "type": "deprecated_variables",
-                "details": (
-                    "Deprecated legacy variables: "
-                    f"{', '.join(validation['deprecated_variables'])}"
-                ),
+                "details": (f"Deprecated legacy variables: {', '.join(validation['deprecated_variables'])}"),
                 "deprecated_variables": validation["deprecated_variables"],
             }
         )
@@ -181,8 +177,7 @@ def validate_template_payload():
         data={
             **validation,
             "warnings": warnings,
-            "is_valid": not validation.get("unknown_variables")
-            and not validation.get("context_invalid_variables"),
+            "is_valid": not validation.get("unknown_variables") and not validation.get("context_invalid_variables"),
             "diagnostics": diagnostics,
         }
     )
@@ -362,7 +357,12 @@ def delete_template(tpl_id):
             links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.template_id == tpl_id)).all()
             members = session.exec(select(TeamMemberDB).where(TeamMemberDB.custom_template_id == tpl_id)).all()
             teams = session.exec(select(TeamDB)).all()
-            cleared = {"roles": [role.id for role in roles], "team_type_links": [link.role_id for link in links], "team_members": [member.id for member in members], "teams": []}
+            cleared = {
+                "roles": [role.id for role in roles],
+                "team_type_links": [link.role_id for link in links],
+                "team_members": [member.id for member in members],
+                "teams": [],
+            }
             for role in roles:
                 role.default_template_id = None
                 session.add(role)
@@ -385,4 +385,6 @@ def delete_template(tpl_id):
             return api_response(data={"status": "deleted", "cleared": cleared})
     except Exception as exc:
         current_app.logger.exception(f"Template delete failed for {tpl_id}: {exc}")
-        return api_response(status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500)
+        return api_response(
+            status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500
+        )

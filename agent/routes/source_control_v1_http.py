@@ -24,7 +24,6 @@ from agent.services.source_control_connection_binding import (
     normalize_workspace_relative_path,
 )
 
-
 SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
 ERROR_SCHEMA = "ananta.source-control.error.v1"
 SOURCE_GRAPH_MAX_EDGES = 2_000
@@ -129,9 +128,7 @@ def query_boolean(value: object, *, field: str, default: bool) -> bool:
     raise SourceControlApiError(f"{field}_invalid")
 
 
-def required_string(
-    payload: Mapping[str, object], field: str, *, maximum: int = 256
-) -> str:
+def required_string(payload: Mapping[str, object], field: str, *, maximum: int = 256) -> str:
     value = payload.get(field)
     if not isinstance(value, str) or not value.strip() or len(value) > maximum:
         raise SourceControlApiError(f"{field}_invalid")
@@ -213,9 +210,7 @@ def check_auth(view):
 def connection_intent_payload() -> dict[str, object]:
     payload = json_object()
     connector_type = required_string(payload, "connector_type")
-    common = frozenset(
-        {"connector_type", "display_name", "sensitivity", "dry_run"}
-    )
+    common = frozenset({"connector_type", "display_name", "sensitivity", "dry_run"})
     if connector_type in {"registered_workspace", "local_directory"}:
         required = common | {"workspace_id"}
         allowed = required | {"relative_path"}
@@ -223,9 +218,7 @@ def connection_intent_payload() -> dict[str, object]:
         if "relative_path" in payload:
             relative_path = required_string(payload, "relative_path")
             try:
-                payload["relative_path"] = (
-                    normalize_workspace_relative_path(relative_path)
-                )
+                payload["relative_path"] = normalize_workspace_relative_path(relative_path)
             except SourceControlConnectionBindingError as exc:
                 raise SourceControlApiError(exc.reason_code) from None
     elif connector_type in {"git", "github"}:
@@ -262,9 +255,7 @@ def boundary(view):
                     )
                 )
                 return error_response(reason_code, status_code)
-            current_app.logger.exception(
-                "Unhandled Source-Control V1 boundary error"
-            )
+            current_app.logger.exception("Unhandled Source-Control V1 boundary error")
             return error_response("source_control_internal_error", 500)
 
     return wrapped
@@ -277,11 +268,7 @@ def status_for_reason(reason_code: str) -> int:
         return 403
     if "version_conflict" in reason_code or "etag" in reason_code:
         return 412
-    if (
-        "idempotency" in reason_code
-        or "already_" in reason_code
-        or reason_code.startswith("purge_blocked")
-    ):
+    if "idempotency" in reason_code or "already_" in reason_code or reason_code.startswith("purge_blocked"):
         return 409
     if "unavailable" in reason_code:
         return 503

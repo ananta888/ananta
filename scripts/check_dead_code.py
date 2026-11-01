@@ -1,8 +1,9 @@
-import os
 import ast
+import os
 import sys
 from collections import Counter
 from typing import Dict, List, Set, Tuple
+
 
 def get_definitions_and_references(file_path: str) -> Tuple[Set[str], List[str]]:
     with open(file_path, "r", encoding="utf-8") as f:
@@ -19,9 +20,13 @@ def get_definitions_and_references(file_path: str) -> Tuple[Set[str], List[str]]
             # Check if it is a flask route - they are technically used by the framework
             is_route = False
             for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call) and hasattr(decorator.func, 'attr') and decorator.func.attr == 'route':
+                if (
+                    isinstance(decorator, ast.Call)
+                    and hasattr(decorator.func, "attr")
+                    and decorator.func.attr == "route"
+                ):
                     is_route = True
-                elif isinstance(decorator, ast.Attribute) and decorator.attr == 'route':
+                elif isinstance(decorator, ast.Attribute) and decorator.attr == "route":
                     is_route = True
 
             if not is_route:
@@ -34,11 +39,12 @@ def get_definitions_and_references(file_path: str) -> Tuple[Set[str], List[str]]
 
     return definitions, references
 
+
 def main():
     root_dir = os.path.abspath("agent")
     print(f"Analyzing dead code in {root_dir}...")
 
-    all_definitions: Dict[str, str] = {} # name -> file
+    all_definitions: Dict[str, str] = {}  # name -> file
     all_references = Counter()
 
     for root, _, files in os.walk(root_dir):
@@ -75,6 +81,7 @@ def main():
     else:
         print("No dead code found (heuristic).")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

@@ -1,8 +1,10 @@
-import os
 import ast
+import os
 import sys
 from typing import List
+
 import networkx as nx
+
 
 def get_imports(file_path: str, root_dir: str) -> List[str]:
     with open(file_path, "r", encoding="utf-8") as f:
@@ -24,6 +26,7 @@ def get_imports(file_path: str, root_dir: str) -> List[str]:
     internal_imports = [imp for imp in imports if imp.startswith("agent.")]
     return internal_imports
 
+
 def build_graph(root_dir: str) -> nx.DiGraph:
     G = nx.DiGraph()
     for root, _, files in os.walk(root_dir):
@@ -43,8 +46,10 @@ def build_graph(root_dir: str) -> nx.DiGraph:
                     G.add_edge(module_name, imp)
     return G
 
+
 def is_known_cycle(cycle: List[str]) -> bool:
     return False
+
 
 def main():
     root_dir = os.path.abspath("agent")
@@ -74,6 +79,7 @@ def main():
     else:
         print("No new import cycles found.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

@@ -9,4 +9,3 @@ class TerminalVisualCapabilities:
     sixel: bool = False
     kitty_graphics: bool = False
     opengl_offscreen: bool = False
-

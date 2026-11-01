@@ -15,7 +15,6 @@ from agent.services.semantic_contract_service import (
     SemanticContractServiceError,
 )
 
-
 _MAX_REQUEST_BYTES = 128 * 1024
 
 

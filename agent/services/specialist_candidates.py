@@ -16,8 +16,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ananta_contracts.specialist_decision import canonical_digest
 from agent.services.specialist_benchmark import BenchmarkResult
+from ananta_contracts.specialist_decision import canonical_digest
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,191}$")
@@ -118,7 +118,10 @@ class QualityThresholds:
         if result.classification["invalid_output_rate"] > self.max_invalid_output_rate:
             problems.append("invalid_output_rate_above_maximum")
         if result.safety.get("gate_type"):
-            for name, limit in (("false_allow_rate", self.max_false_allow_rate), ("false_deny_rate", self.max_false_deny_rate)):
+            for name, limit in (
+                ("false_allow_rate", self.max_false_allow_rate),
+                ("false_deny_rate", self.max_false_deny_rate),
+            ):
                 rate = result.safety.get(name)
                 if limit is not None and rate is not None and rate > limit:
                     problems.append(f"{name}_above_maximum")
@@ -229,9 +232,13 @@ class ArtifactLineage:
     def with_evaluation(self, result: BenchmarkResult) -> "ArtifactLineage":
         if result.specialist_id != self.specialist_id or result.holdout_digest != self.holdout_digest:
             raise SpecialistCandidateError("specialist_lineage_benchmark_mismatch")
-        return ArtifactLineage(**{**self.__dict__, "evaluated": True, "benchmark_result_digest": result.to_mapping()["result_digest"]})
+        return ArtifactLineage(
+            **{**self.__dict__, "evaluated": True, "benchmark_result_digest": result.to_mapping()["result_digest"]}
+        )
 
-    def derive_export(self, *, export_format: str, export_digest: str, merge_config: Mapping[str, Any] | None = None) -> "ArtifactLineage":
+    def derive_export(
+        self, *, export_format: str, export_digest: str, merge_config: Mapping[str, Any] | None = None
+    ) -> "ArtifactLineage":
         """Merge/quantization exports are separate, only after evaluation."""
         if export_format not in EXPORT_FORMATS or not _DIGEST.fullmatch(export_digest):
             raise SpecialistCandidateError("specialist_export_invalid")

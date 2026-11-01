@@ -1,19 +1,36 @@
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 
 SECRET_FILE_PATTERNS = [
-    ".env", ".env.local", ".env.production", ".pem", ".key", ".p12", ".pfx",
-    "id_rsa", "id_ed25519", ".netrc", ".npmrc", ".pypirc", "credentials.json",
-    "service-account.json", "secrets.yaml", "secrets.json",
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".pem",
+    ".key",
+    ".p12",
+    ".pfx",
+    "id_rsa",
+    "id_ed25519",
+    ".netrc",
+    ".npmrc",
+    ".pypirc",
+    "credentials.json",
+    "service-account.json",
+    "secrets.yaml",
+    "secrets.json",
 ]
 
 SECRET_CONTENT_PATTERNS = [
-    re.compile(r'(api_?key|apikey|api_?token|access_?token|bearer(?:_token)?)\s*[=:]\s*["\']?([A-Za-z0-9_\-\.]{20,})["\']?', re.IGNORECASE),
+    re.compile(
+        r'(api_?key|apikey|api_?token|access_?token|bearer(?:_token)?)\s*[=:]\s*["\']?([A-Za-z0-9_\-\.]{20,})["\']?',
+        re.IGNORECASE,
+    ),
     re.compile(r'(password|passwd|secret|credential)\s*[=:]\s*["\']?(\S{8,})["\']?', re.IGNORECASE),
-    re.compile(r'(sk-|ghp_|ghs_|github_pat_|xoxb-|xoxa-|xoxp-)([A-Za-z0-9_\-]{20,})'),
-    re.compile(r'(AKIA[0-9A-Z]{16})'),  # AWS access key
-    re.compile(r'-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'),
+    re.compile(r"(sk-|ghp_|ghs_|github_pat_|xoxb-|xoxa-|xoxp-)([A-Za-z0-9_\-]{20,})"),
+    re.compile(r"(AKIA[0-9A-Z]{16})"),  # AWS access key
+    re.compile(r"-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"),
 ]
 
 
@@ -36,20 +53,23 @@ class AugmentSecretScanner:
         count = 0
         findings: list[str] = []
         for pattern in SECRET_CONTENT_PATTERNS:
+
             def repl(m: re.Match, _pattern: re.Pattern = pattern) -> str:
                 nonlocal count
                 count += 1
-                findings.append(
-                    f"found potential secret matching pattern '{_pattern.pattern[:40]}'"
-                )
+                findings.append(f"found potential secret matching pattern '{_pattern.pattern[:40]}'")
                 groups = m.groups()
                 if len(groups) >= 2:
                     return f"{groups[0]}=[REDACTED]"
                 return "[REDACTED]"
+
             redacted = pattern.sub(repl, redacted)
         return ScanResult(
-            clean=count == 0, redacted_text=redacted,
-            redaction_count=count, blocked_files=[], findings=findings,
+            clean=count == 0,
+            redacted_text=redacted,
+            redaction_count=count,
+            blocked_files=[],
+            findings=findings,
         )
 
     def is_secret_file(self, path: str) -> bool:
@@ -65,9 +85,7 @@ class AugmentSecretScanner:
         blocked = [p for p in paths if self.is_secret_file(p)]
         return allowed, blocked
 
-    def prepare_prompt_for_external(
-        self, prompt: str, *, context_snippets: list[str]
-    ) -> tuple[str, list[str], int]:
+    def prepare_prompt_for_external(self, prompt: str, *, context_snippets: list[str]) -> tuple[str, list[str], int]:
         """Returns (clean_prompt, clean_snippets, total_redactions)."""
         total = 0
         prompt_result = self.scan_and_redact_text(prompt)

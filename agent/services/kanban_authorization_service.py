@@ -7,7 +7,6 @@ from typing import Any, Iterable
 
 from ananta_contracts.kanban import KanbanCapability
 
-
 ALL_CAPABILITIES = frozenset(KanbanCapability)
 OPERATOR_CAPABILITIES = frozenset(
     {
@@ -80,4 +79,3 @@ class KanbanAuthorizationService:
             except ValueError:
                 pass
         return frozenset(parsed)
-

@@ -28,7 +28,6 @@ from agent.services.sfu_broadcast_repository_ports import (
     SfuReceiverGroupRepositoryPort,
 )
 
-
 DIGEST = "a" * 64
 SCOPE = SfuBroadcastRoomScope("tenant-a", "room-a")
 
@@ -192,9 +191,7 @@ def _route(
 
 
 def _save(repository, value, *, version=0, key="create"):
-    return repository.save(
-        SfuProjectionMutation(value, expected_version=version, idempotency_key=key)
-    )
+    return repository.save(SfuProjectionMutation(value, expected_version=version, idempotency_key=key))
 
 
 def test_audience_contract_retry_conflict_stale_expiry_and_restart(repositories) -> None:
@@ -296,18 +293,19 @@ def test_all_pages_are_sorted_bounded_room_scoped_and_restart_safe(repositories)
         first = repository.page(SCOPE, page_size=2)
         second = repository.page(SCOPE, page_size=2, cursor=first.next_cursor)
         values = (*first.items, *second.items)
-        assert [getattr(value, attribute) for value in values] == sorted(
-            getattr(value, attribute) for value in values
-        )
+        assert [getattr(value, attribute) for value in values] == sorted(getattr(value, attribute) for value in values)
         assert len(values) == 3
         assert all(value.tenant_id == "tenant-a" and value.session_id == "room-a" for value in values)
         with pytest.raises(SfuBroadcastRepositoryError, match="projection_page_size_invalid"):
             repository.page(SCOPE, page_size=3)
 
-    assert restarted.audience.get(
-        SfuBroadcastRoomScope("tenant-other", "room-a"),
-        "audience-a",
-    ) is None
+    assert (
+        restarted.audience.get(
+            SfuBroadcastRoomScope("tenant-other", "room-a"),
+            "audience-a",
+        )
+        is None
+    )
 
 
 def test_expiry_reconciliation_and_retention_use_existing_ports(repositories) -> None:

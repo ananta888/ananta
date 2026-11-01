@@ -61,9 +61,7 @@ def _public_goal_graph(graph: dict) -> dict:
         for row in list(public_graph.get("source_grants") or [])
         if isinstance(row, dict) and _artifact_ref_is_visible(row.get("artifact_ref"))
     ]
-    visible_grant_ids = {
-        str(row.get("grant_id") or "") for row in grants if row.get("grant_id")
-    }
+    visible_grant_ids = {str(row.get("grant_id") or "") for row in grants if row.get("grant_id")}
     all_grant_ids = {
         str(row.get("grant_id") or "")
         for row in list(public_graph.get("source_grants") or [])
@@ -78,9 +76,7 @@ def _public_goal_graph(graph: dict) -> dict:
         and str(row.get("grant_id") or "") not in hidden_grant_ids
         and _artifact_ref_is_visible(row.get("artifact_ref"))
     ]
-    visible_usage_ids = {
-        str(row.get("usage_id") or "") for row in usages if row.get("usage_id")
-    }
+    visible_usage_ids = {str(row.get("usage_id") or "") for row in usages if row.get("usage_id")}
     all_usage_ids = {
         str(row.get("usage_id") or "")
         for row in list(public_graph.get("source_usages") or [])
@@ -90,22 +86,14 @@ def _public_goal_graph(graph: dict) -> dict:
 
     outputs: list[dict] = []
     for row in list(public_graph.get("output_artifacts") or []):
-        if not isinstance(row, dict) or not _artifact_ref_is_visible(
-            row.get("artifact_ref")
-        ):
+        if not isinstance(row, dict) or not _artifact_ref_is_visible(row.get("artifact_ref")):
             continue
         output = dict(row)
         output["input_usage_refs"] = [
-            ref
-            for ref in list(output.get("input_usage_refs") or [])
-            if str(ref) not in hidden_usage_ids
+            ref for ref in list(output.get("input_usage_refs") or []) if str(ref) not in hidden_usage_ids
         ]
         outputs.append(output)
-    visible_output_ids = {
-        str(row.get("output_artifact_id") or "")
-        for row in outputs
-        if row.get("output_artifact_id")
-    }
+    visible_output_ids = {str(row.get("output_artifact_id") or "") for row in outputs if row.get("output_artifact_id")}
     all_output_ids = {
         str(row.get("output_artifact_id") or "")
         for row in list(public_graph.get("output_artifacts") or [])
@@ -137,15 +125,9 @@ def _public_goal_graph(graph: dict) -> dict:
         provenance = dict(row)
         original_output_refs = list(provenance.get("output_artifact_refs") or [])
         provenance["input_usage_refs"] = [
-            ref
-            for ref in list(provenance.get("input_usage_refs") or [])
-            if str(ref) not in hidden_usage_ids
+            ref for ref in list(provenance.get("input_usage_refs") or []) if str(ref) not in hidden_usage_ids
         ]
-        provenance["output_artifact_refs"] = [
-            ref
-            for ref in original_output_refs
-            if str(ref) not in hidden_output_ids
-        ]
+        provenance["output_artifact_refs"] = [ref for ref in original_output_refs if str(ref) not in hidden_output_ids]
         if original_output_refs and not provenance["output_artifact_refs"]:
             continue
         provenances.append(provenance)
@@ -158,9 +140,7 @@ def _public_goal_graph(graph: dict) -> dict:
 def _public_execution_provenance(graph: dict, provenance_id: str) -> dict | None:
     extensions = dict(_public_goal_graph(graph).get("extensions") or {})
     for item in list(extensions.get("execution_provenance") or []):
-        if isinstance(item, dict) and str(item.get("provenance_id") or "") == str(
-            provenance_id
-        ):
+        if isinstance(item, dict) and str(item.get("provenance_id") or "") == str(provenance_id):
             return dict(item)
     return None
 
@@ -278,7 +258,14 @@ def get_goal_citation_bundle(goal_id: str):
 def get_goal_output_provenance(goal_id: str, output_id: str):
     _require_goal(goal_id)
     graph = _public_goal_graph(_service().get_goal_graph(goal_id))
-    output = next((row for row in list(graph.get("output_artifacts") or []) if str(row.get("output_artifact_id") or "") == str(output_id)), None)
+    output = next(
+        (
+            row
+            for row in list(graph.get("output_artifacts") or [])
+            if str(row.get("output_artifact_id") or "") == str(output_id)
+        ),
+        None,
+    )
     if output is None:
         raise NotFoundError("output_artifact_not_found")
     provenance_id = str(output.get("provenance_id") or "").strip()

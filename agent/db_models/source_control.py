@@ -468,9 +468,7 @@ class SourceControlContentDB(SQLModel, table=True):
     byte_size: int = Field(ge=0)
     cell_count: int = Field(default=0, ge=0)
     output_bytes: int = Field(default=0, ge=0)
-    normalized_content_json: str = Field(
-        sa_column=Column(Text, nullable=False)
-    )
+    normalized_content_json: str = Field(sa_column=Column(Text, nullable=False))
     created_at_epoch: float
 
 

@@ -1,5 +1,4 @@
-"""Operation dispatch, read operations, artifact download and CodeHug mutations of the Source Control API runtime.
-"""
+"""Operation dispatch, read operations, artifact download and CodeHug mutations of the Source Control API runtime."""
 
 from __future__ import annotations
 
@@ -59,17 +58,13 @@ class SourceControlOperationGateway:
                 project_id=actor.project_id,
                 profile_id=str(payload.get("index_profile_id") or ""),
             )
-        projection = self._projection.get(
-            principal=actor, connection_id=connection_id
-        )
+        projection = self._projection.get(principal=actor, connection_id=connection_id)
         self._projection.assert_if_match(projection, if_match)
         execute = getattr(self._operations, operation, None)
         if not callable(execute):
             execute = getattr(self._operations, "execute", None)
         if not callable(execute):
-            raise SourceControlApiRuntimeError(
-                "source_control_operation_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("source_control_operation_unavailable", status_code=503)
         request_digest = wire_digest(
             {
                 "operation": operation,
@@ -79,18 +74,12 @@ class SourceControlOperationGateway:
                 "payload": payload,
             }
         )
-        key = operation_key(
-            "operation", actor.tenant_id, idempotency_key
-        )
-        claim = self._idempotency.claim(
-            idempotency_key=key, plan_digest=request_digest
-        )
+        key = operation_key("operation", actor.tenant_id, idempotency_key)
+        claim = self._idempotency.claim(idempotency_key=key, plan_digest=request_digest)
         if claim.state == "completed":
             return dict(claim.result or {})
         if claim.state == "in_progress":
-            raise SourceControlApiRuntimeError(
-                "idempotency_in_progress", status_code=409
-            )
+            raise SourceControlApiRuntimeError("idempotency_in_progress", status_code=409)
         kwargs = {
             "tenant_id": actor.tenant_id,
             "project_id": actor.project_id,
@@ -100,9 +89,7 @@ class SourceControlOperationGateway:
             "idempotency_key": idempotency_key,
         }
         if not claim.claim_token:
-            raise SourceControlApiRuntimeError(
-                "idempotency_claim_token_missing", status_code=500
-            )
+            raise SourceControlApiRuntimeError("idempotency_claim_token_missing", status_code=500)
         try:
             if getattr(self._operations, operation, None) is execute:
                 raw = execute(**kwargs)
@@ -182,17 +169,11 @@ class SourceControlOperationGateway:
         range_header: str | None,
     ) -> SourceControlArtifactStream:
         if self._artifact_downloads is None:
-            raise SourceControlApiRuntimeError(
-                "artifact_download_unavailable", status_code=503
-            )
-        self._projection.get(
-            principal=runtime_principal(principal), connection_id=connection_id
-        )
+            raise SourceControlApiRuntimeError("artifact_download_unavailable", status_code=503)
+        self._projection.get(principal=runtime_principal(principal), connection_id=connection_id)
         open_stream = getattr(self._artifact_downloads, "open", None)
         if not callable(open_stream):
-            raise SourceControlApiRuntimeError(
-                "artifact_download_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("artifact_download_unavailable", status_code=503)
         stream = open_stream(
             principal=principal,
             connection_id=connection_id,
@@ -200,9 +181,7 @@ class SourceControlOperationGateway:
             range_header=range_header,
         )
         if not isinstance(stream, SourceControlArtifactStream):
-            raise SourceControlApiRuntimeError(
-                "artifact_download_result_invalid", status_code=502
-            )
+            raise SourceControlApiRuntimeError("artifact_download_result_invalid", status_code=502)
         return stream
 
     def codehug_mutation(
@@ -213,9 +192,7 @@ class SourceControlOperationGateway:
         idempotency_key: str,
     ) -> Mapping[str, object]:
         if self._codehug_mutations is None:
-            raise SourceControlApiRuntimeError(
-                "codehug_mutation_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("codehug_mutation_unavailable", status_code=503)
         actor = runtime_principal(principal)
         request_digest = wire_digest(
             {
@@ -228,23 +205,15 @@ class SourceControlOperationGateway:
                 "mutation_intent_id": mutation_intent_id,
             }
         )
-        key = operation_key(
-            "codehug", actor.tenant_id, idempotency_key
-        )
-        claim = self._idempotency.claim(
-            idempotency_key=key, plan_digest=request_digest
-        )
+        key = operation_key("codehug", actor.tenant_id, idempotency_key)
+        claim = self._idempotency.claim(idempotency_key=key, plan_digest=request_digest)
         if claim.state == "completed":
             return dict(claim.result or {})
         if claim.state == "in_progress":
-            raise SourceControlApiRuntimeError(
-                "idempotency_in_progress", status_code=409
-            )
+            raise SourceControlApiRuntimeError("idempotency_in_progress", status_code=409)
         execute = getattr(self._codehug_mutations, "execute", None)
         if not callable(execute):
-            raise SourceControlApiRuntimeError(
-                "codehug_mutation_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("codehug_mutation_unavailable", status_code=503)
         result = dict(
             execute(
                 tenant_id=actor.tenant_id,
@@ -269,14 +238,10 @@ class SourceControlOperationGateway:
         parameters: Mapping[str, object],
     ) -> Mapping[str, object]:
         actor = runtime_principal(principal)
-        self._projection.get(
-            principal=actor, connection_id=connection_id
-        )
+        self._projection.get(principal=actor, connection_id=connection_id)
         method = getattr(self._operations, operation, None)
         if not callable(method):
-            raise SourceControlApiRuntimeError(
-                "source_control_operation_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("source_control_operation_unavailable", status_code=503)
         value = wire(
             method(
                 tenant_id=actor.tenant_id,
@@ -300,9 +265,7 @@ class SourceControlOperationGateway:
 
     def _catalog_service(self):
         if self._catalogs is None:
-            raise SourceControlApiRuntimeError(
-                "source_control_catalog_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("source_control_catalog_unavailable", status_code=503)
         return self._catalogs
 
 

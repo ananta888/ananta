@@ -40,9 +40,7 @@ def test_idle_charging_schedule_quiet_hours_and_foreground_pressure_are_fail_clo
     policy = SpeechReconciliationResourcePolicy()
     assert policy.evaluate(_request(mode="charging_only", charging=False)).reason_code.endswith("not_charging")
     assert policy.evaluate(_request(quiet_hours=True)).reason_code.endswith("quiet_hours")
-    assert policy.evaluate(_request(foreground_load_micros=700_001)).reason_code.endswith(
-        "foreground_pressure"
-    )
+    assert policy.evaluate(_request(foreground_load_micros=700_001)).reason_code.endswith("foreground_pressure")
     outside = policy.evaluate(
         _request(
             mode="scheduled",

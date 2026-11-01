@@ -161,10 +161,7 @@ class BoundedWorkerResourcePool:
                     details={"job_id": lease.job_id},
                 )
             reserved = sum(self._active.values())
-            if (
-                len(self._active) >= self._max_active
-                or reserved + lease.max_memory_bytes > self._max_memory_bytes
-            ):
+            if len(self._active) >= self._max_active or reserved + lease.max_memory_bytes > self._max_memory_bytes:
                 raise ModelAnalysisExecutionError(
                     ModelIntelligenceReasonCode.RUNTIME_UNAVAILABLE,
                     details={
@@ -350,8 +347,7 @@ class ModelAnalysisWorkerExecutor:
             not artifacts
             or len(artifacts) > 64
             or any(artifact.job_id != job.job_id for artifact in artifacts)
-            or sum(artifact.size_bytes for artifact in artifacts)
-            > min(job.max_output_bytes, lease.max_output_bytes)
+            or sum(artifact.size_bytes for artifact in artifacts) > min(job.max_output_bytes, lease.max_output_bytes)
         ):
             raise ModelAnalysisExecutionError(
                 ModelIntelligenceReasonCode.RESOURCE_LIMIT_EXCEEDED,

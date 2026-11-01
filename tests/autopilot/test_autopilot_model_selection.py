@@ -107,7 +107,9 @@ def test_select_model_for_task_prefers_team_role_template(monkeypatch):
 def test_select_model_for_task_normalizes_legacy_ollama_benchmark_model(monkeypatch):
     repos = SimpleNamespace(
         team_member_repo=SimpleNamespace(get_by_team=lambda _team_id: []),
-        role_repo=SimpleNamespace(get_by_id=lambda _role_id: SimpleNamespace(name="Developer", default_template_id=None)),
+        role_repo=SimpleNamespace(
+            get_by_id=lambda _role_id: SimpleNamespace(name="Developer", default_template_id=None)
+        ),
         template_repo=SimpleNamespace(get_by_id=lambda _template_id: None),
     )
     monkeypatch.setattr(

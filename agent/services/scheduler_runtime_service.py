@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from agent.services.scheduler_service import get_scheduler_service
 from agent.services.memory_tree_ingestion_service import get_memory_tree_ingestion_service
 from agent.services.memory_tree_store_service import get_memory_tree_store_service
+from agent.services.scheduler_service import get_scheduler_service
 
 
 class SchedulerRuntimeService:

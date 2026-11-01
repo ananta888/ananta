@@ -123,11 +123,7 @@ class SqlSemanticMediaAuditRepository:
             )
             if not ids:
                 return 0
-            result = db.exec(
-                sa.delete(SemanticMediaAuditEventDB).where(
-                    SemanticMediaAuditEventDB.id.in_(ids)
-                )
-            )
+            result = db.exec(sa.delete(SemanticMediaAuditEventDB).where(SemanticMediaAuditEventDB.id.in_(ids)))
             db.commit()
             return int(result.rowcount or 0)
 
@@ -169,9 +165,7 @@ class SqlSemanticMediaAuditRepository:
             )
             if not ids:
                 return 0
-            result = db.exec(
-                sa.delete(SemanticMediaAuditEventDB).where(SemanticMediaAuditEventDB.id.in_(ids))
-            )
+            result = db.exec(sa.delete(SemanticMediaAuditEventDB).where(SemanticMediaAuditEventDB.id.in_(ids)))
             db.commit()
             return int(result.rowcount or 0)
 
@@ -190,11 +184,7 @@ class SqlSemanticMediaAuditRepository:
             )
             if not ids:
                 return 0
-            result = db.exec(
-                sa.delete(SemanticMediaAuditOutboxDB).where(
-                    SemanticMediaAuditOutboxDB.id.in_(ids)
-                )
-            )
+            result = db.exec(sa.delete(SemanticMediaAuditOutboxDB).where(SemanticMediaAuditOutboxDB.id.in_(ids)))
             db.commit()
             return int(result.rowcount or 0)
 
@@ -204,9 +194,7 @@ class SqlSemanticMediaAuditRepository:
         digest: str,
     ) -> SemanticMediaAuditEventDB | None:
         return db.exec(
-            select(SemanticMediaAuditEventDB).where(
-                SemanticMediaAuditEventDB.idempotency_digest == digest
-            )
+            select(SemanticMediaAuditEventDB).where(SemanticMediaAuditEventDB.idempotency_digest == digest)
         ).first()
 
     @classmethod

@@ -172,24 +172,15 @@ def test_worker_opt_in_registers_handler_and_advertises_hub_authorized_capabilit
     assert captured["execution"].__class__ is _VectorExecution
     assert captured["task_verifier"].__class__ is _Verifier
     assert not hasattr(captured["task_verifier"], "attest")
-    vector_descriptor = get_task_handler_registry(app).resolve_descriptor(
-        "vector_index_operation"
-    )
+    vector_descriptor = get_task_handler_registry(app).resolve_descriptor("vector_index_operation")
     assert vector_descriptor is not None
     assert "hub_attestation" in vector_descriptor["verification_hooks"]
-    assert (
-        "hub_dispatch_admission"
-        in vector_descriptor["verification_hooks"]
-    )
+    assert "hub_dispatch_admission" in vector_descriptor["verification_hooks"]
     assert {
         "retrieval",
         "index_write",
         "vector_index_operation",
-    }.issubset(
-        app.extensions[
-            "workflow_adapter_worker_registration"
-        ]["capabilities"]
-    )
+    }.issubset(app.extensions["workflow_adapter_worker_registration"]["capabilities"])
     assert app.extensions["vector_index_worker_registration"] == {
         "ready": True,
         "reason_code": None,
@@ -224,11 +215,7 @@ def test_worker_does_not_advertise_vector_mutation_without_keyring(
     monkeypatch.setattr(
         vector_handler_module,
         "build_vector_index_task_handler",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError(
-                "unverified vector handler must not be built"
-            )
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("unverified vector handler must not be built")),
     )
     monkeypatch.setattr(
         verification_module,
@@ -243,18 +230,9 @@ def test_worker_does_not_advertise_vector_mutation_without_keyring(
 
     _register_worker_domain_handlers(app)
 
-    assert (
-        get_task_handler_registry(app).resolve_descriptor(
-            "vector_index_operation"
-        )
-        is None
-    )
-    assert "vector_index_operation" not in app.extensions[
-        "workflow_adapter_worker_registration"
-    ]["capabilities"]
+    assert get_task_handler_registry(app).resolve_descriptor("vector_index_operation") is None
+    assert "vector_index_operation" not in app.extensions["workflow_adapter_worker_registration"]["capabilities"]
     assert app.extensions["vector_index_worker_registration"] == {
         "ready": False,
-        "reason_code": (
-            "vector_index_task_verification_keyring_required"
-        ),
+        "reason_code": ("vector_index_task_verification_keyring_required"),
     }

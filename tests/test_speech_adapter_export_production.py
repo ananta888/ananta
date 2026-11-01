@@ -139,9 +139,7 @@ def _publish_source(root: Path, record) -> None:
                 sha256=record.artifact_sha256,
                 size_bytes=record.artifact_size_bytes,
                 media_type="application/vnd.ananta.speech-adapter",
-                storage_ref=(
-                    f"hub-artifact://speech-adaptation/{job_id}/{attempt_id}/{record.artifact_sha256}"
-                ),
+                storage_ref=(f"hub-artifact://speech-adaptation/{job_id}/{attempt_id}/{record.artifact_sha256}"),
                 state="committed",
             )
         )
@@ -337,9 +335,9 @@ def test_export_route_uses_persistent_consent_and_artifact_sot_without_leaking_p
     assert lineage_outbox and all(row.state == "published" for row in lineage_outbox)
     assert len(audit_outbox) == 1
     assert audit_outbox[0].epoch == 7
-    assert audit_outbox[0].contract_ref == app.extensions[
-        "semantic_media_audit_recorder"
-    ].digest("contract", consent.consent_digest)
+    assert audit_outbox[0].contract_ref == app.extensions["semantic_media_audit_recorder"].digest(
+        "contract", consent.consent_digest
+    )
     envelope_bytes = (root / "exports" / exported.sha256).read_bytes()
     envelope = json.loads(envelope_bytes)
     associated = base64.b64decode(envelope["associated_data"])
@@ -516,10 +514,13 @@ def test_export_receipt_keeps_atomic_recoverable_lineage_and_audit_when_material
     assert stored.state == "committed"
     assert len(pending) == 1
     assert len(audit_rows) == 1
-    assert SpeechEvidenceLineageRepository().recover_pending(
-        tenant_id=record.tenant_id,
-        owner_subject=record.owner_subject,
-    ) == 1
+    assert (
+        SpeechEvidenceLineageRepository().recover_pending(
+            tenant_id=record.tenant_id,
+            owner_subject=record.owner_subject,
+        )
+        == 1
+    )
     graph = SpeechEvidenceLineageRepository().traverse(
         tenant_id=record.tenant_id,
         owner_subject=record.owner_subject,
@@ -581,14 +582,11 @@ def test_export_sql_failure_rolls_back_receipt_outboxes_and_new_cas_object(
             select(SpeechAdaptationArtifactDB).where(
                 SpeechAdaptationArtifactDB.tenant_id == record.tenant_id,
                 SpeechAdaptationArtifactDB.owner_subject == record.owner_subject,
-                SpeechAdaptationArtifactDB.media_type
-                == "application/vnd.ananta.speech-adapter-export+json",
+                SpeechAdaptationArtifactDB.media_type == "application/vnd.ananta.speech-adapter-export+json",
             )
         ).all()
         audit_rows = session.exec(
-            select(SemanticMediaAuditOutboxDB).where(
-                SemanticMediaAuditOutboxDB.transition == "exported"
-            )
+            select(SemanticMediaAuditOutboxDB).where(SemanticMediaAuditOutboxDB.transition == "exported")
         ).all()
     assert receipts == []
     assert audit_rows == []
@@ -670,14 +668,11 @@ def test_export_final_transaction_revalidates_adapter_and_consent_fences(
     with Session(engine) as session:
         receipts = session.exec(
             select(SpeechAdaptationArtifactDB).where(
-                SpeechAdaptationArtifactDB.media_type
-                == "application/vnd.ananta.speech-adapter-export+json"
+                SpeechAdaptationArtifactDB.media_type == "application/vnd.ananta.speech-adapter-export+json"
             )
         ).all()
         audit_rows = session.exec(
-            select(SemanticMediaAuditOutboxDB).where(
-                SemanticMediaAuditOutboxDB.transition == "exported"
-            )
+            select(SemanticMediaAuditOutboxDB).where(SemanticMediaAuditOutboxDB.transition == "exported")
         ).all()
     assert receipts == []
     assert audit_rows == []

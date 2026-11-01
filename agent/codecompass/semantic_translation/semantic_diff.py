@@ -3,7 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-DiffKind = Literal["missing_field", "extra_field", "changed_optionality", "lost_enum_value", "changed_mutability", "changed_type", "lost_default", "ok"]
+DiffKind = Literal[
+    "missing_field",
+    "extra_field",
+    "changed_optionality",
+    "lost_enum_value",
+    "changed_mutability",
+    "changed_type",
+    "lost_default",
+    "ok",
+]
 
 
 @dataclass
@@ -15,7 +24,13 @@ class SemanticDiffEntry:
     severity: str = "warning"
 
     def as_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "symbol": self.symbol, "source_value": self.source_value, "target_value": self.target_value, "severity": self.severity}
+        return {
+            "kind": self.kind,
+            "symbol": self.symbol,
+            "source_value": self.source_value,
+            "target_value": self.target_value,
+            "severity": self.severity,
+        }
 
 
 @dataclass
@@ -86,7 +101,9 @@ class SemanticDiffEngine:
         if kind == "frozen_dataclass":
             source = artifact.get("source", "")
             if "mut " in source:
-                result.entries.append(SemanticDiffEntry("changed_mutability", item["name"], "frozen", "mutable", "warning"))
+                result.entries.append(
+                    SemanticDiffEntry("changed_mutability", item["name"], "frozen", "mutable", "warning")
+                )
 
     def _check_defaults(self, item: dict, result: SemanticDiffResult) -> None:
         for f in item.get("fields") or []:
@@ -100,7 +117,11 @@ class SemanticDiffEngine:
             if not type_ann.get("is_optional"):
                 continue
             fname = f["name"]
-            if lang == "java" and "Optional<" not in target_source and f"@Nullable" not in target_source:
-                result.entries.append(SemanticDiffEntry("changed_optionality", fname, "optional", "non_optional", "warning"))
+            if lang == "java" and "Optional<" not in target_source and "@Nullable" not in target_source:
+                result.entries.append(
+                    SemanticDiffEntry("changed_optionality", fname, "optional", "non_optional", "warning")
+                )
             elif lang == "rust" and "Option<" not in target_source:
-                result.entries.append(SemanticDiffEntry("changed_optionality", fname, "optional", "non_optional", "error"))
+                result.entries.append(
+                    SemanticDiffEntry("changed_optionality", fname, "optional", "non_optional", "error")
+                )

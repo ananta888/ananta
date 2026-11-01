@@ -35,12 +35,11 @@ from ananta_contracts.webrtc_security import (
     seal_secure_envelope,
     validate_secure_envelope,
 )
-from voice_runtime.backends.base import TranscriptionCandidate
-from voice_runtime.peer_transcript_consensus import PeerTranscriptCandidate
 from scripts.benchmark.semantic_media_program_measurements import (
     ProgramBenchmarkExecutionError,
 )
-
+from voice_runtime.backends.base import TranscriptionCandidate
+from voice_runtime.peer_transcript_consensus import PeerTranscriptCandidate
 
 _HEADER = struct.Struct("!QQ")
 _FIXED_EXPIRY_MS = 4_102_444_800_000
@@ -186,9 +185,7 @@ def _semantic_speech_value(raw: bytes, sequence: int, binding: str) -> bytes:
             "residual": (),
         }
     )
-    semantic_bytes = json.dumps(
-        frame.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False
-    ).encode()
+    semantic_bytes = json.dumps(frame.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     return _evidence_chunk(semantic_bytes, sequence, binding, arm="semantic")
 
 

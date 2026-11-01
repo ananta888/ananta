@@ -209,10 +209,7 @@ class HttpGenerativeCorrectorWorkerPort:
             not isinstance(provider_ids_value, list)
             or len(provider_ids_value) > 16
             or len(set(provider_ids_value)) != len(provider_ids_value)
-            or any(
-                not isinstance(item, str) or not _PROVIDER_ID_RE.fullmatch(item)
-                for item in provider_ids_value
-            )
+            or any(not isinstance(item, str) or not _PROVIDER_ID_RE.fullmatch(item) for item in provider_ids_value)
         ):
             raise GenerativeCorrectorWorkerTransportError(
                 "invalid_worker_response",
@@ -224,8 +221,7 @@ class HttpGenerativeCorrectorWorkerPort:
             or len(ready_provider_ids_value) > 16
             or len(set(ready_provider_ids_value)) != len(ready_provider_ids_value)
             or any(
-                not isinstance(item, str) or not _PROVIDER_ID_RE.fullmatch(item)
-                for item in ready_provider_ids_value
+                not isinstance(item, str) or not _PROVIDER_ID_RE.fullmatch(item) for item in ready_provider_ids_value
             )
             or not set(ready_provider_ids_value).issubset(set(provider_ids_value))
         ):
@@ -349,8 +345,5 @@ def _resolve_addresses(hostname: str, port: int) -> tuple[str, ...]:
         return (str(ipaddress.ip_address(hostname)),)
     except ValueError:
         return tuple(
-            dict.fromkeys(
-                str(item[4][0])
-                for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
-            )
+            dict.fromkeys(str(item[4][0]) for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM))
         )

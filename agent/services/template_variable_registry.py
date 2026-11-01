@@ -376,13 +376,7 @@ def validate_template_variables_with_context(
         ):
             context_invalid.append(name)
 
-    duplicate_variables = sorted(
-        {
-            name
-            for name in found_all
-            if found_all.count(name) > 1
-        }
-    )
+    duplicate_variables = sorted({name for name in found_all if found_all.count(name) > 1})
     issues: list[dict[str, Any]] = []
     if unknown:
         issues.append(

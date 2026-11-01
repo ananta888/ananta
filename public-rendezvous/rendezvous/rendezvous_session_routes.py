@@ -174,7 +174,10 @@ class SessionRoutes:
             )
         if not is_recovery:
             if limited := self._support.rate_limit_guard(
-                "create", ctx.account_id, self._config.RATE_CREATE_LIMIT, self._config.RATE_CREATE_WINDOW,
+                "create",
+                ctx.account_id,
+                self._config.RATE_CREATE_LIMIT,
+                self._config.RATE_CREATE_WINDOW,
             ):
                 return limited
         requested_expires_at = body.get("expires_at")
@@ -352,7 +355,10 @@ class SessionRoutes:
         # OIDC account identity, never forwarding headers, owns the abuse bucket.
         if not is_recovery:
             if limited := self._support.rate_limit_guard(
-                "join_peer", ctx.account_id, self._config.RATE_JOIN_LIMIT, self._config.RATE_JOIN_WINDOW,
+                "join_peer",
+                ctx.account_id,
+                self._config.RATE_JOIN_LIMIT,
+                self._config.RATE_JOIN_WINDOW,
             ):
                 return limited
         if not invite_code:
@@ -610,11 +616,7 @@ class SessionRoutes:
         )
         if not result.get("ok"):
             reason = str(result.get("reason") or "membership_state_conflict")
-            status = (
-                400
-                if reason == "runtime_state_invalid"
-                else self._support.member_error_status(reason)
-            )
+            status = 400 if reason == "runtime_state_invalid" else self._support.member_error_status(reason)
             return jsonify({"error": reason}), status
         local_peer_id = str(result["local_peer_id"])
         response = jsonify(

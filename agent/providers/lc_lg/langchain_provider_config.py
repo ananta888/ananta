@@ -1,9 +1,10 @@
 """LangChainProviderConfig — serialisierbar, validierbar (LCG-003)."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
-from pydantic import BaseModel, Field, field_validator, model_validator
 
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 LangChainMode = Literal["disabled", "dry_run", "mock_live", "local_live", "cloud_gated"]
 RetrieverSource = Literal["codecompass", "none"]
@@ -15,6 +16,7 @@ class LangChainProviderConfig(BaseModel):
     Default: disabled and dry_run — no live execution without explicit opt-in.
     Secrets are never stored in plain text; use secret_refs instead.
     """
+
     enabled: bool = False
     mode: LangChainMode = "dry_run"
 
@@ -29,7 +31,7 @@ class LangChainProviderConfig(BaseModel):
     external_calls_allowed: bool = False
     allowed_base_urls: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
-    secret_refs: list[str] = Field(default_factory=list)   # references, never values
+    secret_refs: list[str] = Field(default_factory=list)  # references, never values
 
     # Limits
     timeout_seconds: int = 120
@@ -58,9 +60,7 @@ class LangChainProviderConfig(BaseModel):
     def _no_plain_secrets(cls, v: str) -> str:
         # Reject patterns that look like API keys inline
         if any(ch in v for ch in ("sk-", "Bearer ", "key=", "token=")):
-            raise ValueError(
-                "model_provider_ref must be a reference, not a secret value"
-            )
+            raise ValueError("model_provider_ref must be a reference, not a secret value")
         return v
 
     @field_validator("retriever_source")
@@ -74,9 +74,7 @@ class LangChainProviderConfig(BaseModel):
     @model_validator(mode="after")
     def _cloud_requires_external_calls(self) -> "LangChainProviderConfig":
         if self.mode == "cloud_gated" and not self.external_calls_allowed:
-            raise ValueError(
-                "cloud_gated mode requires external_calls_allowed=true"
-            )
+            raise ValueError("cloud_gated mode requires external_calls_allowed=true")
         return self
 
     @classmethod
@@ -92,5 +90,5 @@ class LangChainProviderConfig(BaseModel):
     def to_safe_dict(self) -> dict[str, Any]:
         """Returns config without any secret-looking values."""
         d = self.model_dump()
-        d.pop("secret_refs", None)   # refs are safe, but keep them out of casual logging
+        d.pop("secret_refs", None)  # refs are safe, but keep them out of casual logging
         return d

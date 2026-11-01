@@ -34,7 +34,9 @@ def validate_learned_pattern(payload: dict[str, Any]) -> list[str]:
     return validate_payload(payload, schema_filename=LEARNED_PATTERN_SCHEMA_FILE)
 
 
-def default_profile(*, profile_id: str = "default", display_name: str = "Default Profile", workspace_ref: str = "local") -> dict[str, Any]:
+def default_profile(
+    *, profile_id: str = "default", display_name: str = "Default Profile", workspace_ref: str = "local"
+) -> dict[str, Any]:
     return {
         "schema_version": "ai_snake_prediction_profile.v1",
         "profile_id": str(profile_id),
@@ -63,10 +65,14 @@ def default_profile(*, profile_id: str = "default", display_name: str = "Default
 
 def profile_examples() -> list[dict[str, Any]]:
     empty = default_profile()
-    normal = default_profile(profile_id="operator-main", display_name="Operator Main", workspace_ref="workspace:default")
+    normal = default_profile(
+        profile_id="operator-main", display_name="Operator Main", workspace_ref="workspace:default"
+    )
     normal["pattern_refs"] = ["p-artifact-explain-001"]
     normal["human_summary"] = "Ein aktives Pattern für Artefakt-Erklärungen."
     normal["ai_summary"] = "learning=on; patterns=1; top=artifact_explain"
-    extended = default_profile(profile_id="operator-extended", display_name="Extended", workspace_ref="workspace:extended")
+    extended = default_profile(
+        profile_id="operator-extended", display_name="Extended", workspace_ref="workspace:extended"
+    )
     extended["x_ananta"] = {"notes": "extension-field", "preview_flags": {"use_compaction": True}}
     return [empty, normal, extended]

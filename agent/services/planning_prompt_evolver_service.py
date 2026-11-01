@@ -5,8 +5,7 @@ import json
 import time
 from typing import Any
 
-from agent.db_models import PlanningReviewItemDB
-from agent.db_models import PlanningPromptVersionDB
+from agent.db_models import PlanningPromptVersionDB, PlanningReviewItemDB
 from agent.services.model_output_format_profile_service import get_model_output_format_profile_service
 from agent.services.planning_prompt_evolution_guard_service import get_planning_prompt_evolution_guard_service
 from agent.services.repository_registry import get_repository_registry
@@ -27,7 +26,9 @@ class PlanningPromptEvolverService:
             return "llama"
         return None
 
-    def _should_evolve(self, *, run, policy: dict[str, Any], output_shape: str | None = None, parse_mode: str | None = None) -> tuple[bool, list[str]]:
+    def _should_evolve(
+        self, *, run, policy: dict[str, Any], output_shape: str | None = None, parse_mode: str | None = None
+    ) -> tuple[bool, list[str]]:
         rules = dict(policy.get("planner_prompt_evolution") or {}) if isinstance(policy, dict) else {}
         if not bool(rules.get("enabled", True)):
             return False, ["disabled"]
@@ -56,7 +57,16 @@ class PlanningPromptEvolverService:
                 reasons.append("missing_concrete_example")
         return bool(reasons), reasons
 
-    def _mutate_template(self, template: str, *, reasons: list[str], output_format: str, output_shape: str | None = None, parse_mode: str | None = None, model_family: str | None = None) -> str:
+    def _mutate_template(
+        self,
+        template: str,
+        *,
+        reasons: list[str],
+        output_format: str,
+        output_shape: str | None = None,
+        parse_mode: str | None = None,
+        model_family: str | None = None,
+    ) -> str:
         patch_rules: list[str] = []
         from agent.services.text_quality.prompt_rule_mapping import rules_for
 
@@ -69,15 +79,21 @@ class PlanningPromptEvolverService:
         if "validation_failed" in reasons:
             patch_rules.append("Ensure category coverage expected by validator profile.")
         if "error_classification" in reasons:
-            patch_rules.append("Avoid ambiguous or generic tasks; include concrete artifact/command in each actionable item.")
+            patch_rules.append(
+                "Avoid ambiguous or generic tasks; include concrete artifact/command in each actionable item."
+            )
         shape = str(output_shape or "").strip().lower()
         parse = str(parse_mode or "").strip().lower()
         family = str(model_family or "").strip().lower()
         if shape in {"json_in_markdown_fence", "partial_json"}:
             patch_rules.append("The model may naturally wrap JSON in markdown fences; accept and normalize that style.")
-            patch_rules.append("If truncation happens, keep the same structure but shorten field values and descriptions.")
+            patch_rules.append(
+                "If truncation happens, keep the same structure but shorten field values and descriptions."
+            )
         if shape in {"markdown_bullets", "numbered_steps"}:
-            patch_rules.append("The model may prefer markdown lists; keep the list style and map each item to a task object during normalization.")
+            patch_rules.append(
+                "The model may prefer markdown lists; keep the list style and map each item to a task object during normalization."
+            )
         if shape == "yaml_like":
             patch_rules.append("The model may prefer YAML; keep keys short and unambiguous for later normalization.")
         if parse in {"parse_failed", "partial_json_objects", "bullet_fallback"}:
@@ -98,7 +114,9 @@ class PlanningPromptEvolverService:
         return f"{template}\n\nAdaptive reinforcement rules:\n{block}\n"
 
     @staticmethod
-    def _review_window_exceeded(*, repo, mode: str, model_family: str | None, now_ts: float, window_seconds: int, max_auto_evolutions: int) -> bool:
+    def _review_window_exceeded(
+        *, repo, mode: str, model_family: str | None, now_ts: float, window_seconds: int, max_auto_evolutions: int
+    ) -> bool:
         if max_auto_evolutions <= 0:
             return False
         recent = [
@@ -154,7 +172,11 @@ class PlanningPromptEvolverService:
             return {"evolved": False, "reason": "no_trigger"}
 
         repos = get_repository_registry()
-        base = repos.planning_prompt_version_repo.get_by_id(str(run.prompt_version_id or "")) if str(run.prompt_version_id or "") else None
+        base = (
+            repos.planning_prompt_version_repo.get_by_id(str(run.prompt_version_id or ""))
+            if str(run.prompt_version_id or "")
+            else None
+        )
         if base is None:
             # Fallback: choose latest enabled prompt by mode + model family
             mode = str(getattr(run, "mode", "") or "generic").strip() or "generic"
@@ -174,9 +196,16 @@ class PlanningPromptEvolverService:
         provider = str(getattr(run, "model_provider", "") or "").strip().lower() or None
         model_name = str(getattr(run, "model_name", "") or "").strip() or None
         mode = str(getattr(run, "mode", "") or "generic").strip() or "generic"
-        observed_model_family = model_family or self._infer_model_family(model_name) or self._infer_model_family(getattr(run, "model_name", None))
+        observed_model_family = (
+            model_family
+            or self._infer_model_family(model_name)
+            or self._infer_model_family(getattr(run, "model_name", None))
+        )
         telemetry = {
-            "parse_success": 1.0 if bool(getattr(run, "parse_confidence", "")) and str(getattr(run, "parse_confidence", "")).strip().lower() != "low" else 0.0,
+            "parse_success": 1.0
+            if bool(getattr(run, "parse_confidence", ""))
+            and str(getattr(run, "parse_confidence", "")).strip().lower() != "low"
+            else 0.0,
             "repair_attempts": int(getattr(run, "repair_attempt_count", 0) or 0),
             "schema_violation": 0.0 if bool(getattr(run, "validation_success", False)) else 1.0,
             "constraint_loss": float(((getattr(run, "mode_data", {}) or {}).get("constraint_loss") or 0.0)),
@@ -190,7 +219,11 @@ class PlanningPromptEvolverService:
         )
         output_format = str(output_format_profile.get("preferred_output_format") or "json").strip().lower() or "json"
         max_prompt_chars = int(rules.get("max_prompt_chars", 12000) or 12000)
-        if output_format == "json" and "json" not in list(output_format_profile.get("accepted_output_formats") or []) and output_format_profile.get("accepted_output_formats"):
+        if (
+            output_format == "json"
+            and "json" not in list(output_format_profile.get("accepted_output_formats") or [])
+            and output_format_profile.get("accepted_output_formats")
+        ):
             output_format = "markdown"
         mutated_user = self._mutate_template(
             str(base.user_prompt_template or ""),
@@ -215,7 +248,9 @@ class PlanningPromptEvolverService:
         output_contract.update(
             {
                 "observed_parse_mode": str(parse_mode or getattr(run, "parse_mode", "") or ""),
-                "observed_output_shape": str(output_shape or (getattr(run, "mode_data", {}) or {}).get("__output_shape__") or ""),
+                "observed_output_shape": str(
+                    output_shape or (getattr(run, "mode_data", {}) or {}).get("__output_shape__") or ""
+                ),
                 "observed_model_family": observed_model_family or base.target_model_family,
             }
         )
@@ -234,7 +269,9 @@ class PlanningPromptEvolverService:
             "repair_prompt_template": mutated_repair,
             "enabled": bool((rules.get("auto_enable", False) if enabled is None else enabled)),
         }
-        checksum = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()
+        checksum = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        ).hexdigest()
         payload["checksum"] = checksum
         if str(base.checksum or "") == checksum:
             return {"evolved": False, "reason": "no_material_change"}

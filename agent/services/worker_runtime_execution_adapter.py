@@ -19,6 +19,7 @@ backends without changing the control plane.
 
 Contract: ``docs/contracts/hub-direct-execution.md``.
 """
+
 from __future__ import annotations
 
 import os
@@ -236,7 +237,9 @@ class WorkerRuntimeExecutionAdapter:
         target_payload = config.get("worker_runtime_target")
         worker_runtime_cfg = config.get("worker_runtime") if isinstance(config.get("worker_runtime"), dict) else {}
         if not target_payload and isinstance(worker_runtime_cfg, dict):
-            target_payload = worker_runtime_cfg.get("hub_direct_execution_target") or worker_runtime_cfg.get("runtime_target")
+            target_payload = worker_runtime_cfg.get("hub_direct_execution_target") or worker_runtime_cfg.get(
+                "runtime_target"
+            )
         if not isinstance(target_payload, dict):
             return LocalProcessWorkerRuntime()
         try:

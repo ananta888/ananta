@@ -17,6 +17,7 @@ Usage:
     laya-train --data artifacts/laya/review-decisions.jsonl \
         --out models/laya-review --base laya-typed-decisions --loss rlcd --device cuda
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,9 +39,9 @@ def _state(requirements: dict, changed_files, analysis: str) -> str:
     files = ", ".join(sorted(changed_files))
     return (
         "Independent acceptance review of one change (decision scoring).\n"
-        f"Task requirements (JSON): {req[:STATE_LIMITS['requirements']]}\n"
-        f"Changed files: {files[:STATE_LIMITS['files']]}\n"
-        f"Reviewer analysis: {str(analysis or '')[:STATE_LIMITS['analysis']]}"
+        f"Task requirements (JSON): {req[: STATE_LIMITS['requirements']]}\n"
+        f"Changed files: {files[: STATE_LIMITS['files']]}\n"
+        f"Reviewer analysis: {str(analysis or '')[: STATE_LIMITS['analysis']]}"
     )
 
 
@@ -60,7 +61,7 @@ def _analysis_for(item: dict, workspaces: Path) -> str:
 
 def rows_for_item(item: dict, analysis: str):
     criteria = item.get("acceptance_criteria") or []
-    verdict = ((item.get("acceptance_review") or {}).get("result") or {})
+    verdict = (item.get("acceptance_review") or {}).get("result") or {}
     passed = verdict.get("criteria_passed") or []
     findings = verdict.get("findings") or []
     if not criteria or len(passed) != len(criteria):
@@ -71,12 +72,9 @@ def rows_for_item(item: dict, analysis: str):
     yield {
         "state": state,
         "questions": {
-            question.key: {"type": question.kind, "instructions": question.instructions}
-            for question in questions
+            question.key: {"type": question.kind, "instructions": question.instructions} for question in questions
         },
-        "expected": {
-            question.key: label for question, label in zip(questions, labels)
-        },
+        "expected": {question.key: label for question, label in zip(questions, labels)},
     }
 
 

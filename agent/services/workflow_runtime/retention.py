@@ -138,9 +138,7 @@ class WorkflowEventRetentionService:
             first_sequence=ordered[0].sequence if ordered else 0,
             last_sequence=ordered[-1].sequence if ordered else 0,
             content_chain_hash=chain,
-            raw_diagnostics_expire_before=(
-                float(evaluated_at) - self._policy.raw_diagnostic_ttl_seconds
-            ),
+            raw_diagnostics_expire_before=(float(evaluated_at) - self._policy.raw_diagnostic_ttl_seconds),
             event_refs=tuple(refs),
         )
 

@@ -4,32 +4,29 @@ Tests the path: markdown_mermaid_document view → RenderScene with
 diagram_image nodes → raster RenderFrame → image-capable adapter.
 Uses fake Mermaid renderer and monkeypatching — no real mmdc, Playwright or terminal.
 """
+
 from __future__ import annotations
 
 import io
 import time
-from unittest.mock import patch
-
-import pytest
 
 from client_surfaces.operator_tui.visual.adapters.ansi_adapter import AnsiOutputAdapter
 from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
 from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
 from client_surfaces.operator_tui.visual.adapters.noop_adapter import NoopDiagnosticsAdapter
 from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisualCapabilities
-from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderResult, MermaidRenderer
+from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer, MermaidRenderResult
 from client_surfaces.operator_tui.visual.renderers.ansi_renderer import AnsiBlocksRenderer
 from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
 from client_surfaces.operator_tui.visual.runtime.config import VisualViewportConfig
-from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame
 from client_surfaces.operator_tui.visual.runtime.registry import (
     OutputAdapterRegistry,
     RendererRegistry,
     ViewRegistry,
 )
 from client_surfaces.operator_tui.visual.runtime.visual_runtime import VisualRuntime
-from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
 from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
+from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
 
 _FAKE_PNG = (
     b"\x89PNG\r\n\x1a\n"
@@ -60,8 +57,12 @@ class FakeMermaidRenderer(MermaidRenderer):
                 duration_ms=1.0,
             )
         return MermaidRenderResult(
-            success=False, image_data=None, image_format="",
-            fallback_text=source, reason="fake_render_failed", duration_ms=0.0,
+            success=False,
+            image_data=None,
+            image_format="",
+            fallback_text=source,
+            reason="fake_render_failed",
+            duration_ms=0.0,
         )
 
 
@@ -118,6 +119,7 @@ def _rendered_state(version: str = "test") -> dict[str, object]:
 
 # ── Image-capable runtime (Kitty) ──────────────────────────────────────────────
 
+
 def test_kitty_runtime_renders_markdown_without_crash():
     runtime = _build_runtime(kitty=True, mermaid_success=True)
     frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-1"), force=True)
@@ -136,6 +138,7 @@ def test_kitty_runtime_scene_contains_diagram_image_node():
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+
     ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
     diagram_nodes = [n for n in scene.nodes if n.get("kind") == "diagram_image"]
@@ -145,8 +148,8 @@ def test_kitty_runtime_scene_contains_diagram_image_node():
 
 def test_kitty_adapter_receives_raster_frame_with_mermaid_payload():
     """Verify the full path from diagram_image node through cpu_raster to Kitty."""
-    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
     from client_surfaces.operator_tui.visual.renderers.base_renderer import RenderContext
+    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
 
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
@@ -168,9 +171,12 @@ def test_kitty_adapter_receives_raster_frame_with_mermaid_payload():
 
 # ── ANSI-only runtime (no image protocol) ────────────────────────────────────
 
+
 def test_ansi_only_runtime_renders_markdown_source_fallback():
     runtime = _build_runtime(kitty=False, mermaid_success=False)
-    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-ansi-1"), force=True)
+    frame = runtime.render_frame(
+        region=_region(), now=time.monotonic(), state=_rendered_state("test-ansi-1"), force=True
+    )
     assert frame is not None
     assert frame.frame_type == "ansi"
 
@@ -178,24 +184,30 @@ def test_ansi_only_runtime_renders_markdown_source_fallback():
 def test_ansi_only_runtime_no_crash_with_mermaid():
     """ANSI-only path must handle Mermaid without crashing."""
     runtime = _build_runtime(kitty=False, mermaid_success=True)
-    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-ansi-2"), force=True)
+    frame = runtime.render_frame(
+        region=_region(), now=time.monotonic(), state=_rendered_state("test-ansi-2"), force=True
+    )
     assert frame is not None
 
 
 def test_ansi_frame_contains_mermaid_source():
     """ANSI fallback must show mermaid source code."""
-    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
     import re
+
+    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
 
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=False)
     ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
-    label_texts = " ".join(re.sub(r"\033\[[0-9;]*m", "", n.get("text", "")) for n in scene.nodes if n.get("kind") == "label")
+    label_texts = " ".join(
+        re.sub(r"\033\[[0-9;]*m", "", n.get("text", "")) for n in scene.nodes if n.get("kind") == "label"
+    )
     assert "A-->B" in label_texts or "mermaid" in label_texts.lower()
 
 
 # ── get_view_instance ─────────────────────────────────────────────────────────
+
 
 def test_runtime_get_view_instance_returns_none_before_render():
     runtime = _build_runtime(kitty=False)
@@ -207,9 +219,15 @@ def test_runtime_get_view_instance_returns_none_before_render():
 
 def test_runtime_get_view_instance_returns_instance_after_render():
     runtime = _build_runtime(kitty=False)
-    runtime.render_frame(region=_region(), now=time.monotonic(), state={
-        "markdown_text": "# Hello", "visual_state_version": "v1",
-    }, force=True)
+    runtime.render_frame(
+        region=_region(),
+        now=time.monotonic(),
+        state={
+            "markdown_text": "# Hello",
+            "visual_state_version": "v1",
+        },
+        force=True,
+    )
     instance = runtime.get_view_instance("markdown_mermaid_document")
     # After render the instance should be cached
     if instance is not None:
@@ -218,8 +236,10 @@ def test_runtime_get_view_instance_returns_instance_after_render():
 
 # ── Metadata: mermaid_visible_images ─────────────────────────────────────────
 
+
 def test_scene_metadata_mermaid_visible_images_image_path():
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
     ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
@@ -229,6 +249,7 @@ def test_scene_metadata_mermaid_visible_images_image_path():
 
 def test_scene_does_not_render_mermaid_without_explicit_request():
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
     ctx = ViewContext(
@@ -243,6 +264,7 @@ def test_scene_does_not_render_mermaid_without_explicit_request():
 
 def test_scene_metadata_mermaid_visible_images_ansi_path():
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=False)
     ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)

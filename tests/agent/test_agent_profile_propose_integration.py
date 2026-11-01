@@ -7,19 +7,19 @@ Verifies:
 - bug_fix vs refactor produce different active profiles
 - Tasks without profile/task_kind remain backward-compatible
 """
+
 from __future__ import annotations
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from worker.core.propose import ExecutableProposal, ProposeStrategyResult
-from worker.core.propose_orchestrator import ProposeContext
-
 
 # ---------------------------------------------------------------------------
 # Helpers shared with other propose tests
 # ---------------------------------------------------------------------------
+
 
 def _mk_executable_result(strategy_id: str = "tool_calling_llm") -> ProposeStrategyResult:
     proposal = ExecutableProposal(
@@ -36,6 +36,7 @@ def _mk_executable_result(strategy_id: str = "tool_calling_llm") -> ProposeStrat
 # ---------------------------------------------------------------------------
 # APRL-019 T1: propose_task_step persists active_agent_profile in last_proposal
 # ---------------------------------------------------------------------------
+
 
 def test_propose_persists_active_agent_profile_in_last_proposal(client, app, admin_auth_header):
     from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -104,6 +105,7 @@ def test_propose_active_agent_profile_carries_through_context(client, app, admin
 # APRL-019 T2: InstructionLayerService has agent_profile_template in applied_layers
 # ---------------------------------------------------------------------------
 
+
 def test_instruction_layer_service_has_agent_profile_template_layer(app):
     from agent.services.instruction_layer_service import get_instruction_layer_service
 
@@ -122,9 +124,7 @@ def test_instruction_layer_service_has_agent_profile_template_layer(app):
 
     diagnostics = result.get("diagnostics") or {}
     applied = [layer["layer"] for layer in list(diagnostics.get("applied_layers") or [])]
-    assert "agent_profile_template" in applied, (
-        "agent_profile_template must appear in applied_layers"
-    )
+    assert "agent_profile_template" in applied, "agent_profile_template must appear in applied_layers"
 
     # active_agent_profile must be in diagnostics
     assert "active_agent_profile" in diagnostics
@@ -152,9 +152,11 @@ def test_instruction_layer_service_agent_profile_template_precedes_blueprint_tem
 # APRL-019 T3: User-Overlay cannot suppress agent_profile_template layer
 # ---------------------------------------------------------------------------
 
+
 def test_user_overlay_cannot_suppress_agent_profile_template(app):
     """Even when a user overlay is present, agent_profile_template must remain applied."""
     import time
+
     from agent.db_models import InstructionOverlayDB
     from agent.services.instruction_layer_service import get_instruction_layer_service
     from agent.services.repository_registry import get_repository_registry
@@ -199,14 +201,13 @@ def test_user_overlay_cannot_suppress_agent_profile_template(app):
 
     diagnostics = result.get("diagnostics") or {}
     applied = [l["layer"] for l in list(diagnostics.get("applied_layers") or [])]
-    assert "agent_profile_template" in applied, (
-        "agent_profile_template must not be suppressable by user overlay"
-    )
+    assert "agent_profile_template" in applied, "agent_profile_template must not be suppressable by user overlay"
 
 
 # ---------------------------------------------------------------------------
 # APRL-019 T4: bug_fix and refactor produce different active profiles
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.integration
 def test_bug_fix_and_refactor_produce_different_active_profiles(client, app, admin_auth_header):
@@ -248,15 +249,14 @@ def test_bug_fix_and_refactor_produce_different_active_profiles(client, app, adm
 # APRL-019 T5: Old task without task_kind / profile stays backward-compatible
 # ---------------------------------------------------------------------------
 
+
 def test_propose_backward_compatible_task_without_task_kind(client, app, admin_auth_header):
     """A task with no task_kind or profile still proposes without error."""
     from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
     tid = "T-APRL019-COMPAT"
     with app.app_context():
-        _update_local_task_status(
-            tid, "assigned", goal_id="g-aprl-compat", description="generic task"
-        )
+        _update_local_task_status(tid, "assigned", goal_id="g-aprl-compat", description="generic task")
 
     with patch(
         "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run",
@@ -283,6 +283,7 @@ def test_propose_backward_compatible_task_without_task_kind(client, app, admin_a
 # APRL-019 T6: Instruction stack contains agent_profile section in rendered prompt
 # ---------------------------------------------------------------------------
 
+
 def test_rendered_system_prompt_contains_agent_profile_section(app):
     from agent.services.instruction_layer_service import get_instruction_layer_service
 
@@ -295,14 +296,13 @@ def test_rendered_system_prompt_contains_agent_profile_section(app):
         )
 
     rendered = result.get("rendered_system_prompt") or ""
-    assert "AGENT PROFILE" in rendered, (
-        "rendered_system_prompt must include [AGENT PROFILE: ...] section"
-    )
+    assert "AGENT PROFILE" in rendered, "rendered_system_prompt must include [AGENT PROFILE: ...] section"
 
 
 # ---------------------------------------------------------------------------
 # APRL-019 T7: layer_model reports agent_profile_template as non-overridable
 # ---------------------------------------------------------------------------
+
 
 def test_layer_model_includes_agent_profile_template_as_non_overridable():
     from agent.services.instruction_layer_service import get_instruction_layer_service

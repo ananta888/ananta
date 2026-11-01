@@ -2,9 +2,7 @@
 
 import time
 
-import pytest
-
-from worker.core.artifact_enforcer import ArtifactEnforcer, KNOWN_ARTIFACT_KINDS
+from worker.core.artifact_enforcer import KNOWN_ARTIFACT_KINDS, ArtifactEnforcer
 from worker.core.context_resolver import ContextBlock, ContextSensitivity
 from worker.core.execution_envelope import (
     ApprovalRef,
@@ -48,9 +46,7 @@ class TestHermesAdapterConformance:
         assert ok is True
 
     def test_c3_secrets_sanitized_in_response(self):
-        result = self.adapter.parse_response(
-            "api_key=sk-ant-api03-abcdefghij1234567890XYZzzz was used", task_id="t1"
-        )
+        result = self.adapter.parse_response("api_key=sk-ant-api03-abcdefghij1234567890XYZzzz was used", task_id="t1")
         assert "sk-ant-api03-" not in result.sanitized_output
 
     def test_c4_artifact_kinds_known(self):
@@ -165,7 +161,12 @@ class TestMCPAdapterConformance:
 
     def test_env_allowlist_strips_secrets(self):
         scoped = self.adapter.scoped_env(
-            {"PATH": "/usr/bin", "ANTHROPIC_API_KEY": "sk-ant-secret", "OPENAI_API_KEY": "sk-openai-secret", "HOME": "/home/user"}
+            {
+                "PATH": "/usr/bin",
+                "ANTHROPIC_API_KEY": "sk-ant-secret",
+                "OPENAI_API_KEY": "sk-openai-secret",
+                "HOME": "/home/user",
+            }
         )
         assert "ANTHROPIC_API_KEY" not in scoped
         assert "OPENAI_API_KEY" not in scoped
@@ -245,9 +246,7 @@ def _entry(mode: ScientificSkillOperatingMode) -> ScientificSkillCatalogEntry:
         status=ScientificSkillCatalogEntryStatus.APPROVED,
         allowed_mode=mode,
         context_budget_tokens=500,
-        allowed_tools=("sandbox_task_request",)
-        if mode is ScientificSkillOperatingMode.CONTROLLED_EXECUTION
-        else (),
+        allowed_tools=("sandbox_task_request",) if mode is ScientificSkillOperatingMode.CONTROLLED_EXECUTION else (),
         data_classification="internal",
         network_profile=(
             ScientificSkillNetworkProfile.APPROVAL_REQUIRED
@@ -274,9 +273,7 @@ def _catalog(entry: ScientificSkillCatalogEntry, *, enabled: bool = True) -> Sci
 
 
 def _request() -> ScientificSkillAdapterRequest:
-    return ScientificSkillAdapterRequest(
-        catalog_id="scientific-default", catalog_version="v1", skill_name="literature"
-    )
+    return ScientificSkillAdapterRequest(catalog_id="scientific-default", catalog_version="v1", skill_name="literature")
 
 
 def test_documentation_and_research_entries_project_bounded_source_context() -> None:
@@ -318,9 +315,7 @@ def test_disabled_catalog_missing_adapter_and_invalid_pin_degrade_explicitly() -
     assert missing.adapt(_request()).degradation_code == "scientific_skill_adapter_missing"
 
     invalid_entry = replace(documentation, upstream_pin="invalid pin")
-    invalid = ScientificSkillAdapterService(
-        _Catalogs(_catalog(invalid_entry)), (DocumentationResearchSkillAdapter(),)
-    )
+    invalid = ScientificSkillAdapterService(_Catalogs(_catalog(invalid_entry)), (DocumentationResearchSkillAdapter(),))
     assert invalid.adapt(_request()).degradation_code == "scientific_skill_adapter_pin_invalid"
 
 

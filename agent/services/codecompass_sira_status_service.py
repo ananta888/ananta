@@ -111,8 +111,7 @@ class CodeCompassSiraStatusService:
                 "controller": controller,
                 "kill_switches": {
                     "online_expansion": (
-                        mode == "off"
-                        or not bool(getattr(settings, "codecompass_sira_online_expansion_enabled", True))
+                        mode == "off" or not bool(getattr(settings, "codecompass_sira_online_expansion_enabled", True))
                     ),
                     "offline_enrichment": not bool(
                         getattr(settings, "codecompass_sira_offline_enrichment_enabled", True)

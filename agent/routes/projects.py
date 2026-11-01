@@ -18,13 +18,12 @@ from agent.models.project_models import (
     ProjectMembershipUpsertCommand,
     ProjectUpdateCommand,
 )
-from agent.repository import team_repo, task_repo
+from agent.repository import task_repo, team_repo
 from agent.routes.control_center_api import _task_item
 from agent.services.project_access_authority import (
     ProjectAccessError,
     ProjectCapability,
 )
-
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
 
@@ -96,11 +95,7 @@ def _boundary(view: Callable):
         except ProjectAccessError as exc:
             return _error(exc.reason_code, exc.public_status)
         except Exception as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "")
-                or str(exc)
-                or "project_internal_error"
-            )
+            reason_code = str(getattr(exc, "reason_code", "") or str(exc) or "project_internal_error")
             status_code = int(
                 getattr(exc, "public_status", 0)
                 or getattr(exc, "status_code", 0)
@@ -163,14 +158,8 @@ def list_projects():
     )
     items = [_read_payload(item) for item in projects]
     if principal.is_admin:
-        mapped_team_ids = {
-            str(item.get("team_id") or "") for item in items
-        }
-        items.extend(
-            _legacy_team_item(team)
-            for team in team_repo.get_all()
-            if str(team.id) not in mapped_team_ids
-        )
+        mapped_team_ids = {str(item.get("team_id") or "") for item in items}
+        items.extend(_legacy_team_item(team) for team in team_repo.get_all() if str(team.id) not in mapped_team_ids)
     return api_response(data={"items": items, "count": len(items)})
 
 
@@ -201,9 +190,7 @@ def create_project():
             team_id=team_id,
         )
     )
-    response = make_response(
-        api_response(data={"project": _read_payload(created)}, code=201)
-    )
+    response = make_response(api_response(data={"project": _read_payload(created)}, code=201))
     response.headers["Location"] = f"/api/projects/{created.id}"
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -213,9 +200,7 @@ def create_project():
 @check_auth
 @_boundary
 def project_detail(project_id: str):
-    project = _service().get_project(
-        _scope(project_id, ProjectCapability.READ, include_archived=True)
-    )
+    project = _service().get_project(_scope(project_id, ProjectCapability.READ, include_archived=True))
     return api_response(data={"project": _read_payload(project)})
 
 
@@ -293,13 +278,9 @@ def delete_project(project_id: str):
 @check_auth
 @_boundary
 def list_project_members(project_id: str):
-    members = _service().list_members(
-        _scope(project_id, ProjectCapability.MANAGE_MEMBERS)
-    )
+    members = _service().list_members(_scope(project_id, ProjectCapability.MANAGE_MEMBERS))
     items = [_read_payload(member) for member in members]
-    return api_response(
-        data={"items": items, "count": len(items), "project_id": project_id}
-    )
+    return api_response(data={"items": items, "count": len(items), "project_id": project_id})
 
 
 @projects_bp.put("/<project_id>/members/<path:subject_id>")
@@ -345,14 +326,9 @@ def list_project_tasks(project_id: str):
     for task in task_repo.get_all():
         task_project = str(getattr(task, "project_id", None) or "")
         task_tenant = str(getattr(task, "tenant_id", None) or "")
-        canonical_match = (
-            task_project == scope.project_id
-            and task_tenant == scope.tenant_id
-        )
+        canonical_match = task_project == scope.project_id and task_tenant == scope.tenant_id
         legacy_match = (
-            not task_project
-            and bool(scope.team_id)
-            and str(getattr(task, "team_id", None) or "") == scope.team_id
+            not task_project and bool(scope.team_id) and str(getattr(task, "team_id", None) or "") == scope.team_id
         )
         if canonical_match or legacy_match:
             items.append(_task_item(task))

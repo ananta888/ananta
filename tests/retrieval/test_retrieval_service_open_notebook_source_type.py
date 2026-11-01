@@ -147,9 +147,7 @@ def test_unknown_source_type_is_still_rejected(monkeypatch):
 
 def test_combined_repo_artifact_open_notebook_retrieval(monkeypatch):
     service, knowledge = _service(monkeypatch)
-    payload = service.retrieve_context(
-        "context budget", source_types=["repo", "artifact", "open_notebook"]
-    )
+    payload = service.retrieve_context("context budget", source_types=["repo", "artifact", "open_notebook"])
 
     assert {"artifact"} in knowledge.scope_calls
     assert {"open_notebook"} in knowledge.scope_calls

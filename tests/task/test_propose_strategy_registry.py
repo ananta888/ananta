@@ -9,17 +9,17 @@ Verifies:
 - HumanReviewStrategy returns needs_review (terminal)
 - AdvisoryProposalStrategy returns advisory with task prompt
 """
+
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
-
-import pytest
-
+from unittest.mock import MagicMock, patch
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _make_context(task_id="t1", goal_id="g1", base_prompt="make a fibonacci API"):
     from worker.core.propose_orchestrator import ProposeContext
+
     return ProposeContext(
         goal_id=goal_id,
         task_id=task_id,
@@ -35,21 +35,31 @@ def _make_context(task_id="t1", goal_id="g1", base_prompt="make a fibonacci API"
 
 # ── registry construction ─────────────────────────────────────────────────────
 
+
 class TestProposeStrategyRegistry:
     def test_registry_contains_all_known_strategies(self):
         from agent.services.propose_strategy_registry import build_strategy_registry
+
         reg = build_strategy_registry()
         expected = {
-            "agent_loop_tool_calling", "cli_agent_patch_strategy", "hermes_proposal_strategy",
-            "deterministic_handler", "worker_strategy",
-            "tool_calling_llm", "json_schema_llm",
-            "flexible_llm_normalization", "repair_procedure_runner", "advisory_proposal", "human_review",
+            "agent_loop_tool_calling",
+            "cli_agent_patch_strategy",
+            "hermes_proposal_strategy",
+            "deterministic_handler",
+            "worker_strategy",
+            "tool_calling_llm",
+            "json_schema_llm",
+            "flexible_llm_normalization",
+            "repair_procedure_runner",
+            "advisory_proposal",
+            "human_review",
         }
         assert expected == set(reg.keys())
 
     def test_no_stub_strategy_in_registry(self):
         from agent.services.propose_strategy_registry import build_strategy_registry
         from worker.core.propose_orchestrator import StubStrategy
+
         reg = build_strategy_registry()
         for sid, strategy in reg.items():
             assert not isinstance(strategy, StubStrategy), (
@@ -59,33 +69,39 @@ class TestProposeStrategyRegistry:
     def test_all_strategies_are_propose_strategy_subclasses(self):
         from agent.services.propose_strategy_registry import build_strategy_registry
         from worker.core.propose_orchestrator import ProposeStrategy
+
         reg = build_strategy_registry()
         for sid, strategy in reg.items():
             assert isinstance(strategy, ProposeStrategy), f"{sid} is not a ProposeStrategy"
 
     def test_flexible_llm_is_real_class(self):
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from agent.services.propose_strategy_registry import build_strategy_registry
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
+
         reg = build_strategy_registry()
         assert isinstance(reg["flexible_llm_normalization"], FlexibleLLMNormalizationStrategy)
 
     def test_human_review_is_real_class(self):
-        from agent.services.propose_strategy_registry import build_strategy_registry
         from agent.services.propose_strategies.human_review_strategy import HumanReviewStrategy
+        from agent.services.propose_strategy_registry import build_strategy_registry
+
         reg = build_strategy_registry()
         assert isinstance(reg["human_review"], HumanReviewStrategy)
 
     def test_advisory_proposal_is_real_class(self):
-        from agent.services.propose_strategy_registry import build_strategy_registry
         from agent.services.propose_strategies.advisory_proposal_strategy import AdvisoryProposalStrategy
+        from agent.services.propose_strategy_registry import build_strategy_registry
+
         reg = build_strategy_registry()
         assert isinstance(reg["advisory_proposal"], AdvisoryProposalStrategy)
 
     def test_missing_strategy_id_is_declined_with_diagnostics(self):
         """Orchestrator declines unregistered strategy_id — not silent stub success."""
-        from agent.services.propose_strategy_registry import build_strategy_registry
-        from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
         from agent.services.propose_policy import ProposePolicy
+        from agent.services.propose_strategy_registry import build_strategy_registry
+        from worker.core.propose_orchestrator import ProposeStrategyOrchestrator
 
         reg = build_strategy_registry()
         policy = ProposePolicy(
@@ -104,16 +120,19 @@ class TestProposeStrategyRegistry:
 
 # ── individual strategy tests ─────────────────────────────────────────────────
 
+
 class TestHumanReviewStrategy:
     def test_returns_needs_review_terminal(self):
         from agent.services.propose_strategies.human_review_strategy import HumanReviewStrategy
         from worker.core.propose import STATUS_NEEDS_REVIEW
+
         result = HumanReviewStrategy().run(_make_context())
         assert result.status == STATUS_NEEDS_REVIEW
         assert result.is_terminal
 
     def test_metadata_contains_task_and_goal_ids(self):
         from agent.services.propose_strategies.human_review_strategy import HumanReviewStrategy
+
         result = HumanReviewStrategy().run(_make_context(task_id="t99", goal_id="g42"))
         assert result.metadata["task_id"] == "t99"
         assert result.metadata["goal_id"] == "g42"
@@ -123,6 +142,7 @@ class TestAdvisoryProposalStrategy:
     def test_returns_advisory_with_prompt(self):
         from agent.services.propose_strategies.advisory_proposal_strategy import AdvisoryProposalStrategy
         from worker.core.propose import STATUS_ADVISORY
+
         ctx = _make_context(task_id="t1", base_prompt="build fibonacci API")
         result = AdvisoryProposalStrategy().run(ctx)
         assert result.status == STATUS_ADVISORY
@@ -130,14 +150,17 @@ class TestAdvisoryProposalStrategy:
 
     def test_not_executable(self):
         from agent.services.propose_strategies.advisory_proposal_strategy import AdvisoryProposalStrategy
+
         result = AdvisoryProposalStrategy().run(_make_context())
         assert not result.is_executable
 
 
 class TestFlexibleLLMNormalizationStrategy:
     def test_declines_when_llm_unavailable(self):
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
         from agent.services.model_invocation_service import LLMUnavailableError
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from worker.core.propose import STATUS_DECLINED
 
         with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_result") as mock_invoke:
@@ -148,7 +171,9 @@ class TestFlexibleLLMNormalizationStrategy:
         assert "llm_required_but_unavailable" in result.reason
 
     def test_declines_on_empty_response(self):
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from worker.core.propose import STATUS_DECLINED
 
         with patch(
@@ -162,7 +187,9 @@ class TestFlexibleLLMNormalizationStrategy:
 
     def test_advisory_when_llm_returns_fenced_shell_without_shell_policy(self):
         """Shell blocks are advisory by default — policy.allow_shell_execution=False."""
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from worker.core.propose import STATUS_ADVISORY
 
         raw = "Sure! Here is the command:\n```bash\nmkdir fibonacci-api && cd fibonacci-api\n```"
@@ -177,14 +204,17 @@ class TestFlexibleLLMNormalizationStrategy:
 
     def test_executable_when_llm_returns_fenced_shell_with_shell_policy(self):
         """Shell blocks become executable when policy.allow_shell_execution=True."""
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
-        from worker.core.propose_orchestrator import ProposeContext
         from agent.services.propose_policy import ProposePolicy
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from worker.core.propose import STATUS_EXECUTABLE
+        from worker.core.propose_orchestrator import ProposeContext
 
         policy = ProposePolicy(allow_shell_execution=True)
         ctx = ProposeContext(
-            goal_id="g", task_id="t",
+            goal_id="g",
+            task_id="t",
             task={"task_kind": "new_software_project"},
             base_prompt="make fibonacci",
             tool_definitions_resolver=lambda: [],
@@ -201,7 +231,9 @@ class TestFlexibleLLMNormalizationStrategy:
         assert result.proposal.command is not None
 
     def test_advisory_when_llm_returns_prose(self):
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from worker.core.propose import STATUS_ADVISORY
 
         raw = "To build a fibonacci API, you should start by creating a Flask app..."
@@ -214,7 +246,9 @@ class TestFlexibleLLMNormalizationStrategy:
         assert result.status == STATUS_ADVISORY
 
     def test_failed_on_unexpected_exception(self):
-        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+            FlexibleLLMNormalizationStrategy,
+        )
         from worker.core.propose import STATUS_FAILED
 
         with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_result") as mock_invoke:
@@ -226,9 +260,9 @@ class TestFlexibleLLMNormalizationStrategy:
 
 class TestToolCallingLLMStrategy:
     def test_declines_when_llm_unavailable(self):
-        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
         from agent.services.model_invocation_service import LLMUnavailableError
         from worker.core.propose import STATUS_DECLINED
+        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 
         with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools") as m:
             m.side_effect = LLMUnavailableError("connection_refused")
@@ -240,12 +274,15 @@ class TestToolCallingLLMStrategy:
         assert "llm_required_but_unavailable" in result.reason
 
     def test_declines_when_no_tools_defined(self):
-        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
-        from worker.core.propose_orchestrator import ProposeContext
         from worker.core.propose import STATUS_DECLINED
+        from worker.core.propose_orchestrator import ProposeContext
+        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 
         ctx = ProposeContext(
-            goal_id="g", task_id="t", task={}, base_prompt="x",
+            goal_id="g",
+            task_id="t",
+            task={},
+            base_prompt="x",
             tool_definitions_resolver=lambda: [],
         )
         with patch("agent.config.settings") as ms:
@@ -256,9 +293,9 @@ class TestToolCallingLLMStrategy:
         assert result.reason == "no_tools_defined"
 
     def test_declines_when_no_resolver(self):
-        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
-        from worker.core.propose_orchestrator import ProposeContext
         from worker.core.propose import STATUS_DECLINED
+        from worker.core.propose_orchestrator import ProposeContext
+        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 
         ctx = ProposeContext(goal_id="g", task_id="t", task={}, base_prompt="x")
         with patch("agent.config.settings") as ms:
@@ -269,14 +306,17 @@ class TestToolCallingLLMStrategy:
         assert result.reason == "no_tools_defined"
 
     def test_executable_when_llm_returns_tool_calls(self):
-        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
         from worker.core.propose import STATUS_EXECUTABLE
+        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 
         mock_response = {
             "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "# hi"}}],
             "content": "",
         }
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools", return_value=mock_response):
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            return_value=mock_response,
+        ):
             with patch("agent.config.settings") as ms:
                 ms.default_provider = "lmstudio"
                 result = ToolCallingLLMStrategy().run(_make_context())
@@ -285,8 +325,8 @@ class TestToolCallingLLMStrategy:
         assert result.proposal.tool_calls[0]["name"] == "write_file"
 
     def test_declines_for_mock_provider(self):
-        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
         from worker.core.propose import STATUS_DECLINED
+        from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 
         with patch("agent.config.settings") as ms:
             ms.default_provider = "mock"
@@ -298,11 +338,13 @@ class TestToolCallingLLMStrategy:
 
 class TestJsonSchemaLLMStrategy:
     def test_declines_when_llm_unavailable(self):
-        from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
         from agent.services.model_invocation_service import LLMUnavailableError
+        from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
         from worker.core.propose import STATUS_DECLINED
 
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result") as m:
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result"
+        ) as m:
             m.side_effect = LLMUnavailableError("timeout")
             with patch("agent.config.settings") as ms:
                 ms.default_provider = "lmstudio"
@@ -313,6 +355,7 @@ class TestJsonSchemaLLMStrategy:
 
     def test_executable_when_llm_returns_command(self):
         import json as _json
+
         from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
         from worker.core.propose import STATUS_EXECUTABLE
 
@@ -331,17 +374,16 @@ class TestJsonSchemaLLMStrategy:
 
 # ── new_software_project policy: no stub in default chain ─────────────────────
 
+
 class TestNewSoftwareProjectNoStub:
     """Prove no StubStrategy is used in the default new_software_project policy."""
 
     def test_no_stub_in_new_software_project_strategy_chain(self):
+        from agent.services.propose_policy_service import get_propose_policy_service
         from agent.services.propose_strategy_registry import build_strategy_registry
         from worker.core.propose_orchestrator import StubStrategy
-        from agent.services.propose_policy_service import get_propose_policy_service
 
-        policy = get_propose_policy_service().get_effective_policy(
-            task_kind="new_software_project"
-        )
+        policy = get_propose_policy_service().get_effective_policy(task_kind="new_software_project")
         reg = build_strategy_registry()
 
         for strategy_id in policy.effective_strategy_order():
@@ -352,19 +394,18 @@ class TestNewSoftwareProjectNoStub:
 
     def test_new_software_project_policy_has_llm_strategies(self):
         from agent.services.propose_policy_service import get_propose_policy_service
-        policy = get_propose_policy_service().get_effective_policy(
-            task_kind="new_software_project"
-        )
+
+        policy = get_propose_policy_service().get_effective_policy(task_kind="new_software_project")
         order = policy.effective_strategy_order()
         assert "tool_calling_llm" in order or "json_schema_llm" in order or "flexible_llm_normalization" in order
 
     def test_orchestrator_with_real_registry_declines_gracefully_when_llm_down(self):
         """With LLM unavailable, orchestrator reaches human_review — not error."""
-        from agent.services.propose_strategy_registry import build_strategy_registry
-        from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
-        from agent.services.propose_policy import ProposePolicy
         from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
+        from agent.services.propose_policy import ProposePolicy
+        from agent.services.propose_strategy_registry import build_strategy_registry
         from worker.core.propose import STATUS_NEEDS_REVIEW
+        from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
 
         # All LLM calls fail; deterministic_handler also has no handler for this kind
         reg = build_strategy_registry()
@@ -376,7 +417,10 @@ class TestNewSoftwareProjectNoStub:
         orch = ProposeStrategyOrchestrator(policy, reg)
 
         ctx = ProposeContext(
-            goal_id="g", task_id="t", task={}, base_prompt="make fibonacci API",
+            goal_id="g",
+            task_id="t",
+            task={},
+            base_prompt="make fibonacci API",
             tool_definitions_resolver=lambda: [{"name": "write_file", "description": "d", "parameters": {}}],
         )
 

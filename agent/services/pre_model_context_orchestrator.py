@@ -87,9 +87,7 @@ def _restricted_rerank_failure_reason(error: Exception) -> str:
 
     if isinstance(error, TimeoutError):
         return "timeout"
-    raw_code = str(
-        getattr(error, "reason_code", None) or getattr(error, "code", None) or ""
-    ).strip().lower()
+    raw_code = str(getattr(error, "reason_code", None) or getattr(error, "code", None) or "").strip().lower()
     if raw_code in _RERANK_TIMEOUT_CODES:
         return "timeout"
     if raw_code in _RERANK_UNAVAILABLE_CODES:

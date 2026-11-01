@@ -49,7 +49,9 @@ def test_opencode_writer_writes_notation_contract_when_hints_given(ws):
         include_response_contract=True,
         notation_hints={
             "allowed_notations": [
-                "mermaid.class", "mermaid.sequence", "bpmn.process",
+                "mermaid.class",
+                "mermaid.sequence",
+                "bpmn.process",
             ],
             "preferred_notations": ["mermaid.class"],
             "forbid_notations": ["bpmn.collaboration"],
@@ -57,12 +59,8 @@ def test_opencode_writer_writes_notation_contract_when_hints_given(ws):
             "task_kind": "diagram_mermaid",
         },
     )
-    assert manifest["notation_selection_contract_path"] == (
-        ".ananta/notation/notation-selection-contract.json"
-    )
-    assert manifest["notation_allowed_path"] == (
-        ".ananta/notation/allowed-notations.md"
-    )
+    assert manifest["notation_selection_contract_path"] == (".ananta/notation/notation-selection-contract.json")
+    assert manifest["notation_allowed_path"] == (".ananta/notation/allowed-notations.md")
     contract_file = ws.workspace_dir / manifest["notation_selection_contract_path"]
     assert contract_file.exists()
     contract = contract_file.read_text(encoding="utf-8")
@@ -78,7 +76,7 @@ def test_opencode_writer_writes_notation_contract_when_hints_given(ws):
 
 
 def test_opencode_writer_context_index_lists_notation_files(ws):
-    manifest = prepare_opencode_context_files(
+    prepare_opencode_context_files(
         task={
             "id": "T1",
             "title": "T",
@@ -192,5 +190,4 @@ def test_ananta_worker_writer_accepts_notation_hints(ws):
         },
     )
     assert "notation_selection_contract_path" in manifest
-    assert (ws.workspace_dir / ".ananta" / "notation"
-            / "notation-selection-contract.json").exists()
+    assert (ws.workspace_dir / ".ananta" / "notation" / "notation-selection-contract.json").exists()

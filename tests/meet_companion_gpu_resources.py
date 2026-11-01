@@ -10,9 +10,13 @@ def gpu_tts_arguments(models, store, *, check_capacity=require_gpu_capacity):
     driver_store = validate_driver_store(store)
     drivers = driver_bindings(store)
     check_capacity()
-    resources = ["--env=TEST_REAL_ASSIGNED_TTS=1", "--device=/dev/dxg",
-                 "--env=LD_LIBRARY_PATH=/usr/lib/wsl/lib:" + str(driver_store),
-                 "--mount", f"type=bind,src={models},dst=/models,readonly"]
+    resources = [
+        "--env=TEST_REAL_ASSIGNED_TTS=1",
+        "--device=/dev/dxg",
+        "--env=LD_LIBRARY_PATH=/usr/lib/wsl/lib:" + str(driver_store),
+        "--mount",
+        f"type=bind,src={models},dst=/models,readonly",
+    ]
     for binding in drivers:
         resources.extend(["--mount", binding])
     return resources

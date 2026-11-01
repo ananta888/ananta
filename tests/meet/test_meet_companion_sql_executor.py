@@ -33,7 +33,11 @@ class LocalExecutorPort:
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("observe", [False, True])
 def test_sql_admitted_companion_executes_and_terminal_callback_preserves_hub_task_state(
-    app, tmp_path, monkeypatch, cancel, observe,
+    app,
+    tmp_path,
+    monkeypatch,
+    cancel,
+    observe,
 ):
     with app.app_context():
         f = companion_system()
@@ -46,16 +50,22 @@ def test_sql_admitted_companion_executes_and_terminal_callback_preserves_hub_tas
             f.service.phases = MeetDialogPhases(store, f.f.authority, f.meet, clock=lambda: f.f.now)
             f.meet.observe.return_value = {
                 "lease": {"sessionId": "ms_" + "a" * 32, "expiresAt": (f.f.now + 120) * 1000},
-                "peerId": "a" * 16, "publicationRevision": 1, "publications": [],
+                "peerId": "a" * 16,
+                "publicationRevision": 1,
+                "publications": [],
             }
         private = tmp_path / "hub.pem"
-        private.write_bytes(Ed25519PrivateKey.generate().private_bytes(
-            Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+        private.write_bytes(
+            Ed25519PrivateKey.generate().private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+        )
         private.chmod(0o600)
         f.service.issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
-        app.extensions.update(meet_binding_service=f.f.binding, meet_dialog_service=f.service,
-                              meet_media_worker_key=KEY,
-                              meet_companion_task_grants=MeetCompanionTaskGrants(f.f.authority, f.service.issuer))
+        app.extensions.update(
+            meet_binding_service=f.f.binding,
+            meet_dialog_service=f.service,
+            meet_media_worker_key=KEY,
+            meet_companion_task_grants=MeetCompanionTaskGrants(f.f.authority, f.service.issuer),
+        )
     monkeypatch.setitem(app.config, "ROLE", "hub")
     key = tmp_path / "worker-key"
     key.write_bytes(KEY)
@@ -67,8 +77,15 @@ def test_sql_admitted_companion_executes_and_terminal_callback_preserves_hub_tas
     def synthetic_browser_run(command, **options):
         assert command == [sys.executable, "-m", "worker.meet_media.companion_task_runtime"]
         mode = ("observe-" if observe else "") + ("cancel" if cancel else "complete")
-        child = original_spawn([sys.executable, str(Path(__file__).with_name(
-            "meet_companion_assigned_process_probe.py")), mode, str(marker)], **options)
+        child = original_spawn(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("meet_companion_assigned_process_probe.py")),
+                mode,
+                str(marker),
+            ],
+            **options,
+        )
         children.append(child)
         return child
 
@@ -102,8 +119,12 @@ def test_sql_admitted_companion_executes_and_terminal_callback_preserves_hub_tas
                     phase = task.worker_execution_context["meet_phase"]
                     assert phase["membership"] == {"session_id": "ms_" + "a" * 32, "peer_id": "a" * 16}
                     assert phase["observation"]["sources"] == []
-                    f.meet.observe.assert_called_with(task.id, executor_adapter.assignment["lease_id"],
-                                                      executor_adapter.assignment["runtime_id"], "ms_" + "a" * 32)
+                    f.meet.observe.assert_called_with(
+                        task.id,
+                        executor_adapter.assignment["lease_id"],
+                        executor_adapter.assignment["runtime_id"],
+                        "ms_" + "a" * 32,
+                    )
             assert f.service.worker is executor_adapter and len(children) == 1
             bound = time.monotonic() + 1
             while executor.slots.snapshot()["active"]:

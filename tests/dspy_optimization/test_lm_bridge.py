@@ -15,7 +15,11 @@ class FakeLm:
 def test_lm_bridge_enforces_exact_role_binding_and_monotone_usage() -> None:
     ledger = DspyBudgetLedger(OptimizationBudgets(2, 10, 0, 30, 1, 10, 10_000))
     bridge = AnantaBaseLmBridge(
-        FakeLm(), bindings={"student": binding()}, ledger=ledger, run_id="run-1", attempt_id="attempt-1",
+        FakeLm(),
+        bindings={"student": binding()},
+        ledger=ledger,
+        run_id="run-1",
+        attempt_id="attempt-1",
         price_profiles=price_profiles(),
     )
     result = bridge.complete(role="student", messages=[{"role": "user", "content": "hello"}], call_index=0)
@@ -77,7 +81,11 @@ def test_ananta_price_profile_calculates_cost_and_keeps_provider_cost_observatio
     }
     ledger = DspyBudgetLedger(OptimizationBudgets(1, 10, 8, 30, 1, 10, 10_000))
     result = AnantaBaseLmBridge(
-        Priced(), bindings={"student": binding()}, ledger=ledger, run_id="run-1", attempt_id="attempt-1",
+        Priced(),
+        bindings={"student": binding()},
+        ledger=ledger,
+        run_id="run-1",
+        attempt_id="attempt-1",
         price_profiles=profile,
     ).complete(role="student", messages=[{"role": "user", "content": "hello"}], call_index=0)
     assert result["cost_micros"] == 8

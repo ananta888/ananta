@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from agent.services.pattern_proposal_normalizer import (
     PatternProposalNormalizer,
     get_pattern_proposal_normalizer,
@@ -85,9 +83,7 @@ def test_proposal_dropping_unknown_keys() -> None:
 
 def test_risky_pattern_blocked_without_opt_in() -> None:
     n = PatternProposalNormalizer()
-    out = n.normalize(
-        proposal={"pattern_id": "singleton_guarded", "task_kind": "coding"}
-    )
+    out = n.normalize(proposal={"pattern_id": "singleton_guarded", "task_kind": "coding"})
     # singleton_guarded is not in the default coding allow-list,
     # so the policy blocks it on that ground first.
     assert out.accepted is False

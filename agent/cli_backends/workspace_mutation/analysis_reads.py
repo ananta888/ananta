@@ -6,6 +6,7 @@ a run satisfiable — the source-first ordering of CodeCompass materialization a
 the ``action_required`` explanation attached to a read result — so the read
 result annotation stays testable without the policy/execution layer around it.
 """
+
 from __future__ import annotations
 
 import pathlib

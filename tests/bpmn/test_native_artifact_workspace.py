@@ -37,7 +37,9 @@ def test_workspace_target_cannot_overwrite_or_escape_root(tmp_path, kind):
         target.hardlink_to(outside)
     with pytest.raises(ValueError):
         install_native_workspace_bytes(
-            root, "inputs/outside.txt" if kind == "directory-symlink" else "report.txt", b"new",
+            root,
+            "inputs/outside.txt" if kind == "directory-symlink" else "report.txt",
+            b"new",
         )
     assert outside.read_bytes() == b"preserved"
     assert not list(root.glob(".native-input-*"))
@@ -49,9 +51,12 @@ def test_invalid_paths_fail_before_download(tmp_path, path):
     materializer = NativeInputWorkspaceMaterializer(
         downloader=SimpleNamespace(download=lambda **values: calls.append(True)),
     )
-    command = SimpleNamespace(node=SimpleNamespace(
-        input_artifacts=("report",), metadata={"native_input_files": {"report": path}},
-    ))
+    command = SimpleNamespace(
+        node=SimpleNamespace(
+            input_artifacts=("report",),
+            metadata={"native_input_files": {"report": path}},
+        )
+    )
     with pytest.raises(ValueError, match="workspace_path_invalid"):
         materializer.materialize(command=command, task={"id": "synthetic-task"}, workspace_dir=tmp_path)
     assert calls == []
@@ -63,11 +68,18 @@ def test_failed_second_download_places_no_partial_inputs(tmp_path):
             raise ValueError("synthetic_download_denied")
         return SimpleNamespace(content=b"first")
 
-    command = SimpleNamespace(node=SimpleNamespace(input_artifacts=("first", "second"), metadata={
-        "native_input_files": {"first": "first.txt", "second": "second.txt"},
-    }))
+    command = SimpleNamespace(
+        node=SimpleNamespace(
+            input_artifacts=("first", "second"),
+            metadata={
+                "native_input_files": {"first": "first.txt", "second": "second.txt"},
+            },
+        )
+    )
     with pytest.raises(ValueError, match="download_denied"):
         NativeInputWorkspaceMaterializer(downloader=SimpleNamespace(download=download)).materialize(
-            command=command, task={"id": "task"}, workspace_dir=tmp_path,
+            command=command,
+            task={"id": "task"},
+            workspace_dir=tmp_path,
         )
     assert list(tmp_path.iterdir()) == []

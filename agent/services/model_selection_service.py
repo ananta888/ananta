@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from threading import RLock
-import re
 from typing import Iterable, Protocol
 
 from agent.services.model_profile_loader import ModelProfile
@@ -20,13 +20,13 @@ from ananta_contracts.model_selection import (
     ModelConsumer,
     ModelFallbackCandidate,
     ModelFallbackGroup,
-    ModelRoutingConfiguration,
     ModelRouteDecision,
+    ModelRoutingConfiguration,
     ModelRoutingDryRunCommand,
     ModelRoutingMutationCommand,
+    ModelRoutingValidationIssue,
     RoleStyleTarget,
     StyleRange,
-    ModelRoutingValidationIssue,
 )
 
 
@@ -39,9 +39,7 @@ class ModelRoutingConflict(RuntimeError):
 
 class ModelRoutingConfigurationPort(Protocol):
     def load(self) -> ModelRoutingConfiguration: ...
-    def save_if_revision(
-        self, expected_revision: int, value: ModelRoutingConfiguration
-    ) -> bool: ...
+    def save_if_revision(self, expected_revision: int, value: ModelRoutingConfiguration) -> bool: ...
 
 
 class ModelConsumerExtensionPort(Protocol):
@@ -74,8 +72,14 @@ class ModelConsumerRegistry:
         extensions: Iterable[ModelConsumerExtensionPort] = (),
     ) -> "ModelConsumerRegistry":
         scopes = (
-            "global", "organization", "project", "workflow", "agent", "role",
-            "task_kind", "step",
+            "global",
+            "organization",
+            "project",
+            "workflow",
+            "agent",
+            "role",
+            "task_kind",
+            "step",
         )
 
         def item(
@@ -124,7 +128,14 @@ class ModelConsumerRegistry:
             item("task.repo_analysis", "Repository-Analyse", "tasks", "code", role="coder"),
             item("task.summarization", "Zusammenfassung", "tasks", "chat", role="summarizer"),
             item("chat.ai_snake", "AI-Snake", "chat", "chat", role="chat", legacy=("hub_copilot",)),
-            item("chat.general", "Allgemeiner Chat", "chat", "chat", role="chat", legacy=("default_provider", "default_model")),
+            item(
+                "chat.general",
+                "Allgemeiner Chat",
+                "chat",
+                "chat",
+                role="chat",
+                legacy=("default_provider", "default_model"),
+            ),
             item("chat.code_help", "Code-Hilfe", "chat", "code", role="coder"),
             item("planning.autoplanner", "Auto-Planner", "planning", "reasoning", role="planner", legacy=("planning",)),
             item("planning.goal", "Goal-Planung", "planning", "reasoning", role="planner"),
@@ -137,22 +148,34 @@ class ModelConsumerRegistry:
             item("voice.corrector", "Voice-Korrektur", "voice", "chat", role="chat"),
             item("evolver.proposal", "Evolver", "evolution", "reasoning", role="reasoning"),
             external(
-                "knowledge.embedding", "Embeddings", "knowledge",
-                "dedicated_embedding_provider_domain", "embeddings",
+                "knowledge.embedding",
+                "Embeddings",
+                "knowledge",
+                "dedicated_embedding_provider_domain",
+                "embeddings",
                 legacy=("knowledge_context.embedding",),
             ),
             external(
-                "voice.transcription", "Voice-Transkription", "voice",
-                "dedicated_voice_runtime_domain", "audio",
+                "voice.transcription",
+                "Voice-Transkription",
+                "voice",
+                "dedicated_voice_runtime_domain",
+                "audio",
                 legacy=("voice_runtime",),
             ),
             external(
-                "vision.analysis", "Vision-Analyse", "vision",
-                "vision_capability_not_in_model_profile_v1", "vision",
+                "vision.analysis",
+                "Vision-Analyse",
+                "vision",
+                "vision_capability_not_in_model_profile_v1",
+                "vision",
             ),
             external(
-                "tiny_router.action", "Needle Tool-Router", "tools",
-                "dedicated_tiny_router_domain", "tools",
+                "tiny_router.action",
+                "Needle Tool-Router",
+                "tools",
+                "dedicated_tiny_router_domain",
+                "tools",
                 legacy=("tiny_action_model_profiles",),
             ),
         ]
@@ -172,9 +195,13 @@ class ModelConsumerRegistry:
             for consumer in extension.consumers():
                 if not consumer.consumer_id.startswith(prefix):
                     raise ValueError("model_consumer_extension_id_not_namespaced")
-                result.append(consumer.model_copy(update={
-                    "registration_source": f"plugin:{namespace}",
-                }))
+                result.append(
+                    consumer.model_copy(
+                        update={
+                            "registration_source": f"plugin:{namespace}",
+                        }
+                    )
+                )
         return result
 
     def all(self) -> tuple[ModelConsumer, ...]:
@@ -219,10 +246,7 @@ class ModelRoutingAssignmentService:
         self._repository = repository
         self._consumers = consumers
         self._profiles = frozenset(str(value) for value in known_profile_ids)
-        self._models = frozenset(
-            (str(provider_id), str(model_id))
-            for provider_id, model_id in known_models
-        )
+        self._models = frozenset((str(provider_id), str(model_id)) for provider_id, model_id in known_models)
         self._validation_policy = validation_policy
 
     def read(self) -> ModelRoutingConfiguration:
@@ -234,24 +258,16 @@ class ModelRoutingAssignmentService:
         if error is not None:
             raise ValueError(error.reason_code)
 
-    def validation_issues(
-        self, command: ModelRoutingMutationCommand
-    ) -> tuple[ModelRoutingValidationIssue, ...]:
-        issues = list(self._identity_issues(
-            command.assignments, command.fallback_groups
-        ))
+    def validation_issues(self, command: ModelRoutingMutationCommand) -> tuple[ModelRoutingValidationIssue, ...]:
+        issues = list(self._identity_issues(command.assignments, command.fallback_groups))
         if self._validation_policy is not None:
-            issues.extend(self._validation_policy.validate(
-                command.assignments, command.fallback_groups
-            ))
+            issues.extend(self._validation_policy.validate(command.assignments, command.fallback_groups))
         return tuple(issues)
 
     def apply(self, command: ModelRoutingMutationCommand) -> ModelRoutingConfiguration:
         current = self._repository.load()
         if current.revision != command.expected_revision:
-            raise ModelRoutingConflict(
-                "model_routing_revision_conflict", current_revision=current.revision
-            )
+            raise ModelRoutingConflict("model_routing_revision_conflict", current_revision=current.revision)
         self.validate(command)
         updated = ModelRoutingConfiguration(
             revision=current.revision + 1,
@@ -260,9 +276,7 @@ class ModelRoutingAssignmentService:
         )
         if not self._repository.save_if_revision(current.revision, updated):
             actual = self._repository.load().revision
-            raise ModelRoutingConflict(
-                "model_routing_revision_conflict", current_revision=actual
-            )
+            raise ModelRoutingConflict("model_routing_revision_conflict", current_revision=actual)
         return updated
 
     def _identity_issues(
@@ -273,9 +287,7 @@ class ModelRoutingAssignmentService:
         issues: list[ModelRoutingValidationIssue] = []
 
         def error(reason: str, reference: str | None = None) -> None:
-            issues.append(ModelRoutingValidationIssue(
-                severity="error", reason_code=reason, reference=reference
-            ))
+            issues.append(ModelRoutingValidationIssue(severity="error", reason_code=reason, reference=reference))
 
         for assignment in assignments:
             try:
@@ -289,10 +301,7 @@ class ModelRoutingAssignmentService:
                 error("model_assignment_scope_not_allowed", assignment.consumer_id)
             if assignment.profile_id and assignment.profile_id not in self._profiles:
                 error("model_assignment_profile_unknown", assignment.profile_id)
-            if (
-                assignment.mode == "model"
-                and (assignment.provider_id, assignment.model_id) not in self._models
-            ):
+            if assignment.mode == "model" and (assignment.provider_id, assignment.model_id) not in self._models:
                 error(
                     "model_assignment_model_unknown",
                     f"{assignment.provider_id}:{assignment.model_id}",
@@ -301,10 +310,7 @@ class ModelRoutingAssignmentService:
             for item in group.candidates:
                 if item.profile_id not in self._profiles:
                     error("model_fallback_profile_unknown", item.profile_id)
-            if (
-                group.escalation_profile_id
-                and group.escalation_profile_id not in self._profiles
-            ):
+            if group.escalation_profile_id and group.escalation_profile_id not in self._profiles:
                 error(
                     "model_fallback_escalation_profile_unknown",
                     group.escalation_profile_id,
@@ -365,25 +371,23 @@ class EffectiveModelRoutingService:
         consumer = self._consumers.require(command.consumer_id)
         if not consumer.routable:
             return EffectiveModelRoute(
-                configuration_revision=(
-                    command.configuration or self._repository.load()
-                ).revision,
+                configuration_revision=(command.configuration or self._repository.load()).revision,
                 consumer_id=consumer.consumer_id,
                 assignment_source="consumer_registry",
                 assignment_mode="disabled",
-                decisions=(ModelRouteDecision(
-                    rank=0,
-                    source="consumer_registry",
-                    profile_id=None,
-                    accepted=False,
-                    reason=consumer.non_routable_reason or "model_consumer_not_routable",
-                ),),
+                decisions=(
+                    ModelRouteDecision(
+                        rank=0,
+                        source="consumer_registry",
+                        profile_id=None,
+                        accepted=False,
+                        reason=consumer.non_routable_reason or "model_consumer_not_routable",
+                    ),
+                ),
                 executable=False,
             ), []
         configuration = command.configuration or self._repository.load()
-        assignment, source, inheritance_sources = self._effective_assignment(
-            configuration, command
-        )
+        assignment, source, inheritance_sources = self._effective_assignment(configuration, command)
         if assignment.mode == "disabled":
             return EffectiveModelRoute(
                 configuration_revision=configuration.revision,
@@ -393,45 +397,36 @@ class EffectiveModelRoutingService:
                 assignment_mode="disabled",
                 fallback_group_id=assignment.fallback_group_id,
                 maximum_total_retries=0,
-                decisions=(ModelRouteDecision(
-                    rank=0,
-                    source="hub_assignment",
-                    profile_id=None,
-                    accepted=False,
-                    reason="model_routing_consumer_disabled",
-                ),),
+                decisions=(
+                    ModelRouteDecision(
+                        rank=0,
+                        source="hub_assignment",
+                        profile_id=None,
+                        accepted=False,
+                        reason="model_routing_consumer_disabled",
+                    ),
+                ),
                 executable=False,
             ), []
 
         requested_profile = self._requested_profile(assignment)
         fallback = next(
-            (
-                group for group in configuration.fallback_groups
-                if group.group_id == assignment.fallback_group_id
-            ),
+            (group for group in configuration.fallback_groups if group.group_id == assignment.fallback_group_id),
             None,
         )
         fallback_candidates = list(fallback.candidates) if fallback else []
         if fallback and fallback.escalation_profile_id:
-            fallback_candidates.append(ModelFallbackCandidate(
-                profile_id=fallback.escalation_profile_id,
-                cloud_allowed=command.allow_cloud,
-            ))
+            fallback_candidates.append(
+                ModelFallbackCandidate(
+                    profile_id=fallback.escalation_profile_id,
+                    cloud_allowed=command.allow_cloud,
+                )
+            )
         base = base_context or RoutingContext()
-        configured_role = consumer.default_model_role or self._CONSUMER_MODEL_ROLES.get(
-            consumer.consumer_id, "any"
-        )
-        model_role = (
-            base.model_role
-            if base.model_role and base.model_role != "any"
-            else configured_role
-        )
+        configured_role = consumer.default_model_role or self._CONSUMER_MODEL_ROLES.get(consumer.consumer_id, "any")
+        model_role = base.model_role if base.model_role and base.model_role != "any" else configured_role
         explicit_profile_id = requested_profile.profile_id if requested_profile else None
-        request_profile_id = (
-            explicit_profile_id
-            if assignment.mode in {"profile", "model"}
-            else base.request_profile_id
-        )
+        request_profile_id = explicit_profile_id if assignment.mode in {"profile", "model"} else base.request_profile_id
         context = RoutingContext(
             model_role=model_role,
             blueprint_id=base.blueprint_id,
@@ -443,16 +438,8 @@ class EffectiveModelRoutingService:
             request_profile_id=request_profile_id,
             user_profile_id=base.user_profile_id,
             env_profile_id=base.env_profile_id,
-            requires_tools=(
-                command.requires_tools
-                or base.requires_tools
-                or "tools" in consumer.required_capabilities
-            ),
-            requires_json=(
-                command.requires_json
-                or base.requires_json
-                or "json" in consumer.required_capabilities
-            ),
+            requires_tools=(command.requires_tools or base.requires_tools or "tools" in consumer.required_capabilities),
+            requires_json=(command.requires_json or base.requires_json or "json" in consumer.required_capabilities),
             requires_streaming=command.requires_streaming or base.requires_streaming,
             approximate_context_tokens=(
                 command.approximate_context_tokens
@@ -462,46 +449,43 @@ class EffectiveModelRoutingService:
             contains_secrets=command.contains_secrets or base.contains_secrets,
             data_class=command.data_class,
             step_kind=base.step_kind,
-            allow_cloud=(
-                command.allow_cloud
-                if base_context is None
-                else command.allow_cloud and base.allow_cloud
-            ),
-            fallback_group_id=(
-                fallback.group_id if fallback else base.fallback_group_id
-            ),
+            allow_cloud=(command.allow_cloud if base_context is None else command.allow_cloud and base.allow_cloud),
+            fallback_group_id=(fallback.group_id if fallback else base.fallback_group_id),
             fallback_profile_ids=tuple(item.profile_id for item in fallback_candidates),
             fallback_candidate_max_context_tokens={
                 item.profile_id: item.max_context_tokens
                 for item in fallback_candidates
                 if item.max_context_tokens is not None
-            } if fallback else {},
-            fallback_candidate_cloud_allowed={
-                item.profile_id: item.cloud_allowed for item in fallback_candidates
-            } if fallback else {},
-            fallback_candidate_retry_budgets={
-                item.profile_id: item.retry_budget for item in fallback_candidates
-            } if fallback else {},
+            }
+            if fallback
+            else {},
+            fallback_candidate_cloud_allowed={item.profile_id: item.cloud_allowed for item in fallback_candidates}
+            if fallback
+            else {},
+            fallback_candidate_retry_budgets={item.profile_id: item.retry_budget for item in fallback_candidates}
+            if fallback
+            else {},
             fallback_candidate_triggers={
-                item.profile_id: item.triggers for item in fallback_candidates
-                if item.triggers
-            } if fallback else {},
+                item.profile_id: item.triggers for item in fallback_candidates if item.triggers
+            }
+            if fallback
+            else {},
             fallback_candidate_max_costs={
                 item.profile_id: item.max_estimated_cost_per_step
                 for item in fallback_candidates
                 if item.max_estimated_cost_per_step is not None
-            } if fallback else {},
-            fallback_candidate_requires_tools={
-                item.profile_id: item.requires_tools for item in fallback_candidates
-            } if fallback else {},
-            fallback_candidate_requires_json={
-                item.profile_id: item.requires_json for item in fallback_candidates
-            } if fallback else {},
+            }
+            if fallback
+            else {},
+            fallback_candidate_requires_tools={item.profile_id: item.requires_tools for item in fallback_candidates}
+            if fallback
+            else {},
+            fallback_candidate_requires_json={item.profile_id: item.requires_json for item in fallback_candidates}
+            if fallback
+            else {},
             fallback_max_total_retries=(fallback.max_total_retries if fallback else None),
             fallback_stop_on_policy_block=(
-                fallback.stop_on_policy_block
-                if fallback
-                else base.fallback_stop_on_policy_block
+                fallback.stop_on_policy_block if fallback else base.fallback_stop_on_policy_block
             ),
             max_estimated_cost_per_step=base.max_estimated_cost_per_step,
             previous_error_type=base.previous_error_type,
@@ -522,9 +506,7 @@ class EffectiveModelRoutingService:
             inheritance_sources=inheritance_sources,
             result=result,
             candidates=candidates,
-            maximum_total_retries=(
-                fallback.max_total_retries if fallback else None
-            ),
+            maximum_total_retries=(fallback.max_total_retries if fallback else None),
         )
         return route, candidates
 
@@ -533,10 +515,7 @@ class EffectiveModelRoutingService:
         configuration: ModelRoutingConfiguration,
         command: ModelRoutingDryRunCommand,
     ) -> tuple[ModelAssignment, str, tuple[str, ...]]:
-        assignments = tuple(
-            item for item in configuration.assignments
-            if item.consumer_id == command.consumer_id
-        )
+        assignments = tuple(item for item in configuration.assignments if item.consumer_id == command.consumer_id)
         inheritance_sources: list[str] = []
         inherited_fallback_group_id: str | None = None
         for scope, field_name in self._SCOPE_PRECEDENCE:
@@ -544,10 +523,7 @@ class EffectiveModelRoutingService:
             if not scope_id:
                 continue
             assignment = next(
-                (
-                    item for item in assignments
-                    if item.scope == scope and item.scope_id == scope_id
-                ),
+                (item for item in assignments if item.scope == scope and item.scope_id == scope_id),
                 None,
             )
             if assignment is None:
@@ -555,45 +531,46 @@ class EffectiveModelRoutingService:
             scoped_source = f"{scope}:{scope_id}"
             if assignment.mode == "inherit":
                 inheritance_sources.append(scoped_source)
-                inherited_fallback_group_id = (
-                    inherited_fallback_group_id or assignment.fallback_group_id
-                )
+                inherited_fallback_group_id = inherited_fallback_group_id or assignment.fallback_group_id
                 continue
             effective = (
-                assignment.model_copy(update={
-                    "fallback_group_id": inherited_fallback_group_id,
-                })
+                assignment.model_copy(
+                    update={
+                        "fallback_group_id": inherited_fallback_group_id,
+                    }
+                )
                 if inherited_fallback_group_id
                 else assignment
             )
             return effective, scoped_source, tuple(inheritance_sources)
         global_assignment = next(
-            (
-                item for item in assignments
-                if item.scope == "global" and item.scope_id == "global"
-            ),
+            (item for item in assignments if item.scope == "global" and item.scope_id == "global"),
             None,
         )
         if global_assignment is not None and global_assignment.mode != "inherit":
             effective = (
-                global_assignment.model_copy(update={
-                    "fallback_group_id": inherited_fallback_group_id,
-                })
+                global_assignment.model_copy(
+                    update={
+                        "fallback_group_id": inherited_fallback_group_id,
+                    }
+                )
                 if inherited_fallback_group_id
                 else global_assignment
             )
             return effective, "global", tuple(inheritance_sources)
         if global_assignment is not None:
             inheritance_sources.append("global")
-            inherited_fallback_group_id = (
-                inherited_fallback_group_id or global_assignment.fallback_group_id
-            )
-        return ModelAssignment(
-            consumer_id=command.consumer_id,
-            scope="global",
-            mode="inherit",
-            fallback_group_id=inherited_fallback_group_id,
-        ), "resolver_default", tuple(inheritance_sources)
+            inherited_fallback_group_id = inherited_fallback_group_id or global_assignment.fallback_group_id
+        return (
+            ModelAssignment(
+                consumer_id=command.consumer_id,
+                scope="global",
+                mode="inherit",
+                fallback_group_id=inherited_fallback_group_id,
+            ),
+            "resolver_default",
+            tuple(inheritance_sources),
+        )
 
     def _requested_profile(self, assignment: ModelAssignment) -> ModelProfile | None:
         if assignment.mode == "profile" and assignment.profile_id:
@@ -627,13 +604,16 @@ class EffectiveModelRoutingService:
             fallback_group_id=assignment.fallback_group_id,
             candidate_profile_ids=tuple(item.profile_id for item in candidates),
             blocked_candidates=tuple(result.blocked_candidates),
-            decisions=tuple(ModelRouteDecision(
-                rank=item.rank,
-                source=item.source,
-                profile_id=item.profile_id,
-                accepted=item.accepted,
-                reason=item.reason,
-            ) for item in result.decisions),
+            decisions=tuple(
+                ModelRouteDecision(
+                    rank=item.rank,
+                    source=item.source,
+                    profile_id=item.profile_id,
+                    accepted=item.accepted,
+                    reason=item.reason,
+                )
+                for item in result.decisions
+            ),
             maximum_total_retries=maximum_total_retries,
             executable=profile is not None,
         )
@@ -664,10 +644,7 @@ class CognitiveStyleFitPolicy:
             ("truth_exploration", profile.scores.truth_exploration, target.truth_exploration),
             ("initiative_assertiveness", profile.scores.initiative_assertiveness, target.initiative_assertiveness),
         )
-        contributions = [
-            (name, self._dimension(value, expected) * expected.weight)
-            for name, value, expected in pairs
-        ]
+        contributions = [(name, self._dimension(value, expected) * expected.weight) for name, value, expected in pairs]
         denominator = sum(expected.weight for _, _, expected in pairs)
         score = sum(value for _, value in contributions) / denominator if denominator else 0.0
         values = {name: value for name, value, _expected in pairs}
@@ -676,8 +653,10 @@ class CognitiveStyleFitPolicy:
             contributions.append((f"must_have:{name}", fit * expected.weight))
             denominator += expected.weight
             score = (
-                (score * (denominator - expected.weight)) + fit * expected.weight
-            ) / denominator if denominator else 0.0
+                ((score * (denominator - expected.weight)) + fit * expected.weight) / denominator
+                if denominator
+                else 0.0
+            )
         for name, ranges in target.avoid_ranges.items():
             for avoided in ranges:
                 if avoided.minimum <= values[name] <= avoided.maximum:
@@ -695,9 +674,13 @@ class CognitiveStyleFitPolicy:
 
 
 __all__ = [
-    "CognitiveStyleFitPolicy", "EffectiveModelRoutingService",
+    "CognitiveStyleFitPolicy",
+    "EffectiveModelRoutingService",
     "InMemoryModelRoutingConfigurationRepository",
-    "ModelConsumerExtensionPort", "ModelConsumerRegistry",
-    "ModelRoutingAssignmentService", "ModelRoutingValidationPort",
-    "ModelRoutingConflict", "StyleFitDecision",
+    "ModelConsumerExtensionPort",
+    "ModelConsumerRegistry",
+    "ModelRoutingAssignmentService",
+    "ModelRoutingValidationPort",
+    "ModelRoutingConflict",
+    "StyleFitDecision",
 ]

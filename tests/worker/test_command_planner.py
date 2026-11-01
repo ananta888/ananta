@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from worker.shell.command_planner import build_command_plan_artifact
 
-
 POLICY = {
     "allowlist": ["echo", "python", "pytest"],
     "approval_required_commands": ["pip", "npm"],

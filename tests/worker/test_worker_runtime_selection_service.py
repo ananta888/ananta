@@ -58,7 +58,14 @@ def _docker_runtime():
         runtime_target_id="docker-local",
         runtime_kind=WorkerRuntimeKind.docker_container,
         workspace_scope="/workspace",
-        allowed_capabilities=["repair.execute.inspect", "repair.execute.low_risk", "repair.verify", "planning", "patch_propose", "code_read"],
+        allowed_capabilities=[
+            "repair.execute.inspect",
+            "repair.execute.low_risk",
+            "repair.verify",
+            "planning",
+            "patch_propose",
+            "code_read",
+        ],
         data_boundary=RuntimeDataBoundary.project_private,
         health_state=RuntimeHealthState.ready,
     )
@@ -75,20 +82,22 @@ def _cloud_runtime():
 
 
 def test_fixed_native_worker_selection_positive():
-    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
-        policy=WorkerSelectionPolicy(
-            mode=WorkerSelectionMode.fixed,
-            fixed_worker_id="native-01",
-            allowed_worker_kinds=[WorkerKind.native_ananta_worker],
-            allow_cloud=False,
-            allow_external_workers=False,
-        ),
-        workers=[_native_worker(), _opencode_worker()],
-        runtime_targets=[_docker_runtime()],
-        required_capabilities=["repair.execute.low_risk", "repair.verify"],
-        execution_mode="deterministic_repair_plan",
-        policy_decision_ref="policy-1",
-    ))
+    decision = WorkerRuntimeSelectionService().select(
+        WorkerRuntimeSelectionRequest(
+            policy=WorkerSelectionPolicy(
+                mode=WorkerSelectionMode.fixed,
+                fixed_worker_id="native-01",
+                allowed_worker_kinds=[WorkerKind.native_ananta_worker],
+                allow_cloud=False,
+                allow_external_workers=False,
+            ),
+            workers=[_native_worker(), _opencode_worker()],
+            runtime_targets=[_docker_runtime()],
+            required_capabilities=["repair.execute.low_risk", "repair.verify"],
+            execution_mode="deterministic_repair_plan",
+            policy_decision_ref="policy-1",
+        )
+    )
     assert decision.decision_status == SelectionDecisionStatus.selected
     assert decision.selected_worker_id == "native-01"
     assert decision.selected_runtime_target_id == "docker-local"
@@ -97,73 +106,81 @@ def test_fixed_native_worker_selection_positive():
 
 def test_fixed_unavailable_worker_denies_without_fallback():
     unavailable = _native_worker().model_copy(update={"health_state": RuntimeHealthState.unavailable})
-    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
-        policy=WorkerSelectionPolicy(
-            mode=WorkerSelectionMode.fixed,
-            fixed_worker_id="native-01",
-            allow_cloud=False,
-            allow_external_workers=False,
-        ),
-        workers=[unavailable, _opencode_worker()],
-        runtime_targets=[_docker_runtime()],
-        required_capabilities=["repair.execute.low_risk"],
-    ))
+    decision = WorkerRuntimeSelectionService().select(
+        WorkerRuntimeSelectionRequest(
+            policy=WorkerSelectionPolicy(
+                mode=WorkerSelectionMode.fixed,
+                fixed_worker_id="native-01",
+                allow_cloud=False,
+                allow_external_workers=False,
+            ),
+            workers=[unavailable, _opencode_worker()],
+            runtime_targets=[_docker_runtime()],
+            required_capabilities=["repair.execute.low_risk"],
+        )
+    )
     assert decision.decision_status == SelectionDecisionStatus.no_eligible_worker
     assert decision.selected_worker_id is None
     assert any(r.reason_code == "worker_unavailable" for r in decision.rejected_candidates)
 
 
 def test_automatic_selects_native_for_repair_mutation_and_rejects_hermes():
-    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
-        policy=WorkerSelectionPolicy(
-            mode=WorkerSelectionMode.automatic,
-            allowed_worker_kinds=[WorkerKind.native_ananta_worker, WorkerKind.opencode, WorkerKind.hermes],
-            allow_cloud=True,
-            allow_external_workers=True,
-            prefer_local=True,
-        ),
-        workers=[_hermes_worker(), _opencode_worker(), _native_worker()],
-        runtime_targets=[_docker_runtime(), _cloud_runtime()],
-        required_capabilities=["repair.execute.low_risk", "repair.verify"],
-        execution_mode="deterministic_repair_plan",
-    ))
+    decision = WorkerRuntimeSelectionService().select(
+        WorkerRuntimeSelectionRequest(
+            policy=WorkerSelectionPolicy(
+                mode=WorkerSelectionMode.automatic,
+                allowed_worker_kinds=[WorkerKind.native_ananta_worker, WorkerKind.opencode, WorkerKind.hermes],
+                allow_cloud=True,
+                allow_external_workers=True,
+                prefer_local=True,
+            ),
+            workers=[_hermes_worker(), _opencode_worker(), _native_worker()],
+            runtime_targets=[_docker_runtime(), _cloud_runtime()],
+            required_capabilities=["repair.execute.low_risk", "repair.verify"],
+            execution_mode="deterministic_repair_plan",
+        )
+    )
     assert decision.decision_status == SelectionDecisionStatus.selected
     assert decision.selected_worker_kind == WorkerKind.native_ananta_worker
     assert any(r.worker_kind == WorkerKind.hermes for r in decision.rejected_candidates)
 
 
 def test_cloud_external_worker_rejected_when_cloud_and_external_false():
-    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
-        policy=WorkerSelectionPolicy(
-            mode=WorkerSelectionMode.automatic,
-            allowed_worker_kinds=[WorkerKind.hermes],
-            allow_cloud=False,
-            allow_external_workers=False,
-        ),
-        workers=[_hermes_worker()],
-        runtime_targets=[_cloud_runtime()],
-        required_capabilities=["planning"],
-        execution_mode="repair_preview",
-    ))
+    decision = WorkerRuntimeSelectionService().select(
+        WorkerRuntimeSelectionRequest(
+            policy=WorkerSelectionPolicy(
+                mode=WorkerSelectionMode.automatic,
+                allowed_worker_kinds=[WorkerKind.hermes],
+                allow_cloud=False,
+                allow_external_workers=False,
+            ),
+            workers=[_hermes_worker()],
+            runtime_targets=[_cloud_runtime()],
+            required_capabilities=["planning"],
+            execution_mode="repair_preview",
+        )
+    )
     assert decision.decision_status == SelectionDecisionStatus.no_eligible_worker
     reason_codes = {r.reason_code for r in decision.rejected_candidates}
     assert "external_worker_denied_allow_external_false" in reason_codes
 
 
 def test_opencode_selected_for_patch_propose_when_policy_allows():
-    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
-        policy=WorkerSelectionPolicy(
-            mode=WorkerSelectionMode.automatic,
-            allowed_worker_kinds=[WorkerKind.native_ananta_worker, WorkerKind.opencode],
-            allow_cloud=False,
-            allow_external_workers=False,
-            prefer_local=True,
-        ),
-        workers=[_native_worker(), _opencode_worker()],
-        runtime_targets=[_docker_runtime()],
-        required_capabilities=["patch_propose", "code_read"],
-        execution_mode="patch_propose",
-    ))
+    decision = WorkerRuntimeSelectionService().select(
+        WorkerRuntimeSelectionRequest(
+            policy=WorkerSelectionPolicy(
+                mode=WorkerSelectionMode.automatic,
+                allowed_worker_kinds=[WorkerKind.native_ananta_worker, WorkerKind.opencode],
+                allow_cloud=False,
+                allow_external_workers=False,
+                prefer_local=True,
+            ),
+            workers=[_native_worker(), _opencode_worker()],
+            runtime_targets=[_docker_runtime()],
+            required_capabilities=["patch_propose", "code_read"],
+            execution_mode="patch_propose",
+        )
+    )
     assert decision.decision_status == SelectionDecisionStatus.selected
     assert decision.selected_worker_kind == WorkerKind.opencode
 
@@ -188,19 +205,21 @@ def test_selection_is_deterministic_for_same_inputs():
 
 
 def test_capacity_exhaustion_rejects_full_worker_and_runtime():
-    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
-        policy=WorkerSelectionPolicy(
-            mode=WorkerSelectionMode.automatic,
-            allowed_worker_kinds=[WorkerKind.native_ananta_worker],
-            allow_cloud=False,
-            allow_external_workers=False,
-        ),
-        workers=[_native_worker()],
-        runtime_targets=[_docker_runtime()],
-        required_capabilities=["planning"],
-        current_load_by_worker_id={"native-01": 1},
-        current_load_by_runtime_target_id={"docker-local": 1},
-    ))
+    decision = WorkerRuntimeSelectionService().select(
+        WorkerRuntimeSelectionRequest(
+            policy=WorkerSelectionPolicy(
+                mode=WorkerSelectionMode.automatic,
+                allowed_worker_kinds=[WorkerKind.native_ananta_worker],
+                allow_cloud=False,
+                allow_external_workers=False,
+            ),
+            workers=[_native_worker()],
+            runtime_targets=[_docker_runtime()],
+            required_capabilities=["planning"],
+            current_load_by_worker_id={"native-01": 1},
+            current_load_by_runtime_target_id={"docker-local": 1},
+        )
+    )
     assert decision.decision_status == SelectionDecisionStatus.no_eligible_worker
     reasons = {r.reason_code for r in decision.rejected_candidates}
     assert "worker_parallel_capacity_exhausted" in reasons or "runtime_parallel_capacity_exhausted" in reasons

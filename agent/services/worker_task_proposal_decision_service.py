@@ -13,7 +13,6 @@ from agent.db_models import (
     TaskDB,
     WorkerTaskProposalDB,
 )
-from agent.services.task_dependency_policy import validate_dependency_graph
 from agent.services.approval_request_service import (
     ApprovalRequestService,
     canonical_approval_intent_key,
@@ -41,6 +40,7 @@ from agent.services.planning_track_pipeline_service import (
     evaluate_planning_quality_gates,
     validate_planning_track_with_details,
 )
+from agent.services.task_dependency_policy import validate_dependency_graph
 from agent.services.worker_task_proposal_ingress_service import (
     WorkerTaskProposalIngressError,
 )

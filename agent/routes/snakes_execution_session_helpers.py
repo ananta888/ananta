@@ -50,11 +50,7 @@ def owned_chat_session_snapshot(
 
             sessions = default_conversations()
         session = next(
-            (
-                item
-                for item in sessions
-                if isinstance(item, dict) and str(item.get("id") or "") == session_id
-            ),
+            (item for item in sessions if isinstance(item, dict) and str(item.get("id") or "") == session_id),
             None,
         )
         if session is None:

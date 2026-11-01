@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import copy
-import os
 import re
 import time
 from typing import Any
 
-from agent.services.instruction_stack_artifact_service import InstructionStackArtifact
-from agent.services.instruction_stack_artifact_service import get_instruction_stack_artifact_service
-
 from agent.common.audit import log_audit
-from agent.db_models import GoalDB, InstructionOverlayDB, TaskDB, UserInstructionProfileDB
+from agent.db_models import InstructionOverlayDB, TaskDB, UserInstructionProfileDB
+from agent.services.instruction_stack_artifact_service import (
+    InstructionStackArtifact,
+    get_instruction_stack_artifact_service,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_template_resolution import resolve_task_role_template
 
@@ -18,7 +18,14 @@ _LAYER_MODEL_VERSION = "instruction-layer-model-v2"
 _STACK_VERSION = "instruction-stack-v2"
 # APRL-010: agent_profile_template sits between governance and blueprint_template;
 # it is non-overridable and populated from AgentProfileService.
-_PRECEDENCE = ["governance", "agent_profile_template", "blueprint_template", "user_profile", "task_overlay", "task_input"]
+_PRECEDENCE = [
+    "governance",
+    "agent_profile_template",
+    "blueprint_template",
+    "user_profile",
+    "task_overlay",
+    "task_input",
+]
 _ALLOWED_USER_INFLUENCE = {"style", "language", "detail_level", "working_mode", "formatting"}
 _FORBIDDEN_METADATA_KEYS = {
     "approval",
@@ -59,8 +66,7 @@ _PROFILE_EXAMPLES = [
         "name": "Concise Coding",
         "description": "High-signal implementation answers with short rationale.",
         "prompt_content": (
-            "Prioritize direct implementation steps, keep explanations concise, "
-            "and include only essential rationale."
+            "Prioritize direct implementation steps, keep explanations concise, and include only essential rationale."
         ),
         "profile_metadata": {"preferences": {"style": "concise", "detail_level": "high"}},
         "safety_notes": [
@@ -135,9 +141,7 @@ class InstructionLayerService:
             {"id": "governance", "source": "hub_policy", "overridable": False},
         ]
         if codecompass_runtime_active(task):
-            layers.append(
-                {"id": "codecompass_runtime", "source": "hub_policy", "overridable": False}
-            )
+            layers.append({"id": "codecompass_runtime", "source": "hub_policy", "overridable": False})
         layers.extend(
             [
                 {"id": "agent_profile_template", "source": "agent_profile_service", "overridable": False},
@@ -255,7 +259,9 @@ class InstructionLayerService:
         normalized = str(scope or "").strip().lower()
         return normalized if normalized in _OVERLAY_SCOPES else "task"
 
-    def overlay_lifecycle_summary(self, overlay: InstructionOverlayDB, *, now_ts: float | None = None) -> dict[str, Any]:
+    def overlay_lifecycle_summary(
+        self, overlay: InstructionOverlayDB, *, now_ts: float | None = None
+    ) -> dict[str, Any]:
         now = float(now_ts or time.time())
         scope = self.normalize_overlay_scope(overlay.scope)
         lifecycle = dict((overlay.overlay_metadata or {}).get("lifecycle") or {})
@@ -333,7 +339,9 @@ class InstructionLayerService:
         return {
             "status": status,
             "role_template_context": role_template_context,
-            "context_available": bool(role_template_context.get("role_name") or role_template_context.get("template_name")),
+            "context_available": bool(
+                role_template_context.get("role_name") or role_template_context.get("template_name")
+            ),
             "detected_template_contexts": detected_contexts,
             "issues": issues,
             "warning_count": len(warnings),
@@ -615,7 +623,9 @@ class InstructionLayerService:
             f"Aktives Overlay: {overlay.get('name') or '-'}",
         ]
         if suppressed:
-            lines.append("Unterdrueckte Layer: " + ", ".join(str(item.get("layer") or "unknown") for item in suppressed))
+            lines.append(
+                "Unterdrueckte Layer: " + ", ".join(str(item.get("layer") or "unknown") for item in suppressed)
+            )
         return "\n".join(lines)
 
     def assemble_for_task(
@@ -643,23 +653,23 @@ class InstructionLayerService:
         owner_username = self._resolve_owner_username(task_payload, goal_payload)
         task_context = dict((task_payload.get("worker_execution_context") or {}).get("instruction_context") or {})
         goal_context = dict((goal_payload or {}).get("execution_preferences", {}).get("instruction_context", {}) or {})
-        compatibility_enforcement = str(
-            task_context.get("template_compatibility_enforcement")
-            or goal_context.get("template_compatibility_enforcement")
-            or "mark"
-        ).strip().lower()
+        compatibility_enforcement = (
+            str(
+                task_context.get("template_compatibility_enforcement")
+                or goal_context.get("template_compatibility_enforcement")
+                or "mark"
+            )
+            .strip()
+            .lower()
+        )
         if compatibility_enforcement not in _TEMPLATE_COMPAT_ENFORCEMENT_VALUES:
             compatibility_enforcement = "mark"
-        explicit_profile_id = str(
-            task_context.get("profile_id")
-            or goal_context.get("profile_id")
-            or ""
-        ).strip() or None
-        explicit_overlay_id = str(
-            task_context.get("overlay_id")
-            or goal_context.get("overlay_id")
-            or ""
-        ).strip() or None
+        explicit_profile_id = (
+            str(task_context.get("profile_id") or goal_context.get("profile_id") or "").strip() or None
+        )
+        explicit_overlay_id = (
+            str(task_context.get("overlay_id") or goal_context.get("overlay_id") or "").strip() or None
+        )
         profile = (
             self.resolve_profile_for_owner(owner_username=owner_username, explicit_profile_id=explicit_profile_id)
             if owner_username

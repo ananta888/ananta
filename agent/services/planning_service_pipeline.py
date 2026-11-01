@@ -1,29 +1,25 @@
 from __future__ import annotations
 
 import logging
-import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any, Optional
 
 from flask import current_app, g
 
-from agent.db_models import PlanDB, PlanNodeDB
-from agent.services.task_dependency_policy import normalize_depends_on, validate_dependency_graph
-from agent.services.lifecycle_service import get_task_lifecycle_service
-from agent.services.planning_feature_flags import get_goal_feature_flags, get_plan_generation_limits
+from agent.db_models import PlanNodeDB
+from agent.services.planning_evaluation_service import get_planning_evaluation_service
 from agent.services.planning_proposal_service import (
     build_plan_proposal,
-    select_planning_agent_candidate,
     validate_plan_proposal_payload,
 )
 from agent.services.planning_quality_service import get_planning_quality_service
 from agent.services.planning_review_queue_service import get_planning_review_queue_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.planning_template_mining_service import get_planning_template_mining_service
-from agent.services.repository_registry import get_repository_registry
-from agent.services.planning_evaluation_service import get_planning_evaluation_service
 from agent.services.planning_utils import parse_subtasks_from_llm_response
+from agent.services.repository_registry import get_repository_registry
 
 logger = logging.getLogger(__name__)
 
@@ -133,9 +129,7 @@ def _run_selective_repair(
             if str(item).strip()
         ]
         repair_error_codes = [
-            str(item).strip()
-            for item in list(repair_context.get("error_codes") or [])
-            if str(item).strip()
+            str(item).strip() for item in list(repair_context.get("error_codes") or []) if str(item).strip()
         ]
 
     _sr = planning_policy.get("selective_repair_rounds")
@@ -242,9 +236,21 @@ def _run_quality_repairs(
     create_tasks: bool,
 ) -> dict[str, Any]:
     result = _run_selective_repair(
-        service, planner, subtasks, goal, mode, planning_policy,
-        team_id, scoped_llm_cfg, goal_id, quality, repair_context,
-        preferred_output_format, perform_quality_repairs, enforce_quality_gate, create_tasks,
+        service,
+        planner,
+        subtasks,
+        goal,
+        mode,
+        planning_policy,
+        team_id,
+        scoped_llm_cfg,
+        goal_id,
+        quality,
+        repair_context,
+        preferred_output_format,
+        perform_quality_repairs,
+        enforce_quality_gate,
+        create_tasks,
     )
     subtasks = result["subtasks"]
     quality = result["quality"]
@@ -255,9 +261,17 @@ def _run_quality_repairs(
         selective_repair_codes.append(f"selective_repair_rounds:{selective_repair_applied}")
 
     result = _run_last_resort_asks(
-        service, planner, subtasks, goal, perform_quality_repairs,
-        quality, scoped_llm_cfg, selective_repair_codes, planning_policy,
-        mode, team_id,
+        service,
+        planner,
+        subtasks,
+        goal,
+        perform_quality_repairs,
+        quality,
+        scoped_llm_cfg,
+        selective_repair_codes,
+        planning_policy,
+        mode,
+        team_id,
     )
 
     return {
@@ -313,7 +327,7 @@ def _run_last_resort_asks(
                     "analysis": "requirements analysis, architecture decision, spike",
                     "review": "code review checklist, documentation, changelog",
                 }.get(_cat, _cat)
-                + f"\nExample: "
+                + "\nExample: "
                 + '["'
                 + '{"title": "Setup Docker environment", "description": "Create Dockerfile and docker-compose.yml", '
                 + f'"task_kind": "{_tk}", "priority": "medium"'
@@ -328,9 +342,12 @@ def _run_last_resort_asks(
                     (str(t.get("title") or "").strip().lower(), str(t.get("description") or "").strip().lower())
                     for t in subtasks
                 }
-                for _c in (_new or []):
+                for _c in _new or []:
                     if qs._classify_task_category(_c).strip().lower() == _cat:
-                        _k = (str(_c.get("title") or "").strip().lower(), str(_c.get("description") or "").strip().lower())
+                        _k = (
+                            str(_c.get("title") or "").strip().lower(),
+                            str(_c.get("description") or "").strip().lower(),
+                        )
                         if _k not in _seen:
                             subtasks.append(dict(_c))
                             _seen.add(_k)
@@ -391,9 +408,18 @@ def _validate_and_finalize_plan(
         required_capabilities=[],
     )
     known_capabilities = {
-        "planning", "coding", "testing", "review", "research",
-        "ops", "analysis", "doc", "plan.propose", "risk.estimate",
-        "dependencies.suggest", "clarifying_questions.suggest",
+        "planning",
+        "coding",
+        "testing",
+        "review",
+        "research",
+        "ops",
+        "analysis",
+        "doc",
+        "plan.propose",
+        "risk.estimate",
+        "dependencies.suggest",
+        "clarifying_questions.suggest",
     }
     proposal_validation = validate_plan_proposal_payload(proposal_payload, known_capabilities=known_capabilities)
     if not proposal_validation.ok:

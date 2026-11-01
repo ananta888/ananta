@@ -25,12 +25,8 @@ from agent.services.workflow_worker_service_auth import (
 HUB_TOKEN = "hub-recovery-manifest-token-0123456789abcdef"
 ALPHA_TOKEN = "alpha-recovery-manifest-token-0123456789abcdef"
 BETA_TOKEN = "beta-recovery-manifest-token-0123456789abcdefg"
-ALPHA_BOOTSTRAP = (
-    "alpha-recovery-registration-token-0123456789abcdef"
-)
-BETA_BOOTSTRAP = (
-    "beta-recovery-registration-token-0123456789abcdefg"
-)
+ALPHA_BOOTSTRAP = "alpha-recovery-registration-token-0123456789abcdef"
+BETA_BOOTSTRAP = "beta-recovery-registration-token-0123456789abcdefg"
 ALPHA_SESSION = "alpha-recovery-session-key-0123456789abcdef"
 BETA_SESSION = "beta-recovery-session-key-0123456789abcdefg"
 ALPHA_URL = "http://worker-alpha:5000"
@@ -73,9 +69,7 @@ def _worker(*, name: str, url: str, token: str):
         role="worker",
         capabilities=["coding"],
         authorized_capabilities=["coding"],
-        registration_provenance=(
-            STRICT_WORKER_REGISTRATION_PROVENANCE
-        ),
+        registration_provenance=(STRICT_WORKER_REGISTRATION_PROVENANCE),
         registration_validated=True,
         status="online",
     )
@@ -144,9 +138,7 @@ def _recovery_child(*, assigned_agent_url: str = ALPHA_URL):
             "team_id": task.team_id,
             "approval_request_id": "approval-1",
             "recovery_key": "recovery-key-1",
-            "task_payload_digest": (
-                calculate_recovery_task_payload_digest(task)
-            ),
+            "task_payload_digest": (calculate_recovery_task_payload_digest(task)),
         },
     }
     return task
@@ -169,23 +161,15 @@ def _write_keyring(path) -> None:
                     "worker-alpha": {
                         "worker_url": ALPHA_URL,
                         "registration_token": ALPHA_BOOTSTRAP,
-                        "service_token_sha256": _sha256(
-                            ALPHA_TOKEN
-                        ),
-                        "session_signing_key_sha256": _sha256(
-                            ALPHA_SESSION
-                        ),
+                        "service_token_sha256": _sha256(ALPHA_TOKEN),
+                        "session_signing_key_sha256": _sha256(ALPHA_SESSION),
                         "allowed_capabilities": ["coding"],
                     },
                     "worker-beta": {
                         "worker_url": BETA_URL,
                         "registration_token": BETA_BOOTSTRAP,
-                        "service_token_sha256": _sha256(
-                            BETA_TOKEN
-                        ),
-                        "session_signing_key_sha256": _sha256(
-                            BETA_SESSION
-                        ),
+                        "service_token_sha256": _sha256(BETA_TOKEN),
+                        "session_signing_key_sha256": _sha256(BETA_SESSION),
                         "allowed_capabilities": ["coding"],
                     },
                 },
@@ -212,16 +196,12 @@ def _app(
     keyring = tmp_path / "recovery-manifest-keyring.json"
     _write_keyring(keyring)
     app = Flask(__name__)
-    app.secret_key = (
-        "recovery-manifest-user-session-secret-0123456789abcdef"
-    )
+    app.secret_key = "recovery-manifest-user-session-secret-0123456789abcdef"
     app.config.update(
         TESTING=True,
         AGENT_TOKEN=HUB_TOKEN,
         ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
-        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(
-            keyring
-        ),
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
     )
     app.extensions["repository_registry"] = SimpleNamespace(
         agent_repo=_AgentRepo(
@@ -241,8 +221,7 @@ def _app(
     )
     app.register_blueprint(recovery_manifest_bp)
     monkeypatch.setattr(
-        "agent.routes.tasks.recovery_manifest."
-        "get_recovery_task_manifest_service",
+        "agent.routes.tasks.recovery_manifest.get_recovery_task_manifest_service",
         lambda: _manifest_service(task),
     )
     monkeypatch.setattr(
@@ -262,9 +241,7 @@ def test_manifest_endpoint_requires_assigned_registered_worker_and_projects_only
 ) -> None:
     task = _recovery_child()
     client = _app(monkeypatch, tmp_path, task).test_client()
-    path = (
-        f"/internal/tasks/{task.id}/recovery-child-manifest"
-    )
+    path = f"/internal/tasks/{task.id}/recovery-child-manifest"
 
     accepted = client.get(
         path,
@@ -297,9 +274,7 @@ def test_manifest_endpoint_requires_assigned_registered_worker_and_projects_only
     assert manifest["schema"] == RECOVERY_TASK_MANIFEST_SCHEMA
     assert manifest["task"]["id"] == task.id
     assert manifest["task"]["status_reason_details"] == {
-        "model_recovery_release": (
-            task.status_reason_details["model_recovery_release"]
-        )
+        "model_recovery_release": (task.status_reason_details["model_recovery_release"])
     }
     for forbidden in (
         "assigned_agent_url",
@@ -313,9 +288,7 @@ def test_manifest_endpoint_requires_assigned_registered_worker_and_projects_only
         assert forbidden not in manifest["task"]
     assert hub_credential.status_code == 401
     assert wrong_assignment.status_code == 403
-    assert wrong_assignment.get_json()["data"]["reason_code"] == (
-        "recovery_task_manifest_assignment_denied"
-    )
+    assert wrong_assignment.get_json()["data"]["reason_code"] == ("recovery_task_manifest_assignment_denied")
 
 
 def test_manifest_endpoint_rejects_approval_payload_digest_drift(
@@ -336,9 +309,7 @@ def test_manifest_endpoint_rejects_approval_payload_digest_drift(
     )
 
     assert response.status_code == 409
-    assert response.get_json()["data"]["reason_code"] == (
-        "recovery_task_manifest_payload_digest_mismatch"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("recovery_task_manifest_payload_digest_mismatch")
 
 
 def test_manifest_endpoint_never_projects_recovery_source_task(
@@ -369,9 +340,7 @@ def test_manifest_endpoint_never_projects_recovery_source_task(
     )
 
     assert response.status_code == 404
-    assert response.get_json()["data"]["reason_code"] == (
-        "recovery_task_manifest_not_found"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("recovery_task_manifest_not_found")
 
 
 class _Response:
@@ -414,17 +383,12 @@ def _configure_worker_sync(
         )
 
     monkeypatch.setattr(
-        "agent.services.task_runtime_service."
-        "update_local_task_status",
+        "agent.services.task_runtime_service.update_local_task_status",
         update,
     )
     monkeypatch.setattr(
         "agent.services.task_runtime_service.get_local_task_status",
-        lambda task_id: (
-            copy.deepcopy(captured)
-            if captured.get("id") == task_id
-            else None
-        ),
+        lambda task_id: copy.deepcopy(captured) if captured.get("id") == task_id else None,
     )
 
 
@@ -472,10 +436,7 @@ def test_worker_sync_uses_scoped_manifest_endpoint_identity_headers_and_digest(
     assert "assigned_agent_url" not in captured
     assert client.calls == [
         {
-            "url": (
-                "http://hub:5000/internal/tasks/recovery-child-1/"
-                "recovery-child-manifest"
-            ),
+            "url": ("http://hub:5000/internal/tasks/recovery-child-1/recovery-child-manifest"),
             "timeout": 10,
             "return_response": True,
             "silent": True,
@@ -517,9 +478,7 @@ def test_worker_sync_creates_missing_local_recovery_child_from_manifest(
 
     task = _recovery_child()
     task.id = "recovery-child-real-sync"
-    task.status_reason_details[
-        "model_recovery_release"
-    ]["task_payload_digest"] = (
+    task.status_reason_details["model_recovery_release"]["task_payload_digest"] = (
         calculate_recovery_task_payload_digest(task)
     )
     manifest = _manifest_service(task).manifest_for_worker(

@@ -25,10 +25,7 @@ class TurnAccountingCounters:
     exhaustion_events: int = 0
 
     def __post_init__(self) -> None:
-        if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in self.values().values()
-        ):
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in self.values().values()):
             raise ValueError("turn_accounting_counter_invalid")
 
     def values(self) -> dict[str, int]:
@@ -39,9 +36,7 @@ class TurnAccountingCounters:
         before = previous.values()
         if any(current[name] < before[name] for name in current):
             return self, True
-        return TurnAccountingCounters(
-            **{name: current[name] - before[name] for name in current}
-        ), False
+        return TurnAccountingCounters(**{name: current[name] - before[name] for name in current}), False
 
 
 @dataclass(frozen=True, slots=True)

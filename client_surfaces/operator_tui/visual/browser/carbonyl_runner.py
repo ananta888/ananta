@@ -75,9 +75,7 @@ class CarbonylRunner:
             )
         except (FileNotFoundError, PermissionError) as exc:
             self._close_fds()
-            raise CarbonylNotAvailableError(
-                f"Failed to start carbonyl binary '{resolved}': {exc}"
-            ) from exc
+            raise CarbonylNotAvailableError(f"Failed to start carbonyl binary '{resolved}': {exc}") from exc
 
     def stop(self) -> None:
         """Stop the carbonyl subprocess and clean up PTY file descriptors."""
@@ -139,9 +137,7 @@ class CarbonylRunner:
         if os.path.isabs(binary):
             if os.path.isfile(binary) and os.access(binary, os.X_OK):
                 return binary
-            raise CarbonylNotAvailableError(
-                f"Carbonyl binary not found or not executable: {binary}"
-            )
+            raise CarbonylNotAvailableError(f"Carbonyl binary not found or not executable: {binary}")
         resolved = shutil.which(binary)
         if resolved:
             return resolved

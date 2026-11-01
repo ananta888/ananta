@@ -20,12 +20,18 @@ def admin_token(client):
     return response.json["data"]["access_token"]
 
 
-
 # Split from tests/test_config_api.py to keep source files below 1000 lines.
+
 
 def test_dashboard_read_model_exposes_operations_observability(client, admin_token):
     from agent.db_models import ContextBundleDB, EvolutionProposalDB, PolicyDecisionDB, TaskDB, VerificationRecordDB
-    from agent.repository import context_bundle_repo, evolution_proposal_repo, policy_decision_repo, task_repo, verification_record_repo
+    from agent.repository import (
+        context_bundle_repo,
+        evolution_proposal_repo,
+        policy_decision_repo,
+        task_repo,
+        verification_record_repo,
+    )
     from agent.services.product_event_service import record_product_event
 
     task_repo.save(
@@ -88,9 +94,24 @@ def test_dashboard_read_model_exposes_operations_observability(client, admin_tok
                     "timeout_seconds": 300,
                     "max_recovery_attempts": 1,
                     "history": [
-                        {"event_type": "workflow_transition", "from_state": "review_required", "to_state": "approved", "timestamp": 101.0},
-                        {"event_type": "workflow_transition", "from_state": "approved", "to_state": "apply_requested", "timestamp": 102.0},
-                        {"event_type": "workflow_transition", "from_state": "apply_requested", "to_state": "blocked", "timestamp": 103.0},
+                        {
+                            "event_type": "workflow_transition",
+                            "from_state": "review_required",
+                            "to_state": "approved",
+                            "timestamp": 101.0,
+                        },
+                        {
+                            "event_type": "workflow_transition",
+                            "from_state": "approved",
+                            "to_state": "apply_requested",
+                            "timestamp": 102.0,
+                        },
+                        {
+                            "event_type": "workflow_transition",
+                            "from_state": "apply_requested",
+                            "to_state": "blocked",
+                            "timestamp": 103.0,
+                        },
                     ],
                 },
                 "last_fallback": {
@@ -124,12 +145,18 @@ def test_dashboard_read_model_exposes_operations_observability(client, admin_tok
     res = client.get("/dashboard/read-model?include_task_snapshot=1", headers=headers)
 
     assert res.status_code == 200
-    runtime_telemetry = (((res.json["data"].get("llm_configuration") or {}).get("runtime_telemetry")) or {})
+    runtime_telemetry = ((res.json["data"].get("llm_configuration") or {}).get("runtime_telemetry")) or {}
     operations = runtime_telemetry.get("operations") or {}
     assert operations.get("sample_size", 0) >= 1
-    assert {"key": "missing_test_evidence", "count": 1} in (operations.get("root_causes") or {}).get("verification_failures", [])
-    assert {"key": "provider_unavailable", "count": 1} in (operations.get("root_causes") or {}).get("routing_reasons", [])
-    assert ((operations.get("context_efficiency") or {}).get("by_task_kind") or {}).get("coding", {}).get("avg_budget_utilization") == 0.75
+    assert {"key": "missing_test_evidence", "count": 1} in (operations.get("root_causes") or {}).get(
+        "verification_failures", []
+    )
+    assert {"key": "provider_unavailable", "count": 1} in (operations.get("root_causes") or {}).get(
+        "routing_reasons", []
+    )
+    assert ((operations.get("context_efficiency") or {}).get("by_task_kind") or {}).get("coding", {}).get(
+        "avg_budget_utilization"
+    ) == 0.75
     product_events = operations.get("product_events") or {}
     assert product_events.get("sample_size", 0) >= 3
     assert (product_events.get("friction") or {}).get("blocked", 0) >= 1
@@ -168,7 +195,7 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     headers = {"Authorization": f"Bearer {admin_token}"}
     res = client.get("/assistant/read-model", headers=headers)
     assert res.status_code == 200
-    summary = (((res.json.get("data") or {}).get("settings") or {}).get("summary") or {})
+    summary = ((res.json.get("data") or {}).get("settings") or {}).get("summary") or {}
     llm = summary.get("llm") or {}
     assert "artifact_flow" in llm
     propose_policy = llm.get("propose_policy") or {}
@@ -220,16 +247,16 @@ def test_propose_policy_compactor_kill_switch_visible_and_editable(client, admin
 
     assistant = client.get("/assistant/read-model", headers=headers)
     assert assistant.status_code == 200
-    summary = (((assistant.json.get("data") or {}).get("settings") or {}).get("summary") or {})
-    propose_policy = ((summary.get("llm") or {}).get("propose_policy") or {})
+    summary = ((assistant.json.get("data") or {}).get("settings") or {}).get("summary") or {}
+    propose_policy = (summary.get("llm") or {}).get("propose_policy") or {}
     assert propose_policy.get("context_compaction_enabled") is False
 
-    inventory = (((assistant.json.get("data") or {}).get("settings") or {}).get("editable_inventory") or [])
+    inventory = ((assistant.json.get("data") or {}).get("settings") or {}).get("editable_inventory") or []
     assert any(item.get("key") == "propose_policy" for item in inventory)
 
     dashboard = client.get("/dashboard/read-model", headers=headers)
     assert dashboard.status_code == 200
-    llm_cfg = ((dashboard.json.get("data") or {}).get("llm_configuration") or {})
+    llm_cfg = (dashboard.json.get("data") or {}).get("llm_configuration") or {}
     dash_policy = llm_cfg.get("propose_policy") or {}
     assert dash_policy.get("context_compaction_enabled") is False
 
@@ -356,7 +383,9 @@ def test_set_config_validates_routing_fallback_policy(client, admin_token):
     assert bad.status_code == 400
     assert bad.json["message"] == "invalid_routing_fallback_policy"
 
-    bad_order = client.post("/config", json={"routing_fallback_policy": {"fallback_order": "remote_hub"}}, headers=headers)
+    bad_order = client.post(
+        "/config", json={"routing_fallback_policy": {"fallback_order": "remote_hub"}}, headers=headers
+    )
     assert bad_order.status_code == 400
     assert bad_order.json["message"] == "invalid_routing_fallback_order"
 
@@ -387,7 +416,9 @@ def test_set_config_validates_memory_and_remote_federation_policy(client, admin_
     assert bad_memory.status_code == 400
     assert bad_memory.json["message"] == "invalid_result_memory_policy"
 
-    bad_federation = client.post("/config", json={"remote_federation_policy": {"allowed_operations": "chat"}}, headers=headers)
+    bad_federation = client.post(
+        "/config", json={"remote_federation_policy": {"allowed_operations": "chat"}}, headers=headers
+    )
     assert bad_federation.status_code == 400
     assert bad_federation.json["message"] == "invalid_remote_federation_operations"
 
@@ -442,7 +473,7 @@ def test_set_config_validates_exposure_policy_shape(client, admin_token):
 
     cfg = client.get("/config", headers=headers)
     assert cfg.status_code == 200
-    openai_compat = (((cfg.json.get("data") or {}).get("exposure_policy") or {}).get("openai_compat") or {})
+    openai_compat = ((cfg.json.get("data") or {}).get("exposure_policy") or {}).get("openai_compat") or {}
     assert openai_compat.get("allow_files_api") is False
 
 
@@ -481,7 +512,7 @@ def test_set_config_validates_cli_session_mode_shape(client, admin_token):
     assert ok.status_code == 200
     cfg = client.get("/config", headers=headers)
     assert cfg.status_code == 200
-    mode = ((cfg.json.get("data") or {}).get("cli_session_mode") or {})
+    mode = (cfg.json.get("data") or {}).get("cli_session_mode") or {}
     assert mode.get("enabled") is True
     assert mode.get("max_turns_per_session") == 12
     assert mode.get("reuse_scope") == "role"
@@ -494,7 +525,9 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
     assert bad.status_code == 400
     assert bad.json["message"] == "invalid_opencode_execution_mode"
 
-    bad_launch_mode = client.post("/config", json={"opencode_runtime": {"interactive_launch_mode": "fullscreen"}}, headers=headers)
+    bad_launch_mode = client.post(
+        "/config", json={"opencode_runtime": {"interactive_launch_mode": "fullscreen"}}, headers=headers
+    )
     assert bad_launch_mode.status_code == 400
     assert bad_launch_mode.json["message"] == "invalid_opencode_interactive_launch_mode"
 
@@ -504,14 +537,21 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
 
     ok = client.post(
         "/config",
-        json={"opencode_runtime": {"tool_mode": "readonly", "execution_mode": "interactive_terminal", "interactive_launch_mode": "tui", "target_provider": "ollama"}},
+        json={
+            "opencode_runtime": {
+                "tool_mode": "readonly",
+                "execution_mode": "interactive_terminal",
+                "interactive_launch_mode": "tui",
+                "target_provider": "ollama",
+            }
+        },
         headers=headers,
     )
     assert ok.status_code == 200
 
     cfg = client.get("/config", headers=headers)
     assert cfg.status_code == 200
-    runtime_cfg = ((cfg.json.get("data") or {}).get("opencode_runtime") or {})
+    runtime_cfg = (cfg.json.get("data") or {}).get("opencode_runtime") or {}
     assert runtime_cfg.get("tool_mode") == "readonly"
     assert runtime_cfg.get("execution_mode") == "interactive_terminal"
     assert runtime_cfg.get("interactive_launch_mode") == "tui"
@@ -536,7 +576,7 @@ def test_set_config_routes_opencode_and_aider_to_declared_local_provider(client,
     response = client.post("/config", json=payload, headers=headers)
 
     assert response.status_code == 200
-    config = (client.get("/config", headers=headers).json.get("data") or {})
+    config = client.get("/config", headers=headers).json.get("data") or {}
     assert config["opencode_runtime"]["target_provider"] == "local_coder"
     assert config["aider_cli"] == {
         "target_provider": "local_coder",
@@ -571,7 +611,7 @@ def test_set_config_validates_worker_runtime_workspace_reuse_mode(client, admin_
 
     cfg = client.get("/config", headers=headers)
     assert cfg.status_code == 200
-    worker_runtime = ((cfg.json.get("data") or {}).get("worker_runtime") or {})
+    worker_runtime = (cfg.json.get("data") or {}).get("worker_runtime") or {}
     assert worker_runtime.get("workspace_root") == "/tmp/worker-runtime"
     assert worker_runtime.get("workspace_reuse_mode") == "goal_worker"
 
@@ -607,7 +647,7 @@ def test_set_config_accepts_worker_semantic_output_correction_policy(client, adm
 
     cfg = client.get("/config", headers=headers)
     assert cfg.status_code == 200
-    worker_runtime = ((cfg.json.get("data") or {}).get("worker_runtime") or {})
+    worker_runtime = (cfg.json.get("data") or {}).get("worker_runtime") or {}
     semantic_cfg = dict(worker_runtime.get("semantic_output_correction") or {})
     assert semantic_cfg.get("enabled") is True
     assert semantic_cfg.get("similarity_threshold") == 0.87
@@ -644,7 +684,7 @@ def test_set_config_accepts_worker_todo_contract_policy(client, admin_token):
 
     cfg = client.get("/config", headers=headers)
     assert cfg.status_code == 200
-    worker_runtime = ((cfg.json.get("data") or {}).get("worker_runtime") or {})
+    worker_runtime = (cfg.json.get("data") or {}).get("worker_runtime") or {}
     todo_cfg = dict(worker_runtime.get("todo_contract") or {})
     assert todo_cfg.get("enabled") is True
     assert todo_cfg.get("planner_llm_enabled") is True
@@ -667,7 +707,10 @@ def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     with (
         patch("agent.routes.config._list_lmstudio_candidates", return_value=[]),
         patch("agent.routes.config.shared._list_lmstudio_candidates", return_value=[]),
-        patch("agent.routes.config.providers.get_voice_provider_service", side_effect=RuntimeError("voice runtime unavailable")),
+        patch(
+            "agent.routes.config.providers.get_voice_provider_service",
+            side_effect=RuntimeError("voice runtime unavailable"),
+        ),
     ):
         for i in range(config_routes._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES + 12):
             client.post(

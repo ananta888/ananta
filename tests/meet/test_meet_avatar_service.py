@@ -144,8 +144,12 @@ def test_render_maps_every_failure_to_a_reason_code(script, reason):
     slept = []
     with pytest.raises(AvatarServiceError) as info:
         render(
-            PORTRAIT, wav_bytes(tone_pcm(1.0), SPEECH_RATE),
-            base_url="http://svc:8189", opener=FakeOpener(script), timeout=5, sleep=slept.append,
+            PORTRAIT,
+            wav_bytes(tone_pcm(1.0), SPEECH_RATE),
+            base_url="http://svc:8189",
+            opener=FakeOpener(script),
+            timeout=5,
+            sleep=slept.append,
         )
     assert info.value.reason_code == reason and str(info.value) == reason
     if reason == "meet_avatar_service_busy":
@@ -156,8 +160,12 @@ def test_render_retries_once_after_429_within_the_deadline():
     opener = FakeOpener([(429, b"", {"Retry-After": "7"}), (200, ok_body(), {})])
     slept = []
     result = render(
-        PORTRAIT, wav_bytes(tone_pcm(1.0), SPEECH_RATE),
-        base_url="http://svc:8189", opener=opener, timeout=5, sleep=slept.append,
+        PORTRAIT,
+        wav_bytes(tone_pcm(1.0), SPEECH_RATE),
+        base_url="http://svc:8189",
+        opener=opener,
+        timeout=5,
+        sleep=slept.append,
     )
     assert result["frames"] == 24 and len(opener.requests) == 2
     # Retry-After is bounded so a misbehaving service cannot stall the reply.
@@ -212,8 +220,12 @@ def test_lipsync_client_returns_contract_payload_and_falls_back_quietly_after_fa
     )
     payload = client.clip(tone_pcm(2.0))
     assert payload == {
-        "mp4": base64.b64encode(MP4).decode(), "sha256": hashlib.sha256(MP4).hexdigest(), "frames": 24,
-        "repeatMode": "hold_last", "originKind": "generated", "classification": "synthetic",
+        "mp4": base64.b64encode(MP4).decode(),
+        "sha256": hashlib.sha256(MP4).hexdigest(),
+        "frames": 24,
+        "repeatMode": "hold_last",
+        "originKind": "generated",
+        "classification": "synthetic",
     }
     assert calls[0] == (PORTRAIT, b"RIFF", "http://svc:8189", 7.0)
     assert client.clip(tone_pcm(2.0)) is None and client.last_error == "meet_avatar_service_unreachable"
@@ -266,8 +278,14 @@ def test_publisher_uses_service_clips_per_segment_and_local_clips_where_it_fails
         if len(windows) == 2:
             return None  # simulated service failure on the middle segment
         frames = len(segment_pcm) // 2 * 12 // SPEECH_RATE
-        return {"mp4": base64.b64encode(MP4).decode(), "sha256": hashlib.sha256(MP4).hexdigest(), "frames": frames,
-                "repeatMode": "hold_last", "originKind": "generated", "classification": "synthetic"}
+        return {
+            "mp4": base64.b64encode(MP4).decode(),
+            "sha256": hashlib.sha256(MP4).hexdigest(),
+            "frames": frames,
+            "repeatMode": "hold_last",
+            "originKind": "generated",
+            "classification": "synthetic",
+        }
 
     logs = []
     ports = AvatarPorts(None, None, None, None)

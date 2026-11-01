@@ -37,7 +37,9 @@ class TestBuiltinBackend:
 
     def test_no_color_mode(self):
         result = self.backend.frame_at(
-            0.0, 120, 32,
+            0.0,
+            120,
+            32,
             options={"no_color": True, "no_ansi": True},
         )
         assert "\x1b[" not in result.text
@@ -45,7 +47,9 @@ class TestBuiltinBackend:
 
     def test_color_mode_has_ansi(self):
         result = self.backend.frame_at(
-            0.0, 120, 32,
+            0.0,
+            120,
+            32,
             options={"no_color": False, "no_ansi": False},
         )
         # If there's visible content, it should have ANSI escapes
@@ -55,7 +59,9 @@ class TestBuiltinBackend:
 
     def test_snake_orbit_preset(self):
         result = self.backend.frame_at(
-            0.0, 120, 32,
+            0.0,
+            120,
+            32,
             options={"preset": "snake_orbit"},
         )
         assert result.fallback_reason is None

@@ -53,4 +53,3 @@ def test_codecompass_embedding_loader_uses_embedding_text_and_preserves_metadata
     assert diagnostics["candidate_embedding_records"] == 2
     assert diagnostics["skipped_missing_embedding_text"] == 1
     assert diagnostics["skipped_non_embedding_records"] == 1
-

@@ -80,9 +80,7 @@ def test_factory_composed_qdrant_search_emits_observation() -> None:
         )
 
     store = VectorStoreFactory({"qdrant": build}).create(
-        VectorStoreConfig.from_mapping(
-            {"provider": "qdrant", "qdrant": {}}
-        ),
+        VectorStoreConfig.from_mapping({"provider": "qdrant", "qdrant": {}}),
         observer=Observer(),
     )
     scope = VectorScope("workspace-a", "repo-a")
@@ -116,9 +114,7 @@ def test_factory_composed_qdrant_search_emits_observation() -> None:
         )
     )
 
-    search_events = [
-        event for event in events if event.operation == "search"
-    ]
+    search_events = [event for event in events if event.operation == "search"]
     assert len(search_events) == 1
     assert search_events[0].counts == {
         "top_k": 7,

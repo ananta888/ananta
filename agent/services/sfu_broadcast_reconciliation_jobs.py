@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Protocol
 
+from agent.models.sfu_route_reconciliation import (
+    SfuRouteReconciliationScopeCandidate,
+    SfuRouteReconciliationScopePage,
+)
 from agent.services.sfu_broadcast_reconciler_scheduler import SfuBroadcastJobContext
 from agent.services.sfu_fanout_reconciliation_service import (
     ReconciliationRunStatus,
@@ -19,10 +23,6 @@ from agent.services.sfu_fleet_reconciliation_service import (
     SfuFleetReconciliationService,
     SfuFleetReconciliationStatePort,
 )
-from agent.models.sfu_route_reconciliation import (
-    SfuRouteReconciliationScopeCandidate,
-    SfuRouteReconciliationScopePage,
-)
 
 
 class SfuBroadcastReconciliationJobError(RuntimeError):
@@ -32,15 +32,11 @@ class SfuBroadcastReconciliationJobError(RuntimeError):
 
 
 class SfuRouteReconciliationScopePagePort(Protocol):
-    def page(
-        self, *, cursor: str | None, limit: int
-    ) -> SfuRouteReconciliationScopePage: ...
+    def page(self, *, cursor: str | None, limit: int) -> SfuRouteReconciliationScopePage: ...
 
 
 class SfuRouteReconciliationCheckpointReaderPort(Protocol):
-    def load_checkpoint(
-        self, *, scope: RouteReconciliationScope
-    ) -> RouteReconciliationCursor | None: ...
+    def load_checkpoint(self, *, scope: RouteReconciliationScope) -> RouteReconciliationCursor | None: ...
 
 
 class _SchedulerFleetLeasePort:

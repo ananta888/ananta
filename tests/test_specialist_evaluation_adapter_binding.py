@@ -10,8 +10,13 @@ from tests.test_ml_intern_training_worker_port import _EvaluationOpener, _execut
 
 def _request(**extra):
     return {
-        "job_type": "evaluate_lora", "dataset_id": "dataset-one", "adapter_id": "adapter-one",
-        "base_model": "local/base", "backend": "mock", "method": "lora", **extra,
+        "job_type": "evaluate_lora",
+        "dataset_id": "dataset-one",
+        "adapter_id": "adapter-one",
+        "base_model": "local/base",
+        "backend": "mock",
+        "method": "lora",
+        **extra,
     }
 
 

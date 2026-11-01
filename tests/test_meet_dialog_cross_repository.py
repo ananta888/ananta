@@ -278,7 +278,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     cadence_profile = os.environ.get("MEET_DIALOG_CADENCE_DELAY", "off")
     cadence_enabled = require_cadence_profile(
         cadence_profile,
-        soak_seconds=SOAK_SECONDS, spoken=spoken_mode, gpu=gpu_mode,
+        soak_seconds=SOAK_SECONDS,
+        spoken=spoken_mode,
+        gpu=gpu_mode,
     )
     cadence_delay = None
 
@@ -832,7 +834,11 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         finally:
             try:
                 close_dialog_browsers(
-                    browser_fixture, peer_browser, bridge, network_cleanup, close_bridge=close_bridge,
+                    browser_fixture,
+                    peer_browser,
+                    bridge,
+                    network_cleanup,
+                    close_bridge=close_bridge,
                 )
             finally:
                 try:

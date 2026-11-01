@@ -43,9 +43,7 @@ def local_user_tenant_id(username: str) -> str:
             max_length=MAX_USER_SESSION_IDENTITY_LENGTH,
         )
     except IdentityValidationError as exc:
-        raise UserSessionIdentityError(
-            f"user_session_{exc.reason_code}"
-        ) from exc
+        raise UserSessionIdentityError(f"user_session_{exc.reason_code}") from exc
 
 
 def build_user_access_token_claims(

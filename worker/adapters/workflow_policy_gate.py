@@ -1,16 +1,31 @@
 """Policy gate for workflow adapter tool/network/file access (LCG-011, LCG-012)."""
+
 from __future__ import annotations
 
 from typing import Any
 
-_ALWAYS_BLOCKED_TOOLS = frozenset({
-    "exec_shell", "write_file", "delete_file", "read_file_arbitrary",
-    "http_request", "network_scan", "spawn_process",
-})
+_ALWAYS_BLOCKED_TOOLS = frozenset(
+    {
+        "exec_shell",
+        "write_file",
+        "delete_file",
+        "read_file_arbitrary",
+        "http_request",
+        "network_scan",
+        "spawn_process",
+    }
+)
 
-_HIGH_RISK_TOOLS = frozenset({
-    "patch", "push", "write", "delete", "network", "shell",
-})
+_HIGH_RISK_TOOLS = frozenset(
+    {
+        "patch",
+        "push",
+        "write",
+        "delete",
+        "network",
+        "shell",
+    }
+)
 
 
 class WorkflowPolicyGate:

@@ -7,6 +7,7 @@ endpoint policy (allowed hosts, no redirects), the optional shared key
 and Laya's model routing hint. A provider only proposes; policy, approval and
 security gates stay with the Hub and are never decided here.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,10 +25,12 @@ DEFAULT_MODEL = ""  # the server's routed default checkpoint
 
 
 def _env_api_key() -> str | None:
-    return read_api_key({
-        "TYPESAFE_API_KEY": os.environ.get("LAYA_API_KEY", ""),
-        "TYPESAFE_API_KEY_FILE": os.environ.get("LAYA_API_KEY_FILE", ""),
-    })
+    return read_api_key(
+        {
+            "TYPESAFE_API_KEY": os.environ.get("LAYA_API_KEY", ""),
+            "TYPESAFE_API_KEY_FILE": os.environ.get("LAYA_API_KEY_FILE", ""),
+        }
+    )
 
 
 class LayaDecisionProvider(TypeSafeJevProvider):

@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
-import time
 from pathlib import Path
-from typing import Any
 
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.splash_animation import build_splash_frames
-
 from scripts.e2e.tui_demo_recorder import _asciinema_v2_lines
 
 
@@ -85,7 +81,9 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
     frames: list[tuple[float, str]] = []
     splash_frames = _load_splash_intro_from_cast(max_frames=40)
     if not splash_frames:
-        splash_frames = ["\u001b[2J\u001b[H" + screen + "\n" for screen in build_splash_frames(w=120, h=32, fps=12)[:40]]
+        splash_frames = [
+            "\u001b[2J\u001b[H" + screen + "\n" for screen in build_splash_frames(w=120, h=32, fps=12)[:40]
+        ]
     if splash_frames:
         splash_frames = splash_frames + [splash_frames[-1], splash_frames[-1], splash_frames[-1]]
         for idx, screen in enumerate(splash_frames):
@@ -237,9 +235,18 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
         ),
     ]
     history: list[dict[str, object]] = []
-    for idx, (local_head, ai_head, target, focus, section_id, selected_index, text, phase, user_question, ai_answer) in enumerate(
-        nav_walk
-    ):
+    for idx, (
+        local_head,
+        ai_head,
+        target,
+        focus,
+        section_id,
+        selected_index,
+        text,
+        phase,
+        user_question,
+        ai_answer,
+    ) in enumerate(nav_walk):
         if user_question.strip():
             history.append({"at": float(idx) + 0.01, "source": "user", "target": target, "text": user_question.strip()})
             history.append(
@@ -358,20 +365,33 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
 def _click_select_explain_cast(*, run_id: str) -> str:
     steps = [
         (
-            (90, 8), (82, 8), "dashboard", FocusPane.HEADER, 0,
+            (90, 8),
+            (82, 8),
+            "dashboard",
+            FocusPane.HEADER,
+            0,
             "start",
-            "", "",
+            "",
+            "",
             [],
         ),
         (
-            (70, 13), (70, 13), "goals", FocusPane.NAVIGATION, 1,
+            (70, 13),
+            (70, 13),
+            "goals",
+            FocusPane.NAVIGATION,
+            1,
             "click-goals-nav",
             "[left-click] Goals Men\u00fcpunkt angeklickt",
             "",
             [{"source": "system", "text": "Kontext aktiv: Goals"}],
         ),
         (
-            (68, 13), (70, 13), "goals", FocusPane.NAVIGATION, 1,
+            (68, 13),
+            (70, 13),
+            "goals",
+            FocusPane.NAVIGATION,
+            1,
             "ai-snake-jumps",
             "",
             "",
@@ -381,17 +401,28 @@ def _click_select_explain_cast(*, run_id: str) -> str:
             ],
         ),
         (
-            (66, 13), (70, 13), "goals", FocusPane.NAVIGATION, 1,
+            (66, 13),
+            (70, 13),
+            "goals",
+            FocusPane.NAVIGATION,
+            1,
             "explanation-arrives",
             "",
             "",
             [
                 {"source": "system", "text": "Kontext aktiv: Goals"},
-                {"source": "ai", "text": "[click-explain] Goals zeigt alle aktiven Ziele. Status: active=l\u00e4uft, ready=bereit, blocked=blockiert. Mit :inspect \u00f6ffnest du Details."},
+                {
+                    "source": "ai",
+                    "text": "[click-explain] Goals zeigt alle aktiven Ziele. Status: active=l\u00e4uft, ready=bereit, blocked=blockiert. Mit :inspect \u00f6ffnest du Details.",
+                },
             ],
         ),
         (
-            (62, 15), (65, 14), "goals", FocusPane.CONTENT, 1,
+            (62, 15),
+            (65, 14),
+            "goals",
+            FocusPane.CONTENT,
+            1,
             "user-continues-chat",
             "Was bedeutet blocked genau?",
             "[click-select] [lmstudio-chat-active] Blocked = ein Goal wartet auf ein anderes Goal oder eine externe Abh\u00e4ngigkeit. Pr\u00fcfe :deps f\u00fcr den Dependency-Graph.",
@@ -399,17 +430,27 @@ def _click_select_explain_cast(*, run_id: str) -> str:
                 {"source": "system", "text": "Kontext aktiv: Goals"},
                 {"source": "ai", "text": "[click-explain] Goals zeigt alle aktiven Ziele."},
                 {"source": "user", "text": "Was bedeutet blocked genau?"},
-                {"source": "ai", "text": "[click-select] [lmstudio-chat-active] Blocked = wartet auf Abh\u00e4ngigkeit."},
+                {
+                    "source": "ai",
+                    "text": "[click-select] [lmstudio-chat-active] Blocked = wartet auf Abh\u00e4ngigkeit.",
+                },
             ],
         ),
         (
-            (58, 17), (61, 16), "tasks", FocusPane.NAVIGATION, 2,
+            (58, 17),
+            (61, 16),
+            "tasks",
+            FocusPane.NAVIGATION,
+            2,
             "click-tasks-nav",
             "[left-click] Tasks angeklickt",
             "",
             [
                 {"source": "system", "text": "Kontext aktiv: Tasks"},
-                {"source": "ai", "text": "[click-explain] [click-select] Tasks zeigt Worker-Ausf\u00fchrungen. running=aktiv, queued=wartet."},
+                {
+                    "source": "ai",
+                    "text": "[click-explain] [click-select] Tasks zeigt Worker-Ausf\u00fchrungen. running=aktiv, queued=wartet.",
+                },
             ],
         ),
     ]
@@ -448,12 +489,19 @@ def _click_select_explain_cast(*, run_id: str) -> str:
             "artifact_intent_confidence": "confirmed" if idx >= 1 else "none",
             "tutorial_ai_target_mode": "fast_target" if idx >= 1 else "follow_user",
             "active_heuristic_id": "snake_tui_follow_distance_default",
-            "artifact_intent_target": {"label": "Goals" if section_id == "goals" else "Tasks", "pane": "nav"} if idx >= 1 else None,
+            "artifact_intent_target": {"label": "Goals" if section_id == "goals" else "Tasks", "pane": "nav"}
+            if idx >= 1
+            else None,
             "artifact_chat_state": {
-                "active_target": {"label": "Goals" if section_id == "goals" else ("Tasks" if section_id == "tasks" else ""), "id": f"{section_id}-click"},
+                "active_target": {
+                    "label": "Goals" if section_id == "goals" else ("Tasks" if section_id == "tasks" else ""),
+                    "id": f"{section_id}-click",
+                },
                 "messages": messages[-8:],
                 "backend_source": "openai-compatible",
-            } if messages else None,
+            }
+            if messages
+            else None,
             "tutorial_mode": True,
             "local_snake_id": "s1",
             "snake": local_snake,
@@ -467,16 +515,26 @@ def _click_select_explain_cast(*, run_id: str) -> str:
             "tutorial_propose_history": [{"at": float(idx), "source": "system", "text": f"[click-select] {phase}"}],
             "snakes": {
                 "s1": {
-                    "id": "s1", "pseudonym": "local-snake", "oidc_provider": "local",
-                    "snake": local_snake, "trail_path": list(local_snake),
-                    "message": f"[left-click] {phase}", "message_style": "trail",
-                    "snake_color": "mint", "local": True,
+                    "id": "s1",
+                    "pseudonym": "local-snake",
+                    "oidc_provider": "local",
+                    "snake": local_snake,
+                    "trail_path": list(local_snake),
+                    "message": f"[left-click] {phase}",
+                    "message_style": "trail",
+                    "snake_color": "mint",
+                    "local": True,
                 },
                 "s-ai": {
-                    "id": "s-ai", "pseudonym": "tutor-ai", "oidc_provider": "lmstudio-ai",
-                    "snake": ai_snake, "trail_path": list(ai_snake),
-                    "message": f"[click-explain] {phase}", "message_style": "ticker",
-                    "snake_color": "amber", "local": False,
+                    "id": "s-ai",
+                    "pseudonym": "tutor-ai",
+                    "oidc_provider": "lmstudio-ai",
+                    "snake": ai_snake,
+                    "trail_path": list(ai_snake),
+                    "message": f"[click-explain] {phase}",
+                    "message_style": "ticker",
+                    "snake_color": "amber",
+                    "local": False,
                     "target_cell": ai_head,
                 },
             },
@@ -484,10 +542,12 @@ def _click_select_explain_cast(*, run_id: str) -> str:
 
         payloads = {
             "dashboard": {"agents": {"online": 2, "total": 2}, "queue": {"depth": 1}},
-            "goals": {"items": [
-                {"id": "g-ui", "title": "Improve TUI onboarding", "status": "active"},
-                {"id": "g-snakes", "title": "Click-select AI guidance", "status": "ready"},
-            ]},
+            "goals": {
+                "items": [
+                    {"id": "g-ui", "title": "Improve TUI onboarding", "status": "active"},
+                    {"id": "g-snakes", "title": "Click-select AI guidance", "status": "ready"},
+                ]
+            },
             "tasks": {"running": 2, "queued": 1, "summary": "worker-1 processes g-ui"},
         }
 
@@ -547,11 +607,7 @@ def _share_session_e2e_cast(*, run_id: str) -> str:
         ),
         (
             3.6,
-            (
-                "ready> :share list\n"
-                "[share-list] visible session from previous create command\n"
-                "ready> q\n"
-            ),
+            ("ready> :share list\n[share-list] visible session from previous create command\nready> q\n"),
         ),
     ]
     return _asciinema_v2_lines(
@@ -565,72 +621,117 @@ def _share_session_e2e_cast(*, run_id: str) -> str:
 def _snake_lmstudio_heuristic_cast(*, run_id: str) -> str:
     nav_walk = [
         (
-            (90, 8), (80, 8), (90, 8),
-            "header", FocusPane.HEADER, "dashboard", 0,
+            (90, 8),
+            (80, 8),
+            (90, 8),
+            "header",
+            FocusPane.HEADER,
+            "dashboard",
+            0,
             "snake_tui_follow_distance_default",
             "start",
             "",
             "",
         ),
         (
-            (82, 10), (74, 10), (82, 10),
-            "nav", FocusPane.NAVIGATION, "dashboard", 0,
+            (82, 10),
+            (74, 10),
+            (82, 10),
+            "nav",
+            FocusPane.NAVIGATION,
+            "dashboard",
+            0,
             "snake_tui_follow_distance_default",
             "mouse-follow-left",
             "",
             "",
         ),
         (
-            (70, 12), (62, 12), (70, 12),
-            "nav", FocusPane.NAVIGATION, "dashboard", 0,
+            (70, 12),
+            (62, 12),
+            (70, 12),
+            "nav",
+            FocusPane.NAVIGATION,
+            "dashboard",
+            0,
             "snake_tui_follow_distance_default",
             "approach-nav",
             "",
             "",
         ),
         (
-            (65, 13), (55, 13), (65, 13),
-            "nav", FocusPane.NAVIGATION, "goals", 1,
+            (65, 13),
+            (55, 13),
+            (65, 13),
+            "nav",
+            FocusPane.NAVIGATION,
+            "goals",
+            1,
             "snake_tui_follow_distance_default",
             "goals-selected",
             "Was zeigt der Men\u00fcpunkt Goals genau? [mouse-follow] [heuristic:snake_tui_follow_distance_default]",
             "[lmstudio-chat-active] Goals zeigt Ziele, Status und Priorit\u00e4t. Mit :inspect bekommst du Details zu jedem Ziel.",
         ),
         (
-            (62, 14), (52, 14), (62, 14),
-            "nav", FocusPane.NAVIGATION, "goals", 1,
+            (62, 14),
+            (52, 14),
+            (62, 14),
+            "nav",
+            FocusPane.NAVIGATION,
+            "goals",
+            1,
             "snake_tui_artifact_intent_default",
             "artifact-detected",
             "Wie priorisiere ich schnell? [mouse-follow] [heuristic:snake_tui_artifact_intent_default]",
             "[lmstudio-chat-active] Starte mit active goals, dann ready, danach blocked pr\u00fcfen.",
         ),
         (
-            (60, 15), (50, 15), (60, 15),
-            "content", FocusPane.CONTENT, "goals", 1,
+            (60, 15),
+            (50, 15),
+            (60, 15),
+            "content",
+            FocusPane.CONTENT,
+            "goals",
+            1,
             "snake_tui_artifact_intent_default",
             "goals-content",
             "",
             "",
         ),
         (
-            (58, 16), (48, 16), (58, 16),
-            "nav", FocusPane.NAVIGATION, "tasks", 2,
+            (58, 16),
+            (48, 16),
+            (58, 16),
+            "nav",
+            FocusPane.NAVIGATION,
+            "tasks",
+            2,
             "snake_tui_follow_distance_default",
             "tasks-selected",
             "Wo sehe ich laufende Tasks? [mouse-follow] [heuristic:snake_tui_follow_distance_default]",
             "[lmstudio-chat-active] Im TASKS-Men\u00fc siehst du running, queued und Worker-Zuordnung.",
         ),
         (
-            (56, 18), (46, 18), (56, 18),
-            "content", FocusPane.CONTENT, "tasks", 2,
+            (56, 18),
+            (46, 18),
+            (56, 18),
+            "content",
+            FocusPane.CONTENT,
+            "tasks",
+            2,
             "snake_tui_follow_distance_default",
             "tasks-explain",
             "Welche Frage kann ich der AI-Snake stellen? [mouse-follow]",
             "[lmstudio-chat-active] Frag nach dem n\u00e4chsten Schritt, z.B. 'welchen Task zuerst?'.",
         ),
         (
-            (54, 19), (54, 19), (54, 19),
-            "follow", FocusPane.CONTENT, "tasks", 2,
+            (54, 19),
+            (54, 19),
+            (54, 19),
+            "follow",
+            FocusPane.CONTENT,
+            "tasks",
+            2,
             "snake_tui_follow_distance_default",
             "contact",
             "OK, was jetzt konkret? [ai-fast-target] [mouse-follow]",
@@ -642,17 +743,38 @@ def _snake_lmstudio_heuristic_cast(*, run_id: str) -> str:
     history: list[dict[str, object]] = []
     base_time = 0.4
 
-    for idx, (local_head, ai_head, mouse_pos, target, focus, section_id, sel_idx, heuristic_id, phase, user_q, ai_answer) in enumerate(nav_walk):
+    for idx, (
+        local_head,
+        ai_head,
+        mouse_pos,
+        target,
+        focus,
+        section_id,
+        sel_idx,
+        heuristic_id,
+        phase,
+        user_q,
+        ai_answer,
+    ) in enumerate(nav_walk):
         if user_q.strip():
             history.append({"at": float(idx) + 0.01, "source": "user", "target": target, "text": user_q.strip()})
-            history.append({
-                "at": float(idx) + 0.02,
-                "source": "openai-compatible",
-                "target": target,
-                "text": ai_answer.strip(),
-            })
+            history.append(
+                {
+                    "at": float(idx) + 0.02,
+                    "source": "openai-compatible",
+                    "target": target,
+                    "text": ai_answer.strip(),
+                }
+            )
         else:
-            history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": f"[mouse-follow] Schritt {idx + 1}: {phase}"})
+            history.append(
+                {
+                    "at": float(idx),
+                    "source": "openai-compatible",
+                    "target": target,
+                    "text": f"[mouse-follow] Schritt {idx + 1}: {phase}",
+                }
+            )
 
         local_snake = [
             local_head,
@@ -687,7 +809,9 @@ def _snake_lmstudio_heuristic_cast(*, run_id: str) -> str:
                     "label": "Goals row",
                     "path": "tests/output/operator_tui_splash.cast",
                     "id": "artifact-cast",
-                } if has_artifact else None,
+                }
+                if has_artifact
+                else None,
                 "messages": [],
                 "backend_source": "openai-compatible",
             },

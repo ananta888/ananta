@@ -3,6 +3,7 @@
 Routes compression requests deterministically to strategy A or B based on a
 SHA-256 hash of (seed, content_id), enabling reproducible experiments.
 """
+
 from __future__ import annotations
 
 import hashlib

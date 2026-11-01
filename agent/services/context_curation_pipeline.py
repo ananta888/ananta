@@ -1,8 +1,11 @@
 from __future__ import annotations
-import hashlib, time, uuid
+
+import hashlib
+import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+
 
 class DropReason(str, Enum):
     DENIED_PATH = "denied_path"
@@ -13,14 +16,16 @@ class DropReason(str, Enum):
     REDACTED = "redacted"
     MISSING_SNIPPET = "missing_snippet"
 
+
 ALWAYS_DENIED = frozenset([".env", ".git", "secrets", "node_modules", ".venv", ".augment"])
+
 
 @dataclass
 class RawCandidate:
     provider: str
     path: str
     snippet: str
-    score: float          # 0.0-1.0
+    score: float  # 0.0-1.0
     symbol: str | None = None
     line_start: int | None = None
     line_end: int | None = None
@@ -30,6 +35,7 @@ class RawCandidate:
     confidence: float = 0.5
     evidence: list[dict] | None = None
 
+
 @dataclass
 class DroppedCandidate:
     provider: str
@@ -38,6 +44,7 @@ class DroppedCandidate:
     reason: DropReason
     step: str
     detail: str | None = None
+
 
 @dataclass
 class CuratedItem:
@@ -58,6 +65,7 @@ class CuratedItem:
     truncated: bool
     reason: str
 
+
 @dataclass
 class CurationTrace:
     trace_id: str
@@ -70,6 +78,7 @@ class CurationTrace:
     budget_used_chars: int
     steps_run: list[str]
     created_at: float
+
 
 @dataclass
 class CurationPolicy:
@@ -87,8 +96,10 @@ class CurationPolicy:
 
         budgets = context_budgets()
         explicit = budget_override(self.budget_chars, legacy="curation_chars")
-        self.budget_chars = (budgets.chars("curation") if explicit is None
-                             else min(explicit, budgets.available * CHARS_PER_TOKEN))
+        self.budget_chars = (
+            budgets.chars("curation") if explicit is None else min(explicit, budgets.available * CHARS_PER_TOKEN)
+        )
+
 
 class ContextCurationPipeline:
     def __init__(self, policy: CurationPolicy | None = None):
@@ -100,7 +111,11 @@ class ContextCurationPipeline:
 
         # Step 1: filter missing snippets
         active = [c for c in candidates if c.snippet.strip()]
-        dropped += [DroppedCandidate(c.provider, c.path, c.score, DropReason.MISSING_SNIPPET, "step1") for c in candidates if not c.snippet.strip()]
+        dropped += [
+            DroppedCandidate(c.provider, c.path, c.score, DropReason.MISSING_SNIPPET, "step1")
+            for c in candidates
+            if not c.snippet.strip()
+        ]
         steps_run.append("retrieve_candidates")
 
         # Step 2: policy filter
@@ -129,7 +144,7 @@ class ContextCurationPipeline:
         # Step 7: compress snippets
         for c in active:
             if len(c.snippet) > self.policy.max_snippet_chars:
-                c.snippet = c.snippet[:self.policy.max_snippet_chars]
+                c.snippet = c.snippet[: self.policy.max_snippet_chars]
                 c.evidence = c.evidence or []  # mark truncated via CuratedItem
         steps_run.append("compress_snippets")
 
@@ -169,7 +184,16 @@ class ContextCurationPipeline:
                 dropped.append(DroppedCandidate(c.provider, c.path, c.score, DropReason.DENIED_PATH, "step2"))
                 continue
             if c.score < self.policy.min_score:
-                dropped.append(DroppedCandidate(c.provider, c.path, c.score, DropReason.LOW_SCORE, "step2", f"score {c.score} < {self.policy.min_score}"))
+                dropped.append(
+                    DroppedCandidate(
+                        c.provider,
+                        c.path,
+                        c.score,
+                        DropReason.LOW_SCORE,
+                        "step2",
+                        f"score {c.score} < {self.policy.min_score}",
+                    )
+                )
                 continue
             ok.append(c)
         return ok, dropped
@@ -181,7 +205,11 @@ class ContextCurationPipeline:
             key = f"{c.provider}:{c.path}:{c.line_start}"
             if key in seen:
                 if c.score > seen[key].score:
-                    dropped.append(DroppedCandidate(seen[key].provider, seen[key].path, seen[key].score, DropReason.DUPLICATE, "step3"))
+                    dropped.append(
+                        DroppedCandidate(
+                            seen[key].provider, seen[key].path, seen[key].score, DropReason.DUPLICATE, "step3"
+                        )
+                    )
                     seen[key] = c
                 else:
                     dropped.append(DroppedCandidate(c.provider, c.path, c.score, DropReason.DUPLICATE, "step3"))
@@ -205,10 +233,20 @@ class ContextCurationPipeline:
         item_id = hashlib.sha256(raw.encode()).hexdigest()[:16]
         truncated = len(c.snippet) >= self.policy.max_snippet_chars
         return CuratedItem(
-            item_id=item_id, provider=c.provider, path=c.path, snippet=c.snippet,
-            score=c.score, symbol=c.symbol, line_start=c.line_start, line_end=c.line_end,
-            source_kind=c.source_kind, confidence=c.confidence, freshness=c.freshness,
-            active_status=c.active_status, policy_status="allowed",
-            evidence=list(c.evidence or []), truncated=truncated,
+            item_id=item_id,
+            provider=c.provider,
+            path=c.path,
+            snippet=c.snippet,
+            score=c.score,
+            symbol=c.symbol,
+            line_start=c.line_start,
+            line_end=c.line_end,
+            source_kind=c.source_kind,
+            confidence=c.confidence,
+            freshness=c.freshness,
+            active_status=c.active_status,
+            policy_status="allowed",
+            evidence=list(c.evidence or []),
+            truncated=truncated,
             reason=f"score={c.score:.2f}, source={c.source_kind}",
         )

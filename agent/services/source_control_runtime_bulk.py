@@ -61,9 +61,7 @@ class BulkProjectionAuthorization:
         except Exception:
             return BulkAuthorization(False, "source_control_not_found", "")
         actions = set(getattr(projection, "next_actions", ()))
-        allowed = mutation in actions or (
-            mutation == "disable" and "disable" in actions
-        )
+        allowed = mutation in actions or (mutation == "disable" and "disable" in actions)
         return BulkAuthorization(
             allowed=allowed,
             reason_code="authorized" if allowed else "policy_denied",

@@ -284,24 +284,15 @@ class VoiceExecutionPolicy:
             adjustments.append(_adjustment("diarization_backend", "pyannote", "none", "optional_models_disabled"))
             diarization_backend = "none"
         requested_budget = VoiceResourceBudget(
-            max_ram_bytes=(hub.resource_max_ram_mb or runtime.resource_max_ram_mb)
-            * 1024
-            * 1024,
+            max_ram_bytes=(hub.resource_max_ram_mb or runtime.resource_max_ram_mb) * 1024 * 1024,
             max_vram_bytes=(
-                hub.resource_max_vram_mb
-                if hub.resource_max_vram_mb is not None
-                else runtime.resource_max_vram_mb
+                hub.resource_max_vram_mb if hub.resource_max_vram_mb is not None else runtime.resource_max_vram_mb
             )
             * 1024
             * 1024,
-            max_concurrent_backends=hub.resource_max_concurrent_backends
-            or runtime.resource_max_concurrent_backends,
-            max_audio_ms=(
-                hub.resource_max_audio_seconds or runtime.resource_max_audio_seconds
-            )
-            * 1000,
-            max_queue_depth=hub.resource_max_queue_depth
-            or runtime.resource_max_queue_depth,
+            max_concurrent_backends=hub.resource_max_concurrent_backends or runtime.resource_max_concurrent_backends,
+            max_audio_ms=(hub.resource_max_audio_seconds or runtime.resource_max_audio_seconds) * 1000,
+            max_queue_depth=hub.resource_max_queue_depth or runtime.resource_max_queue_depth,
         )
         effective_budget = runtime_budget.narrowed_by(requested_budget)
         effective_parallel = min(
@@ -359,10 +350,7 @@ def _feature_flags(raw: object) -> dict[str, bool]:
         "audio_enhancement": bool(raw.get("voice_fusion", False)),
         "adaptive_routing": bool(raw.get("optional_models", False)),
     }
-    return {
-        name: bool(raw.get(name, compatibility_defaults.get(name, False)))
-        for name in sorted(HUB_FEATURE_FLAGS)
-    }
+    return {name: bool(raw.get(name, compatibility_defaults.get(name, False))) for name in sorted(HUB_FEATURE_FLAGS)}
 
 
 def _enhancement_variants(raw: object) -> tuple[str, ...]:

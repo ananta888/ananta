@@ -34,12 +34,14 @@ def _command(*, expected_revision: int = 0, digest: str | None = None):
         confirmation_digest=digest,
         configuration=ModelRoutingConfiguration(
             revision=91,
-            assignments=(ModelAssignment(
-                consumer_id="task.coding",
-                scope="global",
-                mode="profile",
-                profile_id="local",
-            ),),
+            assignments=(
+                ModelAssignment(
+                    consumer_id="task.coding",
+                    scope="global",
+                    mode="profile",
+                    profile_id="local",
+                ),
+            ),
         ),
     )
 
@@ -84,10 +86,14 @@ def test_validation_reports_all_identity_errors_without_partial_apply():
         expected_revision=0,
         assignments=(
             ModelAssignment(
-                consumer_id="unknown", scope="global", mode="inherit",
+                consumer_id="unknown",
+                scope="global",
+                mode="inherit",
             ),
             ModelAssignment(
-                consumer_id="task.coding", scope="global", mode="profile",
+                consumer_id="task.coding",
+                scope="global",
+                mode="profile",
                 profile_id="missing",
             ),
         ),
@@ -97,6 +103,7 @@ def test_validation_reports_all_identity_errors_without_partial_apply():
 
     assert report.valid is False
     assert {item.reason_code for item in report.issues} == {
-        "model_consumer_unknown", "model_assignment_profile_unknown",
+        "model_consumer_unknown",
+        "model_assignment_profile_unknown",
     }
     assert service.export().configuration.revision == 0

@@ -112,12 +112,8 @@ class BoundSourceIndexAuthority:
         ):
             if not _DIGEST.fullmatch(str(getattr(self, name) or "")):
                 raise BoundSourceRevisionPlanningError(f"{name}_invalid")
-        if not re.fullmatch(
-            r"^grant_[0-9a-f]{64}$", str(self.source_access_grant_id or "")
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_access_grant_id_invalid"
-            )
+        if not re.fullmatch(r"^grant_[0-9a-f]{64}$", str(self.source_access_grant_id or "")):
+            raise BoundSourceRevisionPlanningError("source_access_grant_id_invalid")
 
 
 class BoundSourceRevisionAuthorityPort(Protocol):
@@ -203,9 +199,7 @@ class BoundSourceRevisionAuthorityPlanner:
         ):
             supplied = str(descriptor.get(field_name) or "").strip()
             if supplied and supplied != expected:
-                raise BoundSourceRevisionPlanningError(
-                    "source_descriptor_scope_mismatch"
-                )
+                raise BoundSourceRevisionPlanningError("source_descriptor_scope_mismatch")
 
         revision = self._revisions.resolve_bound_revision(
             tenant_id=tenant_id,
@@ -226,83 +220,48 @@ class BoundSourceRevisionAuthorityPlanner:
         ):
             raise BoundSourceRevisionPlanningError("source_revision_stale")
         if revision.admission_state != "admitted":
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_admission_required"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_admission_required")
 
         payload = self._payloads.load_bound_revision_payload(revision)
         if (
             payload.source_revision_id != revision.source_revision_id
             or payload.source_revision_digest != revision.source_revision_digest
-            or payload.content_manifest_digest
-            != revision.content_manifest_digest
+            or payload.content_manifest_digest != revision.content_manifest_digest
         ):
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_binding_mismatch"
-            )
-        if payload.connection_id is not None and (
-            payload.connection_id != revision.connection_id
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_connection_mismatch"
-            )
-        if payload.payload_digest is not None and not _DIGEST.fullmatch(
-            payload.payload_digest
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_digest_invalid"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_binding_mismatch")
+        if payload.connection_id is not None and (payload.connection_id != revision.connection_id):
+            raise BoundSourceRevisionPlanningError("source_revision_payload_connection_mismatch")
+        if payload.payload_digest is not None and not _DIGEST.fullmatch(payload.payload_digest):
+            raise BoundSourceRevisionPlanningError("source_revision_payload_digest_invalid")
         if not payload.records:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_records_required"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_records_required")
         try:
-            file_manifest = KnowledgeIndexFileManifest.create(
-                [dict(item) for item in payload.files]
-            )
+            file_manifest = KnowledgeIndexFileManifest.create([dict(item) for item in payload.files])
         except (TypeError, ValueError) as exc:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_file_manifest_invalid"
-            ) from exc
+            raise BoundSourceRevisionPlanningError("source_revision_file_manifest_invalid") from exc
 
         planned = self._authority.resolve_bound_index_authority(
             revision=revision,
             actor_id=actor_id,
             idempotency_key=idempotency_key,
         )
-        destination = self._destinations.resolve(
-            planned.destination_selection
-        )
+        destination = self._destinations.resolve(planned.destination_selection)
         if destination.descriptor.worker_id != planned.assignment.worker_id:
-            raise BoundSourceRevisionPlanningError(
-                "source_index_destination_assignment_mismatch"
-            )
+            raise BoundSourceRevisionPlanningError("source_index_destination_assignment_mismatch")
         now = self._aware_now()
         now_ms = int(now.timestamp() * 1000)
-        if not (
-            planned.assignment.lease_issued_epoch_ms
-            <= now_ms
-            < planned.assignment.lease_expires_epoch_ms
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_index_assignment_lease_inactive"
-            )
+        if not (planned.assignment.lease_issued_epoch_ms <= now_ms < planned.assignment.lease_expires_epoch_ms):
+            raise BoundSourceRevisionPlanningError("source_index_assignment_lease_inactive")
         # The authority issuer adds the pre-dispatch reserve to the lease and
         # grant budget so proposal, persistence, and network latency may
         # consume it.  At this boundary the fail-closed invariant is the same
         # one enforced at dispatch: the complete Worker runtime plus result
         # transfer margin must still remain.
         required_dispatch_window_ms = (
-            planned.resources.max_runtime_seconds
-            + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+            planned.resources.max_runtime_seconds + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
         ) * 1000
-        if (
-            planned.assignment.lease_expires_epoch_ms - now_ms
-            < required_dispatch_window_ms
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_index_assignment_runtime_window_insufficient"
-            )
+        if planned.assignment.lease_expires_epoch_ms - now_ms < required_dispatch_window_ms:
+            raise BoundSourceRevisionPlanningError("source_index_assignment_runtime_window_insufficient")
 
         access_request = SourceAccessRequest(
             tenant_id=tenant_id,
@@ -325,14 +284,11 @@ class BoundSourceRevisionAuthorityPlanner:
         )
         resolved_grant = self._grants.resolve_active(access_request)
         if resolved_grant is None:
-            raise BoundSourceRevisionPlanningError(
-                "source_index_active_grant_required"
-            )
+            raise BoundSourceRevisionPlanningError("source_index_active_grant_required")
         grant = resolved_grant.grant
         if (
             grant.grant_id != planned.source_access_grant_id
-            or source_access_grant_digest(grant)
-            != planned.source_access_grant_digest
+            or source_access_grant_digest(grant) != planned.source_access_grant_digest
             or grant.tenant_id != tenant_id
             or grant.project_id != project_id
             or grant.source_revision_id != source_revision_id
@@ -341,20 +297,13 @@ class BoundSourceRevisionAuthorityPlanner:
             or grant.transformation != GrantTransformation.REDACTED
             or grant.purpose != "knowledge-index"
             or grant.policy_version != planned.policy_snapshot_id
-            or grant.policy_snapshot_digest
-            != planned.policy_snapshot_digest
+            or grant.policy_snapshot_digest != planned.policy_snapshot_digest
             or grant.state != GrantState.ACTIVE
             or grant.expires_at <= now
         ):
-            raise BoundSourceRevisionPlanningError(
-                "source_index_grant_binding_mismatch"
-            )
-        if int((grant.expires_at - now).total_seconds() * 1000) < (
-            required_dispatch_window_ms
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_index_grant_runtime_window_insufficient"
-            )
+            raise BoundSourceRevisionPlanningError("source_index_grant_binding_mismatch")
+        if int((grant.expires_at - now).total_seconds() * 1000) < (required_dispatch_window_ms):
+            raise BoundSourceRevisionPlanningError("source_index_grant_runtime_window_insufficient")
 
         return {
             "hub_task_id": self._hub_task_id(
@@ -402,12 +351,8 @@ class BoundSourceRevisionAuthorityPlanner:
                 raise BoundSourceRevisionPlanningError(f"{name}_invalid")
         if not _CONNECTION_ID.fullmatch(str(values["connection_id"] or "")):
             raise BoundSourceRevisionPlanningError("connection_id_invalid")
-        if not _REVISION_ID.fullmatch(
-            str(values["source_revision_id"] or "")
-        ):
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_id_invalid"
-            )
+        if not _REVISION_ID.fullmatch(str(values["source_revision_id"] or "")):
+            raise BoundSourceRevisionPlanningError("source_revision_id_invalid")
         for name in ("source_revision_digest", "content_manifest_digest"):
             if not _DIGEST.fullmatch(str(values[name] or "")):
                 raise BoundSourceRevisionPlanningError(f"{name}_invalid")
@@ -419,9 +364,7 @@ class BoundSourceRevisionAuthorityPlanner:
     def _aware_now(self) -> datetime:
         value = self._clock()
         if not isinstance(value, datetime) or value.tzinfo is None:
-            raise BoundSourceRevisionPlanningError(
-                "source_index_planner_clock_invalid"
-            )
+            raise BoundSourceRevisionPlanningError("source_index_planner_clock_invalid")
         return value.astimezone(timezone.utc)
 
     @staticmethod

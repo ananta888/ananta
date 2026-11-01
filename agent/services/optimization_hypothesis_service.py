@@ -13,30 +13,34 @@ class OptimizationHypothesisService:
         hypotheses = []
         for hotspot in hotspot_report.get("hotspots") or []:
             bottleneck = self._classify(hotspot)
-            hypotheses.append(build_optimization_hypothesis_artifact(
-                hypothesis_id=f"hyp-{uuid.uuid4().hex[:12]}",
-                hotspot_refs=[{"hotspot_id": hotspot.get("hotspot_id"), "symbol": hotspot.get("symbol")}],
-                suspected_bottleneck=bottleneck,
-                expected_effect=self._expected_effect(bottleneck),
-                affected_files=list(hotspot.get("affected_files") or []),
-                risk="high" if bottleneck in {"concurrency", "algorithmic"} else "medium",
-                required_measurements=["baseline_wall_time", "candidate_wall_time", "regression_result"],
-                falsification_criteria=[
-                    "candidate does not improve the primary metric above threshold",
-                    "candidate changes output or fails regression tests",
-                ],
-            ))
+            hypotheses.append(
+                build_optimization_hypothesis_artifact(
+                    hypothesis_id=f"hyp-{uuid.uuid4().hex[:12]}",
+                    hotspot_refs=[{"hotspot_id": hotspot.get("hotspot_id"), "symbol": hotspot.get("symbol")}],
+                    suspected_bottleneck=bottleneck,
+                    expected_effect=self._expected_effect(bottleneck),
+                    affected_files=list(hotspot.get("affected_files") or []),
+                    risk="high" if bottleneck in {"concurrency", "algorithmic"} else "medium",
+                    required_measurements=["baseline_wall_time", "candidate_wall_time", "regression_result"],
+                    falsification_criteria=[
+                        "candidate does not improve the primary metric above threshold",
+                        "candidate changes output or fails regression tests",
+                    ],
+                )
+            )
         if not hypotheses:
-            hypotheses.append(build_optimization_hypothesis_artifact(
-                hypothesis_id=f"hyp-{uuid.uuid4().hex[:12]}",
-                hotspot_refs=[{"source": "hotspot_report", "status": hotspot_report.get("status", "unknown")}],
-                suspected_bottleneck="unknown",
-                expected_effect="Collect more profiling evidence before proposing code changes.",
-                affected_files=[],
-                risk="medium",
-                required_measurements=["more_profile_data"],
-                falsification_criteria=["no stable hotspot is found after additional profiling"],
-            ))
+            hypotheses.append(
+                build_optimization_hypothesis_artifact(
+                    hypothesis_id=f"hyp-{uuid.uuid4().hex[:12]}",
+                    hotspot_refs=[{"source": "hotspot_report", "status": hotspot_report.get("status", "unknown")}],
+                    suspected_bottleneck="unknown",
+                    expected_effect="Collect more profiling evidence before proposing code changes.",
+                    affected_files=[],
+                    risk="medium",
+                    required_measurements=["more_profile_data"],
+                    falsification_criteria=["no stable hotspot is found after additional profiling"],
+                )
+            )
         return hypotheses
 
     @staticmethod

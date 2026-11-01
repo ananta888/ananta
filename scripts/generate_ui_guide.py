@@ -27,6 +27,7 @@ OUTPUT_DEFAULT = REPO_ROOT / "docs" / "ananta-ui-guide.md"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _read(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")
@@ -35,6 +36,7 @@ def _read(path: Path) -> str:
 
 
 # ── 1. Nav structure from route-metadata.ts ──────────────────────────────────
+
 
 def extract_nav_items() -> list[dict]:
     src = _read(REPO_ROOT / "frontend-angular/src/app/models/route-metadata.ts")
@@ -54,6 +56,7 @@ def extract_nav_items() -> list[dict]:
 
 # ── 2. Control-Center sub-routes ─────────────────────────────────────────────
 
+
 def extract_cc_routes() -> list[dict]:
     src = _read(REPO_ROOT / "frontend-angular/src/app/features/control-center/control-center.routes.ts")
     pattern = re.compile(r"\{[^}]*path:\s*['\"]([^'\"]+)['\"][^}]*component:\s*(\w+)[^}]*\}", re.DOTALL)
@@ -66,6 +69,7 @@ def extract_cc_routes() -> list[dict]:
 
 
 # ── 3. data-waypoint registry ─────────────────────────────────────────────────
+
 
 def extract_waypoints() -> list[dict]:
     waypoints: list[dict] = []
@@ -106,9 +110,24 @@ def extract_waypoints() -> list[dict]:
 # ── 4. Flask API routes ───────────────────────────────────────────────────────
 
 _SKIP_ROUTE_FILES = {"_auth_test_routes.py", "_auth_mfa_routes.py", "blender_client_surface.py"}
-_INCLUDE_PREFIXES = ("/api/", "/chat", "/snake", "/sessions", "/goals", "/workers",
-                     "/policies", "/codecompass", "/model", "/routing", "/health", "/config",
-                     "/teams/", "/templates", "/blueprints", "/snakes")
+_INCLUDE_PREFIXES = (
+    "/api/",
+    "/chat",
+    "/snake",
+    "/sessions",
+    "/goals",
+    "/workers",
+    "/policies",
+    "/codecompass",
+    "/model",
+    "/routing",
+    "/health",
+    "/config",
+    "/teams/",
+    "/templates",
+    "/blueprints",
+    "/snakes",
+)
 
 
 def extract_api_routes() -> list[dict]:
@@ -187,10 +206,12 @@ def extract_feature_docs() -> dict[str, list[dict]]:
 
 # ── 6. DEFAULT_SESSIONS from chat_state.py ────────────────────────────────────
 
+
 def extract_sessions() -> list[dict]:
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from client_surfaces.operator_tui.chat_state import DEFAULT_SESSIONS
+
         return [
             {
                 "id": s.get("id", ""),
@@ -207,10 +228,12 @@ def extract_sessions() -> list[dict]:
 
 # ── 6. Current live config (user.json) ────────────────────────────────────────
 
+
 def extract_live_config() -> dict:
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
         s = get_manager().load()
         sessions = s.get("chat_sessions") or []
         backend = s.get("chat_backend", "?")
@@ -229,6 +252,7 @@ def extract_live_config() -> dict:
 
 
 # ── Markdown renderer ─────────────────────────────────────────────────────────
+
 
 def render(
     nav_items: list[dict],
@@ -342,6 +366,7 @@ def render(
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
+
 
 def generate(out_path: Path = OUTPUT_DEFAULT, include_live: bool = False) -> Path:
     """Generate the UI guide markdown.

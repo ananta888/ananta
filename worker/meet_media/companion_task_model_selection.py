@@ -18,8 +18,10 @@ def assigned_execution(client, grant):
         environment.update(cache.environment)
         options = {"environment": environment}
         if profile is not None:
-            options.update(model_profile=profile,
-                ports={"tool": AssignedCompanionToolProcess(client), "model": AssignedCompanionModelProcess(client)})
+            options.update(
+                model_profile=profile,
+                ports={"tool": AssignedCompanionToolProcess(client), "model": AssignedCompanionModelProcess(client)},
+            )
         execution = CompanionExecutionProcess(**options)
         return CachedCompanionExecution(execution, cache)
     except BaseException:

@@ -58,9 +58,7 @@ def test_capacity_dependencies_must_be_hub_registered_test_evidence() -> None:
 
 
 def test_committed_churn_gate_is_test_only_and_references_every_capacity_run() -> None:
-    report = json.loads(
-        (ROOT / "artifacts/test-gates/peer-overlay-churn.json").read_text(encoding="utf-8")
-    )
+    report = json.loads((ROOT / "artifacts/test-gates/peer-overlay-churn.json").read_text(encoding="utf-8"))
     assert report["status"] == "passed"
     assert report["decision"] == "test_gate_passed_production_no_go"
     assert report["evidence"]["scope"] == "test"

@@ -24,7 +24,9 @@ class BrowserArtifactService:
             return BrowserArtifactValidation(False, "browser_artifact_sources_not_list")
         return BrowserArtifactValidation(True, "ok")
 
-    def persist_with_provenance(self, *, artifact_id: str, version_number: int, payload: dict[str, Any]) -> dict[str, Any]:
+    def persist_with_provenance(
+        self, *, artifact_id: str, version_number: int, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         check = self.validate_schema(payload)
         if not check.valid:
             raise ValueError(check.reason)

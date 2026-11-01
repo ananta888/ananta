@@ -157,9 +157,7 @@ class DomainRetrievalService:
         seen: set[str] = set()
         for profile in profiles:
             explicit = [
-                str(item).strip()
-                for item in list(profile.get("retrieval_source_types") or [])
-                if str(item).strip()
+                str(item).strip() for item in list(profile.get("retrieval_source_types") or []) if str(item).strip()
             ]
             candidates = explicit if explicit else DomainRetrievalService._source_types_from_profile(profile)
             for candidate in candidates:

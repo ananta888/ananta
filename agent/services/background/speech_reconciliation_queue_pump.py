@@ -868,9 +868,7 @@ def _queued_factor(item: QueuedSpeechReconciliation) -> int:
     if value is None:
         value = min(10, item.job.max_compute_factor)
     if type(value) is not int or not 1 <= value <= item.job.max_compute_factor:
-        raise SpeechReconciliationQueuePumpConfigurationError(
-            "speech_reconciliation_quality_factor_invalid"
-        )
+        raise SpeechReconciliationQueuePumpConfigurationError("speech_reconciliation_quality_factor_invalid")
     return value
 
 

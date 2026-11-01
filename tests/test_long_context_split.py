@@ -74,8 +74,9 @@ def _get(task_id):
 def _reconcile(ids):
     from agent.services.task_queue_service import TaskQueueService
 
-    return TaskQueueService().reconcile_dependencies(tasks=[_get(i) for i in ids],
-                                                     dependency_resolver=lambda t: list(t.depends_on or []))
+    return TaskQueueService().reconcile_dependencies(
+        tasks=[_get(i) for i in ids], dependency_resolver=lambda t: list(t.depends_on or [])
+    )
 
 
 def _complete(task_id, output):
@@ -86,8 +87,13 @@ def _complete(task_id, output):
 
 def test_a_long_ordered_task_runs_sequentially_with_carried_notes(app):
     with app.app_context():
-        _save("lc-doc", status="todo", title="Protokoll zusammenfassen", description=_long_text(),
-              worker_execution_context={"context_input_kind": "ordered"})
+        _save(
+            "lc-doc",
+            status="todo",
+            title="Protokoll zusammenfassen",
+            description=_long_text(),
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
         split = _coordinator().maybe_split(_get("lc-doc"), config=ACTIVE)
         assert split.strategy == "sequential" and len(split.step_ids) >= 4
         parent = _get("lc-doc")
@@ -116,8 +122,13 @@ def test_a_long_ordered_task_runs_sequentially_with_carried_notes(app):
 def test_independent_parts_map_in_waves_and_reduce(app):
     parts = [{"id": f"protokoll-{i}.md", "text": "eintrag " * 3000} for i in range(12)]
     with app.app_context():
-        _save("lc-parts", status="todo", title="Protokolle auswerten", description="Werte alle Protokolle aus.",
-              worker_execution_context={"context_parts": parts})
+        _save(
+            "lc-parts",
+            status="todo",
+            title="Protokolle auswerten",
+            description="Werte alle Protokolle aus.",
+            worker_execution_context={"context_parts": parts},
+        )
         split = _coordinator().maybe_split(_get("lc-parts"), config={**ACTIVE, "max_parallel": 2})
         assert split.strategy == "map_reduce"
         maps = [_get(i) for i in split.step_ids[:-1]]
@@ -135,8 +146,13 @@ def test_independent_parts_map_in_waves_and_reduce(app):
 
 def test_a_failed_step_fails_the_split_task(app):
     with app.app_context():
-        _save("lc-fail", status="todo", title="Lang", description=_long_text(),
-              worker_execution_context={"context_input_kind": "ordered"})
+        _save(
+            "lc-fail",
+            status="todo",
+            title="Lang",
+            description=_long_text(),
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
         split = _coordinator().maybe_split(_get("lc-fail"), config=ACTIVE)
         from agent.services.task_runtime_service import update_local_task_status
 
@@ -165,9 +181,12 @@ def test_the_dispatcher_splits_only_in_active_mode(app, monkeypatch):
     from agent.routes.tasks import autopilot_task_dispatcher as dispatcher
 
     calls = []
-    monkeypatch.setattr("agent.services.long_context_coordinator.get_long_context_coordinator",
-                        lambda: SimpleNamespace(maybe_split=lambda task, config, window_tokens=None:
-                                                calls.append((config, window_tokens)) or "split"))
+    monkeypatch.setattr(
+        "agent.services.long_context_coordinator.get_long_context_coordinator",
+        lambda: SimpleNamespace(
+            maybe_split=lambda task, config, window_tokens=None: calls.append((config, window_tokens)) or "split"
+        ),
+    )
     fake_app = SimpleNamespace(config={"AGENT_CONFIG": {"context_strategy": {"mode": "shadow"}}})
     assert dispatcher._split_if_beyond_context(SimpleNamespace(id="t"), app=fake_app) is None and calls == []
     fake_app.config["AGENT_CONFIG"]["context_strategy"]["mode"] = "active"
@@ -181,8 +200,13 @@ def test_the_dispatcher_splits_only_in_active_mode(app, monkeypatch):
 def test_a_slightly_oversized_task_is_externalized_and_dispatched(app):
     with app.app_context():
         material = "\n".join(f"Zeile {i}: " + "inhalt " * 20 for i in range(1100))  # ~1.2x the budget
-        _save("lc-compact", status="todo", title="Bericht prüfen", description=material,
-              worker_execution_context={"context_input_kind": "ordered"})
+        _save(
+            "lc-compact",
+            status="todo",
+            title="Bericht prüfen",
+            description=material,
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
         result = _coordinator().maybe_split(_get("lc-compact"), config=EXTERNALIZE)
         assert result.strategy == "compact" and result.dispatch_now and result.step_ids == ()
         task = _get("lc-compact")
@@ -197,8 +221,13 @@ def test_a_slightly_oversized_task_is_externalized_and_dispatched(app):
 
 def test_a_corpus_is_externalized_for_selective_reading(app):
     with app.app_context():
-        _save("lc-corpus", status="todo", title="Wo wird X konfiguriert?", description="doku " * 60_000,
-              worker_execution_context={"context_input_kind": "corpus"})
+        _save(
+            "lc-corpus",
+            status="todo",
+            title="Wo wird X konfiguriert?",
+            description="doku " * 60_000,
+            worker_execution_context={"context_input_kind": "corpus"},
+        )
         result = _coordinator().maybe_split(_get("lc-corpus"), config=EXTERNALIZE)
         assert result.strategy == "retrieve" and "relevant" in _get("lc-corpus").description
 
@@ -206,10 +235,20 @@ def test_a_corpus_is_externalized_for_selective_reading(app):
 def test_without_externalizing_compact_and_retrieve_are_carried_out_as_splits(app):
     with app.app_context():
         material = "\n".join(f"Zeile {i}: " + "inhalt " * 20 for i in range(1100))  # ~1.2x the budget
-        _save("lc-compact-split", status="todo", title="Bericht prüfen", description=material,
-              worker_execution_context={"context_input_kind": "ordered"})
-        _save("lc-corpus-split", status="todo", title="Wo wird X konfiguriert?", description="doku " * 60_000,
-              worker_execution_context={"context_input_kind": "corpus"})
+        _save(
+            "lc-compact-split",
+            status="todo",
+            title="Bericht prüfen",
+            description=material,
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
+        _save(
+            "lc-corpus-split",
+            status="todo",
+            title="Wo wird X konfiguriert?",
+            description="doku " * 60_000,
+            worker_execution_context={"context_input_kind": "corpus"},
+        )
         compact = _coordinator().maybe_split(_get("lc-compact-split"), config=ACTIVE)
         corpus = _coordinator().maybe_split(_get("lc-corpus-split"), config=ACTIVE)
         assert compact.strategy == "sequential" and not compact.dispatch_now and len(compact.step_ids) >= 3
@@ -222,8 +261,13 @@ def test_without_externalizing_compact_and_retrieve_are_carried_out_as_splits(ap
 
 def test_the_fixed_request_part_counts_against_the_window(app):
     with app.app_context():
-        _save("lc-overhead", status="todo", title="Knapp", description="text " * 20_000,  # ~25k: fits alone
-              worker_execution_context={"context_input_kind": "ordered"})
+        _save(
+            "lc-overhead",
+            status="todo",
+            title="Knapp",
+            description="text " * 20_000,  # ~25k: fits alone
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
         assert _coordinator().maybe_split(_get("lc-overhead"), config=ACTIVE) is None
         result = _coordinator().maybe_split(_get("lc-overhead"), config={**ACTIVE, "request_overhead_tokens": 12000})
         assert result.strategy == "sequential"  # 25k material + 12k tools/system prompt exceed 32k
@@ -237,8 +281,13 @@ def test_the_fixed_request_part_counts_against_the_window(app):
 @pytest.mark.slow
 def test_an_enormous_task_is_paused_and_a_resumed_one_processed_piece_by_piece(app):
     with app.app_context():
-        _save("lc-huge", status="todo", title="Alles", description="x " * 2_700_000,  # ~45x the budget
-              worker_execution_context={"context_input_kind": "ordered"})
+        _save(
+            "lc-huge",
+            status="todo",
+            title="Alles",
+            description="x " * 2_700_000,  # ~45x the budget
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
         result = _coordinator().maybe_split(_get("lc-huge"), config=ACTIVE)
         assert result.strategy == "escalate" and not result.dispatch_now
         task = _get("lc-huge")
@@ -256,13 +305,27 @@ def test_the_worker_workspace_gets_the_material_file(tmp_path):
     workspace = tmp_path / "ws"
     for directory in (workspace, workspace / "artifacts", workspace / "rag_helper"):
         directory.mkdir(parents=True, exist_ok=True)
-    context = WorkerWorkspaceContext(workspace_dir=workspace, artifacts_dir=workspace / "artifacts",
-                                     rag_helper_dir=workspace / "rag_helper", artifact_sync={})
+    context = WorkerWorkspaceContext(
+        workspace_dir=workspace,
+        artifacts_dir=workspace / "artifacts",
+        rag_helper_dir=workspace / "rag_helper",
+        artifact_sync={},
+    )
     manifest = WorkerWorkspaceService().prepare_opencode_context_files(
-        task={"id": "T", "title": "t", "description": "d",
-              "worker_execution_context": {"context_material": "Material Zeile 1\nZeile 2"}},
-        workspace_context=context, base_prompt="p", system_prompt=None, context_text=None,
-        expected_output_schema=None, tool_definitions=None, research_context=None)
+        task={
+            "id": "T",
+            "title": "t",
+            "description": "d",
+            "worker_execution_context": {"context_material": "Material Zeile 1\nZeile 2"},
+        },
+        workspace_context=context,
+        base_prompt="p",
+        system_prompt=None,
+        context_text=None,
+        expected_output_schema=None,
+        tool_definitions=None,
+        research_context=None,
+    )
     assert manifest["task_material_path"] == ".ananta/task-material.md"
     assert (workspace / ".ananta/task-material.md").read_text(encoding="utf-8").startswith("Material Zeile 1")
     assert ".ananta/task-material.md" in (workspace / manifest["context_index_path"]).read_text(encoding="utf-8")
@@ -275,8 +338,9 @@ def test_overflow_failures_are_recognized():
     from agent.routes.tasks.autopilot_task_dispatcher import _is_context_overflow
 
     assert _is_context_overflow([{"failure_type": "preflight_context_limit"}])
-    assert _is_context_overflow([{"failure_type": "forward_error",
-                                  "reason": "400: This model's maximum context length is 32768 tokens"}])
+    assert _is_context_overflow(
+        [{"failure_type": "forward_error", "reason": "400: This model's maximum context length is 32768 tokens"}]
+    )
     assert _is_context_overflow([{"reason": "cannot truncate prompt with n_keep >= n_ctx"}])
     assert _is_context_overflow([{"reason": "token_budget_exceeded: prompt ~40000 tokens exceeds limit 32768"}])
     assert not _is_context_overflow([{"failure_type": "invalid_proposal", "reason": "no command"}])
@@ -284,8 +348,13 @@ def test_overflow_failures_are_recognized():
 
 def test_a_real_overflow_externalizes_even_what_the_estimate_thought_fits(app):
     with app.app_context():
-        _save("lc-overflow", status="todo", title="Knapp", description="text " * 20_000,  # estimate: fits
-              worker_execution_context={"context_input_kind": "ordered"})
+        _save(
+            "lc-overflow",
+            status="todo",
+            title="Knapp",
+            description="text " * 20_000,  # estimate: fits
+            worker_execution_context={"context_input_kind": "ordered"},
+        )
         coordinator = _coordinator()
         assert coordinator.maybe_split(_get("lc-overflow"), config=ACTIVE) is None
         result = coordinator.maybe_split(_get("lc-overflow"), config=EXTERNALIZE, overflowed=True)
@@ -299,9 +368,10 @@ def test_the_dispatcher_handles_overflow_only_in_active_mode(monkeypatch):
     from agent.routes.tasks import autopilot_task_dispatcher as dispatcher
 
     seen = []
-    monkeypatch.setattr("agent.services.long_context_coordinator.get_long_context_coordinator",
-                        lambda: SimpleNamespace(maybe_split=lambda task, config, overflowed: seen.append(overflowed)
-                                                or "handled"))
+    monkeypatch.setattr(
+        "agent.services.long_context_coordinator.get_long_context_coordinator",
+        lambda: SimpleNamespace(maybe_split=lambda task, config, overflowed: seen.append(overflowed) or "handled"),
+    )
     app = SimpleNamespace(config={"AGENT_CONFIG": {"context_strategy": {"mode": "shadow"}}})
     assert dispatcher._handle_context_overflow(SimpleNamespace(id="t"), app=app) is None
     app.config["AGENT_CONFIG"]["context_strategy"]["mode"] = "active"

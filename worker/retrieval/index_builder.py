@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from worker.retrieval.chunking import split_into_chunks
-from worker.retrieval.embedding_provider import EmbeddingProvider, HashEmbeddingProvider, build_embedding_provider
+from worker.retrieval.embedding_provider import EmbeddingProvider, HashEmbeddingProvider
 from worker.retrieval.index_contract import build_index_entry
 from worker.retrieval.index_state import RetrievalIndexState, compute_path_hash, derive_workspace_revision
 
@@ -69,6 +69,7 @@ def _resolve_provider_from_config_service(scope: str) -> EmbeddingProvider:
             EmbeddingProviderConfigService,
             build_embedding_provider_from_config,
         )
+
         svc = EmbeddingProviderConfigService()
         cfg = svc.resolve(scope)
         return build_embedding_provider_from_config(cfg)
@@ -109,9 +110,7 @@ def build_incremental_index(
         provider = _resolve_provider_from_config_service(embedding_scope)
 
     # EPC-012: force full rebuild when provider or model changed
-    if provider_changed_since_last_build(
-        previous_state=previous_state, current_provider=provider
-    ):
+    if provider_changed_since_last_build(previous_state=previous_state, current_provider=provider):
         previous_entries = []
         previous_path_hashes = {}
     previous = list(previous_entries or [])
@@ -119,7 +118,11 @@ def build_incremental_index(
     delta = compute_delta_set(previous_path_hashes=previous_hashes, files=files)
     changed_or_added = sorted(set(delta.changed_paths))
     keep_paths = {str(path) for path in files.keys()}
-    remaining = [item for item in previous if str(item.get("path") or "") in keep_paths and str(item.get("path") or "") not in changed_or_added]
+    remaining = [
+        item
+        for item in previous
+        if str(item.get("path") or "") in keep_paths and str(item.get("path") or "") not in changed_or_added
+    ]
     new_entries = _build_entries_for_paths(
         files=files,
         paths=changed_or_added,
@@ -147,4 +150,3 @@ def build_incremental_index(
             "renamed_paths": dict(delta.renamed_paths),
         },
     }
-

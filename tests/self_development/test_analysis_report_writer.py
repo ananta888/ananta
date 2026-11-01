@@ -5,10 +5,10 @@ revision-bound baseline from the task description, an existing report (the
 mutation loop's) is never overwritten, and the payload is validated against the
 gate's schema before it reaches the workspace.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -19,7 +19,7 @@ SHA_B = "b" * 64
 
 DESCRIPTION = (
     "Task requirements ...\n"
-    'Revision-bound source context (JSON data):\n'
+    "Revision-bound source context (JSON data):\n"
     + json.dumps(
         {
             "revision": "60bb49a41",
@@ -102,7 +102,12 @@ def test_record_tool_result_computes_the_digest_when_the_payload_has_none(tmp_pa
 def test_baseline_parser_reads_the_source_bundle_and_survives_garbage():
     assert mod.baseline_from_description(DESCRIPTION) == {"agent/services/example.py": SHA_A}
     assert mod.baseline_from_description("no bundle here") == {}
-    assert mod.baseline_from_description("Revision-bound source context (JSON data):\nnot json\nOnly change these files: x") == {}
+    assert (
+        mod.baseline_from_description(
+            "Revision-bound source context (JSON data):\nnot json\nOnly change these files: x"
+        )
+        == {}
+    )
 
 
 def test_baseline_trusted_observations_filters_swapped_digests():
@@ -187,16 +192,18 @@ def test_verify_worker_analysis_accepts_the_written_report(tmp_path):
 
 
 def test_propose_hook_writes_only_after_a_successful_propose(monkeypatch):
-    from agent.services import _task_scoped_propose_persist as persist_mod
     from types import SimpleNamespace
+
+    from agent.services import _task_scoped_propose_persist as persist_mod
 
     calls = []
     monkeypatch.setattr(
         "agent.services.self_development.analysis_report.write_analysis_report",
         lambda workspace, *, task_id, description, answer: calls.append((str(workspace), task_id)) or True,
     )
-    run = SimpleNamespace(workspace_dir="/ws", tid="t1", task=SimpleNamespace(description=DESCRIPTION),
-                          raw_res="done", rc=0)
+    run = SimpleNamespace(
+        workspace_dir="/ws", tid="t1", task=SimpleNamespace(description=DESCRIPTION), raw_res="done", rc=0
+    )
     persist_mod._write_analysis_report_for_proposal(run)
     assert calls == [("/ws", "t1")]
 
@@ -245,11 +252,11 @@ def test_task_brief_carries_the_assignment_instruction_in_both_modes(monkeypatch
     task = {"id": "CMP-701", "title": "Add helper", "description": "Do the thing"}
     assignment = (
         "Required before any write, in this order: "
-        '(1) call CodeCompass for what you plan to change — on the ananta-worker loop the tool is '
+        "(1) call CodeCompass for what you plan to change — on the ananta-worker loop the tool is "
         '`codecompass.plan_context` with {"query": "<what changes and why>"}; on the opencode path the MCP '
         "equivalent is `ananta_codecompass_codecompass_plan_context` with the same argument. "
         "(2) fetch the authoritative excerpts with "
-        '`codecompass.get_file_context` (loop) or `ananta_codecompass_codecompass_get_file_context` '
+        "`codecompass.get_file_context` (loop) or `ananta_codecompass_codecompass_get_file_context` "
         '(opencode), arguments {"paths": [<files you change>], "line_ranges": [{path, line_start, line_end}]}. '
         "Do not read those files with your own read tools: the Hub binds exactly these CodeCompass ranges "
         "to this task and blocks publication without them."
@@ -273,5 +280,3 @@ def test_task_brief_carries_the_assignment_instruction_in_both_modes(monkeypatch
             assert "response-contract.md" in brief
         else:
             assert "No JSON response is required" in brief
-
-

@@ -1,5 +1,4 @@
 """Tests for worker/core/reason_codes.py (EW-T011) and policy bypass (EW-T012)."""
-import pytest
 
 from worker.core.reason_codes import (
     APPROVAL_MISSING,
@@ -17,15 +16,14 @@ from worker.core.reason_codes import (
     SHELL_EXECUTE_REQUIRES_APPROVAL,
     TASK_KIND_UNKNOWN,
     TOOL_UNAVAILABLE,
-    ReasonCode,
     all_codes,
     is_retriable,
     lookup,
     message_for,
 )
 
-
 # ── EW-T011: ReasonCode structure ─────────────────────────────────────────────
+
 
 class TestReasonCodeStructure:
     def test_str_returns_code(self):
@@ -43,9 +41,16 @@ class TestReasonCodeStructure:
 
     def test_human_message_is_not_empty(self):
         for code_obj in [
-            MISSING_CAPABILITY, CONTEXT_MISSING, APPROVAL_MISSING, DENIED_OPERATION,
-            INVALID_REQUEST, TASK_KIND_UNKNOWN, PROVIDER_BLOCKED, TOOL_UNAVAILABLE,
-            SHELL_COMMAND_UNSAFE, PROMPT_INJECTION_BLOCKED,
+            MISSING_CAPABILITY,
+            CONTEXT_MISSING,
+            APPROVAL_MISSING,
+            DENIED_OPERATION,
+            INVALID_REQUEST,
+            TASK_KIND_UNKNOWN,
+            PROVIDER_BLOCKED,
+            TOOL_UNAVAILABLE,
+            SHELL_COMMAND_UNSAFE,
+            PROMPT_INJECTION_BLOCKED,
         ]:
             assert code_obj.message, f"{code_obj.code} has empty message"
 
@@ -65,6 +70,7 @@ class TestReasonCodeStructure:
 
 
 # ── EW-T011: Registry functions ───────────────────────────────────────────────
+
 
 class TestReasonCodeRegistry:
     def test_lookup_known_code(self):
@@ -104,9 +110,15 @@ class TestReasonCodeRegistry:
     def test_all_codes_includes_key_codes(self):
         codes = all_codes()
         for expected in [
-            "missing_capability", "context_missing", "approval_missing",
-            "denied_operation", "invalid_request", "provider_blocked",
-            "tool_unavailable", "shell_command_unsafe", "prompt_injection_blocked",
+            "missing_capability",
+            "context_missing",
+            "approval_missing",
+            "denied_operation",
+            "invalid_request",
+            "provider_blocked",
+            "tool_unavailable",
+            "shell_command_unsafe",
+            "prompt_injection_blocked",
         ]:
             assert expected in codes, f"{expected!r} missing from all_codes()"
 
@@ -117,13 +129,14 @@ class TestReasonCodeRegistry:
 
 # ── EW-T012: Policy bypass regression ─────────────────────────────────────────
 
+
 class TestPolicyBypass:
     """Regression tests: ensure policy cannot be bypassed via common attack vectors."""
 
     def test_direct_shell_execute_without_envelope_is_rejected(self):
         """command_execute without an envelope must be denied — no side-channel."""
-        from worker.core.preflight import PreflightGate
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+        from worker.core.preflight import PreflightGate
 
         gate = PreflightGate()
         env = ExecutionEnvelope(
@@ -168,11 +181,10 @@ class TestPolicyBypass:
 
     def test_tool_call_outside_allowlist_is_blocked(self):
         """Tool not in allowed_tool_ids is blocked even if capability is granted."""
-        from worker.core.preflight import PreflightGate
-        from worker.core.execution_envelope import (
-            CapabilityGrant, ExecutionEnvelope, ToolPolicy, ApprovalRef
-        )
         import time
+
+        from worker.core.execution_envelope import ApprovalRef, CapabilityGrant, ExecutionEnvelope, ToolPolicy
+        from worker.core.preflight import PreflightGate
 
         gate = PreflightGate()
         env = ExecutionEnvelope(
@@ -182,10 +194,9 @@ class TestPolicyBypass:
             context_envelope_ref="ctx:001",
             audit_correlation_id="audit:001",
             tool_policy=ToolPolicy(allowed_tool_ids=["read_file"]),
-            approval_refs=[ApprovalRef(
-                ref_id="r1", operation="shell_execute",
-                granted_at=time.time(), granted_by="admin"
-            )],
+            approval_refs=[
+                ApprovalRef(ref_id="r1", operation="shell_execute", granted_at=time.time(), granted_by="admin")
+            ],
         )
         result = gate.check_tool(env, "run_shell")
         assert result.allowed is False
@@ -193,10 +204,8 @@ class TestPolicyBypass:
 
     def test_cloud_provider_cannot_be_used_when_cloud_not_allowed(self):
         """cloud_allowed=False blocks all cloud providers regardless of other settings."""
+        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope, ModelPolicy
         from worker.core.preflight import PreflightGate
-        from worker.core.execution_envelope import (
-            CapabilityGrant, ExecutionEnvelope, ModelPolicy
-        )
 
         gate = PreflightGate()
         env = ExecutionEnvelope(
@@ -213,8 +222,8 @@ class TestPolicyBypass:
 
     def test_unknown_task_kind_cannot_bypass_gate(self):
         """Unknown task_kind is never treated as low-risk fallthrough."""
-        from worker.core.preflight import PreflightGate
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+        from worker.core.preflight import PreflightGate
 
         gate = PreflightGate()
         env = ExecutionEnvelope(
@@ -235,7 +244,9 @@ class TestPolicyBypass:
 
         stores = WorkerMemoryStores()
         result = stores.write(
-            "worker_session_memory", "key", "value",
+            "worker_session_memory",
+            "key",
+            "value",
             task_id="t1",
             has_memory_write_capability=False,
         )

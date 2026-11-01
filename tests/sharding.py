@@ -64,9 +64,7 @@ def select(config: pytest.Config, items: list[pytest.Item]) -> None:
     tests_per_file: dict[str, int] = defaultdict(int)
     for item in items:
         tests_per_file[_file_key(item, root)] += 1
-    weights = {
-        name: measured.get(name, tests * _UNMEASURED_SECONDS_PER_TEST) for name, tests in tests_per_file.items()
-    }
+    weights = {name: measured.get(name, tests * _UNMEASURED_SECONDS_PER_TEST) for name, tests in tests_per_file.items()}
     shard_of = assign(weights, count)
     kept = [item for item in items if shard_of[_file_key(item, root)] == index]
     deselected = [item for item in items if shard_of[_file_key(item, root)] != index]

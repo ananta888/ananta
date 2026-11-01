@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import os
 import time
-import hashlib
 from typing import Any
 from urllib.parse import urlparse
 
 from agent.services.hermes_worker_profile import get_default_hermes_profile
 from worker.core.context_resolver import ContextBlock, ContextSensitivity
 from worker.core.diagnostics import AuditEmitter
-from worker.core.execution_envelope import ArtifactRef, DegradedState, ExecutionEnvelope, WorkerResult, WorkerResultStatus, make_trace
+from worker.core.execution_envelope import (
+    ArtifactRef,
+    DegradedState,
+    ExecutionEnvelope,
+    WorkerResult,
+    WorkerResultStatus,
+    make_trace,
+)
 from worker.core.hermes_adapter_config import HermesAdapterConfig
 from worker.core.hermes_context_converter import convert_context_blocks_to_prompt
 from worker.core.hermes_http_client import HermesClientConfig, HermesClientError, HermesHttpClient
@@ -34,10 +41,12 @@ _TASK_KIND_TO_ADAPTER_MODE: dict[str, str] = {
 }
 
 # Sensitive context sensitivity values that block cloud dispatch (HF-T008)
-_CLOUD_BLOCKED_SENSITIVITIES = frozenset({
-    ContextSensitivity.secret,
-    ContextSensitivity.customer_confidential,
-})
+_CLOUD_BLOCKED_SENSITIVITIES = frozenset(
+    {
+        ContextSensitivity.secret,
+        ContextSensitivity.customer_confidential,
+    }
+)
 
 
 class HermesAdapter:
@@ -100,16 +109,24 @@ class HermesAdapter:
             return WorkerResult.denied(envelope.task_id, "missing_capability", make_trace(envelope))
         return self._execute_mode("review", envelope, context_blocks or [])
 
-    def summarize(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
+    def summarize(
+        self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None
+    ) -> WorkerResult:
         return self._execute_mode("summarize", envelope, context_blocks or [])
 
-    def patch_propose(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
+    def patch_propose(
+        self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None
+    ) -> WorkerResult:
         return self._execute_mode("patch_propose", envelope, context_blocks or [])
 
-    def research_limited(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
+    def research_limited(
+        self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None
+    ) -> WorkerResult:
         return self._execute_mode("research_limited", envelope, context_blocks or [])
 
-    def plan_only(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
+    def plan_only(
+        self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None
+    ) -> WorkerResult:
         return self._execute_mode("plan_only", envelope, context_blocks or [])
 
     def _execute_mode(
@@ -188,7 +205,11 @@ class HermesAdapter:
         if not converted.has_required_context:
             return self._degraded(envelope, trace, "context_missing_or_sensitive")
         if converted.suspicious:
-            trace.append("hermes_suspicious_context", reason_code="suspicious_context_blocked", findings=list(converted.suspicious))
+            trace.append(
+                "hermes_suspicious_context",
+                reason_code="suspicious_context_blocked",
+                findings=list(converted.suspicious),
+            )
         context_hash = _hash_text(user_text := converted.prompt_text)
 
         schema = _schema_for_mode(mode)
@@ -218,10 +239,7 @@ class HermesAdapter:
         )
 
         # HF-T014: pass max_tokens and temperature from policy + config
-        effective_max_tokens = (
-            envelope.model_policy.max_tokens
-            or self.config.max_output_tokens
-        )
+        effective_max_tokens = envelope.model_policy.max_tokens or self.config.max_output_tokens
         effective_temperature = self.config.default_temperature
 
         start = time.monotonic()
@@ -230,7 +248,13 @@ class HermesAdapter:
         while True:
             attempt += 1
             try:
-                self._audit("provider_call", envelope=envelope, mode=mode, endpoint_classification=endpoint_class, model=model_selection["effective_model"])
+                self._audit(
+                    "provider_call",
+                    envelope=envelope,
+                    mode=mode,
+                    endpoint_classification=endpoint_class,
+                    model=model_selection["effective_model"],
+                )
                 response = self.client.chat_completions(
                     api_key=os.getenv(self.config.api_key_env or "", ""),
                     system_message=system_prompt,
@@ -245,7 +269,9 @@ class HermesAdapter:
                     # HF-T001: pass mode directly — no plan_only→summarize aliasing
                     validation_error = validate_payload_for_mode(payload, mode=mode)
                     if validation_error:
-                        parse_result = HermesParseResult(ok=False, reason_code=validation_error, raw_snippet=parse_result.raw_snippet)
+                        parse_result = HermesParseResult(
+                            ok=False, reason_code=validation_error, raw_snippet=parse_result.raw_snippet
+                        )
                     else:
                         duration_ms = int((time.monotonic() - start) * 1000)
                         trace.append(
@@ -259,19 +285,27 @@ class HermesAdapter:
                             model_selection_source=model_selection.get("source"),
                             response_hash=_hash_text(str(payload)),
                         )
-                        return self._success_result(mode, envelope, trace, payload, converted, model_selection=model_selection)
+                        return self._success_result(
+                            mode, envelope, trace, payload, converted, model_selection=model_selection
+                        )
 
                 if self.config.strict_json_required and self.config.parse_retry_enabled and not parse_retry_used:
                     parse_retry_used = True
                     user_prompt = _build_parse_retry_prompt(user_prompt, response, schema)
                     continue
-                trace.append("hermes_parse_error", reason_code=parse_result.reason_code, parse_retry_used=parse_retry_used)
+                trace.append(
+                    "hermes_parse_error", reason_code=parse_result.reason_code, parse_retry_used=parse_retry_used
+                )
                 self._last_error_code = parse_result.reason_code
                 # HF-T016: use accurate event type for unsafe output vs generic parse error
                 if "unsafe_side_effect" in parse_result.reason_code:
-                    self._audit("adapter_unsafe_output", envelope=envelope, mode=mode, reason_code=parse_result.reason_code)
+                    self._audit(
+                        "adapter_unsafe_output", envelope=envelope, mode=mode, reason_code=parse_result.reason_code
+                    )
                 else:
-                    self._audit("adapter_parse_error", envelope=envelope, mode=mode, reason_code=parse_result.reason_code)
+                    self._audit(
+                        "adapter_parse_error", envelope=envelope, mode=mode, reason_code=parse_result.reason_code
+                    )
                 return self._failed(envelope, trace, parse_result.reason_code)
             except HermesClientError as exc:
                 transient = exc.code in self._TRANSIENT_ERRORS
@@ -283,7 +317,9 @@ class HermesAdapter:
                     self._audit("remote_output_invalid", envelope=envelope, mode=mode, reason_code=exc.code)
                 else:
                     self._audit("provider_call", envelope=envelope, mode=mode, reason_code=exc.code, status="error")
-                trace.append("hermes_remote_error", reason_code=exc.code, retry_count=attempt - 1, total_duration_ms=duration_ms)
+                trace.append(
+                    "hermes_remote_error", reason_code=exc.code, retry_count=attempt - 1, total_duration_ms=duration_ms
+                )
                 self._last_error_code = exc.code
                 return self._failed(envelope, trace, exc.code)
 
@@ -347,7 +383,9 @@ class HermesAdapter:
                 "read_only_enforced": bool(model_selection.get("read_only_enforced", True)),
                 "content_hash": _hash_text(str(payload)),
                 "context_hash": _hash_text(converted.prompt_text),
-                "requires_approval_for_apply": bool(payload.get("requires_approval_for_apply", mode == "patch_propose")),
+                "requires_approval_for_apply": bool(
+                    payload.get("requires_approval_for_apply", mode == "patch_propose")
+                ),
                 "touched_files": list(payload.get("touched_files") or []),
                 "uncertainty": payload.get("uncertainty"),
             },
@@ -392,10 +430,15 @@ class HermesAdapter:
         # HF-T017: populate degraded_state with machine-readable detail
         degraded_state = DegradedState(
             reason=reason_code,
-            capabilities_unavailable=list(envelope.capability_grant.capabilities) if reason_code in {
-                "disabled_config", "disabled_by_feature_flag", "context_missing_or_sensitive",
+            capabilities_unavailable=list(envelope.capability_grant.capabilities)
+            if reason_code
+            in {
+                "disabled_config",
+                "disabled_by_feature_flag",
+                "context_missing_or_sensitive",
                 "research_context_missing",
-            } else [],
+            }
+            else [],
         )
         return WorkerResult(
             task_id=envelope.task_id,
@@ -453,7 +496,9 @@ class HermesAdapter:
             notes.append(f"backend_unavailable:{h}")
         return notes
 
-    def _audit(self, event_type: str, *, envelope: ExecutionEnvelope, mode: str, reason_code: str | None = None, **payload: Any) -> None:
+    def _audit(
+        self, event_type: str, *, envelope: ExecutionEnvelope, mode: str, reason_code: str | None = None, **payload: Any
+    ) -> None:
         if self.audit_emitter is None:
             return
         self.audit_emitter.emit(
@@ -468,6 +513,7 @@ class HermesAdapter:
 
 
 # ── Module-level helpers ──────────────────────────────────────────────────────
+
 
 def _artifact_kind_for_mode(mode: str) -> str:
     """Compute artifact kind before ArtifactRef construction. HF-T015."""

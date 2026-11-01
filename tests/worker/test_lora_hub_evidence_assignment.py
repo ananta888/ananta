@@ -18,16 +18,27 @@ def _assignment(attempt_id):
     registry = _registry_service.__wrapped__()
     source = _source(registry, scope="test", synthetic=True)
     run = registry.reserve_run(
-        tenant_id=source.tenant_id, project_id=source.project_id,
-        task_id="synthetic-training-task", assignment_id="synthetic-worker-job",
-        dispatch_lease_id=attempt_id, repository_revision="1" * 40, input_digest="a" * 64,
-        execution_profile_digest="b" * 64, environment_digest="c" * 64,
-        source_ids=[source.source_id], evidence_scope="test", synthetic=True,
+        tenant_id=source.tenant_id,
+        project_id=source.project_id,
+        task_id="synthetic-training-task",
+        assignment_id="synthetic-worker-job",
+        dispatch_lease_id=attempt_id,
+        repository_revision="1" * 40,
+        input_digest="a" * 64,
+        execution_profile_digest="b" * 64,
+        environment_digest="c" * 64,
+        source_ids=[source.source_id],
+        evidence_scope="test",
+        synthetic=True,
         idempotency_key="synthetic-lora-reservation",
     )
     return registry.assignment_projection(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id,
-        task_id=run.task_id, assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
+        tenant_id=run.tenant_id,
+        project_id=run.project_id,
+        run_id=run.run_id,
+        task_id=run.task_id,
+        assignment_id=run.assignment_id,
+        dispatch_lease_id=run.dispatch_lease_id,
     )
 
 

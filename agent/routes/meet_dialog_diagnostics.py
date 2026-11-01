@@ -41,8 +41,10 @@ def callback():
         raise MeetError("meet_dialog_diagnostics_request_invalid", 403)
     raw = request.get_data(cache=False)
     supplied = request.headers.get("X-Ananta-Dialog-Diagnostics-Signature", "")
-    if len(raw) != request.content_length or not re.fullmatch(r"[a-f0-9]{64}", supplied) or not hmac.compare_digest(
-        request_signature(key, raw), supplied
+    if (
+        len(raw) != request.content_length
+        or not re.fullmatch(r"[a-f0-9]{64}", supplied)
+        or not hmac.compare_digest(request_signature(key, raw), supplied)
     ):
         raise MeetError("meet_dialog_diagnostics_unauthorized", 401)
     try:

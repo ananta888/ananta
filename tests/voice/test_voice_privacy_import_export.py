@@ -186,9 +186,7 @@ def test_personalization_reset_recovers_as_replay_after_post_commit_crash(
     assert result["deleted_count"] == 1
     assert result["version"] == 2
     with Session(engine) as session:
-        feedback = session.exec(
-            select(VoiceFeedbackDB).where(VoiceFeedbackDB.profile_id == "profile-portable")
-        ).all()
+        feedback = session.exec(select(VoiceFeedbackDB).where(VoiceFeedbackDB.profile_id == "profile-portable")).all()
     assert feedback == []
 
 
@@ -378,10 +376,7 @@ def test_fine_tuning_export_is_only_an_explicit_non_training_hub_task(client, us
     assert replay.get_json()["data"]["idempotent_replay"] is True
 
     artifact = client.get(
-        (
-            "/v1/voice/personalization/profile-portable/fine-tuning-exports/"
-            f"{approved_data['artifact_ref']}"
-        ),
+        (f"/v1/voice/personalization/profile-portable/fine-tuning-exports/{approved_data['artifact_ref']}"),
         headers=user_auth_header,
     )
     payload = artifact.get_json()["data"]["training_export"]["export"]

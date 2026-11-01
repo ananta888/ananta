@@ -30,7 +30,10 @@ class NativeContextPreparationPort(Protocol):
 
 class NativeContextPreparationService:
     def __init__(
-        self, *, tasks: NativeContextTaskRepositoryPort, bundles: TaskContextBundleAccessPort,
+        self,
+        *,
+        tasks: NativeContextTaskRepositoryPort,
+        bundles: TaskContextBundleAccessPort,
         snapshots: NativeContextSnapshotPort,
     ) -> None:
         self._tasks, self._bundles, self._snapshots = tasks, bundles, snapshots
@@ -39,8 +42,10 @@ class NativeContextPreparationService:
         command.assert_valid()
         metadata = command.node.metadata
         if (
-            command.node.task_kind != "pi_coding_agent" or metadata.get("context_bundle_mode") != "control_task"
-            or command.provider_binding is None or not command.provider_profile_bindings
+            command.node.task_kind != "pi_coding_agent"
+            or metadata.get("context_bundle_mode") != "control_task"
+            or command.provider_binding is None
+            or not command.provider_profile_bindings
         ):
             raise ValueError("native_context_preparation_mode_invalid")
         access = {
@@ -55,8 +60,12 @@ class NativeContextPreparationService:
         if bundle is None:
             raise ValueError("native_context_bundle_required")
         snapshot = NativeContextSnapshot.create(
-            task_id=hub_task_id, command=command.to_dict(), source_bundle_id=_field(bundle, "id"),
-            source_task_id=task_id, chunks=_field(bundle, "chunks"), access=access,
+            task_id=hub_task_id,
+            command=command.to_dict(),
+            source_bundle_id=_field(bundle, "id"),
+            source_task_id=task_id,
+            chunks=_field(bundle, "chunks"),
+            access=access,
         )
         self._snapshots.ensure(snapshot)
         return NativePreparedTaskContext(snapshot.bundle_id, task_id, scope)

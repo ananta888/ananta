@@ -164,10 +164,13 @@ def validate_profile(profile: dict[str, Any]) -> None:
         profile.get("baseline_comparison"),
         "baseline_comparison",
     )
-    if _number(
-        baseline.get("max_regression_percent"),
-        "max_regression_percent",
-    ) != 15.0:
+    if (
+        _number(
+            baseline.get("max_regression_percent"),
+            "max_regression_percent",
+        )
+        != 15.0
+    ):
         raise SuiteValidationError("formal_profile_regression_must_equal_15")
     if baseline.get("required_approval_status") != "approved":
         raise SuiteValidationError("formal_profile_approval_status_invalid")
@@ -188,10 +191,7 @@ def validate_profile(profile: dict[str, Any]) -> None:
     directions = _mapping(baseline.get("metrics"), "baseline_metrics")
     if set(directions) != set(REQUIRED_METRICS):
         raise SuiteValidationError("formal_profile_baseline_metric_set_invalid")
-    if any(
-        direction not in {"lower_is_better", "higher_is_better", "exact"}
-        for direction in directions.values()
-    ):
+    if any(direction not in {"lower_is_better", "higher_is_better", "exact"} for direction in directions.values()):
         raise SuiteValidationError("formal_profile_baseline_direction_invalid")
     metadata = _list(
         profile.get("required_environment_metadata"),
@@ -246,10 +246,13 @@ def _validate_backend(profile: dict[str, Any], backend: dict[str, Any], schemas:
         raise SuiteValidationError("backend_schema_invalid")
     _validate_local_flags(backend, source="backend")
     _verify_source_profile(profile, backend, "backend")
-    if _mapping(
-        backend.get("absolute_evaluation"),
-        "backend_absolute_evaluation",
-    ).get("within_budget") is not True:
+    if (
+        _mapping(
+            backend.get("absolute_evaluation"),
+            "backend_absolute_evaluation",
+        ).get("within_budget")
+        is not True
+    ):
         raise SuiteValidationError("backend_local_budget_failed")
     backend_metrics = _mapping(backend.get("measurements"), "backend_measurements")
     if _integer(backend_metrics.get("task_count"), "backend_task_count") != 1000:
@@ -281,16 +284,17 @@ def _validate_angular_header(profile: dict[str, Any], angular: dict[str, Any], s
         raise SuiteValidationError("angular_workload_invalid")
     methodology = _mapping(angular.get("methodology"), "angular_methodology")
     min_runs = _integer(
-        _mapping(profile.get("sampling"), "sampling").get(
-            "angular_measured_runs_per_viewport_min"
-        ),
+        _mapping(profile.get("sampling"), "sampling").get("angular_measured_runs_per_viewport_min"),
         "angular_min_runs",
         minimum=1,
     )
-    if _integer(
-        methodology.get("measured_runs_per_viewport"),
-        "angular_measured_runs",
-    ) < min_runs:
+    if (
+        _integer(
+            methodology.get("measured_runs_per_viewport"),
+            "angular_measured_runs",
+        )
+        < min_runs
+    ):
         raise SuiteValidationError("angular_sample_count_invalid")
     return min_runs
 
@@ -330,9 +334,7 @@ def _collect_angular_viewport(
     series["long_count_p95"].append(_percentile(counts, 0.95))
     series["long_total_p95"].append(_number(summary.get("longTaskTotalP95Ms"), f"long_task_total:{name}"))
     series["longest_p95"].append(_number(summary.get("longestTaskP95Ms"), f"longest_task:{name}"))
-    series["retained_heap_mb"].append(
-        _number(summary.get("retainedHeapP95Bytes"), f"retained_heap:{name}") / 1048576.0
-    )
+    series["retained_heap_mb"].append(_number(summary.get("retainedHeapP95Bytes"), f"retained_heap:{name}") / 1048576.0)
     return name
 
 
@@ -372,10 +374,13 @@ def _validate_tui_header(profile: dict[str, Any], tui: dict[str, Any], schemas: 
         raise SuiteValidationError("tui_schema_invalid")
     _validate_local_flags(tui, source="tui")
     _verify_source_profile(profile, tui, "tui")
-    if _mapping(
-        tui.get("absolute_evaluation"),
-        "tui_absolute_evaluation",
-    ).get("within_budget") is not True:
+    if (
+        _mapping(
+            tui.get("absolute_evaluation"),
+            "tui_absolute_evaluation",
+        ).get("within_budget")
+        is not True
+    ):
         raise SuiteValidationError("tui_local_budget_failed")
     tui_metrics = _mapping(tui.get("measurements"), "tui_measurements")
     if _integer(tui_metrics.get("card_count"), "tui_card_count") != 1000:
@@ -414,8 +419,7 @@ def _normalise_tui(
         "tui_terminal_sizes",
     )
     expected_size_keys = {
-        f"{item['columns']}x{item['rows']}"
-        for item in _list(workload["terminal_sizes"], "terminal_sizes")
+        f"{item['columns']}x{item['rows']}" for item in _list(workload["terminal_sizes"], "terminal_sizes")
     }
     if set(terminal_metrics) != expected_size_keys:
         raise SuiteValidationError("tui_terminal_size_set_invalid")
@@ -449,9 +453,7 @@ def _validate_pty_header(
     if pty.get("terminal_sizes") != workload["terminal_sizes"]:
         raise SuiteValidationError("pty_terminal_sizes_invalid")
     return _integer(
-        _mapping(profile["sampling"], "sampling").get(
-            "pty_resize_samples_per_size_min"
-        ),
+        _mapping(profile["sampling"], "sampling").get("pty_resize_samples_per_size_min"),
         "pty_min_samples",
         minimum=1,
     )
@@ -461,10 +463,7 @@ def _pty_resize_result(index: int, raw_result: Any, min_pty_samples: int) -> tup
     """Validate one resize measurement and return (size key, p50, p95)."""
 
     result = _mapping(raw_result, f"pty_resize:{index}")
-    size_key = (
-        f"{_integer(result.get('columns'), 'pty_columns')}"
-        f"x{_integer(result.get('rows'), 'pty_rows')}"
-    )
+    size_key = f"{_integer(result.get('columns'), 'pty_columns')}x{_integer(result.get('rows'), 'pty_rows')}"
     if result.get("marker_present") is not True or result.get("process_alive") is not True:
         raise SuiteValidationError(f"pty_resize_process_assertion_failed:{size_key}")
     samples = [
@@ -475,8 +474,7 @@ def _pty_resize_result(index: int, raw_result: Any, min_pty_samples: int) -> tup
         )
     ]
     if (
-        _integer(result.get("sample_count"), f"pty_sample_count:{size_key}")
-        != len(samples)
+        _integer(result.get("sample_count"), f"pty_sample_count:{size_key}") != len(samples)
         or len(samples) < min_pty_samples
     ):
         raise SuiteValidationError(f"pty_resize_samples_insufficient:{size_key}")
@@ -553,9 +551,8 @@ def normalise_measurements(
         "backend_deduplicated_events",
     )
     events_profile = _mapping(workload["events"], "events")
-    expected_deduplicated = (
-        _integer(events_profile["unique_count"], "event_unique_count")
-        // _integer(events_profile["duplicate_every"], "duplicate_every", minimum=1)
+    expected_deduplicated = _integer(events_profile["unique_count"], "event_unique_count") // _integer(
+        events_profile["duplicate_every"], "duplicate_every", minimum=1
     )
     if deduplicated != expected_deduplicated:
         raise SuiteValidationError("event_deduplication_count_invalid")

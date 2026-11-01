@@ -12,6 +12,7 @@ This module provides a single place to define what text is embedded, how it is
 truncated, and how it is composed from structured document fields — without
 touching the provider layer.
 """
+
 from __future__ import annotations
 
 import re

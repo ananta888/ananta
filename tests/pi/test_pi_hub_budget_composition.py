@@ -40,8 +40,13 @@ class ServiceClient:
             raise WorkflowHubDecisionError(exc.reason_code) from exc
 
 
-def composition(*, hub_task_id="hub-task-1", allowed_artifacts=(), context_bundles=None,
-                endpoint_identity="http://ollama:11434/v1/chat/completions"):
+def composition(
+    *,
+    hub_task_id="hub-task-1",
+    allowed_artifacts=(),
+    context_bundles=None,
+    endpoint_identity="http://ollama:11434/v1/chat/completions",
+):
     selected = ProviderProfileExecutionBinding(
         profile_id="pi-primary",
         binding=ProviderExecutionBinding(

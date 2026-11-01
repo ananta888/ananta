@@ -22,13 +22,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from worker.retrieval.codecompass_candidate_resolver import (
     CodeCompassCandidateResolver,
     ResolverConfig,
     _classify_path,
-    _is_source_path,
     _looks_like_path,
     _source_path_multiplier,
     _stem_boost,
@@ -178,7 +175,7 @@ class TestLooksLikePath:
         # `List.of()`, `Map.of()` show up in relations records as the
         # `to`/`target`/`target_resolved` value. The presence of `(`,
         # `)`, or `;` disqualifies them as paths.
-        assert _looks_like_path("Objects.requireNonNull(apiClient, \"apiClient\")") is False
+        assert _looks_like_path('Objects.requireNonNull(apiClient, "apiClient")') is False
         assert _looks_like_path("List.of()") is False
         assert _looks_like_path("Map.of()") is False
         assert _looks_like_path("Thread.currentThread().interrupt()") is False
@@ -227,9 +224,12 @@ class TestSourcePathMultiplier:
 
     def test_ananta_eclipse_plugin_kept(self) -> None:
         # Ananta-eigenes Eclipse-Plugin: voller Multiplier, NICHT demoted.
-        assert _source_path_multiplier(
-            "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java"
-        ) == 1.0
+        assert (
+            _source_path_multiplier(
+                "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java"
+            )
+            == 1.0
+        )
 
     def test_ananta_tui_kept(self) -> None:
         assert _source_path_multiplier("client_surfaces/operator_tui/renderer.py") == 1.0
@@ -400,17 +400,15 @@ class TestResolverPerPathCaps:
 
         # 2) Test / docs / workflows / docker-compose must not occupy Top-2.
         top_two = paths[:2]
-        assert not any(
-            marker in p
-            for p in top_two
-            for marker in ("tests/", "docker-compose", ".github/", "docs/")
-        ), f"test/ci/docs/demoted paths should not be in Top-2, got: {top_two}"
+        assert not any(marker in p for p in top_two for marker in ("tests/", "docker-compose", ".github/", "docs/")), (
+            f"test/ci/docs/demoted paths should not be in Top-2, got: {top_two}"
+        )
 
         # 3) At least one worker/retrieval/codecompass_*.py file is in
         # the candidates list (its stem matches the query).
-        assert any(
-            "worker/retrieval/codecompass_" in p for p in paths
-        ), f"CodeCompass source files should appear, got: {paths[:5]}"
+        assert any("worker/retrieval/codecompass_" in p for p in paths), (
+            f"CodeCompass source files should appear, got: {paths[:5]}"
+        )
 
     def test_broad_token_cap_prevents_short_token_flooding(self, tmp_path) -> None:
         """A file with 200 details records that all share a 2-char broad
@@ -447,9 +445,7 @@ class TestResolverPerPathCaps:
 
         # The CodeCompass source file must outrank the RepairBackend flooder.
         cc_path = "worker/retrieval/codecompass_candidate_resolver.py"
-        repair_path = next(
-            (p for p in paths if "RepairBackend.java" in p), None
-        )
+        repair_path = next((p for p in paths if "RepairBackend.java" in p), None)
         assert repair_path is not None, f"RepairBackend expected in candidates, got: {paths[:5]}"
         assert scores[cc_path] > scores[repair_path], (
             f"CodeCompass source should outrank RepairBackend flooder; "
@@ -562,14 +558,16 @@ class TestResolverPerPathCaps:
             output_dir=out,
         )
         scores = {c["path"]: c["score"] for c in candidates}
-        paths = [c["path"] for c in candidates]
+        [c["path"] for c in candidates]
 
         # The CodeCompass source file has stem-match boost;
         # central_hub.py has no stem overlap with "codecompass".
         # Without the cap, central_hub.py would outrank it because of
         # the 50 incoming relations.
         if "agent/services/central_hub.py" in scores and "worker/retrieval/codecompass_candidate_resolver.py" in scores:
-            assert scores["worker/retrieval/codecompass_candidate_resolver.py"] >= scores["agent/services/central_hub.py"], (
+            assert (
+                scores["worker/retrieval/codecompass_candidate_resolver.py"] >= scores["agent/services/central_hub.py"]
+            ), (
                 f"CodeCompass source with stem-match should outrank central hub "
                 f"that has 50 incoming relations. Scores: "
                 f"cc={scores['worker/retrieval/codecompass_candidate_resolver.py']:.2f} "
@@ -586,6 +584,7 @@ class TestResolverPerPathCaps:
         `path: /plugin` and the reader picked that over `file: .../plugin.xml`.
         """
         from worker.retrieval.codecompass_output_reader import extract_file_path_from_record
+
         out = tmp_path / "cc"
         # The XML node record has BOTH `file` (real) and `path` (XPath).
         _seed_minimal_codecompass_output(
@@ -600,27 +599,38 @@ class TestResolverPerPathCaps:
         # Add the XML-node records (id=xml_node_detail:hash, kind=xml_node_detail)
         # on top of the seeded ones.
         import json as _json
+
         with open(out / "details.jsonl", "a") as fp:
-            fp.write(_json.dumps({
-                "id": "xml_node_detail:022aea4576eb4705",
-                "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-                "kind": "xml_node_detail",
-                "tag": "plugin",
-                "path": "/plugin",
-                "attributes": {},
-                "text": "",
-                "children": ["extension"],
-                "_provenance": {"output_kind": "details", "manifest_hash": "test"},
-            }) + "\n")
+            fp.write(
+                _json.dumps(
+                    {
+                        "id": "xml_node_detail:022aea4576eb4705",
+                        "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+                        "kind": "xml_node_detail",
+                        "tag": "plugin",
+                        "path": "/plugin",
+                        "attributes": {},
+                        "text": "",
+                        "children": ["extension"],
+                        "_provenance": {"output_kind": "details", "manifest_hash": "test"},
+                    }
+                )
+                + "\n"
+            )
         with open(out / "context.jsonl", "a") as fp:
-            fp.write(_json.dumps({
-                "id": "xml_node_detail:022aea4576eb4705",
-                "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-                "kind": "xml_node_detail",
-                "tag": "plugin",
-                "path": "/plugin",
-                "_provenance": {"output_kind": "context", "manifest_hash": "test"},
-            }) + "\n")
+            fp.write(
+                _json.dumps(
+                    {
+                        "id": "xml_node_detail:022aea4576eb4705",
+                        "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+                        "kind": "xml_node_detail",
+                        "tag": "plugin",
+                        "path": "/plugin",
+                        "_provenance": {"output_kind": "context", "manifest_hash": "test"},
+                    }
+                )
+                + "\n"
+            )
 
         # Direct unit test on extract_file_path_from_record
         rec = {

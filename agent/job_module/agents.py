@@ -1,4 +1,5 @@
 """Job Module Agent Skill Profiles — registered into the VisualProcess SkillProfileRegistry."""
+
 from __future__ import annotations
 
 

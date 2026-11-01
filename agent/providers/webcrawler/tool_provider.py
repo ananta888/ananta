@@ -82,11 +82,7 @@ class AnantaWebcrawlerToolProvider:
                 tool_name=tool_name,
                 tool_call_id=tool_call_id,
                 status="policy_blocked",
-                error=(
-                    "webcrawler_disabled"
-                    if not self._config.enabled
-                    else "webcrawler_tool_role_disabled"
-                ),
+                error=("webcrawler_disabled" if not self._config.enabled else "webcrawler_tool_role_disabled"),
             )
         policy_action = action
         if action == "run_profile":
@@ -178,15 +174,9 @@ class AnantaWebcrawlerToolProvider:
         if not profile:
             raise WebcrawlerProviderError("webcrawler_profile_required")
         adapter_path = _ADAPTER_PATHS[action]
-        request_payload = (
-            dict(arguments.get("request") or {})
-            if isinstance(arguments.get("request"), Mapping)
-            else {}
-        )
+        request_payload = dict(arguments.get("request") or {}) if isinstance(arguments.get("request"), Mapping) else {}
         try:
-            request_size = len(
-                json.dumps(request_payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-            )
+            request_size = len(json.dumps(request_payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
         except (TypeError, ValueError, RecursionError) as exc:
             raise WebcrawlerProviderError("webcrawler_adapter_request_invalid") from exc
         if request_size > 1_000_000:

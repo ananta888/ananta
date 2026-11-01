@@ -13,10 +13,10 @@ from agent.services.sfu_broadcast_reconciliation_jobs import (
     SfuRouteReconciliationScopeCandidate,
     SfuRouteReconciliationScopePage,
 )
+from agent.services.sfu_fanout_reconciliation_service import RouteReconciliationScope
 from agent.services.sfu_fleet_reconciliation_service import (
     SfuFleetReconciliationPage,
 )
-from agent.services.sfu_fanout_reconciliation_service import RouteReconciliationScope
 
 
 class _EmptyState:

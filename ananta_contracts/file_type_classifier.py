@@ -115,11 +115,7 @@ class FileTypeClassifier:
                 return selected
 
         if is_text:
-            fallbacks = [
-                (descriptor, "*")
-                for descriptor in self._enabled
-                if descriptor.selectors.text_fallback
-            ]
+            fallbacks = [(descriptor, "*") for descriptor in self._enabled if descriptor.selectors.text_fallback]
             return self._select(normalized_path, FileTypeMatchKind.TEXT_FALLBACK, fallbacks)
         return None
 

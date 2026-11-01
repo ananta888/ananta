@@ -54,9 +54,7 @@ def test_explanation_is_bound_to_receipt_and_keeps_prompt_injection_literal() ->
         "payment; observed residual crossed threshold.",
     )
     assert "accepted_exception" in explanation.permitted_dispositions
-    assert explanation.requested_checks == (
-        "Check whether the event is seasonal, one-off or missing context.",
-    )
+    assert explanation.requested_checks == ("Check whether the event is seasonal, one-off or missing context.",)
 
 
 def test_explanation_rejects_unbound_or_wrong_evidence_type() -> None:

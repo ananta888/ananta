@@ -75,11 +75,7 @@ def test_no_known_secret_files_are_tracked() -> None:
 def test_no_secret_key_suffix_is_tracked() -> None:
     """No ``**/secrets/secret_key``-style file may be tracked at any depth."""
     all_tracked = _git_ls_files()
-    offenders = [
-        f
-        for f in all_tracked
-        if any(f.endswith(suffix) for suffix in FORBIDDEN_TRACKED_SUFFIXES)
-    ]
+    offenders = [f for f in all_tracked if any(f.endswith(suffix) for suffix in FORBIDDEN_TRACKED_SUFFIXES)]
     assert not offenders, f"Secret-looking files are tracked: {offenders}"
 
 
@@ -97,13 +93,10 @@ def test_gitignore_covers_nested_secret_keys() -> None:
     """.gitignore must ignore nested ``secrets/secret_key`` paths."""
     # Use a hypothetical path: the guard is about the pattern, not a real file.
     assert _git_check_ignore("x/y/secrets/secret_key"), (
-        ".gitignore must contain a pattern covering nested secrets/secret_key "
-        "(e.g. `**/secrets/**`)."
+        ".gitignore must contain a pattern covering nested secrets/secret_key (e.g. `**/secrets/**`)."
     )
 
 
 def test_gitignore_covers_login_payload() -> None:
     """.gitignore must ignore ``login_payload.json`` so it cannot be re-added."""
-    assert _git_check_ignore("any/login_payload.json"), (
-        ".gitignore must ignore login_payload.json."
-    )
+    assert _git_check_ignore("any/login_payload.json"), ".gitignore must ignore login_payload.json."

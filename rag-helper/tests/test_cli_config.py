@@ -17,25 +17,30 @@ class CliConfigTests(unittest.TestCase):
             project_dir = base / "project"
             project_dir.mkdir()
             config_path = base / "rag-profile.json"
-            config_path.write_text(json.dumps({
-                "root": str(project_dir),
-                "flags": {"dry_run": True},
-                "limits": {
-                    "max_parser_lines": 501,
-                    "max_parser_records_per_file": 91,
-                    "max_parser_depth": 12,
-                    "max_document_code_block_chars": 701,
-                    "max_yaml_aliases": 4,
-                    "max_yaml_nodes": 801,
-                    "max_notebook_cells": 13,
-                    "max_notebook_cell_chars": 901,
-                    "max_tabular_rows": 17,
-                    "max_tabular_sample_rows": 7,
-                    "max_tabular_columns": 19,
-                    "max_tabular_cell_chars": 111,
-                    "max_drawio_decoded_page_size_kb": 128,
-                },
-            }), encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "root": str(project_dir),
+                        "flags": {"dry_run": True},
+                        "limits": {
+                            "max_parser_lines": 501,
+                            "max_parser_records_per_file": 91,
+                            "max_parser_depth": 12,
+                            "max_document_code_block_chars": 701,
+                            "max_yaml_aliases": 4,
+                            "max_yaml_nodes": 801,
+                            "max_notebook_cells": 13,
+                            "max_notebook_cell_chars": 901,
+                            "max_tabular_rows": 17,
+                            "max_tabular_sample_rows": 7,
+                            "max_tabular_columns": 19,
+                            "max_tabular_cell_chars": 111,
+                            "max_drawio_decoded_page_size_kb": 128,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
             captured: dict = {}
             with patch("sys.argv", ["rag-helper", "--config", str(config_path)]):
                 with patch("rag_helper.cli.process_project", side_effect=lambda **kwargs: captured.update(kwargs)):
@@ -71,31 +76,36 @@ class CliConfigTests(unittest.TestCase):
             project_dir.mkdir()
             profile_dir.mkdir()
             config_path = profile_dir / "rag-profile.json"
-            config_path.write_text(json.dumps({
-                "root": "../project",
-                "out": "../out",
-                "extensions": ["xml", "java"],
-                "filters": {
-                    "include_glob": ["src/**/*.java"],
-                    "exclude_glob": ["target/**"],
-                },
-                "limits": {
-                    "max_workers": 3,
-                    "max_records_per_file": 25,
-                    "max_xml_input_size_kb": 512,
-                    "max_xml_depth": 16,
-                    "max_xml_attributes": 200,
-                },
-                "modes": {
-                    "xml_mode": "smart",
-                    "output_bundle_mode": "zip",
-                },
-                "flags": {
-                    "progress": True,
-                    "resume": True,
-                    "dry_run": True,
-                },
-            }), encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "root": "../project",
+                        "out": "../out",
+                        "extensions": ["xml", "java"],
+                        "filters": {
+                            "include_glob": ["src/**/*.java"],
+                            "exclude_glob": ["target/**"],
+                        },
+                        "limits": {
+                            "max_workers": 3,
+                            "max_records_per_file": 25,
+                            "max_xml_input_size_kb": 512,
+                            "max_xml_depth": 16,
+                            "max_xml_attributes": 200,
+                        },
+                        "modes": {
+                            "xml_mode": "smart",
+                            "output_bundle_mode": "zip",
+                        },
+                        "flags": {
+                            "progress": True,
+                            "resume": True,
+                            "dry_run": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             captured: dict = {}
 
@@ -135,14 +145,19 @@ class CliConfigTests(unittest.TestCase):
             project_dir = base / "project"
             project_dir.mkdir()
             config_path = base / "rag-profile.json"
-            config_path.write_text(json.dumps({
-                "root": str(project_dir),
-                "flags": {"dry_run": True},
-                "modes": {
-                    "output_compaction_mode": "ultra-rich",
-                    "gem_partition_mode": "domain-rich",
-                },
-            }), encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "root": str(project_dir),
+                        "flags": {"dry_run": True},
+                        "modes": {
+                            "output_compaction_mode": "ultra-rich",
+                            "gem_partition_mode": "domain-rich",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             captured: dict = {}
 
@@ -168,21 +183,29 @@ class CliConfigTests(unittest.TestCase):
             project_dir.mkdir()
             override_dir.mkdir()
             config_path = base / "rag-profile.json"
-            config_path.write_text(json.dumps({
-                "root": str(project_dir),
-                "limits": {"max_workers": 2},
-            }), encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "root": str(project_dir),
+                        "limits": {"max_workers": 2},
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             captured: dict = {}
 
-            with patch("sys.argv", [
-                "rag-helper",
-                "--config",
-                str(config_path),
-                str(override_dir),
-                "--max-workers",
-                "5",
-            ]):
+            with patch(
+                "sys.argv",
+                [
+                    "rag-helper",
+                    "--config",
+                    str(config_path),
+                    str(override_dir),
+                    "--max-workers",
+                    "5",
+                ],
+            ):
                 with patch("rag_helper.cli.process_project", side_effect=lambda **kwargs: captured.update(kwargs)):
                     run_cli(
                         default_extensions={"java"},
@@ -203,13 +226,18 @@ class CliConfigTests(unittest.TestCase):
             out_dir = base / "out"
             project_dir.mkdir()
             config_path = base / "rag-profile.json"
-            config_path.write_text(json.dumps({
-                "root": str(project_dir),
-                "out": str(out_dir),
-                "cache_file": "{out}/.cache/cache.json",
-                "error_log_file": "{out}/.errors/errors.jsonl",
-                "flags": {"dry_run": True},
-            }), encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "root": str(project_dir),
+                        "out": str(out_dir),
+                        "cache_file": "{out}/.cache/cache.json",
+                        "error_log_file": "{out}/.errors/errors.jsonl",
+                        "flags": {"dry_run": True},
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             captured: dict = {}
 

@@ -25,7 +25,7 @@ ALLOWED_SERVICE_TO_ROUTE_IMPORTS = {
 def module_name(path: Path) -> str:
     parts = path.with_suffix("").parts
     if "agent" in parts:
-        parts = parts[parts.index("agent"):]
+        parts = parts[parts.index("agent") :]
     return ".".join(parts)
 
 

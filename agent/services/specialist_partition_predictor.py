@@ -14,8 +14,12 @@ from ananta_contracts.specialist_dataset_admission import AdmittedSpecialistData
 
 class SpecialistEvaluationDatasetPort(Protocol):
     def admit_evaluation(
-        self, manifest: SplitManifest, train: Sequence[Mapping[str, Any]],
-        evaluation: Sequence[Mapping[str, Any]], *, partition: str,
+        self,
+        manifest: SplitManifest,
+        train: Sequence[Mapping[str, Any]],
+        evaluation: Sequence[Mapping[str, Any]],
+        *,
+        partition: str,
     ) -> AdmittedSpecialistDataset: ...
 
 
@@ -25,16 +29,25 @@ class SpecialistEvaluationPort(Protocol):
 
 class HubSpecialistPartitionPredictor:
     def __init__(
-        self, *, strategy: SpecialistTrainingTaskFamilyStrategy,
-        datasets: SpecialistEvaluationDatasetPort, evaluation: SpecialistEvaluationPort,
+        self,
+        *,
+        strategy: SpecialistTrainingTaskFamilyStrategy,
+        datasets: SpecialistEvaluationDatasetPort,
+        evaluation: SpecialistEvaluationPort,
     ):
         self._strategy = strategy
         self._datasets = datasets
         self._evaluation = evaluation
 
     def predict_partition(
-        self, training: CreateTrainingJobCommand, outcome: TrainingOutcome, manifest: SplitManifest,
-        train_records: Sequence[Mapping[str, Any]], examples: Sequence[TrainingExample], *, partition: str,
+        self,
+        training: CreateTrainingJobCommand,
+        outcome: TrainingOutcome,
+        manifest: SplitManifest,
+        train_records: Sequence[Mapping[str, Any]],
+        examples: Sequence[TrainingExample],
+        *,
+        partition: str,
     ) -> Sequence[str]:
         if (
             not outcome.adapter_id
@@ -49,10 +62,13 @@ class HubSpecialistPartitionPredictor:
         )
         spec = dict(training.request_spec)
         spec.update(
-            job_type="evaluate_lora", dataset_id=admitted.dataset_id,
-            expected_dataset_version=admitted.version, adapter_id=outcome.adapter_id,
+            job_type="evaluate_lora",
+            dataset_id=admitted.dataset_id,
+            expected_dataset_version=admitted.version,
+            adapter_id=outcome.adapter_id,
             expected_adapter_sha256=outcome.adapter_digest,
-            expected_base_model_sha256=outcome.base_model_digest, scorer_name="specialist_decision",
+            expected_base_model_sha256=outcome.base_model_digest,
+            scorer_name="specialist_decision",
         )
         result = self._evaluation.evaluate_result(CreateTrainingJobCommand.from_mapping(spec))
         outputs = result.outputs

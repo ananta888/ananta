@@ -28,4 +28,3 @@ def load_model_profiles(cfg: dict[str, Any] | None) -> dict[str, dict[str, Any]]
         base.update(profile)
         merged[key] = base
     return merged
-

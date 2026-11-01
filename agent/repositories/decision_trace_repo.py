@@ -1,4 +1,5 @@
 """DecisionTraceRepository — persists DecisionTrace records to DB."""
+
 from __future__ import annotations
 
 import time
@@ -65,10 +66,7 @@ class DecisionTraceRepository:
         since_ts: float | None = None,
     ) -> List[DecisionTraceDB]:
         with Session(engine) as session:
-            stmt = (
-                select(DecisionTraceDB)
-                .where(DecisionTraceDB.surface == surface)
-            )
+            stmt = select(DecisionTraceDB).where(DecisionTraceDB.surface == surface)
             if since_ts is not None:
                 stmt = stmt.where(DecisionTraceDB.started_at >= since_ts)
             stmt = stmt.order_by(DecisionTraceDB.started_at.desc()).limit(limit)
@@ -82,9 +80,7 @@ class DecisionTraceRepository:
         limit: int = 50,
     ) -> List[DecisionTraceDB]:
         with Session(engine) as session:
-            stmt = select(DecisionTraceDB).where(
-                DecisionTraceDB.fallback_reason.isnot(None)
-            )
+            stmt = select(DecisionTraceDB).where(DecisionTraceDB.fallback_reason.isnot(None))
             if surface:
                 stmt = stmt.where(DecisionTraceDB.surface == surface)
             if since_ts is not None:
@@ -118,9 +114,10 @@ class DecisionTraceRepository:
             )
             rows = list(session.exec(stmt).all())
         return [
-            r for r in rows
-            if r.fallback_reason and ("ttl" in r.fallback_reason or "expired" in r.fallback_reason
-                                       or "timeout" in r.fallback_reason)
+            r
+            for r in rows
+            if r.fallback_reason
+            and ("ttl" in r.fallback_reason or "expired" in r.fallback_reason or "timeout" in r.fallback_reason)
         ]
 
     def cleanup_old_traces(self, *, retention_days: int = 7) -> int:

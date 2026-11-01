@@ -9,6 +9,7 @@ POST /api/wiki-graph/build-domains  body: {index_id, mode, corpus_path?}
 GET  /api/wiki-graph/domains?index_id=...&mode=...&limit=100
 GET  /api/wiki-graph/domain-articles?index_id=...&mode=...&domain=...&limit=50
 """
+
 from __future__ import annotations
 
 import threading
@@ -94,9 +95,7 @@ def _authorize_wiki_graph_surface():
         object_id=index_id,
     )
     if authorization_response is None:
-        g.source_control_authorized_knowledge_index_ids = frozenset(
-            {index_id}
-        )
+        g.source_control_authorized_knowledge_index_ids = frozenset({index_id})
     return authorization_response
 
 
@@ -169,6 +168,7 @@ def wiki_graph_domain_status():
 @check_auth
 def wiki_graph_build_domains():
     from pathlib import Path as _Path
+
     body = request.get_json(silent=True) or {}
     index_id = str(body.get("index_id") or "").strip()
     mode = str(body.get("mode") or "").strip()
@@ -192,6 +192,7 @@ def wiki_graph_build_domains():
 
     # Check if already building
     import threading as _threading
+
     current = _svc.get_domain_build_status(output_dir)
     if current.get(mode, {}).get("status") == "building":
         return api_response(data={"started": False, "status": "already_building"})
@@ -231,6 +232,7 @@ def wiki_graph_content_status():
 @check_auth
 def wiki_graph_build_content():
     import threading as _threading
+
     body = request.get_json(silent=True) or {}
     index_id = str(body.get("index_id") or "").strip()
     force = bool(body.get("force", False))

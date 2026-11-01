@@ -1,10 +1,11 @@
 """Crime/Law/Consequence model (SIM-009)."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from simulation.models.world_state import AgentState, LawState, SimEvent, WorldState
+from simulation.models.world_state import LawState, SimEvent, WorldState
 
 
 @dataclass
@@ -47,8 +48,9 @@ class CrimeConsequenceSystem:
     def __init__(self, ledger: CrimeLedger | None = None) -> None:
         self.ledger = ledger or CrimeLedger()
 
-    def apply_penalty(self, state: WorldState, agent_id: str, law: LawState,
-                       action_type: str, crime_id: str) -> SimEvent:
+    def apply_penalty(
+        self, state: WorldState, agent_id: str, law: LawState, action_type: str, crime_id: str
+    ) -> SimEvent:
         ag = state.agents.get(agent_id)
         penalty = law.penalty
         severity = law.severity
@@ -64,14 +66,20 @@ class CrimeConsequenceSystem:
                 ag.alive = False
 
         rec = CrimeRecord(
-            tick=state.tick, agent_id=agent_id, law_id=law.id,
-            action_type=action_type, penalty_applied=penalty,
-            severity=severity, crime_id=crime_id,
+            tick=state.tick,
+            agent_id=agent_id,
+            law_id=law.id,
+            action_type=action_type,
+            penalty_applied=penalty,
+            severity=severity,
+            crime_id=crime_id,
         )
         self.ledger.record(rec)
 
         ev = SimEvent(
-            tick=state.tick, kind="crime", actor_id=agent_id,
+            tick=state.tick,
+            kind="crime",
+            actor_id=agent_id,
             description=f"{agent_id} broke law {law.id} ({action_type}) → {penalty}",
             data=rec.as_dict(),
         )
@@ -82,8 +90,12 @@ class CrimeConsequenceSystem:
         ag = state.agents.get(agent_id)
         if ag and ag.shelter_status == "imprisoned":
             ag.shelter_status = "outdoors"
-        state.apply_event(SimEvent(
-            tick=state.tick, kind="governance", actor_id=agent_id,
-            description=f"{agent_id} pardoned",
-            data={"kind": "pardon"},
-        ))
+        state.apply_event(
+            SimEvent(
+                tick=state.tick,
+                kind="governance",
+                actor_id=agent_id,
+                description=f"{agent_id} pardoned",
+                data={"kind": "pardon"},
+            )
+        )

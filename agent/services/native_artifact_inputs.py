@@ -35,26 +35,43 @@ class NativeArtifactInputService:
         ):
             raise ValueError("native_artifact_input_reference_invalid")
         artifact = require_locked_row(
-            session, ArtifactDB, reference.removeprefix("artifact://"),
+            session,
+            ArtifactDB,
+            reference.removeprefix("artifact://"),
             missing_reason="native_artifact_input_not_registered",
         )
         provenance = (artifact.artifact_metadata or {}).get("native_artifact_ingress")
         binding = provenance.get("binding") if isinstance(provenance, dict) else None
         if (
-            not isinstance(binding, dict) or provenance.get("tenant_id") != task.tenant_id
+            not isinstance(binding, dict)
+            or provenance.get("tenant_id") != task.tenant_id
             or provenance.get("project_id") != task.project_id
-            or type(provenance.get("size_bytes")) is not int or not 0 <= provenance["size_bytes"] <= MAX_ARTIFACT_BYTES
+            or type(provenance.get("size_bytes")) is not int
+            or not 0 <= provenance["size_bytes"] <= MAX_ARTIFACT_BYTES
         ):
             raise ValueError("native_artifact_input_scope_mismatch")
         producer = require_locked_row(
-            session, TaskDB, binding.get("hub_task_id"), missing_reason="native_artifact_input_producer_missing",
+            session,
+            TaskDB,
+            binding.get("hub_task_id"),
+            missing_reason="native_artifact_input_producer_missing",
         )
         source = native_task_command(producer)
         if (
-            producer.status != "completed" or producer.id == task.id or producer.project_id != task.project_id
-            or any(getattr(source, key) != getattr(command, key) for key in (
-                "tenant_id", "workflow_id", "run_id", "plan_hash", "policy_version", "control_task_id",
-            ))
+            producer.status != "completed"
+            or producer.id == task.id
+            or producer.project_id != task.project_id
+            or any(
+                getattr(source, key) != getattr(command, key)
+                for key in (
+                    "tenant_id",
+                    "workflow_id",
+                    "run_id",
+                    "plan_hash",
+                    "policy_version",
+                    "control_task_id",
+                )
+            )
         ):
             raise ValueError("native_artifact_input_producer_scope_mismatch")
         result = require_native_result_receipt(producer, source)
@@ -65,25 +82,41 @@ class NativeArtifactInputService:
         if (
             not isinstance(raw_authority, dict)
             or set(raw_authority) != {field.name for field in fields(NativeResultAuthority)}
-            or any(type(raw_authority.get(key)) is not int or raw_authority[key] < 1
-                   for key in ("assignment_revision", "ownership_revision", "grant_revision"))
-            or any(not isinstance(raw_authority.get(key), str) or not raw_authority[key]
-                   for key in ("assignment_id", "worker_id", "worker_url"))
+            or any(
+                type(raw_authority.get(key)) is not int or raw_authority[key] < 1
+                for key in ("assignment_revision", "ownership_revision", "grant_revision")
+            )
+            or any(
+                not isinstance(raw_authority.get(key), str) or not raw_authority[key]
+                for key in ("assignment_id", "worker_id", "worker_url")
+            )
         ):
             raise ValueError("native_artifact_input_producer_receipt_invalid")
         require_registered_native_artifacts(
-            session=session, task=producer, command=source, result=result,
+            session=session,
+            task=producer,
+            command=source,
+            result=result,
             authority=NativeResultAuthority(**raw_authority),
         )
         content = self._storage.load_immutable_bytes(
-            artifact_id=artifact.id, version_number=1, filename=provenance["filename"],
-            expected_sha256=provenance["sha256"], expected_size=provenance["size_bytes"],
+            artifact_id=artifact.id,
+            version_number=1,
+            filename=provenance["filename"],
+            expected_sha256=provenance["sha256"],
+            expected_size=provenance["size_bytes"],
         )
         return {
-            "schema": "ananta.native-artifact-input.v1", "hub_task_id": task.id, "input_name": input_name,
-            "artifact_ref": reference, "sha256": provenance["sha256"], "size_bytes": len(content),
-            "filename": provenance["filename"], "media_type": provenance["media_type"],
+            "schema": "ananta.native-artifact-input.v1",
+            "hub_task_id": task.id,
+            "input_name": input_name,
+            "artifact_ref": reference,
+            "sha256": provenance["sha256"],
+            "size_bytes": len(content),
+            "filename": provenance["filename"],
+            "media_type": provenance["media_type"],
             "content_base64": base64.b64encode(content).decode("ascii"),
             "consumer_command_digest": native_context_digest(command.to_dict()),
-            "provenance": provenance, "artifact_version_id": artifact.latest_version_id,
+            "provenance": provenance,
+            "artifact_version_id": artifact.latest_version_id,
         }

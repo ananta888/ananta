@@ -4,6 +4,7 @@ These local hashes are technical observations, never Hub evidence identities.
 The mutable gate accumulates successful runtime reads and a model's explicit
 analysis; model claims alone cannot unlock writes.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -14,11 +15,32 @@ from typing import Final, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
-_SOURCE_SUFFIXES: Final = frozenset({
-    ".py", ".pyi", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
-    ".go", ".rs", ".sh", ".bash", ".java", ".c", ".h", ".cpp",
-    ".cs", ".rb", ".php", ".vue", ".svelte", ".sql",
-})
+_SOURCE_SUFFIXES: Final = frozenset(
+    {
+        ".py",
+        ".pyi",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".cjs",
+        ".go",
+        ".rs",
+        ".sh",
+        ".bash",
+        ".java",
+        ".c",
+        ".h",
+        ".cpp",
+        ".cs",
+        ".rb",
+        ".php",
+        ".vue",
+        ".svelte",
+        ".sql",
+    }
+)
 
 
 def is_source_reference(path: str) -> bool:
@@ -100,9 +122,7 @@ def _declared_scope(workspace: Path) -> set[str]:
     """
     declared = set()
     try:
-        rows = json.loads(
-            (workspace / ".ananta" / "materialization-manifest.json").read_text(encoding="utf-8")
-        )
+        rows = json.loads((workspace / ".ananta" / "materialization-manifest.json").read_text(encoding="utf-8"))
         for row in rows if isinstance(rows, list) else []:
             value = row.get("workspace_path") if isinstance(row, dict) else None
             if value:
@@ -155,8 +175,14 @@ class CodeAnalysisGate:
             return
         if hashlib.sha256(content).hexdigest() != file_sha256 or line_start > len(content.splitlines()):
             return
-        self.sources.append(ObservedSource(str(target.relative_to(self.workspace)), file_sha256,
-                                           line_start, min(line_end, len(content.splitlines()))))
+        self.sources.append(
+            ObservedSource(
+                str(target.relative_to(self.workspace)),
+                file_sha256,
+                line_start,
+                min(line_end, len(content.splitlines())),
+            )
+        )
 
     def accept(self, payload: dict[str, JsonValue]) -> str | None:
         """Return a machine-readable rejection, or retain a source-bound analysis."""
@@ -164,15 +190,17 @@ class CodeAnalysisGate:
             analysis = CodeAnalysis.model_validate_json(json.dumps(payload))
         except ValidationError:
             return "code_analysis_invalid"
-        if not all(value.strip() for value in
-                   (analysis.findings, analysis.change_reasoning, analysis.test_reasoning)):
+        if not all(value.strip() for value in (analysis.findings, analysis.change_reasoning, analysis.test_reasoning)):
             return "code_analysis_invalid"
         if not self.codecompass_observed:
             return "codecompass_inspection_required"
         for ref in analysis.sources:
-            if not any(ref.path == source.path and ref.file_sha256 == source.file_sha256
-                       and source.line_start <= ref.line_start <= ref.line_end <= source.line_end
-                       for source in self.sources):
+            if not any(
+                ref.path == source.path
+                and ref.file_sha256 == source.file_sha256
+                and source.line_start <= ref.line_start <= ref.line_end <= source.line_end
+                for source in self.sources
+            ):
                 return "code_analysis_source_not_observed"
             try:
                 current_hash = hashlib.sha256((self.workspace / ref.path).read_bytes()).hexdigest()
@@ -188,7 +216,9 @@ class CodeAnalysisGate:
             "required": self.required,
             "status": "required" if self.pending else "accepted" if self.analysis else "optional",
             "codecompass_observed": self.codecompass_observed,
-            "observed_sources": [{"path": s.path, "file_sha256": s.file_sha256,
-                                  "line_start": s.line_start, "line_end": s.line_end} for s in self.sources],
+            "observed_sources": [
+                {"path": s.path, "file_sha256": s.file_sha256, "line_start": s.line_start, "line_end": s.line_end}
+                for s in self.sources
+            ],
             "analysis": self.analysis.model_dump(mode="json") if self.analysis else None,
         }

@@ -54,4 +54,3 @@ def test_peer_turn_does_not_require_sfu_capability_evidence():
 def test_sfu_turn_paths_fail_closed_without_real_evidence(path):
     with pytest.raises(TurnIntegrationError, match="turn_path_capability_unverified"):
         service().resolve(request(path))
-

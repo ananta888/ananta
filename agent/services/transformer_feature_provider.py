@@ -12,6 +12,7 @@ TQ-015  TransformerFeatureProvider.score_candidates()
 TQ-016  apply_deterministic_rerank() — merges feature scores, re-sorts
 TQ-017  embed_for_context()          — optional embedding for VectorEncoding
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -52,6 +53,7 @@ _FEATURE_WEIGHT = 0.4
 # Result type (TQ-015)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class TransformerFeatureResult:
     """Structured result from transformer feature scoring.  Never free text.
@@ -64,9 +66,9 @@ class TransformerFeatureResult:
     confidence: float
     model_version: str
     layer_description: str
-    input_hash: str        # sha256 of the serialised input
+    input_hash: str  # sha256 of the serialised input
     elapsed_ms: float
-    mode_used: str         # one of: disabled / observe_only / context_first
+    mode_used: str  # one of: disabled / observe_only / context_first
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +87,7 @@ class TransformerFeatureResult:
 # Policy dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TransformerFeaturePolicy:
     """Runtime policy gates for TransformerFeatureProvider."""
@@ -97,9 +100,7 @@ class TransformerFeaturePolicy:
     def __post_init__(self) -> None:
         mode = str(self.mode or MODE_DISABLED).strip().lower()
         if mode not in _VALID_MODES:
-            log.warning(
-                "TransformerFeaturePolicy: unknown mode %r, falling back to 'disabled'", mode
-            )
+            log.warning("TransformerFeaturePolicy: unknown mode %r, falling back to 'disabled'", mode)
             mode = MODE_DISABLED
         self.mode = mode
         self.local_only = bool(self.local_only)
@@ -109,6 +110,7 @@ class TransformerFeaturePolicy:
 # ---------------------------------------------------------------------------
 # Main provider (TQ-015, TQ-016, TQ-017)
 # ---------------------------------------------------------------------------
+
 
 class TransformerFeatureProvider:
     """Produces structured feature scores from restricted transformer inference.
@@ -182,8 +184,7 @@ class TransformerFeatureProvider:
             rerank_results = self._inference.rerank(safe_query, candidates)
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "TransformerFeatureProvider.score_candidates: rerank failed "
-                "(mode=%s), returning empty scores. exc=%s",
+                "TransformerFeatureProvider.score_candidates: rerank failed (mode=%s), returning empty scores. exc=%s",
                 self._policy.mode,
                 exc,
             )
@@ -293,11 +294,7 @@ class TransformerFeatureProvider:
             row_copy["_transformer_input_hash"] = result.input_hash
 
             if mode == MODE_CONTEXT_FIRST:
-                original_score = float(
-                    row_copy.get("original_score")
-                    or row_copy.get("score")
-                    or 0.0
-                )
+                original_score = float(row_copy.get("original_score") or row_copy.get("score") or 0.0)
                 combined = original_score * _ORIGINAL_WEIGHT + feature_score * _FEATURE_WEIGHT
                 row_copy["_transformer_combined_score"] = combined
 
@@ -355,8 +352,7 @@ class TransformerFeatureProvider:
             return None
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "TransformerFeatureProvider.embed_for_context: embed() failed, "
-                "returning None. exc=%s",
+                "TransformerFeatureProvider.embed_for_context: embed() failed, returning None. exc=%s",
                 exc,
             )
             return None
@@ -385,29 +381,15 @@ class TransformerFeatureProvider:
         cfg = dict(config or {})
         env = os.environ
 
-        mode = str(
-            cfg.get("mode")
-            or env.get(_ENV_MODE)
-            or MODE_DISABLED
-        ).strip().lower()
+        mode = str(cfg.get("mode") or env.get(_ENV_MODE) or MODE_DISABLED).strip().lower()
 
-        allowed_model_names_raw = str(
-            cfg.get("allowed_model_names")
-            or env.get(_ENV_MODEL)
-            or ""
-        )
-        allowed_model_names = [
-            m.strip() for m in allowed_model_names_raw.split(",") if m.strip()
-        ]
+        allowed_model_names_raw = str(cfg.get("allowed_model_names") or env.get(_ENV_MODEL) or "")
+        allowed_model_names = [m.strip() for m in allowed_model_names_raw.split(",") if m.strip()]
 
         local_only_raw = cfg.get("local_only", env.get(_ENV_LOCAL_ONLY, "1"))
         local_only = _bool(local_only_raw)
 
-        max_input_tokens = int(
-            cfg.get("max_input_tokens")
-            or env.get(_ENV_MAX_INPUT_TOKENS)
-            or 512
-        )
+        max_input_tokens = int(cfg.get("max_input_tokens") or env.get(_ENV_MAX_INPUT_TOKENS) or 512)
 
         policy = TransformerFeaturePolicy(
             mode=mode,
@@ -421,6 +403,7 @@ class TransformerFeatureProvider:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _bool(value: Any) -> bool:
     if isinstance(value, bool):

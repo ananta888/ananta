@@ -1,4 +1,5 @@
 """Fail-closed loader for the versioned tiny action-model catalog."""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,10 +11,7 @@ from typing import Iterable
 from agent.services.tiny_router.types import TinyActionModelProfile
 
 CATALOG_SCHEMA = "ananta.tiny_action_model_profiles.v1"
-DEFAULT_CATALOG_PATH = (
-    Path(__file__).resolve().parents[3] / "config" / "models"
-    / "tiny_action_model_profiles.v1.json"
-)
+DEFAULT_CATALOG_PATH = Path(__file__).resolve().parents[3] / "config" / "models" / "tiny_action_model_profiles.v1.json"
 
 
 @dataclass(frozen=True)
@@ -44,14 +42,15 @@ class ProfileCatalog:
             return cls(profiles, str(source), hashlib.sha256(raw).hexdigest())
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             return cls(
-                (), str(source), "", safe_mode=True,
+                (),
+                str(source),
+                "",
+                safe_mode=True,
                 diagnostics=(str(exc) or exc.__class__.__name__,),
             )
 
     @classmethod
-    def from_profiles(
-        cls, profiles: Iterable[TinyActionModelProfile]
-    ) -> "ProfileCatalog":
+    def from_profiles(cls, profiles: Iterable[TinyActionModelProfile]) -> "ProfileCatalog":
         rows = tuple(profiles)
         if len({item.profile_id for item in rows}) != len(rows):
             raise ValueError("duplicate_profile_id")
@@ -62,7 +61,10 @@ class ProfileCatalog:
         return next((item for item in self.profiles if item.profile_id == normalized), None)
 
     def ordered(
-        self, requested_ids: Iterable[str], *, commercial_use: bool,
+        self,
+        requested_ids: Iterable[str],
+        *,
+        commercial_use: bool,
         allow_research_only: bool,
     ) -> tuple[tuple[TinyActionModelProfile, ...], tuple[tuple[str, str], ...]]:
         selected: list[TinyActionModelProfile] = []

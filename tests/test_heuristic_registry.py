@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 import pytest
 
 from agent.services.heuristic_runtime.heuristic_registry_service import (
@@ -19,6 +20,7 @@ def _registry() -> HeuristicRegistry:
 
 
 # --- Load / List ---
+
 
 def test_load_all_finds_starter_heuristics():
     r = _registry()
@@ -76,6 +78,7 @@ def test_list_by_status_active():
 
 # --- Capability Violations ---
 
+
 def test_snake_heuristic_no_capability_violations():
     r = _registry()
     h = r.get_by_id("snake-follow-default")
@@ -83,33 +86,37 @@ def test_snake_heuristic_no_capability_violations():
 
 
 def test_snake_heuristic_file_write_violation():
-    h = HeuristicDefinition.from_dict({
-        "heuristic_id": "bad-snake",
-        "version": "1.0.0",
-        "domain": "snake_tui",
-        "strategy_kind": "test",
-        "deterministic": True,
-        "safety_class": "bounded",
-        "capabilities": ["read_local_context", "file_write"],
-        "inputs": [],
-        "outputs": [],
-    })
+    h = HeuristicDefinition.from_dict(
+        {
+            "heuristic_id": "bad-snake",
+            "version": "1.0.0",
+            "domain": "snake_tui",
+            "strategy_kind": "test",
+            "deterministic": True,
+            "safety_class": "bounded",
+            "capabilities": ["read_local_context", "file_write"],
+            "inputs": [],
+            "outputs": [],
+        }
+    )
     violations = h.has_capability_violation()
     assert any("file_write" in v for v in violations)
 
 
 def test_snake_heuristic_non_deterministic_violation():
-    h = HeuristicDefinition.from_dict({
-        "heuristic_id": "non-det-snake",
-        "version": "1.0.0",
-        "domain": "snake_tui",
-        "strategy_kind": "test",
-        "deterministic": False,
-        "safety_class": "bounded",
-        "capabilities": ["read_local_context"],
-        "inputs": [],
-        "outputs": [],
-    })
+    h = HeuristicDefinition.from_dict(
+        {
+            "heuristic_id": "non-det-snake",
+            "version": "1.0.0",
+            "domain": "snake_tui",
+            "strategy_kind": "test",
+            "deterministic": False,
+            "safety_class": "bounded",
+            "capabilities": ["read_local_context"],
+            "inputs": [],
+            "outputs": [],
+        }
+    )
     violations = h.has_capability_violation()
     assert any("deterministic_required" in v for v in violations)
 
@@ -122,19 +129,23 @@ def test_chat_heuristic_no_violations():
 
 # --- In-Memory Registration ---
 
+
 def test_register_in_memory():
     r = _registry()
-    h = HeuristicDefinition.from_dict({
-        "heuristic_id": "test-heuristic",
-        "version": "0.1.0",
-        "domain": "snake_tui",
-        "strategy_kind": "test",
-        "deterministic": True,
-        "safety_class": "readonly",
-        "capabilities": ["read_local_context"],
-        "inputs": [],
-        "outputs": [],
-    }, status="active")
+    h = HeuristicDefinition.from_dict(
+        {
+            "heuristic_id": "test-heuristic",
+            "version": "0.1.0",
+            "domain": "snake_tui",
+            "strategy_kind": "test",
+            "deterministic": True,
+            "safety_class": "readonly",
+            "capabilities": ["read_local_context"],
+            "inputs": [],
+            "outputs": [],
+        },
+        status="active",
+    )
     r.register_in_memory(h)
     found = r.get_by_id("test-heuristic")
     assert found.version == "0.1.0"
@@ -142,17 +153,20 @@ def test_register_in_memory():
 
 def test_candidate_not_returned_by_get_active():
     r = _registry()
-    h = HeuristicDefinition.from_dict({
-        "heuristic_id": "candidate-heuristic",
-        "version": "0.1.0",
-        "domain": "snake_tui",
-        "strategy_kind": "test",
-        "deterministic": True,
-        "safety_class": "bounded",
-        "capabilities": [],
-        "inputs": [],
-        "outputs": [],
-    }, status="candidate")
+    h = HeuristicDefinition.from_dict(
+        {
+            "heuristic_id": "candidate-heuristic",
+            "version": "0.1.0",
+            "domain": "snake_tui",
+            "strategy_kind": "test",
+            "deterministic": True,
+            "safety_class": "bounded",
+            "capabilities": [],
+            "inputs": [],
+            "outputs": [],
+        },
+        status="candidate",
+    )
     r.register_in_memory(h)
     active = r.get_active("snake_tui")
     assert not any(h2.heuristic_id == "candidate-heuristic" for h2 in active)

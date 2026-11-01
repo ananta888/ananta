@@ -28,9 +28,7 @@ def _admit_task_scoped_dispatch(
     )
 
     gate = get_recovery_dispatch_gate_service()
-    provided_token = str(
-        getattr(request_data, "dispatch_lease_token", None) or ""
-    ).strip()
+    provided_token = str(getattr(request_data, "dispatch_lease_token", None) or "").strip()
     role = str(settings.role or "").strip().lower()
     recovery_child = gate.is_recovery_child(task)
     run_evidence_context = getattr(
@@ -45,21 +43,15 @@ def _admit_task_scoped_dispatch(
         )
 
         try:
-            request_data.recovery_run_evidence_context = (
-                get_recovery_hub_run_evidence_service()
-                .bind_request_context(
-                    task=task,
-                    value=run_evidence_context,
-                )
+            request_data.recovery_run_evidence_context = get_recovery_hub_run_evidence_service().bind_request_context(
+                task=task,
+                value=run_evidence_context,
             )
         except RecoveryHubRunEvidenceError as exc:
             decision = RecoveryDispatchGateDecision(
                 False,
                 str(exc),
-                source_task_id=str(
-                    task.get("source_task_id") or ""
-                )
-                or None,
+                source_task_id=str(task.get("source_task_id") or "") or None,
                 plan_id=str(task.get("plan_id") or "") or None,
             )
             return {
@@ -81,20 +73,15 @@ def _admit_task_scoped_dispatch(
         )
 
         try:
-            request_data.recovery_run_evidence_context = (
-                validate_recovery_tool_run_context(
-                    run_evidence_context,
-                    task_id=tid,
-                )
+            request_data.recovery_run_evidence_context = validate_recovery_tool_run_context(
+                run_evidence_context,
+                task_id=tid,
             )
         except RecoveryRunEvidenceContractError as exc:
             decision = RecoveryDispatchGateDecision(
                 False,
                 str(exc),
-                source_task_id=str(
-                    task.get("source_task_id") or ""
-                )
-                or None,
+                source_task_id=str(task.get("source_task_id") or "") or None,
                 plan_id=str(task.get("plan_id") or "") or None,
             )
             return {
@@ -126,36 +113,26 @@ def _admit_task_scoped_dispatch(
             "replayed": False,
             "request_fingerprint": "",
         }
-    if (
-        role == "hub"
-        and str(phase or "").strip().lower() == "execute"
-        and recovery_child
-    ):
+    if role == "hub" and str(phase or "").strip().lower() == "execute" and recovery_child:
         from agent.services.recovery_worker_result_service import (
             RecoveryWorkerResultError,
             get_recovery_worker_result_service,
         )
 
         try:
-            bound_context = (
-                get_recovery_worker_result_service()
-                .bind_execute_proposal_context(
-                    task=task,
-                    value=getattr(
-                        request_data,
-                        "recovery_proposal_context",
-                        None,
-                    ),
-                )
+            bound_context = get_recovery_worker_result_service().bind_execute_proposal_context(
+                task=task,
+                value=getattr(
+                    request_data,
+                    "recovery_proposal_context",
+                    None,
+                ),
             )
         except RecoveryWorkerResultError as exc:
             decision = RecoveryDispatchGateDecision(
                 False,
                 str(exc),
-                source_task_id=str(
-                    task.get("source_task_id") or ""
-                )
-                or None,
+                source_task_id=str(task.get("source_task_id") or "") or None,
                 plan_id=str(task.get("plan_id") or "") or None,
             )
             return {
@@ -195,20 +172,13 @@ def _admit_task_scoped_dispatch(
             "token": provided_token or None,
             "worker_url": None,
             "guard_local_result": False,
-            "replayed": (
-                decision.reason_code
-                == "recovery_dispatch_worker_readmitted"
-            ),
+            "replayed": (decision.reason_code == "recovery_dispatch_worker_readmitted"),
             "request_fingerprint": request_fingerprint,
         }
 
     if provided_token:
-        local_url = str(
-            settings.agent_url or f"http://localhost:{settings.port}"
-        ).strip().rstrip("/")
-        assigned_url = str(
-            task.get("assigned_agent_url") or local_url
-        ).strip().rstrip("/")
+        local_url = str(settings.agent_url or f"http://localhost:{settings.port}").strip().rstrip("/")
+        assigned_url = str(task.get("assigned_agent_url") or local_url).strip().rstrip("/")
         decision = (
             gate.admit_dispatch_lease(
                 tid,
@@ -239,10 +209,7 @@ def _admit_task_scoped_dispatch(
             "token": provided_token,
             "worker_url": assigned_url,
             "guard_local_result": assigned_url == local_url,
-            "replayed": (
-                decision.reason_code
-                == "recovery_dispatch_worker_readmitted"
-            ),
+            "replayed": (decision.reason_code == "recovery_dispatch_worker_readmitted"),
             "request_fingerprint": request_fingerprint,
         }
     if not gate.is_recovery_child(task):
@@ -278,10 +245,7 @@ def _admit_task_scoped_dispatch(
             decision=RecoveryDispatchGateDecision(
                 False,
                 "recovery_dispatch_lease_missing",
-                source_task_id=str(
-                    task.get("source_task_id") or ""
-                )
-                or None,
+                source_task_id=str(task.get("source_task_id") or "") or None,
                 plan_id=str(task.get("plan_id") or "") or None,
             ),
         ),

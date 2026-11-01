@@ -7,6 +7,7 @@ Auth: if the caller passes a plain password (ANANTA_PASSWORD) rather than a JWT
 (ANANTA_AUTH_TOKEN), login() is called automatically and the resulting JWT is
 cached per (base, username) for its full TTL.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,6 +64,7 @@ def _login(base: str, username: str, password: str, timeout: float = 3.0) -> str
     # Decode exp from JWT payload (base64 middle segment) without a crypto dep
     try:
         import base64
+
         parts = token.split(".")
         padded = parts[1] + "=" * (-len(parts[1]) % 4)
         exp = json.loads(base64.urlsafe_b64decode(padded)).get("exp", 0)
@@ -192,6 +194,7 @@ def fetch_hub_section(
 
 
 # ── per-section fetchers ───────────────────────────────────────────────────────
+
 
 def _checked_get(base: str, path: str, token: str, timeout: float) -> Any:
     """Wraps _hub_get, converts HTTP 401/403 to PermissionError."""
@@ -419,7 +422,9 @@ def _fetch_templates(base: str, token: str, timeout: float) -> SectionLoadResult
     panel_state = PanelState.HEALTHY if items else PanelState.EMPTY
     source = "hub+local" if fallback_used else "hub"
     return SectionLoadResult(
-        "templates", panel_state, payload,
+        "templates",
+        panel_state,
+        payload,
         f"{source}: {len(blueprint_items)} blueprints · {len(role_template_items)} templates · {len(system_prompt_items)} system",
     )
 
@@ -485,7 +490,12 @@ def _fetch_audit(base: str, token: str, timeout: float) -> SectionLoadResult:
         ("audit.logs.integrity", "Audit Logs", "Integrity", "/api/system/audit-logs/integrity?limit=500"),
         ("runtime.stats.snapshot", "Runtime Telemetry", "Stats Snapshot", "/api/system/stats"),
         ("runtime.stats.history", "Runtime Telemetry", "Stats History", "/api/system/stats/history?limit=120&offset=0"),
-        ("runtime.backend.observability", "Runtime Telemetry", "Backend Observability", "/debug/backend-observability?lookback_seconds=3600&trace_limit=200"),
+        (
+            "runtime.backend.observability",
+            "Runtime Telemetry",
+            "Backend Observability",
+            "/debug/backend-observability?lookback_seconds=3600&trace_limit=200",
+        ),
         ("llm.requests.recent", "LLM/Debug", "LLM Requests", "/debug/llm-requests?limit=120"),
         ("ops.tasks.timeline", "Task/Ops", "Task Timeline", "/tasks/timeline?limit=50"),
         ("ops.tasks.recent", "Task/Ops", "Recent Tasks", "/tasks?limit=50"),
@@ -569,7 +579,9 @@ def _fetch_audit(base: str, token: str, timeout: float) -> SectionLoadResult:
                 "title": title,
                 "path": f"/debug/llm-requests/{trace_id}",
                 "status": status,
-                "summary": (f"{len(prompt_text)} chars" if prompt_text else _dataset_summary(detail if status == "ok" else None)),
+                "summary": (
+                    f"{len(prompt_text)} chars" if prompt_text else _dataset_summary(detail if status == "ok" else None)
+                ),
                 "error": error,
             }
         )
@@ -689,17 +701,19 @@ def get_share_oidc_token() -> str:
 
 
 def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> SectionLoadResult:
-    from client_surfaces.operator_tui.device_keys import get_device_key_manager, DeviceKeyError
-    from client_surfaces.operator_tui.network_profile import get_active_profile, is_public_profile_active, rendezvous_base_url
+    from client_surfaces.operator_tui.device_keys import DeviceKeyError, get_device_key_manager
+    from client_surfaces.operator_tui.network_profile import (
+        get_active_profile,
+        is_public_profile_active,
+        rendezvous_base_url,
+    )
 
     with _share_lock:
         oidc_token = _share_oidc_token
         rdv_url = _share_rendezvous_url
     if not oidc_token:
         oidc_token = str(
-            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
-            or os.environ.get("ANANTA_TUI_OIDC_TOKEN")
-            or ""
+            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or os.environ.get("ANANTA_TUI_OIDC_TOKEN") or ""
         ).strip()
     if not rdv_url:
         rdv_url = str(os.environ.get("ANANTA_RENDEZVOUS_URL") or rendezvous_base_url() or "").strip()
@@ -721,6 +735,7 @@ def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> Se
     if oidc_token:
         try:
             import base64
+
             parts = oidc_token.split(".")
             if len(parts) == 3:
                 pad = parts[1] + "=" * (-len(parts[1]) % 4)
@@ -740,6 +755,7 @@ def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> Se
     if oidc_token and rdv_url:
         try:
             from client_surfaces.operator_tui.share_client import list_sessions
+
             rdv_sessions = list_sessions(token=oidc_token, base_url=rdv_url)
             me_sub = str(oidc_status.get("sub") or "")
             me_username = str(oidc_status.get("username") or "")
@@ -759,11 +775,13 @@ def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> Se
     elif hub_jwt and hub_base:
         try:
             from client_surfaces.operator_tui.share_client import list_hub_sessions, list_joined_hub_sessions
+
             sessions_mine = list_hub_sessions(token=hub_jwt, hub_url=hub_base)
         except Exception:
             pass
         try:
             from client_surfaces.operator_tui.share_client import list_joined_hub_sessions
+
             sessions_joined = list_joined_hub_sessions(token=hub_jwt, hub_url=hub_base)
         except Exception:
             pass

@@ -59,9 +59,7 @@ CLIENT_SURFACE_ALLOWED_STATUSES = {
     "deferred",
     "blocked",
 }
-FORBIDDEN_RUNTIME_PATH_PREFIXES = (
-    "project-workspaces/",
-)
+FORBIDDEN_RUNTIME_PATH_PREFIXES = ("project-workspaces/",)
 FORBIDDEN_RUNTIME_PATH_PATTERNS = (
     re.compile(r"^artifacts/.+\.json$", re.IGNORECASE),
     re.compile(r"^artifacts/.+\.jsonl$", re.IGNORECASE),
@@ -182,7 +180,11 @@ def lock_entries(path: str) -> list[str]:
 
 def check_required_files() -> CheckResult:
     missing = [path for path in REQUIRED_FILES if not (ROOT / path).exists()]
-    return CheckResult("required-files", not missing, "all required release files exist" if not missing else f"missing: {', '.join(missing)}")
+    return CheckResult(
+        "required-files",
+        not missing,
+        "all required release files exist" if not missing else f"missing: {', '.join(missing)}",
+    )
 
 
 def check_python_dependency_sources() -> CheckResult:
@@ -193,14 +195,20 @@ def check_python_dependency_sources() -> CheckResult:
     dev_lock = requirement_names("requirements-dev.lock")
     problems = []
     if project_deps != runtime:
-        problems.append(f"runtime mismatch: pyproject-only={sorted(project_deps - runtime)}, requirements-only={sorted(runtime - project_deps)}")
+        problems.append(
+            f"runtime mismatch: pyproject-only={sorted(project_deps - runtime)}, requirements-only={sorted(runtime - project_deps)}"
+        )
     unresolved_dev = dev_deps - dev_lock
     if unresolved_dev:
         problems.append(f"dev deps missing from requirements-dev.lock: {sorted(unresolved_dev)}")
     overlap = runtime & dev_deps
     if overlap:
         problems.append(f"runtime/dev source overlap: {sorted(overlap)}")
-    return CheckResult("python-dependency-sources", not problems, "runtime matches pyproject and dev deps resolve in lock" if not problems else "; ".join(problems))
+    return CheckResult(
+        "python-dependency-sources",
+        not problems,
+        "runtime matches pyproject and dev deps resolve in lock" if not problems else "; ".join(problems),
+    )
 
 
 def check_python_locks() -> CheckResult:
@@ -212,7 +220,11 @@ def check_python_locks() -> CheckResult:
             problems.append(f"{path} has no package entries")
         if unpinned:
             problems.append(f"{path} unpinned entries: {unpinned[:10]}")
-    return CheckResult("python-locks", not problems, "python lockfiles contain pinned package entries" if not problems else "; ".join(problems))
+    return CheckResult(
+        "python-locks",
+        not problems,
+        "python lockfiles contain pinned package entries" if not problems else "; ".join(problems),
+    )
 
 
 def check_frontend_manifest() -> CheckResult:
@@ -230,7 +242,13 @@ def check_frontend_manifest() -> CheckResult:
     node_engine = package_json.get("engines", {}).get("node")
     if node_engine != EXACT_NODE_VERSION:
         problems.append(f"frontend node engine must be {EXACT_NODE_VERSION}, got {node_engine!r}")
-    return CheckResult("frontend-manifest", not problems, "frontend package manifest uses exact top-level versions matching package-lock" if not problems else "; ".join(problems))
+    return CheckResult(
+        "frontend-manifest",
+        not problems,
+        "frontend package manifest uses exact top-level versions matching package-lock"
+        if not problems
+        else "; ".join(problems),
+    )
 
 
 def check_actions_pinning() -> CheckResult:
@@ -246,7 +264,11 @@ def check_actions_pinning() -> CheckResult:
             problems.append(f"unpinned {action} refs: {unpinned}")
         if f"{action}@" in workflows and f"{action}@{sha}" not in workflows:
             problems.append(f"missing pinned action ref for used action: {action}@{sha}")
-    return CheckResult("actions-pinning", not problems, "GitHub Actions are pinned to concrete commit SHAs" if not problems else "; ".join(problems))
+    return CheckResult(
+        "actions-pinning",
+        not problems,
+        "GitHub Actions are pinned to concrete commit SHAs" if not problems else "; ".join(problems),
+    )
 
 
 def image_references(path: str) -> Iterable[tuple[int, str, str]]:
@@ -296,7 +318,11 @@ def check_image_pinning() -> CheckResult:
                 problems.append(f"{path}:{line} {kind} uses floating image ref {ref}")
             if requires_digest(ref) and "@sha256:" not in ref:
                 problems.append(f"{path}:{line} {kind} public image ref is not digest-pinned: {ref}")
-    return CheckResult("image-pinning", not problems, "release Dockerfiles and Compose files use explicit tags plus digests" if not problems else "; ".join(problems))
+    return CheckResult(
+        "image-pinning",
+        not problems,
+        "release Dockerfiles and Compose files use explicit tags plus digests" if not problems else "; ".join(problems),
+    )
 
 
 def check_tool_pinning() -> CheckResult:
@@ -313,13 +339,24 @@ def check_tool_pinning() -> CheckResult:
         problems.append("CI must pin @mermaid-js/mermaid-cli@11.12.0")
     if re.search(r"npm (?:i|install) -g @mermaid-js/mermaid-cli(?:\s|$)", workflow):
         problems.append("CI contains unpinned mermaid-cli global install")
-    return CheckResult("tool-pinning", not problems, "global release tools are pinned and version-checked" if not problems else "; ".join(problems))
+    return CheckResult(
+        "tool-pinning",
+        not problems,
+        "global release tools are pinned and version-checked" if not problems else "; ".join(problems),
+    )
 
 
 def check_ci_release_paths() -> CheckResult:
     workflow = read_text(RELEASE_CI_FILE)
     problems = []
-    required_snippets = [f'python-version: "{EXACT_PYTHON_VERSION}"', "pip install -r requirements.lock", "pip install -r requirements-dev.lock", f'node-version: "{EXACT_NODE_VERSION}"', "npm ci", "python scripts/release_gate.py"]
+    required_snippets = [
+        f'python-version: "{EXACT_PYTHON_VERSION}"',
+        "pip install -r requirements.lock",
+        "pip install -r requirements-dev.lock",
+        f'node-version: "{EXACT_NODE_VERSION}"',
+        "npm ci",
+        "python scripts/release_gate.py",
+    ]
     for snippet in required_snippets:
         if snippet not in workflow:
             problems.append(f"missing CI snippet: {snippet}")
@@ -327,7 +364,11 @@ def check_ci_release_paths() -> CheckResult:
         problems.append("CI must install Python dependencies from lockfiles, not source requirements")
     if 'python-version: "3.11"' in workflow:
         problems.append("CI must use the exact Python patch version, not open 3.11")
-    return CheckResult("ci-release-paths", not problems, "CI uses locked Python deps, npm ci, pinned Node, and release gate" if not problems else "; ".join(problems))
+    return CheckResult(
+        "ci-release-paths",
+        not problems,
+        "CI uses locked Python deps, npm ci, pinned Node, and release gate" if not problems else "; ".join(problems),
+    )
 
 
 def check_apt_snapshots() -> CheckResult:
@@ -346,7 +387,13 @@ def check_apt_snapshots() -> CheckResult:
         problems.append("Dockerfile.ollama-wsl-amd must configure Ubuntu snapshot sources")
     if "add-apt-repository" in ollama or "ppa:" in ollama:
         problems.append("Dockerfile.ollama-wsl-amd must not add moving PPAs in the release path")
-    return CheckResult("apt-snapshots", not problems, "apt packages are installed through fixed Debian/Ubuntu snapshot configuration" if not problems else "; ".join(problems))
+    return CheckResult(
+        "apt-snapshots",
+        not problems,
+        "apt packages are installed through fixed Debian/Ubuntu snapshot configuration"
+        if not problems
+        else "; ".join(problems),
+    )
 
 
 def check_client_surface_release_gate() -> CheckResult:
@@ -371,7 +418,9 @@ def check_client_surface_release_gate() -> CheckResult:
         ]
     )
     if result.returncode != 0:
-        return CheckResult("client-surface-release-gate", False, f"audit_client_surface_entrypoints.py failed: {result.stdout[-1000:]}")
+        return CheckResult(
+            "client-surface-release-gate", False, f"audit_client_surface_entrypoints.py failed: {result.stdout[-1000:]}"
+        )
     if not report_path.exists():
         return CheckResult("client-surface-release-gate", False, f"audit output missing: {CLIENT_SURFACE_GATE_REPORT}")
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -380,7 +429,11 @@ def check_client_surface_release_gate() -> CheckResult:
     warnings = [str(item) for item in list(report.get("blocking_warnings") or [])]
     problems = []
     missing_status_entries = sorted(surface for surface in surfaces if surface not in surface_status)
-    invalid_status_entries = sorted(f"{surface}={status}" for surface, status in surface_status.items() if str(status) not in CLIENT_SURFACE_ALLOWED_STATUSES)
+    invalid_status_entries = sorted(
+        f"{surface}={status}"
+        for surface, status in surface_status.items()
+        if str(status) not in CLIENT_SURFACE_ALLOWED_STATUSES
+    )
     if warnings:
         problems.append(f"blocking warnings: {warnings}")
     if missing_status_entries:
@@ -388,7 +441,11 @@ def check_client_surface_release_gate() -> CheckResult:
     if invalid_status_entries:
         problems.append(f"invalid surface statuses: {invalid_status_entries}")
     status_overview = ", ".join(f"{surface}={surface_status.get(surface, 'missing')}" for surface in sorted(surfaces))
-    detail = f"surface status overview: {status_overview}" if not problems else f"{'; '.join(problems)} | overview: {status_overview}"
+    detail = (
+        f"surface status overview: {status_overview}"
+        if not problems
+        else f"{'; '.join(problems)} | overview: {status_overview}"
+    )
     return CheckResult("client-surface-release-gate", not problems, detail)
 
 
@@ -450,7 +507,17 @@ def check_dyndns_secret_hygiene() -> CheckResult:
 
 
 def check_compose_config() -> CheckResult:
-    env = {"POSTGRES_PASSWORD": "test-postgres-password", "INITIAL_ADMIN_PASSWORD": "test-admin-password", "SECRET_KEY": "test-secret-key-with-at-least-thirty-two-chars", "AGENT_TOKEN_HUB": "hub-token", "AGENT_TOKEN_ALPHA": "alpha-token", "AGENT_TOKEN_BETA": "beta-token", "AGENT_TOKEN_GAMMA": "gamma-token", "AGENT_TOKEN_DELTA": "delta-token", "GRAFANA_PASSWORD": "test-grafana-password"}
+    env = {
+        "POSTGRES_PASSWORD": "test-postgres-password",
+        "INITIAL_ADMIN_PASSWORD": "test-admin-password",
+        "SECRET_KEY": "test-secret-key-with-at-least-thirty-two-chars",
+        "AGENT_TOKEN_HUB": "hub-token",
+        "AGENT_TOKEN_ALPHA": "alpha-token",
+        "AGENT_TOKEN_BETA": "beta-token",
+        "AGENT_TOKEN_GAMMA": "gamma-token",
+        "AGENT_TOKEN_DELTA": "delta-token",
+        "GRAFANA_PASSWORD": "test-grafana-password",
+    }
     commands = [
         ["docker", "compose", "-f", "docker/compose-next/compose.stack.quickstart.yml", "config"],
         ["docker", "compose", "-f", "docker/compose-next/compose.stack.full.yml", "config"],
@@ -458,18 +525,50 @@ def check_compose_config() -> CheckResult:
     ]
     failures = []
     for command in commands:
-        result = subprocess.run(command, cwd=ROOT, env=docker_env(env), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=docker_env(env),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
         if result.returncode != 0:
             failures.append(f"{' '.join(command)} failed: {result.stdout[-1000:]}")
-    return CheckResult("compose-config", not failures, "release compose configurations render successfully" if not failures else "; ".join(failures))
+    return CheckResult(
+        "compose-config",
+        not failures,
+        "release compose configurations render successfully" if not failures else "; ".join(failures),
+    )
 
 
 def check_frontend_build() -> CheckResult:
-    install = subprocess.run([*npm_command(), "ci", "--no-audit", "--no-fund"], cwd=ROOT / "frontend-angular", text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+    install = subprocess.run(
+        [*npm_command(), "ci", "--no-audit", "--no-fund"],
+        cwd=ROOT / "frontend-angular",
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
     if install.returncode != 0:
         return CheckResult("frontend-build", False, f"npm ci failed: {install.stdout[-1000:]}")
-    build = subprocess.run([*npm_command(), "run", "build"], cwd=ROOT / "frontend-angular", text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
-    return CheckResult("frontend-build", build.returncode == 0, "frontend npm ci and build passed" if build.returncode == 0 else f"npm run build failed: {build.stdout[-1000:]}")
+    build = subprocess.run(
+        [*npm_command(), "run", "build"],
+        cwd=ROOT / "frontend-angular",
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    return CheckResult(
+        "frontend-build",
+        build.returncode == 0,
+        "frontend npm ci and build passed"
+        if build.returncode == 0
+        else f"npm run build failed: {build.stdout[-1000:]}",
+    )
 
 
 def check_image_builds() -> CheckResult:
@@ -504,14 +603,30 @@ def check_image_builds() -> CheckResult:
     ]
     failures = []
     for command in commands:
-        result = subprocess.run(command, cwd=ROOT, env=docker_env(), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=docker_env(),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
         if result.returncode != 0:
             failures.append(f"{' '.join(command)} failed: {result.stdout[-1000:]}")
-    return CheckResult("image-builds", not failures, "backend, frontend and WSL/Ollama release images build successfully" if not failures else "; ".join(failures))
+    return CheckResult(
+        "image-builds",
+        not failures,
+        "backend, frontend and WSL/Ollama release images build successfully" if not failures else "; ".join(failures),
+    )
 
 
 def build_report(results: list[CheckResult]) -> dict:
-    return {"release_target": "v1.0.0", "ok": all(result.ok for result in results), "checks": [result.to_dict() for result in results]}
+    return {
+        "release_target": "v1.0.0",
+        "ok": all(result.ok for result in results),
+        "checks": [result.to_dict() for result in results],
+    }
 
 
 def main() -> int:
@@ -522,7 +637,20 @@ def main() -> int:
     parser.add_argument("--build-images", action="store_true", help="build backend and frontend Docker images")
     parser.add_argument("--report", help="write a JSON verification report to this path")
     args = parser.parse_args()
-    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_client_surface_release_gate(), check_runtime_path_hygiene(), check_dyndns_secret_hygiene()]
+    results = [
+        check_required_files(),
+        check_python_dependency_sources(),
+        check_python_locks(),
+        check_frontend_manifest(),
+        check_actions_pinning(),
+        check_image_pinning(),
+        check_tool_pinning(),
+        check_ci_release_paths(),
+        check_apt_snapshots(),
+        check_client_surface_release_gate(),
+        check_runtime_path_hygiene(),
+        check_dyndns_secret_hygiene(),
+    ]
     if not args.strict:
         results = [result for result in results if result.name not in {"actions-pinning", "apt-snapshots"}]
     if args.compose_config:

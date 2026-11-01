@@ -163,7 +163,10 @@ def test_sweep_plan_materialization_and_comparison_are_durable_and_independent(
             for index, item in enumerate(materialized["runs"])
         ],
     )
-    assert sweeps.get(
-        kind="comparison",
-        record_digest=comparison["comparison_digest"],
-    ) == comparison
+    assert (
+        sweeps.get(
+            kind="comparison",
+            record_digest=comparison["comparison_digest"],
+        )
+        == comparison
+    )

@@ -67,8 +67,7 @@ def _lmstudio_candidates() -> list[str]:
 def _select_live_tui_llm() -> LiveTuiLlm:
     if not (_env_flag("ANANTA_E2E_LIVE_TUI_LLM") or _env_flag("ANANTA_E2E_LIVE_LMSTUDIO")):
         pytest.skip(
-            "Set ANANTA_E2E_LIVE_TUI_LLM=1 or ANANTA_E2E_LIVE_LMSTUDIO=1 "
-            "to run the live TUI AI-Snake cast E2E."
+            "Set ANANTA_E2E_LIVE_TUI_LLM=1 or ANANTA_E2E_LIVE_LMSTUDIO=1 to run the live TUI AI-Snake cast E2E."
         )
 
     provider = os.environ.get("ANANTA_E2E_TUI_LIVE_PROVIDER", "").strip().lower()

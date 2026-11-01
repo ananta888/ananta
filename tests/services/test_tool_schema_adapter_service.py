@@ -1,4 +1,5 @@
 """UTCR-010: Tests for ToolSchemaAdapterService."""
+
 from __future__ import annotations
 
 import pytest
@@ -57,7 +58,9 @@ def test_debug_snapshot_no_blocked_tools(adapter):
     """Blocked tools must not appear in the debug snapshot."""
     from agent.services.ananta_tool_registry_service import CATEGORY_BLOCKED, AnantaToolRegistryService
 
-    blocked_names = {spec.name for spec in AnantaToolRegistryService().list_tools() if spec.category == CATEGORY_BLOCKED}
+    blocked_names = {
+        spec.name for spec in AnantaToolRegistryService().list_tools() if spec.category == CATEGORY_BLOCKED
+    }
     snap = adapter.get_debug_snapshot()
     returned = {t["name"] for t in snap["tools"]}
     assert not (blocked_names & returned), f"Blocked tools in snapshot: {blocked_names & returned}"

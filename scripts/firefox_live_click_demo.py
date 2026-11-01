@@ -44,11 +44,7 @@ def main():
     parser.add_argument("--post-login-delay-seconds", type=float, default=1.0, help="Delay after successful login.")
     args = parser.parse_args()
 
-    caps = {
-        "capabilities": {
-            "alwaysMatch": {"browserName": "firefox", "acceptInsecureCerts": True}
-        }
-    }
+    caps = {"capabilities": {"alwaysMatch": {"browserName": "firefox", "acceptInsecureCerts": True}}}
     created = wd("POST", "/session", caps)
     session_id = created.get("sessionId") or (created.get("value") or {}).get("sessionId")
     if not session_id:

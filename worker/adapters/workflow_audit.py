@@ -5,6 +5,7 @@ traces never leak across tasks. WorkflowAuditLog is a thin in-memory
 collector flushed to the WorkflowArtifactResult.execution_trace; the
 real source of truth for audit events lives in the hub's audit_service.
 """
+
 from __future__ import annotations
 
 import time
@@ -21,15 +22,18 @@ class WorkflowAuditLog:
     def log(self, event: str, **kwargs: Any) -> None:
         try:
             from ananta_contracts.redaction import redact
+
             safe_kwargs = redact(dict(kwargs))
         except ImportError:
             safe_kwargs = dict(kwargs)
-        self._entries.append({
-            "ts": time.monotonic(),
-            "adapter_id": self._adapter_id,
-            "event": event,
-            **safe_kwargs,
-        })
+        self._entries.append(
+            {
+                "ts": time.monotonic(),
+                "adapter_id": self._adapter_id,
+                "event": event,
+                **safe_kwargs,
+            }
+        )
 
     def entries(self) -> list[dict[str, Any]]:
         return list(self._entries)

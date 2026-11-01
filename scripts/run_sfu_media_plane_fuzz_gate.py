@@ -14,8 +14,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.sfu_broadcast_release_common import (  # noqa: E402
-    atomic_write_report, build_report, canonical_sha256, content_reasons,
-    is_sha256, read_bounded_json, unavailable_report, validate_bindings,
+    atomic_write_report,
+    build_report,
+    canonical_sha256,
+    content_reasons,
+    is_sha256,
+    read_bounded_json,
+    unavailable_report,
+    validate_bindings,
 )
 
 DEFAULT_PROFILE = ROOT / "config/test-profiles/sfu-broadcast/media-plane-fuzz.json"
@@ -66,14 +72,16 @@ def evaluate(
     if not is_sha256(evidence.get("coverage_sha256")):
         reasons.add("media_fuzz_coverage_digest_invalid")
     required_protocols = set(profile.get("required_protocol_classes", []))
-    observed_protocols = set(evidence.get("protocol_classes", [])) if isinstance(
-        evidence.get("protocol_classes"), list
-    ) else set()
+    observed_protocols = (
+        set(evidence.get("protocol_classes", [])) if isinstance(evidence.get("protocol_classes"), list) else set()
+    )
     if observed_protocols != required_protocols:
         reasons.add("media_fuzz_protocol_coverage_mismatch")
-    unsupported = set(evidence.get("unsupported_protocol_classes", [])) if isinstance(
-        evidence.get("unsupported_protocol_classes"), list
-    ) else set()
+    unsupported = (
+        set(evidence.get("unsupported_protocol_classes", []))
+        if isinstance(evidence.get("unsupported_protocol_classes"), list)
+        else set()
+    )
     if unsupported != set(profile.get("unsupported_internal_protocol_classes", [])):
         reasons.add("media_fuzz_unsupported_inventory_mismatch")
     cross_layer = evidence.get("cross_layer_mutation")
@@ -82,9 +90,11 @@ def evaluate(
     else:
         claimed = int(cross_layer.get("cases", 0)) > 0
         reached = cross_layer.get("public_injection_path_verified") is True
-        path = set(cross_layer.get("path_components", [])) if isinstance(
-            cross_layer.get("path_components"), list
-        ) else set()
+        path = (
+            set(cross_layer.get("path_components", []))
+            if isinstance(cross_layer.get("path_components"), list)
+            else set()
+        )
         required_path = set(profile.get("cross_layer_mutation", {}).get("required_path_components", []))
         if claimed and (not reached or path != required_path):
             reasons.add("media_fuzz_cross_layer_injection_unverified")
@@ -94,8 +104,13 @@ def evaluate(
         reasons.add("media_fuzz_resource_peaks_missing")
         peaks = {}
     for name in (
-        "packet_count", "bytes", "cpu_seconds", "memory_bytes",
-        "file_descriptors", "sockets", "timeout_seconds",
+        "packet_count",
+        "bytes",
+        "cpu_seconds",
+        "memory_bytes",
+        "file_descriptors",
+        "sockets",
+        "timeout_seconds",
     ):
         maximum = limits.get(f"{name}_max", limits.get(name))
         value = peaks.get(name)
@@ -105,8 +120,13 @@ def evaluate(
             reasons.add(f"media_fuzz_resource_{name}_exceeded")
     safety = evidence.get("safety")
     required_safety = (
-        "no_crashloop", "no_oom", "cpu_bounded", "allocation_bounded",
-        "no_cross_scope_route", "no_auth_e2ee_downgrade", "no_payload_export",
+        "no_crashloop",
+        "no_oom",
+        "cpu_bounded",
+        "allocation_bounded",
+        "no_cross_scope_route",
+        "no_auth_e2ee_downgrade",
+        "no_payload_export",
         "hub_signature_boundary_preserved",
     )
     if not isinstance(safety, Mapping) or any(safety.get(name) is not True for name in required_safety):
@@ -117,7 +137,10 @@ def evaluate(
         minimized = []
     for item in minimized:
         if not isinstance(item, Mapping) or set(item) != {
-            "seed", "case_sha256", "protocol_class", "reason_code",
+            "seed",
+            "case_sha256",
+            "protocol_class",
+            "reason_code",
         }:
             reasons.add("media_fuzz_minimized_failure_contract_invalid")
             break
@@ -153,8 +176,11 @@ def main() -> int:
         evaluate(profile, read_bounded_json(args.external_result), parent=parent)
         if args.external_result
         else unavailable_report(
-            schema=REPORT_SCHEMA, gate_id=GATE_ID,
-            reason="media_fuzz_external_evidence_missing", config=profile, parent=parent,
+            schema=REPORT_SCHEMA,
+            gate_id=GATE_ID,
+            reason="media_fuzz_external_evidence_missing",
+            config=profile,
+            parent=parent,
         )
     )
     atomic_write_report(args.output, report)

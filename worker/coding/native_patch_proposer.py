@@ -4,8 +4,8 @@ import hashlib
 import json
 from typing import Any
 
-from worker.core.model_provider import WorkerModelProvider
 from worker.coding.semantic_output_correction import correct_semantic_enum_fields
+from worker.core.model_provider import WorkerModelProvider
 
 _RISK_CLASSIFICATIONS: set[str] = {"low", "medium", "high", "critical"}
 
@@ -74,7 +74,9 @@ def propose_patch_with_model(
                 "patch_hash": patch_hash,
                 "changed_files": changed_files,
                 "risk_classification": risk_classification,
-                "expected_effects": [str(item).strip() for item in list(parsed.get("expected_effects") or []) if str(item).strip()],
+                "expected_effects": [
+                    str(item).strip() for item in list(parsed.get("expected_effects") or []) if str(item).strip()
+                ],
             },
         }
         if correction_report is not None:

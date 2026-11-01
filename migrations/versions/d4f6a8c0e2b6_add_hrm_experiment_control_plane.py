@@ -92,7 +92,9 @@ def upgrade() -> None:
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.Column("started_at", sa.Float(), nullable=True),
             sa.Column("finished_at", sa.Float(), nullable=True),
-            sa.UniqueConstraint("tenant_id", "owner_subject", "idempotency_key_digest", name="uq_hrm_run_scope_idempotency"),
+            sa.UniqueConstraint(
+                "tenant_id", "owner_subject", "idempotency_key_digest", name="uq_hrm_run_scope_idempotency"
+            ),
         ],
         "hrm_run_events": [
             sa.Column("id", sa.String(), primary_key=True),
@@ -116,7 +118,9 @@ def upgrade() -> None:
             sa.Column("content_digest", sa.String(), nullable=False),
             sa.Column("report", sa.JSON(), nullable=False),
             sa.Column("created_at", sa.Float(), nullable=False),
-            sa.UniqueConstraint("tenant_id", "owner_subject", "idempotency_key_digest", name="uq_hrm_report_scope_idempotency"),
+            sa.UniqueConstraint(
+                "tenant_id", "owner_subject", "idempotency_key_digest", name="uq_hrm_report_scope_idempotency"
+            ),
         ],
     }
     for name, columns in tables.items():

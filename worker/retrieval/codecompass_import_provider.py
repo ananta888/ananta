@@ -17,12 +17,12 @@ Lifecycle:
 All file reads are bounded by ``workspace_dir`` (DD-013) and never build
 shell commands from user/parser input.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
-
 
 # ---------------------------------------------------------------------------
 # capability flag values
@@ -36,6 +36,7 @@ CAP_DIAGNOSTICS = "diagnostics"
 # ---------------------------------------------------------------------------
 # value objects
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class ProviderProbe:
@@ -71,6 +72,7 @@ class ProviderDiagnostics:
 # capability port
 # ---------------------------------------------------------------------------
 
+
 @runtime_checkable
 class CodeCompassGraphImportProvider(Protocol):
     """Small capability-based port for graph-import providers."""
@@ -89,6 +91,7 @@ class CodeCompassGraphImportProvider(Protocol):
 # helpers
 # ---------------------------------------------------------------------------
 
+
 class WorkspacePathError(ValueError):
     """Raised when a read path escapes the workspace_dir."""
 
@@ -101,9 +104,7 @@ def assert_within_workspace(path: Path, workspace_dir: Path) -> Path:
         candidate.relative_to(workspace)
         return candidate
     except (ValueError, RuntimeError) as exc:
-        raise WorkspacePathError(
-            f"path {path!r} is outside workspace_dir {workspace_dir!r}"
-        ) from exc
+        raise WorkspacePathError(f"path {path!r} is outside workspace_dir {workspace_dir!r}") from exc
 
 
 def compute_content_hash(records: tuple[dict[str, Any], ...]) -> str:
@@ -115,8 +116,7 @@ def compute_content_hash(records: tuple[dict[str, Any], ...]) -> str:
     import hashlib
     import json
 
-    payload = json.dumps(list(records), sort_keys=True, ensure_ascii=False,
-                         separators=(",", ":"))
+    payload = json.dumps(list(records), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

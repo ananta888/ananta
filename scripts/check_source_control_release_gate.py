@@ -28,9 +28,7 @@ def _read_manifest(path: Path) -> dict[str, Any]:
         raise SourceControlReleaseGateError("evidence must be a list")
     production = payload["production_verification"]
     if production is not None and not isinstance(production, dict):
-        raise SourceControlReleaseGateError(
-            "production_verification must be an object or null"
-        )
+        raise SourceControlReleaseGateError("production_verification must be an object or null")
     return payload
 
 
@@ -45,21 +43,27 @@ def main() -> int:
             payload["evidence"],
             production_payload=payload["production_verification"],
         )
-        output = json.dumps(
-            report.to_dict(),
-            indent=2,
-            sort_keys=True,
-        ) + "\n"
+        output = (
+            json.dumps(
+                report.to_dict(),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
     except (OSError, json.JSONDecodeError, SourceControlReleaseGateError) as exc:
-        output = json.dumps(
-            {
-                "schema_version": "1.0",
-                "release_allowed": False,
-                "error": type(exc).__name__,
-            },
-            indent=2,
-            sort_keys=True,
-        ) + "\n"
+        output = (
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "release_allowed": False,
+                    "error": type(exc).__name__,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
         if args.output:
             args.output.write_text(output, encoding="utf-8")
         else:

@@ -14,12 +14,20 @@ def test_workspace_loop_prompt_and_context_file_use_the_same_inner_protocol(app,
             **dict(app.config.get("AGENT_CONFIG") or {}),
             "worker_runtime": {"workspace_root": str(tmp_path)},
         }
-        task = get_repository_registry().task_repo.save(TaskDB(
-            id=str(uuid.uuid4()), title="Fix add", description="Fix add in app.py", task_kind="coding",
-        ))
+        task = get_repository_registry().task_repo.save(
+            TaskDB(
+                id=str(uuid.uuid4()),
+                title="Fix add",
+                description="Fix add in app.py",
+                task_kind="coding",
+            )
+        )
         prompt, metadata = build_task_propose_prompt(
-            tid=task.id, task=task.model_dump(), base_prompt=task.description,
-            tool_definitions_resolver=lambda: [], workspace_mutation_mode="controlled_workspace",
+            tid=task.id,
+            task=task.model_dump(),
+            base_prompt=task.description,
+            tool_definitions_resolver=lambda: [],
+            workspace_mutation_mode="controlled_workspace",
         )
     workspace_dir = Path(metadata["workspace"]["workspace_dir"])
     contract = (workspace_dir / ".ananta/response-contract.md").read_text()
@@ -94,7 +102,7 @@ def test_task_prompt_materializes_workspace_context_files_and_keeps_prompt_short
             },
         )
 
-    workspace_meta = ((meta.get("workspace") or {}).get("opencode_context_files") or {})
+    workspace_meta = (meta.get("workspace") or {}).get("opencode_context_files") or {}
     workspace_dir = Path((meta.get("workspace") or {}).get("workspace_dir") or "")
     assert workspace_dir.exists()
     assert "VERY LONG HUB CONTEXT" not in prompt
@@ -107,7 +115,9 @@ def test_task_prompt_materializes_workspace_context_files_and_keeps_prompt_short
     assert workspace_meta.get("research_context_prompt_path") == "rag_helper/research-context.md"
     assert (workspace_dir / "AGENTS.md").exists()
     assert (workspace_dir / ".ananta" / "hub-context.md").read_text(encoding="utf-8").strip() == "VERY LONG HUB CONTEXT"
-    assert (workspace_dir / "rag_helper" / "research-context.md").read_text(encoding="utf-8").strip() == "VERY LONG RESEARCH CONTEXT"
+    assert (workspace_dir / "rag_helper" / "research-context.md").read_text(
+        encoding="utf-8"
+    ).strip() == "VERY LONG RESEARCH CONTEXT"
 
 
 def test_task_prompt_compact_profile_truncates_workspace_context_files(app, tmp_path):

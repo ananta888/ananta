@@ -1,26 +1,32 @@
 """Tests for diagnostics.py (EW-T052, EW-T053)."""
+
 import time
-import pytest
+
 from worker.core.diagnostics import (
-    AuditEmitter,
-    AuditEvent,
     AUDITABLE_EVENTS,
+    AuditEmitter,
     WorkerDiagnostics,
     WorkerDiagnosticsBuilder,
     _redact_payload,
 )
 
-
 # ── EW-T052: WorkerDiagnostics ────────────────────────────────────────────────
+
 
 class TestWorkerDiagnostics:
     def test_as_dict_contains_required_fields_and_no_secret_keys(self):
-        d = WorkerDiagnostics(
-            worker_id="w1", version="1.0.0", runtime_mode="local"
-        ).as_dict()
-        for key in ("worker_id", "version", "runtime_mode", "registered_tools",
-                    "registered_providers", "enabled_skills", "active_capabilities",
-                    "policy_summary", "generated_at"):
+        d = WorkerDiagnostics(worker_id="w1", version="1.0.0", runtime_mode="local").as_dict()
+        for key in (
+            "worker_id",
+            "version",
+            "runtime_mode",
+            "registered_tools",
+            "registered_providers",
+            "enabled_skills",
+            "active_capabilities",
+            "policy_summary",
+            "generated_at",
+        ):
             assert key in d, f"missing key {key!r}"
         # no secret-like keys in the serialized diagnostics
         for key in d:
@@ -30,14 +36,18 @@ class TestWorkerDiagnostics:
 
     def test_tools_sorted_in_dict(self):
         d = WorkerDiagnostics(
-            worker_id="w1", version="1.0", runtime_mode="local",
+            worker_id="w1",
+            version="1.0",
+            runtime_mode="local",
             registered_tools=["ztool", "atool", "mtool"],
         ).as_dict()
         assert d["registered_tools"] == ["atool", "mtool", "ztool"]
 
     def test_skills_sorted_in_dict(self):
         d = WorkerDiagnostics(
-            worker_id="w1", version="1.0", runtime_mode="local",
+            worker_id="w1",
+            version="1.0",
+            runtime_mode="local",
             enabled_skills=["z_skill", "a_skill"],
         ).as_dict()
         assert d["enabled_skills"] == ["a_skill", "z_skill"]
@@ -59,9 +69,7 @@ class TestWorkerDiagnosticsBuilder:
         return WorkerDiagnosticsBuilder()
 
     def test_build_minimal(self):
-        diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local"
-        )
+        diag = self._builder().build(worker_id="w1", version="0.1", runtime_mode="local")
         assert diag.worker_id == "w1"
         assert diag.registered_tools == []
         assert diag.enabled_skills == []
@@ -72,7 +80,9 @@ class TestWorkerDiagnosticsBuilder:
                 return [{"id": "read_file"}, {"id": "write_file"}]
 
         diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local",
+            worker_id="w1",
+            version="0.1",
+            runtime_mode="local",
             tool_registry=FakeToolRegistry(),
         )
         assert set(diag.registered_tools) == {"read_file", "write_file"}
@@ -83,7 +93,9 @@ class TestWorkerDiagnosticsBuilder:
                 raise RuntimeError("broken")
 
         diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local",
+            worker_id="w1",
+            version="0.1",
+            runtime_mode="local",
             tool_registry=BrokenRegistry(),
         )
         assert diag.registered_tools == []
@@ -100,15 +112,16 @@ class TestWorkerDiagnosticsBuilder:
                 return [FakeEntry()]
 
         diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local",
+            worker_id="w1",
+            version="0.1",
+            runtime_mode="local",
             skill_registry=FakeSkillRegistry(),
         )
         assert "bugfix_plan" in diag.enabled_skills
 
     def test_build_with_envelope(self):
-        from worker.core.execution_envelope import (
-            CapabilityGrant, ExecutionEnvelope, ModelPolicy, ToolPolicy
-        )
+        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope, ModelPolicy, ToolPolicy
+
         env = ExecutionEnvelope(
             task_id="t1",
             actor_ref="hub",
@@ -119,7 +132,9 @@ class TestWorkerDiagnosticsBuilder:
             tool_policy=ToolPolicy(allowed_tool_ids=["read_file"]),
         )
         diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local",
+            worker_id="w1",
+            version="0.1",
+            runtime_mode="local",
             envelope=env,
         )
         assert set(diag.active_capabilities) == {"planning", "code_read"}
@@ -134,7 +149,9 @@ class TestWorkerDiagnosticsBuilder:
                 raise AttributeError("broken")
 
         diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local",
+            worker_id="w1",
+            version="0.1",
+            runtime_mode="local",
             envelope=BrokenEnvelope(),
         )
         assert diag.active_capabilities == []
@@ -146,13 +163,16 @@ class TestWorkerDiagnosticsBuilder:
                 return [{"provider_id": "ollama", "kind": "local"}]
 
         diag = self._builder().build(
-            worker_id="w1", version="0.1", runtime_mode="local",
+            worker_id="w1",
+            version="0.1",
+            runtime_mode="local",
             provider_registry=FakeProviderRegistry(),
         )
         assert len(diag.registered_providers) == 1
 
 
 # ── EW-T053: AuditEmitter ─────────────────────────────────────────────────────
+
 
 class TestAuditEmitter:
     def setup_method(self):
@@ -243,15 +263,11 @@ class TestAuditEmitter:
 
     def test_all_auditable_events_accepted(self):
         for event_type in AUDITABLE_EVENTS:
-            e = self.emitter.emit(
-                event_type, correlation_id="c", reason_code=None, task_id="t"
-            )
+            e = self.emitter.emit(event_type, correlation_id="c", reason_code=None, task_id="t")
             assert "_unknown_event" not in e.payload
 
     def test_correlation_id_always_present(self):
-        event = self.emitter.emit(
-            "shell_execute", correlation_id="corr-123", reason_code=None, task_id="t1"
-        )
+        event = self.emitter.emit("shell_execute", correlation_id="corr-123", reason_code=None, task_id="t1")
         d = event.as_dict()
         assert d["correlation_id"] == "corr-123"
 
@@ -263,9 +279,7 @@ class TestAuditEmitter:
 
     def test_multiple_emits_accumulate(self):
         for i in range(5):
-            self.emitter.emit(
-                "preflight_allow", correlation_id=f"c{i}", reason_code=None, task_id=f"t{i}"
-            )
+            self.emitter.emit("preflight_allow", correlation_id=f"c{i}", reason_code=None, task_id=f"t{i}")
         assert len(self.emitter.peek()) == 5
 
     def test_actor_ref_stored_and_serialized(self):

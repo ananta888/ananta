@@ -288,12 +288,22 @@ def test_duplicate_and_delayed_completion_callbacks_keep_task_terminal_state_con
 
     first = client.post(
         "/tasks/orchestration/complete",
-        json={"task_id": "SEC-RACE-1", "actor": "http://alpha:5001", "gate_results": {"passed": True}, "trace_id": "trace-1"},
+        json={
+            "task_id": "SEC-RACE-1",
+            "actor": "http://alpha:5001",
+            "gate_results": {"passed": True},
+            "trace_id": "trace-1",
+        },
         headers=auth_header,
     )
     second = client.post(
         "/tasks/orchestration/complete",
-        json={"task_id": "SEC-RACE-1", "actor": "http://alpha:5001", "gate_results": {"passed": True}, "trace_id": "trace-1"},
+        json={
+            "task_id": "SEC-RACE-1",
+            "actor": "http://alpha:5001",
+            "gate_results": {"passed": True},
+            "trace_id": "trace-1",
+        },
         headers=auth_header,
     )
     delayed_unknown = client.post(

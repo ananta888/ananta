@@ -29,11 +29,7 @@ def _closed(value: Mapping[str, Any], fields: set[str], name: str) -> None:
 
 
 def _sequence(value: object, name: str, *, minimum: int = 1, maximum: int = 4096) -> Sequence[Any]:
-    if (
-        not isinstance(value, Sequence)
-        or isinstance(value, (str, bytes))
-        or not minimum <= len(value) <= maximum
-    ):
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)) or not minimum <= len(value) <= maximum:
         raise ResearchTrainingContractError(f"research_{name}_invalid")
     return value
 
@@ -218,9 +214,7 @@ class ResearchTokenizerManifestV1:
             tokenizer_id=require_id(value.get("tokenizer_id"), "tokenizer_id"),
             algorithm="byte_bpe_v1",
             artifact_digest=require_digest(value.get("artifact_digest"), "tokenizer_artifact_digest"),
-            dataset_manifest_digest=require_digest(
-                value.get("dataset_manifest_digest"), "dataset_manifest_digest"
-            ),
+            dataset_manifest_digest=require_digest(value.get("dataset_manifest_digest"), "dataset_manifest_digest"),
             vocab_size=vocab_size,
             special_tokens=tokens,
             normalizer=require_id(value.get("normalizer"), "tokenizer_normalizer"),

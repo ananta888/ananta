@@ -47,9 +47,7 @@ class OpenAiHttp:
             allow_path=True,
         )
         self.opener = (
-            opener
-            if opener is not None
-            else urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+            opener if opener is not None else urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         )
         self.clock = clock
         self._client = BoundedJsonClient(

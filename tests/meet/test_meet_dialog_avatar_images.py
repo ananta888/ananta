@@ -9,8 +9,8 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_avatar_images import MeetDialogAvatarImages
 from ananta_contracts.meet_avatar_image import REQUEST_SCHEMA, decode_image_response
 from tests.meet.test_meet_avatar_image_bridge import image_assignment
-from tests.test_meet_dialog_avatar_controls import avatar_scope
 from tests.meet.test_meet_dialog_avatar_selection import image_selection
+from tests.test_meet_dialog_avatar_controls import avatar_scope
 
 
 def fixture():

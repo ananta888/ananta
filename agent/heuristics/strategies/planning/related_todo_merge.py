@@ -1,4 +1,5 @@
 """RelatedTodoMergeStrategy — planning_related_todo_merge_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, HeuristicStrategyBase, TodoReadPort
@@ -8,8 +9,16 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _MERGE_KEYWORDS = [
-    "merge", "combine", "consolidate", "duplicate", "related", "overlap",
-    "similar task", "same goal", "deduplicate", "group",
+    "merge",
+    "combine",
+    "consolidate",
+    "duplicate",
+    "related",
+    "overlap",
+    "similar task",
+    "same goal",
+    "deduplicate",
+    "group",
 ]
 _MIN_SCORE = 0.1
 

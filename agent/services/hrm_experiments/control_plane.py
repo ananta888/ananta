@@ -87,9 +87,7 @@ class HrmExperimentControlPlaneService:
         effective_limits: Mapping[str, Any] | None = None,
     ) -> None:
         self._feature_enabled = bool(feature_enabled)
-        self._worker_capabilities = (
-            worker_capabilities or UnavailableHrmWorkerCapabilityPort()
-        )
+        self._worker_capabilities = worker_capabilities or UnavailableHrmWorkerCapabilityPort()
         self._contracts = contract_validator or default_hrm_contract_validator
         self._effective_limits = dict(effective_limits or _DEFAULT_LIMITS)
         self._policy_digest = _canonical_digest(
@@ -120,10 +118,7 @@ class HrmExperimentControlPlaneService:
             reasons.append("hrm.worker_unavailable")
         elif profile_id not in capability["supported_profiles"]:
             reasons.append("hrm.profile_unsupported")
-        elif not all(
-            capability["isolation"].get(control) is True
-            for control in _REQUIRED_ISOLATION_CONTROLS
-        ):
+        elif not all(capability["isolation"].get(control) is True for control in _REQUIRED_ISOLATION_CONTROLS):
             reasons.append("hrm.isolation_policy_unsatisfied")
 
         result: dict[str, Any] = {
@@ -139,11 +134,7 @@ class HrmExperimentControlPlaneService:
         return result
 
     def _build_capability(self) -> tuple[dict[str, Any], bool]:
-        snapshot = (
-            self._worker_capabilities.read_capability()
-            if self._feature_enabled
-            else None
-        )
+        snapshot = self._worker_capabilities.read_capability() if self._feature_enabled else None
         worker_available = snapshot is not None
         fields = self._snapshot_fields(snapshot)
         unsigned: dict[str, Any] = {

@@ -8,8 +8,8 @@ except ModuleNotFoundError:  # pragma: no cover - environment dependent
     XsdExtractor = None
 
 try:
-    from tree_sitter import Language, Parser
     import tree_sitter_java as tsjava
+    from tree_sitter import Language, Parser
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     Language = None
     Parser = None
@@ -27,7 +27,9 @@ def _parse_first_type(code: str):
     return src, type_node
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class JavaParentChildLinkTests(unittest.TestCase):
     def test_java_type_method_and_constructor_have_parent_links(self) -> None:
         src, type_node = _parse_first_type(

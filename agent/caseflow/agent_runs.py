@@ -1,4 +1,5 @@
 """CaseFlow AgentRuns — trace-bound agent execution records per case."""
+
 from __future__ import annotations
 
 import uuid

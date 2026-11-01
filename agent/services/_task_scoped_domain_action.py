@@ -44,7 +44,6 @@ from agent.services.domain_policy_service import DomainPolicyService
 from agent.services.domain_registry import DomainRegistry
 from agent.services.service_registry import get_core_services
 
-
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
@@ -164,7 +163,9 @@ def register_goal_artifact_outputs(
     execution_context = dict((task or {}).get("worker_execution_context") or {})
     context_envelope = execution_context.get("context_envelope_ref")
     context_envelope = dict(context_envelope or {}) if isinstance(context_envelope, dict) else {}
-    source_usage_refs = [str(item) for item in list(context_envelope.get("source_usage_refs") or []) if str(item).strip()]
+    source_usage_refs = [
+        str(item) for item in list(context_envelope.get("source_usage_refs") or []) if str(item).strip()
+    ]
     context_artifact_refs = [
         str(item.get("artifact_ref") or item.get("ref") or "").strip()
         for item in list(context_envelope.get("retrieval_refs") or [])
@@ -184,9 +185,13 @@ def register_goal_artifact_outputs(
         source_usage_refs = list(context_tracking.get("source_usage_refs") or [])
     worker_id = str((task or {}).get("assigned_worker_id") or "").strip() or None
     worker_profile = str(execution_context.get("worker_profile") or "default")
-    runtime_path = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("runtime_path") or "unknown")
+    runtime_path = str(
+        ((task or {}).get("verification_status") or {}).get("routing", {}).get("runtime_path") or "unknown"
+    )
     backend = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("backend") or "unknown")
-    model_name = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("inference_model") or "unknown")
+    model_name = str(
+        ((task or {}).get("verification_status") or {}).get("routing", {}).get("inference_model") or "unknown"
+    )
     execution_seed = f"{goal_id}:{tid}:{worker_id or 'worker'}"
     execution_id = f"exec-{hashlib.sha1(execution_seed.encode('utf-8')).hexdigest()[:14]}"
     worker_config = config_snapshot_service.build_snapshot(
@@ -250,7 +255,11 @@ def register_goal_artifact_outputs(
         "execution_id": execution_id,
         "worker_id": str(worker_id or "worker-unknown"),
         "worker_kind": "native",
-        "runtime_target_ref": {"runtime_type": backend, "location": "local", "snapshot_id": runtime_config.get("config_snapshot_id")},
+        "runtime_target_ref": {
+            "runtime_type": backend,
+            "location": "local",
+            "snapshot_id": runtime_config.get("config_snapshot_id"),
+        },
         "model_ref": {"provider_id": backend, "model_id": model_name},
         "config_refs": {
             "worker_config_ref": worker_config.get("config_snapshot_id"),
@@ -417,11 +426,11 @@ from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.common.utils.structured_action_utils import extract_structured_action_fields
 from agent.models import TaskStepExecuteRequest
 from agent.research_backend import is_research_backend
-from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
 from agent.runtime_policy import normalize_task_kind, runtime_routing_config
 from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 from agent.services.task_execution_policy_service import resolve_execution_policy
 from agent.services.verification_service import get_verification_service
+from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _extract_reason
 
@@ -444,17 +453,24 @@ def propose_task_with_comparisons(
     coalesce_cli_output: Callable,
     resolve_task_propose_timeout: Callable,
 ) -> "TaskScopedRouteResponse":
-    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
-    from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS as _BACKENDS
     from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
     from agent.services._task_scoped_citation import build_flow_metrics_payload
     from agent.services._task_scoped_config_policy import normalize_temperature
     from agent.services._task_scoped_repair import build_llm_call_profile_entries
-    from agent.services._task_scoped_runtime import build_research_result, build_review_state, routing_dimensions as _routing_dimensions
+    from agent.services._task_scoped_runtime import (
+        build_research_result,
+        build_review_state,
+    )
+    from agent.services._task_scoped_runtime import (
+        routing_dimensions as _routing_dimensions,
+    )
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     def resolve_cli_backend(task_kind, *, requested_backend, agent_cfg, required_capabilities):
         from flask import current_app as _ca
+
         from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS as _sbs
+
         backend, reason, _ = _resolve_cli_backend_fn(
             task_kind=task_kind,
             requested_backend=requested_backend,
@@ -550,9 +566,19 @@ def propose_task_with_comparisons(
             ),
         }
         if rc != 0 and not raw_res.strip():
-            return entry, {"error": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used, "routing": routing, "cli_result": cli_result}
+            return entry, {
+                "error": cli_err or f"backend '{backend_used}' failed with exit code {rc}",
+                "backend": backend_used,
+                "routing": routing,
+                "cli_result": cli_result,
+            }
         if not raw_res:
-            return entry, {"error": "empty_response", "backend": backend_used, "routing": routing, "cli_result": cli_result}
+            return entry, {
+                "error": "empty_response",
+                "backend": backend_used,
+                "routing": routing,
+                "cli_result": cli_result,
+            }
         if is_research_backend(backend_used):
             research_res = build_research_result(
                 raw_res=raw_res,
@@ -581,7 +607,10 @@ def propose_task_with_comparisons(
 
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(request_data.providers))) as executor:
-        futures = {executor.submit(_run_single_provider, provider_name): provider_name for provider_name in request_data.providers}
+        futures = {
+            executor.submit(_run_single_provider, provider_name): provider_name
+            for provider_name in request_data.providers
+        }
         for future in concurrent.futures.as_completed(futures):
             requested = futures[future]
             try:
@@ -674,8 +703,8 @@ def finalize_interactive_terminal_execution(
     reason: str,
     execution_policy,
 ) -> "TaskScopedRouteResponse":
-    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
     from agent.services._task_scoped_citation import build_flow_metrics_payload
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
     changed_files = get_worker_workspace_service().detect_changed_files_against_interactive_baseline(
@@ -776,9 +805,21 @@ def finalize_interactive_terminal_execution(
                 propose_ok=True,
                 execute_ok=status == "completed",
                 artifact_created=bool(meaningful_changed_files),
-                worker_profile=((proposal_meta.get("worker_context") or {}).get("worker_profile") or (proposal_meta.get("routing") or {}).get("worker_profile")),
-                profile_source=((proposal_meta.get("worker_context") or {}).get("profile_source") or (proposal_meta.get("routing") or {}).get("profile_source")),
-                policy_classification=str(((proposal_meta.get("routing") or {}).get("policy_classification_summary") or (proposal_meta.get("routing") or {}).get("reason") or "")),
+                worker_profile=(
+                    (proposal_meta.get("worker_context") or {}).get("worker_profile")
+                    or (proposal_meta.get("routing") or {}).get("worker_profile")
+                ),
+                profile_source=(
+                    (proposal_meta.get("worker_context") or {}).get("profile_source")
+                    or (proposal_meta.get("routing") or {}).get("profile_source")
+                ),
+                policy_classification=str(
+                    (
+                        (proposal_meta.get("routing") or {}).get("policy_classification_summary")
+                        or (proposal_meta.get("routing") or {}).get("reason")
+                        or ""
+                    )
+                ),
             ),
         },
     )
@@ -794,9 +835,9 @@ def execute_research_artifact(
     research_artifact: dict,
     execution_policy,
 ) -> "TaskScopedRouteResponse":
-    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
     from agent.services._task_scoped_citation import build_flow_metrics_payload
     from agent.services._task_scoped_runtime import verify_research_artifact
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     review = (proposal.get("review") or {}) if isinstance(proposal, dict) else {}
     if review.get("required") and review.get("status") != "approved":
@@ -821,7 +862,9 @@ def execute_research_artifact(
         policy_version=((proposal.get("trace") or {}).get("policy_version")),
         metadata={"task_id": tid, "artifact_execute": True},
     )
-    append_stage(pipeline, name="artifact_finalize", status="ok", metadata={"artifact_kind": research_artifact.get("kind")})
+    append_stage(
+        pipeline, name="artifact_finalize", status="ok", metadata={"artifact_kind": research_artifact.get("kind")}
+    )
     trace = build_trace_record(
         task_id=tid,
         event_type="execution_result",
@@ -850,6 +893,7 @@ def execute_research_artifact(
         research_artifact.setdefault("trace", {})
         research_artifact["trace"]["persisted_artifact"] = artifact_ref
     from agent.metrics import TASK_COMPLETED
+
     TASK_COMPLETED.inc()
     response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
         tid=tid,
@@ -881,9 +925,21 @@ def execute_research_artifact(
                 propose_ok=True,
                 execute_ok=True,
                 artifact_created=bool(artifact_ref),
-                worker_profile=((proposal.get("worker_context") or {}).get("worker_profile") or (proposal.get("routing") or {}).get("worker_profile")),
-                profile_source=((proposal.get("worker_context") or {}).get("profile_source") or (proposal.get("routing") or {}).get("profile_source")),
-                policy_classification=str(((proposal.get("routing") or {}).get("policy_classification_summary") or (proposal.get("routing") or {}).get("reason") or "")),
+                worker_profile=(
+                    (proposal.get("worker_context") or {}).get("worker_profile")
+                    or (proposal.get("routing") or {}).get("worker_profile")
+                ),
+                profile_source=(
+                    (proposal.get("worker_context") or {}).get("profile_source")
+                    or (proposal.get("routing") or {}).get("profile_source")
+                ),
+                policy_classification=str(
+                    (
+                        (proposal.get("routing") or {}).get("policy_classification_summary")
+                        or (proposal.get("routing") or {}).get("reason")
+                        or ""
+                    )
+                ),
             ),
         },
     )

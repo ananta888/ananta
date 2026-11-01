@@ -95,9 +95,7 @@ def test_adapter_downweights_notes_against_primary_sources(tmp_path):
             "import_metadata": {"source_scope": "open_notebook", "record_kind": "note", "note_type": "human"},
         },
     ]
-    (output_dir / "index.jsonl").write_text(
-        "\n".join(json.dumps(record) for record in records), encoding="utf-8"
-    )
+    (output_dir / "index.jsonl").write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
     repository = SimpleNamespace(
         list_completed=lambda: [
             SimpleNamespace(
@@ -109,9 +107,7 @@ def test_adapter_downweights_notes_against_primary_sources(tmp_path):
             )
         ]
     )
-    adapter = OpenNotebookKnowledgeSourceAdapter(
-        KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
-    )
+    adapter = OpenNotebookKnowledgeSourceAdapter(KnowledgeIndexRetrievalService(knowledge_index_repository=repository))
     chunks = adapter.search("identical retrieval budget statement", top_k=4)
     by_kind = {chunk.metadata["record_kind"]: chunk for chunk in chunks}
     assert set(by_kind) == {"primary_source", "note"}

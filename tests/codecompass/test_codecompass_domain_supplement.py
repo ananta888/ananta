@@ -125,22 +125,17 @@ def test_supplement_is_physically_deterministic_and_keeps_empty_domains(
     first = _materialize(first_source, tmp_path / "first.sqlite3")
     second = _materialize(second_source, tmp_path / "second.sqlite3")
 
-    assert (tmp_path / "first.sqlite3").read_bytes() == (
-        tmp_path / "second.sqlite3"
-    ).read_bytes()
+    assert (tmp_path / "first.sqlite3").read_bytes() == (tmp_path / "second.sqlite3").read_bytes()
     assert first["graph_content_hash"] == second["graph_content_hash"]
     assert first["domain_count"] == 3
     assert first["semantic_node_count"] == 2
     assert first["semantic_edge_count"] == 1
     assert first["declaration_edge_count"] == 2
-    assert codecompass_semantic_repository_root_domain_key() != (
-        codecompass_semantic_domain_key("__repository_root__")
-    )
+    assert codecompass_semantic_repository_root_domain_key() != (codecompass_semantic_domain_key("__repository_root__"))
 
     with sqlite3.connect(tmp_path / "first.sqlite3") as connection:
         root = connection.execute(
-            "SELECT domain_kind, domain_label, semantic_node_count, complete "
-            "FROM domains WHERE domain_key = ?",
+            "SELECT domain_kind, domain_label, semantic_node_count, complete FROM domains WHERE domain_key = ?",
             (codecompass_semantic_repository_root_domain_key(),),
         ).fetchone()
     assert root == ("repository_root", "", 0, 1)
@@ -172,9 +167,7 @@ def test_supplement_fails_closed_at_the_configured_sqlite_budget(
     destination = tmp_path / "too-small.sqlite3"
 
     with pytest.raises(RuntimeError, match="codecompass_domain_supplement_too_large"):
-        WorkerCodeCompassDomainSupplementMaterializer(
-            maximum_bytes=4096
-        ).materialize(
+        WorkerCodeCompassDomainSupplementMaterializer(maximum_bytes=4096).materialize(
             source_path=source,
             output_path=destination,
             graph_revision=_GRAPH_REVISION,
@@ -229,21 +222,12 @@ def test_source_writer_uses_scalable_configured_disk_budget(
         str(configured),
     )
 
-    with CodeCompassDomainSupplementSourceWriter(
-        tmp_path / "configured-source.sqlite3"
-    ) as writer:
+    with CodeCompassDomainSupplementSourceWriter(tmp_path / "configured-source.sqlite3") as writer:
         assert writer._maximum_bytes == configured
 
-    monkeypatch.delenv(
-        "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES"
-    )
-    with CodeCompassDomainSupplementSourceWriter(
-        tmp_path / "default-source.sqlite3"
-    ) as writer:
-        assert (
-            writer._maximum_bytes
-            == DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES
-        )
+    monkeypatch.delenv("ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES")
+    with CodeCompassDomainSupplementSourceWriter(tmp_path / "default-source.sqlite3") as writer:
+        assert writer._maximum_bytes == DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES
 
 
 @pytest.mark.parametrize(
@@ -268,9 +252,7 @@ def test_source_writer_rejects_invalid_configured_disk_budget(
         ValueError,
         match="codecompass_domain_supplement_source_limit_invalid",
     ):
-        CodeCompassDomainSupplementSourceWriter(
-            tmp_path / "invalid-source.sqlite3"
-        )
+        CodeCompassDomainSupplementSourceWriter(tmp_path / "invalid-source.sqlite3")
 
 
 def test_source_reader_rejects_unexpected_sqlite_schema(
@@ -405,9 +387,7 @@ def test_bridge_keeps_complete_domain_source_when_overview_is_truncated(
         output_dir=tmp_path,
     )
 
-    overview_nodes = (tmp_path / "semantic_nodes.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
+    overview_nodes = (tmp_path / "semantic_nodes.jsonl").read_text(encoding="utf-8").splitlines()
     content = WorkerCodeCompassDomainSupplementMaterializer().inspect_source(
         tmp_path / DOMAIN_SUPPLEMENT_SOURCE_FILENAME
     )
@@ -433,9 +413,7 @@ def test_supplement_rejects_payload_tampering(tmp_path: Path) -> None:
         )
 
     with pytest.raises(ValueError, match="chunk_hash_mismatch"):
-        WorkerCodeCompassDomainSupplementMaterializer.inspect_published(
-            destination
-        )
+        WorkerCodeCompassDomainSupplementMaterializer.inspect_published(destination)
 
 
 def test_domain_marker_is_bound_to_its_opaque_domain_key(tmp_path: Path) -> None:
@@ -446,10 +424,7 @@ def test_domain_marker_is_bound_to_its_opaque_domain_key(tmp_path: Path) -> None
             ("semantic:src:A",),
         ).fetchone()[0]
 
-    assert (
-        f'"{CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD}":'
-        f'"{codecompass_semantic_domain_key("src")}"'
-    ) in marker
+    assert (f'"{CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD}":"{codecompass_semantic_domain_key("src")}"') in marker
 
 
 def _materialize_bound_repository_graph(
@@ -523,8 +498,6 @@ def test_graph_revision_covers_complete_supplement_not_only_bounded_overview(
         (tmp_path / "first", 6, first["graph_revision"]),
         (tmp_path / "second", 7, second["graph_revision"]),
     ):
-        published = WorkerCodeCompassDomainSupplementMaterializer.inspect_published(
-            root / DOMAIN_SUPPLEMENT_FILENAME
-        )
+        published = WorkerCodeCompassDomainSupplementMaterializer.inspect_published(root / DOMAIN_SUPPLEMENT_FILENAME)
         assert published["semantic_node_count"] == expected_count
         assert published["graph_revision"] == expected_revision

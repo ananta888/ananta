@@ -37,34 +37,59 @@ def ingress(native, tmp_path):  # noqa: F811
     dispatch = NativeArtifactDispatch(authority=authority, worker_id="worker-1", worker_url="http://worker-1:5000")
     store = ArtifactStore(tmp_path / "hub-artifacts")
     service = NativeArtifactAdmissionService(
-        authority=authority, dispatch=dispatch, storage=store, clock=lambda: native.clock.now,
+        authority=authority,
+        dispatch=dispatch,
+        storage=store,
+        clock=lambda: native.clock.now,
     )
     with Session(native.engine) as session:
         task = session.get(TaskDB, native.task_id)
         current = authority.require_current(session=session, command=command, task=task, now=native.clock.now)
         lease_digest = dispatch.require_current_digest(
-            session=session, command=command, task=task, now=native.clock.now,
+            session=session,
+            command=command,
+            task=task,
+            now=native.clock.now,
         )
     content = b"synthetic result\n"
-    transfer = {"schema": SCHEMA, "binding": {
-        "hub_task_id": native.task_id, "command_digest": native_context_digest(command.to_dict()),
-        "assignment_id": current.assignment_id, "assignment_revision": current.assignment_revision,
-        "attempt_id": command.attempt_id, "fencing_token": command.fencing_token,
-        "dispatch_lease_digest": lease_digest,
-    }, "artifacts": [{
-        "output_name": "report", "filename": "report.txt", "media_type": "text/plain",
-        "size_bytes": len(content), "sha256": hashlib.sha256(content).hexdigest(),
-        "content_base64": base64.b64encode(content).decode("ascii"),
-    }]}
+    transfer = {
+        "schema": SCHEMA,
+        "binding": {
+            "hub_task_id": native.task_id,
+            "command_digest": native_context_digest(command.to_dict()),
+            "assignment_id": current.assignment_id,
+            "assignment_revision": current.assignment_revision,
+            "attempt_id": command.attempt_id,
+            "fencing_token": command.fencing_token,
+            "dispatch_lease_digest": lease_digest,
+        },
+        "artifacts": [
+            {
+                "output_name": "report",
+                "filename": "report.txt",
+                "media_type": "text/plain",
+                "size_bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+                "content_base64": base64.b64encode(content).decode("ascii"),
+            }
+        ],
+    }
     return SimpleNamespace(
-        native=native, service=service, dispatch=dispatch, store=store, transfer=transfer, content=content,
+        native=native,
+        service=service,
+        dispatch=dispatch,
+        store=store,
+        transfer=transfer,
+        content=content,
     )
 
 
 def materialize(ingress, *, commit=True):
     with Session(ingress.native.engine) as session:
         receipts = ingress.service.materialize(
-            session=session, task_id=ingress.native.task_id, transfer=ingress.transfer,
+            session=session,
+            task_id=ingress.native.task_id,
+            transfer=ingress.transfer,
         )
         if commit:
             session.commit()
@@ -74,7 +99,7 @@ def materialize(ingress, *, commit=True):
 def test_real_hub_storage_registration_and_idempotent_retry(ingress):
     first = materialize(ingress)
     assert materialize(ingress) == first
-    receipt, = first
+    (receipt,) = first
     assert receipt["classification"] == "technical_observation"
     with Session(ingress.native.engine) as session:
         artifact = session.exec(select(ArtifactDB)).one()
@@ -117,12 +142,18 @@ def test_expired_authority_does_not_touch_storage(ingress):
     assert list(ingress.store.base_dir.iterdir()) == []
 
 
-@pytest.mark.parametrize("worker_id,worker_url", [
-    ("foreign-worker", "http://worker-1:5000"), ("worker-1", "http://foreign-worker:5000"),
-])
+@pytest.mark.parametrize(
+    "worker_id,worker_url",
+    [
+        ("foreign-worker", "http://worker-1:5000"),
+        ("worker-1", "http://foreign-worker:5000"),
+    ],
+)
 def test_authenticated_worker_must_match_current_assignment(ingress, worker_id, worker_url):
     ingress.service._dispatch = NativeArtifactDispatch(
-        authority=ingress.service._authority, worker_id=worker_id, worker_url=worker_url,
+        authority=ingress.service._authority,
+        worker_id=worker_id,
+        worker_url=worker_url,
     )
     with pytest.raises(ValueError, match="worker_assignment_mismatch"):
         materialize(ingress)
@@ -131,7 +162,7 @@ def test_authenticated_worker_must_match_current_assignment(ingress, worker_id, 
 
 def test_time_advance_within_live_lease_preserves_dispatch_identity(ingress):
     ingress.native.clock.now += 1
-    receipt, = materialize(ingress)
+    (receipt,) = materialize(ingress)
     assert receipt["binding"]["dispatch_lease_digest"] == ingress.transfer["binding"]["dispatch_lease_digest"]
 
 
@@ -166,7 +197,7 @@ def set_result_artifact(ingress, reference):
 
 @pytest.mark.parametrize("mode", ["save", "cas"])
 def test_native_completion_requires_committed_hub_artifact_registration(ingress, mode):
-    receipt, = materialize(ingress)
+    (receipt,) = materialize(ingress)
     set_result_artifact(ingress, receipt["artifact_ref"])
     task = complete(ingress.native, mode)
     artifacts = task.verification_status["native_result_receipt"]["artifacts"]
@@ -183,7 +214,7 @@ def test_worker_local_or_nonexistent_artifact_cannot_complete_task(ingress, refe
 
 
 def test_rolled_back_artifact_receipt_cannot_complete_task(ingress):
-    receipt, = materialize(ingress, commit=False)
+    (receipt,) = materialize(ingress, commit=False)
     set_result_artifact(ingress, receipt["artifact_ref"])
     with pytest.raises(ValueError):
         complete(ingress.native)
@@ -191,7 +222,7 @@ def test_rolled_back_artifact_receipt_cannot_complete_task(ingress):
 
 
 def test_mutated_registration_cannot_be_used_for_completion(ingress):
-    receipt, = materialize(ingress)
+    (receipt,) = materialize(ingress)
     set_result_artifact(ingress, receipt["artifact_ref"])
     with Session(ingress.native.engine) as session:
         version = session.exec(select(ArtifactVersionDB)).one()

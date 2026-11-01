@@ -75,6 +75,7 @@ def test_vosk_runs_real_recognizer_contract_and_loads_model_once(tmp_path):
     model_path = tmp_path / "vosk-model"
     model_path.mkdir()
     loaded_paths = []
+
     def load_model(path):
         loaded_paths.append(path)
         return object()
@@ -91,10 +92,7 @@ def test_vosk_runs_real_recognizer_contract_and_loads_model_once(tmp_path):
         ("hallo welt", 0, 100),
     ]
     assert first.segments[0].confidence == pytest.approx(0.7)
-    assert [
-        (word.text, word.start_ms, word.end_ms, word.confidence)
-        for word in first.segments[0].words
-    ] == [
+    assert [(word.text, word.start_ms, word.end_ms, word.confidence) for word in first.segments[0].words] == [
         ("hallo", 0, 40, 0.8),
         ("welt", 40, 100, 0.6),
     ]

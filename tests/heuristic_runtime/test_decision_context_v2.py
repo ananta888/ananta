@@ -1,5 +1,4 @@
 """Tests für DecisionContext v2 — TUI-Snapshot-Referenzen und Hash-Stabilität."""
-import pytest
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext, build_from_tui_state
 

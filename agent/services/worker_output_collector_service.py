@@ -1,4 +1,5 @@
 """WorkerOutputCollectorService — reads artifact manifest after worker execution."""
+
 from __future__ import annotations
 
 import logging
@@ -62,7 +63,8 @@ class WorkerOutputCollectorService:
         if validation["valid"]:
             log.info(
                 "WorkerOutputCollector: manifest valid for task %s, %d artifacts",
-                task_id, len(validation.get("artifacts") or []),
+                task_id,
+                len(validation.get("artifacts") or []),
             )
             return {
                 "manifest_valid": True,
@@ -75,7 +77,7 @@ class WorkerOutputCollectorService:
             }
 
         errors = list(validation.get("errors") or [])
-        manifest_missing = any("manifest_file_missing" in e for e in errors)
+        any("manifest_file_missing" in e for e in errors)
 
         if allow_synthesized_fallback and before_snapshot is not None and after_snapshot is not None:
             log.info(
@@ -113,7 +115,8 @@ class WorkerOutputCollectorService:
 
         log.warning(
             "WorkerOutputCollector: manifest invalid for task %s, errors=%s",
-            task_id, errors,
+            task_id,
+            errors,
         )
         return {
             "manifest_valid": False,

@@ -12,13 +12,15 @@ Safety policy:
   - Timeout: default 10s, max 30s
   - Working directory: /project-workspaces (safe sandbox)
 """
+
 from __future__ import annotations
 
 import re
 import shlex
 import subprocess
 import time
-from flask import Blueprint, request, jsonify
+
+from flask import Blueprint, jsonify, request
 
 det_run_bp = Blueprint("det_run", __name__, url_prefix="/api/deterministic")
 
@@ -26,7 +28,7 @@ _BLOCKED_PATTERNS = [
     r"rm\s+-[rf]",
     r"\bdd\b.*of=",
     r"\bmkfs\b",
-    r":\(\)\{",           # fork bomb
+    r":\(\)\{",  # fork bomb
     r">\s*/dev/sd",
     r"chmod\s+000",
     r"curl\s+.*\|\s*(ba)?sh",
@@ -50,7 +52,8 @@ def _run_shell(cmd: str, timeout: int) -> dict:
     try:
         result = subprocess.run(
             ["bash", "-c", cmd],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             timeout=timeout,
             cwd=_SAFE_WORKDIR,
         )
@@ -63,7 +66,13 @@ def _run_shell(cmd: str, timeout: int) -> dict:
             "success": result.returncode == 0,
         }
     except subprocess.TimeoutExpired:
-        return {"exit_code": -1, "stdout": "", "stderr": "Timeout expired", "duration_ms": timeout * 1000, "success": False}
+        return {
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": "Timeout expired",
+            "duration_ms": timeout * 1000,
+            "success": False,
+        }
     except Exception as exc:
         return {"exit_code": -1, "stdout": "", "stderr": str(exc), "duration_ms": 0, "success": False}
 
@@ -145,10 +154,12 @@ def run_det_step():
 
 @det_run_bp.get("/subtypes")
 def list_subtypes():
-    return jsonify([
-        {"id": "script",      "label": "Shell-Script / Befehl", "placeholder": "npm test", "expected_hint": "exit 0"},
-        {"id": "api-call",    "label": "API-Aufruf (HTTP)",      "placeholder": "https://...", "expected_hint": "200"},
-        {"id": "regex-check", "label": "Regex-Prüfung",          "placeholder": "cat /app/app.log", "expected_hint": "^OK"},
-        {"id": "file-check",  "label": "Datei-Check",            "placeholder": "/app/dist/main.js", "expected_hint": ""},
-        {"id": "python",      "label": "Python-Ausdruck",        "placeholder": "print(1+1)", "expected_hint": "2"},
-    ]), 200
+    return jsonify(
+        [
+            {"id": "script", "label": "Shell-Script / Befehl", "placeholder": "npm test", "expected_hint": "exit 0"},
+            {"id": "api-call", "label": "API-Aufruf (HTTP)", "placeholder": "https://...", "expected_hint": "200"},
+            {"id": "regex-check", "label": "Regex-Prüfung", "placeholder": "cat /app/app.log", "expected_hint": "^OK"},
+            {"id": "file-check", "label": "Datei-Check", "placeholder": "/app/dist/main.js", "expected_hint": ""},
+            {"id": "python", "label": "Python-Ausdruck", "placeholder": "print(1+1)", "expected_hint": "2"},
+        ]
+    ), 200

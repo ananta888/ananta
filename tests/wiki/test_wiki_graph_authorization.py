@@ -36,9 +36,7 @@ def _bound_wiki_index(tmp_path, *, projection_state: str):
 
 
 def _install_repository(monkeypatch, index):
-    repository = SimpleNamespace(
-        get_by_id=lambda index_id: index if index_id == index.id else None
-    )
+    repository = SimpleNamespace(get_by_id=lambda index_id: index if index_id == index.id else None)
     monkeypatch.setattr(
         wiki_graph,
         "get_repository_registry",
@@ -57,9 +55,7 @@ def test_wiki_graph_hides_foreign_scoped_index_before_reading_content(
     monkeypatch.setattr(
         wiki_graph._svc,
         "get_build_status",
-        lambda _output_dir: pytest.fail(
-            "foreign wiki index must not be read"
-        ),
+        lambda _output_dir: pytest.fail("foreign wiki index must not be read"),
     )
 
     response = client.get(
@@ -81,9 +77,7 @@ def test_wiki_graph_hides_pending_v2_index_after_hub_authorization(
     monkeypatch.setattr(
         wiki_graph._svc,
         "get_build_status",
-        lambda _output_dir: pytest.fail(
-            "pending wiki index must not be read"
-        ),
+        lambda _output_dir: pytest.fail("pending wiki index must not be read"),
     )
 
     response = client.get(
@@ -131,9 +125,7 @@ def test_wiki_graph_post_authorizes_the_body_index_not_a_query_override(
     monkeypatch.setattr(
         wiki_graph,
         "get_repository_registry",
-        lambda: SimpleNamespace(
-            knowledge_index_repo=SimpleNamespace(get_by_id=indices.get)
-        ),
+        lambda: SimpleNamespace(knowledge_index_repo=SimpleNamespace(get_by_id=indices.get)),
     )
     authorized_ids = []
 

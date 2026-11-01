@@ -39,9 +39,7 @@ def upgrade() -> None:
                 "voice_feedback contains duplicate scoped source items; "
                 "resolve them before applying the uniqueness migration"
             )
-        unique_names = {
-            item.get("name") for item in inspect(bind).get_unique_constraints("voice_feedback")
-        }
+        unique_names = {item.get("name") for item in inspect(bind).get_unique_constraints("voice_feedback")}
         if _FEEDBACK_CONSTRAINT not in unique_names:
             with op.batch_alter_table("voice_feedback") as batch_op:
                 batch_op.create_unique_constraint(
@@ -57,8 +55,7 @@ def upgrade() -> None:
             batch_op.add_column(sa.Column("expires_at", sa.Float(), nullable=True))
         bind.execute(
             sa.text(
-                "UPDATE voice_governance_idempotency "
-                "SET expires_at = COALESCE(updated_at, created_at, :now) + :ttl"
+                "UPDATE voice_governance_idempotency SET expires_at = COALESCE(updated_at, created_at, :now) + :ttl"
             ),
             {"now": 0.0, "ttl": 86_400.0},
         )
@@ -78,26 +75,18 @@ def downgrade() -> None:
     bind = op.get_bind()
     tables = set(inspect(bind).get_table_names())
     if "voice_governance_idempotency" in tables:
-        indexes = {
-            item.get("name")
-            for item in inspect(bind).get_indexes("voice_governance_idempotency")
-        }
+        indexes = {item.get("name") for item in inspect(bind).get_indexes("voice_governance_idempotency")}
         if _IDEMPOTENCY_EXPIRY_INDEX in indexes:
             op.drop_index(
                 _IDEMPOTENCY_EXPIRY_INDEX,
                 table_name="voice_governance_idempotency",
             )
-        columns = {
-            item["name"]
-            for item in inspect(bind).get_columns("voice_governance_idempotency")
-        }
+        columns = {item["name"] for item in inspect(bind).get_columns("voice_governance_idempotency")}
         if "expires_at" in columns:
             with op.batch_alter_table("voice_governance_idempotency") as batch_op:
                 batch_op.drop_column("expires_at")
     if "voice_feedback" in tables:
-        unique_names = {
-            item.get("name") for item in inspect(bind).get_unique_constraints("voice_feedback")
-        }
+        unique_names = {item.get("name") for item in inspect(bind).get_unique_constraints("voice_feedback")}
         if _FEEDBACK_CONSTRAINT in unique_names:
             with op.batch_alter_table("voice_feedback") as batch_op:
                 batch_op.drop_constraint(_FEEDBACK_CONSTRAINT, type_="unique")

@@ -254,10 +254,7 @@ def catalog_peer_label(session_id: str, peer_id: str, *, signing_secret: str) ->
     """Return a display-only peer label without exposing a stable peer id."""
     digest = hmac.new(
         signing_secret.encode("utf-8"),
-        b"ananta.public-rendezvous.catalog-peer.v1\0"
-        + session_id.encode("utf-8")
-        + b"\0"
-        + peer_id.encode("utf-8"),
+        b"ananta.public-rendezvous.catalog-peer.v1\0" + session_id.encode("utf-8") + b"\0" + peer_id.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
     return f"Peer-{digest[:6]}"

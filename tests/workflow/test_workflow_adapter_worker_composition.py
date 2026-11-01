@@ -119,16 +119,12 @@ def test_worker_workspace_resolver_is_mount_bound_and_rejects_escape(
 ) -> None:
     root = tmp_path / "worker-root"
     root.mkdir()
-    resolver = ConfiguredWorkerWorkspaceResolver(
-        {"worker_runtime": {"workspace_root": str(root)}}
-    )
+    resolver = ConfiguredWorkerWorkspaceResolver({"worker_runtime": {"workspace_root": str(root)}})
 
     resolved = resolver.resolve_workspace_context(
         task={
             "id": "task-a",
-            "worker_execution_context": {
-                "workspace": {"scope_key": "goal-a"}
-            },
+            "worker_execution_context": {"workspace": {"scope_key": "goal-a"}},
         }
     )
     assert resolved.workspace_dir == (root / "goal-a").resolve()
@@ -140,9 +136,7 @@ def test_worker_workspace_resolver_is_mount_bound_and_rejects_escape(
         resolver.resolve_workspace_context(
             task={
                 "id": "task-b",
-                "worker_execution_context": {
-                    "workspace": {"output_dir": "../outside"}
-                },
+                "worker_execution_context": {"workspace": {"output_dir": "../outside"}},
             }
         )
 
@@ -186,10 +180,10 @@ def test_worker_composition_advertises_only_successfully_built_adapters(
         "workflow.adapter.langgraph",
         "workflow.adapter.native",
     )
-    assert {
-        (value["runtime_id"], value["adapter_id"])
-        for value in runtime.runtime_targets
-    } == {("ananta-native", "native"), ("langgraph", "langgraph")}
+    assert {(value["runtime_id"], value["adapter_id"]) for value in runtime.runtime_targets} == {
+        ("ananta-native", "native"),
+        ("langgraph", "langgraph"),
+    }
     assert runtime.reason_codes == ()
 
 
@@ -245,10 +239,7 @@ def test_production_profile_is_typed_and_unknown_fields_fail_closed(
     tmp_path,
 ) -> None:
     profile = load_workflow_adapter_worker_profile(
-        str(
-            Path(__file__).parents[2]
-            / "config/workflow_runtime/langgraph_worker_profile.v1.json"
-        )
+        str(Path(__file__).parents[2] / "config/workflow_runtime/langgraph_worker_profile.v1.json")
     )
     assert profile.schema_version == WORKFLOW_ADAPTER_WORKER_PROFILE_SCHEMA
     assert profile.providers.langgraph is not None
@@ -260,9 +251,7 @@ def test_production_profile_is_typed_and_unknown_fields_fail_closed(
         json.dumps(
             {
                 "schema": WORKFLOW_ADAPTER_WORKER_PROFILE_SCHEMA,
-                "providers": {
-                    "langgraph": {"enabled": True, "unknown": True}
-                },
+                "providers": {"langgraph": {"enabled": True, "unknown": True}},
             }
         ),
         encoding="utf-8",

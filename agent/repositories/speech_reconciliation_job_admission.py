@@ -36,7 +36,6 @@ class SpeechReconciliationJobAdmission:
         self._lineage = lineage
         self._audit = audit
 
-
     def create_job(
         self, spec: SpeechReconciliationJobCreate, *, now_ms: int | None = None
     ) -> tuple[SpeechReconciliationJobRecord, bool]:

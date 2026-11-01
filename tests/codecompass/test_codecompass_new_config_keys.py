@@ -8,11 +8,11 @@ These tests verify the wire-up from ``_DEFAULTS`` through
 ``_validated`` / ``save`` / ``apply_to_game`` so we can detect a regression
 where the schema forgets one of the new keys.
 """
+
 from __future__ import annotations
 
 import json
 import os
-from typing import Any
 
 os.environ.setdefault("PYTEST_CURRENT_TEST", "1")
 
@@ -21,8 +21,8 @@ import pytest  # noqa: E402
 from client_surfaces.operator_tui.config.user_config_manager import (  # noqa: E402
     _DEFAULTS,
     _SCHEMA_KEYS,
-    _validated,
     UserConfigManager,
+    _validated,
     reset_manager,
 )
 
@@ -35,6 +35,7 @@ def reset_singleton():
 
 
 # ── Schema membership ─────────────────────────────────────────────────────────
+
 
 class TestNewKeysInSchema:
     """The 3 new keys must all be in _SCHEMA_KEYS — otherwise save() will
@@ -53,12 +54,14 @@ class TestNewKeysInSchema:
         # Importing the renderer-side constant checks that the TUI side
         # also marks the key as persistable.
         from client_surfaces.operator_tui.ai_snake_config_view import _PERSISTENT_TUI_CONFIG_KEYS
+
         assert "chat_codecompass_trigger_mode" in _PERSISTENT_TUI_CONFIG_KEYS
         assert "chat_include_task_memory" in _PERSISTENT_TUI_CONFIG_KEYS
         assert "chat_retrieval_domain_hint" in _PERSISTENT_TUI_CONFIG_KEYS
 
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
+
 
 class TestNewKeysDefaults:
     """The defaults must be safe: trigger_mode=auto, task_memory=True,
@@ -83,6 +86,7 @@ class TestNewKeysDefaults:
 
 
 # ── Save / Load roundtrip ────────────────────────────────────────────────────
+
 
 class TestNewKeysRoundtrip:
     """save() + load() must preserve the new keys verbatim — including
@@ -121,11 +125,13 @@ class TestNewKeysRoundtrip:
 
     def test_all_three_keys_persist_together(self, tmp_path):
         mgr = UserConfigManager(cwd=tmp_path)
-        mgr.save({
-            "chat_codecompass_trigger_mode": "force_repo_first",
-            "chat_include_task_memory": False,
-            "chat_retrieval_domain_hint": "operator_tui",
-        })
+        mgr.save(
+            {
+                "chat_codecompass_trigger_mode": "force_repo_first",
+                "chat_include_task_memory": False,
+                "chat_retrieval_domain_hint": "operator_tui",
+            }
+        )
         # Read raw disk contents — this proves the keys made it into JSON
         # and that _validated() does not filter them out as "unknown".
         data = json.loads((tmp_path / "user.json").read_text())
@@ -135,6 +141,7 @@ class TestNewKeysRoundtrip:
 
 
 # ── _validated() coercion safety ─────────────────────────────────────────────
+
 
 class TestNewKeysValidated:
     """_validated() must not drop or mutate the new keys."""
@@ -159,6 +166,7 @@ class TestNewKeysValidated:
 
 
 # ── apply_to_game ────────────────────────────────────────────────────────────
+
 
 class TestNewKeysApplyToGame:
     """The keys must reach the runtime game state via apply_to_game()."""

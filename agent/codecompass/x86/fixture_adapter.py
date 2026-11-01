@@ -1,4 +1,5 @@
 """X86CC-012: Fixture-based adapter reading JSON fixture files."""
+
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +10,6 @@ from typing import Any
 from agent.codecompass.x86.adapter import X86DisassemblerAdapter
 from agent.codecompass.x86.diagnostics import (
     ADAPTER_ERROR,
-    INVALID_INSTRUCTION_RECORD,
     x86_diag_dict,
 )
 from agent.codecompass.x86.input_taxonomy import X86InputRecord
@@ -19,22 +19,26 @@ from agent.codecompass.x86.models import (
     X86Provenance,
 )
 
-_FIXTURE_INPUT_TYPES = frozenset({
-    "disassembler_json",
-    "capstone_fixture",
-    "ghidra_export",
-    "rizin_export",
-    "raw_assembly_text",
-    "normalized_assembly",
-})
+_FIXTURE_INPUT_TYPES = frozenset(
+    {
+        "disassembler_json",
+        "capstone_fixture",
+        "ghidra_export",
+        "rizin_export",
+        "raw_assembly_text",
+        "normalized_assembly",
+    }
+)
 
-_FIXTURE_PROFILES = frozenset({
-    "x86_64_sysv",
-    "x86_64_windows",
-    "x86_32_cdecl",
-    "x86_32_stdcall",
-    "unknown_x86",
-})
+_FIXTURE_PROFILES = frozenset(
+    {
+        "x86_64_sysv",
+        "x86_64_windows",
+        "x86_32_cdecl",
+        "x86_32_stdcall",
+        "unknown_x86",
+    }
+)
 
 
 def load_fixture(path: str | Path) -> dict[str, Any]:
@@ -74,25 +78,27 @@ def _build_nodes_from_fixture(data: dict[str, Any], profile: str, source_path: s
             continue
         name = str(sec.get("name") or "unknown_section")
         nid = _node_id("section", f"{source_path}:{name}")
-        nodes.append({
-            "schema": "codecompass_x86_graph.v1",
-            "id": nid,
-            "kind": X86NodeKind.SECTION,
-            "source_type": "fixture",
-            "path": source_path,
-            "address": sec.get("start"),
-            "offset": None,
-            "architecture_profile": profile,
-            "confidence": 1.0,
-            "provenance": prov,
-            "attributes": {
-                "name": name,
-                "size": sec.get("size", 0),
-                "flags": sec.get("flags", ""),
-                "entropy": sec.get("entropy"),
-            },
-            "_provenance": {"output_kind": "x86_nodes"},
-        })
+        nodes.append(
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "id": nid,
+                "kind": X86NodeKind.SECTION,
+                "source_type": "fixture",
+                "path": source_path,
+                "address": sec.get("start"),
+                "offset": None,
+                "architecture_profile": profile,
+                "confidence": 1.0,
+                "provenance": prov,
+                "attributes": {
+                    "name": name,
+                    "size": sec.get("size", 0),
+                    "flags": sec.get("flags", ""),
+                    "entropy": sec.get("entropy"),
+                },
+                "_provenance": {"output_kind": "x86_nodes"},
+            }
+        )
 
     # Symbol nodes
     for sym in data.get("symbols", []):
@@ -100,24 +106,26 @@ def _build_nodes_from_fixture(data: dict[str, Any], profile: str, source_path: s
             continue
         name = str(sym.get("name") or "unknown_symbol")
         nid = _node_id("symbol", f"{source_path}:{name}:{sym.get('address')}")
-        nodes.append({
-            "schema": "codecompass_x86_graph.v1",
-            "id": nid,
-            "kind": X86NodeKind.SYMBOL,
-            "source_type": "fixture",
-            "path": source_path,
-            "address": sym.get("address"),
-            "offset": None,
-            "architecture_profile": profile,
-            "confidence": 1.0,
-            "provenance": prov,
-            "attributes": {
-                "name": name,
-                "kind": sym.get("kind", "unknown"),
-                "size": sym.get("size", 0),
-            },
-            "_provenance": {"output_kind": "x86_nodes"},
-        })
+        nodes.append(
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "id": nid,
+                "kind": X86NodeKind.SYMBOL,
+                "source_type": "fixture",
+                "path": source_path,
+                "address": sym.get("address"),
+                "offset": None,
+                "architecture_profile": profile,
+                "confidence": 1.0,
+                "provenance": prov,
+                "attributes": {
+                    "name": name,
+                    "kind": sym.get("kind", "unknown"),
+                    "size": sym.get("size", 0),
+                },
+                "_provenance": {"output_kind": "x86_nodes"},
+            }
+        )
 
     # Import nodes
     for imp in data.get("imports", []):
@@ -126,47 +134,51 @@ def _build_nodes_from_fixture(data: dict[str, Any], profile: str, source_path: s
         imp_name = str(imp.get("name") or "unknown_import")
         dll = str(imp.get("dll") or "")
         nid = _node_id("import", f"{source_path}:{dll}:{imp_name}")
-        nodes.append({
-            "schema": "codecompass_x86_graph.v1",
-            "id": nid,
-            "kind": X86NodeKind.IMPORT_SYMBOL,
-            "source_type": "fixture",
-            "path": source_path,
-            "address": imp.get("address"),
-            "offset": None,
-            "architecture_profile": profile,
-            "confidence": 1.0,
-            "provenance": prov,
-            "attributes": {
-                "name": imp_name,
-                "dll": dll,
-            },
-            "_provenance": {"output_kind": "x86_nodes"},
-        })
+        nodes.append(
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "id": nid,
+                "kind": X86NodeKind.IMPORT_SYMBOL,
+                "source_type": "fixture",
+                "path": source_path,
+                "address": imp.get("address"),
+                "offset": None,
+                "architecture_profile": profile,
+                "confidence": 1.0,
+                "provenance": prov,
+                "attributes": {
+                    "name": imp_name,
+                    "dll": dll,
+                },
+                "_provenance": {"output_kind": "x86_nodes"},
+            }
+        )
 
     # Function nodes
     for fn in data.get("functions", []):
         if not isinstance(fn, dict):
             continue
         fn_id = str(fn.get("id") or _node_id("function", f"{source_path}:{fn.get('name')}:{fn.get('start_address')}"))
-        nodes.append({
-            "schema": "codecompass_x86_graph.v1",
-            "id": fn_id,
-            "kind": X86NodeKind.FUNCTION,
-            "source_type": "fixture",
-            "path": source_path,
-            "address": fn.get("start_address"),
-            "offset": None,
-            "architecture_profile": profile,
-            "confidence": 1.0,
-            "provenance": prov,
-            "attributes": {
-                "name": fn.get("name", ""),
-                "end_address": fn.get("end_address"),
-                "basic_blocks": fn.get("basic_blocks", []),
-            },
-            "_provenance": {"output_kind": "x86_nodes"},
-        })
+        nodes.append(
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "id": fn_id,
+                "kind": X86NodeKind.FUNCTION,
+                "source_type": "fixture",
+                "path": source_path,
+                "address": fn.get("start_address"),
+                "offset": None,
+                "architecture_profile": profile,
+                "confidence": 1.0,
+                "provenance": prov,
+                "attributes": {
+                    "name": fn.get("name", ""),
+                    "end_address": fn.get("end_address"),
+                    "basic_blocks": fn.get("basic_blocks", []),
+                },
+                "_provenance": {"output_kind": "x86_nodes"},
+            }
+        )
 
     # Instruction nodes
     for instr in data.get("instructions", []):
@@ -176,28 +188,30 @@ def _build_nodes_from_fixture(data: dict[str, Any], profile: str, source_path: s
         if addr is None:
             continue
         nid = _node_id("instruction", f"{source_path}:{addr}")
-        nodes.append({
-            "schema": "codecompass_x86_graph.v1",
-            "id": nid,
-            "kind": X86NodeKind.INSTRUCTION,
-            "source_type": "fixture",
-            "path": source_path,
-            "address": addr,
-            "offset": None,
-            "architecture_profile": profile,
-            "confidence": 1.0,
-            "provenance": prov,
-            "attributes": {
-                "mnemonic": instr.get("mnemonic", ""),
-                "bytes_hex": instr.get("bytes_hex", ""),
-                "operands": instr.get("operands", []),
-                "flag_effects": instr.get("flag_effects", []),
-                "implicit_registers_read": instr.get("implicit_registers_read", []),
-                "implicit_registers_written": instr.get("implicit_registers_written", []),
-                "width": instr.get("width", 64),
-            },
-            "_provenance": {"output_kind": "x86_nodes"},
-        })
+        nodes.append(
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "id": nid,
+                "kind": X86NodeKind.INSTRUCTION,
+                "source_type": "fixture",
+                "path": source_path,
+                "address": addr,
+                "offset": None,
+                "architecture_profile": profile,
+                "confidence": 1.0,
+                "provenance": prov,
+                "attributes": {
+                    "mnemonic": instr.get("mnemonic", ""),
+                    "bytes_hex": instr.get("bytes_hex", ""),
+                    "operands": instr.get("operands", []),
+                    "flag_effects": instr.get("flag_effects", []),
+                    "implicit_registers_read": instr.get("implicit_registers_read", []),
+                    "implicit_registers_written": instr.get("implicit_registers_written", []),
+                    "width": instr.get("width", 64),
+                },
+                "_provenance": {"output_kind": "x86_nodes"},
+            }
+        )
 
     # String literal nodes
     for s in data.get("strings", []):
@@ -206,25 +220,27 @@ def _build_nodes_from_fixture(data: dict[str, Any], profile: str, source_path: s
         val = str(s.get("value") or "")
         addr = s.get("address", 0)
         nid = _node_id("string", f"{source_path}:{addr}:{val[:32]}")
-        nodes.append({
-            "schema": "codecompass_x86_graph.v1",
-            "id": nid,
-            "kind": X86NodeKind.STRING_LITERAL,
-            "source_type": "fixture",
-            "path": source_path,
-            "address": addr,
-            "offset": None,
-            "architecture_profile": profile,
-            "confidence": 1.0,
-            "provenance": prov,
-            "attributes": {
-                "value": val,
-                "encoding": s.get("encoding", "ascii"),
-                "section": s.get("section", ""),
-                "length": s.get("length", len(val)),
-            },
-            "_provenance": {"output_kind": "x86_nodes"},
-        })
+        nodes.append(
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "id": nid,
+                "kind": X86NodeKind.STRING_LITERAL,
+                "source_type": "fixture",
+                "path": source_path,
+                "address": addr,
+                "offset": None,
+                "architecture_profile": profile,
+                "confidence": 1.0,
+                "provenance": prov,
+                "attributes": {
+                    "value": val,
+                    "encoding": s.get("encoding", "ascii"),
+                    "section": s.get("section", ""),
+                    "length": s.get("length", len(val)),
+                },
+                "_provenance": {"output_kind": "x86_nodes"},
+            }
+        )
 
     return nodes
 
@@ -254,17 +270,19 @@ def _build_edges_from_fixture(data: dict[str, Any], source_path: str, profile: s
             etype = edge_type_map.get(edge_type_raw, X86EdgeType.CFG_FALLTHROUGH)
             tgt_addr = succ.get("address")
             tgt_id = _node_id("basic_block", f"{source_path}:{tgt_addr}") if tgt_addr else "unknown"
-            edges.append({
-                "schema": "codecompass_x86_graph.v1",
-                "source": bb_id,
-                "target": tgt_id,
-                "edge_type": etype,
-                "confidence": 1.0,
-                "provenance": prov,
-                "address": tgt_addr,
-                "context": {},
-                "_provenance": {"output_kind": "x86_edges"},
-            })
+            edges.append(
+                {
+                    "schema": "codecompass_x86_graph.v1",
+                    "source": bb_id,
+                    "target": tgt_id,
+                    "edge_type": etype,
+                    "confidence": 1.0,
+                    "provenance": prov,
+                    "address": tgt_addr,
+                    "context": {},
+                    "_provenance": {"output_kind": "x86_edges"},
+                }
+            )
 
     return edges
 

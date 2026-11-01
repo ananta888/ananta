@@ -173,9 +173,7 @@ def test_recovery_forward_streams_and_bounds_body_before_json_parse(
         },
     }
     encoded = json.dumps(payload).encode("utf-8")
-    response = StreamingResponse(
-        [encoded[:7], encoded[7:]]
-    )
+    response = StreamingResponse([encoded[:7], encoded[7:]])
     calls = []
 
     def fake_http_post(url, **kwargs):
@@ -247,9 +245,7 @@ def test_vector_forward_rejects_oversized_and_malformed_streams(
         "MAX_VECTOR_INDEX_WORKER_RESULT_BYTES",
         8,
     )
-    oversized = StreamingResponse(
-        [b'{"data"', b':"oversized"}']
-    )
+    oversized = StreamingResponse([b'{"data"', b':"oversized"}'])
     monkeypatch.setattr(
         task_utils,
         "_http_post",
@@ -362,17 +358,13 @@ def test_codecompass_forward_uses_hub_trusted_runtime_timeout(
     connect_timeout, read_timeout = calls[0]["timeout"]
     assert connect_timeout == 5.0
     assert 778 < read_timeout <= 779
-    assert calls[0]["deadline_monotonic"] == (
-        deadline.expires_at_monotonic
-    )
+    assert calls[0]["deadline_monotonic"] == (deadline.expires_at_monotonic)
     assert calls[0]["raise_on_transport_error"] is True
 
     monkeypatch.setattr(
         task_utils,
         "_http_post",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            HttpTransportResponseLost("http_transport_response_lost")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(HttpTransportResponseLost("http_transport_response_lost")),
     )
     with pytest.raises(WorkerForwardAmbiguousTransportError):
         task_utils._forward_to_worker(
@@ -527,9 +519,7 @@ def test_recovery_forward_rejects_oversized_stream_before_json_parse(
         "MAX_RECOVERY_FORWARD_RESPONSE_BYTES",
         8,
     )
-    response = StreamingResponse(
-        [b'{"data"', b':"oversized"}']
-    )
+    response = StreamingResponse([b'{"data"', b':"oversized"}'])
     monkeypatch.setattr(
         task_utils,
         "_http_post",

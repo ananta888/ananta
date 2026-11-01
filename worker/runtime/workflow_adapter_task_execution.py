@@ -20,9 +20,9 @@ def authorize_delegated_native_task(task: dict[str, Any]) -> bool:
         build_workflow_adapter_worker_runtime,
     )
 
-    runtime = current_app.extensions.get('workflow_adapter_worker_runtime') if has_app_context() else None
+    runtime = current_app.extensions.get("workflow_adapter_worker_runtime") if has_app_context() else None
     if not isinstance(runtime, WorkflowAdapterWorkerRuntime):
-        config = dict(current_app.config.get('AGENT_CONFIG') or {}) if has_app_context() else {}
+        config = dict(current_app.config.get("AGENT_CONFIG") or {}) if has_app_context() else {}
         runtime = build_workflow_adapter_worker_runtime(agent_config=config)
     return runtime.native_admission is not None and runtime.native_admission.authorize(task) is True
 
@@ -60,14 +60,8 @@ def _consumer() -> WorkflowAdapterTaskConsumer:
         build_workflow_adapter_worker_runtime,
     )
 
-    agent_config = (
-        dict(current_app.config.get("AGENT_CONFIG") or {})
-        if has_app_context()
-        else {}
-    )
-    return build_workflow_adapter_worker_runtime(
-        agent_config=agent_config
-    ).consumer
+    agent_config = dict(current_app.config.get("AGENT_CONFIG") or {}) if has_app_context() else {}
+    return build_workflow_adapter_worker_runtime(agent_config=agent_config).consumer
 
 
 __all__ = ["authorize_delegated_native_task", "consume_delegated_workflow_task"]

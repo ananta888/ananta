@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from agent.services.sfu_broadcast_control_observability import (
-    SfuBroadcastControlObservationPort,
-    control_observer_or_null,
-    observed_control_path,
-)
-
 import hashlib
 import json
 import threading
@@ -16,18 +10,22 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Mapping, Protocol
 
+from agent.models.sfu_layer_projection import SfuProjectionScope
 from agent.repositories.sfu_layer_projection_repository import (
     ProjectionKind,
     SfuLayerProjectionRepositoryPort,
     SfuStoredLayerProjection,
     SfuStoredProjectionReceipt,
 )
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
 from agent.services.sfu_projection_signing import (
     HmacSfuProjectionSigner,
     SfuProjectionSignerPort,
 )
-from agent.models.sfu_layer_projection import SfuProjectionScope
-
 
 _SCHEMAS = {
     "room": "ananta.sfu-room-session-projection.v1",
@@ -38,8 +36,9 @@ _TTL_MAX = {"room": 30_000, "publisher": 15_000, "receiver": 10_000}
 
 
 class SfuProjectionScopeAuthorizerPort(Protocol):
-    def authorize(self, *, tenant_id: str, room_id: str, actor_id: str,
-                  projection_kind: ProjectionKind, subject_ref: str) -> SfuProjectionScope | None: ...
+    def authorize(
+        self, *, tenant_id: str, room_id: str, actor_id: str, projection_kind: ProjectionKind, subject_ref: str
+    ) -> SfuProjectionScope | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,9 +59,14 @@ class SfuLayerProjectionError(RuntimeError):
 
 
 class SfuLayerProjectionService:
-    def __init__(self, repository: SfuLayerProjectionRepositoryPort,
-                 signer: SfuProjectionSignerPort, *, clock: Callable[[], float] = time.time,
-                 control_observer: SfuBroadcastControlObservationPort | None = None) -> None:
+    def __init__(
+        self,
+        repository: SfuLayerProjectionRepositoryPort,
+        signer: SfuProjectionSignerPort,
+        *,
+        clock: Callable[[], float] = time.time,
+        control_observer: SfuBroadcastControlObservationPort | None = None,
+    ) -> None:
         self._repository = repository
         self._signer = signer
         self._clock = clock
@@ -83,35 +87,59 @@ class SfuLayerProjectionService:
         fencing = document.get("fencing")
         if not isinstance(fencing, dict):
             raise SfuLayerProjectionError("sfu_projection_fencing_invalid")
-        expected = _nonnegative(fencing.get("expected_previous_projection_version"), "expected_previous_projection_version")
+        expected = _nonnegative(
+            fencing.get("expected_previous_projection_version"), "expected_previous_projection_version"
+        )
         token = _positive(fencing.get("fencing_token"), "fencing_token")
         digest = hashlib.sha256(encoded).hexdigest()
         signed = self._signer.sign(digest)
-        projection_ref = str(document.get("projection_ref") or f"{command.projection_kind}:{command.room_id}:{command.subject_ref}:{version}")
+        projection_ref = str(
+            document.get("projection_ref")
+            or f"{command.projection_kind}:{command.room_id}:{command.subject_ref}:{version}"
+        )
         expires = _utc_ms(document.get("expires_at"))
         projection = SfuStoredLayerProjection(
-            _projection_id(command), command.tenant_id, command.room_id,
-            command.projection_kind, command.subject_ref, projection_ref, version,
-            session_version, _positive(document.get("membership_epoch"), "membership_epoch"),
-            _optional_epoch(document, "route_epoch"), _optional_epoch(document, "topology_epoch"),
-            _optional_epoch(document, "key_epoch"), token, expected, document, digest,
-            signed.value, signed.key_id, signed.algorithm, signed.algorithm_version,
+            _projection_id(command),
+            command.tenant_id,
+            command.room_id,
+            command.projection_kind,
+            command.subject_ref,
+            projection_ref,
+            version,
+            session_version,
+            _positive(document.get("membership_epoch"), "membership_epoch"),
+            _optional_epoch(document, "route_epoch"),
+            _optional_epoch(document, "topology_epoch"),
+            _optional_epoch(document, "key_epoch"),
+            token,
+            expected,
+            document,
+            digest,
+            signed.value,
+            signed.key_id,
+            signed.algorithm,
+            signed.algorithm_version,
             signed.key_version,
             str(document.get("layer_control_mode") or document.get("resolution") or "manual_quality"),
-            "active", expires, expires + 300_000,
+            "active",
+            expires,
+            expires + 300_000,
         )
         result = self._repository.save(projection)
         if result.status in {"saved", "replayed"} and result.projection is not None:
             return result.projection
         raise SfuLayerProjectionError(result.reason_code, 409)
 
-    def read(self, *, scope: SfuProjectionScope, projection_kind: ProjectionKind,
-             subject_ref: str, cursor: int = 0) -> SfuStoredLayerProjection | None:
+    def read(
+        self, *, scope: SfuProjectionScope, projection_kind: ProjectionKind, subject_ref: str, cursor: int = 0
+    ) -> SfuStoredLayerProjection | None:
         now_ms = int(self._clock() * 1000)
         self._enforce_read_rate(scope, projection_kind, now_ms)
         projection = self._repository.current(
-            tenant_id=scope.tenant_id, room_id=scope.room_id,
-            projection_kind=projection_kind, subject_ref=subject_ref,
+            tenant_id=scope.tenant_id,
+            room_id=scope.room_id,
+            projection_kind=projection_kind,
+            subject_ref=subject_ref,
         )
         if projection is None or projection.status != "active" or projection.expires_at_ms <= now_ms:
             return None
@@ -126,8 +154,9 @@ class SfuLayerProjectionService:
             return None
         return None if projection.projection_version <= cursor else projection
 
-    def record_receipt(self, *, scope: SfuProjectionScope, projection_ref: str,
-                       actor_digest: str, raw_document: bytes) -> bool:
+    def record_receipt(
+        self, *, scope: SfuProjectionScope, projection_ref: str, actor_digest: str, raw_document: bytes
+    ) -> bool:
         if len(raw_document) > 8192:
             raise SfuLayerProjectionError("sfu_projection_receipt_bytes_exceeded", 413)
         try:
@@ -149,7 +178,13 @@ class SfuLayerProjectionService:
         digest = hashlib.sha256(encoded).hexdigest()
         receipt = SfuStoredProjectionReceipt(
             "sfu-prc-" + hashlib.sha256((projection_ref + actor_digest + str(sequence)).encode()).hexdigest()[:32],
-            scope.tenant_id, projection_ref, actor_digest, sequence, document, digest, expires,
+            scope.tenant_id,
+            projection_ref,
+            actor_digest,
+            sequence,
+            document,
+            digest,
+            expires,
         )
         if not self._repository.save_receipt(receipt, history_max=8):
             raise SfuLayerProjectionError("sfu_projection_receipt_conflict", 409)
@@ -185,9 +220,12 @@ def _validate_projection(command: SfuProjectionMaterializeCommand, document: Map
 
 
 def _projection_id(command: SfuProjectionMaterializeCommand) -> str:
-    return "sfu-prj-" + hashlib.sha256(
-        f"{command.tenant_id}\0{command.room_id}\0{command.projection_kind}\0{command.subject_ref}".encode()
-    ).hexdigest()[:32]
+    return (
+        "sfu-prj-"
+        + hashlib.sha256(
+            f"{command.tenant_id}\0{command.room_id}\0{command.projection_kind}\0{command.subject_ref}".encode()
+        ).hexdigest()[:32]
+    )
 
 
 def _canonical(value: object) -> bytes:
@@ -221,7 +259,11 @@ def _utc_ms(value: object) -> int:
 
 
 __all__ = [
-    "HmacSfuProjectionSigner", "SfuLayerProjectionError", "SfuLayerProjectionService",
-    "SfuProjectionMaterializeCommand", "SfuProjectionScope", "SfuProjectionScopeAuthorizerPort",
+    "HmacSfuProjectionSigner",
+    "SfuLayerProjectionError",
+    "SfuLayerProjectionService",
+    "SfuProjectionMaterializeCommand",
+    "SfuProjectionScope",
+    "SfuProjectionScopeAuthorizerPort",
     "SfuProjectionSignerPort",
 ]

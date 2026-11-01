@@ -47,10 +47,7 @@ class ResearchTrainingCompletionService:
         )
         run = self._runs.get(tenant_id=tenant_id, run_id=assignment["run_id"])
         stage = dict(run["stages"])[assignment["stage"]["stage_id"]]
-        if (
-            stage["status"] == "completed"
-            and stage["output_artifact_digest"] == ingress["manifest"]["artifact_digest"]
-        ):
+        if stage["status"] == "completed" and stage["output_artifact_digest"] == ingress["manifest"]["artifact_digest"]:
             return {
                 "schema": "ananta.research-training-completion.v1",
                 "assignment_id": assignment_id,

@@ -1,4 +1,4 @@
-from agent.llm_benchmarks import record_benchmark_sample, recommend_profiles_for_context
+from agent.llm_benchmarks import recommend_profiles_for_context, record_benchmark_sample
 from agent.services.context_file_reader_service import ContextFileReaderService, FileReadPolicy
 from agent.services.embedding_provider_config_service import EmbeddingProviderConfigService
 from agent.services.model_profile_loader import ModelProfile
@@ -116,7 +116,9 @@ def test_cloud_provider_blocked_when_secret_context_would_be_sent(tmp_path):
         benchmark_profile_order=[row["profile_id"] for row in ranked],
     )
 
-    routing = resolver.resolve(RoutingContext(model_role="planner", task_kind="coding", context_text="password=supersecret"))
+    routing = resolver.resolve(
+        RoutingContext(model_role="planner", task_kind="coding", context_text="password=supersecret")
+    )
 
     assert routing.ok
     assert routing.profile.profile_id == "local-planner"

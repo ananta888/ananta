@@ -9,11 +9,10 @@ All handlers are safe to run without LLM involvement.
 Registration is done via ``register_readonly_handlers(app)`` called from
 the app factory or an init hook.
 """
+
 from __future__ import annotations
 
 import json
-import os
-import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -22,8 +21,8 @@ from flask import Flask
 
 from agent.services.task_handler_registry import TaskHandler, register_task_handler
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _run(cmd: list[str], cwd: str | None = None, timeout: int = 15) -> tuple[int, str, str]:
     try:
@@ -59,6 +58,7 @@ def _result(output: str, exit_code: int = 0, meta: dict | None = None) -> dict[s
 
 # ── list_files ────────────────────────────────────────────────────────────────
 
+
 class ListFilesHandler:
     def propose(self, **kwargs: Any) -> dict:
         task = kwargs.get("task") or {}
@@ -80,6 +80,7 @@ class ListFilesHandler:
 
 
 # ── read_file ─────────────────────────────────────────────────────────────────
+
 
 class ReadFileHandler:
     def propose(self, **kwargs: Any) -> dict:
@@ -104,6 +105,7 @@ class ReadFileHandler:
 
 # ── grep_search ───────────────────────────────────────────────────────────────
 
+
 class GrepSearchHandler:
     def propose(self, **kwargs: Any) -> dict:
         task = kwargs.get("task") or {}
@@ -127,6 +129,7 @@ class GrepSearchHandler:
 
 # ── git_status ────────────────────────────────────────────────────────────────
 
+
 class GitStatusHandler:
     def propose(self, **kwargs: Any) -> dict:
         task = kwargs.get("task") or {}
@@ -141,6 +144,7 @@ class GitStatusHandler:
 
 
 # ── git_diff ──────────────────────────────────────────────────────────────────
+
 
 class GitDiffHandler:
     def propose(self, **kwargs: Any) -> dict:
@@ -161,6 +165,7 @@ class GitDiffHandler:
 
 
 # ── json_validate ─────────────────────────────────────────────────────────────
+
 
 class JsonValidateHandler:
     def propose(self, **kwargs: Any) -> dict:
@@ -188,14 +193,18 @@ class JsonValidateHandler:
 
 # ── schema_validate ───────────────────────────────────────────────────────────
 
+
 class SchemaValidateHandler:
     def propose(self, **kwargs: Any) -> dict:
         task = kwargs.get("task") or {}
         path = task.get("path") or ""
         schema_path = task.get("schema_path") or ""
-        return _proposal("schema_validate", [
-            {"name": "schema_validate", "arguments": {"path": path, "schema_path": schema_path}},
-        ])
+        return _proposal(
+            "schema_validate",
+            [
+                {"name": "schema_validate", "arguments": {"path": path, "schema_path": schema_path}},
+            ],
+        )
 
     def execute(self, **kwargs: Any) -> dict:
         task = kwargs.get("task") or {}
@@ -237,12 +246,12 @@ class SchemaValidateHandler:
 # ── registration ──────────────────────────────────────────────────────────────
 
 _HANDLERS: dict[str, TaskHandler] = {
-    "list_files":      ListFilesHandler(),
-    "read_file":       ReadFileHandler(),
-    "grep_search":     GrepSearchHandler(),
-    "git_status":      GitStatusHandler(),
-    "git_diff":        GitDiffHandler(),
-    "json_validate":   JsonValidateHandler(),
+    "list_files": ListFilesHandler(),
+    "read_file": ReadFileHandler(),
+    "grep_search": GrepSearchHandler(),
+    "git_status": GitStatusHandler(),
+    "git_diff": GitDiffHandler(),
+    "json_validate": JsonValidateHandler(),
     "schema_validate": SchemaValidateHandler(),
 }
 

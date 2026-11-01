@@ -36,6 +36,7 @@ class TestCatalogContracts:
         from agent.services.seed_blueprint_catalog import (
             get_seed_blueprint_catalog,
         )
+
         catalog = get_seed_blueprint_catalog()
         catalog.load()
         assert catalog.load_error is None, catalog.load_error
@@ -48,6 +49,7 @@ class TestCatalogContracts:
         from agent.services.seed_blueprint_catalog import (
             get_seed_blueprint_catalog,
         )
+
         catalog = get_seed_blueprint_catalog()
         catalog.load()
         for bp in catalog.list_blueprints():
@@ -61,9 +63,7 @@ class TestCatalogContracts:
             # has a separate code path. Both must agree.
             step_ids = {s["id"] for s in bp["workflow"]["steps"]}
             assert step_ids, f"{bp['name']}: empty workflow.steps"
-            assert len(step_ids) == len(bp["workflow"]["steps"]), (
-                f"{bp['name']}: duplicate step ids"
-            )
+            assert len(step_ids) == len(bp["workflow"]["steps"]), f"{bp['name']}: duplicate step ids"
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,7 @@ class TestHumanApproval:
         from agent.services.human_approval_service import (
             build_pending_approval_record,
         )
+
         rec = build_pending_approval_record(goal_id="g", gate_task_id="t")
         assert rec["decision_id"].startswith("hdec-")
 
@@ -101,19 +102,14 @@ class TestHumanApproval:
             apply_human_decision,
             build_pending_approval_record,
         )
+
         task = {
             "id": "t",
             "goal_id": "g",
-            "verification_status": {
-                "gate_decision": build_pending_approval_record(
-                    goal_id="g", gate_task_id="t"
-                )
-            },
+            "verification_status": {"gate_decision": build_pending_approval_record(goal_id="g", gate_task_id="t")},
         }
         original = task["verification_status"]["gate_decision"]["decision_id"]
-        block = apply_human_decision(
-            task=task, operator="op", outcome=DECISION_APPROVED
-        )
+        block = apply_human_decision(task=task, operator="op", outcome=DECISION_APPROVED)
         assert block["decision_id"] == original
 
 
@@ -137,30 +133,26 @@ class TestArtifactFlow:
         from agent.services.workflow_artifact_flow import (
             validate_workflow_artifact_graph,
         )
+
         steps = [
             {"id": "a", "produces": ["p1"], "consumes": ["goal_brief"]},
             {"id": "b", "produces": ["p2"], "consumes": ["p1"]},
         ]
-        report = validate_workflow_artifact_graph(
-            steps=steps, goal_seed_artifact_keys=["goal_brief"]
-        )
+        report = validate_workflow_artifact_graph(steps=steps, goal_seed_artifact_keys=["goal_brief"])
         assert report.is_valid, [v.to_dict() for v in report.violations]
 
     def test_validate_artifact_graph_rejects_missing_producer(self):
         from agent.services.workflow_artifact_flow import (
             validate_workflow_artifact_graph,
         )
+
         steps = [
             {"id": "a", "produces": [], "consumes": ["goal_brief"]},
             {"id": "b", "produces": [], "consumes": ["nonexistent"]},
         ]
-        report = validate_workflow_artifact_graph(
-            steps=steps, goal_seed_artifact_keys=["goal_brief"]
-        )
+        report = validate_workflow_artifact_graph(steps=steps, goal_seed_artifact_keys=["goal_brief"])
         assert not report.is_valid
-        assert any(
-            v.reason == "no_producer" for v in report.violations
-        )
+        assert any(v.reason == "no_producer" for v in report.violations)
 
 
 # ---------------------------------------------------------------------------
@@ -183,14 +175,13 @@ class TestBlueprintMigration:
         from agent.services.blueprint_migration_service import (
             migrate_legacy_blueprint,
         )
+
         bp = {
             "name": "LegacyX",
             "roles": [{"name": "Owner", "is_required": True, "config": {}}],
             "artifacts": [
-                {"title": "Plan", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["plan"]}},
-                {"title": "Build", "kind": "task", "sort_order": 20,
-                 "payload": {"produces": ["code"]}},
+                {"title": "Plan", "kind": "task", "sort_order": 10, "payload": {"produces": ["plan"]}},
+                {"title": "Build", "kind": "task", "sort_order": 20, "payload": {"produces": ["code"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -207,6 +198,7 @@ class TestBlueprintMigration:
 class TestTuiView:
     def test_renders_payload(self):
         from agent.tui.workflow_status_view import render_workflow_status
+
         view = render_workflow_status({"steps": [], "goal_id": "g"})
         assert view.text
         assert view.has_blocking_step is False
@@ -222,6 +214,7 @@ class TestHumanApprovalEndpoint:
         """The ``/goals/<id>/gates/<task>/human-decision``
         route must be present in the goals blueprint."""
         from agent.routes.tasks import goals
+
         # The function symbol is the contract: a missing
         # route means a missing import or a missing
         # decorator. Both are caught by import time.

@@ -24,16 +24,12 @@ def test_duplicate_key_rejection_is_a_successful_protection(tmp_path) -> None:
     assert '"second"' not in artifact_text
 
 
-def test_duplicate_key_acceptance_fails_closed_and_writes_artifact(
-    tmp_path, monkeypatch
-) -> None:
+def test_duplicate_key_acceptance_fails_closed_and_writes_artifact(tmp_path, monkeypatch) -> None:
     class _PermissiveMaterializer:
         def materialize(self, raw_document, descriptor, compatibility):
             return SimpleNamespace(document={"scope": "second"})
 
-    monkeypatch.setattr(
-        fuzz_gate, "SfuBroadcastContractMaterializer", _PermissiveMaterializer
-    )
+    monkeypatch.setattr(fuzz_gate, "SfuBroadcastContractMaterializer", _PermissiveMaterializer)
     monkeypatch.setattr(
         fuzz_gate,
         "run_bounded_command",

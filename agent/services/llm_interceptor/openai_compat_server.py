@@ -7,18 +7,18 @@ from typing import Any
 from flask import Blueprint, Flask, Response, jsonify, request, stream_with_context
 from werkzeug.exceptions import BadRequest
 
-from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
+from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.llm_interceptor.audit_logger import AuditLogger
+from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
 from agent.services.llm_interceptor.context_gate import ContextGate
 from agent.services.llm_interceptor.model_profiles import load_model_profiles
 from agent.services.llm_interceptor.policy_engine import PolicyDecision, PolicyEngine
 from agent.services.llm_interceptor.prompt_adapter import PromptAdapter
-from agent.services.llm_interceptor.repair_controller import RepairController
-from agent.services.llm_interceptor.response_validator import ResponseValidator
 from agent.services.llm_interceptor.provider_router import ProviderRouter
+from agent.services.llm_interceptor.repair_controller import RepairController
 from agent.services.llm_interceptor.request_envelope import build_request_envelope
+from agent.services.llm_interceptor.response_validator import ResponseValidator
 from agent.services.llm_interceptor.secret_redactor import SecretRedactor
-from agent.services.execution_audit_service import get_execution_audit_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +43,22 @@ class OpenAICompatInterceptorServer:
         self._policy = PolicyEngine(cfg.policy.model_dump())
         self._redactor = SecretRedactor(cfg.redaction.model_dump())
         self._context_gate = ContextGate(cfg.policy.model_dump())
-        self._model_profiles = load_model_profiles({"profiles": {"intercepted-coder": {"policy_preamble": "Follow system and security policy. Do not expose secrets.", "markdown_prone": True, "task_overrides": {"coding": {"markdown_prone": True}, "security": {"markdown_prone": False}}}}})
+        self._model_profiles = load_model_profiles(
+            {
+                "profiles": {
+                    "intercepted-coder": {
+                        "policy_preamble": "Follow system and security policy. Do not expose secrets.",
+                        "markdown_prone": True,
+                        "task_overrides": {"coding": {"markdown_prone": True}, "security": {"markdown_prone": False}},
+                    }
+                }
+            }
+        )
         self._prompt_adapter = PromptAdapter(self._model_profiles)
         self._validator = ResponseValidator()
-        self._repair = RepairController(max_attempts=cfg.response_validation.structured_json_repair_attempts, enabled=True)
+        self._repair = RepairController(
+            max_attempts=cfg.response_validation.structured_json_repair_attempts, enabled=True
+        )
         self._audit = AuditLogger(debug_prompt_logging=False)
 
     def _models_payload(self) -> dict[str, Any]:
@@ -128,7 +140,15 @@ class OpenAICompatInterceptorServer:
                     worker=envelope.caller_type,
                 )
             except Exception:
-                gated_context, gate_meta = [], {"input_count": len(context_snippets), "allowed_count": 0, "denied_count": len(context_snippets), "context_gate_failed": 1}
+                gated_context, gate_meta = (
+                    [],
+                    {
+                        "input_count": len(context_snippets),
+                        "allowed_count": 0,
+                        "denied_count": len(context_snippets),
+                        "context_gate_failed": 1,
+                    },
+                )
             adapted_messages = self._prompt_adapter.adapt_messages(
                 messages=redacted_messages,
                 model=routed_model,
@@ -146,14 +166,16 @@ class OpenAICompatInterceptorServer:
             if bool(payload.get("stream", False)):
                 try:
                     raw_iter = self._router.forward_chat_stream(payload=forwarded, envelope=envelope.as_dict())
+
                     def _validated():
                         for chunk in raw_iter:
                             ok, reason = self._validator.validate_stream_chunk(chunk.strip())
                             if not ok:
-                                yield "data: {\"error\":\"invalid_stream_chunk\"}\n\n"
+                                yield 'data: {"error":"invalid_stream_chunk"}\n\n'
                                 yield "data: [DONE]\n\n"
                                 break
                             yield chunk
+
                     stream_iter = _validated()
                 except ValueError as exc:
                     return _error_response(str(exc), code="upstream_error", status=502)
@@ -171,7 +193,9 @@ class OpenAICompatInterceptorServer:
                 if not valid:
                     repaired, repair_reason = self._repair.repair_chat_completion(result, model=routed_model)
                     if repaired is None:
-                        return _error_response(f"response_validation_failed:{reason}", code="response_validation_failed", status=502)
+                        return _error_response(
+                            f"response_validation_failed:{reason}", code="response_validation_failed", status=502
+                        )
                     result = repaired
                     logger.info("llm_interceptor_repair request_id=%s reason=%s", envelope.request_id, repair_reason)
                 event = self._audit.build_event(

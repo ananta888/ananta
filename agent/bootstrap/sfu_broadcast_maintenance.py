@@ -63,7 +63,8 @@ def initialize_sfu_broadcast_maintenance_jobs(
         if not _is_production_port(port, operation):
             extensions.pop(job_key, None)
             statuses[name] = SfuMaintenanceWiringStatus(
-                False, f"sfu_{name}_production_port_unavailable",
+                False,
+                f"sfu_{name}_production_port_unavailable",
             )
             continue
         extensions[job_key] = job_type(port=port)

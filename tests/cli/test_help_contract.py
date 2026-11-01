@@ -7,10 +7,10 @@ Rules enforced here (matching global_cli_contract.help_contract):
 - Leaf subcommands return exit 0 for `[group] [sub] --help`.
 - Help works without a running hub, without config.json, without network.
 """
+
 from __future__ import annotations
 
 import io
-import sys
 from contextlib import redirect_stderr, redirect_stdout
 
 import pytest
@@ -20,6 +20,7 @@ from agent.cli.commands import DOMAIN_MODULES
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _help(dispatch_fn, argv=None) -> tuple[int, str]:
     """Call dispatch_fn([..., '--help']), return (exit_code, combined_output)."""
@@ -55,15 +56,13 @@ def test_domain_help_exits_0_with_output_listing_subcommands(domain):
     if not subcommands:
         pytest.skip(f"Module {domain} has no SUBCOMMANDS defined")
     found = any(sc in output for sc in subcommands)
-    assert found, (
-        f"'ananta {domain} --help' doesn't mention any of {subcommands}.\n"
-        f"Output:\n{output}"
-    )
+    assert found, f"'ananta {domain} --help' doesn't mention any of {subcommands}.\nOutput:\n{output}"
 
 
 # ---------------------------------------------------------------------------
 # Leaf subcommand help tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("domain", DOMAIN_NAMES)
 def test_leaf_subcommand_help(domain):
@@ -82,18 +81,18 @@ def test_leaf_subcommand_help(domain):
             failures.append(f"  ananta {domain} {sub} --help → empty output")
 
     if failures:
-        pytest.fail(
-            f"Subcommand help failures for '{domain}':\n" + "\n".join(failures)
-        )
+        pytest.fail(f"Subcommand help failures for '{domain}':\n" + "\n".join(failures))
 
 
 # ---------------------------------------------------------------------------
 # Main entrypoint help
 # ---------------------------------------------------------------------------
 
+
 def test_main_help_exit_0():
     """ananta --help must exit 0."""
     from agent.cli.main import main
+
     out = io.StringIO()
     err = io.StringIO()
     rc = 0
@@ -109,6 +108,7 @@ def test_main_help_exit_0():
 def test_main_help_mentions_domains():
     """ananta --help must mention core domain groups."""
     from agent.cli.main import main
+
     out = io.StringIO()
     try:
         with redirect_stdout(out):
@@ -123,6 +123,7 @@ def test_main_help_mentions_domains():
 def test_main_help_no_hub_required():
     """ananta --help must work without a running hub (no network calls)."""
     import socket
+
     original_connect = socket.socket.connect
 
     def _block_connect(self, *args, **kwargs):
@@ -131,6 +132,7 @@ def test_main_help_no_hub_required():
     socket.socket.connect = _block_connect
     try:
         from agent.cli.main import main
+
         out = io.StringIO()
         try:
             with redirect_stdout(out):

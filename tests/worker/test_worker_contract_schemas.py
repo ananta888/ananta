@@ -41,13 +41,15 @@ def test_worker_request_schema_accepts_bounded_payload() -> None:
         "context_envelope_ref": {
             "context_bundle_id": "ctx-1",
             "context_hash": "h-1",
-            "retrieval_refs": [{"source_id": "docs", "path": "docs/architecture/ananta_native_worker.md", "reason": "scope"}],
+            "retrieval_refs": [
+                {"source_id": "docs", "path": "docs/architecture/ananta_native_worker.md", "reason": "scope"}
+            ],
             "context_chunk_limit": 8,
-            "context_byte_limit": 50000
+            "context_byte_limit": 50000,
         },
         "policy_decision_ref": {"decision_id": "p1", "decision": "allow", "policy_version": "v1"},
         "workspace_constraints_ref": {"constraint_id": "wc-1"},
-        "requested_outputs": ["patch_artifact", "trace_metadata"]
+        "requested_outputs": ["patch_artifact", "trace_metadata"],
     }
     errors = list(Draft202012Validator(schema).iter_errors(payload))
     assert errors == []
@@ -55,157 +57,294 @@ def test_worker_request_schema_accepts_bounded_payload() -> None:
 
 def test_worker_artifact_schemas_validate_examples() -> None:
     examples = [
-        (PATCH_SCHEMA, {"schema": "patch_artifact.v1", "task_id": "t", "capability_id": "worker.patch.propose", "base_ref": "HEAD", "patch": "diff --git a/a b/a\n", "patch_hash": "x", "changed_files": ["a"], "risk_classification": "high"}),
-        (COMMAND_SCHEMA, {"schema": "command_plan_artifact.v1", "task_id": "t", "capability_id": "worker.command.plan", "command": "pytest -q", "command_hash": "abc", "explanation": "run tests", "risk_classification": "medium", "required_approval": False, "working_directory": ".", "expected_effects": ["test results"]}),
-        (TEST_SCHEMA, {"schema": "test_result_artifact.v1", "task_id": "t", "command": "pytest -q", "exit_code": 0, "status": "passed", "stdout_ref": "out.log", "stderr_ref": "err.log"}),
-        (VERIFY_SCHEMA, {"schema": "verification_artifact.v1", "task_id": "t", "status": "passed", "checks": [{"check_id": "smoke", "status": "passed"}], "evidence_refs": ["out.log"]}),
-        (RESULT_SCHEMA, {"schema": "worker_execution_result.v1", "task_id": "t", "trace_id": "tr", "status": "completed", "artifacts": [{"artifact_type": "patch_artifact", "artifact_ref": "patch:1"}]}),
-        (WORKSPACE_SCHEMA, {"schema": "workspace_constraints.v1", "constraint_id": "wc-1", "allowed_roots": ["."], "writable_output_paths": ["ci-artifacts"], "max_files": 100, "max_bytes": 100000, "allowed_commands": ["pytest -q"], "allow_main_tree_apply": False}),
-        (PROFILE_SCHEMA, {
-            "schema": "worker_execution_profile.v1",
-            "profile": "balanced",
-            "profile_source": "agent_default",
-            "policy": {"auto_allow_readonly_diagnostics": True, "allowlist_mode": "balanced"},
-            "budgets": {"max_iterations": 4, "max_patch_attempts": 4, "max_runtime_seconds": 420},
-            "context_limits": {"max_files": 12, "max_bytes": 120000, "max_prompt_context_chars": 8000},
-            "approval_behavior": {"enforce_hub_tokens": True, "guarded_root_requires_token": True}
-        }),
-        (RETRIEVAL_INDEX_SCHEMA, {
-            "schema": "retrieval_index_entry.v1",
-            "chunk_id": "src/a.py:0:10:h",
-            "path": "src/a.py",
-            "text": "def a(): pass",
-            "language": "python",
-            "symbol_name": "a",
-            "start_byte": 0,
-            "end_byte": 12,
-            "source_hash": "abc123",
-            "embedding_version": "hash-v1",
-            "embedding": [0.1, 0.2]
-        }),
-        (RETRIEVAL_PIPELINE_SCHEMA, {
-            "schema": "retrieval_pipeline_contract.v1",
-            "channels": ["dense", "lexical", "symbol"],
-            "fallback_order": ["dense", "lexical", "symbol"],
-            "weights": {"dense": 0.5, "lexical": 0.3, "symbol": 0.2}
-        }),
-        (WORKER_CONTEXT_BUNDLE_SCHEMA, {
-            "schema": "worker_context_bundle.v1",
-            "bundle_type": "worker_execution_context",
-            "query": "retry timeout payment",
-            "context_text": "selected context",
-            "chunk_count": 1,
-            "token_estimate": 12,
-            "chunks": [
-                {
-                    "engine": "codecompass_fts",
-                    "source": "src/PaymentService.java",
-                    "content": "retry timeout logic",
-                    "score": 1.2,
-                    "metadata": {
-                        "record_id": "method:PaymentService.retryTimeout",
-                        "record_kind": "java_method",
-                        "file": "src/PaymentService.java",
-                        "source_manifest_hash": "mh-1"
-                    }
-                }
-            ],
-            "context_policy": {"mode": "balanced"},
-            "selection_trace": {"fusion": {"mode": "deterministic_v2"}}
-        }),
-        (STANDALONE_CONTRACT_SCHEMA, {
-            "schema": "standalone_task_contract.v1",
-            "task_id": "t",
-            "goal": "run tests",
-            "command": "pytest -q",
-            "worker_profile": "balanced",
-            "files": ["src/a.py"],
-            "diffs": [],
-            "control_manifest": {"trace_id": "tr", "capability_id": "worker.command.execute", "context_hash": "ctx"}
-        }),
-        (WORKER_TODO_CONTRACT_SCHEMA, {
-            "schema": "worker_todo_contract.v1",
-            "task_id": "t",
-            "goal_id": "g-1",
-            "trace_id": "tr",
-            "worker": {
-                "executor_kind": "ananta_worker",
-                "worker_profile": "balanced",
-                "profile_source": "task_context"
+        (
+            PATCH_SCHEMA,
+            {
+                "schema": "patch_artifact.v1",
+                "task_id": "t",
+                "capability_id": "worker.patch.propose",
+                "base_ref": "HEAD",
+                "patch": "diff --git a/a b/a\n",
+                "patch_hash": "x",
+                "changed_files": ["a"],
+                "risk_classification": "high",
             },
-            "todo": {
-                "version": "1.0",
-                "track": "worker-subplan",
-                "tasks": [
+        ),
+        (
+            COMMAND_SCHEMA,
+            {
+                "schema": "command_plan_artifact.v1",
+                "task_id": "t",
+                "capability_id": "worker.command.plan",
+                "command": "pytest -q",
+                "command_hash": "abc",
+                "explanation": "run tests",
+                "risk_classification": "medium",
+                "required_approval": False,
+                "working_directory": ".",
+                "expected_effects": ["test results"],
+            },
+        ),
+        (
+            TEST_SCHEMA,
+            {
+                "schema": "test_result_artifact.v1",
+                "task_id": "t",
+                "command": "pytest -q",
+                "exit_code": 0,
+                "status": "passed",
+                "stdout_ref": "out.log",
+                "stderr_ref": "err.log",
+            },
+        ),
+        (
+            VERIFY_SCHEMA,
+            {
+                "schema": "verification_artifact.v1",
+                "task_id": "t",
+                "status": "passed",
+                "checks": [{"check_id": "smoke", "status": "passed"}],
+                "evidence_refs": ["out.log"],
+            },
+        ),
+        (
+            RESULT_SCHEMA,
+            {
+                "schema": "worker_execution_result.v1",
+                "task_id": "t",
+                "trace_id": "tr",
+                "status": "completed",
+                "artifacts": [{"artifact_type": "patch_artifact", "artifact_ref": "patch:1"}],
+            },
+        ),
+        (
+            WORKSPACE_SCHEMA,
+            {
+                "schema": "workspace_constraints.v1",
+                "constraint_id": "wc-1",
+                "allowed_roots": ["."],
+                "writable_output_paths": ["ci-artifacts"],
+                "max_files": 100,
+                "max_bytes": 100000,
+                "allowed_commands": ["pytest -q"],
+                "allow_main_tree_apply": False,
+            },
+        ),
+        (
+            PROFILE_SCHEMA,
+            {
+                "schema": "worker_execution_profile.v1",
+                "profile": "balanced",
+                "profile_source": "agent_default",
+                "policy": {"auto_allow_readonly_diagnostics": True, "allowlist_mode": "balanced"},
+                "budgets": {"max_iterations": 4, "max_patch_attempts": 4, "max_runtime_seconds": 420},
+                "context_limits": {"max_files": 12, "max_bytes": 120000, "max_prompt_context_chars": 8000},
+                "approval_behavior": {"enforce_hub_tokens": True, "guarded_root_requires_token": True},
+            },
+        ),
+        (
+            RETRIEVAL_INDEX_SCHEMA,
+            {
+                "schema": "retrieval_index_entry.v1",
+                "chunk_id": "src/a.py:0:10:h",
+                "path": "src/a.py",
+                "text": "def a(): pass",
+                "language": "python",
+                "symbol_name": "a",
+                "start_byte": 0,
+                "end_byte": 12,
+                "source_hash": "abc123",
+                "embedding_version": "hash-v1",
+                "embedding": [0.1, 0.2],
+            },
+        ),
+        (
+            RETRIEVAL_PIPELINE_SCHEMA,
+            {
+                "schema": "retrieval_pipeline_contract.v1",
+                "channels": ["dense", "lexical", "symbol"],
+                "fallback_order": ["dense", "lexical", "symbol"],
+                "weights": {"dense": 0.5, "lexical": 0.3, "symbol": 0.2},
+            },
+        ),
+        (
+            WORKER_CONTEXT_BUNDLE_SCHEMA,
+            {
+                "schema": "worker_context_bundle.v1",
+                "bundle_type": "worker_execution_context",
+                "query": "retry timeout payment",
+                "context_text": "selected context",
+                "chunk_count": 1,
+                "token_estimate": 12,
+                "chunks": [
                     {
-                        "id": "todo-1",
-                        "title": "Implement bounded change",
-                        "instructions": "Update module and return artifacts.",
-                        "status": "todo",
-                        "depends_on": [],
-                        "allowed_tools": ["bash", "view"],
-                        "expected_artifacts": [{"kind": "patch_artifact", "required": True}],
-                        "acceptance_criteria": ["Patch generated", "Verification evidence returned"],
-                        "metadata": {}
+                        "engine": "codecompass_fts",
+                        "source": "src/PaymentService.java",
+                        "content": "retry timeout logic",
+                        "score": 1.2,
+                        "metadata": {
+                            "record_id": "method:PaymentService.retryTimeout",
+                            "record_kind": "java_method",
+                            "file": "src/PaymentService.java",
+                            "source_manifest_hash": "mh-1",
+                        },
                     }
-                ]
+                ],
+                "context_policy": {"mode": "balanced"},
+                "selection_trace": {"fusion": {"mode": "deterministic_v2"}},
             },
-            "execution": {
-                "mode": "assistant_execute",
-                "runner_prompt": "Execute todo contract in bounded sandbox.",
-                "allowed_tools": ["bash"],
-                "enforce_artifacts": True,
-                "max_steps": 10
+        ),
+        (
+            STANDALONE_CONTRACT_SCHEMA,
+            {
+                "schema": "standalone_task_contract.v1",
+                "task_id": "t",
+                "goal": "run tests",
+                "command": "pytest -q",
+                "worker_profile": "balanced",
+                "files": ["src/a.py"],
+                "diffs": [],
+                "control_manifest": {
+                    "trace_id": "tr",
+                    "capability_id": "worker.command.execute",
+                    "context_hash": "ctx",
+                },
             },
-            "control_manifest": {"trace_id": "tr", "capability_id": "worker.command.execute", "context_hash": "ctx"},
-            "expected_result_schema": "worker_todo_result.v1",
-            "schema_refs": {
-                "todo_schema": "https://ananta.local/schemas/todo.schema.json",
-                "todo_track_schema": "https://ananta.local/schemas/todo.track.schema.json",
-                "todo_result_schema": "https://ananta.local/schemas/worker/worker_todo_result.v1.json"
-            }
-        }),
-        (WORKER_TODO_RESULT_SCHEMA, {
-            "schema": "worker_todo_result.v1",
-            "task_id": "t",
-            "trace_id": "tr",
-            "status": "completed",
-            "reason": "executed",
-            "worker_profile": "balanced",
-            "executor_kind": "ananta_worker",
-            "summary": {
-                "total_items": 1,
-                "completed_items": 1,
-                "failed_items": 0,
-                "blocked_items": 0,
-                "pending_items": 0
+        ),
+        (
+            WORKER_TODO_CONTRACT_SCHEMA,
+            {
+                "schema": "worker_todo_contract.v1",
+                "task_id": "t",
+                "goal_id": "g-1",
+                "trace_id": "tr",
+                "worker": {
+                    "executor_kind": "ananta_worker",
+                    "worker_profile": "balanced",
+                    "profile_source": "task_context",
+                },
+                "todo": {
+                    "version": "1.0",
+                    "track": "worker-subplan",
+                    "tasks": [
+                        {
+                            "id": "todo-1",
+                            "title": "Implement bounded change",
+                            "instructions": "Update module and return artifacts.",
+                            "status": "todo",
+                            "depends_on": [],
+                            "allowed_tools": ["bash", "view"],
+                            "expected_artifacts": [{"kind": "patch_artifact", "required": True}],
+                            "acceptance_criteria": ["Patch generated", "Verification evidence returned"],
+                            "metadata": {},
+                        }
+                    ],
+                },
+                "execution": {
+                    "mode": "assistant_execute",
+                    "runner_prompt": "Execute todo contract in bounded sandbox.",
+                    "allowed_tools": ["bash"],
+                    "enforce_artifacts": True,
+                    "max_steps": 10,
+                },
+                "control_manifest": {
+                    "trace_id": "tr",
+                    "capability_id": "worker.command.execute",
+                    "context_hash": "ctx",
+                },
+                "expected_result_schema": "worker_todo_result.v1",
+                "schema_refs": {
+                    "todo_schema": "https://ananta.local/schemas/todo.schema.json",
+                    "todo_track_schema": "https://ananta.local/schemas/todo.track.schema.json",
+                    "todo_result_schema": "https://ananta.local/schemas/worker/worker_todo_result.v1.json",
+                },
             },
-            "item_results": [
-                {
-                    "item_id": "todo-1",
-                    "status": "completed",
-                    "reason": "executed",
-                    "artifacts": ["artifact:patch_artifact:todo-1"],
-                    "notes": []
-                }
-            ],
-            "artifacts": [
-                {"artifact_type": "command_plan_artifact", "artifact_ref": "command:todo"}
-            ],
-            "verification": {
-                "passed": True,
-                "checks": [{"check_id": "policy_decision", "status": "passed", "detail": "ok"}]
-            }
-        }),
-        (PLANNER_STATE_CONTRACT_SCHEMA, {
-            "schema": "planner_state_contract.v1",
-            "task_id": "t",
-            "state": "ready",
-            "trace_ref": "trace:t",
-            "updated_at": "2026-01-01T00:00:00+00:00"
-        }),
-        (PROGRESS_EVENT_SCHEMA, {"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "plan", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "planned", "emitted_at": "2026-01-01T00:00:00+00:00"}),
-        (LOOP_STATE_SCHEMA, {"schema": "worker_loop_state.v1", "task_id": "t", "trace_id": "tr", "context_hash": "ctx", "execution_profile": "balanced", "policy_state": "allow", "phase": "summarize", "iteration": 1, "patch_attempts": 1, "status": "completed", "stop_reason": "goal_reached", "artifacts": ["patch:1"], "events": [{"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "summarize", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "done", "emitted_at": "2026-01-01T00:00:00+00:00"}]}),
+        ),
+        (
+            WORKER_TODO_RESULT_SCHEMA,
+            {
+                "schema": "worker_todo_result.v1",
+                "task_id": "t",
+                "trace_id": "tr",
+                "status": "completed",
+                "reason": "executed",
+                "worker_profile": "balanced",
+                "executor_kind": "ananta_worker",
+                "summary": {
+                    "total_items": 1,
+                    "completed_items": 1,
+                    "failed_items": 0,
+                    "blocked_items": 0,
+                    "pending_items": 0,
+                },
+                "item_results": [
+                    {
+                        "item_id": "todo-1",
+                        "status": "completed",
+                        "reason": "executed",
+                        "artifacts": ["artifact:patch_artifact:todo-1"],
+                        "notes": [],
+                    }
+                ],
+                "artifacts": [{"artifact_type": "command_plan_artifact", "artifact_ref": "command:todo"}],
+                "verification": {
+                    "passed": True,
+                    "checks": [{"check_id": "policy_decision", "status": "passed", "detail": "ok"}],
+                },
+            },
+        ),
+        (
+            PLANNER_STATE_CONTRACT_SCHEMA,
+            {
+                "schema": "planner_state_contract.v1",
+                "task_id": "t",
+                "state": "ready",
+                "trace_ref": "trace:t",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+            },
+        ),
+        (
+            PROGRESS_EVENT_SCHEMA,
+            {
+                "schema": "worker_progress_event.v1",
+                "task_id": "t",
+                "trace_id": "tr",
+                "phase": "plan",
+                "iteration": 1,
+                "artifact_refs": ["patch:1"],
+                "detail": "planned",
+                "emitted_at": "2026-01-01T00:00:00+00:00",
+            },
+        ),
+        (
+            LOOP_STATE_SCHEMA,
+            {
+                "schema": "worker_loop_state.v1",
+                "task_id": "t",
+                "trace_id": "tr",
+                "context_hash": "ctx",
+                "execution_profile": "balanced",
+                "policy_state": "allow",
+                "phase": "summarize",
+                "iteration": 1,
+                "patch_attempts": 1,
+                "status": "completed",
+                "stop_reason": "goal_reached",
+                "artifacts": ["patch:1"],
+                "events": [
+                    {
+                        "schema": "worker_progress_event.v1",
+                        "task_id": "t",
+                        "trace_id": "tr",
+                        "phase": "summarize",
+                        "iteration": 1,
+                        "artifact_refs": ["patch:1"],
+                        "detail": "done",
+                        "emitted_at": "2026-01-01T00:00:00+00:00",
+                    }
+                ],
+            },
+        ),
     ]
     for schema_path, payload in examples:
         schema = _load(schema_path)

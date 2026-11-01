@@ -49,8 +49,13 @@ class Run:
         return self.predicted is not None and (self.predicted == self.expected or self.predicted in self.acceptable)
 
     def observation(self) -> Observation:
-        return Observation(self.case_id, self.expected, self.predicted or "<error>",
-                           self.confidence if self.predicted is not None else 0.0, self.acceptable)
+        return Observation(
+            self.case_id,
+            self.expected,
+            self.predicted or "<error>",
+            self.confidence if self.predicted is not None else 0.0,
+            self.acceptable,
+        )
 
 
 def _percentile(values: Sequence[float], q: float) -> float:
@@ -82,8 +87,9 @@ def brier(runs: Sequence[Run]) -> float:
     return round(sum((run.confidence - (1.0 if run.correct else 0.0)) ** 2 for run in runs) / len(runs), 4)
 
 
-def provider_report(runs: Sequence[Run], *, thresholds: Iterable[float] = THRESHOLDS,
-                    calibrated: bool = True) -> dict[str, Any]:
+def provider_report(
+    runs: Sequence[Run], *, thresholds: Iterable[float] = THRESHOLDS, calibrated: bool = True
+) -> dict[str, Any]:
     total = len(runs)
     answered = [run for run in runs if run.predicted is not None]
     latencies = [run.latency_ms for run in runs if run.error is None]
@@ -98,17 +104,28 @@ def provider_report(runs: Sequence[Run], *, thresholds: Iterable[float] = THRESH
         "confidence_is_calibrated_probability": calibrated,
         "ece": expected_calibration_error(observations, bins=10),
         "brier": brier(answered),
-        "confident_mistakes": {"threshold": CONFIDENT, "count": len(confident_wrong),
-                               "cases": [run.case_id for run in confident_wrong]},
-        "latency_ms": {"p50": _percentile(latencies, 0.5), "p95": _percentile(latencies, 0.95),
-                       "mean": round(statistics.fmean(latencies), 1) if latencies else 0.0},
+        "confident_mistakes": {
+            "threshold": CONFIDENT,
+            "count": len(confident_wrong),
+            "cases": [run.case_id for run in confident_wrong],
+        },
+        "latency_ms": {
+            "p50": _percentile(latencies, 0.5),
+            "p95": _percentile(latencies, 0.95),
+            "mean": round(statistics.fmean(latencies), 1) if latencies else 0.0,
+        },
         "tokens": {"input": sum(r.input_tokens for r in runs), "output": sum(r.output_tokens for r in runs)},
-        "cost_usd": {"total": round(sum(r.cost_usd for r in runs), 6),
-                     "per_1000_decisions": round(1000 * sum(r.cost_usd for r in runs) / total, 4) if total else 0.0},
+        "cost_usd": {
+            "total": round(sum(r.cost_usd for r in runs), 6),
+            "per_1000_decisions": round(1000 * sum(r.cost_usd for r in runs) / total, 4) if total else 0.0,
+        },
         "thresholds": [row.as_dict() for row in threshold_table(observations, tuple(thresholds))],
         "split": split_report(observations, target_precision=0.95, min_accepted=10),
-        "wrong": [{"case": r.case_id, "expected": r.expected, "predicted": r.predicted,
-                   "confidence": round(r.confidence, 3)} for r in runs if not r.correct],
+        "wrong": [
+            {"case": r.case_id, "expected": r.expected, "predicted": r.predicted, "confidence": round(r.confidence, 3)}
+            for r in runs
+            if not r.correct
+        ],
     }
 
 
@@ -124,8 +141,9 @@ class CascadeRow:
     extras: Mapping[str, Any] = field(default_factory=dict)
 
 
-def simulate_cascade(first: Mapping[str, Run], fallback: Mapping[str, Run],
-                     thresholds: Iterable[float] = THRESHOLDS) -> list[dict[str, Any]]:
+def simulate_cascade(
+    first: Mapping[str, Run], fallback: Mapping[str, Run], thresholds: Iterable[float] = THRESHOLDS
+) -> list[dict[str, Any]]:
     """Accept ``first`` at a threshold, else pay for and use ``fallback`` (same case ids)."""
     rows = []
     ids = sorted(first)
@@ -147,13 +165,15 @@ def simulate_cascade(first: Mapping[str, Run], fallback: Mapping[str, Run],
             latency.append(total_latency)
             cost += total_cost
         holdout = [chosen[i] for i in ids if is_holdout(i)]
-        rows.append(CascadeRow(
-            threshold=threshold,
-            accuracy=round(sum(r.correct for r in chosen.values()) / len(ids), 4) if ids else 0.0,
-            fallback_rate=round(fell_back / len(ids), 4) if ids else 0.0,
-            confident_mistakes=confident_wrong,
-            mean_latency_ms=round(statistics.fmean(latency), 1) if latency else 0.0,
-            cost_usd=round(cost, 6),
-            holdout_accuracy=round(sum(r.correct for r in holdout) / len(holdout), 4) if holdout else 0.0,
-        ).__dict__)
+        rows.append(
+            CascadeRow(
+                threshold=threshold,
+                accuracy=round(sum(r.correct for r in chosen.values()) / len(ids), 4) if ids else 0.0,
+                fallback_rate=round(fell_back / len(ids), 4) if ids else 0.0,
+                confident_mistakes=confident_wrong,
+                mean_latency_ms=round(statistics.fmean(latency), 1) if latency else 0.0,
+                cost_usd=round(cost, 6),
+                holdout_accuracy=round(sum(r.correct for r in holdout) / len(holdout), 4) if holdout else 0.0,
+            ).__dict__
+        )
     return rows

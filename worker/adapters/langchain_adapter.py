@@ -4,6 +4,7 @@ Optional dependency: langchain is NOT imported at module load time.
 All tool calls go through policy gates.
 CodeCompass is the only allowed retriever source.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -29,13 +30,20 @@ from worker.retrieval.codecompass_retriever import (
     retrieval_request_from_payload,
 )
 
-_SUPPORTED_TASK_TYPES = frozenset({
-    "rag_query", "summarize", "tool_chain", "code_review",
-})
+_SUPPORTED_TASK_TYPES = frozenset(
+    {
+        "rag_query",
+        "summarize",
+        "tool_chain",
+        "code_review",
+    }
+)
 
 _RISK_MAP = {
-    "rag_query": "low", "summarize": "low",
-    "code_review": "medium", "tool_chain": "high",
+    "rag_query": "low",
+    "summarize": "low",
+    "code_review": "medium",
+    "tool_chain": "high",
 }
 
 
@@ -94,8 +102,7 @@ class LangChainAdapter:
 
     # ── Dry-run (LCG-016) ─────────────────────────────────────────────────────
 
-    def dry_run(self, *, task_id: str, task_type: str,
-                 payload: dict[str, Any]) -> DryRunResult:
+    def dry_run(self, *, task_id: str, task_type: str, payload: dict[str, Any]) -> DryRunResult:
         # Discard the previous task's events so this task's audit log
         # starts fresh. dry_run's own events are captured below before
         # return and attached to the result.
@@ -148,8 +155,9 @@ class LangChainAdapter:
             if result.approval_required:
                 result.approval_reasons = [f"tool_chain_requires_approval:{task_type}"]
 
-        self._audit.log("dry_run_complete", task_id=task_id,
-                         blocked=result.blocked, approval_required=result.approval_required)
+        self._audit.log(
+            "dry_run_complete", task_id=task_id, blocked=result.blocked, approval_required=result.approval_required
+        )
         # Attach this task's events to the result, then clear for the
         # next task. The caller can inspect the trace or ignore it.
         result.metadata["dry_run_audit_trace"] = self._audit.snapshot()
@@ -157,8 +165,7 @@ class LangChainAdapter:
 
     # ── Live execute (LCG-007) ────────────────────────────────────────────────
 
-    def execute(self, *, task_id: str, task_type: str,
-                 payload: dict[str, Any]) -> WorkflowArtifactResult:
+    def execute(self, *, task_id: str, task_type: str, payload: dict[str, Any]) -> WorkflowArtifactResult:
         # Atomic snapshot so direct-execute callers and execute-after-
         # dry_run callers both see only the execute-path trace.
         # dry_run has already snapshotted its own events into
@@ -169,7 +176,8 @@ class LangChainAdapter:
         # Gate: live execution requires explicit config
         if not self._config.is_live():
             return self._blocked_result(
-                task_id, task_type,
+                task_id,
+                task_type,
                 "live_execution_requires_live_mode",
                 "Adapter is in dry_run mode; set mode=local_live to execute.",
             )
@@ -177,13 +185,14 @@ class LangChainAdapter:
         # Gate: dry-run must pass first
         dry = self.dry_run(task_id=task_id, task_type=task_type, payload=payload)
         if dry.blocked:
-            return self._blocked_result(task_id, task_type, dry.block_reason,
-                                         f"blocked by dry-run: {dry.block_reason}")
+            return self._blocked_result(task_id, task_type, dry.block_reason, f"blocked by dry-run: {dry.block_reason}")
 
         # Gate: approval required
         if dry.approval_required:
             return self._blocked_result(
-                task_id, task_type, "approval_required",
+                task_id,
+                task_type,
+                "approval_required",
                 f"Human approval required: {'; '.join(dry.approval_reasons)}",
             )
 
@@ -198,8 +207,13 @@ class LangChainAdapter:
         except WorkerError as exc:
             self._audit.log("execute_failed", task_id=task_id, reason_code=exc.reason_code)
             return WorkflowArtifactResult(
-                adapter_id="adapter.langchain", task_id=task_id, task_type=task_type,
-                status="failed", summary=str(exc), error=str(exc), reason_code=exc.reason_code,
+                adapter_id="adapter.langchain",
+                task_id=task_id,
+                task_type=task_type,
+                status="failed",
+                summary=str(exc),
+                error=str(exc),
+                reason_code=exc.reason_code,
             )
 
         self._audit.log("execute_complete", task_id=task_id, status=result.status)
@@ -207,8 +221,9 @@ class LangChainAdapter:
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
-    def _run_chain(self, task_id: str, task_type: str,
-                    payload: dict[str, Any], budget: WorkflowBudgetGuard) -> WorkflowArtifactResult:
+    def _run_chain(
+        self, task_id: str, task_type: str, payload: dict[str, Any], budget: WorkflowBudgetGuard
+    ) -> WorkflowArtifactResult:
         # CodeCompass context (LCG-009)
         context_sources: list[dict[str, Any]] = []
         if self._config.retriever_source == "codecompass":
@@ -241,7 +256,9 @@ class LangChainAdapter:
         budget.record_step("llm_call")
         try:
             output_text, runner_label = self._invoke_runner(
-                prompt=prompt, payload=payload, budget=budget,
+                prompt=prompt,
+                payload=payload,
+                budget=budget,
             )
         except WorkerError as exc:
             self._audit.log("execute_failed", task_id=task_id, reason_code=exc.reason_code)
@@ -258,8 +275,7 @@ class LangChainAdapter:
                 {
                     "step": "structured_output_validated",
                     "audit_event_types": [
-                        str(event.get("event_type") or "")
-                        for event in validated_output.audit_events
+                        str(event.get("event_type") or "") for event in validated_output.audit_events
                     ],
                 }
             )
@@ -274,8 +290,7 @@ class LangChainAdapter:
         }
         execution_trace.append({"step": "artifact_created", "artifact_id": artifact_id})
 
-        self._audit.log("execute_complete", task_id=task_id, status="success",
-                         runner=runner_label)
+        self._audit.log("execute_complete", task_id=task_id, status="success", runner=runner_label)
 
         return WorkflowArtifactResult(
             adapter_id="adapter.langchain",
@@ -294,8 +309,7 @@ class LangChainAdapter:
 
     # ── Runner selection (LCG-007 v0.8 closure) ────────────────────────
 
-    def _invoke_runner(self, *, prompt: str, payload: dict[str, Any],
-                       budget: WorkflowBudgetGuard) -> tuple[str, str]:
+    def _invoke_runner(self, *, prompt: str, payload: dict[str, Any], budget: WorkflowBudgetGuard) -> tuple[str, str]:
         """Return (output_text, runner_label).
 
         Runner selection:
@@ -311,16 +325,19 @@ class LangChainAdapter:
         """
         if self._langchain_available():
             return LangChainRunnableRunner().run(
-                prompt=prompt, payload=payload, budget=budget,
+                prompt=prompt,
+                payload=payload,
+                budget=budget,
                 model_provider_ref=self._config.model_provider_ref,
             ), "langchain_runnable"
         return SimplexRunner().run(
-            prompt=prompt, payload=payload, budget=budget,
+            prompt=prompt,
+            payload=payload,
+            budget=budget,
             model_provider_ref=self._config.model_provider_ref,
         ), "simplex"
 
-    def _build_prompt(self, task_type: str, payload: dict[str, Any],
-                       context_sources: list[dict[str, Any]]) -> str:
+    def _build_prompt(self, task_type: str, payload: dict[str, Any], context_sources: list[dict[str, Any]]) -> str:
         """Build a deterministic prompt from task type, payload, and context.
 
         The template is the documented contract; the framework runner
@@ -330,13 +347,13 @@ class LangChainAdapter:
         """
         try:
             from ananta_contracts.redaction import redact
+
             _redact = redact
         except ImportError:
             _redact = str
         query = _redact(str(payload.get("query") or payload.get("prompt") or ""))
         context_block = "\n\n".join(
-            f"[{i+1}] {s.get('path','')}: {s.get('content','')[:300]}"
-            for i, s in enumerate(context_sources)
+            f"[{i + 1}] {s.get('path', '')}: {s.get('content', '')[:300]}" for i, s in enumerate(context_sources)
         )
         sections = [
             f"Task: {task_type}",
@@ -346,33 +363,44 @@ class LangChainAdapter:
             sections.append("Context (CodeCompass):\n" + context_block)
         return "\n\n".join(sections)
 
-    def _build_plan(self, task_type: str, payload: dict[str, Any],
-                     retriever: str | None) -> list[dict[str, Any]]:
+    def _build_plan(self, task_type: str, payload: dict[str, Any], retriever: str | None) -> list[dict[str, Any]]:
         steps = []
         if retriever == "codecompass":
-            steps.append({"step": 1, "action": "codecompass_query",
-                           "description": "Fetch context from CodeCompass"})
-        steps.append({"step": len(steps) + 1, "action": f"langchain_{task_type}",
-                       "description": f"Execute {task_type} chain with retrieved context"})
-        steps.append({"step": len(steps) + 1, "action": "artifact_write",
-                       "description": "Write result as artifact (artifact_first)"})
+            steps.append({"step": 1, "action": "codecompass_query", "description": "Fetch context from CodeCompass"})
+        steps.append(
+            {
+                "step": len(steps) + 1,
+                "action": f"langchain_{task_type}",
+                "description": f"Execute {task_type} chain with retrieved context",
+            }
+        )
+        steps.append(
+            {
+                "step": len(steps) + 1,
+                "action": "artifact_write",
+                "description": "Write result as artifact (artifact_first)",
+            }
+        )
         return steps
 
-    def _blocked_result(self, task_id: str, task_type: str,
-                          reason_code: str, message: str) -> WorkflowArtifactResult:
+    def _blocked_result(self, task_id: str, task_type: str, reason_code: str, message: str) -> WorkflowArtifactResult:
         self._audit.log("execute_blocked", task_id=task_id, reason_code=reason_code)
         # Snapshot the execute-path events into the result so the
         # audit log does not leak into the next task.
         return WorkflowArtifactResult(
-            adapter_id="adapter.langchain", task_id=task_id, task_type=task_type,
-            status="blocked", summary=message, error=message, reason_code=reason_code,
+            adapter_id="adapter.langchain",
+            task_id=task_id,
+            task_type=task_type,
+            status="blocked",
+            summary=message,
+            error=message,
+            reason_code=reason_code,
             execution_trace=self._audit.snapshot(),
         )
 
     # ── LCG-050: stream() ──────────────────────────────────────────────────────
 
-    def stream(self, *, task_id: str, task_type: str,
-               payload: dict[str, Any]):
+    def stream(self, *, task_id: str, task_type: str, payload: dict[str, Any]):
         """Yield stream events for a chain execution.
 
         Policy gate (dry_run) is checked before yielding any events.  Provider
@@ -423,6 +451,7 @@ class LangChainAdapter:
     def _langchain_available() -> bool:
         try:
             import importlib
+
             importlib.import_module("langchain")
             return True
         except ImportError:

@@ -174,7 +174,5 @@ def test_confirmed_profile_feedback_improves_only_its_holdout_and_negative_retra
     assert _recognize(_snapshot(client, user_auth_header, profile_a)) == "Anantha baut."
     assert _recognize(_snapshot(client, user_auth_header, profile_b)) == "Anantha baut."
     with Session(engine) as session:
-        automatic_training = session.exec(
-            select(TaskDB).where(TaskDB.task_kind == "voice_training_export")
-        ).all()
+        automatic_training = session.exec(select(TaskDB).where(TaskDB.task_kind == "voice_training_export")).all()
     assert automatic_training == []

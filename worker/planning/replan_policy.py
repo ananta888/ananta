@@ -24,4 +24,3 @@ def should_replan(
     if int(attempts_used) >= int(max_attempts):
         return {"replan": False, "reason": "replan_budget_exhausted", "profile": normalized_profile}
     return {"replan": True, "reason": normalized_trigger, "profile": normalized_profile}
-

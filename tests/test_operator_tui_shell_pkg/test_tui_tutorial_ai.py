@@ -1,40 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
-import re
-import sys
 import time
-from importlib import reload
-from argparse import Namespace
-from pathlib import Path
 
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_items,
-    apply_ai_snake_config_value,
-    chat_model_option_label,
-    refresh_chat_backend_models,
-)
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
-from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
-from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
+from client_surfaces.operator_tui.models import FocusPane, OperatorState
 
 
 def test_tutorial_ai_toggle_changes_mode_flag() -> None:
@@ -50,7 +20,6 @@ def test_tutorial_ai_toggle_changes_mode_flag() -> None:
     tui._toggle_tutorial_ai_mode()
     restored = bool((tui.state.header_logo_game or {}).get("tutorial_mode"))
     assert restored is initial
-
 
 
 def test_tutorial_ai_snake_is_added_with_knowledge_message() -> None:
@@ -78,7 +47,7 @@ def test_tutorial_ai_snake_is_added_with_knowledge_message() -> None:
 
     tui._tick_header_snake()
 
-    snakes = ((tui.state.header_logo_game or {}).get("snakes") or {})
+    snakes = (tui.state.header_logo_game or {}).get("snakes") or {}
     ai = snakes.get("s-ai") if isinstance(snakes, dict) else None
     assert isinstance(ai, dict)
     assert ai.get("pseudonym") == "tutor-ai"
@@ -86,12 +55,15 @@ def test_tutorial_ai_snake_is_added_with_knowledge_message() -> None:
     assert ai.get("oidc_provider") == "codecompass-ai"
 
 
-
 def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> None:
     monkeypatch.setenv("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "1")
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
-    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["method · plan_tasks · client_surfaces/operator_tui/interactive.py"])
+    monkeypatch.setattr(
+        tui,
+        "_load_codecompass_hints",
+        lambda now: ["method · plan_tasks · client_surfaces/operator_tui/interactive.py"],
+    )
     monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: [])
     monkeypatch.setattr(tui, "_tutorial_ai_llm_message", lambda now, status, hints: None)
 
@@ -100,7 +72,6 @@ def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> N
     assert "CodeCompass:" in tip
     assert "mode=normal" in tip
     assert "section=tasks" in tip
-
 
 
 def test_tutorial_ai_tip_prefers_llm_when_available(monkeypatch) -> None:
@@ -113,7 +84,6 @@ def test_tutorial_ai_tip_prefers_llm_when_available(monkeypatch) -> None:
     tip = tui._tutorial_ai_tip(now=2.0)
 
     assert tip == "LLM tutor hint"
-
 
 
 def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -> None:
@@ -134,16 +104,22 @@ def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -
         def read(self):
             return b'{"choices":[{"message":{"content":"Use [Tab] to switch focus."}}]}'
 
-    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp())
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp()
+    )
 
     tip = tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"])
 
     assert tip == "Use [Tab] to switch focus."
 
 
-
 def test_tutorial_ai_llm_message_makes_no_direct_call_without_an_endpoint(monkeypatch) -> None:
-    for key in ("ANANTA_TUI_CHAT_API_BASE_URL", "ANANTA_TUI_SNAKE_AI_API_BASE_URL", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
+    for key in (
+        "ANANTA_TUI_CHAT_API_BASE_URL",
+        "ANANTA_TUI_SNAKE_AI_API_BASE_URL",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_BASE",
+    ):
         monkeypatch.delenv(key, raising=False)
     tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
 
@@ -193,7 +169,6 @@ def test_tutorial_ai_llm_message_uses_the_configured_endpoint_without_token(monk
     assert '"model": "google/gemma-4-e4b"' in captured["body"]
 
 
-
 def test_tutorial_ai_llm_training_mode_selects_tagged_profile(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
@@ -233,7 +208,6 @@ def test_tutorial_ai_llm_training_mode_selects_tagged_profile(monkeypatch) -> No
     assert calls["count"] >= 3
 
 
-
 def test_tutorial_ai_tip_async_mode_keeps_ui_responsive(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="dashboard")
     tui = InteractiveOperatorTui(state)
@@ -258,7 +232,6 @@ def test_tutorial_ai_tip_async_mode_keeps_ui_responsive(monkeypatch) -> None:
     assert tui._tutorial_last_target == "nav"
 
 
-
 def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
@@ -274,7 +247,9 @@ def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> N
         def read(self):
             return b'{"status":"success","data":{"reason":"[target=nav] Open tasks and inspect failed item first."}}'
 
-    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp())
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp()
+    )
 
     tip = tui._tutorial_ai_worker_propose_message(
         now=1.0,
@@ -285,7 +260,6 @@ def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> N
 
     assert tip == "Open tasks and inspect failed item first."
     assert tui._tutorial_worker_target_hint == "nav"
-
 
 
 def test_tutorial_ai_tip_includes_rag_helper_context_when_llm_missing(monkeypatch) -> None:
@@ -302,7 +276,6 @@ def test_tutorial_ai_tip_includes_rag_helper_context_when_llm_missing(monkeypatc
     assert "Hub owns routing" in tip
 
 
-
 def test_tutorial_ai_target_cell_prefers_header_for_auth_context() -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
@@ -316,7 +289,6 @@ def test_tutorial_ai_target_cell_prefers_header_for_auth_context() -> None:
 
     assert target[0] >= 90
     assert target[1] <= 6
-
 
 
 def test_tutorial_ai_snake_moves_toward_context_target(monkeypatch) -> None:
@@ -357,7 +329,6 @@ def test_tutorial_ai_snake_moves_toward_context_target(monkeypatch) -> None:
     assert isinstance(target, tuple)
     assert isinstance(head, tuple)
     assert head[0] >= 100
-
 
 
 def test_tutorial_ai_propose_history_is_recorded_in_game_state(monkeypatch) -> None:
@@ -401,7 +372,6 @@ def test_tutorial_ai_propose_history_is_recorded_in_game_state(monkeypatch) -> N
     assert "inspect queue" in str(latest.get("text") or "")
 
 
-
 def test_tutorial_ai_tip_sync_includes_user_feed_and_contact_zone(monkeypatch) -> None:
     game = {
         "active": True,
@@ -411,7 +381,9 @@ def test_tutorial_ai_tip_sync_includes_user_feed_and_contact_zone(monkeypatch) -
         "tutorial_ai_contact_zone": "header",
         "tutorial_prompt_template": "Priority={priority}; Feed={user_feed}; Zone={contact_zone}",
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="dashboard", header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="dashboard", header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     captured = {}
 
@@ -431,12 +403,18 @@ def test_tutorial_ai_tip_sync_includes_user_feed_and_contact_zone(monkeypatch) -
     assert "Priority=explain-current-position" in status
 
 
-
 def test_tutorial_rag_context_prefers_operator_tui_graph_and_embedding_records(tmp_path, monkeypatch) -> None:
     out_dir = tmp_path / "rag-out"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "index.jsonl").write_text(
-        json.dumps({"kind": "function_symbol", "file": "client_surfaces/operator_tui/interactive.py", "name": "_tutorial_ai_tip"}) + "\n",
+        json.dumps(
+            {
+                "kind": "function_symbol",
+                "file": "client_surfaces/operator_tui/interactive.py",
+                "name": "_tutorial_ai_tip",
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     (out_dir / "embedding.jsonl").write_text(
@@ -511,7 +489,6 @@ def test_tutorial_rag_context_prefers_operator_tui_graph_and_embedding_records(t
     assert "client_surfaces/operator_tui/interactive.py" in joined
 
 
-
 def test_tutorial_ai_llm_ask_uses_chat_max_tokens_from_config(monkeypatch) -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -545,9 +522,13 @@ def test_tutorial_ai_llm_ask_uses_chat_max_tokens_from_config(monkeypatch) -> No
     assert int((captured.get("body") or {}).get("max_tokens") or 0) == 900
 
 
-
 def test_llm_ask_without_an_endpoint_answers_locally_without_network(monkeypatch) -> None:
-    for key in ("ANANTA_TUI_CHAT_API_BASE_URL", "ANANTA_TUI_SNAKE_AI_API_BASE_URL", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
+    for key in (
+        "ANANTA_TUI_CHAT_API_BASE_URL",
+        "ANANTA_TUI_SNAKE_AI_API_BASE_URL",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_BASE",
+    ):
         monkeypatch.delenv(key, raising=False)
     tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
 
@@ -599,8 +580,6 @@ def test_llm_ask_uses_the_configured_endpoint_and_the_default_model(monkeypatch)
     assert answer == "ok"
     assert captured["url"] == "http://lmstudio.local:1234/v1/chat/completions"
     assert captured["body"]["model"] == "google/gemma-4-e4b"
-
-
 
 
 def test_tutorial_tip_goes_through_the_hub_by_default_with_the_operator_login(monkeypatch) -> None:

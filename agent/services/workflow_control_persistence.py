@@ -646,7 +646,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                 self._record_public_status_once(workflow_id, status)
                 return
             except WorkflowControlBindingPersistenceError as exc:
-                if attempt == 2 or str(exc) != 'workflow_control_public_status_cas_conflict':
+                if attempt == 2 or str(exc) != "workflow_control_public_status_cas_conflict":
                     raise
 
     def _record_public_status_once(self, workflow_id: str, status: dict[str, Any]) -> None:

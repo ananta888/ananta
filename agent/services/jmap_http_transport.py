@@ -61,8 +61,7 @@ class JmapHttpResponse:
 
 
 class JmapHttpAdapter(Protocol):
-    def send(self, request: JmapHttpRequest) -> JmapHttpResponse:
-        ...
+    def send(self, request: JmapHttpRequest) -> JmapHttpResponse: ...
 
 
 class RequestsJmapHttpAdapter:

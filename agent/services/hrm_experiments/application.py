@@ -157,9 +157,7 @@ class HrmExperimentApplicationService:
             )
             return result
         except (HrmRepositoryConflict, Exception) as exc:
-            self._repository.release_idempotency(
-                receipt.id, request_digest=request_digest
-            )
+            self._repository.release_idempotency(receipt.id, request_digest=request_digest)
             if not isinstance(exc, HrmRepositoryConflict):
                 raise
             raise HrmApplicationError(exc.reason_code) from exc
@@ -168,9 +166,7 @@ class HrmExperimentApplicationService:
         self, principal: HrmPrincipal, *, project_id: str, cursor: str | None, limit: int
     ) -> dict[str, Any]:
         offset = self._decode_cursor(cursor)
-        rows = self._repository.list_datasets(
-            principal.tenant_id, project_id, offset=offset, limit=limit + 1
-        )
+        rows = self._repository.list_datasets(principal.tenant_id, project_id, offset=offset, limit=limit + 1)
         return page([dict(row.manifest) for row in rows], offset=offset, limit=limit)
 
     def admit_checkpoint(
@@ -221,9 +217,7 @@ class HrmExperimentApplicationService:
             )
             return result
         except (HrmRepositoryConflict, Exception) as exc:
-            self._repository.release_idempotency(
-                receipt.id, request_digest=request_digest
-            )
+            self._repository.release_idempotency(receipt.id, request_digest=request_digest)
             if not isinstance(exc, HrmRepositoryConflict):
                 raise
             raise HrmApplicationError(exc.reason_code) from exc
@@ -232,9 +226,7 @@ class HrmExperimentApplicationService:
         self, principal: HrmPrincipal, *, project_id: str, cursor: str | None, limit: int
     ) -> dict[str, Any]:
         offset = self._decode_cursor(cursor)
-        rows = self._repository.list_checkpoints(
-            principal.tenant_id, project_id, offset=offset, limit=limit + 1
-        )
+        rows = self._repository.list_checkpoints(principal.tenant_id, project_id, offset=offset, limit=limit + 1)
         return page([dict(row.manifest) for row in rows], offset=offset, limit=limit)
 
     def start_run(
@@ -249,17 +241,13 @@ class HrmExperimentApplicationService:
         self._contracts.validate("run_intent", candidate)
         self._require_principal_scope(principal, candidate)
         project_id = str(candidate["scope"]["project_id"])
-        dataset = self._repository.get_dataset(
-            principal.tenant_id, project_id, str(candidate["dataset_id"])
-        )
+        dataset = self._repository.get_dataset(principal.tenant_id, project_id, str(candidate["dataset_id"]))
         if dataset is None:
             raise HrmApplicationError("hrm.dataset_not_found", status_code=404)
         checkpoint = None
         checkpoint_id = candidate.get("checkpoint_id")
         if checkpoint_id is not None:
-            checkpoint = self._repository.get_checkpoint(
-                principal.tenant_id, project_id, str(checkpoint_id)
-            )
+            checkpoint = self._repository.get_checkpoint(principal.tenant_id, project_id, str(checkpoint_id))
             if checkpoint is None or checkpoint.state != "verified":
                 raise HrmApplicationError("hrm.checkpoint_not_available", status_code=404)
             if dataset.puzzle_type not in checkpoint.manifest["compatibility"]["dataset_types"]:
@@ -319,13 +307,9 @@ class HrmExperimentApplicationService:
             raise HrmApplicationError("hrm.task_queue_unavailable", status_code=503) from exc
         return self.run_status(persisted), False
 
-    def list_runs(
-        self, principal: HrmPrincipal, *, project_id: str, cursor: str | None, limit: int
-    ) -> dict[str, Any]:
+    def list_runs(self, principal: HrmPrincipal, *, project_id: str, cursor: str | None, limit: int) -> dict[str, Any]:
         offset = self._decode_cursor(cursor)
-        rows = self._repository.list_runs(
-            principal.tenant_id, project_id, offset=offset, limit=limit + 1
-        )
+        rows = self._repository.list_runs(principal.tenant_id, project_id, offset=offset, limit=limit + 1)
         return page([self.run_status(row) for row in rows], offset=offset, limit=limit)
 
     def get_run(self, principal: HrmPrincipal, *, project_id: str, run_id: str) -> dict[str, Any]:
@@ -373,9 +357,7 @@ class HrmExperimentApplicationService:
             raise HrmApplicationError("hrm.dataset_not_available")
         checkpoint = None
         if run.checkpoint_id:
-            checkpoint = self._repository.get_checkpoint(
-                run.tenant_id, run.project_id, run.checkpoint_id
-            )
+            checkpoint = self._repository.get_checkpoint(run.tenant_id, run.project_id, run.checkpoint_id)
             if checkpoint is None or checkpoint.content_digest != run.checkpoint_digest:
                 raise HrmApplicationError("hrm.checkpoint_not_available")
             if checkpoint.manifest["compatibility"]["runtime_digest"] != canonical_digest(capability["runtime"]):
@@ -484,9 +466,7 @@ class HrmExperimentApplicationService:
         if candidate["result_digest"] != canonical_digest(unsigned):
             raise HrmApplicationError("hrm.result_digest_mismatch")
         for artifact in candidate["artifacts"]:
-            inspection = self._artifacts.inspect_result_digest(
-                str(artifact["content_digest"])
-            )
+            inspection = self._artifacts.inspect_result_digest(str(artifact["content_digest"]))
             if (
                 artifact["state"] != "verified"
                 or not inspection.verified
@@ -515,9 +495,7 @@ class HrmExperimentApplicationService:
             self._contracts.validate("run_result", candidate)
         else:
             run.status = str(candidate["status"])
-            run.reason_code = (
-                str((candidate.get("error") or {}).get("reason_code") or "") or None
-            )
+            run.reason_code = str((candidate.get("error") or {}).get("reason_code") or "") or None
         run.result = candidate
         run.finished_at = self._clock()
         self._repository.save_run(run)
@@ -547,9 +525,7 @@ class HrmExperimentApplicationService:
         run = self._repository.get_run(principal.tenant_id, project_id, run_id)
         if run is None:
             raise HrmApplicationError("hrm.run_not_found", status_code=404)
-        request_digest = canonical_digest(
-            {"project_id": project_id, "run_id": run_id, "request": candidate}
-        )
+        request_digest = canonical_digest({"project_id": project_id, "run_id": run_id, "request": candidate})
         receipt, replayed = self._claim_idempotency(
             principal,
             operation=f"cancel_run:{run_id}",
@@ -577,9 +553,7 @@ class HrmExperimentApplicationService:
             if run.status == "queued":
                 run.status = "cancelled"
                 run.finished_at = self._clock()
-                self._task_queue.cancel_run_task(
-                    run.task_id, reason_code="hrm.cancelled_by_user"
-                )
+                self._task_queue.cancel_run_task(run.task_id, reason_code="hrm.cancelled_by_user")
             else:
                 run.status = "cancel_requested"
             self._repository.save_run(run)
@@ -598,9 +572,7 @@ class HrmExperimentApplicationService:
             )
             return result
         except Exception:
-            self._repository.release_idempotency(
-                receipt.id, request_digest=request_digest
-            )
+            self._repository.release_idempotency(receipt.id, request_digest=request_digest)
             raise
 
     def list_events(
@@ -630,11 +602,7 @@ class HrmExperimentApplicationService:
             "attempt_id": str(run.attempt_id),
             "epoch": max(1, run.epoch),
             "events": [dict(row.event) for row in selected],
-            "next_cursor": (
-                encode_cursor(selected[-1].sequence)
-                if len(rows) > limit and selected
-                else None
-            ),
+            "next_cursor": (encode_cursor(selected[-1].sequence) if len(rows) > limit and selected else None),
         }
         self._contracts.validate("event_page", result)
         return result
@@ -721,12 +689,8 @@ class HrmExperimentApplicationService:
             "idempotent_replay": replayed,
         }
 
-    def get_report(
-        self, principal: HrmPrincipal, *, project_id: str, report_id: str
-    ) -> dict[str, Any]:
-        row = self._repository.get_report(
-            principal.tenant_id, project_id, report_id
-        )
+    def get_report(self, principal: HrmPrincipal, *, project_id: str, report_id: str) -> dict[str, Any]:
+        row = self._repository.get_report(principal.tenant_id, project_id, report_id)
         if row is None:
             raise HrmApplicationError("hrm.report_not_found", status_code=404)
         report = dict(row.report)
@@ -747,9 +711,7 @@ class HrmExperimentApplicationService:
         return result
 
     def _last_sequence(self, run: HrmRunDB) -> int:
-        return self._repository.last_event_sequence(
-            run.tenant_id, run.project_id, run.id
-        )
+        return self._repository.last_event_sequence(run.tenant_id, run.project_id, run.id)
 
     def _claim_idempotency(
         self,

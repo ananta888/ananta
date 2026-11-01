@@ -63,9 +63,7 @@ def persist_forwarded_proposal(
         "prompt_hash_sha256": hashlib.sha256(prompt_text.encode("utf-8")).hexdigest() if prompt_text else None,
         "provider": str(request_payload.get("provider") or "").strip() or None,
         "providers": (
-            list(request_payload.get("providers") or [])
-            if isinstance(request_payload.get("providers"), list)
-            else None
+            list(request_payload.get("providers") or []) if isinstance(request_payload.get("providers"), list) else None
         ),
         "model": str(request_payload.get("model") or "").strip() or None,
         "temperature": request_payload.get("temperature"),
@@ -98,8 +96,7 @@ def persist_forwarded_proposal(
         wrapped = response.get("proposal") if isinstance(response.get("proposal"), dict) else {}
         wrapped_meta = wrapped.get("metadata") if isinstance(wrapped.get("metadata"), dict) else {}
         prompt_trace_id = (
-            str(metadata.get("prompt_trace_id") or "").strip()
-            or str(wrapped_meta.get("prompt_trace_id") or "").strip()
+            str(metadata.get("prompt_trace_id") or "").strip() or str(wrapped_meta.get("prompt_trace_id") or "").strip()
         )
         if prompt_trace_id:
             response_trace = {
@@ -192,14 +189,10 @@ def persist_forwarded_proposal(
         tool_calls=proposal_tool_calls,
         comparisons=response.get("comparisons") if isinstance(response.get("comparisons"), dict) else None,
         research_artifact=(
-            response.get("research_artifact")
-            if isinstance(response.get("research_artifact"), dict)
-            else None
+            response.get("research_artifact") if isinstance(response.get("research_artifact"), dict) else None
         ),
         research_context=(
-            response.get("research_context")
-            if isinstance(response.get("research_context"), dict)
-            else None
+            response.get("research_context") if isinstance(response.get("research_context"), dict) else None
         ),
         forwarded_request=forwarded_request,
         history_event={
@@ -207,9 +200,7 @@ def persist_forwarded_proposal(
             "reason": str(response.get("reason") or ""),
             "backend": response.get("backend"),
             "routing_reason": (
-                (response.get("routing") or {}).get("reason")
-                if isinstance(response.get("routing"), dict)
-                else None
+                (response.get("routing") or {}).get("reason") if isinstance(response.get("routing"), dict) else None
             ),
             "forwarded_request": forwarded_request,
             "forwarded": True,

@@ -63,11 +63,7 @@ class WorkflowCredentialVerifier:
             label: self._read_credential_file(
                 root / relative,
                 label,
-                expected_modes=(
-                    {0o400, 0o444}
-                    if label == "verification"
-                    else {0o600}
-                ),
+                expected_modes=({0o400, 0o444} if label == "verification" else {0o600}),
             )
             for label, relative in self._FILES.items()
         }
@@ -111,9 +107,7 @@ class WorkflowCredentialVerifier:
                 or metadata.st_size < 1
                 or metadata.st_size > _MAX_CREDENTIAL_BYTES
             ):
-                raise BackupError(
-                    f"Restored credential has unsafe metadata: {label}"
-                )
+                raise BackupError(f"Restored credential has unsafe metadata: {label}")
             descriptor = os.open(
                 path,
                 os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
@@ -129,14 +123,10 @@ class WorkflowCredentialVerifier:
                     metadata.st_ino,
                     metadata.st_size,
                 ):
-                    raise BackupError(
-                        f"Restored credential changed during verification: {label}"
-                    )
+                    raise BackupError(f"Restored credential changed during verification: {label}")
                 payload = source.read(_MAX_CREDENTIAL_BYTES + 1)
         except OSError as exc:
-            raise BackupError(
-                f"Cannot verify restored credential: {label}"
-            ) from exc
+            raise BackupError(f"Cannot verify restored credential: {label}") from exc
         if len(payload) > _MAX_CREDENTIAL_BYTES:
             raise BackupError(f"Restored credential is too large: {label}")
         return payload
@@ -146,9 +136,7 @@ class WorkflowCredentialVerifier:
         try:
             token = payload.decode("utf-8")
         except UnicodeError as exc:
-            raise BackupError(
-                f"Restored credential is not UTF-8: {label}"
-            ) from exc
+            raise BackupError(f"Restored credential is not UTF-8: {label}") from exc
         if token.endswith("\r\n"):
             normalized = token[:-2]
         elif token.endswith("\n"):
@@ -170,10 +158,7 @@ class WorkflowCredentialVerifier:
         for index, (left_label, left) in enumerate(values):
             for right_label, right in values[index + 1 :]:
                 if secrets.compare_digest(left, right):
-                    raise BackupError(
-                        "Restored credentials reuse secret material: "
-                        f"{left_label}/{right_label}"
-                    )
+                    raise BackupError(f"Restored credentials reuse secret material: {left_label}/{right_label}")
 
     @staticmethod
     def _json_object(payload: bytes, label: str) -> dict[str, object]:
@@ -197,15 +182,9 @@ class WorkflowCredentialVerifier:
             _VERIFICATION_FIELDS,
             "verification keyring",
         )
-        if (
-            signing.get("schema") != _SIGNING_SCHEMA
-            or signing.get("algorithm") != _ED25519_ALGORITHM
-        ):
+        if signing.get("schema") != _SIGNING_SCHEMA or signing.get("algorithm") != _ED25519_ALGORITHM:
             raise BackupError("Restored signing keyring schema is invalid")
-        if (
-            verification.get("schema") != _VERIFICATION_SCHEMA
-            or verification.get("algorithm") != _ED25519_ALGORITHM
-        ):
+        if verification.get("schema") != _VERIFICATION_SCHEMA or verification.get("algorithm") != _ED25519_ALGORITHM:
             raise BackupError("Restored verification keyring schema is invalid")
 
         private_keys = cls._key_mapping(
@@ -223,17 +202,12 @@ class WorkflowCredentialVerifier:
         if active_key_id not in private_keys:
             raise BackupError("Restored active signing key is missing")
         if set(private_keys) != set(public_keys):
-            raise BackupError(
-                "Restored signing and verification key identifiers do not match"
-            )
+            raise BackupError("Restored signing and verification key identifiers do not match")
         derived_public = {
-            key_id: cls._derive_ed25519_public(encoded_private)
-            for key_id, encoded_private in private_keys.items()
+            key_id: cls._derive_ed25519_public(encoded_private) for key_id, encoded_private in private_keys.items()
         }
         if derived_public != public_keys:
-            raise BackupError(
-                "Restored signing private keys do not match verification public keys"
-            )
+            raise BackupError("Restored signing private keys do not match verification public keys")
 
         signing_public = signing.get("public_keys")
         if signing_public is not None:
@@ -242,9 +216,7 @@ class WorkflowCredentialVerifier:
                 "public",
             )
             if supplied_public != public_keys:
-                raise BackupError(
-                    "Restored signing and verification public keys do not match"
-                )
+                raise BackupError("Restored signing and verification public keys do not match")
 
         signing_revoked_keys = cls._identifier_list(
             signing.get("revoked_key_ids"),
@@ -266,9 +238,7 @@ class WorkflowCredentialVerifier:
             signing_revoked_keys != verification_revoked_keys
             or signing_revoked_envelopes != verification_revoked_envelopes
         ):
-            raise BackupError(
-                "Restored signing and verification revocations do not match"
-            )
+            raise BackupError("Restored signing and verification revocations do not match")
         if active_key_id in signing_revoked_keys:
             raise BackupError("Restored active signing key is revoked")
 
@@ -289,9 +259,7 @@ class WorkflowCredentialVerifier:
         key_kind: str,
     ) -> dict[str, str]:
         if not isinstance(value, dict) or not value or len(value) > 10_000:
-            raise BackupError(
-                f"Restored {key_kind} authorization keys are invalid"
-            )
+            raise BackupError(f"Restored {key_kind} authorization keys are invalid")
         normalized: dict[str, str] = {}
         for key_id, encoded in value.items():
             normalized_id = cls._identifier(
@@ -299,17 +267,13 @@ class WorkflowCredentialVerifier:
                 f"{key_kind} authorization key",
             )
             if not isinstance(encoded, str):
-                raise BackupError(
-                    f"Restored {key_kind} authorization key is invalid"
-                )
+                raise BackupError(f"Restored {key_kind} authorization key is invalid")
             raw = cls._decode_base64(
                 encoded,
                 f"{key_kind} authorization key",
             )
             if len(raw) != 32:
-                raise BackupError(
-                    f"Restored {key_kind} authorization key is invalid"
-                )
+                raise BackupError(f"Restored {key_kind} authorization key is invalid")
             normalized[normalized_id] = base64.b64encode(raw).decode("ascii")
         return normalized
 
@@ -333,12 +297,7 @@ class WorkflowCredentialVerifier:
         if not isinstance(value, str):
             raise BackupError(f"Restored {label} identifier is invalid")
         normalized = value.strip()
-        if (
-            not normalized
-            or normalized != value
-            or len(normalized) > 256
-            or "\x00" in normalized
-        ):
+        if not normalized or normalized != value or len(normalized) > 256 or "\x00" in normalized:
             raise BackupError(f"Restored {label} identifier is invalid")
         return normalized
 
@@ -357,25 +316,22 @@ class WorkflowCredentialVerifier:
                 Ed25519PrivateKey,
             )
         except ImportError as exc:
-            raise BackupError(
-                "Restore credential verification requires the Python "
-                "'cryptography' package"
-            ) from exc
+            raise BackupError("Restore credential verification requires the Python 'cryptography' package") from exc
         private_seed = cls._decode_base64(
             encoded_private,
             "private authorization key",
         )
         try:
-            public = Ed25519PrivateKey.from_private_bytes(
-                private_seed
-            ).public_key().public_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PublicFormat.Raw,
+            public = (
+                Ed25519PrivateKey.from_private_bytes(private_seed)
+                .public_key()
+                .public_bytes(
+                    encoding=serialization.Encoding.Raw,
+                    format=serialization.PublicFormat.Raw,
+                )
             )
         except ValueError as exc:
-            raise BackupError(
-                "Restored private authorization key is invalid"
-            ) from exc
+            raise BackupError("Restored private authorization key is invalid") from exc
         return base64.b64encode(public).decode("ascii")
 
     def _verify_dispatch(self, payload: bytes) -> None:
@@ -403,11 +359,7 @@ class WorkflowCredentialVerifier:
                     altchars=b"-_",
                     validate=True,
                 )
-                if (
-                    len(decoded_key) != 32
-                    or base64.urlsafe_b64encode(decoded_key).decode("ascii")
-                    != value
-                ):
+                if len(decoded_key) != 32 or base64.urlsafe_b64encode(decoded_key).decode("ascii") != value:
                     raise ValueError
         except (UnicodeError, binascii.Error, ValueError) as exc:
             raise BackupError("Restored dispatch keyring contains an invalid key") from exc
@@ -420,20 +372,15 @@ class WorkflowCredentialVerifier:
         decoded = self._json_object(payload, "worker registration keyring")
         workers = decoded.get("workers")
         if (
-            decoded.get("schema")
-            != "ananta.workflow-worker-registration-keyring.v1"
+            decoded.get("schema") != "ananta.workflow-worker-registration-keyring.v1"
             or not isinstance(workers, dict)
             or len(workers) < 2
         ):
             raise BackupError("Restored worker registration keyring is invalid")
         matched_workers: set[str] = set()
         for logical_name in ("alpha", "beta"):
-            service_digest = hashlib.sha256(
-                tokens[f"{logical_name}_service"].encode("utf-8")
-            ).hexdigest()
-            session_digest = hashlib.sha256(
-                tokens[f"{logical_name}_session"].encode("utf-8")
-            ).hexdigest()
+            service_digest = hashlib.sha256(tokens[f"{logical_name}_service"].encode("utf-8")).hexdigest()
+            session_digest = hashlib.sha256(tokens[f"{logical_name}_session"].encode("utf-8")).hexdigest()
             matches = [
                 str(worker_id)
                 for worker_id, entry in workers.items()
@@ -455,9 +402,7 @@ class WorkflowCredentialVerifier:
                 and bool(entry.get("allowed_capabilities"))
             ]
             if len(matches) != 1 or matches[0] in matched_workers:
-                raise BackupError(
-                    f"Restored {logical_name} credential binding is invalid"
-                )
+                raise BackupError(f"Restored {logical_name} credential binding is invalid")
             matched_workers.add(matches[0])
 
 
@@ -474,11 +419,7 @@ class OllamaModelVerifier:
             or blobs_root.is_symlink()
         ):
             raise BackupError("Restored Ollama model layout is incomplete")
-        manifests = sorted(
-            path
-            for path in manifests_root.rglob("*")
-            if path.is_file() and not path.is_symlink()
-        )
+        manifests = sorted(path for path in manifests_root.rglob("*") if path.is_file() and not path.is_symlink())
         if not manifests:
             raise BackupError("Restored Ollama model tree has no manifests")
         expected_blobs: dict[str, int] = {}
@@ -486,70 +427,39 @@ class OllamaModelVerifier:
             payload = self._load_manifest(manifest)
             descriptors = [payload.get("config"), *payload.get("layers", [])]
             if not descriptors:
-                raise BackupError(
-                    f"Ollama manifest has no blob descriptors: {manifest.name}"
-                )
+                raise BackupError(f"Ollama manifest has no blob descriptors: {manifest.name}")
             for descriptor in descriptors:
                 if not isinstance(descriptor, dict):
-                    raise BackupError(
-                        f"Ollama manifest descriptor is invalid: {manifest.name}"
-                    )
+                    raise BackupError(f"Ollama manifest descriptor is invalid: {manifest.name}")
                 digest = descriptor.get("digest")
-                match = (
-                    _OLLAMA_DIGEST.fullmatch(digest)
-                    if isinstance(digest, str)
-                    else None
-                )
+                match = _OLLAMA_DIGEST.fullmatch(digest) if isinstance(digest, str) else None
                 if match is None:
-                    raise BackupError(
-                        f"Ollama manifest digest is invalid: {manifest.name}"
-                    )
+                    raise BackupError(f"Ollama manifest digest is invalid: {manifest.name}")
                 size = descriptor.get("size")
-                if (
-                    not isinstance(size, int)
-                    or isinstance(size, bool)
-                    or size < 0
-                ):
-                    raise BackupError(
-                        f"Ollama manifest blob size is invalid: {manifest.name}"
-                    )
+                if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+                    raise BackupError(f"Ollama manifest blob size is invalid: {manifest.name}")
                 normalized_digest = match.group(1)
                 previous_size = expected_blobs.get(normalized_digest)
                 if previous_size is not None and previous_size != size:
-                    raise BackupError(
-                        "Ollama manifests disagree about blob size: "
-                        f"{normalized_digest}"
-                    )
+                    raise BackupError(f"Ollama manifests disagree about blob size: {normalized_digest}")
                 expected_blobs[normalized_digest] = size
         for digest, expected_size in sorted(expected_blobs.items()):
             blob = blobs_root / f"sha256-{digest}"
             actual, actual_size = sha256_file(blob)
             if not secrets.compare_digest(actual, digest):
-                raise BackupError(
-                    f"Restored Ollama blob digest does not match: {digest}"
-                )
+                raise BackupError(f"Restored Ollama blob digest does not match: {digest}")
             if actual_size != expected_size:
-                raise BackupError(
-                    f"Restored Ollama blob size does not match: {digest}"
-                )
+                raise BackupError(f"Restored Ollama blob size does not match: {digest}")
 
     @staticmethod
     def _load_manifest(path: Path) -> dict[str, object]:
         try:
             metadata = path.lstat()
-            if (
-                not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_size < 2
-                or metadata.st_size > _MAX_MANIFEST_BYTES
-            ):
-                raise BackupError(
-                    f"Restored Ollama manifest has unsafe metadata: {path.name}"
-                )
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size < 2 or metadata.st_size > _MAX_MANIFEST_BYTES:
+                raise BackupError(f"Restored Ollama manifest has unsafe metadata: {path.name}")
             decoded = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            raise BackupError(
-                f"Cannot read restored Ollama manifest: {path.name}"
-            ) from exc
+            raise BackupError(f"Cannot read restored Ollama manifest: {path.name}") from exc
         if (
             not isinstance(decoded, dict)
             or decoded.get("schemaVersion") != 2

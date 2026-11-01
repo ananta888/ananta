@@ -6,22 +6,35 @@ from agent.services.codecompass_hardening_migration_service import (
 
 
 class _Inventory:
-    def __init__(self, rows): self.rows = rows
-    def inventory(self): return list(self.rows)
+    def __init__(self, rows):
+        self.rows = rows
+
+    def inventory(self):
+        return list(self.rows)
 
 
 class _Journal:
-    def __init__(self): self.records = {}
-    def load(self, migration_id): return self.records.get(migration_id)
-    def save(self, record): self.records[str(record["migration_id"])] = dict(record)
+    def __init__(self):
+        self.records = {}
+
+    def load(self, migration_id):
+        return self.records.get(migration_id)
+
+    def save(self, record):
+        self.records[str(record["migration_id"])] = dict(record)
 
 
 class _Writer:
-    def __init__(self): self.migrated = []; self.rolled_back = []
+    def __init__(self):
+        self.migrated = []
+        self.rolled_back = []
+
     def migrate(self, operation):
         self.migrated.append(operation["operation_id"])
         return {"target_digest": operation.get("digest", "")}
-    def rollback(self, operation, result): self.rolled_back.append(operation["operation_id"])
+
+    def rollback(self, operation, result):
+        self.rolled_back.append(operation["operation_id"])
 
 
 def _migration(*, enabled=False):
@@ -29,9 +42,31 @@ def _migration(*, enabled=False):
     writer = _Writer()
     service = CodeCompassHardeningMigrationService(
         inventories={
-            "layer_head": _Inventory([{"kind": "layer_head", "legacy_id": "head-v1", "profile_id": "default", "digest": "a" * 64, "secret": "must-not-leak"}]),
-            "duckdb_pointer": _Inventory([{"kind": "duckdb_pointer", "legacy_id": "active", "workspace_id": "ws-1", "repository_id": "repo-1", "digest": "b" * 64}]),
-            "github_ref": _Inventory([{"kind": "github_ref", "legacy_id": "installation-7", "repository_id": "org/repo", "digest": "c" * 64}]),
+            "layer_head": _Inventory(
+                [
+                    {
+                        "kind": "layer_head",
+                        "legacy_id": "head-v1",
+                        "profile_id": "default",
+                        "digest": "a" * 64,
+                        "secret": "must-not-leak",
+                    }
+                ]
+            ),
+            "duckdb_pointer": _Inventory(
+                [
+                    {
+                        "kind": "duckdb_pointer",
+                        "legacy_id": "active",
+                        "workspace_id": "ws-1",
+                        "repository_id": "repo-1",
+                        "digest": "b" * 64,
+                    }
+                ]
+            ),
+            "github_ref": _Inventory(
+                [{"kind": "github_ref", "legacy_id": "installation-7", "repository_id": "org/repo", "digest": "c" * 64}]
+            ),
         },
         journal=journal,
         writer=writer,

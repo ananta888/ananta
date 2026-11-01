@@ -164,10 +164,7 @@ class WorkflowRuntimeCapabilityService:
             raise ValueError("runtime_capability_matrix_duplicate_runtime")
         missing = REQUIRED_RUNTIME_IDS - set(by_id)
         if missing:
-            raise ValueError(
-                "runtime_capability_matrix_required_runtime_missing:"
-                + ",".join(sorted(missing))
-            )
+            raise ValueError("runtime_capability_matrix_required_runtime_missing:" + ",".join(sorted(missing)))
         self._matrix_version = str(matrix_version).strip()
         self._descriptors = by_id
         self._health = health
@@ -182,10 +179,7 @@ class WorkflowRuntimeCapabilityService:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
         if raw.get("schema") != RUNTIME_CAPABILITY_MATRIX_SCHEMA:
             raise ValueError("runtime_capability_matrix_schema_unsupported")
-        descriptors = tuple(
-            RuntimeCapabilityDescriptor.from_mapping(value)
-            for value in raw.get("runtimes") or ()
-        )
+        descriptors = tuple(RuntimeCapabilityDescriptor.from_mapping(value) for value in raw.get("runtimes") or ())
         if not descriptors:
             raise ValueError("runtime_capability_matrix_empty")
         return cls(
@@ -195,10 +189,7 @@ class WorkflowRuntimeCapabilityService:
         )
 
     def list_candidates(self) -> tuple[RuntimeCandidate, ...]:
-        return tuple(
-            self._descriptors[key].to_candidate()
-            for key in sorted(self._descriptors)
-        )
+        return tuple(self._descriptors[key].to_candidate() for key in sorted(self._descriptors))
 
     def get_health(self, runtime_id: str) -> RuntimeHealthSnapshot:
         descriptor = self._descriptors.get(str(runtime_id))
@@ -251,19 +242,12 @@ def default_workflow_runtime_capability_service(
     *,
     health: RuntimeHealthPort | None = None,
 ) -> WorkflowRuntimeCapabilityService:
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "config"
-        / "workflow_runtime"
-        / "runtime_capability_matrix.v1.json"
-    )
+    path = Path(__file__).resolve().parents[2] / "config" / "workflow_runtime" / "runtime_capability_matrix.v1.json"
     return WorkflowRuntimeCapabilityService.from_file(path, health=health)
 
 
 def _clean_tuple(values: Any) -> tuple[str, ...]:
-    return tuple(
-        sorted({str(value).strip() for value in values or () if str(value).strip()})
-    )
+    return tuple(sorted({str(value).strip() for value in values or () if str(value).strip()}))
 
 
 def _optional_int(value: Any) -> int | None:

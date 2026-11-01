@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 
 from client_surfaces.operator_tui.ai_snake_context import (
-    build_goal_artifact_graph_context,
     build_context_envelope_ref,
+    build_goal_artifact_graph_context,
     default_ai_context,
     explain_goal_artifact_graph,
     relevance_refs_for_intent,
@@ -44,8 +44,16 @@ def test_predict_request_is_single_inflight() -> None:
         }
 
     client = AiSnakeWorkerClient(dispatch=slow_dispatch)
-    first = client.submit(client.build_request(mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}))
-    second = client.submit(client.build_request(mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}))
+    first = client.submit(
+        client.build_request(
+            mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}
+        )
+    )
+    second = client.submit(
+        client.build_request(
+            mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}
+        )
+    )
     assert first is not None
     assert second is None
 
@@ -64,7 +72,9 @@ def test_poll_marks_stale_result_when_signature_changed() -> None:
 
     client = AiSnakeWorkerClient(dispatch=dispatch)
     task = client.submit(
-        client.build_request(mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}),
+        client.build_request(
+            mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}
+        ),
         signature="sig:old",
     )
     assert task is not None
@@ -89,12 +99,16 @@ def test_explain_request_cancels_predict_due_to_priority() -> None:
 
     client = AiSnakeWorkerClient(dispatch=slow_dispatch)
     predict = client.submit(
-        client.build_request(mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}),
+        client.build_request(
+            mode="predict_intent", observation_summary={}, quick_prediction={}, context_envelope_ref={}
+        ),
         signature="sig:a",
     )
     assert predict is not None
     explain = client.submit(
-        client.build_request(mode="explain_artifact", observation_summary={}, quick_prediction={}, context_envelope_ref={}),
+        client.build_request(
+            mode="explain_artifact", observation_summary={}, quick_prediction={}, context_envelope_ref={}
+        ),
         signature="sig:a",
     )
     assert explain is not None

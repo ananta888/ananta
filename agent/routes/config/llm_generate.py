@@ -68,6 +68,7 @@ def _preflight_with_meta(payload: dict, raw_payload: dict | None = None) -> dict
         },
     }
 
+
 def _infer_tool_calls_from_prompt(prompt: str, context: dict | None = None) -> list[dict]:
     p = (prompt or "").strip().lower()
     if not p:
@@ -85,7 +86,9 @@ def _infer_tool_calls_from_prompt(prompt: str, context: dict | None = None) -> l
     if wants_templates or wants_role_links:
         return [{"name": "ensure_team_templates", "args": {"team_types": team_types}}] if team_types else []
 
-    wants_create_team = any(token in p for token in ["team erstellen", "team anlegen", "create team", "neues team", "new team"])
+    wants_create_team = any(
+        token in p for token in ["team erstellen", "team anlegen", "create team", "neues team", "new team"]
+    )
     if wants_create_team:
         inferred_type = "Scrum" if "scrum" in p else "Kanban" if "kanban" in p else ""
         if not inferred_type:
@@ -102,7 +105,10 @@ def _infer_tool_calls_from_prompt(prompt: str, context: dict | None = None) -> l
             return []
         return [{"name": "create_team", "args": {"name": team_name, "team_type": inferred_type}}]
 
-    wants_assign_role = any(token in p for token in ["rolle zuweisen", "assign role", "agent zuordnen", "agent zuweisen", "mitglied zuordnen"])
+    wants_assign_role = any(
+        token in p
+        for token in ["rolle zuweisen", "assign role", "agent zuordnen", "agent zuweisen", "mitglied zuordnen"]
+    )
     if not wants_assign_role:
         return []
     team_id_match = re.search(r"team_id\s*[:=]\s*([a-zA-Z0-9._:-]+)", prompt or "", flags=re.IGNORECASE)
@@ -136,7 +142,9 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
     timeout_val = cfg.get("timeout")
     temperature_val = cfg.get("temperature") if cfg.get("temperature") is not None else llm_cfg.get("temperature")
-    context_limit_val = cfg.get("context_limit") if cfg.get("context_limit") is not None else llm_cfg.get("context_limit")
+    context_limit_val = (
+        cfg.get("context_limit") if cfg.get("context_limit") is not None else llm_cfg.get("context_limit")
+    )
 
     try:
         temperature_val = float(temperature_val) if temperature_val is not None else None
@@ -152,8 +160,16 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
     if context_limit_val is not None:
         context_limit_val = max(256, min(200000, context_limit_val))
 
-    provider_source = "request.config.provider" if cfg.get("provider") else ("agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider")
-    model_source = "request.config.model" if cfg.get("model") else ("agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model")
+    provider_source = (
+        "request.config.provider"
+        if cfg.get("provider")
+        else ("agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider")
+    )
+    model_source = (
+        "request.config.model"
+        if cfg.get("model")
+        else ("agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model")
+    )
     api_key_profile = cfg.get("api_key_profile") or llm_cfg.get("api_key_profile")
     base_url, base_url_source = shared.resolve_provider_base_url(
         provider=provider,
@@ -183,7 +199,9 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
             model = recommendation["model"]
             provider_source = recommendation["selection_source"]
             model_source = recommendation["selection_source"]
-            base_url, base_url_source = shared.resolve_provider_base_url(provider, cfg.get("base_url"), llm_cfg, agent_cfg, provider_urls)
+            base_url, base_url_source = shared.resolve_provider_base_url(
+                provider, cfg.get("base_url"), llm_cfg, agent_cfg, provider_urls
+            )
             api_key = shared.resolve_provider_api_key(provider, api_key, api_key_profile, agent_cfg)
 
     runtime_choice = None
@@ -193,7 +211,11 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
             runtime_probe_timeout = max(1, int(timeout_val))
     except (TypeError, ValueError):
         runtime_probe_timeout = 5
-    if not requested_provider and not requested_base_url and str(provider or "").strip().lower() in {"lmstudio", "ollama"}:
+    if (
+        not requested_provider
+        and not requested_base_url
+        and str(provider or "").strip().lower() in {"lmstudio", "ollama"}
+    ):
         runtime_choice = resolve_preferred_local_runtime(
             provider=str(provider or "").strip().lower(),
             provider_urls=provider_urls,
@@ -218,14 +240,22 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
     routing = {
         "policy_version": "llm-generate-v1",
         "task_kind": inferred_task_kind,
-        "requested": {"provider": requested_provider or None, "model": requested_model or None, "base_url": requested_base_url or None},
+        "requested": {
+            "provider": requested_provider or None,
+            "model": requested_model or None,
+            "base_url": requested_base_url or None,
+        },
         "effective": {
             "provider": str(provider or "").strip() or None,
             "transport_provider": str(transport_provider or "").strip() or None,
             "model": str(model or "").strip() or None,
             "base_url": str(base_url or "").strip() or None,
         },
-        "fallback": {"provider_source": provider_source, "model_source": model_source, "base_url_source": base_url_source},
+        "fallback": {
+            "provider_source": provider_source,
+            "model_source": model_source,
+            "base_url_source": base_url_source,
+        },
     }
     if recommendation:
         routing["recommendation"] = recommendation
@@ -273,13 +303,21 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
     }
 
 
-def _normalize_llm_response(response_text: str, *, full_history: list[dict], user_prompt: str, context, runtime: dict) -> tuple[dict | None, str]:
+def _normalize_llm_response(
+    response_text: str, *, full_history: list[dict], user_prompt: str, context, runtime: dict
+) -> tuple[dict | None, str]:
     res_json = extract_json(response_text)
     if res_json is not None:
         return res_json, response_text
-    inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=context if isinstance(context, dict) else None)
+    inferred_tool_calls = _infer_tool_calls_from_prompt(
+        user_prompt, context=context if isinstance(context, dict) else None
+    )
     if inferred_tool_calls:
-        return {"answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.", "tool_calls": inferred_tool_calls, "thought": "Intent fallback"}, response_text
+        return {
+            "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
+            "tool_calls": inferred_tool_calls,
+            "thought": "Intent fallback",
+        }, response_text
     if response_text and response_text.strip():
         return {"answer": response_text.strip(), "tool_calls": [], "thought": ""}, response_text
 
@@ -303,17 +341,34 @@ def _normalize_llm_response(response_text: str, *, full_history: list[dict], use
         return None, repaired
     repaired_json = extract_json(repaired)
     if repaired_json is None:
-        inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=context if isinstance(context, dict) else None)
+        inferred_tool_calls = _infer_tool_calls_from_prompt(
+            user_prompt, context=context if isinstance(context, dict) else None
+        )
         if inferred_tool_calls:
-            repaired_json = {"answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.", "tool_calls": inferred_tool_calls, "thought": "Intent fallback"}
+            repaired_json = {
+                "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
+                "tool_calls": inferred_tool_calls,
+                "thought": "Intent fallback",
+            }
     if repaired_json is None and repaired:
         repaired_json = {"answer": repaired.strip(), "tool_calls": [], "thought": ""}
     return repaired_json, repaired
 
 
-def _execute_tool_calls(*, tool_calls: list[dict], user_prompt: str, full_history: list[dict], runtime: dict, response_text: str, res_json: dict, is_admin: bool):
+def _execute_tool_calls(
+    *,
+    tool_calls: list[dict],
+    user_prompt: str,
+    full_history: list[dict],
+    runtime: dict,
+    response_text: str,
+    res_json: dict,
+    is_admin: bool,
+):
     if not is_admin:
-        return api_response(status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403)
+        return api_response(
+            status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
+        )
     capability_contract = build_capability_contract(runtime["agent_cfg"])
     allowed_tools = resolve_allowed_tools(runtime["agent_cfg"], is_admin=is_admin, contract=capability_contract)
     blocked_tools, blocked_reasons_by_tool = validate_tool_calls_against_contract(
@@ -321,8 +376,23 @@ def _execute_tool_calls(*, tool_calls: list[dict], user_prompt: str, full_histor
     )
     if blocked_tools:
         log_audit("tool_calls_blocked", {"tools": blocked_tools, "reasons_by_tool": blocked_reasons_by_tool})
-        blocked_results = [{"tool": name, "success": False, "output": None, "error": blocked_reasons_by_tool.get(name, "tool_not_allowed")} for name in blocked_tools]
-        return api_response(data={"response": f"Tool calls blocked: {', '.join(blocked_tools)}", "tool_results": blocked_results, "blocked_tools": blocked_tools, "blocked_reasons_by_tool": blocked_reasons_by_tool})
+        blocked_results = [
+            {
+                "tool": name,
+                "success": False,
+                "output": None,
+                "error": blocked_reasons_by_tool.get(name, "tool_not_allowed"),
+            }
+            for name in blocked_tools
+        ]
+        return api_response(
+            data={
+                "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
+                "tool_results": blocked_results,
+                "blocked_tools": blocked_tools,
+                "blocked_reasons_by_tool": blocked_reasons_by_tool,
+            }
+        )
 
     token_usage = {
         "prompt_tokens": estimate_text_tokens(user_prompt),
@@ -347,12 +417,35 @@ def _execute_tool_calls(*, tool_calls: list[dict], user_prompt: str, full_histor
     else:
         token_usage["token_source"] = "estimated"
     if token_usage.get("estimated_total_tokens") is None:
-        token_usage["estimated_total_tokens"] = int(token_usage.get("prompt_tokens") or 0) + int(token_usage.get("history_tokens") or 0) + int(token_usage.get("completion_tokens") or 0) + int(token_usage.get("tool_calls_tokens") or 0)
+        token_usage["estimated_total_tokens"] = (
+            int(token_usage.get("prompt_tokens") or 0)
+            + int(token_usage.get("history_tokens") or 0)
+            + int(token_usage.get("completion_tokens") or 0)
+            + int(token_usage.get("tool_calls_tokens") or 0)
+        )
     guardrail_decision = evaluate_tool_call_guardrails(tool_calls, runtime["agent_cfg"], token_usage=token_usage)
     if not guardrail_decision.allowed:
-        blocked_results = [{"tool": name, "success": False, "output": None, "error": "tool_guardrail_blocked"} for name in (guardrail_decision.blocked_tools or [tc.get("name", "<missing>") for tc in tool_calls])]
-        log_audit("tool_calls_guardrail_blocked", {"tools": guardrail_decision.blocked_tools, "reasons": guardrail_decision.reasons, **guardrail_decision.details})
-        return api_response(data={"response": "Tool calls blocked by guardrails.", "tool_results": blocked_results, "blocked_tools": guardrail_decision.blocked_tools, "blocked_reasons": guardrail_decision.reasons, "guardrails": guardrail_decision.details})
+        blocked_results = [
+            {"tool": name, "success": False, "output": None, "error": "tool_guardrail_blocked"}
+            for name in (guardrail_decision.blocked_tools or [tc.get("name", "<missing>") for tc in tool_calls])
+        ]
+        log_audit(
+            "tool_calls_guardrail_blocked",
+            {
+                "tools": guardrail_decision.blocked_tools,
+                "reasons": guardrail_decision.reasons,
+                **guardrail_decision.details,
+            },
+        )
+        return api_response(
+            data={
+                "response": "Tool calls blocked by guardrails.",
+                "tool_results": blocked_results,
+                "blocked_tools": guardrail_decision.blocked_tools,
+                "blocked_reasons": guardrail_decision.reasons,
+                "guardrails": guardrail_decision.details,
+            }
+        )
 
     results = []
     for tool_call in tool_calls:
@@ -367,14 +460,25 @@ def _execute_tool_calls(*, tool_calls: list[dict], user_prompt: str, full_histor
         model=runtime["model"],
         base_url=runtime["base_url"],
         api_key=runtime["api_key"],
-        history=full_history + [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": json.dumps({"tool_calls": tool_calls})}, {"role": "system", "content": f"Tool Results: {json.dumps(results)}"}],
+        history=full_history
+        + [
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": json.dumps({"tool_calls": tool_calls})},
+            {"role": "system", "content": f"Tool Results: {json.dumps(results)}"},
+        ],
         temperature=runtime["temperature_val"],
         max_context_tokens=runtime["context_limit_val"],
         timeout=runtime["timeout_val"],
     )
     if not final_response or not final_response.strip():
-        return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
-    return build_sse_response(final_response) if runtime["stream"] else api_response(data={"response": final_response, "tool_results": results})
+        return api_response(
+            status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502
+        )
+    return (
+        build_sse_response(final_response)
+        if runtime["stream"]
+        else api_response(data={"response": final_response, "tool_results": results})
+    )
 
 
 @llm_generate_bp.route("/llm/generate", methods=["POST"])
@@ -420,30 +524,57 @@ def llm_generate():
         indent=2,
         ensure_ascii=False,
     )
-    full_history = [{"role": "system", "content": build_system_instruction(tools_desc=tools_desc, context=data.get("context"), stream=stream)}] + (data.get("history") if isinstance(data.get("history"), list) else [])
+    full_history = [
+        {
+            "role": "system",
+            "content": build_system_instruction(tools_desc=tools_desc, context=data.get("context"), stream=stream),
+        }
+    ] + (data.get("history") if isinstance(data.get("history"), list) else [])
 
     def _with_meta(payload: dict) -> dict:
         trace_ids = list(getattr(g, "llm_prompt_trace_ids", []) or [])
         prompt_traces = [{"trace_id": tid} for tid in trace_ids] if trace_ids else []
-        meta = {**payload, "routing": runtime["routing"], "assistant_capabilities": capability_meta,
-                "prompt_traces": prompt_traces}
+        meta = {
+            **payload,
+            "routing": runtime["routing"],
+            "assistant_capabilities": capability_meta,
+            "prompt_traces": prompt_traces,
+        }
         if injection_signal is not None:
             meta["injection_screen"] = injection_signal.to_mapping()
         truncations = list(getattr(g, "llm_context_truncations", []) or [])
         if truncations:  # LCTX-002: shortened context is visible to the caller
-            meta["context_truncation"] = {"truncated": True, "events": truncations,
-                                          "lost_tokens": sum(int(e.get("lost_tokens") or 0) for e in truncations)}
+            meta["context_truncation"] = {
+                "truncated": True,
+                "events": truncations,
+                "lost_tokens": sum(int(e.get("lost_tokens") or 0) for e in truncations),
+            }
         return meta
 
     if not runtime["provider"]:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
-        return api_response(status="error", message="llm_not_configured", data=_with_meta({"details": "LLM provider is not configured"}), code=400)
+        return api_response(
+            status="error",
+            message="llm_not_configured",
+            data=_with_meta({"details": "LLM provider is not configured"}),
+            code=400,
+        )
     if runtime["transport_provider"] in {"openai", "codex", "anthropic"} and not runtime["api_key"]:
         _log("llm_error", error="llm_api_key_missing", provider=runtime["provider"])
-        return api_response(status="error", message="llm_api_key_missing", data=_with_meta({"details": f"API key missing for {runtime['provider']}"}), code=400)
+        return api_response(
+            status="error",
+            message="llm_api_key_missing",
+            data=_with_meta({"details": f"API key missing for {runtime['provider']}"}),
+            code=400,
+        )
     if not runtime["base_url"]:
         _log("llm_error", error="llm_base_url_missing", provider=runtime["provider"])
-        return api_response(status="error", message="llm_base_url_missing", data=_with_meta({"details": f"Base URL missing for {runtime['provider']}"}), code=400)
+        return api_response(
+            status="error",
+            message="llm_base_url_missing",
+            data=_with_meta({"details": f"Base URL missing for {runtime['provider']}"}),
+            code=400,
+        )
 
     _log(
         "llm_request",
@@ -480,17 +611,27 @@ def llm_generate():
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
-            return api_response(data=_with_meta({"response": "LLM returned empty response. Please try again."}), status="ok")
+            return api_response(
+                data=_with_meta({"response": "LLM returned empty response. Please try again."}), status="ok"
+            )
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
             return build_sse_response(response_text)
-        res_json, response_text = _normalize_llm_response(response_text, full_history=full_history, user_prompt=user_prompt, context=data.get("context"), runtime=runtime)
+        res_json, response_text = _normalize_llm_response(
+            response_text,
+            full_history=full_history,
+            user_prompt=user_prompt,
+            context=data.get("context"),
+            runtime=runtime,
+        )
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
             return api_response(data=_with_meta({"response": response_text}))
         tool_calls = res_json.get("tool_calls", [])
         if not tool_calls:
-            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=data.get("context") if isinstance(data.get("context"), dict) else None)
+            inferred_tool_calls = _infer_tool_calls_from_prompt(
+                user_prompt, context=data.get("context") if isinstance(data.get("context"), dict) else None
+            )
             if inferred_tool_calls:
                 tool_calls = inferred_tool_calls
                 res_json["tool_calls"] = inferred_tool_calls
@@ -499,18 +640,51 @@ def llm_generate():
         if tool_calls and not confirm_tool_calls:
             if not is_admin:
                 _log("llm_blocked", tool_calls=tool_calls, reason="admin_required")
-                return api_response(data=_with_meta({"response": res_json.get("answer") or "Tool calls require admin privileges.", "tool_calls": tool_calls, "blocked": True}))
+                return api_response(
+                    data=_with_meta(
+                        {
+                            "response": res_json.get("answer") or "Tool calls require admin privileges.",
+                            "tool_calls": tool_calls,
+                            "blocked": True,
+                        }
+                    )
+                )
             _log("llm_requires_confirmation", tool_calls=tool_calls)
-            return api_response(data=_with_meta({"response": res_json.get("answer"), "requires_confirmation": True, "thought": res_json.get("thought"), "tool_calls": tool_calls}))
+            return api_response(
+                data=_with_meta(
+                    {
+                        "response": res_json.get("answer"),
+                        "requires_confirmation": True,
+                        "thought": res_json.get("thought"),
+                        "tool_calls": tool_calls,
+                    }
+                )
+            )
 
     if tool_calls_input and confirm_tool_calls and not tool_calls:
         _log("llm_no_tool_calls")
         return api_response(data=_with_meta({"response": "No tool calls to execute."}))
     if tool_calls and not confirm_tool_calls:
         _log("llm_requires_confirmation", tool_calls=tool_calls)
-        return api_response(data=_with_meta({"response": "Pending actions require confirmation.", "requires_confirmation": True, "tool_calls": tool_calls}))
+        return api_response(
+            data=_with_meta(
+                {
+                    "response": "Pending actions require confirmation.",
+                    "requires_confirmation": True,
+                    "tool_calls": tool_calls,
+                }
+            )
+        )
     if tool_calls:
-        result = _execute_tool_calls(tool_calls=tool_calls, user_prompt=user_prompt, full_history=full_history, runtime=runtime, response_text=response_text, res_json=res_json, is_admin=is_admin)
+        result = _execute_tool_calls(
+            tool_calls=tool_calls,
+            user_prompt=user_prompt,
+            full_history=full_history,
+            runtime=runtime,
+            response_text=response_text,
+            res_json=res_json,
+            is_admin=is_admin,
+        )
         if isinstance(result, Response):
             _log("llm_response", response="stream", tool_calls=tool_calls, status="tool_results")
             return result

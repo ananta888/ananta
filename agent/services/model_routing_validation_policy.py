@@ -24,9 +24,7 @@ class ModelRoutingValidationPolicy:
     ) -> None:
         self._consumers = consumers
         self._profiles = {profile.profile_id: profile for profile in profiles}
-        self._models = {
-            (profile.provider_id, profile.model): profile for profile in profiles
-        }
+        self._models = {(profile.provider_id, profile.model): profile for profile in profiles}
 
     def validate(
         self,
@@ -39,18 +37,22 @@ class ModelRoutingValidationPolicy:
             consumer = self._consumers.require(assignment.consumer_id)
             profile = self._assignment_profile(assignment)
             if profile is not None:
-                issues.extend(self._compatibility_issues(
-                    profile,
-                    consumer.required_capabilities,
-                    reference=self._assignment_reference(assignment),
-                ))
+                issues.extend(
+                    self._compatibility_issues(
+                        profile,
+                        consumer.required_capabilities,
+                        reference=self._assignment_reference(assignment),
+                    )
+                )
             if assignment.fallback_group_id:
                 group = groups_by_id.get(assignment.fallback_group_id)
                 if group is not None:
-                    issues.extend(self._group_issues(
-                        group,
-                        required_capabilities=consumer.required_capabilities,
-                    ))
+                    issues.extend(
+                        self._group_issues(
+                            group,
+                            required_capabilities=consumer.required_capabilities,
+                        )
+                    )
         return self._unique(issues)
 
     def _assignment_profile(self, assignment: ModelAssignment) -> ModelProfile | None:
@@ -72,43 +74,48 @@ class ModelRoutingValidationPolicy:
             if profile is None:
                 continue
             reference = f"{group.group_id}:{candidate.profile_id}"
-            issues.extend(self._compatibility_issues(
-                profile,
-                required_capabilities,
-                reference=reference,
-            ))
+            issues.extend(
+                self._compatibility_issues(
+                    profile,
+                    required_capabilities,
+                    reference=reference,
+                )
+            )
             candidate_requirements = tuple(
-                value for value, required in (
+                value
+                for value, required in (
                     ("tools", candidate.requires_tools),
                     ("json", candidate.requires_json),
-                ) if required
+                )
+                if required
             )
-            issues.extend(self._compatibility_issues(
-                profile,
-                candidate_requirements,
-                reference=reference,
-            ))
-            if profile.is_cloud() and not candidate.cloud_allowed:
-                issues.append(self._error(
-                    "model_fallback_cloud_candidate_not_allowed", reference
-                ))
-            if (
-                candidate.max_context_tokens is not None
-                and candidate.max_context_tokens > profile.context_tokens
-            ):
-                issues.append(ModelRoutingValidationIssue(
-                    severity="warning",
-                    reason_code="model_fallback_context_limit_exceeds_profile",
+            issues.extend(
+                self._compatibility_issues(
+                    profile,
+                    candidate_requirements,
                     reference=reference,
-                ))
+                )
+            )
+            if profile.is_cloud() and not candidate.cloud_allowed:
+                issues.append(self._error("model_fallback_cloud_candidate_not_allowed", reference))
+            if candidate.max_context_tokens is not None and candidate.max_context_tokens > profile.context_tokens:
+                issues.append(
+                    ModelRoutingValidationIssue(
+                        severity="warning",
+                        reason_code="model_fallback_context_limit_exceeds_profile",
+                        reference=reference,
+                    )
+                )
         if group.escalation_profile_id:
             escalation = self._profiles.get(group.escalation_profile_id)
             if escalation is not None:
-                issues.extend(self._compatibility_issues(
-                    escalation,
-                    required_capabilities,
-                    reference=f"{group.group_id}:escalation:{escalation.profile_id}",
-                ))
+                issues.extend(
+                    self._compatibility_issues(
+                        escalation,
+                        required_capabilities,
+                        reference=f"{group.group_id}:escalation:{escalation.profile_id}",
+                    )
+                )
         return issues
 
     @staticmethod
@@ -133,9 +140,7 @@ class ModelRoutingValidationPolicy:
         reference: str,
     ) -> list[ModelRoutingValidationIssue]:
         return [
-            self._error(
-                f"model_profile_capability_mismatch:{capability}", reference
-            )
+            self._error(f"model_profile_capability_mismatch:{capability}", reference)
             for capability in capabilities
             if not self._supports(profile, capability)
         ]
@@ -146,18 +151,13 @@ class ModelRoutingValidationPolicy:
 
     @staticmethod
     def _error(reason_code: str, reference: str) -> ModelRoutingValidationIssue:
-        return ModelRoutingValidationIssue(
-            severity="error", reason_code=reason_code, reference=reference
-        )
+        return ModelRoutingValidationIssue(severity="error", reason_code=reason_code, reference=reference)
 
     @staticmethod
     def _unique(
         issues: list[ModelRoutingValidationIssue],
     ) -> tuple[ModelRoutingValidationIssue, ...]:
-        indexed = {
-            (issue.severity, issue.reason_code, issue.reference): issue
-            for issue in issues
-        }
+        indexed = {(issue.severity, issue.reason_code, issue.reference): issue for issue in issues}
         return tuple(indexed[key] for key in sorted(indexed))
 
 

@@ -19,7 +19,9 @@ class OpenNotebookInsightsImporter:
     Insights are not deduplicated against their parent sources.
     """
 
-    def __init__(self, *, ingestion_service, artifact_repository, policy: OpenNotebookImportPolicy | None = None) -> None:
+    def __init__(
+        self, *, ingestion_service, artifact_repository, policy: OpenNotebookImportPolicy | None = None
+    ) -> None:
         self._ingestion_service = ingestion_service
         self._artifact_repo = artifact_repository
         self._policy = policy or OpenNotebookImportPolicy()

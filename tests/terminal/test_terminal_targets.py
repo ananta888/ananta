@@ -58,7 +58,9 @@ def test_terminal_targets_hub_visible_only_with_hub_list_permission(client, admi
     assert hub[0]["capabilities"]["write"] is False
 
 
-def test_terminal_targets_mixed_deployment_includes_hub_as_worker_when_permitted(client, admin_auth_header, monkeypatch):
+def test_terminal_targets_mixed_deployment_includes_hub_as_worker_when_permitted(
+    client, admin_auth_header, monkeypatch
+):
     from agent.config import settings
 
     monkeypatch.setattr(settings, "terminal_worker_target_enabled", True)

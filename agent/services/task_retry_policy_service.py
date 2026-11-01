@@ -2,6 +2,7 @@
 
 Distinguishes parser failure, missing artifact, failed verification, and actual worker failure.
 """
+
 from __future__ import annotations
 
 import logging

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from agent.cli_backends.helpers import _get_agent_config
 
-
 _SEMAPHORE_LOCK = threading.Lock()
 _BACKEND_SEMAPHORES: dict[str, threading.BoundedSemaphore] = {}
 _DEFAULT_BACKEND_PARALLEL_LIMITS: dict[str, int] = {

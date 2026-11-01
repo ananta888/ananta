@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from agent.services.terminal_recording_service import redact_secrets
 
 

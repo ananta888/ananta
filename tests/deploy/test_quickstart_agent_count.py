@@ -47,10 +47,10 @@ def _source(body: str, env: dict[str, str | None]) -> subprocess.CompletedProces
 def _fake_python(tmp_path: Path) -> Path:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    log = tmp_path / "agents.log"
+    tmp_path / "agents.log"
     fake_python = fake_bin / "python"
     fake_python.write_text(
-        '#!/bin/sh\n'
+        "#!/bin/sh\n"
         'printf "%s\\n" "ROLE=$ROLE|PORT=$PORT|NAME=$AGENT_NAME|URL=$AGENT_URL'
         '|DATA=$DATA_DIR|KNOW=$ANANTA_KNOWLEDGE_INDEX_WORKER_ID" >> "$AGENT_COUNT_TEST_LOG"\n'
         "sleep 0.3\n",
@@ -81,7 +81,7 @@ def test_count_rejects_non_numeric_and_out_of_range():
 
 def test_worker_port_and_name_indexing():
     result = _source(
-        'worker_port_for_index 5000 3; worker_name_for_index w 1; worker_name_for_index w 2',
+        "worker_port_for_index 5000 3; worker_name_for_index w 1; worker_name_for_index w 2",
         {},
     )
     assert result.returncode == 0, result.stderr
@@ -93,7 +93,7 @@ def test_worker_port_and_name_indexing():
 
 def test_worker_url_swaps_the_port():
     result = _source(
-        'worker_url_for_index http://ai-agent-alpha:5000 5001',
+        "worker_url_for_index http://ai-agent-alpha:5000 5001",
         {},
     )
     assert result.returncode == 0, result.stderr
@@ -101,7 +101,7 @@ def test_worker_url_swaps_the_port():
 
 
 def test_worker_url_requires_a_port_suffix():
-    result = _source('worker_url_for_index http://ai-agent-alpha 5001', {})
+    result = _source("worker_url_for_index http://ai-agent-alpha 5001", {})
     assert result.returncode == 64
     assert "AGENT_URL must end in" in result.stderr
 
@@ -110,7 +110,7 @@ def test_single_process_default_layout_is_unchanged(tmp_path):
     fake_bin = _fake_python(tmp_path)
     log = tmp_path / "agents.log"
     result = _source(
-        'prepare_runtime_directories() { :; }; run_worker',
+        "prepare_runtime_directories() { :; }; run_worker",
         {
             "PATH": f"{fake_bin}:{os.environ['PATH']}",
             "AGENT_COUNT_TEST_LOG": str(log),
@@ -134,7 +134,7 @@ def test_multiple_processes_get_isolated_identities(tmp_path):
     fake_bin = _fake_python(tmp_path)
     log = tmp_path / "agents.log"
     result = _source(
-        'prepare_runtime_directories() { :; }; run_worker',
+        "prepare_runtime_directories() { :; }; run_worker",
         {
             "PATH": f"{fake_bin}:{os.environ['PATH']}",
             "AGENT_COUNT_TEST_LOG": str(log),
@@ -173,7 +173,7 @@ def test_multiple_processes_get_isolated_identities(tmp_path):
 
 def test_multiple_processes_require_agent_url(tmp_path):
     result = _source(
-        'prepare_runtime_directories() { :; }; run_worker',
+        "prepare_runtime_directories() { :; }; run_worker",
         {
             "ANANTA_AGENT_COUNT": "2",
             "ANANTA_RUN_DB_MIGRATIONS": "0",
@@ -187,7 +187,7 @@ def test_hub_stays_single_process_and_says_so(tmp_path):
     fake_bin = _fake_python(tmp_path)
     log = tmp_path / "agents.log"
     result = _source(
-        'prepare_runtime_directories() { :; }; run_hub',
+        "prepare_runtime_directories() { :; }; run_hub",
         {
             "PATH": f"{fake_bin}:{os.environ['PATH']}",
             "AGENT_COUNT_TEST_LOG": str(log),

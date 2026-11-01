@@ -12,9 +12,7 @@ from agent.models.sfu_broadcast_command import (
 
 
 class SfuBroadcastCommandRepositoryPort(Protocol):
-    def execute(
-        self, mutation: SfuBroadcastCommandMutation
-    ) -> SfuBroadcastCommandMutationResult: ...
+    def execute(self, mutation: SfuBroadcastCommandMutation) -> SfuBroadcastCommandMutationResult: ...
 
     def purge_expired(self, *, now: datetime | None = None) -> int: ...
 

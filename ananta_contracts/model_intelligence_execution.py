@@ -48,9 +48,7 @@ class _ClosedExecutionContract(BaseModel):
 
 
 class ResourceLease(_ClosedExecutionContract):
-    schema_version: Literal[
-        "ananta.model-intelligence.resource-lease.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.resource-lease.v1"] = Field(
         default=RESOURCE_LEASE_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -99,9 +97,7 @@ class ResourceLease(_ClosedExecutionContract):
 
 
 class CancellationSignal(_ClosedExecutionContract):
-    schema_version: Literal[
-        "ananta.model-intelligence.cancellation-signal.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.cancellation-signal.v1"] = Field(
         default=CANCELLATION_SIGNAL_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -122,9 +118,7 @@ class CancellationSignal(_ClosedExecutionContract):
 
 
 class AnalysisCompletion(_ClosedExecutionContract):
-    schema_version: Literal[
-        "ananta.model-intelligence.analysis-completion.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.analysis-completion.v1"] = Field(
         default=ANALYSIS_COMPLETION_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",

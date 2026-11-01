@@ -21,8 +21,16 @@ def fixture():
     def control(enabled):
         return {"enabled": enabled, "revision": 1, "since": 1000}
 
-    state = {"controls": {"revision": 1, "chat": control(True), "speech": control(True), "avatar": control(True),
-                           "audio": control(False), "screen": control(False)}}
+    state = {
+        "controls": {
+            "revision": 1,
+            "chat": control(True),
+            "speech": control(True),
+            "avatar": control(True),
+            "audio": control(False),
+            "screen": control(False),
+        }
+    }
     gate.step()
     gate.exchange.pending.set_result(state)
     gate.step()
@@ -131,8 +139,9 @@ def test_checkpoint_cannot_cross_local_execution_owners():
 def test_current_hub_chat_pause_aborts_actual_owned_model_without_fallback_reply():
     now, gate, state, _pool = fixture()
     checkpoint = gate.checkpoint("chat")
-    execution = CompanionExecutionProcess(command=(sys.executable, '-c',
-        "import sys,time;sys.stdin.readline();time.sleep(30)"))
+    execution = CompanionExecutionProcess(
+        command=(sys.executable, "-c", "import sys,time;sys.stdin.readline();time.sleep(30)")
+    )
     calls = [0]
 
     def cooperate():

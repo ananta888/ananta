@@ -42,9 +42,7 @@ def _write_current_performance_state(root: Path) -> None:
         "profile_id": policy["profile_id"],
     }
     _write_json(root, FORMAL_PROFILE_RELATIVE, profile)
-    profile_sha = hashlib.sha256(
-        (root / FORMAL_PROFILE_RELATIVE).read_bytes()
-    ).hexdigest()
+    profile_sha = hashlib.sha256((root / FORMAL_PROFILE_RELATIVE).read_bytes()).hexdigest()
     _write_json(
         root,
         BASELINE_CANDIDATE_RELATIVE,
@@ -92,9 +90,7 @@ def test_preflight_reports_exact_current_boundaries_without_writing(
         "uncommitted_candidate",
         "baseline_approval_required",
     ]
-    assert report["performance"]["baseline_candidate"]["approval_status"] == (
-        "candidate_unapproved"
-    )
+    assert report["performance"]["baseline_candidate"]["approval_status"] == ("candidate_unapproved")
     assert report["performance"]["last_gate"]["blocked_contract_valid"] is True
     assert not (tmp_path / "artifacts/e2e/kanban-model-dashboard").exists()
 
@@ -136,18 +132,14 @@ def test_preflight_recognizes_policy_approved_baseline(
     assert report["orchestrator"]["required_suite_count"] == 7
     assert report["orchestrator"]["configured_suite_count"] == 7
     assert report["orchestrator"]["performance_approved_baseline_only"] is True
-    assert report["performance"]["approved_baseline"]["approval_method"] == (
-        "hub_policy"
-    )
+    assert report["performance"]["approved_baseline"]["approval_method"] == ("hub_policy")
 
 
 def test_manual_approval_without_policy_attestation_is_rejected(
     tmp_path: Path,
 ) -> None:
     _write_current_performance_state(tmp_path)
-    candidate = json.loads(
-        (tmp_path / BASELINE_CANDIDATE_RELATIVE).read_text(encoding="utf-8")
-    )
+    candidate = json.loads((tmp_path / BASELINE_CANDIDATE_RELATIVE).read_text(encoding="utf-8"))
     candidate["approval_status"] = "approved"
     candidate["approved_by"] = "performance-review-board"
     candidate["approved_at"] = "2026-07-24T12:00:00+00:00"
@@ -163,9 +155,7 @@ def test_candidate_unapproved_cannot_replace_the_approved_baseline(
     tmp_path: Path,
 ) -> None:
     _write_current_performance_state(tmp_path)
-    candidate = json.loads(
-        (tmp_path / BASELINE_CANDIDATE_RELATIVE).read_text(encoding="utf-8")
-    )
+    candidate = json.loads((tmp_path / BASELINE_CANDIDATE_RELATIVE).read_text(encoding="utf-8"))
     _write_json(tmp_path, APPROVED_BASELINE_RELATIVE, candidate)
 
     report = run_preflight(root=tmp_path, git_state_reader=_clean_git_state)

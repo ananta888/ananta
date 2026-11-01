@@ -18,12 +18,17 @@ from tests.pi.test_pi_run_evidence_reservation import reserve
 
 @pytest.mark.parametrize("mutate_source", [False, True], ids=["expiry-replay", "mutated-source-denied"])
 def test_reserved_registry_run_completes_after_committed_pi_receipt_and_replays_after_expiry(
-    reservation, mutate_source,
+    reservation,
+    mutate_source,
 ):
     run = reserve(reservation)
     projection = reservation.registry.assignment_projection(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id, task_id=run.task_id,
-        assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
+        tenant_id=run.tenant_id,
+        project_id=run.project_id,
+        run_id=run.run_id,
+        task_id=run.task_id,
+        assignment_id=run.assignment_id,
+        dispatch_lease_id=run.dispatch_lease_id,
     )
     complete(reservation.admission)
     service = PiRunEvidenceCompletionService(registry=reservation.registry)
@@ -47,8 +52,12 @@ def test_reserved_registry_run_completes_after_committed_pi_receipt_and_replays_
 def test_invalid_receipt_or_reserved_projection_cannot_close_run(reservation, change):
     run = reserve(reservation)
     projection = reservation.registry.assignment_projection(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id, task_id=run.task_id,
-        assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
+        tenant_id=run.tenant_id,
+        project_id=run.project_id,
+        run_id=run.run_id,
+        task_id=run.task_id,
+        assignment_id=run.assignment_id,
+        dispatch_lease_id=run.dispatch_lease_id,
     )
     complete(reservation.admission)
     if change in {"no-receipt", "input"}:
@@ -75,7 +84,14 @@ def test_invalid_receipt_or_reserved_projection_cannot_close_run(reservation, ch
     with Session(reservation.admission.engine) as session:
         with pytest.raises(ValueError):
             service.complete(session=session, task_id=run.task_id, assignment=projection)
-    assert reservation.registry.assignment_projection(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id, task_id=run.task_id,
-        assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
-    )["run_id"] == run.run_id
+    assert (
+        reservation.registry.assignment_projection(
+            tenant_id=run.tenant_id,
+            project_id=run.project_id,
+            run_id=run.run_id,
+            task_id=run.task_id,
+            assignment_id=run.assignment_id,
+            dispatch_lease_id=run.dispatch_lease_id,
+        )["run_id"]
+        == run.run_id
+    )

@@ -6,6 +6,7 @@ same payload shape if the request is policy-blocked. The handler is
 intentionally thin: all real work is in
 ``ContextDeliveryService.handle_reload_request``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,10 +15,9 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from agent.auth import check_auth
-from agent.services.context_delivery_service import get_context_delivery_service
 from agent.routes.source_control_access import authorize_route_request
+from agent.services.context_delivery_service import get_context_delivery_service
 from agent.services.source_control_access_policy import SourceControlAction
-
 
 log = logging.getLogger(__name__)
 
@@ -34,11 +34,7 @@ def _task_for_policy(task_id: str):
 @check_auth
 def _authorize_codecompass_reload_surface():
     body = request.get_json(silent=True) or {}
-    task_id = (
-        str(body.get("task_id") or "").strip()
-        if isinstance(body, dict)
-        else ""
-    )
+    task_id = str(body.get("task_id") or "").strip() if isinstance(body, dict) else ""
     if not task_id:
         return authorize_route_request(
             action=SourceControlAction.query,

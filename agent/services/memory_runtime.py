@@ -39,7 +39,9 @@ class HubMemoryRuntime:
         self.snapshots = MemorySnapshotService(repository=SQLMemorySnapshotRepository(engine, clock=clock))
         catalog = Path(__file__).resolve().parents[2] / "config/security/memory-channels.v1.json"
         self.gateway = MemoryPolicyGateway(
-            policies=self.policies, channels=MemoryChannelRegistry.from_path(catalog), clock=clock,
+            policies=self.policies,
+            channels=MemoryChannelRegistry.from_path(catalog),
+            clock=clock,
             audit=MemoryAuditService(repository=SQLMemoryAuditRepository(engine), clock=clock),
         )
         self._scratchpad_store = InMemoryScratchpadStore()
@@ -50,7 +52,9 @@ class HubMemoryRuntime:
         if not task.tenant_id or not task.project_id:
             return 0
         return self._scratchpad_store.discard_task(
-            tenant_id=task.tenant_id, workspace_id=task.project_id, task_id=task.id,
+            tenant_id=task.tenant_id,
+            workspace_id=task.project_id,
+            task_id=task.id,
         )
 
     def _reserve(self, policy, **bindings):
@@ -83,7 +87,8 @@ class HubMemoryRuntime:
             return False
         access = current_app.extensions.get("task_read_access_service") or get_task_read_access_service()
         access.require(
-            task=task, principal=principal,
+            task=task,
+            principal=principal,
             project_access=current_app.extensions.get("project_access_authority"),
             organization_membership=current_app.extensions.get("organization_membership_service")
             or OrganizationMembershipService(),
@@ -98,13 +103,16 @@ class HubMemoryRuntime:
     @staticmethod
     def _allow_goal(goal, namespace):
         if goal is None or (goal.tenant_id, goal.project_id, goal.id) != (
-            namespace.tenant_id, namespace.workspace_id, namespace.goal_id,
+            namespace.tenant_id,
+            namespace.workspace_id,
+            namespace.goal_id,
         ):
             return False
         from agent.services.goal_service import get_goal_service
 
-        return get_goal_service().can_access_goal(goal, dict(getattr(g, "user", {}) or {}),
-                                                  bool(getattr(g, "is_admin", False)))
+        return get_goal_service().can_access_goal(
+            goal, dict(getattr(g, "user", {}) or {}), bool(getattr(g, "is_admin", False))
+        )
 
     @contextmanager
     def worker_result(self, task_id, worker_job_id):
@@ -135,31 +143,42 @@ class HubMemoryRuntime:
             from agent.services.project_access_authority import ProjectAccessError
 
             try:
-                authority.require(tenant_id=task.tenant_id, project_id=task.project_id,
-                                  subject_id=principal.subject_id, capability=ProjectCapability.WRITE,
-                                  tenant_admin=True)
+                authority.require(
+                    tenant_id=task.tenant_id,
+                    project_id=task.project_id,
+                    subject_id=principal.subject_id,
+                    capability=ProjectCapability.WRITE,
+                    tenant_admin=True,
+                )
             except ProjectAccessError as exc:
                 raise MemoryAccessError("memory_worker_actor_mismatch") from exc
         actor = MemoryActor(task.tenant_id, lease.worker_id)
-        namespace = MemoryNamespace(task.tenant_id, task.project_id, task.goal_id, task.id,
-                                    "memory-session-" + uuid.uuid4().hex)
+        namespace = MemoryNamespace(
+            task.tenant_id, task.project_id, task.goal_id, task.id, "memory-session-" + uuid.uuid4().hex
+        )
         expiry = min(self.clock() + 60, lease.deadline_at)
-        capability = MemoryCapability("hub-result-memory", namespace, MemoryScope.task,
-                                      (MemoryOperation.append,), MemorySensitivity.internal, expiry)
+        capability = MemoryCapability(
+            "hub-result-memory",
+            namespace,
+            MemoryScope.task,
+            (MemoryOperation.append,),
+            MemorySensitivity.internal,
+            expiry,
+        )
         policy = MemoryRunPolicy(actor, namespace, "hub-memory-result-v1", expiry, capabilities=(capability,))
         self._reserve(policy, worker_job_id=job.id, dispatch_lease_id=lease.id)
-        outcome = 'failed'
+        outcome = "failed"
         before_captured = False
         try:
-            self.snapshots.capture(policy, 'before')
+            self.snapshots.capture(policy, "before")
             before_captured = True
             with bind_memory_access(MemoryAccessContext(actor, namespace.run_id, self.gateway)) as context:
                 yield context
-                outcome = 'completed'
+                outcome = "completed"
         finally:
             try:
                 if before_captured:
-                    self.snapshots.capture(policy, 'after', scope_outcome=outcome)
+                    self.snapshots.capture(policy, "after", scope_outcome=outcome)
             finally:
                 self._revoke(actor, namespace.run_id, namespace=namespace)
 
@@ -181,20 +200,30 @@ class HubMemoryRuntime:
             goal = session.get(GoalDB, task.goal_id) if task.goal_id else None
         access = current_app.extensions.get("task_read_access_service") or get_task_read_access_service()
         access.require(
-            task=payload, principal=principal,
+            task=payload,
+            principal=principal,
             project_access=current_app.extensions.get("project_access_authority"),
             organization_membership=current_app.extensions.get("organization_membership_service")
             or OrganizationMembershipService(),
         )
         actor = MemoryActor(task.tenant_id, principal.subject_id)
         # Hub domain session identifier, never SRC_*/RUN_* or production evidence.
-        namespace = MemoryNamespace(task.tenant_id, task.project_id, task.goal_id, task.id,
-                                    "memory-session-" + uuid.uuid4().hex)
+        namespace = MemoryNamespace(
+            task.tenant_id, task.project_id, task.goal_id, task.id, "memory-session-" + uuid.uuid4().hex
+        )
         expiry = self.clock() + 60
         scopes = (MemoryScope.task, MemoryScope.goal) if self._allow_goal(goal, namespace) else (MemoryScope.task,)
-        capabilities = tuple(MemoryCapability(
-            "hub-result-memory", namespace, scope, (MemoryOperation.read,), MemorySensitivity.internal, expiry,
-        ) for scope in scopes)
+        capabilities = tuple(
+            MemoryCapability(
+                "hub-result-memory",
+                namespace,
+                scope,
+                (MemoryOperation.read,),
+                MemorySensitivity.internal,
+                expiry,
+            )
+            for scope in scopes
+        )
         policy = MemoryRunPolicy(actor, namespace, "hub-memory-read-v1", expiry, capabilities=capabilities)
         self._reserve(policy)
         try:

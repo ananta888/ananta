@@ -35,8 +35,11 @@ def hub(assigned):
 
 
 def post(app, raw, **headers):
-    return app.test_client().post(PATH, data=raw, headers={"Content-Type": "application/json",
-                                 SIGNATURE_HEADER: request_signature(KEY, raw), **headers})
+    return app.test_client().post(
+        PATH,
+        data=raw,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(KEY, raw), **headers},
+    )
 
 
 def packet(payload):
@@ -51,8 +54,13 @@ def test_actual_task_grant_http_signs_exact_request_and_current_task(hub):
     assert response.headers[SIGNATURE_HEADER] == response_signature(KEY, raw, response.data)
     assert response.headers["Cache-Control"] == "no-store"
     value = response.get_json()
-    claims = jwt.decode(value["grant"], key.public_key(), algorithms=["EdDSA"],
-                        issuer="https://hub.example.test", audience="ananta-meet-machine-v2")
+    claims = jwt.decode(
+        value["grant"],
+        key.public_key(),
+        algorithms=["EdDSA"],
+        issuer="https://hub.example.test",
+        audience="ananta-meet-machine-v2",
+    )
     assert claims["taskId"] == "task" and claims["sessionId"] == "hub-session"
     assert value["controls"] == f.context["controls"]
     f.task.status = "cancelled"
@@ -67,7 +75,7 @@ def test_missing_forged_or_legacy_direction_signature_is_denied(hub, header):
     assert post(app, raw, **{SIGNATURE_HEADER: supplied}).status_code == 401
 
 
-@pytest.mark.parametrize("raw", [b'[]', b'null', b'{"project_id":"a","project_id":"b"}', b'{', b'{}', b'x' * 1537])
+@pytest.mark.parametrize("raw", [b"[]", b"null", b'{"project_id":"a","project_id":"b"}', b"{", b"{}", b"x" * 1537])
 def test_closed_payload_size_and_duplicate_keys_deny_without_fallback(hub, raw):
     app, _f, _payload, _key = hub
     response = post(app, raw)
@@ -79,8 +87,11 @@ def test_wrong_role_disabled_service_query_and_bearer_are_denied(hub):
     app, _f, payload, _key = hub
     raw = encode(packet(payload))
     assert post(app, raw, Authorization="Bearer synthetic").status_code == 403
-    response = app.test_client().post(PATH + "?fallback=legacy", data=raw,
-        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(KEY, raw)})
+    response = app.test_client().post(
+        PATH + "?fallback=legacy",
+        data=raw,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(KEY, raw)},
+    )
     assert response.status_code == 403
     app.config["ROLE"] = "worker"
     assert post(app, raw).status_code == 403
@@ -99,8 +110,9 @@ def test_bootstrap_is_default_off_and_requires_actual_hub_ports(monkeypatch):
         configure_companion_task_grants(app, None, None)
 
 
-@pytest.mark.parametrize("patch", [{"sent_at": 1}, {"sent_at": True}, {"nonce": "unknown"},
-                                   {"schema": "legacy"}, {"extra": True}])
+@pytest.mark.parametrize(
+    "patch", [{"sent_at": 1}, {"sent_at": True}, {"nonce": "unknown"}, {"schema": "legacy"}, {"extra": True}]
+)
 def test_rpc_freshness_nonce_and_closed_envelope_are_enforced(hub, patch):
     app, _f, payload, _key = hub
     assert post(app, encode(packet(payload) | patch)).status_code == 403

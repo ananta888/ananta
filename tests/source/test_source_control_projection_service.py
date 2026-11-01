@@ -63,9 +63,7 @@ def _record(**overrides) -> SourceControlAggregateRecord:
         "active_index": {"source_revision_id": "revision-old"},
         "grants": (),
         "health": {"status": "healthy"},
-        "capabilities": frozenset(
-            {"refresh", "scan", "index", "activate", "grant", "disable", "rollback"}
-        ),
+        "capabilities": frozenset({"refresh", "scan", "index", "activate", "grant", "disable", "rollback"}),
     }
     values.update(overrides)
     return SourceControlAggregateRecord(**values)

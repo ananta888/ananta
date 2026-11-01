@@ -125,6 +125,7 @@ class AdapterCapabilityDescriptor:
             "engine": self.engine,
         }
 
+
 # ── Result types (shared across all adapters) ─────────────────────────────────
 
 

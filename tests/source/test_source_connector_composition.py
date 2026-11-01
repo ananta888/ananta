@@ -20,9 +20,6 @@ from agent.sources.source_admission_gate import (
     EvaluatingSourceAdmissionGate,
     SourceIndexAdmissionError,
 )
-from agent.sources.source_control_connector_composition import (
-    build_source_control_connector_extensions,
-)
 from agent.sources.source_connectors import (
     ConnectorHealth,
     ConnectorRefreshRequest,
@@ -34,8 +31,10 @@ from agent.sources.source_connectors import (
     SourceRevisionResolution,
     build_default_connector_registry,
 )
+from agent.sources.source_control_connector_composition import (
+    build_source_control_connector_extensions,
+)
 from agent.sources.source_refresh_service import SourceRefreshService
-
 
 REVISION_DIGEST = "a" * 64
 MANIFEST_DIGEST = "b" * 64
@@ -257,9 +256,7 @@ def test_workspace_adapter_never_returns_host_paths(
     )
 
     assert str(root) not in json.dumps(outputs, default=lambda item: vars(item))
-    assert adapter.validate({**descriptor, "host_path": str(root)}) == (
-        "workspace_host_path_forbidden",
-    )
+    assert adapter.validate({**descriptor, "host_path": str(root)}) == ("workspace_host_path_forbidden",)
 
 
 def test_all_source_operations_select_the_connector_through_registry() -> None:

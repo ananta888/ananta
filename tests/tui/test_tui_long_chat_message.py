@@ -5,8 +5,8 @@ import re
 from client_surfaces.operator_tui.chat_long_message import (
     LONG_CHAT_MESSAGE_THRESHOLD,
     compact_chat_message_text,
-    configure_middle_view_for_message,
     configure_middle_view_for_history_entry,
+    configure_middle_view_for_message,
     latest_long_message_for_channel,
     long_message_history_rows,
     markdown_for_message,
@@ -17,7 +17,6 @@ from client_surfaces.operator_tui.chat_long_message import (
 from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
-
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
 

@@ -75,10 +75,7 @@ class OllamaCapabilityDiscoveryAdapter:
         candidates = list(unique.values())
         snapshots: list[RuntimeModelSnapshot] = []
         with ThreadPoolExecutor(max_workers=min(4, len(candidates) or 1)) as executor:
-            futures = {
-                executor.submit(self._detail, candidate): candidate
-                for candidate in candidates
-            }
+            futures = {executor.submit(self._detail, candidate): candidate for candidate in candidates}
             for future in as_completed(futures):
                 candidate = futures[future]
                 try:
@@ -87,13 +84,15 @@ class OllamaCapabilityDiscoveryAdapter:
                     detail = candidate
                 model_id = str(candidate.get("name") or candidate.get("model"))
                 merged = {**candidate, **dict(detail)}
-                snapshots.append(self._normalizer.normalize(
-                    provider_id=self.provider_id,
-                    model_id=model_id,
-                    runtime_version=self._runtime_version,
-                    model_digest=str(candidate.get("digest") or ""),
-                    metadata=merged,
-                ))
+                snapshots.append(
+                    self._normalizer.normalize(
+                        provider_id=self.provider_id,
+                        model_id=model_id,
+                        runtime_version=self._runtime_version,
+                        model_digest=str(candidate.get("digest") or ""),
+                        metadata=merged,
+                    )
+                )
         return tuple(sorted(snapshots, key=lambda item: item.model_id))
 
     def _detail(self, candidate: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -146,13 +145,15 @@ class LmStudioCapabilityDiscoveryAdapter:
                 if not model_id:
                     continue
                 metadata = {**dict(item), **dict(native_by_id.get(model_id) or {})}
-                result.append(self._normalizer.normalize(
-                    provider_id=self.provider_id,
-                    model_id=model_id,
-                    runtime_version=self._runtime_version,
-                    model_digest=str(metadata.get("digest") or metadata.get("sha256") or ""),
-                    metadata=metadata,
-                ))
+                result.append(
+                    self._normalizer.normalize(
+                        provider_id=self.provider_id,
+                        model_id=model_id,
+                        runtime_version=self._runtime_version,
+                        model_digest=str(metadata.get("digest") or metadata.get("sha256") or ""),
+                        metadata=metadata,
+                    )
+                )
         return tuple(sorted(result, key=lambda item: item.model_id))
 
 

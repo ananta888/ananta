@@ -63,9 +63,7 @@ def test_agent_token_file_path_swap_after_open_fails_closed_on_unlinked_descript
 
 def test_agent_token_file_rejects_nul_path_as_configuration_error() -> None:
     with pytest.raises(AgentTokenConfigurationError, match="opened securely"):
-        resolve_configured_agent_token(
-            {"AGENT_TOKEN": None, "AGENT_TOKEN_FILE": "/tmp/invalid\x00token"}
-        )
+        resolve_configured_agent_token({"AGENT_TOKEN": None, "AGENT_TOKEN_FILE": "/tmp/invalid\x00token"})
 
 
 def test_agent_token_file_fails_closed_without_no_follow_support(

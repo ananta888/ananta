@@ -5,6 +5,7 @@ Revises: 1c2d3e4f5a6b
 Create Date: 2026-03-24 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -69,7 +70,9 @@ def upgrade() -> None:
     with op.batch_alter_table("teams", schema=None) as batch_op:
         batch_op.add_column(sa.Column("blueprint_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
         batch_op.add_column(sa.Column("blueprint_snapshot", sa.JSON(), nullable=True))
-        batch_op.create_foreign_key("fk_teams_blueprint_id_team_blueprints", "team_blueprints", ["blueprint_id"], ["id"])
+        batch_op.create_foreign_key(
+            "fk_teams_blueprint_id_team_blueprints", "team_blueprints", ["blueprint_id"], ["id"]
+        )
 
     with op.batch_alter_table("team_members", schema=None) as batch_op:
         batch_op.add_column(sa.Column("blueprint_role_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True))

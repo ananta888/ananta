@@ -1,4 +1,5 @@
 """HF-T026: Strict output schema tests per Hermes mode."""
+
 from __future__ import annotations
 
 import json
@@ -7,8 +8,8 @@ import pytest
 
 from worker.core.hermes_output_parser import parse_hermes_json_output, validate_payload_for_mode
 
-
 # ── parse_hermes_json_output ──────────────────────────────────────────────────
+
 
 def _valid_payload(**overrides) -> str:
     base = {
@@ -63,6 +64,7 @@ def test_validate_rejects_no_side_effects_claimed_false() -> None:
 
 
 # ── validate_payload_for_mode ─────────────────────────────────────────────────
+
 
 def _base_payload(**overrides) -> dict:
     base = {

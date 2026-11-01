@@ -1,16 +1,16 @@
 """Tests for CaseFlow REST API (CASECORE-006) — Flask test client."""
+
 from __future__ import annotations
 
-import json
 import pytest
 from flask import Flask
 
 
 @pytest.fixture
 def caseflow_client():
-    from agent.routes.caseflow import caseflow_bp, reset_stores
     from agent.caseflow.timeline import clear_events
     from agent.job_module import setup as job_setup
+    from agent.routes.caseflow import caseflow_bp, reset_stores
 
     app = Flask(__name__)
     app.config["TESTING"] = True
@@ -59,10 +59,7 @@ class TestCaseFlowApi:
     def test_patch_case_updates_fields(self, caseflow_client):
         created = _create_case(caseflow_client, title="Original").get_json()
         case_id = created["id"]
-        resp = caseflow_client.patch(
-            f"/api/caseflow/cases/{case_id}",
-            json={"title": "Updated", "priority": "high"}
-        )
+        resp = caseflow_client.patch(f"/api/caseflow/cases/{case_id}", json={"title": "Updated", "priority": "high"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["title"] == "Updated"
@@ -72,22 +69,18 @@ class TestCaseFlowApi:
         created = _create_case(caseflow_client).get_json()
         case_id = created["id"]
         resp = caseflow_client.post(
-            f"/api/caseflow/cases/{case_id}/transition",
-            json={"to_status": "active", "actor": "user"}
+            f"/api/caseflow/cases/{case_id}/transition", json={"to_status": "active", "actor": "user"}
         )
         assert resp.status_code == 200
         assert resp.get_json()["ok"] is True
 
     def test_transition_invalid_returns_422_with_error_code(self, caseflow_client):
         # Create a job_application case
-        created = _create_case(
-            caseflow_client, case_type="job_application", title="Job App"
-        ).get_json()
+        created = _create_case(caseflow_client, case_type="job_application", title="Job App").get_json()
         case_id = created["id"]
         # found -> offer is not allowed
         resp = caseflow_client.post(
-            f"/api/caseflow/cases/{case_id}/transition",
-            json={"to_status": "offer", "actor": "user"}
+            f"/api/caseflow/cases/{case_id}/transition", json={"to_status": "offer", "actor": "user"}
         )
         assert resp.status_code == 422
         data = resp.get_json()
@@ -98,10 +91,7 @@ class TestCaseFlowApi:
         created = _create_case(caseflow_client, title="Timeline Test").get_json()
         case_id = created["id"]
         # Transition adds another event
-        caseflow_client.post(
-            f"/api/caseflow/cases/{case_id}/transition",
-            json={"to_status": "active", "actor": "user"}
-        )
+        caseflow_client.post(f"/api/caseflow/cases/{case_id}/transition", json={"to_status": "active", "actor": "user"})
         resp = caseflow_client.get(f"/api/caseflow/cases/{case_id}/timeline")
         assert resp.status_code == 200
         events = resp.get_json()
@@ -113,8 +103,7 @@ class TestCaseFlowApi:
         created = _create_case(caseflow_client, title="T").get_json()
         case_id = created["id"]
         caseflow_client.post(
-            f"/api/caseflow/cases/{case_id}/actions",
-            json={"action_type": "review", "title": "Review document"}
+            f"/api/caseflow/cases/{case_id}/actions", json={"action_type": "review", "title": "Review document"}
         )
         resp = caseflow_client.get("/api/caseflow/actions/open")
         assert resp.status_code == 200

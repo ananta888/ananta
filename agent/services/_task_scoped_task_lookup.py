@@ -45,6 +45,7 @@ def maybe_sync_task_from_hub(tid: str) -> dict | None:
     if not bool(fp.get("worker_task_sync_from_hub_enabled", True)):
         return None
     from agent.services.task_runtime_service import sync_task_from_hub
+
     return sync_task_from_hub(tid)
 
 

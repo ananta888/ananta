@@ -12,7 +12,11 @@ from ananta_contracts.model_selection import ModelRoutingReleaseGateCheck
 
 RELEASE_EVIDENCE_SCHEMA = "ananta.model-routing-release-evidence.v1"
 REQUIRED_RELEASE_GATES = (
-    "contract", "security", "cognitive_style", "frontend_unit", "e2e",
+    "contract",
+    "security",
+    "cognitive_style",
+    "frontend_unit",
+    "e2e",
     "performance",
 )
 RELEASE_SOURCE_PATTERNS = (
@@ -75,9 +79,7 @@ def release_source_files(repo_root: Path) -> tuple[Path, ...]:
 
 def release_source_digests(repo_root: Path) -> dict[str, str]:
     return {
-        path.relative_to(repo_root).as_posix(): "sha256:" + hashlib.sha256(
-            path.read_bytes()
-        ).hexdigest()
+        path.relative_to(repo_root).as_posix(): "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
         for path in release_source_files(repo_root)
     }
 
@@ -89,9 +91,7 @@ class ModelRoutingReleaseEvidenceService:
 
     def checks(self) -> tuple[ModelRoutingReleaseGateCheck, ...]:
         try:
-            evidence = ModelRoutingReleaseEvidence.model_validate_json(
-                self._evidence_path.read_text(encoding="utf-8")
-            )
+            evidence = ModelRoutingReleaseEvidence.model_validate_json(self._evidence_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return self._failed("model_routing_release_evidence_missing")
         except (OSError, ValidationError, json.JSONDecodeError):
@@ -110,24 +110,33 @@ class ModelRoutingReleaseEvidenceService:
                 reason = "model_routing_release_gate_failed"
             else:
                 reason = f"model_routing_release_{gate_id}_passed"
-            checks.append(ModelRoutingReleaseGateCheck(
-                check_id=f"release_evidence_{gate_id}",
-                passed=passed,
-                reason_code=reason,
-            ))
+            checks.append(
+                ModelRoutingReleaseGateCheck(
+                    check_id=f"release_evidence_{gate_id}",
+                    passed=passed,
+                    reason_code=reason,
+                )
+            )
         return tuple(checks)
 
     @staticmethod
     def _failed(reason_code: str) -> tuple[ModelRoutingReleaseGateCheck, ...]:
-        return tuple(ModelRoutingReleaseGateCheck(
-            check_id=f"release_evidence_{gate_id}",
-            passed=False,
-            reason_code=reason_code,
-        ) for gate_id in REQUIRED_RELEASE_GATES)
+        return tuple(
+            ModelRoutingReleaseGateCheck(
+                check_id=f"release_evidence_{gate_id}",
+                passed=False,
+                reason_code=reason_code,
+            )
+            for gate_id in REQUIRED_RELEASE_GATES
+        )
 
 
 __all__ = [
-    "ModelRoutingReleaseEvidence", "ModelRoutingReleaseEvidenceGate",
-    "ModelRoutingReleaseEvidenceService", "RELEASE_EVIDENCE_SCHEMA",
-    "REQUIRED_RELEASE_GATES", "release_source_digests", "release_source_files",
+    "ModelRoutingReleaseEvidence",
+    "ModelRoutingReleaseEvidenceGate",
+    "ModelRoutingReleaseEvidenceService",
+    "RELEASE_EVIDENCE_SCHEMA",
+    "REQUIRED_RELEASE_GATES",
+    "release_source_digests",
+    "release_source_files",
 ]

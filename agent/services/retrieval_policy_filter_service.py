@@ -44,24 +44,44 @@ class RetrievalPolicyFilterService:
             if unknown_sensitivity and scope in {"external_cloud_allowed", "trusted_private_cloud"}:
                 reason = "unknown_sensitivity_default_deny"
                 denied_by_reason[reason] += 1
-                decisions.append(self._decision(chunk=chunk, source_class=source_class, decision="denied", reason=reason, metadata=metadata))
+                decisions.append(
+                    self._decision(
+                        chunk=chunk, source_class=source_class, decision="denied", reason=reason, metadata=metadata
+                    )
+                )
                 continue
 
             allowed, reason = is_chunk_allowed_for_scope(chunk={"metadata": metadata}, llm_scope=scope)
             if allowed:
                 retained.append(chunk)
-                decisions.append(self._decision(chunk=chunk, source_class=source_class, decision="allowed", reason=reason, metadata=metadata))
+                decisions.append(
+                    self._decision(
+                        chunk=chunk, source_class=source_class, decision="allowed", reason=reason, metadata=metadata
+                    )
+                )
                 continue
 
             if reason == "raw_not_allowed_for_external_scope":
                 downgraded = self._downgrade_chunk(chunk)
                 retained.append(downgraded)
                 downgraded_by_reason[reason] += 1
-                decisions.append(self._decision(chunk=downgraded, source_class=source_class, decision="downgraded", reason=reason, metadata=metadata))
+                decisions.append(
+                    self._decision(
+                        chunk=downgraded,
+                        source_class=source_class,
+                        decision="downgraded",
+                        reason=reason,
+                        metadata=metadata,
+                    )
+                )
                 continue
 
             denied_by_reason[reason] += 1
-            decisions.append(self._decision(chunk=chunk, source_class=source_class, decision="denied", reason=reason, metadata=metadata))
+            decisions.append(
+                self._decision(
+                    chunk=chunk, source_class=source_class, decision="denied", reason=reason, metadata=metadata
+                )
+            )
 
         retained, segregation_meta = self._apply_source_segregation(
             chunks=retained,
@@ -102,11 +122,26 @@ class RetrievalPolicyFilterService:
         policy_mode: str,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         if scope == "local_only":
-            return chunks, {"applied": False, "anchor_source_class": None, "allowed_source_classes": [], "reason": "local_scope_allows_mixing"}
+            return chunks, {
+                "applied": False,
+                "anchor_source_class": None,
+                "allowed_source_classes": [],
+                "reason": "local_scope_allows_mixing",
+            }
         if policy_mode not in {"standard", "strict"}:
-            return chunks, {"applied": False, "anchor_source_class": None, "allowed_source_classes": [], "reason": "policy_mode_no_segregation"}
+            return chunks, {
+                "applied": False,
+                "anchor_source_class": None,
+                "allowed_source_classes": [],
+                "reason": "policy_mode_no_segregation",
+            }
         if not chunks:
-            return chunks, {"applied": True, "anchor_source_class": None, "allowed_source_classes": [], "reason": "no_candidates"}
+            return chunks, {
+                "applied": True,
+                "anchor_source_class": None,
+                "allowed_source_classes": [],
+                "reason": "no_candidates",
+            }
 
         ranked = sorted(
             chunks,
@@ -188,7 +223,9 @@ class RetrievalPolicyFilterService:
         except ValueError:
             return len(_SOURCE_CLASS_ORDER)
 
-    def _decision(self, *, chunk: dict[str, Any], source_class: str, decision: str, reason: str, metadata: dict[str, Any]) -> dict[str, Any]:
+    def _decision(
+        self, *, chunk: dict[str, Any], source_class: str, decision: str, reason: str, metadata: dict[str, Any]
+    ) -> dict[str, Any]:
         return {
             "source": str(chunk.get("source") or ""),
             "engine": str(chunk.get("engine") or ""),

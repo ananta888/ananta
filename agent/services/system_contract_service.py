@@ -1,57 +1,57 @@
 from __future__ import annotations
 
 from agent.models import (
-    OpenAIModelContract,
-    OpenAIChatCompletionContract,
-    OpenAIResponseContract,
-    OpenAIFileContract,
-    GovernancePolicyReadModelContract,
-    ProviderDescriptorContract,
-    ApiErrorResponseContract,
-    AgentRegisterRequest,
     AgentDirectoryEntryContract,
     AgentLivenessContract,
+    AgentRegisterRequest,
+    ApiErrorResponseContract,
     ArtifactRagIndexRequest,
     ArtifactUploadRequest,
     AutoPlannerAnalyzeRequest,
     AutoPlannerConfigureRequest,
     AutoPlannerPlanRequest,
-    CostSummaryContract,
     ConfigUpdateRequest,
     ContextBundleContract,
-    RegistrationStateReadModel,
-    ScheduledTaskCreateRequest,
+    CostSummaryContract,
     FollowupTaskCreateRequest,
     GoalCreateRequest,
     GoalPlanNodePatchRequest,
     GoalProvisionRequest,
+    GovernancePolicyReadModelContract,
     HubEventCatalogContract,
     HubEventContract,
     KnowledgeCollectionCreateRequest,
     KnowledgeCollectionIndexRequest,
     KnowledgeCollectionSearchRequest,
+    OpenAIChatCompletionContract,
+    OpenAIFileContract,
+    OpenAIModelContract,
+    OpenAIResponseContract,
+    ProviderDescriptorContract,
+    RegistrationStateReadModel,
+    ScheduledTaskCreateRequest,
     SystemHealthReadModel,
-    TaskStateMachineContract,
-    TaskStatusContract,
     TaskAssignmentRequest,
     TaskClaimRequest,
     TaskCreateRequest,
     TaskDelegationRequest,
     TaskExecutionPolicyContract,
+    TaskScopedStepExecuteResponse,
+    TaskScopedStepProposeResponse,
+    TaskStateMachineContract,
+    TaskStatusContract,
     TaskStepExecuteRequest,
     TaskStepExecuteResponse,
     TaskStepProposeRequest,
     TaskStepProposeResponse,
-    TaskScopedStepExecuteResponse,
-    TaskScopedStepProposeResponse,
-    WorkerExecutionLimitsContract,
-    WorkerExecutionContextContract,
-    WorkerJobContract,
-    WorkerRoutingDecisionContract,
-    WorkerResultContract,
+    TaskUpdateRequest,
     TriggerConfigureRequest,
     TriggerTestRequest,
-    TaskUpdateRequest,
+    WorkerExecutionContextContract,
+    WorkerExecutionLimitsContract,
+    WorkerJobContract,
+    WorkerResultContract,
+    WorkerRoutingDecisionContract,
 )
 from agent.services.hub_event_service import build_hub_event_catalog
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
@@ -151,7 +151,11 @@ class SystemContractService:
                 "worker_execution_context": WorkerExecutionContextContract(
                     instructions="Investigate the repository and produce a cited research summary.",
                     context_bundle_id="bundle-research-1",
-                    context={"context_text": "Repository summary", "chunks": [{"id": "chunk-1"}], "token_estimate": 256},
+                    context={
+                        "context_text": "Repository summary",
+                        "chunks": [{"id": "chunk-1"}],
+                        "token_estimate": 256,
+                    },
                     context_policy={"mode": "standard", "max_chunks": 8},
                     allowed_tools=["bash", "rg"],
                     expected_output_schema={"type": "object", "required": ["summary", "sources"]},
@@ -185,9 +189,18 @@ class SystemContractService:
                     command="pytest -q",
                     raw='{"reason":"Run unit tests first","command":"pytest -q"}',
                     backend="opencode",
-                    routing={"task_kind": "coding", "effective_backend": "opencode", "reason": "adaptive_default", "required_capabilities": ["coding"]},
+                    routing={
+                        "task_kind": "coding",
+                        "effective_backend": "opencode",
+                        "reason": "adaptive_default",
+                        "required_capabilities": ["coding"],
+                    },
                     cli_result={"returncode": 0, "latency_ms": 120, "stderr_preview": ""},
-                    worker_context={"context_bundle_id": "bundle-1", "allowed_tools": ["bash"], "context_chunk_count": 1},
+                    worker_context={
+                        "context_bundle_id": "bundle-1",
+                        "allowed_tools": ["bash"],
+                        "context_chunk_count": 1,
+                    },
                     review={"required": False, "status": "not_required"},
                 ).model_dump(exclude_none=True),
                 "task_scoped_step_execute_response": TaskScopedStepExecuteResponse(
@@ -332,20 +345,12 @@ class SystemContractService:
             "responses": {
                 "200": {
                     "description": "Successful response",
-                    "content": {
-                        "application/json": {
-                            "schema": {"$ref": f"#/components/schemas/{response_schema}"}
-                        }
-                    },
+                    "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{response_schema}"}}},
                 }
             },
             "requestBody": {
                 "required": True,
-                "content": {
-                    "application/json": {
-                        "schema": {"$ref": f"#/components/schemas/{request_schema}"}
-                    }
-                },
+                "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{request_schema}"}}},
             },
         }
         if path_parameters:

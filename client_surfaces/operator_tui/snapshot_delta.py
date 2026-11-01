@@ -1,8 +1,8 @@
 """TUI Snapshot Delta — effiziente Delta-Kodierung zwischen CellGrid-Snapshots."""
+
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -11,7 +11,10 @@ from client_surfaces.operator_tui.snapshot import Cell, CellGrid
 
 @dataclass
 class DirtyRegion:
-    x: int; y: int; w: int; h: int
+    x: int
+    y: int
+    w: int
+    h: int
 
     def to_dict(self) -> dict[str, int]:
         return {"x": self.x, "y": self.y, "w": self.w, "h": self.h}
@@ -96,12 +99,15 @@ class DeltaEncoder:
     def apply(self, base: CellGrid, delta: TuiDelta) -> CellGrid:
         """Wendet Delta auf Basis-Snapshot an."""
         import copy
+
         result_cells = copy.deepcopy(base.cells)
         for cell_d in delta.changed_cells:
             x, y = cell_d["x"], cell_d["y"]
             if 0 <= y < len(result_cells) and 0 <= x < len(result_cells[y]):
                 result_cells[y][x] = Cell(
-                    x=x, y=y, char=cell_d["char"],
+                    x=x,
+                    y=y,
+                    char=cell_d["char"],
                     fg=tuple(cell_d["fg"]) if cell_d.get("fg") else None,
                     bg=tuple(cell_d["bg"]) if cell_d.get("bg") else None,
                     bold=cell_d.get("bold", False),

@@ -5,6 +5,7 @@ EW-T030: Search can find prior tasks, failures, patch artifacts,
           Result snippets are bounded and cite artifact/trace ids.
           Search respects project/tenant/scope filters.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,6 +21,7 @@ from ananta_contracts.memory_access import MemoryOperation, MemoryScope
 from worker.core.memory_authorization import WorkerMemoryAuthorizationPort, require_worker_memory
 
 # ── SearchTarget ──────────────────────────────────────────────────────────────
+
 
 class SearchTarget(str, Enum):
     task = "task"
@@ -38,9 +40,9 @@ SNIPPET_MAX_CHARS = 300
 @dataclass
 class SearchResult:
     target_type: SearchTarget
-    id: str                    # artifact_id, task_id, or trace correlation_id
-    snippet: str               # bounded to SNIPPET_MAX_CHARS
-    score: float               # relevance 0.0–1.0
+    id: str  # artifact_id, task_id, or trace correlation_id
+    snippet: str  # bounded to SNIPPET_MAX_CHARS
+    score: float  # relevance 0.0–1.0
     project_id: str = ""
     tenant_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -60,6 +62,7 @@ class SearchResult:
 
 # ── Indexed document ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class IndexedDocument:
     target_type: SearchTarget
@@ -73,6 +76,7 @@ class IndexedDocument:
 
 
 # ── SessionSearchIndex ────────────────────────────────────────────────────────
+
 
 class SessionSearchIndex:
     """In-memory search index for one worker session. EW-T030.
@@ -93,12 +97,20 @@ class SessionSearchIndex:
         try:
             access = self._access(MemoryOperation.append)
             namespace = access.namespace
-            if (doc.tenant_id and doc.tenant_id != namespace.tenant_id
-                    or doc.project_id and doc.project_id != namespace.workspace_id):
+            if (
+                doc.tenant_id
+                and doc.tenant_id != namespace.tenant_id
+                or doc.project_id
+                and doc.project_id != namespace.workspace_id
+            ):
                 raise ValueError("memory_namespace_mismatch")
             metadata = json.loads(json.dumps(doc.metadata, allow_nan=False))
-            size = len(json.dumps({"id": doc.id, "content": doc.content, "metadata": metadata,
-                                   "tags": sorted(doc.tags)}, allow_nan=False).encode("utf-8"))
+            size = len(
+                json.dumps(
+                    {"id": doc.id, "content": doc.content, "metadata": metadata, "tags": sorted(doc.tags)},
+                    allow_nan=False,
+                ).encode("utf-8")
+            )
             if size > 65536:
                 raise ValueError("memory_value_quota_exceeded")
             with self._lock:
@@ -126,14 +138,16 @@ class SessionSearchIndex:
         project_id: str = "",
         tenant_id: str = "",
     ) -> None:
-        self.index(IndexedDocument(
-            target_type=SearchTarget.task,
-            id=task_id,
-            content=f"task:{task_id} status:{status} {summary}",
-            project_id=project_id,
-            tenant_id=tenant_id,
-            tags={"status:" + status},
-        ))
+        self.index(
+            IndexedDocument(
+                target_type=SearchTarget.task,
+                id=task_id,
+                content=f"task:{task_id} status:{status} {summary}",
+                project_id=project_id,
+                tenant_id=tenant_id,
+                tags={"status:" + status},
+            )
+        )
 
     def index_failure(
         self,
@@ -144,14 +158,16 @@ class SessionSearchIndex:
         project_id: str = "",
         tenant_id: str = "",
     ) -> None:
-        self.index(IndexedDocument(
-            target_type=SearchTarget.failure,
-            id=task_id,
-            content=f"failure task:{task_id} reason:{reason_code} {detail}",
-            project_id=project_id,
-            tenant_id=tenant_id,
-            tags={"failure", "reason:" + reason_code},
-        ))
+        self.index(
+            IndexedDocument(
+                target_type=SearchTarget.failure,
+                id=task_id,
+                content=f"failure task:{task_id} reason:{reason_code} {detail}",
+                project_id=project_id,
+                tenant_id=tenant_id,
+                tags={"failure", "reason:" + reason_code},
+            )
+        )
 
     def index_artifact(
         self,
@@ -170,15 +186,17 @@ class SessionSearchIndex:
             if "verif" in kind
             else SearchTarget.task
         )
-        self.index(IndexedDocument(
-            target_type=target,
-            id=artifact_id,
-            content=f"artifact:{artifact_id} kind:{kind} provenance:{provenance} {summary}",
-            project_id=project_id,
-            tenant_id=tenant_id,
-            tags={"artifact", "kind:" + kind},
-            metadata={"kind": kind, "provenance": provenance},
-        ))
+        self.index(
+            IndexedDocument(
+                target_type=target,
+                id=artifact_id,
+                content=f"artifact:{artifact_id} kind:{kind} provenance:{provenance} {summary}",
+                project_id=project_id,
+                tenant_id=tenant_id,
+                tags={"artifact", "kind:" + kind},
+                metadata={"kind": kind, "provenance": provenance},
+            )
+        )
 
     def index_decision(
         self,
@@ -190,14 +208,16 @@ class SessionSearchIndex:
         project_id: str = "",
         tenant_id: str = "",
     ) -> None:
-        self.index(IndexedDocument(
-            target_type=SearchTarget.decision,
-            id=correlation_id,
-            content=f"decision:{decision} reason:{reason_code} op:{operation}",
-            project_id=project_id,
-            tenant_id=tenant_id,
-            tags={"decision", "decision:" + decision},
-        ))
+        self.index(
+            IndexedDocument(
+                target_type=SearchTarget.decision,
+                id=correlation_id,
+                content=f"decision:{decision} reason:{reason_code} op:{operation}",
+                project_id=project_id,
+                tenant_id=tenant_id,
+                tags={"decision", "decision:" + decision},
+            )
+        )
 
     def search(
         self,
@@ -222,14 +242,14 @@ class SessionSearchIndex:
             self.last_reason_code = str(exc)
             return []
         namespace = access.namespace
-        if (tenant_id and tenant_id != namespace.tenant_id
-                or project_id and project_id != namespace.workspace_id):
+        if tenant_id and tenant_id != namespace.tenant_id or project_id and project_id != namespace.workspace_id:
             self.last_reason_code = "memory_namespace_mismatch"
             return []
         with self._lock:
             self._docs = [item for item in self._docs if item[1] > time.time()]
-            documents = [deepcopy(doc) for key, _expiry, doc, _size in self._docs
-                         if key == namespace.key(MemoryScope.run)]
+            documents = [
+                deepcopy(doc) for key, _expiry, doc, _size in self._docs if key == namespace.key(MemoryScope.run)
+            ]
         results: list[SearchResult] = []
         for doc in documents:
             # Scope filter
@@ -243,15 +263,17 @@ class SessionSearchIndex:
             score = _score(terms, doc)
             if score > 0:
                 snippet = _extract_snippet(query, doc.content)
-                results.append(SearchResult(
-                    target_type=doc.target_type,
-                    id=doc.id,
-                    snippet=snippet,
-                    score=score,
-                    project_id=doc.project_id,
-                    tenant_id=doc.tenant_id,
-                    metadata=doc.metadata,
-                ))
+                results.append(
+                    SearchResult(
+                        target_type=doc.target_type,
+                        id=doc.id,
+                        snippet=snippet,
+                        score=score,
+                        project_id=doc.project_id,
+                        tenant_id=doc.tenant_id,
+                        metadata=doc.metadata,
+                    )
+                )
 
         try:
             if self._access(MemoryOperation.read) != access:
@@ -270,6 +292,7 @@ class SessionSearchIndex:
 
 # ── Scoring and snippet helpers ───────────────────────────────────────────────
 
+
 def _tokenize(text: str) -> list[str]:
     return [t.lower() for t in re.split(r"[\s:,;/]+", text.strip()) if len(t) > 1]
 
@@ -282,7 +305,7 @@ def _score(terms: list[str], doc: IndexedDocument) -> float:
         if term in content_lower:
             hits += 1
         if any(term in tag for tag in tag_lower):
-            hits += 0.5   # tag matches get a boost
+            hits += 0.5  # tag matches get a boost
     return round(min(1.0, hits / max(len(terms), 1)), 3)
 
 

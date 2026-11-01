@@ -2,12 +2,11 @@ import concurrent.futures as _cf
 import logging
 import pathlib as _pl
 import threading
-import time
 from dataclasses import dataclass
 from typing import Any
 
 from agent.cli_backends.architecture_scan import _resolve_repo_root
-from agent.config import lookup_model_context_tokens, settings as _cfg_settings
+from agent.config import lookup_model_context_tokens
 from agent.llm_integration import generate_text
 from agent.routes.ai_snake_config import _current_config
 
@@ -17,7 +16,7 @@ _SNAKE_CHAT_PROMPT = (
     "1) Antworte nur auf Basis des Ananta-Kontexts und der Nutzerfrage.\n"
     "2) Erfinde keine Produkte, URLs, Features, Befehle oder Fakten.\n"
     "3) Wenn Informationen fehlen oder unsicher sind, sage explizit: "
-    "\"Unklar, bitte Kontext pruefen\".\n"
+    '"Unklar, bitte Kontext pruefen".\n'
     "4) Gib keine externen Links aus, ausser der Nutzer hat explizit danach gefragt.\n"
     "5) Halte Antworten kurz, konkret, technisch nutzbar, auf Deutsch.\n"
     "6) Wenn Schrittfolge noetig ist, gib maximal 5 nummerierte Schritte.\n"
@@ -25,12 +24,57 @@ _SNAKE_CHAT_PROMPT = (
 
 _SCAN_CANCELS: dict[str, threading.Event] = {}
 
-_SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache",
-              ".tox", "dist", "build", ".eggs", "project-workspaces", "tests", "test",
-              ".claude", ".idea", ".vscode"}
-_STOPWORDS = {"bitte", "mir", "den", "die", "das", "der", "und", "oder", "wie", "was",
-              "ist", "sind", "in", "im", "mit", "von", "zu", "an", "auf", "f\u00fcr", "the",
-              "a", "an", "and", "or", "how", "what", "is", "please", "explain", "me"}
+_SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".mypy_cache",
+    ".tox",
+    "dist",
+    "build",
+    ".eggs",
+    "project-workspaces",
+    "tests",
+    "test",
+    ".claude",
+    ".idea",
+    ".vscode",
+}
+_STOPWORDS = {
+    "bitte",
+    "mir",
+    "den",
+    "die",
+    "das",
+    "der",
+    "und",
+    "oder",
+    "wie",
+    "was",
+    "ist",
+    "sind",
+    "in",
+    "im",
+    "mit",
+    "von",
+    "zu",
+    "an",
+    "auf",
+    "f\u00fcr",
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "how",
+    "what",
+    "is",
+    "please",
+    "explain",
+    "me",
+}
 
 
 def _answer_budget_instruction(limits: Any | None) -> str:
@@ -51,11 +95,12 @@ def _answer_budget_instruction(limits: Any | None) -> str:
         except (TypeError, ValueError):
             limit = 12000
     limit = max(600, min(50000, limit))
-    action = "priorisiere die wichtigsten Punkte und fasse zusammen" if policy == "summarize" else "halte die Antwort strikt kurz"
-    return (
-        f"Antwort-Budget: maximal {limit} Zeichen. "
-        f"Wenn mehr Details vorhanden sind, {action}."
+    action = (
+        "priorisiere die wichtigsten Punkte und fasse zusammen"
+        if policy == "summarize"
+        else "halte die Antwort strikt kurz"
     )
+    return f"Antwort-Budget: maximal {limit} Zeichen. Wenn mehr Details vorhanden sind, {action}."
 
 
 @dataclass(frozen=True)
@@ -164,6 +209,7 @@ def _fit_files_per_batch(files: list, settings: _FullScanSettings, max_input_tok
 def _empty_answer_metadata(answer: Any) -> dict[str, Any]:
     try:
         from agent.llm_integration import extract_llm_call_metadata
+
         meta = extract_llm_call_metadata(answer) if isinstance(answer, dict) else {}
     except Exception:
         return {}
@@ -377,7 +423,7 @@ def worker_chat_full_scan(
         trace["files_per_batch_auto_shrunk_reason"] = "context_budget"
 
     selected = all_files[: scan_settings.max_batches * files_per_batch]
-    batches = [selected[i:i + files_per_batch] for i in range(0, len(selected), files_per_batch)]
+    batches = [selected[i : i + files_per_batch] for i in range(0, len(selected), files_per_batch)]
     trace["batches_planned"] = len(batches)
     trace["files_selected"] = len(selected)
     trace["files_per_batch_used"] = int(files_per_batch)

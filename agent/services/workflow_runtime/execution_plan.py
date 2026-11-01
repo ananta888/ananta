@@ -537,7 +537,10 @@ def _validate_bpmn_artifact_admission(plan: ExecutionPlan) -> tuple[ContractIssu
     try:
         for node in plan.nodes:
             validate_native_artifact_files(
-                node.metadata, inputs=node.input_artifacts, outputs=node.output_artifacts, require_files=True,
+                node.metadata,
+                inputs=node.input_artifacts,
+                outputs=node.output_artifacts,
+                require_files=True,
             )
     except ValueError:
         return (ContractIssue("bpmn_artifact_ingress_unavailable", "artifacts"),)

@@ -20,12 +20,8 @@ from ananta_contracts.knowledge_index_execution import (
     KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
 )
 
-EXPIRED_DISPATCH_RECEIPT_SCHEMA = (
-    "ananta.knowledge_index_execution_expired_dispatch.v1"
-)
-COMPLETION_PROJECTION_SCHEMA = (
-    "ananta.knowledge_index.completion-projection.v1"
-)
+EXPIRED_DISPATCH_RECEIPT_SCHEMA = "ananta.knowledge_index_execution_expired_dispatch.v1"
+COMPLETION_PROJECTION_SCHEMA = "ananta.knowledge_index.completion-projection.v1"
 MAX_COMPLETION_PROJECTION_BYTES = 2 * 1024 * 1024
 
 
@@ -52,16 +48,12 @@ def expired_dispatch_tombstone_digest(
             "reason_code": KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
             "job_id": job.job_id,
             "idempotency_fingerprint": job.idempotency_fingerprint,
-            "authority_binding_digest": (
-                job.authority_binding.binding_digest
-            ),
+            "authority_binding_digest": (job.authority_binding.binding_digest),
             "assignment_id": assignment.assignment_id,
             "worker_id": assignment.worker_id,
             "lease_id": assignment.lease_id,
             "lease_generation": assignment.lease_generation,
-            "lease_expires_epoch_ms": (
-                assignment.lease_expires_epoch_ms
-            ),
+            "lease_expires_epoch_ms": (assignment.lease_expires_epoch_ms),
         }
     )
 
@@ -69,11 +61,7 @@ def expired_dispatch_tombstone_digest(
 def is_expired_dispatch_tombstone(
     record: KnowledgeIndexExecutionRecord,
 ) -> bool:
-    return (
-        record.state == "failed"
-        and record.result_digest
-        == expired_dispatch_tombstone_digest(record)
-    )
+    return record.state == "failed" and record.result_digest == expired_dispatch_tombstone_digest(record)
 
 
 def completion_projection_candidate(
@@ -87,10 +75,7 @@ def completion_projection_candidate(
         "job_id": str(job_id),
         "worker_result_digest": execution_digest(worker_result),
         "materialized_result": dict(materialized_result),
-        "artifact_references": [
-            dict(item)
-            for item in list(worker_result.get("artifact_refs") or [])
-        ],
+        "artifact_references": [dict(item) for item in list(worker_result.get("artifact_refs") or [])],
     }
     projection_digest = validate_completion_projection_payload(
         payload,
@@ -111,31 +96,22 @@ def validate_completion_projection_payload(
         "materialized_result",
         "artifact_references",
     }:
-        raise KnowledgeIndexExecutionBindingError(
-            "knowledge_index_completion_projection_payload_invalid"
-        )
+        raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_payload_invalid")
     materialized = payload.get("materialized_result")
     references = payload.get("artifact_references")
-    worker_result_digest = str(
-        payload.get("worker_result_digest") or ""
-    )
+    worker_result_digest = str(payload.get("worker_result_digest") or "")
     if (
         payload.get("schema") != COMPLETION_PROJECTION_SCHEMA
         or str(payload.get("job_id") or "") != job_id
         or len(worker_result_digest) != 64
-        or any(
-            char not in "0123456789abcdef"
-            for char in worker_result_digest
-        )
+        or any(char not in "0123456789abcdef" for char in worker_result_digest)
         or not isinstance(materialized, dict)
         or str(materialized.get("status") or "") != "completed"
         or not isinstance(references, list)
         or len(references) > 6
         or any(not isinstance(item, dict) for item in references)
     ):
-        raise KnowledgeIndexExecutionBindingError(
-            "knowledge_index_completion_projection_payload_invalid"
-        )
+        raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_payload_invalid")
     try:
         encoded = json.dumps(
             payload,
@@ -145,13 +121,9 @@ def validate_completion_projection_payload(
             sort_keys=True,
         ).encode("ascii")
     except (TypeError, ValueError) as exc:
-        raise KnowledgeIndexExecutionBindingError(
-            "knowledge_index_completion_projection_payload_invalid"
-        ) from exc
+        raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_payload_invalid") from exc
     if len(encoded) > MAX_COMPLETION_PROJECTION_BYTES:
-        raise KnowledgeIndexExecutionBindingError(
-            "knowledge_index_completion_projection_payload_too_large"
-        )
+        raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_payload_too_large")
     return hashlib.sha256(encoded).hexdigest()
 
 

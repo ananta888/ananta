@@ -12,6 +12,7 @@ Module layout: file selection/batching lives in
 :mod:`.snakes_rag_iterative_tool_mode`. The LLM calls, the config and the
 settings object stay looked up on this module (existing test seams).
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,13 +61,14 @@ def _window_chars(value: Any, *, window_tokens: int, share: str, legacy: str, mi
         return max(minimum, budgets.chars(share))
     return max(minimum, min(explicit, budgets.available * CHARS_PER_TOKEN))
 
+
 _SYSTEM_PROMPT = (
     "Du bist ein Code-Assistent fuer Quellcode-Fragen.\n"
     "Regeln (streng):\n"
     "1) Antworte nur auf Basis des bereitgestellten Kontexts und der Nutzerfrage.\n"
     "2) Erfinde keine Produkte, URLs, Features, Befehle oder Fakten.\n"
     "3) Wenn Informationen fehlen oder unsicher sind, sage explizit: "
-    "\"Unklar, bitte Kontext pruefen\".\n"
+    '"Unklar, bitte Kontext pruefen".\n'
     "4) Gib keine externen Links aus, ausser der Nutzer hat explizit danach gefragt.\n"
     "5) Halte Antworten kurz, konkret, technisch nutzbar.\n"
     "6) Wenn Schrittfolge noetig ist, gib maximal 5 nummerierte Schritte.\n"
@@ -91,11 +93,12 @@ def _answer_budget_instruction(limits: Any | None) -> str:
         except (TypeError, ValueError):
             limit = 12000
     limit = max(600, min(50000, limit))
-    action = "priorisiere die wichtigsten Punkte und fasse zusammen" if policy == "summarize" else "halte die Antwort strikt kurz"
-    return (
-        f"Antwort-Budget: maximal {limit} Zeichen. "
-        f"Wenn mehr Details vorhanden sind, {action}."
+    action = (
+        "priorisiere die wichtigsten Punkte und fasse zusammen"
+        if policy == "summarize"
+        else "halte die Antwort strikt kurz"
     )
+    return f"Antwort-Budget: maximal {limit} Zeichen. Wenn mehr Details vorhanden sind, {action}."
 
 
 def _build_followup_retrieval_query(
@@ -142,8 +145,17 @@ def _is_codecompass_overview_question(question: str) -> bool:
     if "codecompass" not in normalized:
         return False
     specific_terms = {
-        "x86", "malware", "migration", "fehler", "bug", "funktion",
-        "klasse", "datei", "symbol", "timeout", "test",
+        "x86",
+        "malware",
+        "migration",
+        "fehler",
+        "bug",
+        "funktion",
+        "klasse",
+        "datei",
+        "symbol",
+        "timeout",
+        "test",
     }
     return not any(term in normalized for term in specific_terms)
 
@@ -348,8 +360,11 @@ def _expand_file_entries(
     if import_depth > 0:
         before = len(file_entries)
         file_entries = _expand_python_imports(
-            file_entries, run.repo_root,
-            depth=import_depth, max_chars_per_file=run.max_chars_per_file, seen_sources=seen_sources,
+            file_entries,
+            run.repo_root,
+            depth=import_depth,
+            max_chars_per_file=run.max_chars_per_file,
+            seen_sources=seen_sources,
         )
         trace["import_expansion_added"] = len(file_entries) - before
         trace["files_after_expansion"] = len(file_entries)
@@ -358,8 +373,12 @@ def _expand_file_entries(
         before_symbols = len(file_entries)
         try:
             file_entries = _expand_via_symbol_graph(
-                file_entries, engine, run.repo_root,
-                max_extra=symbol_max, seen_sources=seen_sources, max_chars_per_file=run.max_chars_per_file,
+                file_entries,
+                engine,
+                run.repo_root,
+                max_extra=symbol_max,
+                seen_sources=seen_sources,
+                max_chars_per_file=run.max_chars_per_file,
             )
             trace["symbol_expansion_added"] = len(file_entries) - before_symbols
             trace["files_after_symbol_expansion"] = len(file_entries)
@@ -562,8 +581,7 @@ def worker_chat_rag_iterative(
 
     from agent.context_profile import effective_window_tokens
 
-    model_context_tokens = effective_window_tokens(limits={"model": lookup_model_context_tokens(model)},
-                                                   probe=False)
+    model_context_tokens = effective_window_tokens(limits={"model": lookup_model_context_tokens(model)}, probe=False)
     # Reserve ~25% of the context for the LLM's output + framing
     max_input_tokens = max(256, int(model_context_tokens * 0.75))
     trace["model_context_tokens"] = model_context_tokens

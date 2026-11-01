@@ -69,4 +69,3 @@ def test_browser_matrix_never_substitutes_webkit_or_viewport_for_real_safari() -
     assert validate_matrix(matrix) == ()
     matrix["combinations"][2]["evidence_source"] = "playwright_webkit"
     assert "simulated_safari_claim_forbidden" in validate_matrix(matrix)
-

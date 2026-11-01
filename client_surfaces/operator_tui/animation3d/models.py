@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 
@@ -24,8 +24,7 @@ class BackendCapabilities:
 
 @runtime_checkable
 class LogoAnimationBackend(Protocol):
-    def capabilities(self) -> BackendCapabilities:
-        ...
+    def capabilities(self) -> BackendCapabilities: ...
 
     def frame_at(
         self,
@@ -33,8 +32,7 @@ class LogoAnimationBackend(Protocol):
         width: int,
         height: int,
         options: dict | None = None,
-    ) -> FrameResult:
-        ...
+    ) -> FrameResult: ...
 
 
 @dataclass(frozen=True)

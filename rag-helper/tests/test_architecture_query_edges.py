@@ -1,11 +1,12 @@
 """CCAQE-013/014/015: typed use edges, test/controller edges and policy edges."""
+
 from __future__ import annotations
 
 import unittest
 
 try:
-    from tree_sitter import Language, Parser
     import tree_sitter_java as tsjava
+    from tree_sitter import Language, Parser
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     Language = None
     Parser = None
@@ -50,7 +51,9 @@ def _relations_of(relations: list[dict], relation: str) -> list[dict]:
     return [record for record in relations if record.get("relation") == relation]
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class TypedUseEdgeTests(unittest.TestCase):
     """CCAQE-013: field, parameter, return and generic type uses."""
 
@@ -93,7 +96,9 @@ class TypedUseEdgeTests(unittest.TestCase):
         self.assertTrue(any(record["target"] == "UserDto" for record in hits))
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class TestAndControllerEdgeTests(unittest.TestCase):
     """CCAQE-014: test_targets_type, controller_endpoint_declares, test_calls_endpoint."""
 
@@ -174,7 +179,9 @@ class TestAndControllerEdgeTests(unittest.TestCase):
         self.assertEqual(_relations_of(relations, "test_uses_controller"), [])
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class PolicyEdgeTests(unittest.TestCase):
     """CCAQE-015: permission_checks_field, role_allows_operation, interceptor_guards_method."""
 
@@ -226,23 +233,42 @@ class GraphEdgeResolutionTests(unittest.TestCase):
 
     _INDEX = [
         {"id": "java_type:UserDto", "kind": "java_type", "name": "UserDto", "package": "demo", "file": "UserDto.java"},
-        {"id": "java_type:UserService", "kind": "java_type", "name": "UserService", "package": "demo", "file": "UserService.java"},
-        {"id": "java_method:UserController.getUsers", "kind": "java_method", "name": "getUsers", "file": "UserController.java"},
-        {"id": "java_type:UserControllerTest", "kind": "java_type", "name": "UserControllerTest", "package": "demo", "file": "UserControllerTest.java"},
+        {
+            "id": "java_type:UserService",
+            "kind": "java_type",
+            "name": "UserService",
+            "package": "demo",
+            "file": "UserService.java",
+        },
+        {
+            "id": "java_method:UserController.getUsers",
+            "kind": "java_method",
+            "name": "getUsers",
+            "file": "UserController.java",
+        },
+        {
+            "id": "java_type:UserControllerTest",
+            "kind": "java_type",
+            "name": "UserControllerTest",
+            "package": "demo",
+            "file": "UserControllerTest.java",
+        },
     ]
 
     def test_relation_with_fqn_target_becomes_graph_edge(self) -> None:
         edges = build_graph_edges(
             index_records=self._INDEX,
             detail_records=[],
-            relation_records=[{
-                "kind": "relation",
-                "source_id": "java_type:UserService",
-                "relation": "field_type_uses",
-                "target": "UserDto",
-                "target_resolved": "demo.UserDto",
-                "confidence": 0.95,
-            }],
+            relation_records=[
+                {
+                    "kind": "relation",
+                    "source_id": "java_type:UserService",
+                    "relation": "field_type_uses",
+                    "target": "UserDto",
+                    "target_resolved": "demo.UserDto",
+                    "confidence": 0.95,
+                }
+            ],
         )
         typed = [edge for edge in edges if edge["type"] == "field_type_uses"]
         self.assertEqual(len(typed), 1)
@@ -254,13 +280,15 @@ class GraphEdgeResolutionTests(unittest.TestCase):
         edges = build_graph_edges(
             index_records=self._INDEX,
             detail_records=[],
-            relation_records=[{
-                "kind": "relation",
-                "source_id": "java_type:UserService",
-                "relation": "field_type_uses",
-                "target": "ExternalThing",
-                "target_resolved": "org.external.ExternalThing",
-            }],
+            relation_records=[
+                {
+                    "kind": "relation",
+                    "source_id": "java_type:UserService",
+                    "relation": "field_type_uses",
+                    "target": "ExternalThing",
+                    "target_resolved": "org.external.ExternalThing",
+                }
+            ],
         )
         self.assertEqual([edge for edge in edges if edge["type"] == "field_type_uses"], [])
 
@@ -298,16 +326,18 @@ class GraphEdgeResolutionTests(unittest.TestCase):
         edges = build_graph_edges(
             index_records=self._INDEX,
             detail_records=[],
-            relation_records=[{
-                "kind": "relation",
-                "source_id": "java_type:UserService",
-                "relation": "permission_checks_field",
-                "target": "price",
-                "target_resolved": "demo.UserDto",
-                "confidence": 0.85,
-                "field": "price",
-                "operation": "update",
-            }],
+            relation_records=[
+                {
+                    "kind": "relation",
+                    "source_id": "java_type:UserService",
+                    "relation": "permission_checks_field",
+                    "target": "price",
+                    "target_resolved": "demo.UserDto",
+                    "confidence": 0.85,
+                    "field": "price",
+                    "operation": "update",
+                }
+            ],
         )
         policy_edges = [edge for edge in edges if edge["type"] == "permission_checks_field"]
         self.assertEqual(len(policy_edges), 1)

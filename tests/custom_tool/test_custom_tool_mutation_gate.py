@@ -1,4 +1,5 @@
 """HDE-018: mutation gate and workspace audit for custom tool execution."""
+
 import pytest
 
 from agent.common import audit as audit_module

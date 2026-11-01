@@ -63,10 +63,14 @@ def _run(
 
 
 def test_compatible_comparison_reports_threshold_regression() -> None:
-    result = ModelEvaluationComparisonService().compare(
-        baseline=_run("baseline", 0.9),
-        candidate=_run("candidate", 0.8),
-    ).to_dict()
+    result = (
+        ModelEvaluationComparisonService()
+        .compare(
+            baseline=_run("baseline", 0.9),
+            candidate=_run("candidate", 0.8),
+        )
+        .to_dict()
+    )
 
     assert result["status"] == "comparable"
     assert result["metrics"][0]["regression"] is True
@@ -86,10 +90,14 @@ def test_incompatible_profiles_never_produce_a_ranking() -> None:
         metrics=_profile().metrics,
     )
 
-    result = ModelEvaluationComparisonService().compare(
-        baseline=_run("baseline", 0.9),
-        candidate=_run("candidate", 0.95, profile=changed),
-    ).to_dict()
+    result = (
+        ModelEvaluationComparisonService()
+        .compare(
+            baseline=_run("baseline", 0.9),
+            candidate=_run("candidate", 0.95, profile=changed),
+        )
+        .to_dict()
+    )
 
     assert result["status"] == "incomparable"
     assert result["reason_code"] == "evaluation_profile_incompatible"
@@ -99,15 +107,19 @@ def test_incompatible_profiles_never_produce_a_ranking() -> None:
 def test_performance_profile_requires_identical_hardware() -> None:
     performance = _profile(dimension="performance")
 
-    result = ModelEvaluationComparisonService().compare(
-        baseline=_run("baseline", 0.9, profile=performance),
-        candidate=_run(
-            "candidate",
-            0.9,
-            profile=performance,
-            hardware_profile="cpu-large-v1",
-        ),
-    ).to_dict()
+    result = (
+        ModelEvaluationComparisonService()
+        .compare(
+            baseline=_run("baseline", 0.9, profile=performance),
+            candidate=_run(
+                "candidate",
+                0.9,
+                profile=performance,
+                hardware_profile="cpu-large-v1",
+            ),
+        )
+        .to_dict()
+    )
 
     assert result["status"] == "incomparable"
     assert result["reason_code"] == "evaluation_hardware_incompatible"

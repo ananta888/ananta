@@ -400,9 +400,8 @@ class TaskOrchestrationService:
                     title=task.get("title"),
                     output=output,
                     artifact_refs=list(
-                        payload_artifacts or [
-                            {"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}
-                        ]
+                        payload_artifacts
+                        or [{"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}]
                     ),
                     retrieval_tags=retrieval_tags,
                     metadata={"gate_results": gate, "actor": actor},
@@ -410,7 +409,6 @@ class TaskOrchestrationService:
         except MemoryAccessError:
             # Memory is optional; an unauthorized write must not derail task completion.
             return None
-
 
     @staticmethod
     def _build_verification_status(

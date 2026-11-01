@@ -3,25 +3,27 @@
 Blocks candidates that contain raw screen data, prompts, source code, or secrets.
 Reason code on rejection: raw_content_forbidden.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # Fields and patterns that must never appear in a candidate file
-_FORBIDDEN_FIELD_NAMES: frozenset[str] = frozenset({
-    "raw_screen",
-    "raw_prompt",
-    "raw_content",
-    "source_code",
-    "secret",
-    "password",
-    "token",
-    "api_key",
-    "private_key",
-    "access_token",
-})
+_FORBIDDEN_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "raw_screen",
+        "raw_prompt",
+        "raw_content",
+        "source_code",
+        "secret",
+        "password",
+        "token",
+        "api_key",
+        "private_key",
+        "access_token",
+    }
+)
 
 _FORBIDDEN_KEY_SUBSTRINGS: tuple[str, ...] = (
     "raw_",

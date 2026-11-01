@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import functools
+import json
 import logging
 import os
 import shlex
@@ -56,10 +56,10 @@ from agent.cli_backends.opencode_runtime_helpers import (
     build_codex_runtime_diagnostics as _build_codex_runtime_diagnostics,
 )
 from agent.cli_backends.opencode_runtime_helpers import (
-    build_opencode_runtime_diagnostics as _build_opencode_runtime_diagnostics,
+    build_opencode_loop_brain_agent_config as _build_opencode_loop_brain_agent_config,
 )
 from agent.cli_backends.opencode_runtime_helpers import (
-    build_opencode_loop_brain_agent_config as _build_opencode_loop_brain_agent_config,
+    build_opencode_runtime_diagnostics as _build_opencode_runtime_diagnostics,
 )
 from agent.cli_backends.opencode_runtime_helpers import (
     build_opencode_toolless_agent_config as _build_opencode_theless_agent_config,
@@ -78,6 +78,7 @@ from agent.cli_backends.opencode_runtime_helpers import (
 )
 from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
 from agent.cli_backends.semaphore import _acquire_backend_permit
+
 # Production default of every ``backend_settings=`` parameter below; callers
 # and tests pass their own settings object explicitly.
 from agent.config import settings
@@ -156,25 +157,43 @@ def resolve_opencode_runtime_config(
     backend_settings = settings if backend_settings is None else backend_settings
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls(backend_settings=backend_settings)
-    opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
-    tool_mode = _normalize_opencode_tool_mode(
-        tool_mode or opencode_runtime_cfg.get("tool_mode")
+    opencode_runtime_cfg = (
+        agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
     )
+    tool_mode = _normalize_opencode_tool_mode(tool_mode or opencode_runtime_cfg.get("tool_mode"))
     execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
     target_profile = str(opencode_runtime_cfg.get("target_profile") or "").strip() or None
     forced_target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
-    forced_target_model = str(opencode_runtime_cfg.get("target_model") or opencode_runtime_cfg.get("model") or "").strip() or None
+    forced_target_model = (
+        str(opencode_runtime_cfg.get("target_model") or opencode_runtime_cfg.get("model") or "").strip() or None
+    )
     resolved_profile = None
     if target_profile:
         try:
             resolver = _ctx.model_invocation_service._get_resolver()
-            resolved_profile = (getattr(resolver, "_by_id", {}) or {}).get(target_profile) if resolver is not None else None
+            resolved_profile = (
+                (getattr(resolver, "_by_id", {}) or {}).get(target_profile) if resolver is not None else None
+            )
             if resolved_profile is not None:
-                forced_target_provider = str(getattr(resolved_profile, "provider_id", "") or "").strip().lower() or forced_target_provider
+                forced_target_provider = (
+                    str(getattr(resolved_profile, "provider_id", "") or "").strip().lower() or forced_target_provider
+                )
                 forced_target_model = str(getattr(resolved_profile, "model", "") or "").strip() or forced_target_model
         except Exception:
             resolved_profile = None
-    _native_passthrough = {"opencode", "anthropic", "openai", "gemini", "groq", "openrouter", "bedrock", "azure", "vertexai", "copilot", "native"}
+    _native_passthrough = {
+        "opencode",
+        "anthropic",
+        "openai",
+        "gemini",
+        "groq",
+        "openrouter",
+        "bedrock",
+        "azure",
+        "vertexai",
+        "copilot",
+        "native",
+    }
     configured_local_providers = {
         str(entry.get("provider") or "").strip().lower()
         for entry in get_local_openai_backends(
@@ -197,9 +216,7 @@ def resolve_opencode_runtime_config(
     )
     default_provider = (
         str(
-            agent_cfg.get("default_provider")
-            or _get_runtime_default_provider(backend_settings=backend_settings)
-            or ""
+            agent_cfg.get("default_provider") or _get_runtime_default_provider(backend_settings=backend_settings) or ""
         ).strip()
         or None
     )
@@ -207,18 +224,18 @@ def resolve_opencode_runtime_config(
         "ollama",
         "lmstudio",
         *configured_local_providers,
-        *{
-            str(provider_id).strip().lower()
-            for provider_id in provider_urls
-            if str(provider_id).strip()
-        },
+        *{str(provider_id).strip().lower() for provider_id in provider_urls if str(provider_id).strip()},
     }
     raw_model = normalize_legacy_model_name(
         str(model or configured_default_model or "").strip() or None,
         provider=forced_target_provider or default_provider,
     )
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
-    if forced_target_provider and explicit_provider in {"ollama", "lmstudio"} and explicit_provider != forced_target_provider:
+    if (
+        forced_target_provider
+        and explicit_provider in {"ollama", "lmstudio"}
+        and explicit_provider != forced_target_provider
+    ):
         raw_model = str(explicit_model or raw_model or "").strip() or None
         explicit_provider = None
         explicit_model = None
@@ -285,7 +302,9 @@ def resolve_opencode_runtime_config(
     elif target_provider == "ollama":
         if tool_mode != "toolless":
             tool_mode = "toolless"
-        base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(backend_settings, "ollama_url", None))
+        base_url = _normalize_ollama_openai_base_url(
+            provider_urls.get("ollama") or getattr(backend_settings, "ollama_url", None)
+        )
         base_url_source = "ollama_url"
         target_provider_type = "local_openai_compatible"
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
@@ -296,7 +315,9 @@ def resolve_opencode_runtime_config(
                 resolve_timeout = 120.0
             target_model = resolve_ollama_model(target_model, base_url, timeout=min(resolve_timeout, 10.0))
     elif target_provider == "lmstudio":
-        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or getattr(backend_settings, "lmstudio_url", None))
+        base_url = _normalize_openai_base_url(
+            provider_urls.get("lmstudio") or getattr(backend_settings, "lmstudio_url", None)
+        )
         base_url_source = "lmstudio_url"
         target_provider_type = "local_openai_compatible"
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
@@ -312,8 +333,10 @@ def resolve_opencode_runtime_config(
             base_url = _normalize_openai_base_url(local_target.get("base_url"))
             base_url_source = f"local_openai.{target_provider}"
             target_provider_type = str(local_target.get("provider_type") or "local_openai_compatible")
-            target_kind = "remote_ananta_hub" if bool(local_target.get("remote_hub")) else (
-                "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
+            target_kind = (
+                "remote_ananta_hub"
+                if bool(local_target.get("remote_hub"))
+                else ("local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible")
             )
 
     provider_config = None
@@ -327,10 +350,7 @@ def resolve_opencode_runtime_config(
             except (TypeError, ValueError):
                 normalized_output_token_limit = 0
                 normalized_context_token_limit = 0
-            if (
-                normalized_output_token_limit > 0
-                and normalized_context_token_limit > 0
-            ):
+            if normalized_output_token_limit > 0 and normalized_context_token_limit > 0:
                 model_entry["limit"] = {
                     "context": normalized_context_token_limit,
                     "output": normalized_output_token_limit,
@@ -360,7 +380,11 @@ def resolve_opencode_runtime_config(
     elif target_provider and target_model and target_provider in built_in_providers:
         cli_model = f"{target_provider}/{target_model}"
 
-    diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider in {"ollama", "lmstudio"} or local_target) else []
+    diagnostics = (
+        _build_opencode_runtime_diagnostics(base_url=base_url)
+        if (target_provider in {"ollama", "lmstudio"} or local_target)
+        else []
+    )
     return {
         "model": cli_model,
         "target_profile": target_profile,
@@ -409,12 +433,13 @@ def run_opencode_command(
 
     session_meta = (session or {}).get("metadata") if isinstance((session or {}).get("metadata"), dict) else {}
     runtime_meta = (
-        session_meta.get("opencode_runtime")
-        if isinstance(session_meta.get("opencode_runtime"), dict)
-        else {}
+        session_meta.get("opencode_runtime") if isinstance(session_meta.get("opencode_runtime"), dict) else {}
     )
-    task_bound = bool(task_id or _ctx.codecompass_task_capability.current_codecompass_task_id()
-                      or _ctx.codecompass_task_capability.current_task_capability())
+    task_bound = bool(
+        task_id
+        or _ctx.codecompass_task_capability.current_codecompass_task_id()
+        or _ctx.codecompass_task_capability.current_task_capability()
+    )
     resume_session_id = str(runtime_meta.get("native_session_id") or "").strip() or None
     if session and not task_bound and str(runtime_meta.get("kind") or "").strip().lower() == "native_server":
         return _ctx.opencode_runtime_service.run_session_turn(
@@ -432,8 +457,9 @@ def run_opencode_command(
             model=model,
             workdir=workdir,
         )
-    if session and (opencode_execution_mode == "interactive_terminal"
-                    or (task_bound and opencode_execution_mode == "live_terminal")):
+    if session and (
+        opencode_execution_mode == "interactive_terminal" or (task_bound and opencode_execution_mode == "live_terminal")
+    ):
         terminal_service = _ctx.live_terminal_session_service
         session_info = terminal_service.ensure_session_for_cli(session, workdir=workdir) or {}
         rc, out, err, command_label = _run_opencode_subprocess(
@@ -529,7 +555,9 @@ def _run_opencode_subprocess(
             diagnostics = list(runtime_cfg.get("diagnostics") or [])
             if diagnostics:
                 log.warning("OpenCode runtime diagnostics: %s", ",".join(diagnostics))
-            temp_dir_ctx = tempfile.TemporaryDirectory() if runtime_cfg.get("provider_config") else contextlib.nullcontext(None)
+            temp_dir_ctx = (
+                tempfile.TemporaryDirectory() if runtime_cfg.get("provider_config") else contextlib.nullcontext(None)
+            )
             # The loop brain runs protocol-only: no MCP server is offered, so the
             # child never handshakes with the in-process transport (its stall class)
             # and cannot answer the protocol through native tools instead of them.
@@ -537,7 +565,8 @@ def _run_opencode_subprocess(
                 contextlib.nullcontext(None)
                 if str(tool_mode or "").strip().lower() == "protocol"
                 else opencode_codecompass_mcp(
-                    workspace_dir=str(Path(workdir or os.getcwd()).resolve()), task_id=task_id,
+                    workspace_dir=str(Path(workdir or os.getcwd()).resolve()),
+                    task_id=task_id,
                 )
             )
             with temp_dir_ctx as tmp_dir, mcp_context as mcp:
@@ -556,7 +585,11 @@ def _run_opencode_subprocess(
                     f"{key}={shlex.quote(value)}" for key, value in env.items() if key in {"XDG_CONFIG_HOME"}
                 )
                 visible_command = " ".join(
-                    [segment for segment in [env_prefix.strip(), " ".join(shlex.quote(part) for part in args)] if segment]
+                    [
+                        segment
+                        for segment in [env_prefix.strip(), " ".join(shlex.quote(part) for part in args)]
+                        if segment
+                    ]
                 )
                 log.info(f"Zentraler OpenCode-Aufruf: {args}")
                 workspace = Path(workdir or os.getcwd()).resolve()
@@ -571,11 +604,8 @@ def _run_opencode_subprocess(
                     maximum_output_chars=maximum_output_chars,
                     input_text=str(prompt or ""),
                     event_sink=event_sink,
-                    secret_values=((mcp.token,) if mcp is not None else ()) + tuple(
-                        value
-                        for name, value in env.items()
-                        if name in _OPENCODE_AUTH_ENVIRONMENT_KEYS and value
-                    ),
+                    secret_values=((mcp.token,) if mcp is not None else ())
+                    + tuple(value for name, value in env.items() if name in _OPENCODE_AUTH_ENVIRONMENT_KEYS and value),
                 )
                 if result.reason_code == "timeout":
                     return -1, "", "Timeout", visible_command
@@ -607,7 +637,11 @@ def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict
     target_provider = str(codex_cfg.get("target_provider") or "").strip().lower() or None
     if prefer_lmstudio is None:
         prefer_lmstudio = _get_runtime_default_provider(backend_settings=backend_settings) == "lmstudio"
-    local_target = resolve_local_openai_backend(target_provider, agent_cfg=agent_cfg, provider_urls=provider_urls) if target_provider else None
+    local_target = (
+        resolve_local_openai_backend(target_provider, agent_cfg=agent_cfg, provider_urls=provider_urls)
+        if target_provider
+        else None
+    )
 
     if explicit_base_url:
         base_url = explicit_base_url
@@ -657,15 +691,13 @@ def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict
     # with fallback to settings.codex_auth_mode and the legacy
     # "api_key" default. api_key_required derives from it.
     codex_cli_cfg = codex_cfg if isinstance(codex_cfg, dict) else {}
-    raw_auth_mode = (
-        codex_cli_cfg.get("auth_mode")
-        if isinstance(codex_cli_cfg.get("auth_mode"), str)
-        else None
-    )
+    raw_auth_mode = codex_cli_cfg.get("auth_mode") if isinstance(codex_cli_cfg.get("auth_mode"), str) else None
     if raw_auth_mode is not None:
         auth_mode = raw_auth_mode.strip().lower() or "api_key"
     else:
-        auth_mode = str(getattr(backend_settings, "codex_auth_mode", "api_key") or "api_key").strip().lower() or "api_key"
+        auth_mode = (
+            str(getattr(backend_settings, "codex_auth_mode", "api_key") or "api_key").strip().lower() or "api_key"
+        )
     if auth_mode not in ("api_key", "chatgpt_login"):
         auth_mode = "api_key"
     sandbox_mode = str(codex_cfg.get("sandbox_mode") or "read-only").strip()
@@ -673,9 +705,7 @@ def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict
         sandbox_mode = "read-only"
     # api_key_required: if explicitly set, honour it; else derive
     # from auth_mode (chatgpt_login -> not required).
-    if "api_key_required" in codex_cli_cfg and isinstance(
-        codex_cli_cfg.get("api_key_required"), bool
-    ):
+    if "api_key_required" in codex_cli_cfg and isinstance(codex_cli_cfg.get("api_key_required"), bool):
         api_key_required = bool(codex_cli_cfg["api_key_required"])
     else:
         api_key_required = bool(getattr(backend_settings, "codex_require_api_key", True))
@@ -771,11 +801,7 @@ def run_codex_command(
                     f"model_providers.{provider_id}.supports_websockets=false",
                 ]
             )
-        selected_model = (
-            model
-            if auth_mode == "chatgpt_login"
-            else model or backend_settings.codex_default_model
-        )
+        selected_model = model if auth_mode == "chatgpt_login" else model or backend_settings.codex_default_model
         if selected_model:
             args.extend(["--model", selected_model])
         args.extend(["--sandbox", str(runtime_cfg["sandbox_mode"])])
@@ -783,7 +809,11 @@ def run_codex_command(
         if not base_url:
             return -1, "", "Codex runtime target is not configured: missing OpenAI-compatible base_url"
         if not api_key and not bool(runtime_cfg.get("is_local")) and auth_mode != "chatgpt_login":
-            return -1, "", "Codex runtime target requires API key for remote endpoint (or set codex_cli.auth_mode=chatgpt_login)"
+            return (
+                -1,
+                "",
+                "Codex runtime target requires API key for remote endpoint (or set codex_cli.auth_mode=chatgpt_login)",
+            )
         if base_url:
             env["OPENAI_BASE_URL"] = base_url
             env["OPENAI_API_BASE"] = base_url
@@ -878,9 +908,7 @@ def run_claude_write_armed(
         timeout=timeout,
         workdir=workdir,
         budget_error=check_prompt_budget(prompt, max_tokens=prompt_token_limit("claude", model=model)),
-        resolve_runtime_config=functools.partial(
-            resolve_claude_runtime_config, backend_settings=backend_settings
-        ),
+        resolve_runtime_config=functools.partial(resolve_claude_runtime_config, backend_settings=backend_settings),
         settings=backend_settings,
         provisioned_binary=resolve_provisioned_backend_binary,
         acquire_permit=_acquire_backend_permit,
@@ -898,9 +926,7 @@ def apply_reviewed_diff(
     return _claude_write_armed.apply_reviewed_diff(
         diff,
         workdir=workdir,
-        resolve_runtime_config=functools.partial(
-            resolve_claude_runtime_config, backend_settings=backend_settings
-        ),
+        resolve_runtime_config=functools.partial(resolve_claude_runtime_config, backend_settings=backend_settings),
     )
 
 

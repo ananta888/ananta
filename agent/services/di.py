@@ -37,6 +37,7 @@ The legacy module-level singletons in ``agent.repository`` are unchanged.
 Existing call sites using ``from agent.repository import X_repo`` keep
 working. New code should use the factory functions exposed here.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -104,67 +105,69 @@ __all__ = [
 ]
 
 
-_KNOWN_REPOS = frozenset({
-    "action_pack_repo",
-    "agent_repo",
-    "agent_session_repo",
-    "archived_task_repo",
-    "artifact_repo",
-    "artifact_version_repo",
-    "audit_repo",
-    "banned_ip_repo",
-    "blueprint_artifact_repo",
-    "blueprint_role_repo",
-    "blueprint_workflow_step_repo",
-    "config_repo",
-    "context_access_policy_repo",
-    "context_bundle_repo",
-    "evolution_proposal_repo",
-    "evolution_run_repo",
-    "extracted_document_repo",
-    "goal_repo",
-    "instruction_overlay_repo",
-    "knowledge_collection_repo",
-    "knowledge_index_repo",
-    "knowledge_index_run_repo",
-    "knowledge_link_repo",
-    "login_attempt_repo",
-    "memory_entry_repo",
-    "password_history_repo",
-    "plan_node_repo",
-    "plan_repo",
-    "planning_evaluation_repo",
-    "planning_model_profile_repo",
-    "planning_pattern_cluster_repo",
-    "planning_prompt_version_repo",
-    "planning_review_item_repo",
-    "planning_run_repo",
-    "planning_template_candidate_repo",
-    "playbook_repo",
-    "policy_decision_repo",
-    "policy_snapshot_repo",
-    "refresh_token_repo",
-    "retrieval_run_repo",
-    "role_repo",
-    "scheduled_task_repo",
-    "stats_repo",
-    "task_repo",
-    "team_blueprint_repo",
-    "team_member_repo",
-    "team_repo",
-    "team_type_repo",
-    "team_type_role_link_repo",
-    "template_repo",
-    "terminal_event_repo",
-    "terminal_session_repo",
-    "tool_call_repo",
-    "user_instruction_profile_repo",
-    "user_repo",
-    "verification_record_repo",
-    "worker_job_repo",
-    "worker_result_repo",
-    "worker_slot_lease_repo",
-})
+_KNOWN_REPOS = frozenset(
+    {
+        "action_pack_repo",
+        "agent_repo",
+        "agent_session_repo",
+        "archived_task_repo",
+        "artifact_repo",
+        "artifact_version_repo",
+        "audit_repo",
+        "banned_ip_repo",
+        "blueprint_artifact_repo",
+        "blueprint_role_repo",
+        "blueprint_workflow_step_repo",
+        "config_repo",
+        "context_access_policy_repo",
+        "context_bundle_repo",
+        "evolution_proposal_repo",
+        "evolution_run_repo",
+        "extracted_document_repo",
+        "goal_repo",
+        "instruction_overlay_repo",
+        "knowledge_collection_repo",
+        "knowledge_index_repo",
+        "knowledge_index_run_repo",
+        "knowledge_link_repo",
+        "login_attempt_repo",
+        "memory_entry_repo",
+        "password_history_repo",
+        "plan_node_repo",
+        "plan_repo",
+        "planning_evaluation_repo",
+        "planning_model_profile_repo",
+        "planning_pattern_cluster_repo",
+        "planning_prompt_version_repo",
+        "planning_review_item_repo",
+        "planning_run_repo",
+        "planning_template_candidate_repo",
+        "playbook_repo",
+        "policy_decision_repo",
+        "policy_snapshot_repo",
+        "refresh_token_repo",
+        "retrieval_run_repo",
+        "role_repo",
+        "scheduled_task_repo",
+        "stats_repo",
+        "task_repo",
+        "team_blueprint_repo",
+        "team_member_repo",
+        "team_repo",
+        "team_type_repo",
+        "team_type_role_link_repo",
+        "template_repo",
+        "terminal_event_repo",
+        "terminal_session_repo",
+        "tool_call_repo",
+        "user_instruction_profile_repo",
+        "user_repo",
+        "verification_record_repo",
+        "worker_job_repo",
+        "worker_result_repo",
+        "worker_slot_lease_repo",
+    }
+)
 
 
 def _resolve(name: str) -> Any:
@@ -176,6 +179,7 @@ def _resolve(name: str) -> Any:
     if module_value is not _SENTINEL:
         return module_value
     from agent import repository
+
     return getattr(repository, name)
 
 
@@ -958,4 +962,3 @@ def get_worker_slot_lease_repository() -> Any:
     production.
     """
     return _resolve("worker_slot_lease_repo")
-

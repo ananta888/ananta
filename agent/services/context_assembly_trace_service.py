@@ -3,6 +3,7 @@
 Verfolgt welche Context-Teile in einen LLM-Prompt eingebaut wurden,
 ohne jemals den vollständigen Prompt-Text zu speichern.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,12 +14,12 @@ from typing import Any
 
 @dataclass
 class ContextPart:
-    source_type: str     # "system"|"user"|"history"|"tool_schemas"|"rag_context"|"file_context"|"worker_instruction"|"output_budget"
-    source_ref: str      # kurze Referenz — kein Volltext
+    source_type: str  # "system"|"user"|"history"|"tool_schemas"|"rag_context"|"file_context"|"worker_instruction"|"output_budget"
+    source_ref: str  # kurze Referenz — kein Volltext
     estimated_tokens: int
     included: bool
     blocked_reason: str | None
-    content_hash: str | None   # sha256[:16] wenn store_prompt_hashes=True
+    content_hash: str | None  # sha256[:16] wenn store_prompt_hashes=True
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -36,7 +37,7 @@ class ContextAssemblyTrace:
     trace_ref: str
     decision_ref: str
     parts: list[ContextPart] = field(default_factory=list)
-    estimated_input_tokens: int = 0   # sum of included parts
+    estimated_input_tokens: int = 0  # sum of included parts
     reserved_output_tokens: int = 0
     truncated_parts: list[str] = field(default_factory=list)  # source_types die abgeschnitten wurden
 
@@ -57,8 +58,7 @@ class ContextAssemblyTraceService:
     def __init__(self, store_prompt_hashes: bool = True, store_prompt_text: bool = False) -> None:
         if store_prompt_text:
             raise ValueError(
-                "store_prompt_text=True is not permitted — "
-                "ContextAssemblyTraceService never stores raw prompt text."
+                "store_prompt_text=True is not permitted — ContextAssemblyTraceService never stores raw prompt text."
             )
         self.store_prompt_hashes = store_prompt_hashes
 
@@ -105,9 +105,7 @@ class ContextAssemblyTraceService:
         reserved_output_tokens: int = 0,
     ) -> ContextAssemblyTrace:
         """Compute derived fields and mark the trace as finalized."""
-        trace.estimated_input_tokens = sum(
-            p.estimated_tokens for p in trace.parts if p.included
-        )
+        trace.estimated_input_tokens = sum(p.estimated_tokens for p in trace.parts if p.included)
         trace.reserved_output_tokens = max(0, int(reserved_output_tokens))
         # Collect source_types that were added but later excluded (truncated)
         included_types = {p.source_type for p in trace.parts if p.included}

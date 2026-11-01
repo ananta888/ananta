@@ -19,19 +19,54 @@ def test_admin_repair_mode_data_contains_hook_ready_contract_fields():
     assert payload["repair_plan"]["schema"] == "admin_repair_plan_v1"
     assert payload["repair_plan"]["dry_run_default"] is True
     assert payload["deterministic_repair_foundation"]["target_model"]["model_id"] == "deterministic_repair_path_v1"
-    assert payload["deterministic_repair_foundation"]["normalized_evidence"]["schema"] == "deterministic_repair_evidence_v1"
-    assert payload["deterministic_repair_foundation"]["signature_matching"]["schema"] == "deterministic_signature_matching_v1"
-    assert payload["deterministic_repair_foundation"]["diagnosis_procedure_model"]["schema"] == "deterministic_diagnosis_procedure_v1"
-    assert payload["deterministic_repair_foundation"]["repair_procedure_model"]["schema"] == "deterministic_repair_procedure_v1"
+    assert (
+        payload["deterministic_repair_foundation"]["normalized_evidence"]["schema"]
+        == "deterministic_repair_evidence_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["signature_matching"]["schema"]
+        == "deterministic_signature_matching_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["diagnosis_procedure_model"]["schema"]
+        == "deterministic_diagnosis_procedure_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["repair_procedure_model"]["schema"]
+        == "deterministic_repair_procedure_v1"
+    )
     assert payload["deterministic_repair_foundation"]["repair_catalog"]["schema"] == "deterministic_repair_catalog_v1"
-    assert payload["deterministic_repair_foundation"]["repair_execution"]["apply_run"]["schema"] == "deterministic_repair_execution_v1"
-    assert payload["deterministic_repair_foundation"]["outcome_tracking"]["schema"] == "deterministic_repair_outcome_tracking_v1"
-    assert payload["deterministic_repair_foundation"]["success_weighted_recommendations"]["schema"] == "deterministic_success_weighted_recommendation_v1"
-    assert payload["deterministic_repair_foundation"]["llm_escalation_policy"]["schema"] == "deterministic_llm_escalation_policy_v1"
-    assert payload["deterministic_repair_foundation"]["repair_audit_chain"]["schema"] == "deterministic_repair_audit_chain_v1"
-    assert payload["deterministic_repair_foundation"]["operator_session_summary"]["schema"] == "deterministic_operator_session_summary_v1"
-    assert payload["deterministic_repair_foundation"]["golden_path_examples"]["schema"] == "deterministic_repair_golden_paths_v1"
-    assert payload["deterministic_repair_foundation"]["rollout_plan"]["schema"] == "deterministic_repair_rollout_plan_v1"
+    assert (
+        payload["deterministic_repair_foundation"]["repair_execution"]["apply_run"]["schema"]
+        == "deterministic_repair_execution_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["outcome_tracking"]["schema"]
+        == "deterministic_repair_outcome_tracking_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["success_weighted_recommendations"]["schema"]
+        == "deterministic_success_weighted_recommendation_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["llm_escalation_policy"]["schema"]
+        == "deterministic_llm_escalation_policy_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["repair_audit_chain"]["schema"]
+        == "deterministic_repair_audit_chain_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["operator_session_summary"]["schema"]
+        == "deterministic_operator_session_summary_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["golden_path_examples"]["schema"]
+        == "deterministic_repair_golden_paths_v1"
+    )
+    assert (
+        payload["deterministic_repair_foundation"]["rollout_plan"]["schema"] == "deterministic_repair_rollout_plan_v1"
+    )
 
     required_fields = {
         "risk_class",

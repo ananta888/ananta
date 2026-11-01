@@ -33,7 +33,9 @@ class FreecadClientSurfaceService:
 
     def capabilities(self) -> dict[str, Any]:
         decisions = {
-            str(item.get("capability_id") or ""): str(item.get("decision") or self._policy_pack_payload.get("default_decision") or "default_deny")
+            str(item.get("capability_id") or ""): str(
+                item.get("decision") or self._policy_pack_payload.get("default_decision") or "default_deny"
+            )
             for item in list(self._policy_pack_payload.get("rules") or [])
         }
         capabilities: list[dict[str, Any]] = []
@@ -46,7 +48,9 @@ class FreecadClientSurfaceService:
                     "risk": item.get("risk"),
                     "approval_required": bool(item.get("approval_required")),
                     "default_policy_state": str(item.get("default_policy_state") or "default_deny"),
-                    "effective_decision": decisions.get(capability_id, str(item.get("default_policy_state") or "default_deny")),
+                    "effective_decision": decisions.get(
+                        capability_id, str(item.get("default_policy_state") or "default_deny")
+                    ),
                 }
             )
         return {"status": "ok", "capabilities": capabilities}
@@ -125,13 +129,19 @@ class FreecadClientSurfaceService:
         }, 200
 
     def export_plan(self, *, fmt: str, target_path: str, selection_only: bool) -> dict[str, Any]:
-        return {"status": "accepted", "plan": build_export_plan(fmt=fmt, target_path=target_path, selection_only=selection_only)}
+        return {
+            "status": "accepted",
+            "plan": build_export_plan(fmt=fmt, target_path=target_path, selection_only=selection_only),
+        }
 
     def macro_plan(self, *, objective: str, context_summary: dict[str, Any] | None = None) -> dict[str, Any]:
         objective_value = str(objective or "").strip()
         if not objective_value:
             return {"status": "degraded", "reason": "objective_missing"}
-        return {"status": "accepted", "plan": build_macro_plan(objective=objective_value, context_summary=context_summary)}
+        return {
+            "status": "accepted",
+            "plan": build_macro_plan(objective=objective_value, context_summary=context_summary),
+        }
 
     def macro_execute(
         self,

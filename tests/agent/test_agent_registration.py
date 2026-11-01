@@ -143,8 +143,8 @@ def test_register_agent_validates_execution_limits_bounds(client, app):
                 "capabilities": ["repair.diagnose"],
                 "execution_limits": {
                     "max_parallel_tasks": 9999,  # above max 32
-                    "max_runtime_seconds": 1,     # below min 30
-                    "max_workspace_mb": 10,        # below min 64
+                    "max_runtime_seconds": 1,  # below min 30
+                    "max_workspace_mb": 10,  # below min 64
                 },
             }
             response = client.post("/register", json=payload)
@@ -379,9 +379,7 @@ def test_registration_uses_file_managed_service_token_and_runtime_metadata(
     assert captured["registration_token"] != captured["token"]
     assert captured["capabilities"] == ["workflow.adapter.langgraph"]
     assert captured["runtime_targets"] == [{"runtime_id": "langgraph"}]
-    assert registration_mod.get_registration_state()[
-        "registered_capabilities"
-    ] == ["workflow.adapter.langgraph"]
+    assert registration_mod.get_registration_state()["registered_capabilities"] == ["workflow.adapter.langgraph"]
 
 
 def test_strict_registration_route_binds_keyring_identity_and_service_token(
@@ -406,9 +404,7 @@ def test_strict_registration_route_binds_keyring_identity_and_service_token(
                     "worker-alpha": {
                         "worker_url": "http://worker-alpha:5000",
                         "registration_token": bootstrap_token,
-                        "service_token_sha256": hashlib.sha256(
-                            service_token.encode("utf-8")
-                        ).hexdigest(),
+                        "service_token_sha256": hashlib.sha256(service_token.encode("utf-8")).hexdigest(),
                         "session_signing_key_sha256": hashlib.sha256(
                             b"alpha-session-signing-key-0123456789abcdef"
                         ).hexdigest(),
@@ -540,7 +536,5 @@ def test_strict_registration_route_rejects_foreign_bootstrap_identity(
         )
 
     assert response.status_code == 401
-    assert response.get_json()["data"]["reason_code"] == (
-        "workflow_worker_registration_identity_denied"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("workflow_worker_registration_identity_denied")
     mock_repo.save.assert_not_called()

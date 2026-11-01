@@ -1,7 +1,6 @@
 """Tests for ChatContextSelector — T05.03."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.services.heuristic_runtime.chat_context_selector import ChatContextSelector
 from agent.services.heuristic_runtime.chat_query_classifier import IntentKind
@@ -22,6 +21,7 @@ def _ctx(artifacts=None, goal=None, task=None, scopes=None):
 
 
 # ── Ranking ───────────────────────────────────────────────────────────────────
+
 
 def test_selected_artifacts_tier1():
     result = clf.select(IntentKind.EXPLAIN_FILE, _ctx(artifacts=["src/main.py", "src/auth.py"]))
@@ -58,6 +58,7 @@ def test_artifacts_rank_higher_than_goal():
 
 # ── Budget limiting ───────────────────────────────────────────────────────────
 
+
 def test_max_5_refs():
     artifacts = [f"ref{i}" for i in range(10)]
     result = clf.select(IntentKind.EXPLAIN_FILE, _ctx(artifacts=artifacts))
@@ -71,6 +72,7 @@ def test_budget_used_is_positive():
 
 # ── Security deny ─────────────────────────────────────────────────────────────
 
+
 def test_security_deny_overrides_ranking():
     result = clf.select(IntentKind.EXPLAIN_FILE, _ctx(scopes=["secret"]))
     assert result.is_no_good_match
@@ -83,6 +85,7 @@ def test_credential_scope_denied():
 
 
 # ── no_good_match ─────────────────────────────────────────────────────────────
+
 
 def test_unknown_intent_no_context_is_no_match():
     result = clf.select(IntentKind.UNKNOWN, _ctx())

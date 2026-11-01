@@ -44,4 +44,3 @@ def test_codecompass_context_redacts_sensitive_tokens():
     prompt = result["prompt"]
     assert "sk-1234567890ABCDEABCDE12345" not in prompt
     assert "[REDACTED_TOKEN]" in prompt
-

@@ -224,9 +224,7 @@ def payload(message_type: str) -> dict[str, Any]:
             "scope_digest": digest("scope"),
             "revocation_epoch": 2,
             "impact_digest": digest("impact"),
-            "group_results": [
-                {"group_id": "group-a", "state": "deleted", "reason_code": "local_cleanup_complete"}
-            ],
+            "group_results": [{"group_id": "group-a", "state": "deleted", "reason_code": "local_cleanup_complete"}],
             "decision": "complete",
         },
     }

@@ -110,9 +110,7 @@ def create_voice_stream():
             ),
         )
         requested_audio_seconds = float(
-            stream_audio_limit
-            if body.get("max_audio_seconds") is None
-            else body["max_audio_seconds"]
+            stream_audio_limit if body.get("max_audio_seconds") is None else body["max_audio_seconds"]
         )
         if requested_audio_seconds <= 0:
             raise ValueError("max_audio_seconds must be positive")
@@ -216,11 +214,7 @@ def create_voice_stream():
             deadline_epoch_ms=absolute_deadline_epoch_ms,
             profile_id=payload["profile_id"],
             configuration_session_id=payload["configuration_session_id"],
-            parent_task_id=(
-                preview_binding.parent_task_id
-                if preview_binding is not None
-                else None
-            ),
+            parent_task_id=(preview_binding.parent_task_id if preview_binding is not None else None),
             operation="live_preview" if preview_binding is not None else "transcribe",
         )
         remaining_deadline = delegation_service.remaining_seconds(delegation)
@@ -315,15 +309,9 @@ def create_voice_stream():
                     else _max_audio_mb() * 1024 * 1024
                 ),
             ),
-            live_run_id=(
-                preview_binding.live_run_id
-                if preview_binding is not None
-                else None
-            ),
+            live_run_id=(preview_binding.live_run_id if preview_binding is not None else None),
             live_run_segment_sequence=(
-                preview_binding.live_run_segment_sequence
-                if preview_binding is not None
-                else None
+                preview_binding.live_run_segment_sequence if preview_binding is not None else None
             ),
         )
         admission_service.release_concurrency(admission_lease)

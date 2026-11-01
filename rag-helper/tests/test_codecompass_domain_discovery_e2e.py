@@ -42,6 +42,7 @@ from rag_helper.domain_discovery.descriptors import (
 )
 from rag_helper.domain_discovery.graph_model import DomainGraph
 from rag_helper.domain_discovery.inputs import AnalysisInputs
+
 from devtools.validate_codecompass_domain_discovery import validate_payload
 
 
@@ -69,12 +70,8 @@ def _build_inputs() -> AnalysisInputs:
             edges.append({"source": a, "target": b, "type": "calls"})
     # Cross-domain coupling to trigger mutual_coupling.
     for edge_type in ("calls", "field_type_uses", "injects_dependency"):
-        edges.append(
-            {"source": "identity.a", "target": "billing.a", "type": edge_type}
-        )
-        edges.append(
-            {"source": "billing.a", "target": "identity.a", "type": edge_type}
-        )
+        edges.append({"source": "identity.a", "target": "billing.a", "type": edge_type})
+        edges.append({"source": "billing.a", "target": "identity.a", "type": edge_type})
 
     return AnalysisInputs.from_memory(
         index_records=[],
@@ -96,9 +93,7 @@ class TestEndToEndPipeline(unittest.TestCase):
         # No descriptor in this test; mismatches should be empty.
         descriptors = index_existing_descriptors(_REPO_ROOT)
         mismatches = build_descriptor_mismatches(descriptors, clustering.candidates)
-        result = compute_boundary_metrics(
-            clustering, graph, descriptor_mismatches=mismatches
-        )
+        result = compute_boundary_metrics(clustering, graph, descriptor_mismatches=mismatches)
 
         payload = build_analysis_payload(
             project_root=str(_REPO_ROOT),
@@ -110,9 +105,7 @@ class TestEndToEndPipeline(unittest.TestCase):
         )
 
         # Domain count: at least 3 of the 5 main candidates.
-        self.assertGreaterEqual(
-            len(payload["domains"]), 3, msg=f"got: {payload['domains']}"
-        )
+        self.assertGreaterEqual(len(payload["domains"]), 3, msg=f"got: {payload['domains']}")
         # All confidences within 0..1.
         for domain in payload["domains"]:
             self.assertGreaterEqual(float(domain["confidence"]), 0.0)

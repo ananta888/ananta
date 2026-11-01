@@ -4,14 +4,13 @@ Only explicitly allowlisted module prefixes are permitted.
 Inline Python code in heuristic JSON is forbidden.
 Dynamic imports outside allowed modules are blocked.
 """
+
 from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass
 from typing import Any
 
-from agent.services.heuristic_runtime.decision_context import DecisionContext
-from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 # Only these module prefixes may host Python strategies
@@ -129,8 +128,4 @@ class PythonStrategyLoader:
         return classes is not None and class_name in classes
 
     def all_allowlisted(self) -> list[tuple[str, str]]:
-        return [
-            (mod, cls)
-            for mod, classes in self._allowlist.items()
-            for cls in classes
-        ]
+        return [(mod, cls) for mod, classes in self._allowlist.items() for cls in classes]

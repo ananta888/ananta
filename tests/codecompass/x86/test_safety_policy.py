@@ -80,7 +80,7 @@ def test_unknown_kind_is_treated_as_unsafe():
     This is a strict-by-default invariant: when we don't know what it is,
     we refuse, we don't allow it.
     """
-    diag = check_safety_policy("something_we_never_heard_of")
+    check_safety_policy("something_we_never_heard_of")
     # not necessarily a diagnostic in current impl (only blocked kinds produce diag),
     # but is_safe_for_static_analysis must say no.
     assert is_safe_for_static_analysis("something_we_never_heard_of") is False

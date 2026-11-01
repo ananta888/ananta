@@ -41,6 +41,7 @@ def _read_asset(filename: str) -> str | None:
 
 def _strip_ansi(text: str) -> str:
     import re
+
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 

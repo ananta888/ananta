@@ -110,9 +110,7 @@ def generate(
         packages = normalize_packages(syft_json)
         findings = normalize_findings(grype_json)
         configured = normalize_exceptions(exceptions.get(component, ()), findings)
-        sbom_components.append(
-            {"name": component, "image_digest": image_digest, "packages": packages}
-        )
+        sbom_components.append({"name": component, "image_digest": image_digest, "packages": packages})
         scanner_images.append(
             {
                 "component": component,

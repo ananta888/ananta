@@ -20,8 +20,9 @@ class PiScopeProjectReader(Protocol):
 
 class PiTaskScopePreparationService:
     def __init__(self, *, tasks: PiScopeTaskReader, projects: PiScopeProjectReader):
-        self._preparation = NativeProjectTaskScopePreparation(tasks=tasks, projects=projects,
-            task_kinds=frozenset({'pi_coding_agent'}), reason_prefix='pi_task_scope')
+        self._preparation = NativeProjectTaskScopePreparation(
+            tasks=tasks, projects=projects, task_kinds=frozenset({"pi_coding_agent"}), reason_prefix="pi_task_scope"
+        )
 
     def prepare(self, *, command: NativeNodeCommand) -> dict[str, str]:
         return self._preparation.prepare(command=command)

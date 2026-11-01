@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from agent.services.imap_contract_service import validate_imap_account_config, validate_mail_artifact, validate_mail_message_ref
+from agent.services.imap_contract_service import (
+    validate_imap_account_config,
+    validate_mail_artifact,
+    validate_mail_message_ref,
+)
 from agent.services.imap_mail_context_envelope_service import build_mail_context_envelope
 
 

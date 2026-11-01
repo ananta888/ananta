@@ -5,8 +5,20 @@ from __future__ import annotations
 from pathlib import Path
 
 SOURCE_ALLOWED_EXTENSIONS = {
-    ".py", ".md", ".txt", ".log", ".json", ".jsonl", ".yaml", ".yml", ".toml",
-    ".ini", ".ts", ".tsx", ".js", ".jsx",
+    ".py",
+    ".md",
+    ".txt",
+    ".log",
+    ".json",
+    ".jsonl",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
 }
 
 

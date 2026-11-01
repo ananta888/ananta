@@ -16,39 +16,71 @@ def local(tmp_path):
     path.parent.mkdir(parents=True)
     content = b"synthetic local result\n"
     path.write_bytes(content)
-    command = SimpleNamespace(tenant_id="tenant", attempt_id="attempt", fencing_token=1,
-                              to_dict=lambda: {"command_id": "synthetic-command"})
+    command = SimpleNamespace(
+        tenant_id="tenant", attempt_id="attempt", fencing_token=1, to_dict=lambda: {"command_id": "synthetic-command"}
+    )
     task = {"id": "task", "project_id": "project"}
     binding = {
-        "hub_task_id": "task", "tenant_id": "tenant", "project_id": "project",
-        "command_digest": native_context_digest(command.to_dict()), "attempt_id": "attempt",
-        "fencing_token": 1, "output_name": "report",
+        "hub_task_id": "task",
+        "tenant_id": "tenant",
+        "project_id": "project",
+        "command_digest": native_context_digest(command.to_dict()),
+        "attempt_id": "attempt",
+        "fencing_token": 1,
+        "output_name": "report",
     }
-    artifact = SimpleNamespace(id="local-id", status="stored", latest_version_id="local-version",
-                               latest_sha256=hashlib.sha256(content).hexdigest(),
-                               artifact_metadata={"native_output_binding": binding})
-    version = SimpleNamespace(artifact_id="local-id", size_bytes=len(content), sha256=artifact.latest_sha256,
-                              storage_path=str(path), original_filename="result.txt", media_type="text/plain")
-    reader = LocalNativeArtifactReader(storage_root=root, load_artifact=lambda identity: artifact,
-                                      load_version=lambda identity: version)
-    return SimpleNamespace(root=root, path=path, content=content, command=command, task=task,
-                           artifact=artifact, version=version, reader=reader)
+    artifact = SimpleNamespace(
+        id="local-id",
+        status="stored",
+        latest_version_id="local-version",
+        latest_sha256=hashlib.sha256(content).hexdigest(),
+        artifact_metadata={"native_output_binding": binding},
+    )
+    version = SimpleNamespace(
+        artifact_id="local-id",
+        size_bytes=len(content),
+        sha256=artifact.latest_sha256,
+        storage_path=str(path),
+        original_filename="result.txt",
+        media_type="text/plain",
+    )
+    reader = LocalNativeArtifactReader(
+        storage_root=root, load_artifact=lambda identity: artifact, load_version=lambda identity: version
+    )
+    return SimpleNamespace(
+        root=root,
+        path=path,
+        content=content,
+        command=command,
+        task=task,
+        artifact=artifact,
+        version=version,
+        reader=reader,
+    )
 
 
 def read(local):
-    return local.reader.read(command=local.command, task=local.task, output_name="report",
-                             reference="artifact://local-id")
+    return local.reader.read(
+        command=local.command, task=local.task, output_name="report", reference="artifact://local-id"
+    )
 
 
 def test_exact_local_output_bytes(local):
     assert read(local).content == local.content
 
 
-@pytest.mark.parametrize("field,value", [
-    ("hub_task_id", "foreign"), ("tenant_id", "foreign"), ("project_id", "foreign"),
-    ("attempt_id", "foreign"), ("fencing_token", True), ("output_name", "other"),
-    ("command_digest", "a" * 64),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("hub_task_id", "foreign"),
+        ("tenant_id", "foreign"),
+        ("project_id", "foreign"),
+        ("attempt_id", "foreign"),
+        ("fencing_token", True),
+        ("output_name", "other"),
+        ("command_digest", "a" * 64),
+    ],
+)
 def test_cross_task_or_coerced_binding_is_denied(local, field, value):
     local.artifact.artifact_metadata["native_output_binding"][field] = value
     with pytest.raises(ValueError, match="local_binding_invalid"):
@@ -92,5 +124,6 @@ def test_fifo_is_denied_without_waiting_for_writer(local):
 
 def test_artifact_uri_cannot_be_a_filesystem_path(local):
     with pytest.raises(ValueError, match="local_reference_invalid"):
-        local.reader.read(command=local.command, task=local.task, output_name="report",
-                          reference="artifact://../../outside")
+        local.reader.read(
+            command=local.command, task=local.task, output_name="report", reference="artifact://../../outside"
+        )

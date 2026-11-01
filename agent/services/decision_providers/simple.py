@@ -39,13 +39,22 @@ class RulesDecisionProvider:
                 answers.setdefault(key, answer)
         if set(answers) != {question.key for question in request.questions}:
             raise DecisionProviderError("rules_abstained")
-        return DecisionResult(provider_id=self.provider_id, model="rules", answers=answers,
-                              latency_ms=(time.monotonic() - started) * 1000.0)
+        return DecisionResult(
+            provider_id=self.provider_id,
+            model="rules",
+            answers=answers,
+            latency_ms=(time.monotonic() - started) * 1000.0,
+        )
 
 
 class StaticDecisionProvider:
-    def __init__(self, answers: Callable[[DecisionRequest], Mapping[str, DecisionAnswer]] | None = None, *,
-                 provider_id: str = "mock", error: DecisionProviderError | None = None) -> None:
+    def __init__(
+        self,
+        answers: Callable[[DecisionRequest], Mapping[str, DecisionAnswer]] | None = None,
+        *,
+        provider_id: str = "mock",
+        error: DecisionProviderError | None = None,
+    ) -> None:
         self.provider_id = provider_id
         self._answers = answers
         self._error = error

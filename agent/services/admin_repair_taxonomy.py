@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 SUPPORTED_PLATFORM_PROFILES: dict[str, dict[str, Any]] = {
     "windows11": {
         "supported": True,
@@ -130,7 +129,10 @@ ACTION_BEHAVIOR: dict[str, dict[str, Any]] = {
     "package_state_repair": {"rollback_supported": False, "rollback_hint": "manual_package_state_recovery_required"},
     "path_repair": {"rollback_supported": True, "rollback_hint": "restore_previous_path_entries_from_backup"},
     "permission_fix": {"rollback_supported": False, "rollback_hint": "manual_permission_recovery_may_be_required"},
-    "port_conflict_resolution": {"rollback_supported": True, "rollback_hint": "restore_previous_service_binding_configuration"},
+    "port_conflict_resolution": {
+        "rollback_supported": True,
+        "rollback_hint": "restore_previous_service_binding_configuration",
+    },
     "container_runtime_repair": {"rollback_supported": True, "rollback_hint": "restart_previous_stack_definition"},
     "bounded_runtime_reset": {"rollback_supported": False, "rollback_hint": "manual_runtime_rebootstrap_required"},
     "verification_check": {"rollback_supported": True, "rollback_hint": "verification_step_only"},

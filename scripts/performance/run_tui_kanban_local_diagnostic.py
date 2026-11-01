@@ -20,16 +20,15 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from client_surfaces.operator_tui import sections as tui_sections  # noqa: E402
 from client_surfaces.operator_tui.dashboard_surfaces import (  # noqa: E402
     DashboardFeatureFlags,
     DashboardSurfaceController,
 )
-from client_surfaces.operator_tui import sections as tui_sections  # noqa: E402
 from client_surfaces.operator_tui.models import (  # noqa: E402
     FocusPane,
     OperatorState,
@@ -40,18 +39,9 @@ from client_surfaces.operator_tui.region_index import (  # noqa: E402
 )
 from client_surfaces.operator_tui.renderer import render_operator_shell  # noqa: E402
 
-
 LOCAL_SCOPE = "local_diagnostic_not_release_evidence"
-DEFAULT_PROFILE = (
-    ROOT
-    / "config"
-    / "test-profiles"
-    / "kanban-model-dashboard"
-    / "local-tui-performance.v1.json"
-)
-DEFAULT_OUTPUT = (
-    ROOT / "artifacts" / "tui-kanban-local-performance-diagnostic.json"
-)
+DEFAULT_PROFILE = ROOT / "config" / "test-profiles" / "kanban-model-dashboard" / "local-tui-performance.v1.json"
+DEFAULT_OUTPUT = ROOT / "artifacts" / "tui-kanban-local-performance-diagnostic.json"
 
 
 class DeterministicKanbanPort:
@@ -68,9 +58,7 @@ def enabled_kanban_section():
     if any(section.id == "kanban" for section in original):
         yield
         return
-    optional = tui_sections.dashboard_sections(
-        {"ANANTA_TUI_KANBAN_ENABLED": "1"}
-    )
+    optional = tui_sections.dashboard_sections({"ANANTA_TUI_KANBAN_ENABLED": "1"})
     tui_sections.SECTIONS = original + optional
     try:
         yield
@@ -150,9 +138,7 @@ def build_board_snapshot(profile: dict[str, Any]) -> dict[str, Any]:
                 "assignee_id": f"worker-{index % 20:02d}",
                 "labels": [views[group], statuses[group]],
                 "blocked": index % 17 == 0,
-                "dependencies": (
-                    [f"TUI-PERF-{index - 1:04d}"] if index > 0 else []
-                ),
+                "dependencies": ([f"TUI-PERF-{index - 1:04d}"] if index > 0 else []),
                 "revision": index + 1,
             }
         )
@@ -255,15 +241,11 @@ async def _measure_event_loop_progress_enabled(
             state=state,
             columns=int(size["columns"]),
             rows=int(size["rows"]),
-            selected=index % len(
-                state.section_payloads["kanban"]["items"]
-            ),
+            selected=index % len(state.section_payloads["kanban"]["items"]),
         )
         processed += 1
         await asyncio.sleep(0)
-        cooperative_ticks_ms.append(
-            (time.perf_counter() - started) * 1000.0
-        )
+        cooperative_ticks_ms.append((time.perf_counter() - started) * 1000.0)
     running = False
     await heartbeat_task
     elapsed = max(loop.time() - schedule_started, 1e-9)
@@ -279,9 +261,7 @@ async def _measure_event_loop_progress_enabled(
         "cooperative_tick_p95_ms": percentile(cooperative_ticks_ms, 0.95),
         "scheduling_lag_p50_ms": percentile(scheduling_lag_ms, 0.50),
         "scheduling_lag_p95_ms": percentile(scheduling_lag_ms, 0.95),
-        "missed_deadlines": sum(
-            lag > interval * 1000.0 for lag in scheduling_lag_ms
-        ),
+        "missed_deadlines": sum(lag > interval * 1000.0 for lag in scheduling_lag_ms),
     }
 
 
@@ -339,9 +319,7 @@ async def _measure_enabled(profile: dict[str, Any]) -> dict[str, Any]:
                 selected=index % len(payload["items"]),
             ),
             samples=int(samples["resize_region_rebuild"]),
-            operations_per_sample=int(
-                operations["resize_region_rebuild"]
-            ),
+            operations_per_sample=int(operations["resize_region_rebuild"]),
         )
         lines, regions = _resize_region_rebuild(
             state=state,
@@ -363,9 +341,7 @@ async def _measure_enabled(profile: dict[str, Any]) -> dict[str, Any]:
         state=state,
         terminal_sizes=profile["terminal_sizes"],
         iterations=int(samples["event_loop"]),
-        target_rate_per_second=int(
-            profile["event_loop_target_rate_per_second"]
-        ),
+        target_rate_per_second=int(profile["event_loop_target_rate_per_second"]),
     )
     rss_samples.append(resident_set_mb())
     return {
@@ -389,28 +365,19 @@ def evaluate_absolute(
 ) -> dict[str, Any]:
     checks: dict[str, bool] = {}
     for size, metrics in measurements["terminal_sizes"].items():
-        checks[f"{size}.render_tick_p95_ms"] = (
-            metrics["render_tick_p95_ms"]
-            <= budgets["render_tick_p95_ms"]
-        )
+        checks[f"{size}.render_tick_p95_ms"] = metrics["render_tick_p95_ms"] <= budgets["render_tick_p95_ms"]
         checks[f"{size}.resize_region_rebuild_p95_ms"] = (
-            metrics["resize_region_rebuild_p95_ms"]
-            <= budgets["resize_region_rebuild_p95_ms"]
+            metrics["resize_region_rebuild_p95_ms"] <= budgets["resize_region_rebuild_p95_ms"]
         )
-    checks["peak_rss_mb"] = (
-        measurements["peak_rss_mb"] <= budgets["peak_rss_mb"]
-    )
+    checks["peak_rss_mb"] = measurements["peak_rss_mb"] <= budgets["peak_rss_mb"]
     checks["event_loop.cooperative_tick_p95_ms"] = (
-        measurements["event_loop"]["cooperative_tick_p95_ms"]
-        <= budgets["event_loop_cooperative_tick_p95_ms"]
+        measurements["event_loop"]["cooperative_tick_p95_ms"] <= budgets["event_loop_cooperative_tick_p95_ms"]
     )
     checks["event_loop.progress_ratio"] = (
-        measurements["event_loop"]["progress_ratio"]
-        >= budgets["event_loop_progress_ratio_min"]
+        measurements["event_loop"]["progress_ratio"] >= budgets["event_loop_progress_ratio_min"]
     )
     checks["event_loop.scheduling_lag_p95_ms"] = (
-        measurements["event_loop"]["scheduling_lag_p95_ms"]
-        <= budgets["event_loop_scheduling_lag_p95_ms"]
+        measurements["event_loop"]["scheduling_lag_p95_ms"] <= budgets["event_loop_scheduling_lag_p95_ms"]
     )
     return {"within_budget": all(checks.values()), "checks": checks}
 
@@ -432,20 +399,14 @@ def evaluate_baseline(
             "render_tick_p95_ms",
             "resize_region_rebuild_p95_ms",
         ):
-            checks[f"{size}.{name}"] = (
-                float(metrics[name]) <= float(prior_size[name]) * upper
-            )
-    checks["peak_rss_mb"] = (
-        float(measurements["peak_rss_mb"])
-        <= float(prior["peak_rss_mb"]) * upper
-    )
+            checks[f"{size}.{name}"] = float(metrics[name]) <= float(prior_size[name]) * upper
+    checks["peak_rss_mb"] = float(measurements["peak_rss_mb"]) <= float(prior["peak_rss_mb"]) * upper
     checks["event_loop.cooperative_tick_p95_ms"] = (
         float(measurements["event_loop"]["cooperative_tick_p95_ms"])
         <= float(prior["event_loop"]["cooperative_tick_p95_ms"]) * upper
     )
     checks["event_loop.progress_ratio"] = (
-        float(measurements["event_loop"]["progress_ratio"])
-        >= float(prior["event_loop"]["progress_ratio"]) * lower
+        float(measurements["event_loop"]["progress_ratio"]) >= float(prior["event_loop"]["progress_ratio"]) * lower
     )
     checks["event_loop.scheduling_lag_p95_ms"] = (
         float(measurements["event_loop"]["scheduling_lag_p95_ms"])
@@ -476,8 +437,7 @@ def build_report(
         float(profile["max_baseline_regression_percent"]),
     )
     locally_within = absolute["within_budget"] and (
-        not baseline_evaluation["evaluated"]
-        or baseline_evaluation["within_regression_limit"]
+        not baseline_evaluation["evaluated"] or baseline_evaluation["within_regression_limit"]
     )
     return {
         "schema": "ananta.tui-kanban-local-performance-diagnostic.v1",
@@ -492,16 +452,12 @@ def build_report(
             "tui_live_event_transport",
         ],
         "diagnostic_status": (
-            "within_local_budgets_without_release_evidence"
-            if locally_within
-            else "outside_local_budgets"
+            "within_local_budgets_without_release_evidence" if locally_within else "outside_local_budgets"
         ),
         "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
         "measurement_methods": {
             "render_tick": "render_operator_shell_after_per_size_warmup",
-            "resize_region_rebuild": (
-                "render_operator_shell+build_region_index_after_per_size_warmup"
-            ),
+            "resize_region_rebuild": ("render_operator_shell+build_region_index_after_per_size_warmup"),
             "peak_rss_mb": "maximum_sampled_current_process_rss",
             "event_loop": "cooperative_dashboard_ticks_with_heartbeat_task",
         },
@@ -557,10 +513,7 @@ def main() -> int:
     return (
         0
         if report["absolute_evaluation"]["within_budget"]
-        and (
-            not report["baseline_evaluation"]["evaluated"]
-            or report["baseline_evaluation"]["within_regression_limit"]
-        )
+        and (not report["baseline_evaluation"]["evaluated"] or report["baseline_evaluation"]["within_regression_limit"])
         else 1
     )
 

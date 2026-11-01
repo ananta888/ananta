@@ -99,9 +99,11 @@ class VoiceSelectionScenario:
     def wait(self, state, revision, timeout=5):
         with self.condition:
             assert self.condition.wait_for(
-                lambda: self.projection is not None
-                and self.projection["state"] == state
-                and self.projection["speech_revision"] == revision,
+                lambda: (
+                    self.projection is not None
+                    and self.projection["state"] == state
+                    and self.projection["speech_revision"] == revision
+                ),
                 timeout=timeout,
             ), {"voice_projection": self.projection, "expected": [state, revision]}
 

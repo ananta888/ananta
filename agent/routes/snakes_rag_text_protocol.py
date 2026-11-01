@@ -76,7 +76,7 @@ def parse_file_sections(user_content: str) -> list[dict[str, Any]]:
         ]
     block_start = user_content.find("\n", index) + 1
     block_end = user_content.find("\n\n", block_start)
-    block = user_content[block_start:block_end if block_end > 0 else block_start + 4000]
+    block = user_content[block_start : block_end if block_end > 0 else block_start + 4000]
     result = []
     for line in block.splitlines():
         match = re.match(r"\s*\d+\.\s+(.+?)\s+\(relevanz:\s*([\d.]+)\)", line)
@@ -96,10 +96,7 @@ def format_evidence_prompt(evidence: dict[str, dict[str, Any]], question: str) -
     for index, item in enumerate(evidence.values(), 1):
         score = item.get("score")
         score_text = f", relevanz: {float(score):.1f}" if isinstance(score, int | float) else ""
-        lines.append(
-            f"{index}. {item['path']} ({item.get('source')}{score_text})\n"
-            f"   {item.get('summary')}"
-        )
+        lines.append(f"{index}. {item['path']} ({item.get('source')}{score_text})\n   {item.get('summary')}")
     question_hint = f" Beantworte dann konkret: {question[:200]}" if question else ""
     lines.append(
         "Wenn noch Informationen fehlen, lies gezielt eine weitere Datei, die eine offene Frage klaert. "

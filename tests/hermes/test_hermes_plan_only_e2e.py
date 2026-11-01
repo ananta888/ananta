@@ -30,7 +30,9 @@ def test_mocked_e2e_plan_only_via_router_and_adapter() -> None:
     service = ToolRoutingService()
     cfg = {"feature_flags": {"enable_hermes_worker_adapter": True}, "hermes_worker_adapter": {"enabled": True}}
     with patch("agent.services.tool_routing_service.get_integration_registry_service") as mock_registry:
-        mock_registry.return_value.list_execution_backends.return_value = {"capabilities": {"hermes": {"available": True}}}
+        mock_registry.return_value.list_execution_backends.return_value = {
+            "capabilities": {"hermes": {"available": True}}
+        }
         routed = service.route_execution_backend(
             task_kind="plan_only",
             requested_backend="hermes",
@@ -41,7 +43,9 @@ def test_mocked_e2e_plan_only_via_router_and_adapter() -> None:
     assert routed["decision"]["selected_target"] == "hermes"
 
     adapter = HermesAdapter(
-        config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"),
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
         client=_Client(),  # type: ignore[arg-type]
     )
     env = ExecutionEnvelope(
@@ -52,7 +56,9 @@ def test_mocked_e2e_plan_only_via_router_and_adapter() -> None:
         audit_correlation_id="audit:e2e",
     )
     before = hashlib.sha256(b"workspace-unchanged").hexdigest()
-    result = adapter.plan_only(env, context_blocks=[ContextBlock("task", "ctx1", "hub", content="Prepare rollout plan")])
+    result = adapter.plan_only(
+        env, context_blocks=[ContextBlock("task", "ctx1", "hub", content="Prepare rollout plan")]
+    )
     after = hashlib.sha256(b"workspace-unchanged").hexdigest()
     assert result.status.value == "success"
     assert result.artifacts and result.artifacts[0].kind == "plan_artifact"

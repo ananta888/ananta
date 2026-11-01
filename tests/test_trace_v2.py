@@ -1,33 +1,38 @@
 """Tests for worker/core/trace_v2.py (EW-T049, EW-T050)."""
+
 import time
-import pytest
-from pydantic import ValidationError
 
 from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
 from worker.core.trace_v2 import (
     ExecutionOutcome,
     ModelCallTrace,
     TraceBundleV2,
-    TraceEventV2,
 )
 
 
 def _env() -> ExecutionEnvelope:
     return ExecutionEnvelope(
-        task_id="t1", actor_ref="hub:test",
+        task_id="t1",
+        actor_ref="hub:test",
         capability_grant=CapabilityGrant(capabilities=["planning"]),
-        context_envelope_ref="ctx:1", audit_correlation_id="audit:corr-001",
+        context_envelope_ref="ctx:1",
+        audit_correlation_id="audit:corr-001",
     )
 
 
 # ── EW-T049: TraceBundleV2 ────────────────────────────────────────────────────
 
+
 class TestTraceBundleV2:
     def setup_method(self):
         self.trace = TraceBundleV2(
-            execution_id="exec-1", task_id="t1", goal_id="g1",
-            actor_ref="hub:test", capability_hash="abc123",
-            context_hash="ctx-hash", model_id="ollama/llama3",
+            execution_id="exec-1",
+            task_id="t1",
+            goal_id="g1",
+            actor_ref="hub:test",
+            capability_hash="abc123",
+            context_hash="ctx-hash",
+            model_id="ollama/llama3",
             outcome=ExecutionOutcome.success,
         )
 
@@ -64,9 +69,13 @@ class TestTraceBundleV2:
     def test_produced_for_all_outcomes(self):
         for outcome in ExecutionOutcome:
             trace = TraceBundleV2(
-                execution_id="x", task_id="t", goal_id=None,
-                actor_ref="h", capability_hash="h1",
-                context_hash="c1", model_id="m",
+                execution_id="x",
+                task_id="t",
+                goal_id=None,
+                actor_ref="h",
+                capability_hash="h1",
+                context_hash="c1",
+                model_id="m",
                 outcome=outcome,
             )
             d = trace.as_dict()
@@ -77,13 +86,14 @@ class TestTraceBundleV2:
         d_str = str(d)
         assert "api_key" not in d_str.lower()
         assert "password" not in d_str.lower()
-        for field in ["execution_id", "task_id", "actor_ref", "capability_hash",
-                      "outcome", "started_at", "events"]:
+        for field in ["execution_id", "task_id", "actor_ref", "capability_hash", "outcome", "started_at", "events"]:
             assert field in d
 
     def test_record_model_call(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="ollama", model="llama3",
+            call_id="c1",
+            provider_id="ollama",
+            model="llama3",
             local_or_cloud="local",
         )
         self.trace.record_model_call(call)
@@ -103,10 +113,13 @@ class TestTraceBundleV2:
 
 # ── EW-T050: ModelCallTrace ───────────────────────────────────────────────────
 
+
 class TestModelCallTrace:
     def test_as_trace_event_no_raw_content(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="openai", model="gpt-4",
+            call_id="c1",
+            provider_id="openai",
+            model="gpt-4",
             local_or_cloud="cloud",
             prompt_token_estimate=500,
             completion_token_estimate=200,
@@ -122,11 +135,15 @@ class TestModelCallTrace:
 
     def test_local_or_cloud_recorded(self):
         call_local = ModelCallTrace(
-            call_id="c1", provider_id="ollama", model="llama3",
+            call_id="c1",
+            provider_id="ollama",
+            model="llama3",
             local_or_cloud="local",
         )
         call_cloud = ModelCallTrace(
-            call_id="c2", provider_id="openai", model="gpt-4",
+            call_id="c2",
+            provider_id="openai",
+            model="gpt-4",
             local_or_cloud="cloud",
         )
         assert call_local.as_trace_event()["local_or_cloud"] == "local"
@@ -134,16 +151,22 @@ class TestModelCallTrace:
 
     def test_retry_count_recorded(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="ollama", model="m",
-            local_or_cloud="local", retry_count=2,
+            call_id="c1",
+            provider_id="ollama",
+            model="m",
+            local_or_cloud="local",
+            retry_count=2,
         )
         assert call.as_trace_event()["retry_count"] == 2
 
     def test_fallback_recorded(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="lmstudio", model="m",
+            call_id="c1",
+            provider_id="lmstudio",
+            model="m",
             local_or_cloud="local",
-            fallback_used=True, fallback_provider="ollama",
+            fallback_used=True,
+            fallback_provider="ollama",
         )
         event = call.as_trace_event()
         assert event["fallback_used"] is True
@@ -151,7 +174,9 @@ class TestModelCallTrace:
 
     def test_debug_event_requires_scope(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="ollama", model="m",
+            call_id="c1",
+            provider_id="ollama",
+            model="m",
             local_or_cloud="local",
         )
         call._raw_prompt = "secret prompt sk-abc123"
@@ -162,7 +187,9 @@ class TestModelCallTrace:
 
     def test_debug_event_with_scope_redacts_secrets(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="ollama", model="m",
+            call_id="c1",
+            provider_id="ollama",
+            model="m",
             local_or_cloud="local",
         )
         call._raw_prompt = "key=sk-proj-abcdefghij1234567890XYZ"
@@ -173,7 +200,9 @@ class TestModelCallTrace:
 
     def test_raw_prompt_logging_disabled_by_default(self):
         call = ModelCallTrace(
-            call_id="c1", provider_id="ollama", model="m",
+            call_id="c1",
+            provider_id="ollama",
+            model="m",
             local_or_cloud="local",
         )
         event = call.as_trace_event()
@@ -184,8 +213,11 @@ class TestModelCallTrace:
     def test_all_outcomes_representable(self):
         for outcome in ["success", "timeout", "failure", "cancelled"]:
             call = ModelCallTrace(
-                call_id="c", provider_id="ollama", model="m",
-                local_or_cloud="local", outcome=outcome,
+                call_id="c",
+                provider_id="ollama",
+                model="m",
+                local_or_cloud="local",
+                outcome=outcome,
             )
             event = call.as_trace_event()
             assert event["outcome"] == outcome

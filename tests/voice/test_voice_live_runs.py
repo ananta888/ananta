@@ -277,9 +277,7 @@ def test_live_preview_is_bound_bounded_parented_and_delete_only(
     with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
-        provider.push_stream_chunk.return_value = {
-            "event": {"event_type": "partial", "payload": {"text": "Vorschau"}}
-        }
+        provider.push_stream_chunk.return_value = {"event": {"event_type": "partial", "payload": {"text": "Vorschau"}}}
         provider.delete_stream.return_value = {"deleted": True}
         created = client.post(
             "/v1/voice/streams",
@@ -320,10 +318,7 @@ def test_live_preview_is_bound_bounded_parented_and_delete_only(
     assert chunk.status_code == 202
     assert chunk.get_json()["data"]["event"]["event_type"] == "partial"
     assert finalized.status_code == 409
-    assert (
-        finalized.get_json()["data"]["error"]["code"]
-        == "voice_stream.live_preview_finalize_forbidden"
-    )
+    assert finalized.get_json()["data"]["error"]["code"] == "voice_stream.live_preview_finalize_forbidden"
     provider.finalize_stream.assert_not_called()
     assert deleted.status_code == 200
 
@@ -331,9 +326,7 @@ def test_live_preview_is_bound_bounded_parented_and_delete_only(
         task = session.get(TaskDB, stream["task_id"])
         durable_run = session.get(VoiceLiveRunDB, run["id"])
         durable_segments = session.exec(
-            select(VoiceLiveRunSegmentDB).where(
-                VoiceLiveRunSegmentDB.run_id == run["id"]
-            )
+            select(VoiceLiveRunSegmentDB).where(VoiceLiveRunSegmentDB.run_id == run["id"])
         ).all()
     assert task is not None
     assert durable_run is not None
@@ -441,35 +434,23 @@ def test_live_preview_requires_complete_matching_binding_and_is_unique(
         )
 
     assert incomplete.status_code == 422
-    assert incomplete.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_binding_incomplete"
-    )
+    assert incomplete.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_binding_incomplete")
     assert mismatched.status_code == 409
-    assert mismatched.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_context_mismatch"
-    )
+    assert mismatched.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_context_mismatch")
     assert session_mismatched.status_code == 409
-    assert session_mismatched.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_context_mismatch"
-    )
+    assert session_mismatched.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_context_mismatch")
     assert language_mismatched.status_code == 409
-    assert language_mismatched.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_context_mismatch"
-    )
+    assert language_mismatched.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_context_mismatch")
     assert first.status_code == 201
     assert replay.status_code == 200
     assert replay.get_json()["data"]["idempotent_replay"] is True
     assert conflict.status_code == 409
-    assert conflict.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_conflict"
-    )
+    assert conflict.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_conflict")
     assert provider.create_stream.call_count == 1
     assert deleted.status_code == 200
     assert stopped.status_code == 200
     assert inactive.status_code == 409
-    assert inactive.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_run_inactive"
-    )
+    assert inactive.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_run_inactive")
 
 
 def test_live_preview_create_race_compensates_losing_runtime_task_and_outbox(
@@ -507,31 +488,22 @@ def test_live_preview_create_race_compensates_losing_runtime_task_and_outbox(
                 key="live-preview-race-loser",
             )
 
-        runtime_ids = [
-            call.kwargs["requested_session_id"]
-            for call in provider.create_stream.call_args_list
-        ]
+        runtime_ids = [call.kwargs["requested_session_id"] for call in provider.create_stream.call_args_list]
         deleted_winner = client.delete(
             f"/v1/voice/streams/{winner_stream['session_id']}",
             headers=admin_auth_header,
         )
 
     assert loser.status_code == 409
-    assert loser.get_json()["data"]["error"]["code"] == (
-        "voice_stream.live_preview_conflict"
-    )
+    assert loser.get_json()["data"]["error"]["code"] == ("voice_stream.live_preview_conflict")
     assert len(runtime_ids) == 2
     runtime_delete.assert_called_once()
     assert runtime_delete.call_args.args[0] == runtime_ids[1]
     assert deleted_winner.status_code == 200
     with Session(engine) as session:
-        children = session.exec(
-            select(TaskDB).where(TaskDB.parent_task_id == run["parent_task_id"])
-        ).all()
+        children = session.exec(select(TaskDB).where(TaskDB.parent_task_id == run["parent_task_id"])).all()
         cleanup_rows = session.exec(
-            select(VoiceRuntimeCleanupDB).where(
-                VoiceRuntimeCleanupDB.profile_id == profile_id
-            )
+            select(VoiceRuntimeCleanupDB).where(VoiceRuntimeCleanupDB.profile_id == profile_id)
         ).all()
     assert sorted(task.status for task in children) == ["cancelled", "failed"]
     assert cleanup_rows == []
@@ -547,16 +519,12 @@ def test_audio_segment_put_cleans_bound_preview_through_durable_outbox(
     cleanup = get_voice_runtime_cleanup_service()
     with (
         override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
-        patch(
-            "agent.routes.voice_live_runs.get_voice_provider_service"
-        ) as segment_provider_factory,
+        patch("agent.routes.voice_live_runs.get_voice_provider_service") as segment_provider_factory,
         patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
     ):
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
-        segment_provider_factory.return_value.transcribe.return_value = _result(
-            "Autoritatives Segment"
-        )
+        segment_provider_factory.return_value.transcribe.return_value = _result("Autoritatives Segment")
         preview = _create_preview(
             client,
             admin_auth_header,
@@ -565,9 +533,7 @@ def test_audio_segment_put_cleans_bound_preview_through_durable_outbox(
         )
         assert preview.status_code == 201
         stream = preview.get_json()["data"]["stream"]
-        runtime_session_id = provider.create_stream.call_args.kwargs[
-            "requested_session_id"
-        ]
+        runtime_session_id = provider.create_stream.call_args.kwargs["requested_session_id"]
 
         uploaded = _put_audio(
             client,
@@ -748,16 +714,12 @@ def test_preview_cleanup_failure_does_not_block_segment_or_stop(
     cleanup = get_voice_runtime_cleanup_service()
     with (
         override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
-        patch(
-            "agent.routes.voice_live_runs.get_voice_provider_service"
-        ) as segment_provider_factory,
+        patch("agent.routes.voice_live_runs.get_voice_provider_service") as segment_provider_factory,
     ):
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.delete_stream.return_value = {"deleted": True}
-        segment_provider_factory.return_value.transcribe.return_value = _result(
-            "Segment trotz Cleanup-Fehler"
-        )
+        segment_provider_factory.return_value.transcribe.return_value = _result("Segment trotz Cleanup-Fehler")
         audio_preview = _create_preview(
             client,
             admin_auth_header,
@@ -811,12 +773,8 @@ def test_preview_cleanup_failure_does_not_block_segment_or_stop(
     assert stopped.status_code == 200
     assert late_audio_chunk.status_code == 409
     assert late_stop_chunk.status_code == 409
-    assert late_audio_chunk.get_json()["data"]["error"]["code"] == (
-        "voice_stream.invalid_state"
-    )
-    assert late_stop_chunk.get_json()["data"]["error"]["code"] == (
-        "voice_stream.invalid_state"
-    )
+    assert late_audio_chunk.get_json()["data"]["error"]["code"] == ("voice_stream.invalid_state")
+    assert late_stop_chunk.get_json()["data"]["error"]["code"] == ("voice_stream.invalid_state")
     provider.push_stream_chunk.assert_not_called()
     assert deleted_audio.status_code == 200
     assert deleted_stop.status_code == 200
@@ -1365,8 +1323,10 @@ def test_sqlite_reserve_and_finalize_claims_never_commit_a_lost_segment(
     )
     VoiceLiveRunDB.__table__.create(race_engine)
     VoiceLiveRunSegmentDB.__table__.create(race_engine)
+
     def race_session():
         return Session(race_engine)
+
     principal = VoicePrincipal(tenant_id="race-tenant", subject="race-owner")
 
     for index in range(10):
@@ -2150,8 +2110,10 @@ def test_maintenance_claim_is_idempotent_and_multi_hub_safe(tmp_path, monkeypatc
     )
     VoiceLiveRunDB.__table__.create(race_engine)
     VoiceLiveRunSegmentDB.__table__.create(race_engine)
+
     def race_session():
         return Session(race_engine)
+
     run_id = "voice-live-run-maintenance-race"
     with Session(race_engine) as session:
         session.add(
@@ -2477,8 +2439,7 @@ def test_live_segment_publishes_provisional_before_blocked_correction_and_delta_
             return_value=provider,
         ),
         patch(
-            "agent.services.voice_transcription_postprocessing_service."
-            "get_voice_generative_corrector_service",
+            "agent.services.voice_transcription_postprocessing_service.get_voice_generative_corrector_service",
             return_value=corrector,
         ),
     ):
@@ -2604,8 +2565,7 @@ def test_live_correction_persists_safe_failure_reason_without_losing_raw_text(
             return_value=provider,
         ),
         patch(
-            "agent.services.voice_transcription_postprocessing_service."
-            "get_voice_generative_corrector_service",
+            "agent.services.voice_transcription_postprocessing_service.get_voice_generative_corrector_service",
             return_value=corrector,
         ),
     ):
@@ -2914,8 +2874,7 @@ def test_profile_deletion_fences_blocked_live_correction_and_removes_late_writes
             return_value=provider,
         ),
         patch(
-            "agent.services.voice_transcription_postprocessing_service."
-            "get_voice_generative_corrector_service",
+            "agent.services.voice_transcription_postprocessing_service.get_voice_generative_corrector_service",
             return_value=corrector,
         ),
     ):
@@ -2953,16 +2912,19 @@ def test_profile_deletion_fences_blocked_live_correction_and_removes_late_writes
 
     with Session(engine) as session:
         assert session.get(VoiceLiveRunDB, run["id"]) is None
-        assert session.exec(
-            select(VoiceLiveRunSegmentDB).where(VoiceLiveRunSegmentDB.run_id == run["id"])
-        ).first() is None
-        assert session.exec(
-            select(VoiceResultArtifactDB).where(
-                VoiceResultArtifactDB.tenant_id == "admin",
-                VoiceResultArtifactDB.owner_subject == "admin",
-                VoiceResultArtifactDB.profile_id == profile_id,
-            )
-        ).first() is None
+        assert (
+            session.exec(select(VoiceLiveRunSegmentDB).where(VoiceLiveRunSegmentDB.run_id == run["id"])).first() is None
+        )
+        assert (
+            session.exec(
+                select(VoiceResultArtifactDB).where(
+                    VoiceResultArtifactDB.tenant_id == "admin",
+                    VoiceResultArtifactDB.owner_subject == "admin",
+                    VoiceResultArtifactDB.profile_id == profile_id,
+                )
+            ).first()
+            is None
+        )
         assert all(session.get(TaskDB, task_id) is None for task_id in task_ids)
 
 
@@ -3034,10 +2996,7 @@ def test_expiry_assigns_unique_delta_revisions_beyond_one_page():
         limit=100,
         include_text=False,
     )
-    revisions = [
-        int(item["timeline_revision"])
-        for item in [*first["segments"], *second["segments"]]
-    ]
+    revisions = [int(item["timeline_revision"]) for item in [*first["segments"], *second["segments"]]]
     assert len(first["segments"]) == 100
     assert first["page"]["has_more"] is True
     assert len(second["segments"]) == 50

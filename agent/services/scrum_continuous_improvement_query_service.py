@@ -30,9 +30,7 @@ class ScrumContinuousImprovementQueryService:
             "architecture_effects": architecture_effects,
             "counts": {
                 "sprints": len(sprints),
-                "active_architecture_baselines": sum(
-                    item["lifecycle_state"] == "active" for item in baselines
-                ),
+                "active_architecture_baselines": sum(item["lifecycle_state"] == "active" for item in baselines),
                 "accepted_commitments": sum(item["status"] == "accepted" for item in commitments),
                 "rolled_back_commitments": sum(item["status"] == "rolled_back" for item in commitments),
             },

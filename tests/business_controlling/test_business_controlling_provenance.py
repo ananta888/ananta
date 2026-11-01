@@ -27,9 +27,7 @@ from ananta_contracts.business_controlling import (
 
 
 def _digest(value: object) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def test_projection_is_content_free_redacted_and_codecompass_known() -> None:

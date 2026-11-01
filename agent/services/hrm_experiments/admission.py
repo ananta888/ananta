@@ -11,12 +11,8 @@ from agent.services.hrm_experiments.contracts import (
     default_hrm_contract_validator,
 )
 
-_DATASET_MEDIA_TYPES = frozenset(
-    {"application/json", "application/x-ndjson", "application/octet-stream"}
-)
-_SAFETENSORS_MEDIA_TYPES = frozenset(
-    {"application/vnd.safetensors", "application/octet-stream"}
-)
+_DATASET_MEDIA_TYPES = frozenset({"application/json", "application/x-ndjson", "application/octet-stream"})
+_SAFETENSORS_MEDIA_TYPES = frozenset({"application/vnd.safetensors", "application/octet-stream"})
 _LOCATOR_PREFIXES = ("artifact:", "fixture:", "generated:")
 
 
@@ -99,8 +95,7 @@ class HrmManifestAdmissionService:
             raise HrmAdmissionError("hrm.dataset_source_digest_mismatch")
         if (
             inspection.canonical_content_digest is None
-            or inspection.canonical_content_digest
-            != candidate["canonical_content_digest"]
+            or inspection.canonical_content_digest != candidate["canonical_content_digest"]
         ):
             raise HrmAdmissionError("hrm.dataset_canonical_digest_mismatch")
         saved = self._repository.save_dataset(candidate)
@@ -134,9 +129,7 @@ class HrmManifestAdmissionService:
             raise HrmAdmissionError("hrm.checkpoint_size_mismatch")
         if inspection.shape_digest != candidate["shape_digest"]:
             raise HrmAdmissionError("hrm.checkpoint_shape_digest_mismatch")
-        if not inspection.dtypes or not set(inspection.dtypes).issubset(
-            set(candidate["dtype_allowlist"])
-        ):
+        if not inspection.dtypes or not set(inspection.dtypes).issubset(set(candidate["dtype_allowlist"])):
             raise HrmAdmissionError("hrm.checkpoint_dtype_forbidden")
         if candidate["compatibility"]["runtime_digest"] != expected_runtime_digest:
             raise HrmAdmissionError("hrm.checkpoint_runtime_incompatible")
@@ -152,10 +145,7 @@ class HrmManifestAdmissionService:
         candidate_scope = candidate.get("scope")
         if not isinstance(candidate_scope, Mapping):
             raise HrmAdmissionError("hrm.scope_invalid")
-        if (
-            candidate_scope.get("tenant_id") != scope.tenant_id
-            or candidate_scope.get("project_id") != scope.project_id
-        ):
+        if candidate_scope.get("tenant_id") != scope.tenant_id or candidate_scope.get("project_id") != scope.project_id:
             raise HrmAdmissionError("hrm.scope_mismatch")
 
     @staticmethod

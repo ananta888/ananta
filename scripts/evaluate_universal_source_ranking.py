@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -36,14 +36,16 @@ def evaluate() -> dict:
                 top_k=query["k"],
             )
             paths = [item.candidate.path for item in result.ranked]
-            rows.append({
-                "repository": repository["id"],
-                "language": repository["language"],
-                "query": query["query"],
-                "ranked": paths,
-                "metrics": ranking_metrics(paths, set(query["relevant"]), k=query["k"]),
-                "canonical_result": result.canonical_json(),
-            })
+            rows.append(
+                {
+                    "repository": repository["id"],
+                    "language": repository["language"],
+                    "query": query["query"],
+                    "ranked": paths,
+                    "metrics": ranking_metrics(paths, set(query["relevant"]), k=query["k"]),
+                    "canonical_result": result.canonical_json(),
+                }
+            )
     return {"schema": "codecompass.universal-ranking-evaluation.v1", "results": rows}
 
 

@@ -73,10 +73,7 @@ def test_correlated_models_and_revisions_count_as_one_lineage_not_false_majority
 
 def test_colluding_validator_pattern_is_quarantined_and_evidence_is_content_free() -> None:
     contributor = digest("colluding-validator")
-    rows = tuple(
-        _signal(index, contributor_digest=contributor)
-        for index in range(4)
-    )
+    rows = tuple(_signal(index, contributor_digest=contributor) for index in range(4))
     decision = SpeechEvidencePoisoningPolicy().evaluate(rows)
     assert decision.state == "quarantine"
     assert "speech_evidence_validator_collusion_suspected" in decision.reason_codes

@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -29,6 +27,7 @@ def _safe_json(payload_text: str) -> dict[str, Any]:
 def _is_retryable_status(status: int | None) -> bool:
     return status is None or status >= 500
 
+
 def _post_json(base_url: str, path: str, payload: dict[str, Any], token: str, *, timeout: int = 20) -> dict[str, Any]:
     return _request_with_retry("POST", base_url.rstrip("/"), path, payload, token=token, timeout=timeout)
 
@@ -40,10 +39,10 @@ def _request_with_retry(
     payload: dict[str, Any] | None = None,
     *,
     token: str | None = None,
-        timeout: int = 20,
-        attempts: int = _REQUEST_ATTEMPTS,
-        base_sleep: float = _REQUEST_BASE_SLEEP,
-    ) -> dict[str, Any]:
+    timeout: int = 20,
+    attempts: int = _REQUEST_ATTEMPTS,
+    base_sleep: float = _REQUEST_BASE_SLEEP,
+) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     last_error: Exception | None = None
     last_status: int | None = None
@@ -80,12 +79,8 @@ def _extract_context_text(task_payload: dict[str, Any]) -> str:
     worker_execution_context = task_payload.get("worker_execution_context")
     if isinstance(worker_execution_context, dict):
         return (
-            str(
-                ((worker_execution_context.get("context") or {}).get("context_text") or "")
-            ).strip()
-            or str(
-                ((worker_execution_context.get("evidence_context") or {}).get("context_text") or "")
-            ).strip()
+            str(((worker_execution_context.get("context") or {}).get("context_text") or "")).strip()
+            or str(((worker_execution_context.get("evidence_context") or {}).get("context_text") or "")).strip()
         )
     return ""
 
@@ -203,8 +198,7 @@ def run() -> None:
     prompt = (
         f"Engine: {args.engine}\n"
         "Task: create a safe plan for Java security secret rotation flow.\n"
-        "Use provided RAG context and do not apply code changes.\n\n"
-        + str(_extract_context_text(task_payload))[:6000]
+        "Use provided RAG context and do not apply code changes.\n\n" + str(_extract_context_text(task_payload))[:6000]
     )
     (workspace / "worker-prompt.txt").write_text(prompt, encoding="utf-8")
 

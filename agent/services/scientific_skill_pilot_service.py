@@ -134,9 +134,7 @@ class ScientificSkillPilotService:
             return ScientificSkillAdapterOutcome.degraded(reason_code)
 
         control_available, control = self._control_snapshot()
-        if not control_available or (
-            control is not None and not control.entry_enabled(card.entry_id)
-        ):
+        if not control_available or (control is not None and not control.entry_enabled(card.entry_id)):
             reason_code = "scientific_skill_pilot_runtime_disabled"
             self._emit(
                 catalog=catalog,
@@ -151,8 +149,10 @@ class ScientificSkillPilotService:
 
         outcome = self._adapter_service.adapt(request)
         selected = outcome.projection is not None and outcome.degradation_code is None
-        reason_code = "scientific_skill_pilot_selected" if selected else (
-            outcome.degradation_code or "scientific_skill_pilot_adapter_rejected"
+        reason_code = (
+            "scientific_skill_pilot_selected"
+            if selected
+            else (outcome.degradation_code or "scientific_skill_pilot_adapter_rejected")
         )
         audited = self._emit(
             catalog=catalog,
@@ -176,13 +176,9 @@ class ScientificSkillPilotService:
         control: ScientificSkillRuntimeControl | None,
     ) -> bool:
         role_granted = principal.is_admin or SCIENTIFIC_SKILL_PILOT_ROLE in principal.roles
-        feature_enabled = catalog.feature_enabled and (
-            control is None or control.global_enabled
-        )
+        feature_enabled = catalog.feature_enabled and (control is None or control.global_enabled)
         return bool(
-            feature_enabled
-            and role_granted
-            and self._access_policy.can_view(principal=principal, binding=binding)
+            feature_enabled and role_granted and self._access_policy.can_view(principal=principal, binding=binding)
         )
 
     def _rejection_reason(
@@ -196,9 +192,7 @@ class ScientificSkillPilotService:
         control_available, control = self._control_snapshot()
         if not control_available:
             return "scientific_skill_pilot_runtime_control_unavailable"
-        feature_enabled = catalog.feature_enabled and (
-            control is None or control.global_enabled
-        )
+        feature_enabled = catalog.feature_enabled and (control is None or control.global_enabled)
         if not feature_enabled:
             return "scientific_skill_pilot_feature_disabled"
         if not self._authorized(
@@ -266,9 +260,7 @@ def _card(entry: ScientificSkillCatalogEntry) -> ScientificSkillPilotCard:
         network_profile=entry.network_profile.value,
         approval_level=entry.approval_level.value,
         approval_status=entry.status.value,
-        source_reference=(
-            f"{entry.upstream_repository}/blob/{entry.upstream_pin}/{entry.upstream_path}"
-        ),
+        source_reference=(f"{entry.upstream_repository}/blob/{entry.upstream_pin}/{entry.upstream_path}"),
     )
 
 

@@ -458,9 +458,7 @@ def test_json_backend_deletes_only_the_requested_scope(tmp_path) -> None:
     deleted = store.delete_scope(scope_a)
 
     assert deleted.deleted == 1
-    remaining = store.search_by_vector(
-        VectorSearchQuery((0.0, 1.0), scope=scope_b)
-    )
+    remaining = store.search_by_vector(VectorSearchQuery((0.0, 1.0), scope=scope_b))
     assert [hit.record_id for hit in remaining.hits] == ["b"]
 
 

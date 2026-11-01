@@ -117,15 +117,11 @@ def test_missing_or_changed_backend_schema_requires_migration_before_activation(
         _compatibility(),
         index_version="legacy",
     )
-    stored_manifest = client.collections[collection]["points"][
-        manifest_point_id(collection)
-    ]
+    stored_manifest = client.collections[collection]["points"][manifest_point_id(collection)]
     stored_manifest.payload.pop("backend_schema_version")
 
     missing = original_manager.compatibility(collection, _compatibility())
-    stored_manifest.payload["backend_schema_version"] = (
-        QDRANT_BACKEND_SCHEMA_VERSION
-    )
+    stored_manifest.payload["backend_schema_version"] = QDRANT_BACKEND_SCHEMA_VERSION
     changed_manager = QdrantCollectionManager(
         client,
         backend_schema_version="qdrant_vector_store.v2",

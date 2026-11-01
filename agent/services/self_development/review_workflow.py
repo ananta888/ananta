@@ -129,7 +129,7 @@ def build_review_brief(
             # A verdict claim here would only be mirrored by the decision model:
             # the hub scores the verdict from the analysis, so none is requested.
             'Finish by calling the final_answer tool exactly once with an "answer" containing '
-            "your analysis (loop backends: kind \"final_answer\"): one observation per "
+            'your analysis (loop backends: kind "final_answer"): one observation per '
             "acceptance criterion, the verification command result, and every finding or "
             "objection. Do not write a verdict JSON — the hub scores the verdict "
             "independently from your analysis.",
@@ -409,9 +409,7 @@ class QueueAcceptanceReviewer:
                 analysis=str(artifact.get("answer") or ""),
             )
         else:
-            result = parse_review_verdict(
-                str(artifact.get("answer") or ""), criteria_count=criteria_count
-            )
+            result = parse_review_verdict(str(artifact.get("answer") or ""), criteria_count=criteria_count)
         completed = self.registry.record_result(
             tenant_id=self.tenant_id,
             project_id=PROJECT_ID,

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from agent.codecompass.x86.config import (
     VALID_PROFILES,
-    X86Config,
     load_x86_config,
 )
 
@@ -36,9 +35,7 @@ def test_all_known_profiles_load():
 
 def test_invalid_profile_does_not_silently_fall_back():
     """A wrong profile must produce a diagnostic and never silently masquerade as a valid one."""
-    cfg = load_x86_config(
-        env={"ANANTA_CODECOMPASS_X86_DEFAULT_PROFILE": "x86_64_obviously_bogus"}
-    )
+    cfg = load_x86_config(env={"ANANTA_CODECOMPASS_X86_DEFAULT_PROFILE": "x86_64_obviously_bogus"})
     assert cfg.default_profile == "unknown_x86"
     assert any("unsupported_x86_profile" in d for d in cfg.diagnostics)
 

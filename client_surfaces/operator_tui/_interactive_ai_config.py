@@ -22,6 +22,7 @@ def toggle_ai_snake_config_panel(tui: InteractiveOperatorTui) -> None:
     if opened:
         game["artifact_chat_focus"] = False
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
         chat = get_chat_state(game)
         chat["chat_focus"] = False
         set_chat_state(game, chat)
@@ -36,14 +37,16 @@ def toggle_ai_snake_config_panel(tui: InteractiveOperatorTui) -> None:
             "filter_cursor": 0,
             "selected_option": 0,
         }
-        tui._set_state(tui.state.with_updates(
-            header_logo_game=game,
-            focus=FocusPane.CONTENT,
-            mode=OperatorMode.NORMAL,
-            command_line="",
-            selected_index=0,
-            status_message="ai config: offen",
-        ))
+        tui._set_state(
+            tui.state.with_updates(
+                header_logo_game=game,
+                focus=FocusPane.CONTENT,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                selected_index=0,
+                status_message="ai config: offen",
+            )
+        )
         return
     game["ai_snake_config_combo"] = {"open": False}
     tui._set_state(tui.state.with_updates(header_logo_game=game, status_message="ai config: geschlossen"))
@@ -85,7 +88,11 @@ def open_ai_snake_config_combo(tui: InteractiveOperatorTui, game, *, key: str, i
         status = "ai config: keine optionen"
         if key == "chat_model" and fetch_error:
             status = f"ai config: chat model fetch fehlgeschlagen ({fetch_error})"
-        tui._set_state(tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
+        tui._set_state(
+            tui.state.with_updates(
+                header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status
+            )
+        )
         return
     game["ai_snake_config_combo"] = {
         "open": True,
@@ -94,7 +101,14 @@ def open_ai_snake_config_combo(tui: InteractiveOperatorTui, game, *, key: str, i
         "filter_cursor": 0,
         "selected_option": 0,
     }
-    tui._set_state(tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=f"ai config: auswahl für {key}"))
+    tui._set_state(
+        tui.state.with_updates(
+            header_logo_game=game,
+            focus=FocusPane.CONTENT,
+            selected_index=idx,
+            status_message=f"ai config: auswahl für {key}",
+        )
+    )
 
 
 def ai_snake_config_combo_close(tui: InteractiveOperatorTui, *, status: str = "ai config: auswahl geschlossen") -> None:
@@ -116,7 +130,11 @@ def ai_snake_config_combo_apply(tui: InteractiveOperatorTui, game, *, value: str
     if key == "visual_enabled" and not bool(game.get("tutorial_mode")):
         tui._disable_visual_ai_snake_runtime(game)
         game["ai_snake_config_open"] = True
-    tui._set_state(tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
+    tui._set_state(
+        tui.state.with_updates(
+            header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status
+        )
+    )
 
 
 def ai_snake_config_combo_commit(tui: InteractiveOperatorTui) -> None:
@@ -141,7 +159,9 @@ def ai_snake_config_combo_move(tui: InteractiveOperatorTui, delta: int) -> None:
     if not bool(combo.get("open")):
         return
     key = str(combo.get("key") or "")
-    options, _ = ai_snake_config_filter_options(game, key=key, regex_filter=tui._ai_snake_config_combo_filter_text(combo))
+    options, _ = ai_snake_config_filter_options(
+        game, key=key, regex_filter=tui._ai_snake_config_combo_filter_text(combo)
+    )
     if not options:
         combo["selected_option"] = 0
     else:
@@ -176,7 +196,7 @@ def ai_snake_config_combo_backspace(tui: InteractiveOperatorTui) -> None:
     if cursor <= 0:
         tui._set_state(tui.state.with_updates(header_logo_game=game))
         return
-    combo["filter"] = buf[:cursor - 1] + buf[cursor:]
+    combo["filter"] = buf[: cursor - 1] + buf[cursor:]
     combo["filter_cursor"] = cursor - 1
     combo["selected_option"] = 0
     game["ai_snake_config_combo"] = combo
@@ -193,7 +213,7 @@ def ai_snake_config_combo_delete(tui: InteractiveOperatorTui) -> None:
     if cursor >= len(buf):
         tui._set_state(tui.state.with_updates(header_logo_game=game))
         return
-    combo["filter"] = buf[:cursor] + buf[cursor + 1:]
+    combo["filter"] = buf[:cursor] + buf[cursor + 1 :]
     combo["filter_cursor"] = cursor
     combo["selected_option"] = 0
     game["ai_snake_config_combo"] = combo

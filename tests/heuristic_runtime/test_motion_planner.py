@@ -1,9 +1,8 @@
 """Tests für Motion Planner (T05.03)."""
+
 from __future__ import annotations
 
-import pytest
-
-from agent.services.heuristic_runtime.motion_planner import MotionPlanner, MotionPlan
+from agent.services.heuristic_runtime.motion_planner import MotionPlanner
 
 
 def _action(kind="smooth_follow", target_cell=None, target_bbox=None, max_step=2, min_distance=0, confidence=0.8):

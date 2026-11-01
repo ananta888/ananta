@@ -6,15 +6,15 @@ Tests focus on:
 - _poll_goal_status: terminal detection, detail-fallback
 - repair_script_cmd: stdout / --exec / TUI path mocking
 """
+
 from __future__ import annotations
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from agent.cli_goals_support import CliGoalsDependencies
 
-
 # ── _extract_script_blocks ────────────────────────────────────────────────────
+
 
 def test_extract_script_blocks_bash_fence():
     from agent.cli_goals import _extract_script_blocks
@@ -64,6 +64,7 @@ def test_extract_script_blocks_console_fence():
 
 # ── _host_scan ────────────────────────────────────────────────────────────────
 
+
 def test_host_scan_always_includes_base_header():
     from agent.cli_goals import _host_scan
 
@@ -110,6 +111,7 @@ def test_host_scan_gracefully_handles_empty_cmd_output(monkeypatch):
 
 
 # ── _poll_goal_status ─────────────────────────────────────────────────────────
+
 
 def _mock_response(status_code: int, data: dict) -> MagicMock:
     r = MagicMock()
@@ -175,6 +177,7 @@ def test_poll_goal_status_timeout(monkeypatch):
 
 # ── _submit_repair_goal ───────────────────────────────────────────────────────
 
+
 def test_submit_repair_goal_returns_none_on_goal_creation_failure(monkeypatch):
     from agent.cli_goals import _submit_repair_goal
 
@@ -192,8 +195,6 @@ def test_submit_repair_goal_returns_none_on_goal_creation_failure(monkeypatch):
 def test_submit_repair_goal_returns_none_when_goal_fails(monkeypatch):
     from agent.cli_goals import _submit_repair_goal
 
-    create_called = {"n": 0}
-
     def _fake_request(method, path, **kw):
         if method == "POST":
             return _mock_response(201, {"goal": {"id": "g-fail"}, "created_task_ids": ["t1"]})
@@ -201,7 +202,9 @@ def test_submit_repair_goal_returns_none_when_goal_fails(monkeypatch):
             return _mock_response(200, {"artifacts": {"artifacts": []}})
         return _mock_response(200, {"status": "failed"})
 
-    result = _submit_repair_goal("broken service", allow_partial=False, deps=CliGoalsDependencies(request=_fake_request))
+    result = _submit_repair_goal(
+        "broken service", allow_partial=False, deps=CliGoalsDependencies(request=_fake_request)
+    )
     assert result is None
 
 
@@ -214,13 +217,7 @@ def test_submit_repair_goal_returns_output_on_success(monkeypatch):
         if "/detail" in path and path.endswith("/detail"):
             return _mock_response(
                 200,
-                {
-                    "artifacts": {
-                        "artifacts": [
-                            {"task_id": "t-ok", "title": "Fix nginx"}
-                        ]
-                    }
-                },
+                {"artifacts": {"artifacts": [{"task_id": "t-ok", "title": "Fix nginx"}]}},
             )
         if path.startswith("/tasks/t-ok"):
             return _mock_response(200, {"last_output": "```bash\nnginx -t\n```"})
@@ -234,6 +231,7 @@ def test_submit_repair_goal_returns_output_on_success(monkeypatch):
 
 
 # ── repair_script_cmd stdout (non-TUI) mode ──────────────────────────────────
+
 
 def _repair_hub_deps(task_output: str | None) -> CliGoalsDependencies:
     """Fake hub: the repair goal completes at once and yields ``task_output`` (None = creation fails)."""

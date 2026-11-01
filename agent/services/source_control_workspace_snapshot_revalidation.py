@@ -90,10 +90,7 @@ class WorkspaceSnapshotRevalidator:
         except WorkspaceSnapshotUploadError:
             raise
         except Exception as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "")
-                or "workspace_snapshot_revalidation_failed"
-            )
+            reason_code = str(getattr(exc, "reason_code", "") or "workspace_snapshot_revalidation_failed")
             raise WorkspaceSnapshotUploadError(
                 reason_code,
                 status_code=409,

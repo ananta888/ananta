@@ -34,7 +34,7 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
     manifest = json.loads((EXT_ROOT / "package.json").read_text(encoding="utf-8"))
     scripts = manifest.get("scripts") or {}
     contributes = manifest.get("contributes") or {}
-    configuration = ((contributes.get("configuration") or {}).get("properties") or {})
+    configuration = (contributes.get("configuration") or {}).get("properties") or {}
 
     activation_events = set(manifest.get("activationEvents") or [])
     assert "onCommand:ananta.checkHealth" in activation_events or "ananta.checkHealth" in activation_events

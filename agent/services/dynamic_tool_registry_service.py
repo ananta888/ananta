@@ -12,6 +12,7 @@ Disable never deletes: records keep their version history and usage
 metadata, and a rollback is only possible onto a version that was
 validated and approved (HDE-019).
 """
+
 from __future__ import annotations
 
 import json
@@ -221,7 +222,10 @@ class DynamicToolRegistryService:
                 "validated_digest": validated_digest,
                 "validation_report_ref": validation_report_ref,
                 "spec": dict(spec),
-                "usage": dict(existing.get("usage") or {"last_used": None, "success_count": 0, "fail_count": 0, "last_failure_reason": None}),
+                "usage": dict(
+                    existing.get("usage")
+                    or {"last_used": None, "success_count": 0, "fail_count": 0, "last_failure_reason": None}
+                ),
                 "versions": versions,
                 "updated_at": time.time(),
             }
@@ -243,7 +247,9 @@ class DynamicToolRegistryService:
             if status == "active":
                 if str(record.get("approval_status")) != "granted":
                     raise ValueError("activation_requires_granted_approval")
-                if not record.get("validated_digest") or record.get("validated_digest") != record.get("proposal_digest"):
+                if not record.get("validated_digest") or record.get("validated_digest") != record.get(
+                    "proposal_digest"
+                ):
                     raise ValueError("activation_requires_matching_validated_digest")
             record["status"] = status
             record["updated_at"] = time.time()
@@ -258,7 +264,9 @@ class DynamicToolRegistryService:
         record = self.get_record(name)
         if record is None:
             raise ValueError(f"unknown_dynamic_tool:{name}")
-        target = next((row for row in record.get("versions") or [] if int(row.get("version") or 0) == int(version)), None)
+        target = next(
+            (row for row in record.get("versions") or [] if int(row.get("version") or 0) == int(version)), None
+        )
         if target is None:
             raise ValueError(f"unknown_dynamic_tool_version:{name}:{version}")
         if str(target.get("approval_status")) != "granted":

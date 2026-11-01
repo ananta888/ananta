@@ -62,25 +62,18 @@ def test_flexible_strategy_forwards_hub_provider_attempt_plan():
     ]
     context.effective_config = {
         "provider_context": {"provider_profile_id": "phi"},
-        "provider_contexts_by_profile_id": {
-            "phi": {"provider_profile_id": "phi"}
-        },
+        "provider_contexts_by_profile_id": {"phi": {"provider_profile_id": "phi"}},
         "provider_attempt_plan": attempt_plan,
     }
     with patch(
-        "agent.services.propose_strategies.flexible_llm_normalization_strategy."
-        "ModelInvocationService.invoke_result",
+        "agent.services.propose_strategies.flexible_llm_normalization_strategy.ModelInvocationService.invoke_result",
         return_value={"content": '{"command":"echo ok"}', "metadata": {}},
     ) as invoke:
         result = strategy.run(context)
 
     assert result.proposal is not None
-    assert invoke.call_args.kwargs["provider_context"] == {
-        "provider_profile_id": "phi"
-    }
-    assert invoke.call_args.kwargs["provider_contexts_by_profile_id"] == {
-        "phi": {"provider_profile_id": "phi"}
-    }
+    assert invoke.call_args.kwargs["provider_context"] == {"provider_profile_id": "phi"}
+    assert invoke.call_args.kwargs["provider_contexts_by_profile_id"] == {"phi": {"provider_profile_id": "phi"}}
     assert invoke.call_args.kwargs["provider_attempt_plan"] == attempt_plan
 
 
@@ -115,8 +108,7 @@ def test_flexible_strategy_rejects_invalid_explicit_routing_as_policy():
     context = _context()
     context.task["model_routing"] = "invalid"
     with patch(
-        "agent.services.propose_strategies.flexible_llm_normalization_strategy."
-        "ModelInvocationService.invoke_result",
+        "agent.services.propose_strategies.flexible_llm_normalization_strategy.ModelInvocationService.invoke_result",
     ) as invoke:
         result = strategy.run(context)
 
@@ -166,4 +158,5 @@ def test_flexible_strategy_profile_survives_general_exception():
     # llm_call_profile key may be missing (no profile captured before exception) — that's acceptable
     # but the result itself must be a ProposeStrategyResult
     from worker.core.propose import ProposeStrategyResult
+
     assert isinstance(result, ProposeStrategyResult)

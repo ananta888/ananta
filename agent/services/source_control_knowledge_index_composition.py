@@ -49,23 +49,17 @@ def build_governed_knowledge_index_job_service(
     manifest_verifier = (
         source_access_manifest_verifier
         if source_access_manifest_verifier is not None
-        else WorkerSourceAccessManifestVerifier(
-            {signing_key.key_id: signing_key.secret}
-        )
+        else WorkerSourceAccessManifestVerifier({signing_key.key_id: signing_key.secret})
     )
     kwargs = {
         "task_queue": task_queue,
         "task_repository": task_repository,
         "payload_store": payload_store,
         "worker_artifact_service": worker_artifact_service,
-        "source_control_completion_projector": (
-            source_control_completion_projector
-        ),
+        "source_control_completion_projector": (source_control_completion_projector),
         "worker_directory": worker_directory,
         "execution_binding_service": execution_binding_service,
-        "destination_resolution_service": (
-            SourceDestinationResolutionService(destination_catalog)
-        ),
+        "destination_resolution_service": (SourceDestinationResolutionService(destination_catalog)),
         "source_access_enforcement_service": (
             SourceAccessEnforcementService(
                 grants=grant_adapter,

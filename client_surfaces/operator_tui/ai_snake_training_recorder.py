@@ -19,7 +19,7 @@ class AiSnakeTrainingRecorder:
         self.max_bytes = max(64_000, int(max_bytes))
         self.paused = False
         self._paths = ensure_training_layout()
-        self._event_queue: list[str] = []   # buffered JSON lines, flushed by background thread
+        self._event_queue: list[str] = []  # buffered JSON lines, flushed by background thread
 
     @property
     def events_path(self) -> Path:
@@ -56,7 +56,9 @@ class AiSnakeTrainingRecorder:
             "value_norm": self._normalize_value(value_norm=value_norm, privacy_class=privacy_class),
             "refs": [str(x).strip() for x in (refs or []) if str(x).strip()][:8],
             "privacy_class": self._normalize_privacy_class(privacy_class),
-            "retention_hint": retention_hint if retention_hint in {"ephemeral", "rolling_7d", "rolling_30d"} else "rolling_7d",
+            "retention_hint": retention_hint
+            if retention_hint in {"ephemeral", "rolling_7d", "rolling_30d"}
+            else "rolling_7d",
             "source": {"component": "operator_tui", "mode": "training"},
             "extensions": {},
         }

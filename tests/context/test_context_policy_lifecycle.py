@@ -19,11 +19,7 @@ class _Repository:
         self.values = {}
 
     def latest(self, **scope):
-        matches = [
-            value
-            for key, value in self.values.items()
-            if key[0] == scope["policy_id"]
-        ]
+        matches = [value for key, value in self.values.items() if key[0] == scope["policy_id"]]
         return max(matches, key=lambda item: item.version) if matches else None
 
     def get_version(self, **scope):
@@ -32,11 +28,7 @@ class _Repository:
     def list_versions(self, **scope):
         return (
             sorted(
-                [
-                    value
-                    for key, value in self.values.items()
-                    if key[0] == scope["policy_id"]
-                ],
+                [value for key, value in self.values.items() if key[0] == scope["policy_id"]],
                 key=lambda item: item.version,
             ),
             None,

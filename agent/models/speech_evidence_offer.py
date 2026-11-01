@@ -77,9 +77,7 @@ class SpeechEvidenceGroupPreview:
             ),
             resolution_state=str(value["resolution_state"]),
             selected_candidate_digest=(
-                str(value["selected_candidate_digest"])
-                if value["selected_candidate_digest"] is not None
-                else None
+                str(value["selected_candidate_digest"]) if value["selected_candidate_digest"] is not None else None
             ),
             unresolved_region_digests=tuple(str(item) for item in value["unresolved_region_digests"]),  # type: ignore[union-attr]
             comparison_digest=str(value["comparison_digest"]),

@@ -3,6 +3,7 @@
 GET  /api/task-engine/status   — current classification status (polling / SSE-ready)
 POST /api/task-engine/classify — classify a task dict without executing anything
 """
+
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
@@ -10,7 +11,6 @@ from flask import Blueprint, jsonify, request
 from agent.services.task_class_resolver import TaskClassResolver
 from agent.services.task_engine_policy_gate import TaskEnginePolicyGate
 from agent.services.task_engine_status_service import get_task_engine_status_service
-from agent.services.task_engine_trace import extract_te_summary
 from agent.services.tool_scope_contract import ToolScopeContract
 
 task_engine_bp = Blueprint("task_engine", __name__, url_prefix="/api/task-engine")
@@ -41,21 +41,23 @@ def classify():
 
     scope = ToolScopeContract.from_task(task)
 
-    return jsonify({
-        "allow": decision.allow,
-        "bypass_llm": decision.bypass_llm,
-        "blocked": decision.blocked,
-        "handler_id": decision.handler_id,
-        "task_class": decision.task_class,
-        "intent": decision.intent,
-        "llm_required": decision.llm_required,
-        "reason": decision.reason,
-        "unknown_tools": decision.unknown_tools,
-        "resolver": {
-            "task_class": cr.task_class,
-            "intent": cr.intent,
-            "reason": cr.reason,
-            "deterministic_handler_id": cr.deterministic_handler_id,
-        },
-        "tool_scope": scope.as_dict(),
-    }), 200
+    return jsonify(
+        {
+            "allow": decision.allow,
+            "bypass_llm": decision.bypass_llm,
+            "blocked": decision.blocked,
+            "handler_id": decision.handler_id,
+            "task_class": decision.task_class,
+            "intent": decision.intent,
+            "llm_required": decision.llm_required,
+            "reason": decision.reason,
+            "unknown_tools": decision.unknown_tools,
+            "resolver": {
+                "task_class": cr.task_class,
+                "intent": cr.intent,
+                "reason": cr.reason,
+                "deterministic_handler_id": cr.deterministic_handler_id,
+            },
+            "tool_scope": scope.as_dict(),
+        }
+    ), 200

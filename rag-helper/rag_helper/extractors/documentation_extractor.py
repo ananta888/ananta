@@ -683,15 +683,10 @@ class DocumentationExtractor:
             stripped = stripped[1:]
         if stripped.endswith("|") and not stripped.endswith("\\|"):
             stripped = stripped[:-1]
-        return [
-            cell.replace("\\|", "|").strip()
-            for cell in re.split(r"(?<!\\)\|", stripped)
-        ]
+        return [cell.replace("\\|", "|").strip() for cell in re.split(r"(?<!\\)\|", stripped)]
 
     @classmethod
-    def _markdown_table_at(
-        cls, lines: list[str], index: int
-    ) -> tuple[list[str], list[str], int] | None:
+    def _markdown_table_at(cls, lines: list[str], index: int) -> tuple[list[str], list[str], int] | None:
         if index + 1 >= len(lines) or "|" not in lines[index]:
             return None
         headers = cls._split_table_row(lines[index])
@@ -701,9 +696,12 @@ class DocumentationExtractor:
         if not all(_TABLE_DELIMITER_CELL.fullmatch(cell) for cell in delimiters):
             return None
         alignments = [
-            "center" if cell.startswith(":") and cell.endswith(":")
-            else "right" if cell.endswith(":")
-            else "left" if cell.startswith(":")
+            "center"
+            if cell.startswith(":") and cell.endswith(":")
+            else "right"
+            if cell.endswith(":")
+            else "left"
+            if cell.startswith(":")
             else "default"
             for cell in delimiters
         ]

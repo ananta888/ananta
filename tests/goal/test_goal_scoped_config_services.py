@@ -7,13 +7,21 @@ from tests.planning_collaborator_seam import install_repo_context_loader
 
 def test_config_profile_catalog_contains_required_profiles():
     profiles = {item["id"] for item in get_config_profile_service().list_profiles()}
-    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local", "hermes_free_models_preconfigured"}.issubset(profiles)
+    assert {
+        "opencode_preconfigured",
+        "opencode_ollama_local",
+        "ananta_ollama_local",
+        "hermes_free_models_preconfigured",
+    }.issubset(profiles)
 
 
 def test_goal_config_resolver_redacts_secret_fields():
     resolver = get_goal_config_resolver_service()
     result = resolver.resolve(
-        system_config={"llm_config": {"api_key": "secret", "base_url": "http://localhost"}, "default_provider": "ollama"},
+        system_config={
+            "llm_config": {"api_key": "secret", "base_url": "http://localhost"},
+            "default_provider": "ollama",
+        },
         profile_id=None,
         goal_overrides={"default_model": "ananta-default:latest"},
     )

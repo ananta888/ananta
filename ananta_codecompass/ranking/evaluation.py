@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 
 def ranking_metrics(ranked: Sequence[str], relevant: set[str], *, k: int) -> dict[str, float]:
-    bounded = list(ranked[:max(1, int(k))])
+    bounded = list(ranked[: max(1, int(k))])
     first_rank = next((index + 1 for index, path in enumerate(bounded) if path in relevant), None)
     recall = len(set(bounded) & relevant) / max(1, len(relevant))
     dcg = sum((1.0 if path in relevant else 0.0) / math.log2(index + 2) for index, path in enumerate(bounded))

@@ -26,10 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-POSTGRES_IMAGE = (
-    "postgres:16.13@sha256:"
-    "5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51"
-)
+POSTGRES_IMAGE = "postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51"
 POSTGRES_IMAGE_ID = "sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/semantic-relay-multi-hub.json"
 SOURCE_FILES = (
@@ -616,10 +613,9 @@ def _execute_live(output: Path) -> dict[str, Any]:
                     "1004",
                 ),
             )
-            ack_restart_stable = (
-                first_ack["acknowledged"] == second_ack["acknowledged"] == 10
-                and after_ack_restart["cursors"] == list(range(11, 41))
-            )
+            ack_restart_stable = first_ack["acknowledged"] == second_ack["acknowledged"] == 10 and after_ack_restart[
+                "cursors"
+            ] == list(range(11, 41))
             _invoke_child(
                 "ack",
                 database_env=database_env,

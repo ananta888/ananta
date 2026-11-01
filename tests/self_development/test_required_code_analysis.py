@@ -1,4 +1,5 @@
 """Runtime prerequisites for source analysis, including all mutation entry points."""
+
 import hashlib
 import json
 from pathlib import Path
@@ -14,14 +15,21 @@ def _session(tmp_path, required=True):
     evidence = []
     return SimpleNamespace(
         analysis_gate=CodeAnalysisGate(required=required, workspace=tmp_path),
-        cfg={"require_code_analysis": required}, workspace=tmp_path,
-        mode="controlled_workspace", task_id=None, task_prompt="fix source",
-        materialization_manifest={}, read_only_streak=20,
-        count_file_attempt=lambda path: 1, limits=SimpleNamespace(max_attempts_per_file=3),
-        next_tool_call_id=lambda prefix: "call", add_evidence=evidence.append,
+        cfg={"require_code_analysis": required},
+        workspace=tmp_path,
+        mode="controlled_workspace",
+        task_id=None,
+        task_prompt="fix source",
+        materialization_manifest={},
+        read_only_streak=20,
+        count_file_attempt=lambda path: 1,
+        limits=SimpleNamespace(max_attempts_per_file=3),
+        next_tool_call_id=lambda prefix: "call",
+        add_evidence=evidence.append,
         evidence_blocks=evidence,
-        services=SimpleNamespace(tool_policy=SimpleNamespace(evaluate=lambda **kw:
-            SimpleNamespace(allowed=True, decision="allow"))),
+        services=SimpleNamespace(
+            tool_policy=SimpleNamespace(evaluate=lambda **kw: SimpleNamespace(allowed=True, decision="allow"))
+        ),
         finish_with_summary=lambda outcome, summary, err: (1, json.dumps(summary), err),
     )
 
@@ -30,12 +38,15 @@ def _turn(message):
     return SimpleNamespace(message=message, row={}, iteration=1, err="", out="")
 
 
-@pytest.mark.parametrize("message", [
-    {"kind": "workspace_write", "files": [{"path": "new.py", "content": "bad"}]},
-    {"kind": "patch_request", "target_path": "new.py", "variant": "write_file_create_only", "content": "bad"},
-    {"kind": "tool_request", "tool_name": "repo.write_file", "arguments": {"path": "new.py", "content": "bad"}},
-    {"kind": "tool_request", "tool_name": "repo.apply_patch", "arguments": {"target_path": "new.py"}},
-])
+@pytest.mark.parametrize(
+    "message",
+    [
+        {"kind": "workspace_write", "files": [{"path": "new.py", "content": "bad"}]},
+        {"kind": "patch_request", "target_path": "new.py", "variant": "write_file_create_only", "content": "bad"},
+        {"kind": "tool_request", "tool_name": "repo.write_file", "arguments": {"path": "new.py", "content": "bad"}},
+        {"kind": "tool_request", "tool_name": "repo.apply_patch", "arguments": {"target_path": "new.py"}},
+    ],
+)
 def test_mutations_are_blocked_before_analysis(tmp_path, message, monkeypatch):
     # Given a workspace with no observed analysis and permissive downstream policy.
     session = _session(tmp_path)
@@ -92,10 +103,19 @@ def test_correction_names_the_analysis_step_when_observations_already_exist(tmp_
 
 
 def _analysis(path: Path):
-    return {"sources": [{"path": path.name, "file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                         "line_start": 1, "line_end": 1}],
-            "findings": "Function returns a constant.", "change_reasoning": "Return configured value.",
-            "test_reasoning": "Assert two distinct configured values."}
+    return {
+        "sources": [
+            {
+                "path": path.name,
+                "file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "line_start": 1,
+                "line_end": 1,
+            }
+        ],
+        "findings": "Function returns a constant.",
+        "change_reasoning": "Return configured value.",
+        "test_reasoning": "Assert two distinct configured values.",
+    }
 
 
 @pytest.mark.parametrize("codecompass_ok", [False, True])
@@ -176,10 +196,13 @@ def test_codecompass_materialization_is_observed_only_after_success(tmp_path, mo
     def execute(**kw):
         calls.append(kw["tool_name"])
         if kw["tool_name"] == "repo.read_file_range":
-            return repo_read_file_range(workspace_dir=kw["workspace_dir"], arguments=kw["arguments"],
-                                        tool_call_id=kw["tool_call_id"])
-        return {"status": status, "data": {"context_bundle": {"location_refs": [
-            {"path": "app.py", "line_start": 1, "line_end": 1}]}}}
+            return repo_read_file_range(
+                workspace_dir=kw["workspace_dir"], arguments=kw["arguments"], tool_call_id=kw["tool_call_id"]
+            )
+        return {
+            "status": status,
+            "data": {"context_bundle": {"location_refs": [{"path": "app.py", "line_start": 1, "line_end": 1}]}},
+        }
 
     monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
     monkeypatch.setattr(tool_actions, "execute_ananta_tool", execute)
@@ -191,11 +214,14 @@ def test_codecompass_materialization_is_observed_only_after_success(tmp_path, mo
     assert ("repo.read_file_range" in calls) == (status == "ok")
 
 
-@pytest.mark.parametrize("config", [
-    {"require_code_analysis": True, "enabled": False},
-    {"require_code_analysis": True, "enabled": True, "resolved_mode": "read_only"},
-    {"require_code_analysis": True, "enabled": True, "resolved_mode": "controlled_workspace"},
-])
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"require_code_analysis": True, "enabled": False},
+        {"require_code_analysis": True, "enabled": True, "resolved_mode": "read_only"},
+        {"require_code_analysis": True, "enabled": True, "resolved_mode": "controlled_workspace"},
+    ],
+)
 def test_required_analysis_never_falls_back_to_weaker_loop(tmp_path, monkeypatch, config):
     # Given a required analysis configuration and an unavailable mutation loop.
     from agent.cli_backends import sgpt, tool_loop, workspace_mutation
@@ -229,24 +255,30 @@ def test_real_mutation_loop_requires_analysis_before_applying_source(tmp_path, m
     source.write_text("value = 1\n")
     metadata = tmp_path / ".ananta"
     metadata.mkdir()
-    (metadata / "materialization-manifest.json").write_text(json.dumps([
-        {"workspace_path": "app.py", "allowed_operations": ["read", "write", "patch"]}]))
+    (metadata / "materialization-manifest.json").write_text(
+        json.dumps([{"workspace_path": "app.py", "allowed_operations": ["read", "write", "patch"]}])
+    )
     original_execute = tool_actions.execute_ananta_tool
 
     def execute(**kw):
         if kw["tool_name"] == "codecompass.plan_context":
-            return {"status": "ok", "data": {"context_bundle": {"location_refs": [
-                {"path": "app.py", "line_start": 1, "line_end": 1}]}}}
+            return {
+                "status": "ok",
+                "data": {"context_bundle": {"location_refs": [{"path": "app.py", "line_start": 1, "line_end": 1}]}},
+            }
         if kw["tool_name"] == "repo.read_file_range":
-            return repo_read_file_range(workspace_dir=kw["workspace_dir"], arguments=kw["arguments"],
-                                        tool_call_id=kw["tool_call_id"])
+            return repo_read_file_range(
+                workspace_dir=kw["workspace_dir"], arguments=kw["arguments"], tool_call_id=kw["tool_call_id"]
+            )
         return original_execute(**kw)
 
     monkeypatch.setattr(tool_actions, "execute_ananta_tool", execute)
     messages = []
     if with_analysis:
-        messages += [{"kind": "tool_request", "tool_name": "codecompass.plan_context", "arguments": {}},
-                     {"kind": "code_analysis", **_analysis(source)}]
+        messages += [
+            {"kind": "tool_request", "tool_name": "codecompass.plan_context", "arguments": {}},
+            {"kind": "code_analysis", **_analysis(source)},
+        ]
     messages += [{"kind": "workspace_write", "files": [{"path": "app.py", "content": "value = 2\n"}]}]
     if with_analysis:
         messages += [{"kind": "final_answer", "answer": "changed"}]
@@ -258,10 +290,20 @@ def test_real_mutation_loop_requires_analysis_before_applying_source(tmp_path, m
     # When the real bounded feedback loop receives the actions.
     with task_capability_scope(None, task_id="scoped-task"):
         result = run_ananta_worker_workspace_mutation(
-            "Change configured value", str(tmp_path), options=[], timeout=1, model=None,
-            llm_runner=llm, config={"enabled": True, "resolved_mode": "controlled_workspace",
-                                  "require_code_analysis": True, "max_feedback_iterations": len(messages),
-                                  "require_materialized_scope": True, "max_diff_chars": 1000},
+            "Change configured value",
+            str(tmp_path),
+            options=[],
+            timeout=1,
+            model=None,
+            llm_runner=llm,
+            config={
+                "enabled": True,
+                "resolved_mode": "controlled_workspace",
+                "require_code_analysis": True,
+                "max_feedback_iterations": len(messages),
+                "require_materialized_scope": True,
+                "max_diff_chars": 1000,
+            },
         )
     # Then only the researched action sequence can change source and finish successfully.
     assert result[0] == (0 if with_analysis else 1)
@@ -288,17 +330,21 @@ def test_loop_corrects_a_premature_final_answer(tmp_path, monkeypatch):
     source.write_text("value = 1\n")
     metadata = tmp_path / ".ananta"
     metadata.mkdir()
-    (metadata / "materialization-manifest.json").write_text(json.dumps([
-        {"workspace_path": "app.py", "allowed_operations": ["read", "write", "patch"]}]))
+    (metadata / "materialization-manifest.json").write_text(
+        json.dumps([{"workspace_path": "app.py", "allowed_operations": ["read", "write", "patch"]}])
+    )
     original_execute = tool_actions.execute_ananta_tool
 
     def execute(**kw):
         if kw["tool_name"] == "codecompass.plan_context":
-            return {"status": "ok", "data": {"context_bundle": {"location_refs": [
-                {"path": "app.py", "line_start": 1, "line_end": 1}]}}}
+            return {
+                "status": "ok",
+                "data": {"context_bundle": {"location_refs": [{"path": "app.py", "line_start": 1, "line_end": 1}]}},
+            }
         if kw["tool_name"] == "repo.read_file_range":
-            return repo_read_file_range(workspace_dir=kw["workspace_dir"], arguments=kw["arguments"],
-                                        tool_call_id=kw["tool_call_id"])
+            return repo_read_file_range(
+                workspace_dir=kw["workspace_dir"], arguments=kw["arguments"], tool_call_id=kw["tool_call_id"]
+            )
         return original_execute(**kw)
 
     monkeypatch.setattr(tool_actions, "execute_ananta_tool", execute)
@@ -318,10 +364,20 @@ def test_loop_corrects_a_premature_final_answer(tmp_path, monkeypatch):
 
     with task_capability_scope(None, task_id="scoped-task"):
         result = run_ananta_worker_workspace_mutation(
-            "Change configured value", str(tmp_path), options=[], timeout=1, model=None,
-            llm_runner=llm, config={"enabled": True, "resolved_mode": "controlled_workspace",
-                                  "require_code_analysis": True, "max_feedback_iterations": len(messages),
-                                  "require_materialized_scope": True, "max_diff_chars": 1000},
+            "Change configured value",
+            str(tmp_path),
+            options=[],
+            timeout=1,
+            model=None,
+            llm_runner=llm,
+            config={
+                "enabled": True,
+                "resolved_mode": "controlled_workspace",
+                "require_code_analysis": True,
+                "max_feedback_iterations": len(messages),
+                "require_materialized_scope": True,
+                "max_diff_chars": 1000,
+            },
         )
     # The correction turn shows the required sequence and the loop then finishes.
     assert result[0] == 0
@@ -338,12 +394,19 @@ def test_missing_source_read_names_an_existing_file_in_the_directory(tmp_path, m
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_execution.py").write_text("def test_gate():\n    return True\n")
     monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
-    monkeypatch.setattr(tool_actions, "execute_ananta_tool",
-                        lambda **kw: {"status": "error", "error": "file_not_found", "data": {}})
+    monkeypatch.setattr(
+        tool_actions, "execute_ananta_tool", lambda **kw: {"status": "error", "error": "file_not_found", "data": {}}
+    )
     # When the read names a file that does not exist.
-    tool_actions.handle_tool_request(session, _turn({
-        "tool_name": "repo.read_file_range",
-        "arguments": {"path": "tests/test_agent_live_gate.py", "line_start": 1, "line_end": 40}}))
+    tool_actions.handle_tool_request(
+        session,
+        _turn(
+            {
+                "tool_name": "repo.read_file_range",
+                "arguments": {"path": "tests/test_agent_live_gate.py", "line_start": 1, "line_end": 40},
+            }
+        ),
+    )
     # Then the answer points at a real source file instead of a bare error.
     data = session.evidence_blocks[-1]["data"]
     assert data["action_required"] == "read_one_of_the_existing_source_paths_instead"
@@ -354,13 +417,23 @@ def test_successful_document_read_is_flagged_while_analysis_is_pending(tmp_path,
     # Given a required analysis gate that observes source files only.
     session = _session(tmp_path)
     monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
-    monkeypatch.setattr(tool_actions, "execute_ananta_tool",
-                        lambda **kw: {"status": "ok", "data": {"file_sha256": "0" * 64}})
+    monkeypatch.setattr(
+        tool_actions, "execute_ananta_tool", lambda **kw: {"status": "ok", "data": {"file_sha256": "0" * 64}}
+    )
     # When the model reads a document instead of source code.
-    tool_actions.handle_tool_request(session, _turn({
-        "tool_name": "repo.read_file_range",
-        "arguments": {"path": "docs/releases/native-core-gate-buzz-independent.md",
-                      "line_start": 1, "line_end": 45}}))
+    tool_actions.handle_tool_request(
+        session,
+        _turn(
+            {
+                "tool_name": "repo.read_file_range",
+                "arguments": {
+                    "path": "docs/releases/native-core-gate-buzz-independent.md",
+                    "line_start": 1,
+                    "line_end": 45,
+                },
+            }
+        ),
+    )
     # Then the gate states what it needs to make progress.
     assert session.evidence_blocks[-1]["data"]["action_required"] == "analysis_requires_a_source_file_range"
 
@@ -369,12 +442,19 @@ def test_read_of_a_path_outside_any_existing_directory_names_the_next_tool(tmp_p
     # Given a guessed path whose parent directory does not exist either.
     session = _session(tmp_path)
     monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
-    monkeypatch.setattr(tool_actions, "execute_ananta_tool",
-                        lambda **kw: {"status": "error", "error": "file_not_found", "data": {}})
+    monkeypatch.setattr(
+        tool_actions, "execute_ananta_tool", lambda **kw: {"status": "error", "error": "file_not_found", "data": {}}
+    )
     # When the read cannot be resolved at all.
-    tool_actions.handle_tool_request(session, _turn({
-        "tool_name": "repo.read_file_range",
-        "arguments": {"path": "missing/module.py", "line_start": 1, "line_end": 20}}))
+    tool_actions.handle_tool_request(
+        session,
+        _turn(
+            {
+                "tool_name": "repo.read_file_range",
+                "arguments": {"path": "missing/module.py", "line_start": 1, "line_end": 20},
+            }
+        ),
+    )
     # Then the bounded answer names the discovery tool.
     assert session.evidence_blocks[-1]["data"]["action_required"] == "path_does_not_exist_use_repo_list_files"
 
@@ -396,8 +476,7 @@ def test_analysis_rejection_carries_an_action_required_hint(tmp_path):
     # When a range was observed but the analysis cites a different file.
     session.analysis_gate.observe_range(**_analysis(path)["sources"][0])
     handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_analysis(other)}))
-    assert (session.evidence_blocks[-1]["data"]["action_required"]
-            == "cite_an_observed_source_range_with_its_sha256")
+    assert session.evidence_blocks[-1]["data"]["action_required"] == "cite_an_observed_source_range_with_its_sha256"
 
 
 def _observed_session(tmp_path):
@@ -406,13 +485,18 @@ def _observed_session(tmp_path):
     gate.observe_codecompass(successful=True)
     path = tmp_path / "app.py"
     path.write_text("value = 1\n")
-    gate.observe_range(path="app.py", file_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-                       line_start=1, line_end=1)
+    gate.observe_range(
+        path="app.py", file_sha256=hashlib.sha256(path.read_bytes()).hexdigest(), line_start=1, line_end=1
+    )
     return session, path
 
 
-_BAD_CITATION = {"sources": [{"path": "other.py", "file_sha256": "0" * 64, "line_start": 1, "line_end": 2}],
-                 "findings": "f", "change_reasoning": "c", "test_reasoning": "t"}
+_BAD_CITATION = {
+    "sources": [{"path": "other.py", "file_sha256": "0" * 64, "line_start": 1, "line_end": 2}],
+    "findings": "f",
+    "change_reasoning": "c",
+    "test_reasoning": "t",
+}
 
 
 def test_rejected_analysis_citations_are_corrected_then_bounded(tmp_path):
@@ -424,8 +508,7 @@ def test_rejected_analysis_citations_are_corrected_then_bounded(tmp_path):
     # loop stops being generous.
     assert '"app.py"' in session.correction
     assert "VERBATIM" in session.correction
-    assert session.evidence_blocks[-1]["data"]["action_required"] == \
-        "cite_an_observed_source_range_with_its_sha256"
+    assert session.evidence_blocks[-1]["data"]["action_required"] == "cite_an_observed_source_range_with_its_sha256"
     for _ in range(handlers.ANALYSIS_REJECTION_LIMIT - 2):
         assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION})) is None
     result = handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION}))
@@ -477,12 +560,23 @@ def test_a_truncated_read_excerpt_is_still_an_observation(tmp_path):
     path = tmp_path / "big.py"
     path.write_text("x = 1\n" * 500)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    reads = [{"status": "ok", "data": {"file_sha256": digest, "line_start": 1, "line_end": 120},
-              "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "x = 1 ...", "truncated": True}]},
-             {"status": "ok", "data": {"file_sha256": digest, "line_start": 121, "line_end": 200},
-              "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "", "truncated": True}]},
-             {"status": "error", "data": {"file_sha256": digest, "line_start": 1, "line_end": 2},
-              "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "x = 1"}]}]
+    reads = [
+        {
+            "status": "ok",
+            "data": {"file_sha256": digest, "line_start": 1, "line_end": 120},
+            "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "x = 1 ...", "truncated": True}],
+        },
+        {
+            "status": "ok",
+            "data": {"file_sha256": digest, "line_start": 121, "line_end": 200},
+            "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "", "truncated": True}],
+        },
+        {
+            "status": "error",
+            "data": {"file_sha256": digest, "line_start": 1, "line_end": 2},
+            "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "x = 1"}],
+        },
+    ]
     # When the observations are collected.
     observed = collect_read_observations(reads)
     # Then every successful range counts and the gate verifies its bytes itself.
@@ -514,8 +608,13 @@ def test_declared_change_set_files_are_citable_ground_truth(tmp_path):
     ananta = tmp_path / ".ananta"
     ananta.mkdir()
     (ananta / "materialization-manifest.json").write_text(
-        json.dumps([{"workspace_path": "docs/decision.md", "allowed_operations": ["write"]},
-                    {"workspace_path": "todos/todo.track.json", "allowed_operations": ["write"]}]))
+        json.dumps(
+            [
+                {"workspace_path": "docs/decision.md", "allowed_operations": ["write"]},
+                {"workspace_path": "todos/todo.track.json", "allowed_operations": ["write"]},
+            ]
+        )
+    )
     doc = tmp_path / "docs"
     doc.mkdir()
     (doc / "decision.md").write_text("# Decision\n")
@@ -537,7 +636,8 @@ def test_a_reviews_changed_files_are_citable_ground_truth(tmp_path):
     ananta = tmp_path / ".ananta"
     ananta.mkdir()
     (ananta / "review.json").write_text(
-        json.dumps({"author_task_id": "t", "changed_files": {"docs/decision.md": "0" * 64}}))
+        json.dumps({"author_task_id": "t", "changed_files": {"docs/decision.md": "0" * 64}})
+    )
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "decision.md").write_text("# Decision\n")
@@ -555,8 +655,12 @@ def test_an_invalid_protocol_answer_gets_a_correction_and_stays_bounded(tmp_path
 
     evidence = []
     session = SimpleNamespace(
-        invalid_count=0, limits=SimpleNamespace(max_invalid=2), report_iterations=[],
-        evidence_blocks=evidence, add_evidence=evidence.append, correction=None,
+        invalid_count=0,
+        limits=SimpleNamespace(max_invalid=2),
+        report_iterations=[],
+        evidence_blocks=evidence,
+        add_evidence=evidence.append,
+        correction=None,
         finish_with_summary=lambda outcome, summary, err: (1, json.dumps(summary), err),
     )
     # The first malformed answers keep the loop alive with an explicit protocol correction.

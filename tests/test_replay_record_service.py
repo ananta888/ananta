@@ -1,10 +1,8 @@
 """Tests for ReplayRecordService — COSMOS-007."""
+
 from __future__ import annotations
 
-import pytest
-
 from agent.services.replay_record_service import (
-    ReplayAnalysis,
     ReplayRecord,
     ReplayRecordService,
 )
@@ -30,6 +28,7 @@ def _full_record(svc: ReplayRecordService) -> ReplayRecord:
 
 # ── create_record ─────────────────────────────────────────────────────────────
 
+
 def test_create_record_fields():
     svc = _service()
     rec = _full_record(svc)
@@ -48,6 +47,7 @@ def test_create_record_fields():
 
 
 # ── analyse ───────────────────────────────────────────────────────────────────
+
 
 def test_analyse_can_analyse_with_log_ref():
     svc = _service()
@@ -72,6 +72,7 @@ def test_analyse_cannot_action_replay_without_snapshot():
 
 # ── is_dry_run_safe ───────────────────────────────────────────────────────────
 
+
 def test_is_dry_run_safe_without_snapshot():
     svc = _service()
     rec = svc.create_record(
@@ -93,6 +94,7 @@ def test_is_dry_run_safe_with_snapshot():
 
 # ── mark_non_deterministic ────────────────────────────────────────────────────
 
+
 def test_mark_non_deterministic_adds_entry():
     svc = _service()
     rec = _full_record(svc)
@@ -102,6 +104,7 @@ def test_mark_non_deterministic_adds_entry():
 
 
 # ── to_dict ───────────────────────────────────────────────────────────────────
+
 
 def test_to_dict_no_nones():
     """None fields must be Python None, never the string 'None'."""
@@ -116,6 +119,7 @@ def test_to_dict_no_nones():
 
 
 # ── estimated_fidelity ────────────────────────────────────────────────────────
+
 
 def test_estimated_fidelity_decreases_with_missing():
     """A record with all refs should have higher fidelity than one with none."""

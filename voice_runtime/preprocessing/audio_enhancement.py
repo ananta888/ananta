@@ -116,10 +116,7 @@ class EnhancementVariant:
             "label": self.label,
             "parent_variant_id": self.parent_variant_id,
             "lineage": list(self.lineage),
-            "steps": [
-                step.public_dict()
-                for step in self.steps
-            ],
+            "steps": [step.public_dict() for step in self.steps],
             "time_axis": self.time_axis.as_dict(),
             "runtime_ms": self.runtime_ms,
         }

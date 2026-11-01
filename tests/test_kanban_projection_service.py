@@ -23,9 +23,7 @@ class _NoopEvents:
 
 
 def _service(engine):
-    return KanbanProjectionService(
-        store=SqlKanbanProjectionStore(engine), events=_NoopEvents()
-    )
+    return KanbanProjectionService(store=SqlKanbanProjectionStore(engine), events=_NoopEvents())
 
 
 ADMIN = KanbanPrincipal(subject="admin", role="admin", is_admin=True)
@@ -35,9 +33,7 @@ def test_projection_commands_and_idempotency(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'kanban.db'}", poolclass=NullPool)
     SQLModel.metadata.create_all(engine)
     service = _service(engine)
-    card = service.create_card(
-        "hub", CreateCardCommand(title="Task", idempotency_key="create"), ADMIN
-    )
+    card = service.create_card("hub", CreateCardCommand(title="Task", idempotency_key="create"), ADMIN)
     moved = service.move_card(
         card.id,
         MoveCardCommand(
@@ -142,9 +138,7 @@ def test_status_postcommit_runs_after_kanban_mutation_lock_release(
     )
     monkeypatch.setattr(
         "agent.services.task_runtime_service.run_external_task_status_post_commit",
-        lambda *_args, **_kwargs: postcommit_states.append(
-            lock_state["held"]
-        ),
+        lambda *_args, **_kwargs: postcommit_states.append(lock_state["held"]),
     )
     service.move_card(
         card.id,
@@ -193,9 +187,7 @@ def test_kanban_mutations_never_touch_reserved_vector_tasks(
             ),
             ADMIN,
         )
-    assert denied.value.code == (
-        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
-    )
+    assert denied.value.code == (RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON)
     assert denied.value.status_code == 403
 
     service.create_card(

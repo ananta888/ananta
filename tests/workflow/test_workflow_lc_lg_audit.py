@@ -4,18 +4,12 @@ Regression guard for the 67c3cacf fix: the shared WorkflowAuditLog used
 to accumulate events from every dry_run and execute call, leaking
 traces across tasks. Each task must now see only its own events.
 """
+
 from __future__ import annotations
 
-import pytest
-
-from agent.providers.lc_lg import (
-    LangChainProviderConfig,
-    LangGraphProviderConfig,
-)
 from worker.adapters.langchain_adapter import LangChainAdapter
 from worker.adapters.langgraph_adapter import LangGraphAdapter
 from worker.adapters.workflow_audit import WorkflowAuditLog
-
 
 # ── WorkflowAuditLog primitive ────────────────────────────────────────
 
@@ -94,8 +88,7 @@ def test_lc_execute_starts_with_clean_audit_log():
     a.dry_run(task_id="t1", task_type="rag_query", payload={"query": "x"})
     # execute with default-off provider must block; even the blocked
     # path must have a clean internal log afterwards.
-    blocked = a.execute(task_id="t2", task_type="rag_query",
-                        payload={"query": "y"})
+    blocked = a.execute(task_id="t2", task_type="rag_query", payload={"query": "y"})
     assert blocked.status == "blocked"
     # The execute-path's events are snapshot'd into the result; the
     # internal log is empty for the next call.

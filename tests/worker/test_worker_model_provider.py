@@ -35,7 +35,7 @@ def test_openai_compatible_provider_parses_chat_completion(monkeypatch) -> None:
             return None
 
         def json(self) -> dict[str, Any]:
-            return {"choices": [{"message": {"content": "{\"patch\":\"diff --git\"}"}}]}
+            return {"choices": [{"message": {"content": '{"patch":"diff --git"}'}}]}
 
     def _fake_post(*args, **kwargs):  # type: ignore[no-untyped-def]
         return _Response()

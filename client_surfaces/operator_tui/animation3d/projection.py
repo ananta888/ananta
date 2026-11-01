@@ -39,9 +39,12 @@ def perspective(v: Vertex, d: float = 8.0) -> tuple[float, float, float]:
 
 
 def map_to_viewport(
-    x: float, y: float,
-    view_width: int, view_height: int,
-    cx: float = 0.0, cy: float = 0.0,
+    x: float,
+    y: float,
+    view_width: int,
+    view_height: int,
+    cx: float = 0.0,
+    cy: float = 0.0,
     aspect: float = 0.45,
     scale: float = 1.0,
 ) -> tuple[int, int]:

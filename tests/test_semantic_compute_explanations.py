@@ -10,8 +10,12 @@ from agent.services.semantic_compute_explanation_service import (
 
 def decision(**values):
     base = {
-        "state": "active", "reason_code": "activate_accepted", "revision": 3,
-        "contract_digest": "a" * 64, "profile": "balanced", "delay_ms": 5_000,
+        "state": "active",
+        "reason_code": "activate_accepted",
+        "revision": 3,
+        "contract_digest": "a" * 64,
+        "profile": "balanced",
+        "delay_ms": 5_000,
     }
     base.update(values)
     return base
@@ -23,8 +27,14 @@ def test_identical_decisions_have_identical_redacted_explanations() -> None:
     second = service.explain(dict(reversed(list(decision().items())))).to_dict()
     assert first == second
     assert set(first) == {
-        "state", "reason_code", "message", "revision", "contract_digest",
-        "profile", "delay_ms", "authoritative_source",
+        "state",
+        "reason_code",
+        "message",
+        "revision",
+        "contract_digest",
+        "profile",
+        "delay_ms",
+        "authoritative_source",
     }
 
 

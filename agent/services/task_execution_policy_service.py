@@ -36,13 +36,21 @@ def resolve_execution_policy(
 ) -> TaskExecutionPolicyContract:
     agent_cfg = agent_cfg or {}
     explicit_fields = set(getattr(request_data, "model_fields_set", set()) or set())
-    task_kind = normalize_task_kind(getattr(request_data, "task_kind", None), getattr(request_data, "command", None) or "")
-    override_cfg = dict(request_data.retry_policy_override or {}) if isinstance(request_data.retry_policy_override, dict) else {}
+    task_kind = normalize_task_kind(
+        getattr(request_data, "task_kind", None), getattr(request_data, "command", None) or ""
+    )
+    override_cfg = (
+        dict(request_data.retry_policy_override or {}) if isinstance(request_data.retry_policy_override, dict) else {}
+    )
     task_kind_cfg = _task_kind_policy(agent_cfg, task_kind)
 
     default_timeout = max(
         1,
-        int(_policy_value(override_cfg, task_kind_cfg, agent_cfg, "timeout", "timeout_seconds", "command_timeout", default=60)),
+        int(
+            _policy_value(
+                override_cfg, task_kind_cfg, agent_cfg, "timeout", "timeout_seconds", "command_timeout", default=60
+            )
+        ),
     )
     default_retries = max(
         0,

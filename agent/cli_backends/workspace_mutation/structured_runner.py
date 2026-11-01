@@ -15,6 +15,7 @@ deployments that do not configure it keep their previous behaviour.
 Signature compatible with the ``llm_runner`` seam of
 ``run_ananta_worker_workspace_mutation``: it returns ``(rc, out, err)``.
 """
+
 from __future__ import annotations
 
 import json
@@ -155,9 +156,7 @@ def _resolve_base_url() -> str | None:
 
     from agent.local_llm_backends import resolve_local_openai_backend
 
-    local = resolve_local_openai_backend(
-        provider, agent_cfg=agent_cfg, provider_urls=provider_urls
-    )
+    local = resolve_local_openai_backend(provider, agent_cfg=agent_cfg, provider_urls=provider_urls)
     local_url = _normalize_openai_base_url((local or {}).get("base_url"))
     if local_url:
         return local_url
@@ -176,9 +175,7 @@ def _resolve_model(model: str | None) -> str | None:
         model,
         agent_cfg.get("default_model"),
         agent_cfg.get("model"),
-        (agent_cfg.get("llm_config") or {}).get("model")
-        if isinstance(agent_cfg.get("llm_config"), dict)
-        else None,
+        (agent_cfg.get("llm_config") or {}).get("model") if isinstance(agent_cfg.get("llm_config"), dict) else None,
         settings.default_model,
     ]
     for candidate in candidates:

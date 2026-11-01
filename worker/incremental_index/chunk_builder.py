@@ -60,8 +60,7 @@ def _record(path: str, chunk: Chunk, record_id: str, file_sha: str) -> dict[str,
 
 
 def _tombstone(path: str, record_id: str) -> dict[str, Any]:
-    return {"id": record_id, "artifact_type": ARTIFACT_KIND, "operation": "tombstone", "tombstone": True,
-            "path": path}
+    return {"id": record_id, "artifact_type": ARTIFACT_KIND, "operation": "tombstone", "tombstone": True, "path": path}
 
 
 class ChunkLayerBuilder:

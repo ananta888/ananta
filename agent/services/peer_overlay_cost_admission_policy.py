@@ -104,9 +104,7 @@ class PeerOverlayCostAdmissionPolicy:
         if not isinstance(raw_profiles, Mapping) or not isinstance(raw_tenants, Mapping):
             raise ValueError("peer_overlay_cost_config_invalid")
         profiles = {
-            require_overlay_id(profile_id, "profile_id"): PeerOverlayCostBudget(
-                profile_id=str(profile_id), **dict(raw)
-            )
+            require_overlay_id(profile_id, "profile_id"): PeerOverlayCostBudget(profile_id=str(profile_id), **dict(raw))
             for profile_id, raw in raw_profiles.items()
             if isinstance(raw, Mapping)
         }
@@ -167,15 +165,19 @@ class PeerOverlayCostAdmissionPolicy:
                 0,
                 0,
             )
-        measured = observation if isinstance(observation, PeerOverlayCostObservation) else PeerOverlayCostObservation(
-            **dict(
-                observation
-                or {
-                    "tenant_id": tenant,
-                    "window_started_at_seconds": 0,
-                    "turn_egress_bytes": 0,
-                    "peer_relay_egress_bytes": 0,
-                }
+        measured = (
+            observation
+            if isinstance(observation, PeerOverlayCostObservation)
+            else PeerOverlayCostObservation(
+                **dict(
+                    observation
+                    or {
+                        "tenant_id": tenant,
+                        "window_started_at_seconds": 0,
+                        "turn_egress_bytes": 0,
+                        "peer_relay_egress_bytes": 0,
+                    }
+                )
             )
         )
         if measured.tenant_id != tenant:
@@ -194,16 +196,12 @@ class PeerOverlayCostAdmissionPolicy:
             )
         projected_turn = measured.turn_egress_bytes + turn_edges * budget.reserved_turn_egress_bytes_per_edge
         projected_peer = (
-            measured.peer_relay_egress_bytes
-            + peer_relay_edges * budget.reserved_peer_relay_egress_bytes_per_edge
+            measured.peer_relay_egress_bytes + peer_relay_edges * budget.reserved_peer_relay_egress_bytes_per_edge
         )
         reason = "peer_overlay_cost_admitted"
         if turn_edges > budget.max_turn_edges or projected_turn > budget.max_turn_egress_bytes:
             reason = "peer_overlay_turn_quota_exceeded"
-        elif (
-            peer_relay_edges > budget.max_peer_relay_edges
-            or projected_peer > budget.max_peer_relay_egress_bytes
-        ):
+        elif peer_relay_edges > budget.max_peer_relay_edges or projected_peer > budget.max_peer_relay_egress_bytes:
             reason = "peer_overlay_peer_relay_quota_exceeded"
         return self._decision(
             reason == "peer_overlay_cost_admitted",

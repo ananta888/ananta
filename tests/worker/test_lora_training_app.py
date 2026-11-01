@@ -261,9 +261,7 @@ def test_cleanup_preserves_the_worker_reason_code() -> None:
     )
 
     assert response.status_code == 422
-    assert response.get_json()["error"]["code"] == (
-        "cleanup_artifact_hash_mismatch"
-    )
+    assert response.get_json()["error"]["code"] == ("cleanup_artifact_hash_mismatch")
 
 
 def test_request_size_media_type_pagination_and_not_found_are_bounded() -> None:

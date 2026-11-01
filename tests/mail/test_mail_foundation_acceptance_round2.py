@@ -36,16 +36,23 @@ def _record(*, uid: int, message_id: str = "", content_hash: str = "", size: int
 
 def test_dedupe_is_conservative_for_missing_and_duplicate_message_ids() -> None:
     existing = [_record(uid=1, message_id="<same>", content_hash="h", size=10)]
-    assert MailLegacyMapper.classify_match(
-        _record(uid=2, message_id="", content_hash="h", size=10), existing
-    ).outcome == "unmatched"
+    assert (
+        MailLegacyMapper.classify_match(_record(uid=2, message_id="", content_hash="h", size=10), existing).outcome
+        == "unmatched"
+    )
     duplicate = existing + [_record(uid=3, message_id="<same>", content_hash="h", size=10)]
-    assert MailLegacyMapper.classify_match(
-        _record(uid=4, message_id="<same>", content_hash="h", size=10), duplicate
-    ).outcome == "ambiguous"
-    assert MailLegacyMapper.classify_match(
-        _record(uid=5, message_id="<same>", content_hash="h", size=10), existing
-    ).outcome == "matched"
+    assert (
+        MailLegacyMapper.classify_match(
+            _record(uid=4, message_id="<same>", content_hash="h", size=10), duplicate
+        ).outcome
+        == "ambiguous"
+    )
+    assert (
+        MailLegacyMapper.classify_match(
+            _record(uid=5, message_id="<same>", content_hash="h", size=10), existing
+        ).outcome
+        == "matched"
+    )
 
 
 def test_locator_alias_table_is_persisted_versioned_and_conflict_safe(tmp_path: Path) -> None:
@@ -54,12 +61,15 @@ def test_locator_alias_table_is_persisted_versioned_and_conflict_safe(tmp_path: 
     store.upsert_message(message_ref=first.message_ref, metadata=first.metadata)
     aliases = store.list_locator_aliases(mail_ref_id=first.message_ref.mail_ref_id)
     assert aliases[0].alias_version >= 1
-    assert store.resolve_locator(
-        account_id="a",
-        protocol="imap",
-        protocol_locator={"mailbox": "INBOX", "uid": 1},
-        locator_version=1,
-    ) == first.message_ref.mail_ref_id
+    assert (
+        store.resolve_locator(
+            account_id="a",
+            protocol="imap",
+            protocol_locator={"mailbox": "INBOX", "uid": 1},
+            locator_version=1,
+        )
+        == first.message_ref.mail_ref_id
+    )
     conflicting = MailMessageRefV2(
         stable_mail_ref_id(account_id="a", protocol="imap", stable_identity="different"),
         "a",

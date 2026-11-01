@@ -8,9 +8,7 @@ sub-modules in turn need these constants).
 
 from __future__ import annotations
 
-import re
-from typing import Any, Pattern
-
+from typing import Any
 
 REPAIR_PATH_TARGET_MODEL: dict[str, Any] = {
     "model_id": "deterministic_repair_path_v1",
@@ -556,7 +554,3 @@ TEST_COVERAGE_MODEL: dict[str, Any] = {
 }
 
 STANDARD_OUTCOME_LABELS: tuple[str, ...] = ("succeeded", "partially_helped", "failed", "regressed")
-
-
-
-

@@ -11,6 +11,7 @@ See:
 - .hermes/plans/decouple-sgpt-from-services.md
 - todos/todo.sgpt-decouple-from-services.json
 """
+
 from __future__ import annotations
 
 __all__ = [

@@ -3,21 +3,19 @@ import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
-from flask import current_app, request
-from sqlmodel import Session, select, func
+from flask import current_app
+from sqlmodel import Session, func, select
 
+import agent.routes.tasks.goals_blueprint as _goals_mod
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.config import settings
 from agent.planning_reason_codes import (
     PLANNING_BACKGROUND_TIMEOUT,
     PLANNING_SLOT_TIMEOUT,
 )
 from agent.routes.tasks.goals_blueprint import goals_bp
 from agent.routes.tasks.goals_helpers import (
-    _can_access_goal,
-    _goal_service,
     _GOAL_ACTIVE_PLANNING_IDS,
     _GOAL_ACTIVE_PLANNING_LOCK,
     _is_admin_request,
@@ -27,7 +25,6 @@ from agent.routes.tasks.goals_helpers import (
     _repos,
     _services,
 )
-import agent.routes.tasks.goals_blueprint as _goals_mod
 
 _PLANNING_LEASE_TTL_S = 90
 
@@ -38,10 +35,9 @@ def planning_health():
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
 
-    from sqlmodel import Session, select, func
     from agent.database import engine
     from agent.db_models import GoalDB as _GoalDB
-    from agent.llm_integration import get_circuit_breaker_state, get_rate_limit_state, get_provider_error_rate
+    from agent.llm_integration import get_circuit_breaker_state, get_provider_error_rate, get_rate_limit_state
 
     now = time.time()
     stale_count = 0
@@ -54,6 +50,7 @@ def planning_health():
 
     try:
         from sqlalchemy import text as _text
+
         with Session(engine) as session:
             for status_val, count in session.exec(
                 select(_GoalDB.status, func.count(_GoalDB.id))
@@ -67,7 +64,7 @@ def planning_health():
             stale_count = session.exec(
                 select(func.count(_GoalDB.id)).where(
                     _GoalDB.status.in_(["planning_running", "planning_queued"]),
-                    _GoalDB.planning_lease_expires_at != None,
+                    _GoalDB.planning_lease_expires_at is not None,
                     _GoalDB.planning_lease_expires_at < now,
                 )
             ).one()
@@ -90,7 +87,7 @@ def planning_health():
                         " GROUP BY profile, status"
                     )
                 ).all()
-                for (profile, status_val, cnt) in profile_rows:
+                for profile, status_val, cnt in profile_rows:
                     key = str(profile or "unknown")
                     if key not in by_profile:
                         by_profile[key] = {"running": 0, "queued": 0}
@@ -108,28 +105,30 @@ def planning_health():
         slots_available = _goals_mod._PLANNING_SLOTS._value if _goals_mod._PLANNING_SLOTS is not None else slot_capacity
 
     agent_cfg = current_app.config.get("AGENT_CONFIG") or {}
-    lmstudio_cfg = (agent_cfg.get("llm_config") or {})
+    lmstudio_cfg = agent_cfg.get("llm_config") or {}
     provider = str(lmstudio_cfg.get("provider") or agent_cfg.get("default_provider") or "unknown")
 
-    return api_response(data={
-        "planning_slots": {
-            "capacity": slot_capacity,
-            "available": int(slots_available),
-            "in_use": max(0, slot_capacity - int(slots_available)),
-        },
-        "goals": {
-            "queued": queued_count,
-            "running": running_count,
-            "stale_expired_lease": int(stale_count),
-        },
-        "running_ages_s": running_ages_s,
-        "oldest_queued_age_s": oldest_queued_age_s,
-        "circuit_breaker": get_circuit_breaker_state(provider),
-        "rate_limit": get_rate_limit_state(provider),
-        "provider_error_rate": get_provider_error_rate(provider),
-        "by_profile": by_profile,
-        "timestamp": now,
-    })
+    return api_response(
+        data={
+            "planning_slots": {
+                "capacity": slot_capacity,
+                "available": int(slots_available),
+                "in_use": max(0, slot_capacity - int(slots_available)),
+            },
+            "goals": {
+                "queued": queued_count,
+                "running": running_count,
+                "stale_expired_lease": int(stale_count),
+            },
+            "running_ages_s": running_ages_s,
+            "oldest_queued_age_s": oldest_queued_age_s,
+            "circuit_breaker": get_circuit_breaker_state(provider),
+            "rate_limit": get_rate_limit_state(provider),
+            "provider_error_rate": get_provider_error_rate(provider),
+            "by_profile": by_profile,
+            "timestamp": now,
+        }
+    )
 
 
 @goals_bp.route("/goals/planning/recover-stale", methods=["POST"])
@@ -138,6 +137,7 @@ def planning_recover_stale():
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     from agent.routes.tasks.goals_helpers import _cancel_stale_planning_goals
+
     cancelled = _cancel_stale_planning_goals(actor="recover_stale_api")
     return api_response(data={"cancelled": cancelled, "actor": "recover_stale_api"})
 
@@ -157,7 +157,9 @@ def _planning_slot_capacity_from_config() -> int:
 
 
 def _acquire_planning_slot(*, timeout_s: int, capacity: int | None = None) -> tuple[bool, int]:
-    normalized_capacity = _normalize_planning_slot_capacity(capacity) if capacity is not None else _planning_slot_capacity_from_config()
+    normalized_capacity = (
+        _normalize_planning_slot_capacity(capacity) if capacity is not None else _planning_slot_capacity_from_config()
+    )
     with _goals_mod._PLANNING_SLOTS_LOCK:
         if _goals_mod._PLANNING_SLOTS is None or _goals_mod._PLANNING_SLOTS_CAPACITY != normalized_capacity:
             _goals_mod._PLANNING_SLOTS = threading.Semaphore(normalized_capacity)
@@ -176,7 +178,9 @@ def _release_planning_slot() -> None:
 
 def _set_planning_lease(goal_id: str, ttl_s: int = _PLANNING_LEASE_TTL_S) -> None:
     from sqlalchemy import text
+
     from agent.database import engine
+
     try:
         now = time.time()
         with engine.begin() as conn:
@@ -201,7 +205,9 @@ def _set_planning_lease(goal_id: str, ttl_s: int = _PLANNING_LEASE_TTL_S) -> Non
 
 def _clear_planning_lease(goal_id: str) -> None:
     from sqlalchemy import text
+
     from agent.database import engine
+
     try:
         now = time.time()
         with engine.begin() as conn:
@@ -223,7 +229,9 @@ def _clear_planning_lease(goal_id: str) -> None:
             pass
 
 
-def _start_planning_heartbeat(*, goal_id: str, stop_event: threading.Event, interval_s: int = _PLANNING_LEASE_TTL_S // 2) -> threading.Thread:
+def _start_planning_heartbeat(
+    *, goal_id: str, stop_event: threading.Event, interval_s: int = _PLANNING_LEASE_TTL_S // 2
+) -> threading.Thread:
     def _beat() -> None:
         while not stop_event.wait(timeout=max(5, interval_s)):
             _set_planning_lease(goal_id, ttl_s=_PLANNING_LEASE_TTL_S)
@@ -235,6 +243,7 @@ def _start_planning_heartbeat(*, goal_id: str, stop_event: threading.Event, inte
 
 def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) -> None:
     from agent.services.planning_timeout_service import get_planning_timeout_service
+
     get_planning_timeout_service().start_deadline_guard(
         goal_id=goal_id,
         timeout_s=timeout_s,
@@ -250,15 +259,8 @@ def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any], app:
 
 def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any]) -> None:
     from agent.routes.tasks.goals import _plan_quality_from_task_ids
-    from agent.routes.tasks.goals_helpers import (
-        _cancel_stale_planning_goals,
-        _is_soft_planning_quality_failure,
-        _looks_like_software_goal,
-        _mark_started_planning_runs_failed,
-        _services,
-    )
-    from agent.services.planning_singleflight_service import get_planning_singleflight_service
     from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+    from agent.services.planning_singleflight_service import get_planning_singleflight_service
     from agent.services.product_event_service import record_product_event
 
     planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
@@ -277,25 +279,30 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             return
         readiness = dict(context.get("readiness") or {})
         from agent.routes.tasks.auto_planner import auto_planner
+
         effective = dict(context.get("effective") or {})
         overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
 
         _live_planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
-        goal_scoped_cfg = get_goal_config_runtime_service().get_effective_config(
-            goal_id=goal_record.id,
-            task_id=None,
-        ).config
+        goal_scoped_cfg = (
+            get_goal_config_runtime_service()
+            .get_effective_config(
+                goal_id=goal_record.id,
+                task_id=None,
+            )
+            .config
+        )
         goal_scoped_planning_policy = (
-            (goal_scoped_cfg or {}).get("planning_policy")
-            if isinstance(goal_scoped_cfg, dict)
-            else None
+            (goal_scoped_cfg or {}).get("planning_policy") if isinstance(goal_scoped_cfg, dict) else None
         )
         _resolved_pp = goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy
         _pp_timeout = _resolved_pp.get("timeout_seconds")
         _pp_queue_wait = _resolved_pp.get("queue_wait_timeout_seconds")
         _pp_parallel = _resolved_pp.get("parallel_goal_planning_max_concurrency")
         planning_execute_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
-        planning_queue_wait_timeout_s = int(max(10, _pp_queue_wait if _pp_queue_wait is not None else planning_execute_timeout_s))
+        planning_queue_wait_timeout_s = int(
+            max(10, _pp_queue_wait if _pp_queue_wait is not None else planning_execute_timeout_s)
+        )
         outer_planning_timeout_s = planning_execute_timeout_s + 45
         planning_parallel_slots = _normalize_planning_slot_capacity(_pp_parallel)
         app_obj = current_app._get_current_object()
@@ -468,7 +475,11 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             record_product_event(
                 "goal_planning_failed",
                 actor="auto_planner",
-                details={"reason": str(result.get("error") or "planning_failed"), "source": goal_record.source, "mode": goal_record.mode},
+                details={
+                    "reason": str(result.get("error") or "planning_failed"),
+                    "source": goal_record.source,
+                    "mode": goal_record.mode,
+                },
                 goal_id=goal_record.id,
                 trace_id=goal_record.trace_id,
                 plan_id=result.get("plan_id"),
@@ -535,7 +546,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             )
             return
 
-        if create_tasks_enabled and software_goal and not quality_ok and not _is_soft_planning_quality_failure(quality_reason=quality_reason):
+        if (
+            create_tasks_enabled
+            and software_goal
+            and not quality_ok
+            and not _is_soft_planning_quality_failure(quality_reason=quality_reason)
+        ):
             quality_parts = [part.strip() for part in str(quality_reason or "").split("|") if part.strip()]
             missing_task_kinds: list[str] = []
             for part in quality_parts:
@@ -573,7 +589,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                         quality_ok = retry_quality_ok
                         quality_reason = retry_quality_reason
 
-        if create_tasks_enabled and software_goal and not quality_ok and not _is_soft_planning_quality_failure(quality_reason=quality_reason):
+        if (
+            create_tasks_enabled
+            and software_goal
+            and not quality_ok
+            and not _is_soft_planning_quality_failure(quality_reason=quality_reason)
+        ):
             quality_parts = [part.strip() for part in str(quality_reason or "").split("|") if part.strip()]
             error_codes = [part for part in quality_parts if ":" not in part]
             missing_task_kinds: list[str] = []
@@ -634,6 +655,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 security_level="balanced",
             )
             from agent.routes.tasks.autopilot import autonomous_loop
+
             autonomous_loop.wake()
         except Exception:
             pass

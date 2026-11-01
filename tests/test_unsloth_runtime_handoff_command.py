@@ -95,7 +95,9 @@ def _payload(*, artifact_sha256: str = "a" * 64):
 
 
 def test_confirmation_binds_every_runtime_handoff_field(tmp_path) -> None:
-    clock = lambda: 1_800_000_000
+    def clock():
+        return 1_800_000_000
+
     service = UnslothMutationCommandService(
         executors={"runtime_handoff": _RuntimeExecutor()},
         ledger=SqliteUnslothMutationLedger(

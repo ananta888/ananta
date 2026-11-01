@@ -151,15 +151,8 @@ class AutopilotWorkerForwarder:
         resolved_token = token
         hub_url = str(getattr(settings, "hub_url", "") or "").strip().rstrip("/")
         is_step_endpoint = endpoint.startswith("/tasks/") and "/step/" in endpoint
-        recovery_fenced = bool(
-            str((payload or {}).get("dispatch_lease_token") or "").strip()
-        )
-        if (
-            settings.role == "hub"
-            and is_step_endpoint
-            and hub_url
-            and not recovery_fenced
-        ):
+        recovery_fenced = bool(str((payload or {}).get("dispatch_lease_token") or "").strip())
+        if settings.role == "hub" and is_step_endpoint and hub_url and not recovery_fenced:
             # Task-scoped step endpoints are hub-owned (task state + routing context).
             # Hub may delegate internals further, but the API contract lives here.
             hub_token = resolve_configured_agent_token(self._app_config_provider())
@@ -323,9 +316,7 @@ class AutopilotWorkerForwarder:
                             jitter_factor=cfg["retry_jitter_factor"],
                         )
                     if transport_deadline is not None:
-                        remaining = (
-                            transport_deadline.remaining_seconds()
-                        )
+                        remaining = transport_deadline.remaining_seconds()
                         if remaining <= delay:
                             last_exc = WorkerForwardDeadlineExceeded()
                             break

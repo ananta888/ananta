@@ -3,6 +3,7 @@
 Used during migration when Hub state disagrees with existing valid artifacts.
 Requires audit and permission; never exposes a blind mark-completed shortcut.
 """
+
 from __future__ import annotations
 
 import logging
@@ -146,6 +147,7 @@ class ArtifactReconciliationService:
         )
 
         from agent.services.task_runtime_service import update_local_task_status
+
         update_local_task_status(
             task_id,
             final_status,
@@ -170,7 +172,9 @@ class ArtifactReconciliationService:
         )
         log.info(
             "ArtifactReconciliationService: task %s reconciled to %s by %s",
-            task_id, final_status, actor,
+            task_id,
+            final_status,
+            actor,
         )
         return {
             "applied": True,

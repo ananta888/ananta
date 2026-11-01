@@ -1,4 +1,5 @@
 """Side-effect-free Tiny Router observation for delegated AI-Snake requests."""
+
 from __future__ import annotations
 
 from typing import Any, Mapping

@@ -47,4 +47,3 @@ def test_codecompass_prompt_assembly_separates_trusted_and_untrusted_context():
     assert "[UNTRUSTED_DATA:ignore_previous_instructions]" in prompt
     assert metadata["quoted_untrusted_chunks"] == 1
     assert metadata["retrieval_trace_present"] is True
-

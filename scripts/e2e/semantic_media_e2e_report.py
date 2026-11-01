@@ -30,7 +30,6 @@ from scripts.e2e.semantic_media_e2e_summary import (
     _summarize_reports,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 _private_runtime_host = private_runtime_host
 
@@ -172,8 +171,7 @@ def _playwright_project_environment(
         environment["E2E_BROWSERS"] = ",".join(required_browsers)
     _configure_isolated_ports(environment)
     environment["CORS_ORIGINS"] = str(
-        environment.get("E2E_FRONTEND_URL")
-        or f"http://127.0.0.1:{environment['E2E_PORT']}"
+        environment.get("E2E_FRONTEND_URL") or f"http://127.0.0.1:{environment['E2E_PORT']}"
     )
     environment["E2E_DATA_ROOT"] = str(run_directory / "data")
     environment["E2E_PID_FILE"] = str(run_directory / "services.json")

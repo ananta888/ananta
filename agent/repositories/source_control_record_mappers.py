@@ -60,17 +60,11 @@ def epoch_datetime(epoch: float) -> datetime:
 
 
 def require_sha256_digest(value: str) -> None:
-    if len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
-    ):
-        raise SourceControlPersistenceError(
-            "source_control_digest_invalid"
-        )
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise SourceControlPersistenceError("source_control_digest_invalid")
 
 
-def new_connection_row(
-    contract: SourceConnection, *, now: float
-) -> SourceConnectionDB:
+def new_connection_row(contract: SourceConnection, *, now: float) -> SourceConnectionDB:
     return SourceConnectionDB(
         connection_id=contract.connection_id,
         tenant_id=contract.tenant_id,
@@ -126,18 +120,14 @@ def selector_binding(
         project_id=row.project_id,
         owner_id=row.owner_id,
         public_connector_type=row.public_connector_type,
-        implementation_connector_type=(
-            row.implementation_connector_type
-        ),
+        implementation_connector_type=(row.implementation_connector_type),
         selector_kind=row.selector_kind,
         selector_id=row.selector_id,
         relative_path=row.relative_path,
         repository_identifier=row.repository_identifier,
     )
     if binding.binding_digest != row.binding_digest:
-        raise SourceControlPersistenceError(
-            "source_control_connection_selector_digest_mismatch"
-        )
+        raise SourceControlPersistenceError("source_control_connection_selector_digest_mismatch")
     return binding
 
 

@@ -38,15 +38,23 @@ class DialogNetworkCleanup:
         # Exact immutable ID, not a prefix/name scan or global prune. An already
         # removed network is success; a new network with the same name is not ours.
         present = self.command(
-            "network", "ls", "--no-trunc", "--filter", "id=" + self.identifier, "--format", "{{.ID}}",
+            "network",
+            "ls",
+            "--no-trunc",
+            "--filter",
+            "id=" + self.identifier,
+            "--format",
+            "{{.ID}}",
         )
         if present:
             if present != self.identifier:
                 raise ValueError("test_network_cleanup_identity_invalid")
             info = json.loads(self.command("network", "inspect", self.identifier))[0]
             if (
-                info.get("Id") != self.identifier or info.get("Name") != self.name
-                or info.get("Internal") is not True or info.get("Driver") != "bridge"
+                info.get("Id") != self.identifier
+                or info.get("Name") != self.name
+                or info.get("Internal") is not True
+                or info.get("Driver") != "bridge"
                 or info.get("Containers") != {}
             ):
                 raise ValueError("test_network_cleanup_not_owned_empty_network")

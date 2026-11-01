@@ -44,17 +44,26 @@ class TestVisualGuideBroadcast:
         broadcasts = []
         appended = []
 
-        with patch("agent.services.visual_guide.service._visual_session_settings",
-                   return_value=_fake_pug_settings(enabled=True, candidates=1)), \
-             patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message",
-                   side_effect=lambda **kw: appended.append(kw)), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event",
-                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
-
-            with patch.object(svc, "_call_llm_for_ui_tick",
-                               return_value='Hallo\n\n__GUIDE__:{"steps":[{"waypoint":"btn.ok","bubble":"OK","delay_ms":2000}]}'):
+        with (
+            patch(
+                "agent.services.visual_guide.service._visual_session_settings",
+                return_value=_fake_pug_settings(enabled=True, candidates=1),
+            ),
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch(
+                "agent.services.visual_guide.service._append_room_ai_message",
+                side_effect=lambda **kw: appended.append(kw),
+            ),
+            patch(
+                "agent.services.visual_guide.service._broadcast_snake_event",
+                side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl)),
+            ),
+        ):
+            with patch.object(
+                svc,
+                "_call_llm_for_ui_tick",
+                return_value='Hallo\n\n__GUIDE__:{"steps":[{"waypoint":"btn.ok","bubble":"OK","delay_ms":2000}]}',
+            ):
                 svc.handle_ui_tick("snake-a", "snapshot", "/test-page", [])
 
         assert len(appended) == 1
@@ -72,19 +81,23 @@ class TestVisualGuideBroadcast:
         svc = VisualGuideService()
         broadcasts = []
 
-        with patch("agent.services.visual_guide.service._visual_session_settings",
-                   return_value=_fake_pug_settings(enabled=True, candidates=3)), \
-             patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message"), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event",
-                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
-
+        with (
+            patch(
+                "agent.services.visual_guide.service._visual_session_settings",
+                return_value=_fake_pug_settings(enabled=True, candidates=3),
+            ),
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch("agent.services.visual_guide.service._append_room_ai_message"),
+            patch(
+                "agent.services.visual_guide.service._broadcast_snake_event",
+                side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl)),
+            ),
+        ):
             answer = (
-                '__CANDIDATES__:['
+                "__CANDIDATES__:["
                 '{"label":"primary","bubble":"Hauptvorschlag","steps":[{"waypoint":"a","bubble":"A"}]},'
                 '{"label":"alt-1","bubble":"Alternative","steps":[{"waypoint":"b","bubble":"B"}]}'
-                ']'
+                "]"
             )
             with patch.object(svc, "_call_llm_for_ui_tick", return_value=answer):
                 svc.handle_ui_tick("snake-b", "snapshot", "/test-page", [])
@@ -102,17 +115,22 @@ class TestVisualGuideBroadcast:
         svc = VisualGuideService()
         broadcasts = []
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message"), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event",
-                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
-
-            with patch.object(svc, "_call_llm_for_region_explain",
-                               return_value=["Erklärung"]):
-                svc.handle_region_explain("snake-c", [
-                    {"bubble": "Button", "x": 100.0, "y": 200.0, "waypoint": "btn.ok"},
-                ], "/page")
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch("agent.services.visual_guide.service._append_room_ai_message"),
+            patch(
+                "agent.services.visual_guide.service._broadcast_snake_event",
+                side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl)),
+            ),
+        ):
+            with patch.object(svc, "_call_llm_for_region_explain", return_value=["Erklärung"]):
+                svc.handle_region_explain(
+                    "snake-c",
+                    [
+                        {"bubble": "Button", "x": 100.0, "y": 200.0, "waypoint": "btn.ok"},
+                    ],
+                    "/page",
+                )
 
         assert len(broadcasts) == 1
         sid, etype, payload = broadcasts[0]
@@ -194,17 +212,22 @@ class TestRegionExplainReadableSummary:
         svc = VisualGuideService()
         appended_texts: list[str] = []
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message",
-                   side_effect=lambda **kw: appended_texts.append(kw["text"])), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event"):
-
-            with patch.object(svc, "_call_llm_for_region_explain",
-                               return_value=["Erklärung"]):
-                svc.handle_region_explain("snake-x", [
-                    {"bubble": "Button", "x": 50.0, "y": 80.0, "waypoint": "btn.save"},
-                ], "/settings")
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch(
+                "agent.services.visual_guide.service._append_room_ai_message",
+                side_effect=lambda **kw: appended_texts.append(kw["text"]),
+            ),
+            patch("agent.services.visual_guide.service._broadcast_snake_event"),
+        ):
+            with patch.object(svc, "_call_llm_for_region_explain", return_value=["Erklärung"]):
+                svc.handle_region_explain(
+                    "snake-x",
+                    [
+                        {"bubble": "Button", "x": 50.0, "y": 80.0, "waypoint": "btn.save"},
+                    ],
+                    "/settings",
+                )
 
         assert len(appended_texts) == 1
         text = appended_texts[0]
@@ -219,16 +242,22 @@ class TestRegionExplainReadableSummary:
         svc = VisualGuideService()
         appended_texts: list[str] = []
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message",
-                   side_effect=lambda **kw: appended_texts.append(kw["text"])), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event"), \
-             patch.object(RuleEngine, "lookup_region_step", return_value="Tipp für den Button"):
-
-            svc.handle_region_explain("snake-x", [
-                {"bubble": "Button", "x": 50.0, "y": 80.0, "waypoint": "btn.save"},
-            ], "/settings")
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch(
+                "agent.services.visual_guide.service._append_room_ai_message",
+                side_effect=lambda **kw: appended_texts.append(kw["text"]),
+            ),
+            patch("agent.services.visual_guide.service._broadcast_snake_event"),
+            patch.object(RuleEngine, "lookup_region_step", return_value="Tipp für den Button"),
+        ):
+            svc.handle_region_explain(
+                "snake-x",
+                [
+                    {"bubble": "Button", "x": 50.0, "y": 80.0, "waypoint": "btn.save"},
+                ],
+                "/settings",
+            )
 
         assert len(appended_texts) == 1
         text = appended_texts[0]
@@ -246,15 +275,21 @@ class TestHandleManualGuide:
         svc = VisualGuideService()
         broadcasts: list[tuple] = []
         appended_texts: list[str] = []
-        llm_answer = 'Hier ist dein Guide.\n\n__GUIDE__:{"steps":[{"waypoint":"btn.ok","bubble":"Klick hier","delay_ms":2000}]}'
+        llm_answer = (
+            'Hier ist dein Guide.\n\n__GUIDE__:{"steps":[{"waypoint":"btn.ok","bubble":"Klick hier","delay_ms":2000}]}'
+        )
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message",
-                   side_effect=lambda **kw: appended_texts.append(kw["text"])), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event",
-                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
-
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch(
+                "agent.services.visual_guide.service._append_room_ai_message",
+                side_effect=lambda **kw: appended_texts.append(kw["text"]),
+            ),
+            patch(
+                "agent.services.visual_guide.service._broadcast_snake_event",
+                side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl)),
+            ),
+        ):
             with patch.object(svc, "_call_llm_for_manual_guide", return_value=llm_answer):
                 svc.handle_manual_guide("snake-m", "Zeige mir den Speichern-Button", snapshot="", route="/page")
 
@@ -274,12 +309,14 @@ class TestHandleManualGuide:
         svc = VisualGuideService()
         broadcasts: list[tuple] = []
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message"), \
-             patch("agent.services.visual_guide.service._broadcast_snake_event",
-                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
-
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch("agent.services.visual_guide.service._append_room_ai_message"),
+            patch(
+                "agent.services.visual_guide.service._broadcast_snake_event",
+                side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl)),
+            ),
+        ):
             with patch.object(svc, "_call_llm_for_manual_guide", return_value="Ich weiß es leider nicht."):
                 svc.handle_manual_guide("snake-m", "Unbekannter Intent", snapshot="", route="")
 
@@ -290,10 +327,10 @@ class TestHandleManualGuide:
 
         svc = VisualGuideService()
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message") as mock_append:
-
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch("agent.services.visual_guide.service._append_room_ai_message") as mock_append,
+        ):
             svc.handle_manual_guide("snake-m", intent="")
 
         mock_append.assert_not_called()
@@ -304,10 +341,13 @@ class TestHandleManualGuide:
         svc = VisualGuideService()
         appended: list[dict] = []
 
-        with patch("agent.services.visual_guide.service._background_threads_disabled",
-                   return_value=False), \
-             patch("agent.services.visual_guide.service._append_room_ai_message",
-                   side_effect=lambda **kw: appended.append(kw)):
+        with (
+            patch("agent.services.visual_guide.service._background_threads_disabled", return_value=False),
+            patch(
+                "agent.services.visual_guide.service._append_room_ai_message",
+                side_effect=lambda **kw: appended.append(kw),
+            ),
+        ):
             # Exhaust rate limit
             for _ in range(10):
                 svc._rate_limit_timestamps["snake-rl"] = [9e9] * 10

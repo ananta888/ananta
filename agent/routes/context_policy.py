@@ -6,10 +6,10 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from agent.auth import admin_required, check_auth
-from agent.services.context_access_policy_service import ContextAccessPolicyService
-from ananta_contracts.context_access_policy import ContextAccessPolicy, ContextAccessRule
 from agent.routes.source_control_access import authorize_route_request
+from agent.services.context_access_policy_service import ContextAccessPolicyService
 from agent.services.source_control_access_policy import SourceControlAction
+from ananta_contracts.context_access_policy import ContextAccessPolicy, ContextAccessRule
 
 context_policy_bp = Blueprint("context_policy", __name__, url_prefix="/api/context-policy")
 policy_service = ContextAccessPolicyService()
@@ -20,11 +20,7 @@ policy_service = ContextAccessPolicyService()
 def _authorize_context_policy_surface():
     endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
     policy_id = str((request.view_args or {}).get("policy_id") or "").strip()
-    resource = (
-        policy_service.get_latest_policy(policy_id)
-        if policy_id
-        else {}
-    )
+    resource = policy_service.get_latest_policy(policy_id) if policy_id else {}
     return authorize_route_request(
         action=SourceControlAction.policy,
         resource_kind="context_policy",
@@ -58,11 +54,7 @@ def _policy_from_payload(data: dict[str, Any], *, temporary: bool) -> ContextAcc
     if not isinstance(rules_payload, list):
         raise ValueError("context_policy_rules_invalid")
     return ContextAccessPolicy(
-        policy_id=(
-            str(data.get("policy_id") or "temporary-validation")
-            if temporary
-            else str(data["policy_id"])
-        ),
+        policy_id=(str(data.get("policy_id") or "temporary-validation") if temporary else str(data["policy_id"])),
         version=data.get("version", 1),
         scope=data.get("scope", "project"),
         rules=[ContextAccessRule(**rule) for rule in rules_payload],

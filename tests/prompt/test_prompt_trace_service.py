@@ -1,10 +1,9 @@
 """Unit tests for PromptTraceService, Storage, and model. PTI-027."""
+
 from __future__ import annotations
 
 import hashlib
-import json
 import os
-import tempfile
 import time
 
 import pytest
@@ -13,6 +12,7 @@ import pytest
 @pytest.fixture
 def tmp_svc(tmp_path):
     from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
     storage = PromptTraceStorage(data_dir=str(tmp_path))
     return PromptTraceService(storage=storage)
 
@@ -79,6 +79,7 @@ class TestPromptTraceModel:
 
     def test_to_dict_roundtrip(self, tmp_svc):
         from agent.services.prompt_trace_service import PromptTrace
+
         trace = tmp_svc.create_trace(provider="lmstudio", model="m", prompt="round trip")
         d = trace.to_dict()
         restored = PromptTrace.from_dict(d)
@@ -89,6 +90,7 @@ class TestPromptTraceModel:
 class TestPromptTraceStorage:
     def test_jsonl_storage_append_and_get(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -103,6 +105,7 @@ class TestPromptTraceStorage:
 
     def test_list_returns_newest_first(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -119,7 +122,7 @@ class TestPromptTraceStorage:
 
     def test_corrupted_jsonl_line_is_skipped(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
-        import os
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -141,6 +144,7 @@ class TestPromptTraceStorage:
 
     def test_find_by_goal_id(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -157,14 +161,17 @@ class TestPromptTraceStorage:
 class TestPromptHash:
     def test_hash_is_sha256(self):
         from agent.services.prompt_trace_service import prompt_hash
+
         text = "hello"
         expected = hashlib.sha256(text.encode()).hexdigest()
         assert prompt_hash(text) == expected
 
     def test_hash_none_returns_none(self):
         from agent.services.prompt_trace_service import prompt_hash
+
         assert prompt_hash(None) is None
 
     def test_hash_empty_returns_none(self):
         from agent.services.prompt_trace_service import prompt_hash
+
         assert prompt_hash("") is None

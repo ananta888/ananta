@@ -217,4 +217,3 @@ def test_domain_action_router_returns_degraded_when_bridge_unavailable() -> None
 
     assert result["state"] == "degraded"
     assert result["reason"] == "bridge_unavailable"
-

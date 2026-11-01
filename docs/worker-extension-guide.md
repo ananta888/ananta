@@ -31,9 +31,7 @@ Hub                          Worker
 Every task starts with an `ExecutionEnvelope`. Workers must never create envelopes themselves.
 
 ```python
-from worker.core.execution_envelope import (
-    ExecutionEnvelope, CapabilityGrant, ModelPolicy, ToolPolicy, ApprovalRef
-)
+from worker.core.execution_envelope import ExecutionEnvelope, CapabilityGrant, ModelPolicy, ToolPolicy, ApprovalRef
 
 # Hub creates this:
 envelope = ExecutionEnvelope(
@@ -86,10 +84,12 @@ Example — adding `diagram_generate`:
 
 ```python
 # execution_envelope.py
-KNOWN_CAPABILITY_CLASSES = frozenset({
-    ...,
-    "diagram_generate",   # produces SVG/PNG, no side effects
-})
+KNOWN_CAPABILITY_CLASSES = frozenset(
+    {
+        ...,
+        "diagram_generate",  # produces SVG/PNG, no side effects
+    }
+)
 
 # artifact_enforcer.py
 CAPABILITY_ARTIFACT_MAP["diagram_generate"] = ["verification_artifact"]
@@ -106,6 +106,7 @@ External adapters (Hermes, OpenCode, MCP) must implement the same three-method c
 from worker.core.execution_envelope import ExecutionEnvelope
 from worker.core.external_adapters import AdapterResult
 
+
 class MyAdapter:
     def check_policy(self, envelope: ExecutionEnvelope) -> tuple[bool, str]:
         """Return (True, "") if policy satisfied; (False, reason_code) otherwise."""
@@ -116,6 +117,7 @@ class MyAdapter:
     def prepare_context(self, blocks, *, cloud_allowed: bool):
         """Strip sensitive context blocks when cloud_allowed=False."""
         from worker.core.context_resolver import ContextSensitivity, CLOUD_BLOCKED_SENSITIVITIES
+
         allowed, redacted = [], []
         for block in blocks:
             if not cloud_allowed and block.sensitivity in CLOUD_BLOCKED_SENSITIVITIES:
@@ -127,6 +129,7 @@ class MyAdapter:
     def parse_response(self, raw_text: str, *, task_id: str) -> AdapterResult:
         """Sanitize output and extract artifacts."""
         from worker.core.sanitizer import sanitize
+
         clean = sanitize(raw_text)
         # parse artifacts from clean output...
         return AdapterResult(allowed=True, sanitized_output=clean, artifacts=[])
@@ -209,13 +212,21 @@ Emit audit events for all sensitive steps. All events require `correlation_id`.
 from worker.core.diagnostics import AuditEmitter
 
 emitter = AuditEmitter()
-emitter.emit_preflight("allow", correlation_id=envelope.audit_correlation_id,
-                       reason_code=None, task_id=envelope.task_id,
-                       actor_ref=envelope.actor_ref)
+emitter.emit_preflight(
+    "allow",
+    correlation_id=envelope.audit_correlation_id,
+    reason_code=None,
+    task_id=envelope.task_id,
+    actor_ref=envelope.actor_ref,
+)
 # ... do work ...
-emitter.emit("patch_apply", correlation_id=envelope.audit_correlation_id,
-             reason_code=None, task_id=envelope.task_id,
-             artifact_id=artifact.artifact_id)
+emitter.emit(
+    "patch_apply",
+    correlation_id=envelope.audit_correlation_id,
+    reason_code=None,
+    task_id=envelope.task_id,
+    artifact_id=artifact.artifact_id,
+)
 events = emitter.flush()  # persist to sink
 ```
 

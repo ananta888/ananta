@@ -6,18 +6,18 @@ from flask import Blueprint, g, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
-from agent.sources.builtin_sources import load_builtin_source_descriptors
-from agent.sources.citation_formatter import format_citation
-from agent.sources.source_cache import SourceCache
-from agent.sources.source_refresh_service import SourceRefreshService
-from agent.sources.source_registry import SourceRegistry
-from agent.sources.source_pack_service import SourcePackService
-from agent.sources.source_snapshot_store import SourceSnapshotStore
 from agent.routes.source_control_access import (
     authorize_route_request,
     filter_visible_resources,
 )
 from agent.services.source_control_access_policy import SourceControlAction
+from agent.sources.builtin_sources import load_builtin_source_descriptors
+from agent.sources.citation_formatter import format_citation
+from agent.sources.source_cache import SourceCache
+from agent.sources.source_pack_service import SourcePackService
+from agent.sources.source_refresh_service import SourceRefreshService
+from agent.sources.source_registry import SourceRegistry
+from agent.sources.source_snapshot_store import SourceSnapshotStore
 
 sources_bp = Blueprint("sources", __name__)
 
@@ -119,11 +119,7 @@ def _authorize_sources_surface():
             resource=_registry().get_source(source_id),
             object_id=source_id,
         )
-    source_pack_id = str(
-        view_args.get("source_pack_id")
-        or request.args.get("source_pack_id")
-        or ""
-    ).strip()
+    source_pack_id = str(view_args.get("source_pack_id") or request.args.get("source_pack_id") or "").strip()
     if source_pack_id:
         try:
             pack = _packs().get_pack(source_pack_id)
@@ -251,7 +247,9 @@ def import_open_notebook():
 
     result = get_open_notebook_importer().import_export(payload, created_by="api", **options)
     if str(result.get("status") or "") == "failed":
-        return api_response(data=result, status="error", message=str(result.get("reason_code") or "import_failed"), code=400)
+        return api_response(
+            data=result, status="error", message=str(result.get("reason_code") or "import_failed"), code=400
+        )
     return api_response(data=result)
 
 
@@ -313,7 +311,9 @@ def get_source_citation(source_id: str):
     if source is None:
         raise NotFoundError("source_not_found")
     latest = _snapshots().latest_indexed_snapshot(source_id=source_id)
-    citation = format_citation(descriptor=source, snapshot=latest, output_format=str(request.args.get("format") or "long"))
+    citation = format_citation(
+        descriptor=source, snapshot=latest, output_format=str(request.args.get("format") or "long")
+    )
     return api_response(data={"source_id": source_id, "latest_snapshot": latest, **citation})
 
 
@@ -334,9 +334,7 @@ def refresh_due_sources():
             resource_kind="source",
             object_id=lambda item: str(item.get("source_id") or ""),
         )
-        visible_ids = {
-            str(item.get("source_id") or "") for item in visible_sources
-        }
+        visible_ids = {str(item.get("source_id") or "") for item in visible_sources}
         results = []
         for item in service.plan_due_sources():
             source_id = str(item.get("source_id") or "")

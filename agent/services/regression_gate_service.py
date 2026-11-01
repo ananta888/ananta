@@ -32,14 +32,16 @@ class RegressionGateService:
                 hub_policy_decision="allow",
             )
             if decision.classification != "safe":
-                results.append({
-                    "command": command,
-                    "exit_code": 1,
-                    "stdout_ref": "",
-                    "stderr_ref": decision.reason,
-                    "status": "failed",
-                    "reason_code": "policy_denied",
-                })
+                results.append(
+                    {
+                        "command": command,
+                        "exit_code": 1,
+                        "stdout_ref": "",
+                        "stderr_ref": decision.reason,
+                        "status": "failed",
+                        "reason_code": "policy_denied",
+                    }
+                )
                 continue
             completed = subprocess.run(
                 command,
@@ -50,13 +52,15 @@ class RegressionGateService:
                 timeout=60,
                 check=False,
             )
-            results.append({
-                "command": command,
-                "exit_code": completed.returncode,
-                "stdout_ref": completed.stdout[:4000],
-                "stderr_ref": completed.stderr[:4000],
-                "status": "passed" if completed.returncode == 0 else "failed",
-            })
+            results.append(
+                {
+                    "command": command,
+                    "exit_code": completed.returncode,
+                    "stdout_ref": completed.stdout[:4000],
+                    "stderr_ref": completed.stderr[:4000],
+                    "status": "passed" if completed.returncode == 0 else "failed",
+                }
+            )
         output_ok = self._compare_output(expected_output, actual_output, output_diff_mode)
         if not commands and expected_output is None:
             status = "inconclusive"

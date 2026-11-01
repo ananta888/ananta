@@ -39,7 +39,7 @@ def _style(
             truth_exploration=scores[1],
             initiative_assertiveness=scores[2],
         ),
-        confidence=.95,
+        confidence=0.95,
         sample_count=96,
         benchmark_revision="behavior-style-v1",
         measured_at=datetime.now(timezone.utc).isoformat(),
@@ -89,10 +89,10 @@ def test_hub_routes_complementary_roles_after_hard_gates_and_compares_control():
         ),
     )
     measurements = (
-        _style("rule-implementer", (.98, .45, .45)),
-        _style("exploratory-reviewer", (.82, .97, .55)),
-        _style("bounded-challenger", (.6, .92, .98)),
-        _style("cloud-stylish-reviewer", (.9, 1, .6)),
+        _style("rule-implementer", (0.98, 0.45, 0.45)),
+        _style("exploratory-reviewer", (0.82, 0.97, 0.55)),
+        _style("bounded-challenger", (0.6, 0.92, 0.98)),
+        _style("cloud-stylish-reviewer", (0.9, 1, 0.6)),
     )
     ranking = CognitiveStyleRankingPolicy(
         profiles=measurements,
@@ -103,19 +103,19 @@ def test_hub_routes_complementary_roles_after_hard_gates_and_compares_control():
     resolver = ModelProfileResolver(list(profiles), style_ranking=ranking)
 
     role_results = {
-        role: resolver.resolve(RoutingContext(
-            model_role=role,
-            requires_tools=True,
-            allow_cloud=True,
-            context_text="api_key=abcdefghijklmnopqrstuvwxyz123456",
-            metadata={"style_role_id": role},
-        ))
+        role: resolver.resolve(
+            RoutingContext(
+                model_role=role,
+                requires_tools=True,
+                allow_cloud=True,
+                context_text="api_key=abcdefghijklmnopqrstuvwxyz123456",
+                metadata={"style_role_id": role},
+            )
+        )
         for role in ("implementer", "reviewer", "challenger")
     }
 
-    assert {
-        role: result.profile.profile_id for role, result in role_results.items()
-    } == {
+    assert {role: result.profile.profile_id for role, result in role_results.items()} == {
         "implementer": "rule-implementer",
         "reviewer": "exploratory-reviewer",
         "challenger": "bounded-challenger",
@@ -126,8 +126,7 @@ def test_hub_routes_complementary_roles_after_hard_gates_and_compares_control():
     )
     assert all(
         any(
-            item.profile_id == "cloud-stylish-reviewer"
-            and "secrets_detected_cloud_blocked" in item.reason
+            item.profile_id == "cloud-stylish-reviewer" and "secrets_detected_cloud_blocked" in item.reason
             for item in result.decisions
         )
         for result in role_results.values()
@@ -142,9 +141,13 @@ def test_hub_routes_complementary_roles_after_hard_gates_and_compares_control():
 
     capability_only = ModelProfileResolver(list(profiles[:-1]))
     control_profiles = {
-        capability_only.resolve(RoutingContext(
-            model_role=role, requires_tools=True, metadata={"style_role_id": role},
-        )).profile.profile_id
+        capability_only.resolve(
+            RoutingContext(
+                model_role=role,
+                requires_tools=True,
+                metadata={"style_role_id": role},
+            )
+        ).profile.profile_id
         for role in ("implementer", "reviewer", "challenger")
     }
     assert control_profiles == {"rule-implementer"}
@@ -153,7 +156,7 @@ def test_hub_routes_complementary_roles_after_hard_gates_and_compares_control():
         ComplementaryStyleExperimentCommand(
             experiment_id="controlled-complementary-routing",
             complementary=StyleExperimentMetrics(
-                quality_score=.9,
+                quality_score=0.9,
                 rework_count=1,
                 cost_units=3,
                 duration_seconds=3,
@@ -161,7 +164,7 @@ def test_hub_routes_complementary_roles_after_hard_gates_and_compares_control():
                 gates_total=3,
             ),
             homogeneous_control=StyleExperimentMetrics(
-                quality_score=.6,
+                quality_score=0.6,
                 rework_count=2,
                 cost_units=3,
                 duration_seconds=3,
@@ -179,12 +182,20 @@ def test_complementary_routing_hypothesis_remains_falsifiable():
         ComplementaryStyleExperimentCommand(
             experiment_id="controlled-negative-result",
             complementary=StyleExperimentMetrics(
-                quality_score=.5, rework_count=3, cost_units=4,
-                duration_seconds=5, gates_passed=1, gates_total=3,
+                quality_score=0.5,
+                rework_count=3,
+                cost_units=4,
+                duration_seconds=5,
+                gates_passed=1,
+                gates_total=3,
             ),
             homogeneous_control=StyleExperimentMetrics(
-                quality_score=.8, rework_count=1, cost_units=3,
-                duration_seconds=3, gates_passed=3, gates_total=3,
+                quality_score=0.8,
+                rework_count=1,
+                cost_units=3,
+                duration_seconds=3,
+                gates_passed=3,
+                gates_total=3,
             ),
         )
     )

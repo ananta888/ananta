@@ -63,6 +63,7 @@ grid = state.to_cell_grid()
 
 ```python
 from client_surfaces.operator_tui.snapshot import CellGrid
+
 lines = ["Hello World", "Second Line"]
 grid = CellGrid.from_rendered_lines(lines)
 ```
@@ -76,6 +77,7 @@ grid = CellGrid.from_rendered_lines(lines)
 
 ```python
 import pexpect
+
 child = pexpect.spawn("python -m client_surfaces.operator_tui.main")
 chunk = child.read_nonblocking(4096, timeout=0.1).decode("utf-8", errors="replace")
 state = AnsiReplayState(width=120, height=32)
@@ -140,5 +142,6 @@ Konfiguriere `max_snapshots` entsprechend der Analyse-Anforderungen:
 
 ```python
 from agent.services.heuristic_runtime.tui_observation_buffer import TuiObservationBuffer
+
 buf = TuiObservationBuffer(max_snapshots=50, max_deltas=200)
 ```

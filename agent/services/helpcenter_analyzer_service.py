@@ -147,9 +147,7 @@ def _infer_planning_links(log_text: str) -> dict[str, Any]:
         related_goal_id = str(goal_match.group(0)).strip()
     suggested_followup_task = ""
     if task_ids:
-        suggested_followup_task = (
-            f"Investigate failing context around {task_ids[0]} and add explicit remediation task."
-        )
+        suggested_followup_task = f"Investigate failing context around {task_ids[0]} and add explicit remediation task."
     return {
         "affected_tasks": task_ids,
         "related_track": related_track,

@@ -67,9 +67,9 @@ class ResearchTrainingCapabilityService:
             "schema": "ananta.research-training-capability.v1",
             "state": "available" if available else ("disabled" if not self._policy.enabled else worker["state"]),
             "available": available,
-            "reason_code": None if available else (
-                "research_training_disabled" if not self._policy.enabled else worker["reason_code"]
-            ),
+            "reason_code": None
+            if available
+            else ("research_training_disabled" if not self._policy.enabled else worker["reason_code"]),
             "mode": self._policy.mode,
             "automatic_release_enabled": self._policy.automatic_release_enabled,
             "worker": dict(worker),

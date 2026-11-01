@@ -20,9 +20,18 @@ SPEC.loader.exec_module(runner)
 
 class RunnerSafetyTests(unittest.TestCase):
     def run_runner(
-        self, *, timeout=False, remaining_container=False, report_present=True, logs_timeout=False, arguments=(),
-        worker_exit_code=73, hub_exit_code=0, missing_loss_container=False, remaining_volume=False,
-        source_changed=False
+        self,
+        *,
+        timeout=False,
+        remaining_container=False,
+        report_present=True,
+        logs_timeout=False,
+        arguments=(),
+        worker_exit_code=73,
+        hub_exit_code=0,
+        missing_loss_container=False,
+        remaining_volume=False,
+        source_changed=False,
     ):
         process = Mock()
         process.stdout = io.StringIO(
@@ -34,17 +43,19 @@ class RunnerSafetyTests(unittest.TestCase):
 
         def docker(command, **kwargs):
             calls.append((command, kwargs))
-            if command[:5] == ['docker', 'image', 'inspect', '--format', '{{.Id}}']:
-                return subprocess.CompletedProcess(command, 0, stdout='sha256:' + 'a' * 64, stderr='')
+            if command[:5] == ["docker", "image", "inspect", "--format", "{{.Id}}"]:
+                return subprocess.CompletedProcess(command, 0, stdout="sha256:" + "a" * 64, stderr="")
             if logs_timeout and "logs" in command:
                 raise subprocess.TimeoutExpired("compose logs", 10)
             if "--quiet" in command and "--all" in command:
                 return subprocess.CompletedProcess(
-                    command, 0, stdout="" if missing_loss_container else command[-1] + "-isolated", stderr="")
+                    command, 0, stdout="" if missing_loss_container else command[-1] + "-isolated", stderr=""
+                )
             if command[:2] == ["docker", "inspect"]:
                 code = worker_exit_code if command[-1].startswith("autopilot-worker") else hub_exit_code
-                return subprocess.CompletedProcess(command, 0,
-                    stdout=json.dumps({"Status": "exited", "ExitCode": code}), stderr="")
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=json.dumps({"Status": "exited", "ExitCode": code}), stderr=""
+                )
             output = "leftover\n" if remaining_container and command[:3] == ["docker", "ps", "-aq"] else ""
             if remaining_volume and command[:3] == ["docker", "volume", "ls"]:
                 output = "leftover-volume\n"
@@ -55,8 +66,11 @@ class RunnerSafetyTests(unittest.TestCase):
             with (
                 patch.object(runner.subprocess, "run", side_effect=docker),
                 patch.object(runner.subprocess, "Popen", return_value=process) as popen,
-                patch.object(runner, 'repository_identity', side_effect=[('1' * 40, '2' * 64),
-                    ('1' * 40, ('3' if source_changed else '2') * 64)]),
+                patch.object(
+                    runner,
+                    "repository_identity",
+                    side_effect=[("1" * 40, "2" * 64), ("1" * 40, ("3" if source_changed else "2") * 64)],
+                ),
                 patch.object(
                     runner.sys, "argv", [str(RUNNER_PATH), "--timeout", "30", "--report", str(report), *arguments]
                 ),
@@ -90,10 +104,11 @@ class RunnerSafetyTests(unittest.TestCase):
         self.assertTrue(any("down" in command for command, _kwargs in calls))
 
     def test_source_change_cannot_yield_a_successful_full_application_report(self):
-        code, result, _calls, _popen, _process = self.run_runner(arguments=('--full-app-autopilot',),
-                                                             source_changed=True)
+        code, result, _calls, _popen, _process = self.run_runner(
+            arguments=("--full-app-autopilot",), source_changed=True
+        )
         self.assertEqual(code, 1)
-        self.assertTrue(result['cleanup_complete'])
+        self.assertTrue(result["cleanup_complete"])
         self.assertTrue(result["cleanup_complete"])
 
     def test_leftover_container_fails_even_with_green_acceptance(self):
@@ -127,13 +142,13 @@ class RunnerSafetyTests(unittest.TestCase):
             any(command == ["docker", "image", "inspect", "ananta-frontend-tests:local"] for command, _ in calls)
         )
         self.assertTrue(result["browser_requested"])
-        self.assertEqual(environment['BPMN_BROWSER_IMAGE'], 'sha256:' + 'a' * 64)
-        self.assertEqual(environment['BPMN_BROWSER_IMAGE_ID'], environment['BPMN_BROWSER_IMAGE'])
+        self.assertEqual(environment["BPMN_BROWSER_IMAGE"], "sha256:" + "a" * 64)
+        self.assertEqual(environment["BPMN_BROWSER_IMAGE_ID"], environment["BPMN_BROWSER_IMAGE"])
 
     def test_browser_source_change_cannot_be_reported_as_success(self):
-        code, result, *_ = self.run_runner(arguments=('--browser',), source_changed=True)
+        code, result, *_ = self.run_runner(arguments=("--browser",), source_changed=True)
         self.assertEqual(code, 1)
-        self.assertTrue(result['cleanup_complete'])
+        self.assertTrue(result["cleanup_complete"])
 
     def test_selected_cases_are_explicitly_partial_and_do_not_enable_browser(self):
         code, result, _calls, popen, _process = self.run_runner(arguments=("--case", "xor_true"))
@@ -148,7 +163,7 @@ class RunnerSafetyTests(unittest.TestCase):
         self.assertEqual(code, 0)
         command = popen.call_args.args[0]
         self.assertEqual(command[command.index("--profile") + 1], "full-app")
-        self.assertEqual(command[command.index("--exit-code-from") + 1:], ["fullapp", "fullapp"])
+        self.assertEqual(command[command.index("--exit-code-from") + 1 :], ["fullapp", "fullapp"])
         self.assertTrue(result["full_application_requested"])
         self.assertFalse(result["browser_requested"])
 
@@ -162,8 +177,7 @@ class RunnerSafetyTests(unittest.TestCase):
         self.assertEqual(code, 0)
         command = popen.call_args.args[0]
         self.assertEqual(command[command.index("--profile") + 1], "full-app-autopilot")
-        self.assertEqual(command[command.index("--exit-code-from") + 1:],
-                         ["fullapp-autopilot", "fullapp-autopilot"])
+        self.assertEqual(command[command.index("--exit-code-from") + 1 :], ["fullapp-autopilot", "fullapp-autopilot"])
         self.assertTrue(result["full_application_requested"])
         self.assertTrue(result["autopilot_requested"])
         self.assertFalse(result["browser_requested"])
@@ -174,27 +188,34 @@ class RunnerSafetyTests(unittest.TestCase):
         self.assertTrue(result["cleanup_complete"])
 
     def test_postgres_is_cached_and_ready_before_application_with_exact_owned_url(self):
-        code, result, calls, popen, _ = self.run_runner(arguments=('--full-app-autopilot', '--postgres'))
+        code, result, calls, popen, _ = self.run_runner(arguments=("--full-app-autopilot", "--postgres"))
         self.assertEqual(code, 0)
-        env = popen.call_args.kwargs['env']
-        self.assertEqual(env['BPMN_POSTGRES_ENABLED'], '1')
-        self.assertEqual(env['BPMN_HUB_DATABASE_URL'],
-            'postgresql+psycopg2://ananta_fixture:synthetic-postgres-fixture-password@postgres:5432/ananta_bpmn_fixture')
-        self.assertEqual(result['hub_database_backend'], 'postgresql')
-        startup = next(command for command, _ in calls if command[-1] == 'postgres')
-        self.assertIn('--wait', startup)
-        self.assertIn('--no-build', startup)
-        self.assertEqual(startup[startup.index('--pull') + 1], 'never')
-        self.assertIn(['docker', 'image', 'inspect', env['BPMN_POSTGRES_IMAGE']], [c for c, _ in calls])
-        self.assertTrue(result['cleanup_complete'])
+        env = popen.call_args.kwargs["env"]
+        self.assertEqual(env["BPMN_POSTGRES_ENABLED"], "1")
+        self.assertEqual(
+            env["BPMN_HUB_DATABASE_URL"],
+            "postgresql+psycopg2://ananta_fixture:synthetic-postgres-fixture-password@postgres:5432/ananta_bpmn_fixture",
+        )
+        self.assertEqual(result["hub_database_backend"], "postgresql")
+        startup = next(command for command, _ in calls if command[-1] == "postgres")
+        self.assertIn("--wait", startup)
+        self.assertIn("--no-build", startup)
+        self.assertEqual(startup[startup.index("--pull") + 1], "never")
+        self.assertIn(["docker", "image", "inspect", env["BPMN_POSTGRES_IMAGE"]], [c for c, _ in calls])
+        self.assertTrue(result["cleanup_complete"])
 
     def test_postgres_requires_native_mode_and_immutable_image_before_report_creation(self):
-        for arguments in (('--postgres',),
-                          ('--full-app-autopilot', '--postgres', '--postgres-image', 'postgres:latest')):
+        for arguments in (
+            ("--postgres",),
+            ("--full-app-autopilot", "--postgres", "--postgres-image", "postgres:latest"),
+        ):
             with self.subTest(arguments=arguments), tempfile.TemporaryDirectory() as directory:
-                report = Path(directory) / 'report.json'
-                with patch.object(runner.sys, 'argv', [str(RUNNER_PATH), '--report', str(report), *arguments]), \
-                        contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                report = Path(directory) / "report.json"
+                with (
+                    patch.object(runner.sys, "argv", [str(RUNNER_PATH), "--report", str(report), *arguments]),
+                    contextlib.redirect_stderr(io.StringIO()),
+                    self.assertRaises(SystemExit),
+                ):
                     runner.main()
                 self.assertFalse(report.exists())
 
@@ -213,8 +234,9 @@ class RunnerSafetyTests(unittest.TestCase):
     def test_worker_loss_wrong_exit_or_failed_hub_cannot_pass(self):
         for worker_code, hub_code in ((0, 0), (73, 1)):
             with self.subTest(worker_code=worker_code, hub_code=hub_code):
-                code, result, *_ = self.run_runner(arguments=("--full-app-worker-loss",),
-                                                   worker_exit_code=worker_code, hub_exit_code=hub_code)
+                code, result, *_ = self.run_runner(
+                    arguments=("--full-app-worker-loss",), worker_exit_code=worker_code, hub_exit_code=hub_code
+                )
                 self.assertEqual(code, 1)
                 self.assertTrue(result["cleanup_complete"])
 
@@ -237,20 +259,28 @@ class RunnerSafetyTests(unittest.TestCase):
         self.assertTrue(result["cleanup_complete"])
 
     def test_recreation_requires_private_request_and_expected_old_exit(self):
-        lifecycle = runner.WorkerRecreation(["docker", "compose", "--project-name", "bpmn-container-synthetic"],
-                                             {"BPMN_RESTART_TOKEN": "private"}, enabled=True)
+        lifecycle = runner.WorkerRecreation(
+            ["docker", "compose", "--project-name", "bpmn-container-synthetic"],
+            {"BPMN_RESTART_TOKEN": "private"},
+            enabled=True,
+        )
         with patch.object(runner.subprocess, "run") as invoke:
             lifecycle.handle("foreign")
             invoke.assert_not_called()
-        with patch.object(lifecycle, "observe", return_value=("old", {"Status": "exited", "ExitCode": 0})), \
-                patch.object(runner.subprocess, "run") as invoke:
+        with (
+            patch.object(lifecycle, "observe", return_value=("old", {"Status": "exited", "ExitCode": 0})),
+            patch.object(runner.subprocess, "run") as invoke,
+        ):
             lifecycle.handle("private")
             invoke.assert_not_called()
         self.assertFalse(lifecycle.recreated)
 
     def test_recreation_changes_only_worker_and_requires_new_container_identity(self):
-        lifecycle = runner.WorkerRecreation(["docker", "compose", "--project-name", "bpmn-container-synthetic"],
-                                             {"BPMN_RESTART_TOKEN": "private"}, enabled=True)
+        lifecycle = runner.WorkerRecreation(
+            ["docker", "compose", "--project-name", "bpmn-container-synthetic"],
+            {"BPMN_RESTART_TOKEN": "private"},
+            enabled=True,
+        )
         states = [("old", {"Status": "exited", "ExitCode": 73}), ("new", {"Status": "running"})]
         with patch.object(lifecycle, "observe", side_effect=states), patch.object(runner.subprocess, "run") as invoke:
             lifecycle.handle("private")
@@ -267,22 +297,26 @@ class RunnerSafetyTests(unittest.TestCase):
         self.assertFalse(result["cleanup_complete"])
 
     def test_full_app_rejects_mixed_browser_or_selected_case_before_docker(self):
-        for arguments in (("--full-app", "--browser"), ("--full-app", "--case", "xor_true"),
-                          ("--full-app-autopilot", "--browser"), ("--full-app-autopilot", "--case", "xor_true"),
-                          ("--full-app-autopilot", "--full-app"),
-                          ("--full-app-worker-loss", "--full-app-autopilot"),
-                          ("--full-app-worker-loss", "--browser"),
-                          ("--full-app-worker-loss", "--case", "xor_true"),
-                          ("--full-app-worker-redelivery", "--full-app-worker-loss"),
-                          ("--full-app-worker-redelivery", "--browser"),
-                          ("--full-app-expired-retry", "--full-app-worker-redelivery"),
-                          ("--full-app-expired-retry", "--full-app-worker-loss"),
-                          ("--full-app-expired-retry", "--browser"),
-                          ("--full-app-expired-retry", "--case", "xor_true"),
-                          ("--full-app-tool-isolation", "--full-app-autopilot"),
-                          ("--full-app-tool-isolation", "--full-app-expired-retry"),
-                          ("--full-app-tool-isolation", "--browser"),
-                          ("--full-app-tool-isolation", "--case", "xor_true")):
+        for arguments in (
+            ("--full-app", "--browser"),
+            ("--full-app", "--case", "xor_true"),
+            ("--full-app-autopilot", "--browser"),
+            ("--full-app-autopilot", "--case", "xor_true"),
+            ("--full-app-autopilot", "--full-app"),
+            ("--full-app-worker-loss", "--full-app-autopilot"),
+            ("--full-app-worker-loss", "--browser"),
+            ("--full-app-worker-loss", "--case", "xor_true"),
+            ("--full-app-worker-redelivery", "--full-app-worker-loss"),
+            ("--full-app-worker-redelivery", "--browser"),
+            ("--full-app-expired-retry", "--full-app-worker-redelivery"),
+            ("--full-app-expired-retry", "--full-app-worker-loss"),
+            ("--full-app-expired-retry", "--browser"),
+            ("--full-app-expired-retry", "--case", "xor_true"),
+            ("--full-app-tool-isolation", "--full-app-autopilot"),
+            ("--full-app-tool-isolation", "--full-app-expired-retry"),
+            ("--full-app-tool-isolation", "--browser"),
+            ("--full-app-tool-isolation", "--case", "xor_true"),
+        ):
             with self.subTest(arguments=arguments):
                 with self.assertRaises(SystemExit):
                     self.run_runner(arguments=arguments)

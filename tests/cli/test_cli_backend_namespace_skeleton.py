@@ -3,6 +3,7 @@
 This is the Source-of-Truth location for the LLM-CLI backend subsystem.
 Per SGDEC plan, all sgpt_* modules move here from agent.common.
 """
+
 from __future__ import annotations
 
 

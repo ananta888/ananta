@@ -101,7 +101,10 @@ def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
     assert payload["mutation_gate"]["enabled"] in {True, False}
     assert payload["mutation_gate"]["global_deny_mutations"] in {True, False}
     assert payload["config"]["provider_overrides"]["api-evolution"]["bearer_token"] == "***REDACTED_TOKEN***"
-    assert payload["config"]["provider_overrides"]["api-evolution"]["headers"]["Authorization"] == "***REDACTED_CREDENTIAL***"
+    assert (
+        payload["config"]["provider_overrides"]["api-evolution"]["headers"]["Authorization"]
+        == "***REDACTED_CREDENTIAL***"
+    )
     matrix = payload["providers"][0]["capability_matrix"]
     assert matrix["analyze"]["available"] is True
     assert matrix["validate"]["supported"] is True
@@ -153,7 +156,9 @@ def test_task_evolution_analyze_and_read_model_endpoints(client, app, admin_auth
     assert analyze_payload["proposals"][0]["links"]["read_model"] == "/tasks/T-EVO-API/evolution"
     assert analyze_payload["proposals"][0]["links"]["validate"].endswith("/validate")
     assert analyze_payload["proposals"][0]["review_context"]["operation_class"] == "patch_apply"
-    assert analyze_payload["proposals"][0]["review_context"]["affected_targets"][0]["path"] == "agent/routes/evolution.py"
+    assert (
+        analyze_payload["proposals"][0]["review_context"]["affected_targets"][0]["path"] == "agent/routes/evolution.py"
+    )
 
     assert read_response.status_code == 200
     read_payload = read_response.json["data"]
@@ -801,4 +806,7 @@ def test_task_evolution_validate_and_apply_fail_closed_for_analyze_only_evolver(
     assert validate_response.json["message"] == "evolution_provider_analyze_only"
     assert apply_response.status_code == 403
     assert apply_response.json["data"]["error_code"] == "evolution_policy_blocked"
-    assert apply_response.json["message"] in {"evolution_provider_analyze_only", "evolution_apply_requires_approved_review"}
+    assert apply_response.json["message"] in {
+        "evolution_provider_analyze_only",
+        "evolution_apply_requires_approved_review",
+    }

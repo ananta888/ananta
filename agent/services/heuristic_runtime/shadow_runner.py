@@ -17,12 +17,12 @@ On watchdog trigger:
   - Candidate is quarantined with reason_code shadow_watchdog_triggered.
   - Audit event is emitted (ASH-033).
 """
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
-
 
 # Shadow thresholds (ASH-020): BOTH must be satisfied
 SHADOW_MIN_DECISIONS = 50
@@ -34,9 +34,13 @@ WATCHDOG_LOOP_REPEAT_COUNT = 5
 WATCHDOG_MAX_EXCEPTION_RATE = 0.1
 WATCHDOG_MAX_INVALID_ACTION_RATE = 0.2
 
-_VALID_ACTION_KINDS = frozenset({
-    "follow_with_distance", "lurk_near", "fast_target",
-})
+_VALID_ACTION_KINDS = frozenset(
+    {
+        "follow_with_distance",
+        "lurk_near",
+        "fast_target",
+    }
+)
 
 
 @dataclass
@@ -72,10 +76,7 @@ class ShadowRunState:
     def match_rate(self) -> float:
         if not self.decisions:
             return 0.0
-        matches = sum(
-            1 for d in self.decisions
-            if d.action_kind == d.active_action_kind and not d.exception
-        )
+        matches = sum(1 for d in self.decisions if d.action_kind == d.active_action_kind and not d.exception)
         return matches / len(self.decisions)
 
     @property
@@ -162,15 +163,13 @@ class ShadowRunner:
             if len(positions) > WATCHDOG_LOOP_REPEAT_COUNT + 1:
                 positions.pop(0)
             # Detect loop: all recent positions the same
-            if (len(positions) >= WATCHDOG_LOOP_REPEAT_COUNT
-                    and len(set(positions)) == 1):
+            if len(positions) >= WATCHDOG_LOOP_REPEAT_COUNT and len(set(positions)) == 1:
                 self._trigger_watchdog("shadow_decision_loop_detected", WATCHDOG_LOOP_REPEAT_COUNT)
                 return
 
         # Watchdog: no-movement frames
         if shadow_action_kind == "no_movement" or (
-            shadow_action_kind == active_action_kind == "follow_with_distance"
-            and position_hint is not None
+            shadow_action_kind == active_action_kind == "follow_with_distance" and position_hint is not None
         ):
             self._state.consecutive_no_movement += 1
             if self._state.consecutive_no_movement > WATCHDOG_MAX_NO_MOVEMENT_FRAMES:
@@ -203,6 +202,7 @@ class ShadowRunner:
         self._state.abort_reason = f"shadow_watchdog_triggered:{trigger}"
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.candidate_shadow_watchdog_triggered(
                 candidate_id=self._state.candidate_id,
                 trigger=trigger,
@@ -216,6 +216,7 @@ class ShadowRunner:
     def _emit_completed(self) -> None:
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.candidate_shadow_completed(
                 candidate_id=self._state.candidate_id,
                 decision_count=self._state.decision_count,
@@ -226,7 +227,9 @@ class ShadowRunner:
         except Exception:
             pass
 
-    def compute_candidate_action(self, heuristic: dict[str, Any], *, section: str, ai_status: str, artifact_present: bool) -> str:
+    def compute_candidate_action(
+        self, heuristic: dict[str, Any], *, section: str, ai_status: str, artifact_present: bool
+    ) -> str:
         """Evaluate the candidate heuristic and return its hypothetical action_kind.
 
         Returns "exception" if evaluation fails.
@@ -238,7 +241,8 @@ class ShadowRunner:
             else:
                 matched = any(
                     self._trigger_matches(t, section=section, ai_status=ai_status, artifact_present=artifact_present)
-                    for t in triggers if isinstance(t, dict)
+                    for t in triggers
+                    if isinstance(t, dict)
                 )
             if not matched:
                 return "no_trigger_match"

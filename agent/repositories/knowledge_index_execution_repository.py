@@ -38,13 +38,8 @@ class SQLKnowledgeIndexExecutionRepository:
             )
             if existing is not None:
                 loaded = self._record(existing)
-                if (
-                    loaded.job.idempotency_fingerprint
-                    != job.idempotency_fingerprint
-                ):
-                    raise KnowledgeIndexExecutionBindingError(
-                        "knowledge_index_execution_idempotency_conflict"
-                    )
+                if loaded.job.idempotency_fingerprint != job.idempotency_fingerprint:
+                    raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_idempotency_conflict")
                 return loaded, False
             row = self._row(record)
             db.add(row)
@@ -63,14 +58,9 @@ class SQLKnowledgeIndexExecutionRepository:
                 )
                 if existing is not None:
                     loaded = self._record(existing)
-                    if (
-                        loaded.job.idempotency_fingerprint
-                        == job.idempotency_fingerprint
-                    ):
+                    if loaded.job.idempotency_fingerprint == job.idempotency_fingerprint:
                         return loaded, False
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_idempotency_conflict"
-                ) from None
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_idempotency_conflict") from None
             db.refresh(row)
             return self._record(row), True
 
@@ -104,12 +94,12 @@ class SQLKnowledgeIndexExecutionRepository:
         with Session(self._engine) as db:
             rows = list(
                 db.exec(
-                    select(KnowledgeIndexExecutionBindingDB).where(
-                        KnowledgeIndexExecutionBindingDB.assignment_id
-                        == assignment_id,
-                        KnowledgeIndexExecutionBindingDB.lease_id
-                        == lease_id,
-                    ).limit(2)
+                    select(KnowledgeIndexExecutionBindingDB)
+                    .where(
+                        KnowledgeIndexExecutionBindingDB.assignment_id == assignment_id,
+                        KnowledgeIndexExecutionBindingDB.lease_id == lease_id,
+                    )
+                    .limit(2)
                 ).all()
             )
             if len(rows) != 1:
@@ -134,27 +124,21 @@ class SQLKnowledgeIndexExecutionRepository:
             result = db.execute(
                 update(KnowledgeIndexExecutionBindingDB)
                 .where(
-                    KnowledgeIndexExecutionBindingDB.job_id
-                    == record.job.job_id,
-                    KnowledgeIndexExecutionBindingDB.lock_version
-                    == expected_lock_version,
+                    KnowledgeIndexExecutionBindingDB.job_id == record.job.job_id,
+                    KnowledgeIndexExecutionBindingDB.lock_version == expected_lock_version,
                 )
                 .values(**values)
             )
             if result.rowcount != 1:
                 db.rollback()
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_version_conflict"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_version_conflict")
             db.commit()
             refreshed = db.get(
                 KnowledgeIndexExecutionBindingDB,
                 record.job.job_id,
             )
             if refreshed is None:
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_not_found"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_found")
             return self._record(refreshed)
 
     def complete_with_projection(
@@ -177,9 +161,7 @@ class SQLKnowledgeIndexExecutionRepository:
             or not record.result_digest
             or record.completed_at_epoch_ms is None
         ):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_commit_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_commit_invalid")
         values = {
             "state": "completed",
             "lock_version": int(record.lock_version),
@@ -190,25 +172,18 @@ class SQLKnowledgeIndexExecutionRepository:
             "completion_projection_lock_version": 1,
             "completion_projection_digest": str(projection_digest),
             "completion_projection_payload": dict(projection_payload),
-            "completion_projection_created_at_epoch_ms": int(
-                now_epoch_ms
-            ),
-            "completion_projection_updated_at_epoch_ms": int(
-                now_epoch_ms
-            ),
+            "completion_projection_created_at_epoch_ms": int(now_epoch_ms),
+            "completion_projection_updated_at_epoch_ms": int(now_epoch_ms),
             "completion_projected_at_epoch_ms": None,
         }
         with Session(self._engine) as db:
             result = db.execute(
                 update(KnowledgeIndexExecutionBindingDB)
                 .where(
-                    KnowledgeIndexExecutionBindingDB.job_id
-                    == record.job.job_id,
+                    KnowledgeIndexExecutionBindingDB.job_id == record.job.job_id,
                     KnowledgeIndexExecutionBindingDB.state == "running",
-                    KnowledgeIndexExecutionBindingDB.lock_version
-                    == int(expected_lock_version),
-                    KnowledgeIndexExecutionBindingDB
-                    .completion_projection_state.is_(None),
+                    KnowledgeIndexExecutionBindingDB.lock_version == int(expected_lock_version),
+                    KnowledgeIndexExecutionBindingDB.completion_projection_state.is_(None),
                 )
                 .values(**values)
             )
@@ -221,23 +196,18 @@ class SQLKnowledgeIndexExecutionRepository:
                 record.job.job_id,
             )
             if row is None:
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_not_found"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_found")
             loaded = self._record(row)
             projection = self._projection_record_or_none(row)
             if (
                 loaded.state == "completed"
                 and loaded.result_digest == record.result_digest
                 and projection is not None
-                and projection.projection_digest
-                == str(projection_digest)
+                and projection.projection_digest == str(projection_digest)
                 and projection.payload == dict(projection_payload)
             ):
                 return loaded, projection
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_commit_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_commit_conflict")
 
     def get_completion_projection(
         self,
@@ -263,25 +233,16 @@ class SQLKnowledgeIndexExecutionRepository:
                 .where(
                     KnowledgeIndexExecutionBindingDB.job_id == str(job_id),
                     KnowledgeIndexExecutionBindingDB.state == "completed",
-                    KnowledgeIndexExecutionBindingDB
-                    .completion_projection_state == "pending",
-                    KnowledgeIndexExecutionBindingDB
-                    .completion_projection_lock_version
-                    == int(expected_lock_version),
-                    KnowledgeIndexExecutionBindingDB
-                    .completion_projection_digest
-                    == str(expected_projection_digest),
+                    KnowledgeIndexExecutionBindingDB.completion_projection_state == "pending",
+                    KnowledgeIndexExecutionBindingDB.completion_projection_lock_version == int(expected_lock_version),
+                    KnowledgeIndexExecutionBindingDB.completion_projection_digest == str(expected_projection_digest),
                 )
                 .values(
                     completion_projection_state="projected",
                     completion_projection_lock_version=(
-                        KnowledgeIndexExecutionBindingDB
-                        .completion_projection_lock_version
-                        + 1
+                        KnowledgeIndexExecutionBindingDB.completion_projection_lock_version + 1
                     ),
-                    completion_projection_updated_at_epoch_ms=int(
-                        now_epoch_ms
-                    ),
+                    completion_projection_updated_at_epoch_ms=int(now_epoch_ms),
                     completion_projected_at_epoch_ms=int(now_epoch_ms),
                 )
             )
@@ -289,27 +250,20 @@ class SQLKnowledgeIndexExecutionRepository:
                 db.commit()
                 row = db.get(KnowledgeIndexExecutionBindingDB, str(job_id))
                 if row is None:
-                    raise KnowledgeIndexExecutionBindingError(
-                        "knowledge_index_execution_not_found"
-                    )
+                    raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_found")
                 return self._projection_record(row)
             db.rollback()
             row = db.get(KnowledgeIndexExecutionBindingDB, str(job_id))
             if row is None:
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_not_found"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_not_found")
             existing = self._projection_record_or_none(row)
             if (
                 existing is not None
                 and existing.state == "projected"
-                and existing.projection_digest
-                == str(expected_projection_digest)
+                and existing.projection_digest == str(expected_projection_digest)
             ):
                 return existing
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_conflict")
 
     @staticmethod
     def _find_by_idempotency(
@@ -323,8 +277,7 @@ class SQLKnowledgeIndexExecutionRepository:
             select(KnowledgeIndexExecutionBindingDB).where(
                 KnowledgeIndexExecutionBindingDB.tenant_id == tenant_id,
                 KnowledgeIndexExecutionBindingDB.project_id == project_id,
-                KnowledgeIndexExecutionBindingDB.idempotency_key_digest
-                == idempotency_key_digest,
+                KnowledgeIndexExecutionBindingDB.idempotency_key_digest == idempotency_key_digest,
             )
         ).first()
 
@@ -351,9 +304,7 @@ class SQLKnowledgeIndexExecutionRepository:
             destination_id=binding.destination_id,
             destination_digest=binding.destination_digest,
             source_access_grant_id=binding.source_access_grant_id,
-            source_access_grant_digest=(
-                binding.source_access_grant_digest
-            ),
+            source_access_grant_digest=(binding.source_access_grant_digest),
             authority_binding_digest=binding.binding_digest,
             file_manifest_digest=job.file_manifest.manifest_digest,
             assignment_id=assignment.assignment_id,
@@ -376,9 +327,7 @@ class SQLKnowledgeIndexExecutionRepository:
         row: KnowledgeIndexExecutionBindingDB,
     ) -> KnowledgeIndexExecutionRecord:
         return KnowledgeIndexExecutionRecord(
-            job=KnowledgeIndexExecutionJob.model_validate(
-                dict(row.envelope_json)
-            ),
+            job=KnowledgeIndexExecutionJob.model_validate(dict(row.envelope_json)),
             owner_id=row.owner_id,
             state=row.state,
             lock_version=row.lock_version,
@@ -408,24 +357,16 @@ class SQLKnowledgeIndexExecutionRepository:
             or row.completion_projection_created_at_epoch_ms is None
             or row.completion_projection_updated_at_epoch_ms is None
         ):
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_completion_projection_record_invalid"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_completion_projection_record_invalid")
         return KnowledgeIndexCompletionProjectionRecord(
             job_id=str(row.job_id),
             state=str(row.completion_projection_state),
             lock_version=int(row.completion_projection_lock_version),
             projection_digest=str(row.completion_projection_digest),
             payload=dict(payload),
-            created_at_epoch_ms=int(
-                row.completion_projection_created_at_epoch_ms
-            ),
-            updated_at_epoch_ms=int(
-                row.completion_projection_updated_at_epoch_ms
-            ),
+            created_at_epoch_ms=int(row.completion_projection_created_at_epoch_ms),
+            updated_at_epoch_ms=int(row.completion_projection_updated_at_epoch_ms),
             projected_at_epoch_ms=(
-                int(row.completion_projected_at_epoch_ms)
-                if row.completion_projected_at_epoch_ms is not None
-                else None
+                int(row.completion_projected_at_epoch_ms) if row.completion_projected_at_epoch_ms is not None else None
             ),
         )

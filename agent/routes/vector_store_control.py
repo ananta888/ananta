@@ -39,10 +39,7 @@ def _identity() -> dict[str, Any]:
 def _authorization() -> VectorAdminAuthorizationContext:
     return get_vector_store_authorization_policy().from_identity(
         _identity(),
-        authenticated_admin=bool(
-            getattr(g, "is_admin", False)
-            and not (getattr(g, "user", {}) or {})
-        ),
+        authenticated_admin=bool(getattr(g, "is_admin", False) and not (getattr(g, "user", {}) or {})),
         source="vector_store_control_route",
     )
 
@@ -108,9 +105,7 @@ def resolved_config():
 def set_profile_override(profile_name: str):
     try:
         authorization = _authorization()
-        get_vector_store_authorization_policy().require_global_admin(
-            authorization
-        )
+        get_vector_store_authorization_policy().require_global_admin(authorization)
         body = _body()
         if set(body) - {"domain", "override", "expected_revision"}:
             raise ValueError("vector_store_override_fields_forbidden")
@@ -131,9 +126,7 @@ def set_profile_override(profile_name: str):
 def rollback_profile_override(profile_name: str):
     try:
         authorization = _authorization()
-        get_vector_store_authorization_policy().require_global_admin(
-            authorization
-        )
+        get_vector_store_authorization_policy().require_global_admin(authorization)
         body = _body()
         result = get_vector_store_rollout_service().rollback(
             layer="profile",
@@ -225,11 +218,7 @@ def submit_index_task():
                 domain=str(body.get("domain") or "codecompass"),
             ),
             idempotency_key=str(body.get("idempotency_key") or ""),
-            payload=(
-                dict(body.get("payload") or {})
-                if isinstance(body.get("payload"), Mapping)
-                else None
-            ),
+            payload=(dict(body.get("payload") or {}) if isinstance(body.get("payload"), Mapping) else None),
             actor=authorization.actor,
             priority=str(body.get("priority") or "medium"),
         )
@@ -245,17 +234,10 @@ def get_index_task(job_id: str):
         authorization = _authorization()
         task = get_vector_index_task_service().get_task(job_id)
         if task is None:
-            return jsonify(
-                {"status": "error", "reason_code": "vector_index_task_not_found"}
-            ), 404
+            return jsonify({"status": "error", "reason_code": "vector_index_task_not_found"}), 404
         get_vector_store_authorization_policy().require_workspace_admin(
             authorization,
-            str(
-                dict(task.get("scope") or {}).get(
-                    "workspace_id"
-                )
-                or ""
-            ),
+            str(dict(task.get("scope") or {}).get("workspace_id") or ""),
         )
         return jsonify({"status": "ok", "task": task})
     except Exception as exc:
@@ -272,12 +254,7 @@ def cancel_index_task(job_id: str):
             raise ValueError("vector_index_task_not_found")
         get_vector_store_authorization_policy().require_workspace_admin(
             authorization,
-            str(
-                dict(task.get("scope") or {}).get(
-                    "workspace_id"
-                )
-                or ""
-            ),
+            str(dict(task.get("scope") or {}).get("workspace_id") or ""),
         )
         result = get_vector_index_task_service().cancel(
             job_id=job_id,
@@ -298,12 +275,7 @@ def retry_index_task(job_id: str):
             raise ValueError("vector_index_task_not_found")
         get_vector_store_authorization_policy().require_workspace_admin(
             authorization,
-            str(
-                dict(task.get("scope") or {}).get(
-                    "workspace_id"
-                )
-                or ""
-            ),
+            str(dict(task.get("scope") or {}).get("workspace_id") or ""),
         )
         result = get_vector_index_task_service().retry(
             job_id=job_id,

@@ -1,5 +1,5 @@
-from agent.repository import goal_repo, memory_entry_repo, task_repo, verification_record_repo, worker_job_repo
 from agent.db_models import GoalDB, TaskDB, WorkerJobDB
+from agent.repository import goal_repo, memory_entry_repo, task_repo, verification_record_repo, worker_job_repo
 from agent.services.result_memory_service import ResultMemoryService, normalize_result_memory_policy
 from agent.services.verification_service import get_verification_service
 

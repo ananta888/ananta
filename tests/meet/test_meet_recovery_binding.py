@@ -8,8 +8,8 @@ from agent.models.meet_machine_principal import MeetMachinePrincipal
 from agent.models.meet_preauthorization_binding import assignment_projection
 from agent.models.meet_recovery_binding import recovery_owner
 from agent.services.meet_contract import MeetError
-from tests.test_meet_dialog_authority import fixture
 from tests.meet.test_meet_observation_transport import transport
+from tests.test_meet_dialog_authority import fixture
 
 
 def scope():

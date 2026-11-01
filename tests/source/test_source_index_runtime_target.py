@@ -28,13 +28,7 @@ def _target(*, model_ids):
 def test_runtime_target_accepts_namespaced_model_identifier():
     document = _target(model_ids=["qwen/qwen3.5-9b"])
     document["model_provider_id"] = "lmstudio"
-    target = load_source_index_runtime_target(
-        {
-            SOURCE_INDEX_RUNTIME_TARGET_ENV: json.dumps(
-                document
-            )
-        }
-    )
+    target = load_source_index_runtime_target({SOURCE_INDEX_RUNTIME_TARGET_ENV: json.dumps(document)})
 
     assert target is not None
     assert target["model_provider_id"] == "lmstudio"
@@ -52,10 +46,4 @@ def test_runtime_target_accepts_namespaced_model_identifier():
 )
 def test_runtime_target_rejects_unsafe_model_identifier(model_id):
     with pytest.raises(ValueError, match="model_ids must be"):
-        load_source_index_runtime_target(
-            {
-                SOURCE_INDEX_RUNTIME_TARGET_ENV: json.dumps(
-                    _target(model_ids=[model_id])
-                )
-            }
-        )
+        load_source_index_runtime_target({SOURCE_INDEX_RUNTIME_TARGET_ENV: json.dumps(_target(model_ids=[model_id]))})

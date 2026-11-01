@@ -20,30 +20,48 @@ from agent.services.native_context_snapshot import validate_prepared_native_cont
 from agent.services.native_graph_task_queue_adapter import AnantaHubTaskQueueAdapter
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessService
 from agent.services.task_queue_service import TaskQueueService
-from tests.test_native_graph_task_adapters import FakeQueue, FakeRepository, FakeTaskRuntime
 from tests.pi.test_pi_hub_budget_composition import composition
 from tests.pi.test_pi_native_node import task_command
+from tests.test_native_graph_task_adapters import FakeQueue, FakeRepository, FakeTaskRuntime
 
 
 def preparation_setup():
     _, context, _ = composition()
     base = task_command(context)
-    command = replace(base, node=replace(base.node, metadata={
-        "context_bundle_mode": "control_task", "context_policy_id": "policy-1",
-        "context_destination_id": "destination-1",
-    }))
+    command = replace(
+        base,
+        node=replace(
+            base.node,
+            metadata={
+                "context_bundle_mode": "control_task",
+                "context_policy_id": "policy-1",
+                "context_destination_id": "destination-1",
+            },
+        ),
+    )
     tasks, bundles = FakeRepository(), FakeRepository()
     parent = TaskDB(
-        id=command.control_task_id, tenant_id=command.tenant_id, project_id="project-1", status="in_progress",
-        organization_id="organization-1", unit_id="unit-1", team_id="team-1", role_slot_id="role-1",
+        id=command.control_task_id,
+        tenant_id=command.tenant_id,
+        project_id="project-1",
+        status="in_progress",
+        organization_id="organization-1",
+        unit_id="unit-1",
+        team_id="team-1",
+        role_slot_id="role-1",
         context_bundle_id="original-bundle",
     )
     original = ContextBundleDB(
-        id="original-bundle", task_id=parent.id, context_text="unapproved assembled text",
-        chunks=[{
-            "engine": "codecompass_fts", "content": "def example(): return 1",
-            "metadata": {"file": "docs/public/example.py", "sensitivity": "public", "ignored": "private"},
-        }],
+        id="original-bundle",
+        task_id=parent.id,
+        context_text="unapproved assembled text",
+        chunks=[
+            {
+                "engine": "codecompass_fts",
+                "content": "def example(): return 1",
+                "metadata": {"file": "docs/public/example.py", "sensitivity": "public", "ignored": "private"},
+            }
+        ],
     )
     tasks.values[parent.id], bundles.values[original.id] = parent, original
 
@@ -54,11 +72,16 @@ def preparation_setup():
 
     bundles.save = Mock(side_effect=save)
     service = NativeContextPreparationService(
-        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), snapshots=HubNativeContextSnapshotStore(bundles),
+        tasks=tasks,
+        bundles=TaskContextBundleAccessService(bundles),
+        snapshots=HubNativeContextSnapshotStore(bundles),
     )
     queue = FakeQueue(tasks)
     adapter = AnantaHubTaskQueueAdapter(
-        task_queue=queue, task_repository=tasks, task_runtime=FakeTaskRuntime(tasks), context_preparer=service,
+        task_queue=queue,
+        task_repository=tasks,
+        task_runtime=FakeTaskRuntime(tasks),
+        context_preparer=service,
     )
     return SimpleNamespace(**locals())
 
@@ -72,8 +95,11 @@ def test_hub_automatically_copies_owned_bundle_and_complete_scope_without_rebind
     ingested = f.queue.ingested_values[0]
     fields = ingested["extra_fields"]
     assert {key: fields[key] for key in ("tenant_id", "project_id", "organization_id", "unit_id", "role_slot_id")} == {
-        "tenant_id": "tenant-1", "project_id": "project-1", "organization_id": "organization-1",
-        "unit_id": "unit-1", "role_slot_id": "role-1",
+        "tenant_id": "tenant-1",
+        "project_id": "project-1",
+        "organization_id": "organization-1",
+        "unit_id": "unit-1",
+        "role_slot_id": "role-1",
     }
     assert ingested["team_id"] == "team-1" and "team_id" not in fields
     assert fields["parent_task_id"] == f.parent.id
@@ -81,14 +107,19 @@ def test_hub_automatically_copies_owned_bundle_and_complete_scope_without_rebind
     snapshot = f.bundles.get_by_id(fields["context_bundle_id"])
     assert snapshot.task_id == receipt.hub_task_id and snapshot.context_text is None
     assert f.original.model_dump() == before and snapshot.id != f.original.id
-    assert snapshot.chunks == [{
-        "source_ref": "docs/public/example.py", "source_type": "codecompass_code",
-        "sensitivity": "public", "content": "def example(): return 1",
-    }]
+    assert snapshot.chunks == [
+        {
+            "source_ref": "docs/public/example.py",
+            "source_type": "codecompass_code",
+            "sensitivity": "public",
+            "content": "def example(): return 1",
+        }
+    ]
     assert "private" not in str(snapshot.model_dump())
     access = snapshot.bundle_metadata["native_context_access"]
     assert access == {
-        "policy_id": "policy-1", "destination_id": "destination-1",
+        "policy_id": "policy-1",
+        "destination_id": "destination-1",
         "provider_endpoint_identity": f.command.provider_binding.endpoint_identity,
     }
 
@@ -118,9 +149,19 @@ def test_actual_queue_ingestion_preserves_scope_through_its_dedicated_team_argum
     assert "source" not in fields  # Source is event metadata, not a TaskDB column.
 
 
-@pytest.mark.parametrize("mutation", [
-    "missing", "tenant", "project", "terminal", "owner", "unbound", "bundle", "partial_scope",
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "tenant",
+        "project",
+        "terminal",
+        "owner",
+        "unbound",
+        "bundle",
+        "partial_scope",
+    ],
+)
 def test_missing_foreign_or_terminal_control_task_never_copies_or_queues(mutation):
     f = preparation_setup()
     if mutation == "missing":
@@ -145,11 +186,15 @@ def test_missing_foreign_or_terminal_control_task_never_copies_or_queues(mutatio
     f.bundles.save.assert_not_called()
 
 
-@pytest.mark.parametrize("metadata", [
-    {"context_bundle_mode": "other"}, {"context_policy_id": "policy-1"},
-    {"context_bundle_mode": "control_task"},
-    {"context_bundle_mode": "control_task", "context_policy_id": "policy-1", "context_destination_id": "bad\n"},
-])
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"context_bundle_mode": "other"},
+        {"context_policy_id": "policy-1"},
+        {"context_bundle_mode": "control_task"},
+        {"context_bundle_mode": "control_task", "context_policy_id": "policy-1", "context_destination_id": "bad\n"},
+    ],
+)
 def test_incomplete_or_unknown_context_request_never_silently_omits_context(metadata):
     f = preparation_setup()
     command = replace(f.command, node=replace(f.command.node, metadata=metadata))

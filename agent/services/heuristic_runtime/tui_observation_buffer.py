@@ -1,10 +1,10 @@
 """TuiObservationBuffer — Ringbuffer für letzte N TUI-Snapshots und Deltas."""
+
 from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
-import time
 
 
 @dataclass

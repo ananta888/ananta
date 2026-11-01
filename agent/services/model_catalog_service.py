@@ -107,19 +107,16 @@ class ModelCatalogCapabilityPolicy:
         if is_admin:
             return True
         raw = payload.get("capabilities")
-        capabilities = (
-            {str(value).strip() for value in raw}
-            if isinstance(raw, (list, tuple, set))
-            else set()
-        )
+        capabilities = {str(value).strip() for value in raw} if isinstance(raw, (list, tuple, set)) else set()
         return capability in capabilities
 
 
 def _provider_id(value: object, *, fallback: str = "catalog") -> str:
     normalized = str(value or "").strip().lower()
-    if normalized and normalized[0].isalnum() and all(
-        character.isalnum() or character in "_.:/@+-"
-        for character in normalized
+    if (
+        normalized
+        and normalized[0].isalnum()
+        and all(character.isalnum() or character in "_.:/@+-" for character in normalized)
     ):
         return normalized[:256]
     return fallback
@@ -138,9 +135,7 @@ def _decorate_model(
     bench = benchmark_index.get(f"{provider_id}:{model_id}")
     if bench:
         row = bench.get("row")
-        enriched["benchmark"] = (
-            (row.get("focus") or {}) if isinstance(row, Mapping) else {}
-        )
+        enriched["benchmark"] = (row.get("focus") or {}) if isinstance(row, Mapping) else {}
         enriched["recommended_rank"] = bench.get("rank")
     return enriched
 
@@ -156,11 +151,7 @@ def _catalog_entry(
 ) -> dict[str, Any]:
     recommended_model = None
     if task_kind:
-        ranked = [
-            item
-            for item in models
-            if isinstance(item, Mapping) and item.get("recommended_rank")
-        ]
+        ranked = [item for item in models if isinstance(item, Mapping) and item.get("recommended_rank")]
         ranked.sort(key=lambda item: int(item.get("recommended_rank") or 9999))
         recommended_model = ranked[0].get("id") if ranked else None
     return {
@@ -196,9 +187,7 @@ class ModelCatalogService:
                 failures.append(candidate)
 
         try:
-            benchmark_rows, benchmark_db = self._policy.benchmark_rows(
-                query.task_kind
-            )
+            benchmark_rows, benchmark_db = self._policy.benchmark_rows(query.task_kind)
         except Exception:
             benchmark_rows, benchmark_db = (), {}
             record("benchmark", "benchmark_catalog_unavailable")
@@ -214,20 +203,12 @@ class ModelCatalogService:
         }
         available_model_ids: set[str] = set()
         try:
-            specs = [
-                dict(item)
-                for item in self._inventory.list_specs(query)
-                if isinstance(item, Mapping)
-            ]
+            specs = [dict(item) for item in self._inventory.list_specs(query) if isinstance(item, Mapping)]
         except Exception:
             specs = []
             record("catalog", "provider_registry_unavailable")
 
-        dynamic = [
-            item
-            for item in specs
-            if bool((item.get("capabilities") or {}).get("dynamic_models"))
-        ]
+        dynamic = [item for item in specs if bool((item.get("capabilities") or {}).get("dynamic_models"))]
         for backend in dynamic:
             provider_id = _provider_id(backend.get("provider"))
             try:
@@ -245,10 +226,7 @@ class ModelCatalogService:
                 record(provider_id, "provider_model_discovery_failed")
             discovered = list(discovery.models)
             if not discovered:
-                discovered = [
-                    {"id": model_id}
-                    for model_id in list(backend.get("models") or [])
-                ]
+                discovered = [{"id": model_id} for model_id in list(backend.get("models") or [])]
             models: list[dict[str, Any]] = []
             for item in discovered:
                 if not isinstance(item, Mapping):
@@ -270,14 +248,9 @@ class ModelCatalogService:
                             "context_length": item.get("context_length"),
                             "quantization": item.get("quantization"),
                             "loaded": item.get("loaded"),
-                            "available": bool(
-                                item.get("available", discovery.available)
-                            ),
+                            "available": bool(item.get("available", discovery.available)),
                             "source": item.get("source"),
-                            "selected": (
-                                query.default_provider == provider_id
-                                and query.default_model == model_id
-                            ),
+                            "selected": (query.default_provider == provider_id and query.default_model == model_id),
                             "capabilities": item.get("capabilities"),
                         },
                         query.task_kind,
@@ -287,8 +260,7 @@ class ModelCatalogService:
             entry = _catalog_entry(
                 provider_id,
                 backend.get("base_url"),
-                discovery.available
-                and bool(models or list(backend.get("models") or [])),
+                discovery.available and bool(models or list(backend.get("models") or [])),
                 models,
                 capabilities={
                     **dict(backend.get("capabilities") or {}),
@@ -296,30 +268,17 @@ class ModelCatalogService:
                     "supports_chat": True,
                     "openai_compatible": True,
                     "transport_provider": backend.get("transport_provider"),
-                    "supports_tool_calls": bool(
-                        backend.get("supports_tool_calls")
-                    ),
-                    "provider_type": backend.get("provider_type")
-                    or "local_openai_compatible",
+                    "supports_tool_calls": bool(backend.get("supports_tool_calls")),
+                    "provider_type": backend.get("provider_type") or "local_openai_compatible",
                     "remote_hub": bool(backend.get("remote_hub")),
                     "instance_id": backend.get("instance_id"),
                     "max_hops": backend.get("max_hops"),
-                    "remote_hub_policy": (
-                        backend.get("capabilities") or {}
-                    ).get("remote_hub_policy"),
-                    "federation_policy": (
-                        backend.get("capabilities") or {}
-                    ).get("federation_policy"),
+                    "remote_hub_policy": (backend.get("capabilities") or {}).get("remote_hub_policy"),
+                    "federation_policy": (backend.get("capabilities") or {}).get("federation_policy"),
                     "trust_level": backend.get("trust_level"),
-                    "allowed_operations": list(
-                        backend.get("allowed_operations") or []
-                    ),
-                    "allow_artifact_access": bool(
-                        backend.get("allow_artifact_access", False)
-                    ),
-                    "allow_file_access": bool(
-                        backend.get("allow_file_access", False)
-                    ),
+                    "allowed_operations": list(backend.get("allowed_operations") or []),
+                    "allow_artifact_access": bool(backend.get("allow_artifact_access", False)),
+                    "allow_file_access": bool(backend.get("allow_file_access", False)),
                 },
                 task_kind=query.task_kind,
             )
@@ -333,11 +292,7 @@ class ModelCatalogService:
             )
             legacy["providers"].append(entry)
 
-        static = [
-            item
-            for item in specs
-            if not bool((item.get("capabilities") or {}).get("dynamic_models"))
-        ]
+        static = [item for item in specs if not bool((item.get("capabilities") or {}).get("dynamic_models"))]
         for provider in static:
             provider_id = _provider_id(provider.get("provider"))
             models: list[dict[str, Any]] = []
@@ -355,10 +310,7 @@ class ModelCatalogService:
                         {
                             "id": model_id,
                             "display_name": model_id,
-                            "selected": (
-                                query.default_provider == provider_id
-                                and query.default_model == model_id
-                            ),
+                            "selected": (query.default_provider == provider_id and query.default_model == model_id),
                         },
                         query.task_kind,
                         benchmark_index,
@@ -388,9 +340,7 @@ class ModelCatalogService:
                 "provider_type": "local_voice_runtime",
                 "eligible_for_inference": False,
                 "eligible_for_execution": True,
-                "availability": (
-                    "available" if voice.get("available") else "degraded"
-                ),
+                "availability": ("available" if voice.get("available") else "degraded"),
                 "reason": "voice_runtime_health_probe",
             }
             legacy["providers"].append(voice)
@@ -406,11 +356,8 @@ class ModelCatalogService:
                     "id": row.get("id"),
                     "provider": row.get("provider"),
                     "model": row.get("model"),
-                    "suitability_score": (
-                        (row.get("focus") or {}).get("suitability_score")
-                    ),
-                    "available": str(row.get("id") or "")
-                    in available_model_ids,
+                    "suitability_score": ((row.get("focus") or {}).get("suitability_score")),
+                    "available": str(row.get("id") or "") in available_model_ids,
                 }
                 for row in benchmark_rows[:5]
                 if isinstance(row, Mapping)
@@ -433,9 +380,7 @@ class ModelCatalogService:
                     "selection_source": "benchmarks_available_top_ranked",
                 }
         try:
-            legacy["routing_fallback_policy"] = dict(
-                self._policy.fallback_policy()
-            )
+            legacy["routing_fallback_policy"] = dict(self._policy.fallback_policy())
         except Exception:
             legacy["routing_fallback_policy"] = {}
             record("catalog", "routing_fallback_policy_unavailable")
@@ -473,9 +418,7 @@ class ModelCatalogService:
                 continue
             provider_id = _provider_id(raw_provider.get("provider"))
             capabilities = (
-                raw_provider.get("capabilities")
-                if isinstance(raw_provider.get("capabilities"), Mapping)
-                else {}
+                raw_provider.get("capabilities") if isinstance(raw_provider.get("capabilities"), Mapping) else {}
             )
             runtime = self._runtime(provider_id, capabilities)
             available = bool(raw_provider.get("available"))
@@ -483,20 +426,12 @@ class ModelCatalogService:
             availability = (
                 ModelAvailability.AVAILABLE
                 if available
-                else (
-                    ModelAvailability.DEGRADED
-                    if status == "degraded"
-                    else ModelAvailability.UNAVAILABLE
-                )
+                else (ModelAvailability.DEGRADED if status == "degraded" else ModelAvailability.UNAVAILABLE)
             )
             health = (
                 ModelHealth.HEALTHY
                 if available and status not in {"degraded", "unavailable"}
-                else (
-                    ModelHealth.DEGRADED
-                    if status == "degraded"
-                    else ModelHealth.UNAVAILABLE
-                )
+                else (ModelHealth.DEGRADED if status == "degraded" else ModelHealth.UNAVAILABLE)
             )
             provider_capabilities = self._capabilities(capabilities)
             for raw_model in raw_provider.get("models") or []:
@@ -508,34 +443,20 @@ class ModelCatalogService:
                         provider_id=provider_id,
                         runtime=runtime,
                         model_id=model_id,
-                        display_name=str(
-                            raw_model.get("display_name") or model_id
-                        ),
+                        display_name=str(raw_model.get("display_name") or model_id),
                         availability=(
-                            availability
-                            if raw_model.get("available", available)
-                            else ModelAvailability.UNAVAILABLE
+                            availability if raw_model.get("available", available) else ModelAvailability.UNAVAILABLE
                         ),
-                        loaded=(
-                            raw_model.get("loaded")
-                            if type(raw_model.get("loaded")) is bool
-                            else None
-                        ),
+                        loaded=(raw_model.get("loaded") if type(raw_model.get("loaded")) is bool else None),
                         context_window=self._positive_int(
-                            raw_model.get("context_window")
-                            or raw_model.get("context_length")
+                            raw_model.get("context_window") or raw_model.get("context_length")
                         ),
                         quantization=(
                             str(raw_model.get("quantization")).strip() or None
                             if raw_model.get("quantization") is not None
                             else None
                         ),
-                        capabilities=tuple(
-                            sorted(
-                                provider_capabilities
-                                | self._capabilities(raw_model)
-                            )
-                        ),
+                        capabilities=tuple(sorted(provider_capabilities | self._capabilities(raw_model))),
                         health=health,
                         is_default=bool(raw_model.get("selected")),
                     )
@@ -549,12 +470,8 @@ class ModelCatalogService:
                     continue
                 models[(summary.provider_id, summary.model_id)] = summary
         default_selection = None
-        default_provider = str(
-            snapshot.legacy_catalog.get("default_provider") or ""
-        ).strip()
-        default_model = str(
-            snapshot.legacy_catalog.get("default_model") or ""
-        ).strip()
+        default_provider = str(snapshot.legacy_catalog.get("default_provider") or "").strip()
+        default_model = str(snapshot.legacy_catalog.get("default_model") or "").strip()
         if default_provider and default_model:
             try:
                 default_selection = ModelDefaultSelection(
@@ -604,11 +521,7 @@ class ModelCatalogService:
         }
         listed = values.get("capabilities") or values.get("voice_capabilities")
         if isinstance(listed, (list, tuple, set)):
-            result.update(
-                str(value).strip().lower()
-                for value in listed
-                if str(value).strip()
-            )
+            result.update(str(value).strip().lower() for value in listed if str(value).strip())
         return result
 
     @staticmethod
@@ -641,8 +554,7 @@ class ModelDefaultSelectionService:
             (
                 item
                 for item in catalog.models
-                if item.provider_id == command.provider_id
-                and item.model_id == command.model_id
+                if item.provider_id == command.provider_id and item.model_id == command.model_id
             ),
             None,
         )
@@ -651,10 +563,7 @@ class ModelDefaultSelectionService:
                 "model_default_selection_not_allowlisted",
                 status_code=404,
             )
-        if (
-            selected.availability is not ModelAvailability.AVAILABLE
-            or selected.health is not ModelHealth.HEALTHY
-        ):
+        if selected.availability is not ModelAvailability.AVAILABLE or selected.health is not ModelHealth.HEALTHY:
             raise ModelDefaultSelectionError(
                 "model_default_selection_unavailable",
                 status_code=409,

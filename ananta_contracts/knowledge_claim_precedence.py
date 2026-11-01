@@ -8,7 +8,6 @@ from typing import Mapping
 
 from ananta_contracts.knowledge_hygiene import CoverageState, KnowledgeClaim
 
-
 KNOWLEDGE_CLAIM_PRECEDENCE_VERSION = "knowledge_claim_precedence.v1"
 
 
@@ -65,8 +64,7 @@ def compare_claims(
 
     trust = source_trust or {}
     ordered = tuple(
-        claim.claim_id
-        for claim in sorted((left, right), key=lambda item: _review_score(item, trust), reverse=True)
+        claim.claim_id for claim in sorted((left, right), key=lambda item: _review_score(item, trust), reverse=True)
     )
     if left.project_id != right.project_id or left.scope != right.scope:
         return ClaimComparison("out_of_scope", False, "none", ("scope_mismatch",), ordered)

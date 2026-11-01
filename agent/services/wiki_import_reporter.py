@@ -19,9 +19,5 @@ def build_wiki_import_stats(
         "processed_items": int(processed_items),
         "normalized_records": int(normalized_records),
         "issues": len(issues),
-        "top_issue_reasons": [
-            {"reason": reason, "count": count}
-            for reason, count in issue_counter.most_common(5)
-        ],
+        "top_issue_reasons": [{"reason": reason, "count": count} for reason, count in issue_counter.most_common(5)],
     }
-

@@ -3,9 +3,10 @@
 Selectors run in priority order and return the best context match.
 Each selector inspects DecisionContext and query-derived signals.
 """
+
 from __future__ import annotations
 
-from agent.services.heuristic_runtime.chain import ChainResult, HeuristicRuleChainElement
+from agent.services.heuristic_runtime.chain import ChainResult, HeuristicRuleChainElement, RuleChain
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
 
@@ -193,13 +194,16 @@ class NoMatchSelector(HeuristicRuleChainElement):
 
 def build_chat_selector_chain() -> "RuleChain":
     from agent.services.heuristic_runtime.chain import RuleChain
-    return RuleChain([
-        SelectedArtifactSelector(),
-        ActiveGoalSelector(),
-        ErrorHelpcenterSelector(),
-        SymbolSelector(),
-        FileSelector(),
-        TodoSelector(),
-        SourcepackSelector(),
-        NoMatchSelector(),
-    ])
+
+    return RuleChain(
+        [
+            SelectedArtifactSelector(),
+            ActiveGoalSelector(),
+            ErrorHelpcenterSelector(),
+            SymbolSelector(),
+            FileSelector(),
+            TodoSelector(),
+            SourcepackSelector(),
+            NoMatchSelector(),
+        ]
+    )

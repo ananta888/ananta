@@ -20,7 +20,9 @@ def test_update_lmstudio_history_delegates_to_record_helper():
     from agent.llm_integration import _update_lmstudio_history
 
     with patch("agent.llm_integration_lmstudio.update_json") as mock_update_json:
-        with patch("agent.llm_integration_lmstudio._record_lmstudio_result", return_value={"models": {}}) as mock_record:
+        with patch(
+            "agent.llm_integration_lmstudio._record_lmstudio_result", return_value={"models": {}}
+        ) as mock_record:
             _update_lmstudio_history("model-a", True)
             update_callback = mock_update_json.call_args.args[1]
             update_callback({"models": {}})
@@ -33,7 +35,10 @@ def test_prepare_lmstudio_history_touches_and_persists_models():
 
     candidates = [{"id": "model-a"}, {"id": "model-b"}]
     with patch("agent.llm_integration_lmstudio._load_lmstudio_history", return_value={"models": {}}) as mock_load:
-        with patch("agent.llm_integration_lmstudio._touch_lmstudio_models", wraps=lambda history, _: {"models": history["models"]}) as mock_touch:
+        with patch(
+            "agent.llm_integration_lmstudio._touch_lmstudio_models",
+            wraps=lambda history, _: {"models": history["models"]},
+        ) as mock_touch:
             with patch("agent.llm_integration_lmstudio._save_lmstudio_history") as mock_save:
                 history = _prepare_lmstudio_history(candidates)
 
@@ -368,11 +373,14 @@ def test_generate_text_prefers_lmstudio_when_runtime_is_reachable(app):
             "lmstudio": "http://192.168.56.1:1234/v1",
             "ollama": "http://ollama:11434/api/generate",
         }
-        with patch("agent.llm_integration.resolve_preferred_local_runtime", return_value={
-            "provider": "lmstudio",
-            "base_url": "http://192.168.56.1:1234/v1",
-            "selection_source": "runtime.lmstudio_available",
-        }):
+        with patch(
+            "agent.llm_integration.resolve_preferred_local_runtime",
+            return_value={
+                "provider": "lmstudio",
+                "base_url": "http://192.168.56.1:1234/v1",
+                "selection_source": "runtime.lmstudio_available",
+            },
+        ):
             with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
                 out = generate_text("hello", provider="lmstudio", base_url="http://192.168.56.1:1234/v1")
 
@@ -393,11 +401,14 @@ def test_generate_text_falls_back_to_ollama_when_lmstudio_is_unreachable(app):
             "lmstudio": "http://192.168.56.1:1234/v1",
             "ollama": "http://ollama:11434/api/generate",
         }
-        with patch("agent.llm_integration.resolve_preferred_local_runtime", return_value={
-            "provider": "ollama",
-            "base_url": "http://ollama:11434/api/generate",
-            "selection_source": "runtime.ollama_fallback",
-        }):
+        with patch(
+            "agent.llm_integration.resolve_preferred_local_runtime",
+            return_value={
+                "provider": "ollama",
+                "base_url": "http://ollama:11434/api/generate",
+                "selection_source": "runtime.ollama_fallback",
+            },
+        ):
             with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
                 out = generate_text("hello", provider="lmstudio", base_url="http://192.168.56.1:1234/v1")
 
@@ -441,12 +452,17 @@ def test_generate_text_resolves_ollama_model_before_call(app):
             "ollama": "http://ollama:11434/api/generate",
             "lmstudio": "http://192.168.56.1:1234/v1",
         }
-        with patch("agent.llm_integration.resolve_preferred_local_runtime", return_value={
-            "provider": "ollama",
-            "base_url": "http://ollama:11434/api/generate",
-            "selection_source": "runtime.ollama_available",
-        }):
-            with patch("agent.llm_integration.resolve_ollama_model", return_value="ananta-default:latest") as mock_resolve:
+        with patch(
+            "agent.llm_integration.resolve_preferred_local_runtime",
+            return_value={
+                "provider": "ollama",
+                "base_url": "http://ollama:11434/api/generate",
+                "selection_source": "runtime.ollama_available",
+            },
+        ):
+            with patch(
+                "agent.llm_integration.resolve_ollama_model", return_value="ananta-default:latest"
+            ) as mock_resolve:
                 with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
                     out = generate_text("hello", provider="ollama")
 
@@ -460,7 +476,10 @@ def test_call_llm_records_real_profile_on_success(app):
 
     with app.test_request_context("/x"):
         with patch("agent.llm_integration._check_circuit_breaker", return_value=True):
-            with patch("agent.llm_integration._execute_llm_call", return_value={"text": "ok", "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}}):
+            with patch(
+                "agent.llm_integration._execute_llm_call",
+                return_value={"text": "ok", "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}},
+            ):
                 out = _call_llm(
                     provider="ollama",
                     model="qwen2.5",
@@ -512,12 +531,15 @@ def test_call_llm_records_real_profile_on_error(app):
 def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
     from agent.llm_integration import probe_lmstudio_runtime
 
-    with patch("agent.llm_integration_lmstudio._http_get", return_value={
-        "data": [
-            {"id": "model-a", "context_length": 32768},
-            {"id": "embed-model", "context_length": 8192},
-        ]
-    }):
+    with patch(
+        "agent.llm_integration_lmstudio._http_get",
+        return_value={
+            "data": [
+                {"id": "model-a", "context_length": 32768},
+                {"id": "embed-model", "context_length": 8192},
+            ]
+        },
+    ):
         result = probe_lmstudio_runtime("http://127.0.0.1:1234/v1/chat/completions", timeout=5)
 
     assert result["ok"] is True
@@ -555,8 +577,9 @@ def test_resolve_preferred_local_runtime_prefers_ollama_when_configured_and_both
 
     _LOCAL_RUNTIME_SELECTION_CACHE.clear()
 
-    with patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}), patch(
-        "agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}
+    with (
+        patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}),
+        patch("agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}),
     ):
         result = resolve_preferred_local_runtime(
             "ollama",
@@ -577,8 +600,9 @@ def test_resolve_preferred_local_runtime_falls_back_to_lmstudio_when_ollama_is_u
 
     _LOCAL_RUNTIME_SELECTION_CACHE.clear()
 
-    with patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": False, "status": "error"}), patch(
-        "agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}
+    with (
+        patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": False, "status": "error"}),
+        patch("agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}),
     ):
         result = resolve_preferred_local_runtime(
             "ollama",
@@ -611,13 +635,20 @@ def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, a
     # _list_lmstudio_candidates is called by recommend_runtime_selection via shared.py
     # before resolve_preferred_local_runtime — patch it to avoid real HTTP to 192.168.56.1
     with patch("agent.routes.config._list_lmstudio_candidates", return_value=[]):
-        with patch("agent.routes.config.resolve_preferred_local_runtime", return_value={
-            "provider": "ollama",
-            "base_url": "http://ollama:11434/api/generate",
-            "selection_source": "runtime.ollama_fallback",
-        }):
-            with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
-                res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
+        with patch(
+            "agent.routes.config.resolve_preferred_local_runtime",
+            return_value={
+                "provider": "ollama",
+                "base_url": "http://ollama:11434/api/generate",
+                "selection_source": "runtime.ollama_fallback",
+            },
+        ):
+            with patch(
+                "agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}'
+            ) as mock_generate:
+                res = client.post(
+                    "/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"}
+                )
 
     if res.status_code != 200:
         assert res.status_code == 400
@@ -641,11 +672,15 @@ def test_lmstudio_strategy_prefers_runtime_default_model_over_settings_default(a
         app.config["AGENT_CONFIG"] = {
             "default_model": "runtime-model",
         }
-        with patch.object(strategy, "_list_lmstudio_candidates", return_value=[]), patch.object(
-            strategy,
-            "_call_with_model",
-            return_value={"text": "ok", "usage": {}},
-        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+        with (
+            patch.object(strategy, "_list_lmstudio_candidates", return_value=[]),
+            patch.object(
+                strategy,
+                "_call_with_model",
+                return_value={"text": "ok", "usage": {}},
+            ) as mock_call,
+            patch("agent.llm_strategies.lmstudio.settings") as mock_settings,
+        ):
             mock_settings.default_model = "settings-model"
             mock_settings.lmstudio_api_mode = "chat"
             mock_settings.lmstudio_max_context_tokens = 4096
@@ -672,11 +707,15 @@ def test_lmstudio_strategy_keeps_explicit_model_when_candidates_are_unavailable(
         app.config["AGENT_CONFIG"] = {
             "default_model": "runtime-model",
         }
-        with patch.object(strategy, "_list_lmstudio_candidates", return_value=[]), patch.object(
-            strategy,
-            "_call_with_model",
-            return_value={"text": "ok", "usage": {}},
-        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+        with (
+            patch.object(strategy, "_list_lmstudio_candidates", return_value=[]),
+            patch.object(
+                strategy,
+                "_call_with_model",
+                return_value={"text": "ok", "usage": {}},
+            ) as mock_call,
+            patch("agent.llm_strategies.lmstudio.settings") as mock_settings,
+        ):
             mock_settings.default_model = "settings-model"
             mock_settings.lmstudio_api_mode = "chat"
             mock_settings.lmstudio_max_context_tokens = 4096
@@ -705,26 +744,33 @@ def test_lmstudio_strategy_falls_back_to_next_candidate_when_first_returns_empty
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {"default_model": "runtime-model"}
-        with patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates), patch.object(
-            strategy,
-            "_prepare_lmstudio_history",
-            return_value={"models": {}},
-        ), patch.object(
-            strategy,
-            "_load_lmstudio_history",
-            return_value={"models": {}},
-        ), patch.object(
-            strategy,
-            "_select_best_lmstudio_model",
-            side_effect=[candidates[0], candidates[1]],
-        ), patch.object(
-            strategy,
-            "_call_with_model",
-            side_effect=[
-                {"text": "", "usage": {}},
-                {"text": "ok-from-b", "usage": {"total_tokens": 12}},
-            ],
-        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+        with (
+            patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates),
+            patch.object(
+                strategy,
+                "_prepare_lmstudio_history",
+                return_value={"models": {}},
+            ),
+            patch.object(
+                strategy,
+                "_load_lmstudio_history",
+                return_value={"models": {}},
+            ),
+            patch.object(
+                strategy,
+                "_select_best_lmstudio_model",
+                side_effect=[candidates[0], candidates[1]],
+            ),
+            patch.object(
+                strategy,
+                "_call_with_model",
+                side_effect=[
+                    {"text": "", "usage": {}},
+                    {"text": "ok-from-b", "usage": {"total_tokens": 12}},
+                ],
+            ) as mock_call,
+            patch("agent.llm_strategies.lmstudio.settings") as mock_settings,
+        ):
             mock_settings.default_model = "settings-model"
             mock_settings.lmstudio_api_mode = "chat"
             mock_settings.lmstudio_max_context_tokens = 4096
@@ -750,11 +796,15 @@ def test_lmstudio_strategy_normalizes_models_endpoint_to_chat_completions(app):
     strategy = LMStudioStrategy()
 
     with app.app_context():
-        with patch.object(strategy, "_list_lmstudio_candidates", return_value=[]), patch.object(
-            strategy,
-            "_call_with_model",
-            return_value={"text": "ok", "usage": {}},
-        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+        with (
+            patch.object(strategy, "_list_lmstudio_candidates", return_value=[]),
+            patch.object(
+                strategy,
+                "_call_with_model",
+                return_value={"text": "ok", "usage": {}},
+            ) as mock_call,
+            patch("agent.llm_strategies.lmstudio.settings") as mock_settings,
+        ):
             mock_settings.default_model = "settings-model"
             mock_settings.lmstudio_api_mode = "chat"
             mock_settings.lmstudio_max_context_tokens = 4096
@@ -783,26 +833,33 @@ def test_lmstudio_strategy_returns_empty_when_all_candidates_return_empty_text(a
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {"default_model": "runtime-model"}
-        with patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates), patch.object(
-            strategy,
-            "_prepare_lmstudio_history",
-            return_value={"models": {}},
-        ), patch.object(
-            strategy,
-            "_load_lmstudio_history",
-            return_value={"models": {}},
-        ), patch.object(
-            strategy,
-            "_select_best_lmstudio_model",
-            side_effect=[candidates[0], candidates[1]],
-        ), patch.object(
-            strategy,
-            "_call_with_model",
-            side_effect=[
-                {"text": "", "usage": {}},
-                {"text": "   ", "usage": {}},
-            ],
-        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+        with (
+            patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates),
+            patch.object(
+                strategy,
+                "_prepare_lmstudio_history",
+                return_value={"models": {}},
+            ),
+            patch.object(
+                strategy,
+                "_load_lmstudio_history",
+                return_value={"models": {}},
+            ),
+            patch.object(
+                strategy,
+                "_select_best_lmstudio_model",
+                side_effect=[candidates[0], candidates[1]],
+            ),
+            patch.object(
+                strategy,
+                "_call_with_model",
+                side_effect=[
+                    {"text": "", "usage": {}},
+                    {"text": "   ", "usage": {}},
+                ],
+            ) as mock_call,
+            patch("agent.llm_strategies.lmstudio.settings") as mock_settings,
+        ):
             mock_settings.default_model = "settings-model"
             mock_settings.lmstudio_api_mode = "chat"
             mock_settings.lmstudio_max_context_tokens = 4096
@@ -825,15 +882,22 @@ def test_lmstudio_strategy_matches_short_name_to_long_import_id(app):
 
     strategy = LMStudioStrategy()
     candidates = [
-        {"id": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest", "context_length": 32768},
+        {
+            "id": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest",
+            "context_length": 32768,
+        },
     ]
 
     with app.app_context():
-        with patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates), patch.object(
-            strategy,
-            "_call_with_model",
-            return_value={"text": "ok", "usage": {}},
-        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+        with (
+            patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates),
+            patch.object(
+                strategy,
+                "_call_with_model",
+                return_value={"text": "ok", "usage": {}},
+            ) as mock_call,
+            patch("agent.llm_strategies.lmstudio.settings") as mock_settings,
+        ):
             mock_settings.default_model = "settings-model"
             mock_settings.lmstudio_api_mode = "chat"
             mock_settings.lmstudio_max_context_tokens = 4096

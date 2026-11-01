@@ -1,4 +1,5 @@
 """Diagnostics for worker_context_handoff.v3 payloads."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -20,12 +21,14 @@ class WorkerContextHandoffDiagnosticsService:
             "required_read_count": len(required_reads),
             "missing_required_reads": missing_required_reads,
             "total_context_bytes": sum(int(item.get("byte_count") or 0) for item in context_files),
-            "source_output_kinds": sorted({
-                kind
-                for item in candidate_files
-                for kind in list(item.get("source_output_kinds") or [])
-                if str(kind or "").strip()
-            }),
+            "source_output_kinds": sorted(
+                {
+                    kind
+                    for item in candidate_files
+                    for kind in list(item.get("source_output_kinds") or [])
+                    if str(kind or "").strip()
+                }
+            ),
             "policy_version": str(handoff.get("policy_version") or ""),
             "manifest_hash": str(handoff.get("manifest_hash") or ""),
         }

@@ -43,9 +43,7 @@ class LangGraphExecutionRuntimeAdapter:
     def validate(self, plan: ExecutionPlan) -> RuntimeValidationReport:
         reasons = [issue.code for issue in plan.validate()]
         unsupported = tuple(sorted(set(plan.capabilities) - set(self.capabilities)))
-        reasons.extend(
-            f"langgraph_capability_unsupported:{value}" for value in unsupported
-        )
+        reasons.extend(f"langgraph_capability_unsupported:{value}" for value in unsupported)
         reasons.extend(
             f"langgraph_node_type_unsupported:{node.node_type}"
             for node in plan.nodes
@@ -109,9 +107,7 @@ class LangGraphExecutionRuntimeAdapter:
                 attempt_id=request.attempt_id,
                 fencing_token=request.fencing_token,
                 status=str(artifact.get("status") or "failed"),
-                artifact_refs=tuple(
-                    sorted(str(value) for value in dict(artifact.get("artifacts") or {}).values())
-                ),
+                artifact_refs=tuple(sorted(str(value) for value in dict(artifact.get("artifacts") or {}).values())),
                 reason_code=str(artifact.get("reason_code") or ""),
             )
         except Exception as exc:
@@ -138,9 +134,7 @@ def _bound_plan(request: DelegatedExecutionRequest) -> ExecutionPlan:
         or plan.policy_version != request.policy_version
     ):
         raise ValueError("langgraph_execution_plan_binding_mismatch")
-    envelope = RuntimeAuthorizationEnvelope.from_mapping(
-        request.authorization_envelope
-    )
+    envelope = RuntimeAuthorizationEnvelope.from_mapping(request.authorization_envelope)
     if (
         envelope.tenant_id != request.tenant_id
         or envelope.workflow_id != request.workflow_id

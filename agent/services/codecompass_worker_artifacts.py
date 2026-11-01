@@ -68,8 +68,9 @@ def decode_capability(value: str) -> dict[str, Any]:
 # --- Hub side ----------------------------------------------------------------------------------
 
 
-def locate_admitted_artifact(capability: Mapping[str, Any], sha256: str, *, get_index: Callable[[str], Any],
-                             resolver: Any) -> Path:
+def locate_admitted_artifact(
+    capability: Mapping[str, Any], sha256: str, *, get_index: Callable[[str], Any], resolver: Any
+) -> Path:
     """The verified local path of the artifact ``sha256`` within the capability's indices."""
     if not _SHA256.match(str(sha256 or "")):
         raise ArtifactAccessError("artifact_digest_invalid")
@@ -80,13 +81,15 @@ def locate_admitted_artifact(capability: Mapping[str, Any], sha256: str, *, get_
         if not any(isinstance(ref, Mapping) and ref.get("sha256") == sha256 for ref in references):
             continue
         graph_path, metrics_path = resolver.resolve_artifacts(index)  # verifies both hashes
-        return graph_path if isinstance(references[0], Mapping) and references[0].get("sha256") == sha256 \
-            else metrics_path
+        return (
+            graph_path if isinstance(references[0], Mapping) and references[0].get("sha256") == sha256 else metrics_path
+        )
     raise ArtifactAccessError("artifact_not_granted")
 
 
-def locate_admitted_index_output(capability: Mapping[str, Any], knowledge_index_id: str, role: str, *,
-                                 get_index: Callable[[str], Any]) -> tuple[Path, str]:
+def locate_admitted_index_output(
+    capability: Mapping[str, Any], knowledge_index_id: str, role: str, *, get_index: Callable[[str], Any]
+) -> tuple[Path, str]:
     """The verified path and content digest of one retrieval output of a granted index.
 
     Only a role of the closed retrieval contract and only an index in the
@@ -139,9 +142,16 @@ def _file_sha256(path: Path) -> str:
 class WorkerArtifactMaterializer:
     """Fetches an admitted artifact from the Hub to its admitted path inside the worker's artifact root."""
 
-    def __init__(self, *, hub_url: str, headers: Mapping[str, str], capability: Mapping[str, Any],
-                 artifact_root: Path, opener: Callable[..., Any] = urllib.request.urlopen,
-                 timeout: float = 120.0) -> None:
+    def __init__(
+        self,
+        *,
+        hub_url: str,
+        headers: Mapping[str, str],
+        capability: Mapping[str, Any],
+        artifact_root: Path,
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        timeout: float = 120.0,
+    ) -> None:
         self._hub = str(hub_url or "").rstrip("/")
         if not self._hub.startswith(("http://", "https://")):
             raise ArtifactAccessError("artifact_hub_url_invalid")
@@ -152,8 +162,12 @@ class WorkerArtifactMaterializer:
 
     def _target(self, sha256: str, local_path: Path) -> Path:
         local_path = Path(local_path)
-        if (not _SHA256.match(str(sha256 or "")) or not local_path.is_absolute() or ".." in local_path.parts
-                or local_path.name.startswith(".")):
+        if (
+            not _SHA256.match(str(sha256 or ""))
+            or not local_path.is_absolute()
+            or ".." in local_path.parts
+            or local_path.name.startswith(".")
+        ):
             raise ArtifactAccessError("artifact_reference_invalid")
         try:
             local_path.relative_to(self._root)
@@ -203,8 +217,12 @@ def worker_materializer(artifact_root: Path) -> WorkerArtifactMaterializer | Non
     from agent.services.worker_hub_headers import registered_worker_hub_headers
 
     try:
-        return WorkerArtifactMaterializer(hub_url=str(settings.hub_url or ""), headers=registered_worker_hub_headers(),
-                                          capability=capability, artifact_root=artifact_root)
+        return WorkerArtifactMaterializer(
+            hub_url=str(settings.hub_url or ""),
+            headers=registered_worker_hub_headers(),
+            capability=capability,
+            artifact_root=artifact_root,
+        )
     except (ArtifactAccessError, ValueError):
         return None
 
@@ -218,9 +236,16 @@ class WorkerIndexArtifactMaterializer:
     computed is verified against the response body.
     """
 
-    def __init__(self, *, hub_url: str, headers: Mapping[str, str], capability: Mapping[str, Any],
-                 artifact_root: Path, opener: Callable[..., Any] = urllib.request.urlopen,
-                 timeout: float = 120.0) -> None:
+    def __init__(
+        self,
+        *,
+        hub_url: str,
+        headers: Mapping[str, str],
+        capability: Mapping[str, Any],
+        artifact_root: Path,
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        timeout: float = 120.0,
+    ) -> None:
         self._hub = str(hub_url or "").rstrip("/")
         if not self._hub.startswith(("http://", "https://")):
             raise ArtifactAccessError("artifact_hub_url_invalid")
@@ -233,8 +258,12 @@ class WorkerIndexArtifactMaterializer:
         if not _INDEX_ID.match(str(index_id or "")):
             raise ArtifactAccessError("artifact_index_id_invalid")
         local_path = Path(local_path)
-        if (not local_path.is_absolute() or ".." in local_path.parts or local_path.name != filename
-                or local_path.name.startswith(".")):
+        if (
+            not local_path.is_absolute()
+            or ".." in local_path.parts
+            or local_path.name != filename
+            or local_path.name.startswith(".")
+        ):
             raise ArtifactAccessError("artifact_reference_invalid")
         try:
             local_path.relative_to(self._root)
@@ -249,14 +278,16 @@ class WorkerIndexArtifactMaterializer:
         target = self._target(index_id, filename, local_path)
         if target.is_file():
             return target
-        url = self._hub + INDEX_ARTIFACT_PATH.format(index_id=urllib.parse.quote(str(index_id), safe=""),
-                                                     role=urllib.parse.quote(str(role), safe=""))
+        url = self._hub + INDEX_ARTIFACT_PATH.format(
+            index_id=urllib.parse.quote(str(index_id), safe=""), role=urllib.parse.quote(str(role), safe="")
+        )
         request = urllib.request.Request(url, headers=self._headers)
         try:
             with self._opener(request, timeout=self._timeout) as response:
                 data = response.read(MAX_ARTIFACT_BYTES + 1)
-                announced = str(getattr(getattr(response, "headers", None), "get", lambda *_: "")(
-                    ARTIFACT_DIGEST_HEADER) or "")
+                announced = str(
+                    getattr(getattr(response, "headers", None), "get", lambda *_: "")(ARTIFACT_DIGEST_HEADER) or ""
+                )
         except urllib.error.HTTPError as error:
             raise ArtifactAccessError(f"artifact_fetch_http_{int(error.code or 0)}") from None
         except OSError as error:
@@ -291,9 +322,12 @@ def index_output_materializer(artifact_root: Path) -> WorkerIndexArtifactMateria
     from agent.services.worker_hub_headers import registered_worker_hub_headers
 
     try:
-        return WorkerIndexArtifactMaterializer(hub_url=str(settings.hub_url or ""),
-                                               headers=registered_worker_hub_headers(), capability=capability,
-                                               artifact_root=artifact_root)
+        return WorkerIndexArtifactMaterializer(
+            hub_url=str(settings.hub_url or ""),
+            headers=registered_worker_hub_headers(),
+            capability=capability,
+            artifact_root=artifact_root,
+        )
     except (ArtifactAccessError, ValueError):
         return None
 
@@ -340,4 +374,3 @@ def try_materialize_index_outputs(knowledge_index: Any) -> bool:
         except ValueError:
             return False
     return (output_dir / filenames["index"]).is_file()
-

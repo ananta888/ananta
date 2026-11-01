@@ -1,10 +1,11 @@
 """Tests for LeaseReevaluationService — extend, switch, propose, no_change."""
+
 from __future__ import annotations
 
 import time
 
 import pytest
-from sqlmodel import SQLModel, Session, delete
+from sqlmodel import Session, SQLModel, delete
 
 from agent.database import engine
 from agent.db_models import HeuristicDecisionLeaseDB
@@ -16,8 +17,8 @@ from agent.services.heuristic_runtime.lease_reevaluation_service import (
     ReevalOutcome,
 )
 
-
 # ── fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _fresh_db():
@@ -28,7 +29,9 @@ def _fresh_db():
         s.commit()
 
 
-def _make_heuristic(hid: str = "snake-follow-default-v1", domain: str = "tui_snake", safety_class: str = "bounded") -> HeuristicDefinition:
+def _make_heuristic(
+    hid: str = "snake-follow-default-v1", domain: str = "tui_snake", safety_class: str = "bounded"
+) -> HeuristicDefinition:
     return HeuristicDefinition(
         heuristic_id=hid,
         version="1.0.0",
@@ -75,6 +78,7 @@ def _svc(heuristics=None, domain="tui_snake") -> LeaseReevaluationService:
 
 # ── no active lease → acquire ─────────────────────────────────────────────────
 
+
 def test_no_lease_ai_offline_acquires(recwarn):
     svc = _svc()
     ctx = _ctx(ai_status="offline")
@@ -93,6 +97,7 @@ def test_no_lease_no_heuristic_returns_no_heuristic():
 
 
 # ── AI available → propose ────────────────────────────────────────────────────
+
 
 def test_ai_available_no_lease_proposes():
     svc = _svc()
@@ -116,6 +121,7 @@ def test_ai_available_with_active_lease_proposes():
 
 # ── valid lease, same context → no_change ─────────────────────────────────────
 
+
 def test_no_change_when_context_unchanged():
     svc = _svc()
     ctx = _ctx(ai_status="offline")
@@ -125,6 +131,7 @@ def test_no_change_when_context_unchanged():
 
 
 # ── context changed → switch or extend ───────────────────────────────────────
+
 
 def test_extend_when_same_heuristic_after_context_change():
     svc = _svc()
@@ -172,6 +179,7 @@ def test_switch_when_different_heuristic_selected():
 
 # ── lease TTL expired → reacquire ─────────────────────────────────────────────
 
+
 def test_reacquires_after_ttl_expiry():
     repo = HeuristicLeaseRepository()
     h = _make_heuristic()
@@ -195,6 +203,7 @@ def test_reacquires_after_ttl_expiry():
 
 # ── handle_expiry ─────────────────────────────────────────────────────────────
 
+
 def test_handle_expiry_marks_overdue_leases():
     repo = HeuristicLeaseRepository()
     h = _make_heuristic()
@@ -215,6 +224,7 @@ def test_handle_expiry_marks_overdue_leases():
 
 
 # ── reason codes ─────────────────────────────────────────────────────────────
+
 
 def test_reason_codes_include_ai_status():
     svc = _svc()

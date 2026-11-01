@@ -56,9 +56,7 @@ _PROMPT_PATH = _ROOT / "prompts" / "planning" / "category_research_planning.j2"
 # while attaching the authoritative WorkerJob lease.  ``todo`` is therefore
 # an admissible callback state only together with the exact current-job,
 # assignment and Worker checks below; it is not sufficient on its own.
-_ACTIVE_RESULT_TASK_STATES = frozenset(
-    {"todo", "assigned", "in_progress", "blocked_by_dependency", "completed"}
-)
+_ACTIVE_RESULT_TASK_STATES = frozenset({"todo", "assigned", "in_progress", "blocked_by_dependency", "completed"})
 
 
 class OrganizationCategoryResearchService:
@@ -77,9 +75,7 @@ class OrganizationCategoryResearchService:
         self._catalog_authority = source_catalog_authority or SourceCatalogAuthorityService()
         self._pipeline = category_pipeline or PlanningCategoryPipelineService()
         self._readiness = readiness_service or OrganizationCategoryResearchReadinessService()
-        self._source_catalog_context = (
-            source_catalog_context or OrganizationSourceCatalogContextService()
-        )
+        self._source_catalog_context = source_catalog_context or OrganizationSourceCatalogContextService()
         self._uow_factory = uow_factory or PlanningControlUnitOfWork
         # Retained as a constructor compatibility seam.  Productive context
         # hydration deliberately uses the locked catalog Task in the Planning
@@ -198,16 +194,10 @@ class OrganizationCategoryResearchService:
                 team_id=team_id,
                 role_slot_id=role_slot_id,
             )
-            assignment_id = str(
-                readiness.selected_assignment_id or ""
-            ).strip()
-            assigned_agent_url = str(
-                readiness.selected_agent_url or ""
-            ).strip()
+            assignment_id = str(readiness.selected_assignment_id or "").strip()
+            assigned_agent_url = str(readiness.selected_agent_url or "").strip()
             if not assignment_id or not assigned_agent_url:
-                raise PlanningTransitionError(
-                    "category_research_eligible_assignment_required"
-                )
+                raise PlanningTransitionError("category_research_eligible_assignment_required")
             try:
                 materialized_context = self._source_catalog_context.materialize(
                     uow.session,
@@ -231,9 +221,7 @@ class OrganizationCategoryResearchService:
                 source_catalog_hash=resolved.catalog_hash,
             )
             assignment_binding = {
-                "schema": (
-                    "organization_category_research_assignment_binding.v1"
-                ),
+                "schema": ("organization_category_research_assignment_binding.v1"),
                 "tenant_id": context.tenant_id,
                 "project_id": context.project_id,
                 "organization_id": context.organization_id,
@@ -243,16 +231,10 @@ class OrganizationCategoryResearchService:
                 "role_slot_id": role_slot_id,
                 "assignment_id": assignment_id,
                 "agent_url": assigned_agent_url,
-                "required_capabilities": list(
-                    readiness.required_capabilities
-                ),
-                "effective_policy_hash": (
-                    organization.effective_limit_profile_hash
-                ),
+                "required_capabilities": list(readiness.required_capabilities),
+                "effective_policy_hash": (organization.effective_limit_profile_hash),
             }
-            assignment_binding["binding_digest"] = self._digest(
-                assignment_binding
-            )
+            assignment_binding["binding_digest"] = self._digest(assignment_binding)
             organization_routing = {
                 "schema": "organization_routing_decision.v1",
                 "strategy": "category_research_assignment_binding",
@@ -262,12 +244,8 @@ class OrganizationCategoryResearchService:
                 "selected_assignment_id": assignment_id,
                 "selected_team_id": team_id,
                 "selected_role_slot_id": role_slot_id,
-                "effective_policy_hash": (
-                    organization.effective_limit_profile_hash
-                ),
-                "assignment_binding_digest": assignment_binding[
-                    "binding_digest"
-                ],
+                "effective_policy_hash": (organization.effective_limit_profile_hash),
+                "assignment_binding_digest": assignment_binding["binding_digest"],
             }
             organization_routing["decision_hash"] = self._digest(
                 {
@@ -294,9 +272,7 @@ class OrganizationCategoryResearchService:
                 assigned_agent_url=assigned_agent_url,
                 goal_id=goal_id,
                 task_kind="planning_research",
-                required_capabilities=list(
-                    readiness.required_capabilities
-                ),
+                required_capabilities=list(readiness.required_capabilities),
                 context_bundle_id=context_bundle_id,
                 worker_execution_context={
                     "context_bundle_id": context_bundle_id,
@@ -311,15 +287,11 @@ class OrganizationCategoryResearchService:
                         "policy_hash": organization.effective_limit_profile_hash,
                         "source_catalog": source_catalog,
                         "context_bundle_id": context_bundle_id,
-                        "context_bundle_digest": source_context_policy[
-                            "context_bundle_digest"
-                        ],
+                        "context_bundle_digest": source_context_policy["context_bundle_digest"],
                         "artifact_hashes": {},
                         "assignment_id": assignment_id,
                         "agent_url": assigned_agent_url,
-                        "assignment_binding_digest": assignment_binding[
-                            "binding_digest"
-                        ],
+                        "assignment_binding_digest": assignment_binding["binding_digest"],
                     },
                     "allowed_source_refs": source_refs,
                     "allowed_run_refs": run_refs,

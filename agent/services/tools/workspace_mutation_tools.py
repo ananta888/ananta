@@ -9,12 +9,18 @@ size and refuses binary replacements. ``workspace.diff`` returns the
 bounded diff against the hub baseline together with the mutation policy
 result so it can feed the next feedback iteration as evidence.
 """
+
 from __future__ import annotations
 
 import hashlib
 from pathlib import Path
 from typing import Any
 
+from agent.services.generated_source_line_policy_service import (
+    DECISION_BLOCKED,
+    extract_policy_config,
+    get_generated_source_line_policy_service,
+)
 from agent.services.tools._evidence import (
     EVIDENCE_KIND_DIFF,
     EVIDENCE_KIND_POLICY,
@@ -22,11 +28,6 @@ from agent.services.tools._evidence import (
     build_tool_result,
 )
 from agent.services.tools.repo_tools import WorkspacePathError, resolve_workspace_path
-from agent.services.generated_source_line_policy_service import (
-    DECISION_BLOCKED,
-    extract_policy_config,
-    get_generated_source_line_policy_service,
-)
 
 _DEFAULT_MAX_WRITE_BYTES = 262144
 _DEFAULT_MAX_REPLACE_EXISTING_BYTES = 65536
@@ -141,7 +142,9 @@ def _replace_range(
     return "\n".join(patched) + ("\n" if original_text.endswith("\n") else "")
 
 
-def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+def repo_apply_patch(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None
+) -> dict[str, Any]:
     args = arguments or {}
     cfg = dict(config or {})
     target = str(args.get("target_path") or "").strip()
@@ -178,7 +181,11 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
             data={"applied": False, "rejected_reason": "expected_old_hash_mismatch"},
         )
     try:
-        variant = str(args.get("variant") or ("replace_range" if args.get("line_start") is not None else "unified_diff")).strip().lower()
+        variant = (
+            str(args.get("variant") or ("replace_range" if args.get("line_start") is not None else "unified_diff"))
+            .strip()
+            .lower()
+        )
         if variant == "replace_range":
             replacement = args.get("replacement") if args.get("replacement") is not None else args.get("content")
             patched_text = _replace_range(
@@ -186,7 +193,13 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
                 line_start=int(args.get("line_start") or 0),
                 line_end=int(args.get("line_end") or 0),
                 replacement=str(replacement or ""),
-                max_lines=max(1, min(int(cfg.get("max_replace_range_lines") or _DEFAULT_MAX_REPLACE_RANGE_LINES), _DEFAULT_MAX_REPLACE_RANGE_LINES)),
+                max_lines=max(
+                    1,
+                    min(
+                        int(cfg.get("max_replace_range_lines") or _DEFAULT_MAX_REPLACE_RANGE_LINES),
+                        _DEFAULT_MAX_REPLACE_RANGE_LINES,
+                    ),
+                ),
             )
             diff_excerpt = f"replace_range {target}:{args.get('line_start')}-{args.get('line_end')}\n{str(replacement or '')[:3500]}"
         else:
@@ -207,12 +220,16 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
     rel = str(path.relative_to(Path(workspace_dir).resolve())).replace("\\", "/")
     baseline = {rel: len(original_text.splitlines())}
     path.write_text(patched_text, encoding="utf-8")
-    source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
-        workspace_dir=workspace_dir,
-        changed_rel_paths=[rel],
-        cfg=extract_policy_config(cfg),
-        baseline=baseline,
-    ).as_dict()
+    source_line_result = (
+        get_generated_source_line_policy_service()
+        .evaluate_changed_files(
+            workspace_dir=workspace_dir,
+            changed_rel_paths=[rel],
+            cfg=extract_policy_config(cfg),
+            baseline=baseline,
+        )
+        .as_dict()
+    )
     source_line_warning = _source_line_warning(source_line_result)
     if source_line_result.get("status") == DECISION_BLOCKED:
         path.write_text(original_text, encoding="utf-8")
@@ -255,7 +272,9 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
     )
 
 
-def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+def repo_write_file(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None
+) -> dict[str, Any]:
     args = arguments or {}
     cfg = dict(config or {})
     max_bytes = max(1024, min(int(cfg.get("max_write_file_bytes") or _DEFAULT_MAX_WRITE_BYTES), 10 * 1024 * 1024))
@@ -270,62 +289,99 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
     content = args.get("content")
     if not isinstance(content, str):
         return build_tool_result(
-            tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-            error="content_must_be_text", data={"applied": False, "rejected_reason": "content_must_be_text"},
+            tool_name="repo.write_file",
+            tool_call_id=tool_call_id,
+            status="rejected",
+            risk_class="write",
+            error="content_must_be_text",
+            data={"applied": False, "rejected_reason": "content_must_be_text"},
         )
     if len(content.encode("utf-8")) > max_bytes:
         return build_tool_result(
-            tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-            error="content_too_large", data={"applied": False, "rejected_reason": "content_too_large"},
+            tool_name="repo.write_file",
+            tool_call_id=tool_call_id,
+            status="rejected",
+            risk_class="write",
+            error="content_too_large",
+            data={"applied": False, "rejected_reason": "content_too_large"},
         )
     try:
         path = resolve_workspace_path(workspace_dir, args.get("path"))
     except WorkspacePathError as exc:
         return build_tool_result(
-            tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-            error=str(exc), data={"applied": False, "rejected_reason": str(exc)},
+            tool_name="repo.write_file",
+            tool_call_id=tool_call_id,
+            status="rejected",
+            risk_class="write",
+            error=str(exc),
+            data={"applied": False, "rejected_reason": str(exc)},
         )
     if mode not in {"create_only", "replace_existing"}:
         return build_tool_result(
-            tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-            error=f"unknown_mode:{mode}", data={"applied": False, "rejected_reason": f"unknown_mode:{mode}"},
+            tool_name="repo.write_file",
+            tool_call_id=tool_call_id,
+            status="rejected",
+            risk_class="write",
+            error=f"unknown_mode:{mode}",
+            data={"applied": False, "rejected_reason": f"unknown_mode:{mode}"},
         )
     if mode == "create_only" and path.exists():
         return build_tool_result(
-            tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-            error="file_already_exists", data={"applied": False, "rejected_reason": "file_already_exists"},
+            tool_name="repo.write_file",
+            tool_call_id=tool_call_id,
+            status="rejected",
+            risk_class="write",
+            error="file_already_exists",
+            data={"applied": False, "rejected_reason": "file_already_exists"},
         )
     original_text: str | None = None
     existed_before = path.exists()
     if mode == "replace_existing":
         if not path.is_file():
             return build_tool_result(
-                tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-                error="file_not_found", data={"applied": False, "rejected_reason": "file_not_found"},
+                tool_name="repo.write_file",
+                tool_call_id=tool_call_id,
+                status="rejected",
+                risk_class="write",
+                error="file_not_found",
+                data={"applied": False, "rejected_reason": "file_not_found"},
             )
         payload = path.read_bytes()
         if len(payload) > max_replace_existing_bytes:
             return build_tool_result(
-                tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
+                tool_name="repo.write_file",
+                tool_call_id=tool_call_id,
+                status="rejected",
+                risk_class="write",
                 error="replace_existing_file_too_large",
                 data={"applied": False, "rejected_reason": "replace_existing_file_too_large"},
             )
         if b"\x00" in payload:
             return build_tool_result(
-                tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
-                error="binary_file_replace_blocked", data={"applied": False, "rejected_reason": "binary_file_replace_blocked"},
+                tool_name="repo.write_file",
+                tool_call_id=tool_call_id,
+                status="rejected",
+                risk_class="write",
+                error="binary_file_replace_blocked",
+                data={"applied": False, "rejected_reason": "binary_file_replace_blocked"},
             )
         expected_old_hash = str(args.get("expected_old_hash") or "").strip()
         approved = bool(args.get("hub_approved"))
         if not expected_old_hash and not approved:
             return build_tool_result(
-                tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
+                tool_name="repo.write_file",
+                tool_call_id=tool_call_id,
+                status="rejected",
+                risk_class="write",
                 error="replace_requires_expected_old_hash_or_approval",
                 data={"applied": False, "rejected_reason": "replace_requires_expected_old_hash_or_approval"},
             )
         if expected_old_hash and expected_old_hash != hashlib.sha256(payload).hexdigest():
             return build_tool_result(
-                tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
+                tool_name="repo.write_file",
+                tool_call_id=tool_call_id,
+                status="rejected",
+                risk_class="write",
                 error="expected_old_hash_mismatch",
                 data={"applied": False, "rejected_reason": "expected_old_hash_mismatch"},
             )
@@ -334,12 +390,16 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
     rel = str(path.relative_to(Path(workspace_dir).resolve())).replace("\\", "/")
     baseline = {rel: len(original_text.splitlines()) if original_text is not None else None}
     path.write_text(content, encoding="utf-8")
-    source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
-        workspace_dir=workspace_dir,
-        changed_rel_paths=[rel],
-        cfg=extract_policy_config(cfg),
-        baseline=baseline,
-    ).as_dict()
+    source_line_result = (
+        get_generated_source_line_policy_service()
+        .evaluate_changed_files(
+            workspace_dir=workspace_dir,
+            changed_rel_paths=[rel],
+            cfg=extract_policy_config(cfg),
+            baseline=baseline,
+        )
+        .as_dict()
+    )
     source_line_warning = _source_line_warning(source_line_result)
     if source_line_result.get("status") == DECISION_BLOCKED:
         if existed_before and original_text is not None:
@@ -382,7 +442,9 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
     )
 
 
-def workspace_diff(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+def workspace_diff(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """AWWPI-011: diff vs. baseline plus mutation policy result as evidence."""
     cfg = dict(config or {})
     max_diff_chars = max(500, min(int(cfg.get("max_diff_chars") or 12000), 100000))
@@ -405,12 +467,16 @@ def workspace_diff(*, workspace_dir: str, arguments: dict[str, Any], tool_call_i
         allowed_new_file_globs=list(cfg.get("allowed_new_file_globs") or []),
         require_materialized_scope=bool(cfg.get("require_materialized_scope", True)),
     )
-    source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
-        workspace_dir=workspace,
-        changed_rel_paths=meaningful,
-        cfg=extract_policy_config(cfg),
-        baseline=None,
-    ).as_dict()
+    source_line_result = (
+        get_generated_source_line_policy_service()
+        .evaluate_changed_files(
+            workspace_dir=workspace,
+            changed_rel_paths=meaningful,
+            cfg=extract_policy_config(cfg),
+            baseline=None,
+        )
+        .as_dict()
+    )
     diff_entry, _ = build_evidence_entry(
         kind=EVIDENCE_KIND_DIFF, path=".", excerpt=diff_text or "(no meaningful diff)", max_excerpt_chars=max_diff_chars
     )

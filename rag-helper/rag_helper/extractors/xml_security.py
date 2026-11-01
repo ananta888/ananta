@@ -60,9 +60,7 @@ def parse_untrusted_xml(
     except UnicodeEncodeError as exc:
         raise XmlSecurityError("xml_encoding_error") from exc
     if max_input_size_kb is not None and len(source) > max_input_size_kb * 1024:
-        raise XmlSecurityError(
-            f"max_xml_input_size_kb_exceeded: {len(source)} > {max_input_size_kb * 1024}"
-        )
+        raise XmlSecurityError(f"max_xml_input_size_kb_exceeded: {len(source)} > {max_input_size_kb * 1024}")
     if _FORBIDDEN_DECLARATION.search(text):
         raise XmlSecurityError("xml_dtd_or_entity_declaration_forbidden")
 
@@ -101,9 +99,7 @@ def parse_untrusted_xml(
         if max_depth is not None and depth > max_depth:
             raise XmlSecurityError(f"max_xml_depth_exceeded: {depth} > {max_depth}")
         if max_attributes is not None and attribute_count > max_attributes:
-            raise XmlSecurityError(
-                f"max_xml_attributes_exceeded: {attribute_count} > {max_attributes}"
-            )
+            raise XmlSecurityError(f"max_xml_attributes_exceeded: {attribute_count} > {max_attributes}")
         stack.extend((child, depth + 1) for child in reversed(element))
 
     return SecureXmlDocument(

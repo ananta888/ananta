@@ -20,8 +20,8 @@ from ananta_contracts.provider_endpoint_policy import (
 )
 from ananta_contracts.provider_invocation import (
     PROVIDER_BUDGET_DECISION_SCHEMA,
-    ProviderBudgetPort,
     ProviderBudgetDecision,
+    ProviderBudgetPort,
     ProviderInvocationBlocked,
     ProviderInvocationContext,
 )

@@ -15,6 +15,7 @@ AGENT-FEATURE-002  Adapter stubs (OpenCode, Codex, Claude-CLI)
 AGENT-FEATURE-003  AgentFeatureProvider Protocol + StubAgentFeatureProvider
 AGENT-FEATURE-004  AgentFeatureOrchestrator
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,6 +30,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # AGENT-FEATURE-001: Data structures
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class AgentFeatureSignal:
@@ -131,6 +133,7 @@ class AgentFeaturePolicy:
 # AGENT-FEATURE-003: AgentFeatureProvider Protocol
 # ---------------------------------------------------------------------------
 
+
 class AgentFeatureProvider(Protocol):
     """Protocol for all agent feature providers.
 
@@ -172,6 +175,7 @@ class AgentFeatureProvider(Protocol):
 # ---------------------------------------------------------------------------
 # Stub provider (AGENT-FEATURE-003)
 # ---------------------------------------------------------------------------
+
 
 class StubAgentFeatureProvider:
     """No-op provider that always returns a blocked signal.
@@ -287,6 +291,7 @@ class ClaudeCliFeatureAdapter:
 # AGENT-FEATURE-004: AgentFeatureOrchestrator
 # ---------------------------------------------------------------------------
 
+
 class AgentFeatureOrchestrator:
     """Collect, gate, and convert agent feature signals.
 
@@ -370,9 +375,7 @@ class AgentFeatureOrchestrator:
                     pid,
                     exc,
                 )
-                signals.append(
-                    _degraded_signal(pid, query, safe_context, elapsed_ms, str(exc))
-                )
+                signals.append(_degraded_signal(pid, query, safe_context, elapsed_ms, str(exc)))
             except Exception as exc:  # noqa: BLE001
                 elapsed_ms = (time.time() - t0) * 1000.0
                 log.error(
@@ -380,9 +383,7 @@ class AgentFeatureOrchestrator:
                     pid,
                     exc,
                 )
-                signals.append(
-                    _degraded_signal(pid, query, safe_context, elapsed_ms, str(exc))
-                )
+                signals.append(_degraded_signal(pid, query, safe_context, elapsed_ms, str(exc)))
 
         return signals
 
@@ -390,9 +391,7 @@ class AgentFeatureOrchestrator:
     # to_embedding_records
     # ------------------------------------------------------------------
 
-    def to_embedding_records(
-        self, signals: list[AgentFeatureSignal]
-    ) -> list[dict[str, Any]]:
+    def to_embedding_records(self, signals: list[AgentFeatureSignal]) -> list[dict[str, Any]]:
         """Convert allowed signals to CodeCompass embedding-compatible records.
 
         Only signals with ``policy_decision == "allowed"`` are included.
@@ -418,21 +417,23 @@ class AgentFeatureOrchestrator:
         for signal in signals:
             if signal.policy_decision != "allowed":
                 continue
-            records.append({
-                "source_scope": "agent_feature",
-                "profile_name": "agent_feature_v1",
-                "kind": "agent_signal",
-                "provider_id": signal.provider_id,
-                "model_or_agent_version": signal.model_or_agent_version,
-                "feature_text": signal.feature_text,
-                "embedding": list(signal.feature_vector),
-                "confidence": signal.confidence,
-                "evidence_refs": list(signal.evidence_refs),
-                "input_hash": signal.input_hash,
-                "output_hash": signal.output_hash,
-                "elapsed_ms": round(signal.elapsed_ms, 3),
-                "policy_decision": signal.policy_decision,
-            })
+            records.append(
+                {
+                    "source_scope": "agent_feature",
+                    "profile_name": "agent_feature_v1",
+                    "kind": "agent_signal",
+                    "provider_id": signal.provider_id,
+                    "model_or_agent_version": signal.model_or_agent_version,
+                    "feature_text": signal.feature_text,
+                    "embedding": list(signal.feature_vector),
+                    "confidence": signal.confidence,
+                    "evidence_refs": list(signal.evidence_refs),
+                    "input_hash": signal.input_hash,
+                    "output_hash": signal.output_hash,
+                    "elapsed_ms": round(signal.elapsed_ms, 3),
+                    "policy_decision": signal.policy_decision,
+                }
+            )
         return records
 
     # ------------------------------------------------------------------
@@ -464,9 +465,7 @@ class AgentFeatureOrchestrator:
         cfg = dict(config or {})
         env = os.environ
 
-        enabled = _bool(
-            cfg.get("enabled", env.get("CODECOMPASS_AGENT_FEATURE_ENABLED", "0"))
-        )
+        enabled = _bool(cfg.get("enabled", env.get("CODECOMPASS_AGENT_FEATURE_ENABLED", "0")))
         external_calls_allowed = _bool(
             cfg.get(
                 "external_calls_allowed",
@@ -474,26 +473,16 @@ class AgentFeatureOrchestrator:
             )
         )
         allowed_ids_raw = str(
-            cfg.get("allowed_provider_ids")
-            or env.get("CODECOMPASS_AGENT_FEATURE_ALLOWED_PROVIDER_IDS")
-            or ""
+            cfg.get("allowed_provider_ids") or env.get("CODECOMPASS_AGENT_FEATURE_ALLOWED_PROVIDER_IDS") or ""
         )
         allowed_provider_ids: frozenset[str] = frozenset(
             pid.strip() for pid in allowed_ids_raw.split(",") if pid.strip()
         )
         max_input_chars = int(
-            cfg.get("max_input_chars")
-            or env.get("CODECOMPASS_AGENT_FEATURE_MAX_INPUT_CHARS")
-            or 4000
+            cfg.get("max_input_chars") or env.get("CODECOMPASS_AGENT_FEATURE_MAX_INPUT_CHARS") or 4000
         )
-        no_write_mode = _bool(
-            cfg.get("no_write_mode", env.get("CODECOMPASS_AGENT_FEATURE_NO_WRITE_MODE", "1"))
-        )
-        allowed_paths_raw = str(
-            cfg.get("allowed_paths")
-            or env.get("CODECOMPASS_AGENT_FEATURE_ALLOWED_PATHS")
-            or ""
-        )
+        no_write_mode = _bool(cfg.get("no_write_mode", env.get("CODECOMPASS_AGENT_FEATURE_NO_WRITE_MODE", "1")))
+        allowed_paths_raw = str(cfg.get("allowed_paths") or env.get("CODECOMPASS_AGENT_FEATURE_ALLOWED_PATHS") or "")
         allowed_paths = [p.strip() for p in allowed_paths_raw.split(",") if p.strip()]
 
         policy = AgentFeaturePolicy(
@@ -522,12 +511,14 @@ class AgentFeatureOrchestrator:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _hash_str(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:24]
 
 
 def _hash_dict(d: dict[str, Any]) -> str:
     import json
+
     serialised = json.dumps(d, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(serialised.encode("utf-8")).hexdigest()[:24]
 
@@ -535,6 +526,7 @@ def _hash_dict(d: dict[str, Any]) -> str:
 def _truncate_context(context: dict[str, Any], max_chars: int) -> dict[str, Any]:
     """Return a copy of context with oversized string values truncated."""
     import json
+
     try:
         raw = json.dumps(context, sort_keys=True, default=str)
     except Exception:  # noqa: BLE001

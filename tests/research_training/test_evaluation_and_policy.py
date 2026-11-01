@@ -23,12 +23,18 @@ def test_evaluation_and_release_are_automatic_and_source_grounded() -> None:
         allowed_run_refs=["RUN_TEST"],
     )
     result = evaluations.compare(
-        run_id="research-run-1", dataset_manifest_digest=DIGEST_A,
-        base=metrics(loss=0.5, accuracy=0.7), sft=metrics(loss=0.4, accuracy=0.8),
-        inference=metrics(loss=0.4, accuracy=0.8), source_refs=["SRC_TEST"], run_refs=["RUN_TEST"],
+        run_id="research-run-1",
+        dataset_manifest_digest=DIGEST_A,
+        base=metrics(loss=0.5, accuracy=0.7),
+        sft=metrics(loss=0.4, accuracy=0.8),
+        inference=metrics(loss=0.4, accuracy=0.8),
+        source_refs=["SRC_TEST"],
+        run_refs=["RUN_TEST"],
     )
     run = {
-        "run_id": "research-run-1", "state": "completed", "automatic_release_eligible": True,
+        "run_id": "research-run-1",
+        "state": "completed",
+        "automatic_release_eligible": True,
         "spec": {"dataset_manifest_digest": DIGEST_A},
     }
     decision = ResearchTrainingReleaseGate(evaluations).decide(run=run, evaluation=result)
@@ -46,8 +52,10 @@ def test_evaluation_and_release_are_automatic_and_source_grounded() -> None:
 def test_missing_grounded_evidence_fails_closed_without_human_approval() -> None:
     evaluations = ResearchTrainingEvaluationService(ResearchTrainingEvaluationAttestation(b"e" * 32))
     result = evaluations.compare(
-        run_id="research-run-1", dataset_manifest_digest=DIGEST_A,
-        base=metrics(loss=0.5, accuracy=0.7), sft=metrics(loss=0.4, accuracy=0.8),
+        run_id="research-run-1",
+        dataset_manifest_digest=DIGEST_A,
+        base=metrics(loss=0.5, accuracy=0.7),
+        sft=metrics(loss=0.4, accuracy=0.8),
         inference=metrics(loss=0.4, accuracy=0.8),
     )
     assert result["release_eligible"] is False

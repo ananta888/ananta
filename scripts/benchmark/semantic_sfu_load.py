@@ -81,9 +81,7 @@ def run_level(participants: int, *, samples: int) -> dict:
         ingress.append(publisher["outbound_video_bytes"])
         egress.append(sum(row["inbound_video_bytes"] for row in receivers))
         dropped.append(sum(row["dropped_video_frames"] for row in receivers))
-        relay_pairs += sum(
-            1 for row in peers for pair in row["selected_candidate_types"] if "relay" in pair
-        )
+        relay_pairs += sum(1 for row in peers for pair in row["selected_candidate_types"] if "relay" in pair)
         cpu.append(after["cpu_percent"])
         memory.append(after["memory_bytes"])
         sample_verdicts.append(evidence["verdict"])
@@ -93,15 +91,19 @@ def run_level(participants: int, *, samples: int) -> dict:
             pass
     completion_p95 = percentile(latencies, 0.95)
     completion_p99 = percentile(latencies, 0.99)
-    verdict = "pass" if (
-        all(item == "pass" for item in sample_verdicts)
-        and max(cpu) <= 80.0
-        and max(memory) <= 536_870_912
-        and completion_p99 <= 30_000
-        and max(dropped) <= 8
-        and all(value > 0 for value in ingress)
-        and all(value > 0 for value in egress)
-    ) else "fail"
+    verdict = (
+        "pass"
+        if (
+            all(item == "pass" for item in sample_verdicts)
+            and max(cpu) <= 80.0
+            and max(memory) <= 536_870_912
+            and completion_p99 <= 30_000
+            and max(dropped) <= 8
+            and all(value > 0 for value in ingress)
+            and all(value > 0 for value in egress)
+        )
+        else "fail"
+    )
     return {
         "participants": participants,
         "samples": samples,
@@ -137,8 +139,7 @@ def docker_stats() -> dict:
 
 def parse_bytes(raw: str) -> int:
     value = raw.strip().replace("i", "")
-    units = {"B": 1, "kB": 1000, "KB": 1000, "MB": 1000**2, "GB": 1000**3,
-             "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3}
+    units = {"B": 1, "kB": 1000, "KB": 1000, "MB": 1000**2, "GB": 1000**3, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3}
     for suffix in sorted(units, key=len, reverse=True):
         if value.endswith(suffix):
             return round(float(value.removesuffix(suffix).strip()) * units[suffix])

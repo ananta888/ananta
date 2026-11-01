@@ -8,7 +8,6 @@ import re
 from dataclasses import dataclass
 from typing import Mapping, Protocol, Sequence
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -427,18 +426,14 @@ class SourceIndexLifecycleService:
             )
         )
         if blockers:
-            blocker_kinds = ",".join(
-                sorted({blocker.blocker_kind for blocker in blockers})
-            )
+            blocker_kinds = ",".join(sorted({blocker.blocker_kind for blocker in blockers}))
             raise SourceIndexLifecycleError(f"purge_blocked:{blocker_kinds}")
         if not _OPAQUE_ID.fullmatch(str(approval_id or "")):
             raise SourceIndexLifecycleError("purge_approval_required")
         if not _OPAQUE_ID.fullmatch(str(approval_claim_id or "")):
             raise SourceIndexLifecycleError("purge_approval_claim_required")
         if self._approvals is None:
-            raise SourceIndexLifecycleError(
-                "purge_approval_store_unavailable"
-            )
+            raise SourceIndexLifecycleError("purge_approval_store_unavailable")
         approval_request_digest = derive_source_index_purge_digest(
             scope=scope,
             index=index,

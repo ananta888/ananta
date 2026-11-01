@@ -6,21 +6,19 @@ Tests that EmbeddingProviderConfigService integrates correctly with:
 - EmbeddingTextBuilder (EPC-011)
 - Index rebuild detection (EPC-012)
 """
-import pytest
-from pathlib import Path
-import tempfile
-import json
 
-from worker.retrieval.embedding_provider import HashEmbeddingProvider, FakeEmbeddingProvider
+import tempfile
+
+from worker.retrieval.embedding_provider import FakeEmbeddingProvider, HashEmbeddingProvider
 from worker.retrieval.embedding_text_builder import (
     build_embedding_text,
-    build_query_embedding_text,
     build_embedding_texts_batch,
+    build_query_embedding_text,
 )
-from worker.retrieval.index_builder import provider_changed_since_last_build, build_incremental_index
-
+from worker.retrieval.index_builder import build_incremental_index, provider_changed_since_last_build
 
 # ── EPC-011: EmbeddingTextBuilder ────────────────────────────────────────────
+
 
 def test_build_embedding_text_uses_explicit_field():
     doc = {"embedding_text": "explicit text", "content": "other content"}
@@ -74,6 +72,7 @@ def test_build_embedding_texts_batch():
 
 
 # ── EPC-012: Index rebuild detection ─────────────────────────────────────────
+
 
 def test_provider_changed_returns_false_when_no_previous_state():
     provider = HashEmbeddingProvider()
@@ -144,9 +143,11 @@ def test_build_incremental_index_no_rebuild_same_provider():
 
 # ── EPC-009: CodeCompassVectorEngine.build_from_config ───────────────────────
 
+
 def test_vector_engine_build_from_config_uses_hash_provider_by_default():
-    from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
     from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
+    from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
+
     with tempfile.TemporaryDirectory() as tmpdir:
         store = CodeCompassVectorStore(index_path=f"{tmpdir}/index.json")
         engine = CodeCompassVectorEngine.build_from_config(store)
@@ -154,8 +155,9 @@ def test_vector_engine_build_from_config_uses_hash_provider_by_default():
 
 
 def test_vector_engine_build_from_config_accepts_provider_config():
-    from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
     from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
+    from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
+
     with tempfile.TemporaryDirectory() as tmpdir:
         store = CodeCompassVectorStore(index_path=f"{tmpdir}/index.json")
         engine = CodeCompassVectorEngine.build_from_config(
@@ -166,13 +168,17 @@ def test_vector_engine_build_from_config_accepts_provider_config():
 
 # ── EPC-008: Semantic output correction uses config service ──────────────────
 
+
 def test_semantic_correction_policy_normalization():
     from worker.coding.semantic_output_correction import normalize_semantic_correction_policy
-    policy = normalize_semantic_correction_policy({
-        "enabled": True,
-        "embedding_provider": {"provider": "local_hash", "dimensions": 8},
-        "fields": {"risk_classification": {"enabled": True}},
-    })
+
+    policy = normalize_semantic_correction_policy(
+        {
+            "enabled": True,
+            "embedding_provider": {"provider": "local_hash", "dimensions": 8},
+            "fields": {"risk_classification": {"enabled": True}},
+        }
+    )
     assert policy["enabled"] is True
     # provider normalized through config service → "local_hash" or "local" both valid
     assert policy["embedding_provider"]["provider"] in {"local", "local_hash"}
@@ -180,6 +186,7 @@ def test_semantic_correction_policy_normalization():
 
 def test_semantic_correction_runs_with_hash_provider():
     from worker.coding.semantic_output_correction import correct_semantic_enum_fields
+
     policy = {
         "enabled": True,
         "similarity_threshold": 0.5,

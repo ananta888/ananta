@@ -111,4 +111,3 @@ class DeterministicDeliveryBuffer:
         values = tuple(self._values[key] for key in self._order if key in self._values)
         self._values.clear()
         return values
-

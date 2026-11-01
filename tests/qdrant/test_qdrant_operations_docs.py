@@ -11,9 +11,7 @@ RUNBOOK = ROOT / "docs/worker/qdrant-vector-store.md"
 AVAILABILITY_RUNBOOK = ROOT / "docs/worker/qdrant-vector-store-availability.md"
 HUB_READ_RUNBOOK = ROOT / "docs/worker/qdrant-vector-store-hub-read.md"
 TASKFLOW_RUNBOOK = ROOT / "docs/worker/qdrant-vector-index-taskflow.md"
-WORKER_IDENTITY_RUNBOOK = (
-    ROOT / "docs/worker/qdrant-vector-worker-identity.md"
-)
+WORKER_IDENTITY_RUNBOOK = ROOT / "docs/worker/qdrant-vector-worker-identity.md"
 TLS_RUNBOOK = ROOT / "docs/worker/qdrant-vector-store-tls.md"
 ERROR_CODES = ROOT / "docs/worker/qdrant-vector-store-error-codes.md"
 WORKER_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-workers.yml"
@@ -35,27 +33,10 @@ def test_qdrant_runbook_links_bounded_error_catalog() -> None:
     assert len(AVAILABILITY_RUNBOOK.read_text(encoding="utf-8").splitlines()) < 150
     assert len(HUB_READ_RUNBOOK.read_text(encoding="utf-8").splitlines()) < 150
     assert len(tls_runbook.splitlines()) < 250
-    assert (
-        len(
-            WORKER_IDENTITY_RUNBOOK.read_text(
-                encoding="utf-8"
-            ).splitlines()
-        )
-        < 150
-    )
+    assert len(WORKER_IDENTITY_RUNBOOK.read_text(encoding="utf-8").splitlines()) < 150
     assert len(catalog.splitlines()) < 300
-    assert (
-        runbook.count(
-            "compose.workflow-runtime.dev-auth.yml"
-        )
-        == 2
-    )
-    assert (
-        HUB_READ_RUNBOOK.read_text(encoding="utf-8").count(
-            "compose.workflow-runtime.dev-auth.yml"
-        )
-        == 2
-    )
+    assert runbook.count("compose.workflow-runtime.dev-auth.yml") == 2
+    assert HUB_READ_RUNBOOK.read_text(encoding="utf-8").count("compose.workflow-runtime.dev-auth.yml") == 2
     for heading in (
         "Configuration and rollout",
         "Endpoint and secret policy",
@@ -95,9 +76,7 @@ def test_full_stack_runbook_commands_use_env_file_and_fail_fast_render() -> None
     for path in (RUNBOOK, HUB_READ_RUNBOOK):
         full_stack_blocks.extend(
             block
-            for block in _BASH_BLOCK.findall(
-                path.read_text(encoding="utf-8")
-            )
+            for block in _BASH_BLOCK.findall(path.read_text(encoding="utf-8"))
             if "compose.stack.quickstart.yml" in block
         )
 
@@ -109,9 +88,7 @@ def test_full_stack_runbook_commands_use_env_file_and_fail_fast_render() -> None
 
 
 def test_worker_identity_runbook_documents_registration_readiness_gate() -> None:
-    identity = WORKER_IDENTITY_RUNBOOK.read_text(
-        encoding="utf-8"
-    )
+    identity = WORKER_IDENTITY_RUNBOOK.read_text(encoding="utf-8")
 
     assert "/internal/worker/vector-index-readiness" in identity
     assert "HTTP 503" in identity

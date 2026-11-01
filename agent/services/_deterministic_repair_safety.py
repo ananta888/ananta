@@ -10,19 +10,10 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 log = logging.getLogger(__name__)
-
-
 
 
 def classify_repair_action_safety(*, step: dict[str, Any], procedure_safety_class: str) -> str:
@@ -33,6 +24,3 @@ def classify_repair_action_safety(*, step: dict[str, Any], procedure_safety_clas
     if procedure_safety_class == "review_first":
         return "confirm_required"
     return "bounded_low_risk"
-
-
-

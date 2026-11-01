@@ -26,15 +26,9 @@ def _index(
             "job_id": "knowledge-index-" + ("1" * 32),
             "knowledge_index_id": index_id,
             "authority_binding_digest": (
-                "a" * 64
-                if execution_job_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-                else ""
+                "a" * 64 if execution_job_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA else ""
             ),
-            "assignment_id": (
-                "assignment-1"
-                if execution_job_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-                else ""
-            ),
+            "assignment_id": ("assignment-1" if execution_job_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA else ""),
         }
         if binding is None
         else binding
@@ -43,9 +37,7 @@ def _index(
         id=index_id,
         source_scope=source_scope,
         status=status,
-        index_metadata={
-            KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY: execution_binding
-        },
+        index_metadata={KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY: execution_binding},
     )
 
 
@@ -84,9 +76,9 @@ def test_bound_index_requires_exact_projected_marker():
         allowed_index_ids={"idx-1"},
     )
     malformed_v2 = _index()
-    malformed_v2.index_metadata[
-        KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY
-    ]["authority_binding_digest"] = "not-a-digest"
+    malformed_v2.index_metadata[KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY]["authority_binding_digest"] = (
+        "not-a-digest"
+    )
     assert not policy.can_consume(
         malformed_v2,
         allowed_index_ids={"idx-1"},
@@ -113,9 +105,7 @@ def test_non_artifact_v2_requires_hub_derived_index_allow_list():
 
 
 def test_projected_artifact_v2_does_not_require_non_artifact_scope():
-    assert KnowledgeIndexConsumptionPolicy().can_consume(
-        _index(source_scope="artifact")
-    )
+    assert KnowledgeIndexConsumptionPolicy().can_consume(_index(source_scope="artifact"))
 
 
 def test_valid_projected_v1_binding_remains_legacy_compatible():

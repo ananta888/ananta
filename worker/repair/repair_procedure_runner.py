@@ -11,6 +11,7 @@ DRR-T023: Before/after evidence capture for mutation steps.
 The Runner accepts an ExecutionEnvelope with a repair_procedure and
 executes steps in order, enforcing policy, approval, and verification.
 """
+
 from __future__ import annotations
 
 import time
@@ -25,7 +26,6 @@ from worker.core.execution_envelope import (
     RepairStep,
     RepairStepResult,
     RepairStepResultStatus,
-    RepairStepTrace,
     ToolInvocationEnvelope,
     WorkerResult,
     WorkerResultStatus,
@@ -33,8 +33,8 @@ from worker.core.execution_envelope import (
 )
 from worker.core.preflight import PreflightGate
 
-
 # ── Feature flags (DRR-T021) ──────────────────────────────────────────────────
+
 
 class RepairFeatureFlags:
     """Default-off gating for deterministic repair execution. DRR-T021."""
@@ -56,6 +56,7 @@ class RepairFeatureFlags:
 
 # ── State machine (DRR-T012) ──────────────────────────────────────────────────
 
+
 class RepairRunnerState(str, Enum):
     detected = "detected"
     diagnosing = "diagnosing"
@@ -70,11 +71,24 @@ class RepairRunnerState(str, Enum):
     def next(self, target: RepairRunnerState) -> bool:
         transitions = {
             RepairRunnerState.detected: {RepairRunnerState.diagnosing, RepairRunnerState.failed},
-            RepairRunnerState.diagnosing: {RepairRunnerState.proposing, RepairRunnerState.escalated, RepairRunnerState.failed},
-            RepairRunnerState.proposing: {RepairRunnerState.approval_required, RepairRunnerState.executing, RepairRunnerState.escalated, RepairRunnerState.failed},
+            RepairRunnerState.diagnosing: {
+                RepairRunnerState.proposing,
+                RepairRunnerState.escalated,
+                RepairRunnerState.failed,
+            },
+            RepairRunnerState.proposing: {
+                RepairRunnerState.approval_required,
+                RepairRunnerState.executing,
+                RepairRunnerState.escalated,
+                RepairRunnerState.failed,
+            },
             RepairRunnerState.approval_required: {RepairRunnerState.executing, RepairRunnerState.failed},
             RepairRunnerState.executing: {RepairRunnerState.verifying, RepairRunnerState.failed},
-            RepairRunnerState.verifying: {RepairRunnerState.succeeded, RepairRunnerState.failed, RepairRunnerState.escalated},
+            RepairRunnerState.verifying: {
+                RepairRunnerState.succeeded,
+                RepairRunnerState.failed,
+                RepairRunnerState.escalated,
+            },
             RepairRunnerState.succeeded: set(),
             RepairRunnerState.failed: set(),
             RepairRunnerState.escalated: set(),
@@ -106,9 +120,7 @@ _ESCALATE_SCOPE_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 
 
-def check_unsafe_action_guardrails(
-    step: RepairStep, *, command: str = ""
-) -> tuple[bool, str, str]:
+def check_unsafe_action_guardrails(step: RepairStep, *, command: str = "") -> tuple[bool, str, str]:
     """Check step and command against unsafe guardrails. DRR-T019.
 
     Returns (is_blocked, reason_code, pattern_id).
@@ -118,7 +130,7 @@ def check_unsafe_action_guardrails(
 
     for pattern_id, pattern in _BLOCKED_COMMAND_PATTERNS:
         if pattern.lower() in cmd:
-            safe_snippet = cmd[:40].replace("\n", " ")
+            cmd[:40].replace("\n", " ")
             return True, f"unsafe_command_blocked:{pattern_id}", pattern_id
 
     for pattern_id, pattern in _ESCALATE_SCOPE_PATTERNS:
@@ -176,6 +188,7 @@ def map_step_to_tool_invocation(
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────
+
 
 class RepairProcedureRunner:
     """Worker-side deterministic RepairProcedureRunner.
@@ -258,7 +271,8 @@ class RepairProcedureRunner:
         for step in procedure.steps:
             if self._state.terminal:
                 skipped_steps.extend(
-                    s.step_id for s in procedure.steps
+                    s.step_id
+                    for s in procedure.steps
                     if s.step_id not in completed_steps and s.step_id not in skipped_steps
                 )
                 break
@@ -268,11 +282,13 @@ class RepairProcedureRunner:
             if step_count > _max_steps:
                 verdict = RepairResultVerdict.failed
                 self._state = RepairRunnerState.failed
-                self._step_results.append(RepairStepResult(
-                    step_id=step.step_id,
-                    status=RepairStepResultStatus.denied,
-                    reason_code="max_steps_exceeded",
-                ))
+                self._step_results.append(
+                    RepairStepResult(
+                        step_id=step.step_id,
+                        status=RepairStepResultStatus.denied,
+                        reason_code="max_steps_exceeded",
+                    )
+                )
                 break
 
             if step.mutation_candidate:
@@ -280,11 +296,13 @@ class RepairProcedureRunner:
                 if mutation_count > _max_mutations:
                     verdict = RepairResultVerdict.denied
                     self._state = RepairRunnerState.failed
-                    self._step_results.append(RepairStepResult(
-                        step_id=step.step_id,
-                        status=RepairStepResultStatus.denied,
-                        reason_code="max_mutation_steps_exceeded",
-                    ))
+                    self._step_results.append(
+                        RepairStepResult(
+                            step_id=step.step_id,
+                            status=RepairStepResultStatus.denied,
+                            reason_code="max_mutation_steps_exceeded",
+                        )
+                    )
                     break
 
             # DRR-T015: runtime limit
@@ -466,9 +484,7 @@ class RepairProcedureRunner:
             "phase": "before",
         }
 
-    def _capture_after_evidence(
-        self, step: RepairStep, before: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _capture_after_evidence(self, step: RepairStep, before: dict[str, Any]) -> dict[str, Any]:
         """Capture post-mutation state snapshot. DRR-T023."""
         if not step.mutation_candidate:
             return {}
@@ -631,13 +647,15 @@ def integrate_runner_with_envelope(
         status=status_map.get(result.status, WorkerResultStatus.failed),
         summary=f"Repair {result.status.value}: {result.procedure_id}",
         trace_bundle=trace,
-        artifacts=[{
-            "artifact_id": f"repair:{result.plan_id}",
-            "kind": "repair_execution_result",
-            "provenance": "repair_runner",
-            "metadata": {
-                "plan_id": result.plan_id,
-                "procedure_id": result.procedure_id,
-            },
-        }],
+        artifacts=[
+            {
+                "artifact_id": f"repair:{result.plan_id}",
+                "kind": "repair_execution_result",
+                "provenance": "repair_runner",
+                "metadata": {
+                    "plan_id": result.plan_id,
+                    "procedure_id": result.procedure_id,
+                },
+            }
+        ],
     )

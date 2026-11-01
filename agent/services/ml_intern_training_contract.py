@@ -99,6 +99,7 @@ def _validate_expected_evaluation_digests(value: Mapping[str, Any]) -> None:
         if value.get("job_type") != "evaluate_lora":
             raise MlInternTrainingContractError("adapter_digest_job_type_invalid", "model binding requires evaluation")
 
+
 _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "queued": frozenset({"claimed", "running", "cancel_requested", "failed"}),
     "claimed": frozenset({"running", "cancel_requested", "interrupted", "failed"}),

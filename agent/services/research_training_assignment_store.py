@@ -34,11 +34,7 @@ class ResearchTrainingAssignmentStore:
                 (parsed.run_spec.tenant_id, parsed.assignment_id),
             ).fetchone()
             if row:
-                if (
-                    str(row[0]) != digest
-                    or json.loads(row[1]) != payload
-                    or str(row[4]) != authorization
-                ):
+                if str(row[0]) != digest or json.loads(row[1]) != payload or str(row[4]) != authorization:
                     raise ValueError("research_assignment_replay_conflict")
                 return self._projection(payload, digest, str(row[2]), row[3], True)
             connection.execute(
@@ -102,8 +98,7 @@ class ResearchTrainingAssignmentStore:
     def worker_authorization(self, *, tenant_id: str, assignment_id: str) -> str:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT worker_authorization FROM research_training_assignments "
-                "WHERE tenant_id=? AND assignment_id=?",
+                "SELECT worker_authorization FROM research_training_assignments WHERE tenant_id=? AND assignment_id=?",
                 (require_id(tenant_id, "tenant_id"), require_id(assignment_id, "assignment_id")),
             ).fetchone()
         if row is None or not str(row[0]):
@@ -191,14 +186,11 @@ class ResearchTrainingAssignmentStore:
                 "PRIMARY KEY(tenant_id,assignment_id))"
             )
             columns = {
-                str(row[1])
-                for row in connection.execute("PRAGMA table_info(research_training_assignments)").fetchall()
+                str(row[1]) for row in connection.execute("PRAGMA table_info(research_training_assignments)").fetchall()
             }
             for column in ("worker_id", "run_id", "stage_id", "attempt_id"):
                 if column not in columns:
-                    connection.execute(
-                        f"ALTER TABLE research_training_assignments ADD COLUMN {column} TEXT"
-                    )
+                    connection.execute(f"ALTER TABLE research_training_assignments ADD COLUMN {column} TEXT")
             rows = connection.execute(
                 "SELECT tenant_id,assignment_id,payload_json FROM research_training_assignments "
                 "WHERE worker_id IS NULL OR run_id IS NULL OR stage_id IS NULL OR attempt_id IS NULL"

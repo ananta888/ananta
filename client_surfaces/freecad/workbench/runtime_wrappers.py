@@ -10,7 +10,9 @@ def invoke_read_operation(client: FreecadHubClient, *, context: dict[str, Any], 
     return client.submit_goal(goal=goal, context=context, capability_id="freecad.model.inspect")
 
 
-def invoke_export_plan(client: FreecadHubClient, *, fmt: str, target_path: str, selection_only: bool = False) -> dict[str, Any]:
+def invoke_export_plan(
+    client: FreecadHubClient, *, fmt: str, target_path: str, selection_only: bool = False
+) -> dict[str, Any]:
     return client.request_export_plan(fmt=fmt, target_path=target_path, selection_only=selection_only)
 
 

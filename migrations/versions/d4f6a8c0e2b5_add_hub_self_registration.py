@@ -4,9 +4,11 @@ Revision ID: d4f6a8c0e2b5
 Revises: c3e5a7b9d1f4
 Create Date: 2026-08-22
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
+
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
@@ -35,8 +37,11 @@ def upgrade() -> None:
             op.add_column("users", column)
     op.create_index("ix_users_email", "users", ["email"], unique=True, if_not_exists=True)
     op.create_index(
-        "ix_users_email_verification_token_hash", "users", ["email_verification_token_hash"],
-        unique=True, if_not_exists=True,
+        "ix_users_email_verification_token_hash",
+        "users",
+        ["email_verification_token_hash"],
+        unique=True,
+        if_not_exists=True,
     )
 
 

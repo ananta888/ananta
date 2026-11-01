@@ -8,7 +8,8 @@ import hmac
 import re
 import secrets
 import time
-from dataclasses import dataclass, field, replace as dataclass_replace
+from dataclasses import dataclass, field
+from dataclasses import replace as dataclass_replace
 from threading import RLock
 from typing import Callable, Mapping, Protocol
 
@@ -46,9 +47,16 @@ class TurnCredentialPolicy:
         )
         if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in values):
             raise WebrtcTurnCredentialError("turn_credential_policy_invalid", 503)
-        if not isinstance(self.overlap_seconds, int) or isinstance(self.overlap_seconds, bool) or self.overlap_seconds < 0:
+        if (
+            not isinstance(self.overlap_seconds, int)
+            or isinstance(self.overlap_seconds, bool)
+            or self.overlap_seconds < 0
+        ):
             raise WebrtcTurnCredentialError("turn_credential_policy_invalid", 503)
-        if self.refresh_before_seconds >= self.bearer_ttl_seconds_max or self.overlap_seconds > self.refresh_before_seconds:
+        if (
+            self.refresh_before_seconds >= self.bearer_ttl_seconds_max
+            or self.overlap_seconds > self.refresh_before_seconds
+        ):
             raise WebrtcTurnCredentialError("turn_credential_rotation_policy_invalid", 503)
 
     @property
@@ -201,9 +209,7 @@ class InMemoryTurnCredentialStatePort:
             state = self._states.get(credential_id)
             if state is None:
                 return False
-            self._states[credential_id] = dataclass_replace(
-                state, revoked=True, version=state.version + 1
-            )
+            self._states[credential_id] = dataclass_replace(state, revoked=True, version=state.version + 1)
             return True
 
     def rotate(
@@ -347,7 +353,10 @@ class WebrtcTurnCredentialService:
             or previous.expires_at_seconds <= now
         ):
             raise WebrtcTurnCredentialError("turn_credential_refresh_inactive", 409)
-        if request.refresh_count != previous.refresh_count + 1 or request.refresh_count > self._policy.credential_refresh_count_max:
+        if (
+            request.refresh_count != previous.refresh_count + 1
+            or request.refresh_count > self._policy.credential_refresh_count_max
+        ):
             raise WebrtcTurnCredentialError("turn_credential_refresh_cap_exceeded", 429)
         if now < previous.expires_at_seconds - self._policy.refresh_before_seconds:
             raise WebrtcTurnCredentialError("turn_credential_refresh_too_early", 409)
@@ -396,10 +405,7 @@ class WebrtcTurnCredentialService:
             or state.key_id != bundle.key_id
             or (
                 state.rotated_to_id is not None
-                and (
-                    state.overlap_until_seconds is None
-                    or state.overlap_until_seconds <= now
-                )
+                and (state.overlap_until_seconds is None or state.overlap_until_seconds <= now)
             )
         ):
             return False
@@ -460,9 +466,11 @@ class WebrtcTurnCredentialService:
 
     @staticmethod
     def _sign_credential(secret: bytes, username: str, claims: Mapping[str, str]) -> str:
-        message = username.encode("ascii") + b"\0" + "\0".join(
-            f"{name}={value}" for name, value in sorted(claims.items())
-        ).encode("ascii")
+        message = (
+            username.encode("ascii")
+            + b"\0"
+            + "\0".join(f"{name}={value}" for name, value in sorted(claims.items())).encode("ascii")
+        )
         return base64.b64encode(hmac.new(secret, message, hashlib.sha256).digest()).decode("ascii")
 
     @staticmethod

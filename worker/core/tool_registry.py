@@ -4,6 +4,7 @@ EW-T013: Tool registry with capability/schema declarations.
 EW-T014: ToolInvocationEnvelope with argument validation and ToolResult.
 EW-T018: Resource limits per tool invocation.
 """
+
 from __future__ import annotations
 
 import time
@@ -18,6 +19,7 @@ TOOL_RISK_CLASSES = frozenset({"low", "medium", "high", "critical"})
 
 
 # ── ToolResult ────────────────────────────────────────────────────────────────
+
 
 class ToolResult(dict):
     """Structured output from a single tool invocation with legacy dict compatibility."""
@@ -95,7 +97,7 @@ class ToolResult(dict):
             f"Execution status={status}, duration_ms={duration_ms}, "
             f"tool_id={self.get('tool_id')}, execution_id={self.get('execution_id')}"
         )
-        self["failure_hints"] = ([self["reason_code"]] if self.get("reason_code") else [])
+        self["failure_hints"] = [self["reason_code"]] if self.get("reason_code") else []
         if self.get("exit_code") is None:
             self["exit_code"] = 0 if bool(self.get("success")) else 1
 
@@ -148,9 +150,7 @@ class ToolResult(dict):
             "task_id": task_id,
             "command": command,
             "exit_code": (
-                self.get("exit_code")
-                if self.get("exit_code") is not None
-                else (0 if self.get("success") else 1)
+                self.get("exit_code") if self.get("exit_code") is not None else (0 if self.get("success") else 1)
             ),
             "status": status,
             "stdout_ref": str(self.get("stdout") or "") or "<empty>",
@@ -165,11 +165,13 @@ class ToolResult(dict):
 
 # ── ResourceLimits (EW-T018) ──────────────────────────────────────────────────
 
+
 class ResourceLimits(BaseModel):
     """Per-invocation resource limits. EW-T018."""
+
     timeout_seconds: float = 30.0
     max_output_chars: int = 32_000
-    max_artifact_bytes: int = 10 * 1024 * 1024   # 10 MiB
+    max_artifact_bytes: int = 10 * 1024 * 1024  # 10 MiB
     max_files_touched: int = 50
 
     @field_validator("timeout_seconds")
@@ -189,8 +191,10 @@ class ResourceLimits(BaseModel):
 
 # ── ToolInvocationEnvelope (EW-T014) ─────────────────────────────────────────
 
+
 class ToolInvocationEnvelope(BaseModel):
     """Per-tool-call contract. Validates arguments before any invocation. EW-T014."""
+
     execution_id: str
     tool_id: str
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -224,10 +228,7 @@ class ToolInvocationEnvelope(BaseModel):
             self.arguments,
             effective_schema,
         )
-        return [
-            f"{issue.path}: {issue.reason_code}: {issue.message}"
-            for issue in result.issues
-        ]
+        return [f"{issue.path}: {issue.reason_code}: {issue.message}" for issue in result.issues]
 
     def apply_output_limit(self, raw_output: str) -> tuple[str, bool]:
         """Truncate output to max_output_chars. Returns (output, was_truncated)."""
@@ -239,16 +240,18 @@ class ToolInvocationEnvelope(BaseModel):
 
 # ── WorkerToolEntry ───────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class WorkerToolEntry:
     """A single registered tool. EW-T013."""
+
     id: str
-    kind: str                                  # e.g. "shell", "file_read", "patch", "search"
-    capability_classes: tuple[str, ...]        # capability classes required to invoke this tool
-    risk_class: str                            # low / medium / high / critical
+    kind: str  # e.g. "shell", "file_read", "patch", "search"
+    capability_classes: tuple[str, ...]  # capability classes required to invoke this tool
+    risk_class: str  # low / medium / high / critical
     input_schema: dict[str, Any] = field(default_factory=dict)
     output_schema: dict[str, Any] = field(default_factory=dict)
-    side_effects: tuple[str, ...] = ()         # e.g. ("filesystem_write",)
+    side_effects: tuple[str, ...] = ()  # e.g. ("filesystem_write",)
     description: str = ""
     resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
 
@@ -278,6 +281,7 @@ class WorkerToolEntry:
 
 # ── WorkerToolRegistry (EW-T013) ─────────────────────────────────────────────
 
+
 class WorkerToolRegistry:
     """Registry of all tools available to this worker.
 
@@ -305,9 +309,7 @@ class WorkerToolRegistry:
         """Normalized catalog for Hub ToolRouter — safe to return externally."""
         return [entry.as_catalog_entry() for entry in sorted(self._tools.values(), key=lambda e: e.id)]
 
-    def validate_invocation(
-        self, envelope: ToolInvocationEnvelope
-    ) -> list[str]:
+    def validate_invocation(self, envelope: ToolInvocationEnvelope) -> list[str]:
         """Return list of validation errors; empty means invocation can proceed."""
         entry = self._tools.get(envelope.tool_id)
         if entry is None:
@@ -320,6 +322,7 @@ class WorkerToolRegistry:
 # ── Built-in tool registry ────────────────────────────────────────────────────
 
 # ── ResourceLimitEnforcer (T011) ─────────────────────────────────────────────
+
 
 class ResourceLimitEnforcer:
     """Applies per-tool resource limits at service boundaries. AWF-T011.

@@ -58,11 +58,7 @@ class RagHelperKnowledgeIndexExecution:
             execution_deadline=execution_deadline,
         )
         self._checkpoint(execution_deadline)
-        deadline_kwargs = (
-            {"execution_deadline": execution_deadline}
-            if execution_deadline is not None
-            else {}
-        )
+        deadline_kwargs = {"execution_deadline": execution_deadline} if execution_deadline is not None else {}
         job_type = str(job.get("job_type") or "")
         if job_type == "artifact":
             knowledge_index, run = self._index_service.index_artifact(
@@ -183,20 +179,14 @@ class RagHelperKnowledgeIndexExecution:
         source_access_manifest = job.get(SOURCE_ACCESS_MANIFEST_FIELD)
         if str(job.get("schema") or "") == BOUND_JOB_SCHEMA:
             if not isinstance(source_access_manifest, Mapping):
-                raise ValueError(
-                    "knowledge_index_payload_capability_required"
-                )
+                raise ValueError("knowledge_index_payload_capability_required")
             if not callable(authorized_load):
-                raise ValueError(
-                    "knowledge_index_authorized_payload_loader_required"
-                )
+                raise ValueError("knowledge_index_authorized_payload_loader_required")
             authorized_load_kwargs: dict[str, Any] = {
                 "source_access_manifest": source_access_manifest,
             }
             if execution_deadline is not None:
-                authorized_load_kwargs["execution_deadline"] = (
-                    execution_deadline
-                )
+                authorized_load_kwargs["execution_deadline"] = execution_deadline
             content = authorized_load(reference, **authorized_load_kwargs)
         else:
             content = loader.load(reference)
@@ -235,8 +225,7 @@ class RagHelperKnowledgeIndexExecution:
     @staticmethod
     def _is_failed(knowledge_index: Mapping[str, Any], run: Mapping[str, Any]) -> bool:
         return any(
-            str(value or "").strip().lower() == "failed"
-            for value in (knowledge_index.get("status"), run.get("status"))
+            str(value or "").strip().lower() == "failed" for value in (knowledge_index.get("status"), run.get("status"))
         )
 
     def _single_result(
@@ -280,9 +269,7 @@ class RagHelperKnowledgeIndexExecution:
         # A custom publisher without a graph materializer is the intentional
         # compatibility adapter for pre-graph integrations. Production uses the
         # defaults and therefore always requires both graph artifacts.
-        graph_artifacts_required = (
-            self._artifact_publisher is None or self._graph_artifact_materializer is not None
-        )
+        graph_artifacts_required = self._artifact_publisher is None or self._graph_artifact_materializer is not None
         revision_binding = self._revision_binding(
             job=job,
             knowledge_index=knowledge_index,
@@ -299,11 +286,7 @@ class RagHelperKnowledgeIndexExecution:
             raw_options = payload.get("graph_visual_metrics")
             if raw_options is not None and not isinstance(raw_options, Mapping):
                 raise ValueError("graph_visual_options_invalid")
-            materializer_kwargs = (
-                {"execution_deadline": execution_deadline}
-                if execution_deadline is not None
-                else {}
-            )
+            materializer_kwargs = {"execution_deadline": execution_deadline} if execution_deadline is not None else {}
             if revision_binding is not None and self._graph_artifact_materializer is None:
                 materializer_kwargs["revision_binding"] = revision_binding
             materialization = materializer.materialize(
@@ -313,19 +296,12 @@ class RagHelperKnowledgeIndexExecution:
                 **materializer_kwargs,
             )
             domain_supplement_required = bool(
-                isinstance(materialization, Mapping)
-                and isinstance(
-                    materialization.get("domain_supplement"), Mapping
-                )
+                isinstance(materialization, Mapping) and isinstance(materialization.get("domain_supplement"), Mapping)
             )
             self._checkpoint(execution_deadline)
 
         publisher = self._artifact_publisher or WorkerKnowledgeIndexArtifactPublisher()
-        publisher_kwargs = (
-            {"execution_deadline": execution_deadline}
-            if execution_deadline is not None
-            else {}
-        )
+        publisher_kwargs = {"execution_deadline": execution_deadline} if execution_deadline is not None else {}
         if revision_binding is not None and self._artifact_publisher is None:
             publisher_kwargs["revision_binding"] = revision_binding
         references = publisher.publish(
@@ -360,12 +336,8 @@ class RagHelperKnowledgeIndexExecution:
         return {
             "source_scope": str(metadata.get("source_scope") or "").strip(),
             "source_id": str(metadata.get("source_id") or "").strip(),
-            "source_revision_id": str(
-                authority.get("source_revision_id") or ""
-            ).strip(),
-            "source_revision_digest": str(
-                authority.get("source_revision_digest") or ""
-            ).strip(),
+            "source_revision_id": str(authority.get("source_revision_id") or "").strip(),
+            "source_revision_digest": str(authority.get("source_revision_digest") or "").strip(),
         }
 
 

@@ -16,6 +16,7 @@ Both runners honour the WorkflowBudgetGuard (steps + timeout) and
 the model's external_calls_allowed posture. They never bypass the
 policy gate.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,9 +76,7 @@ def validate_chain_output(
 
     node_payload = dict(node or {})
     raw_schema = node_payload.get("output_schema", payload.get("output_schema"))
-    output_format = str(
-        node_payload.get("output_format") or payload.get("output_format") or ""
-    ).lower()
+    output_format = str(node_payload.get("output_format") or payload.get("output_format") or "").lower()
     if raw_schema is None and output_format != "json":
         return ValidatedChainOutput(value=output, structured=False)
     schema = raw_schema if isinstance(raw_schema, dict) else {"type": "object"}
@@ -137,9 +136,7 @@ class SimplexRunner:
                 model=model,
                 timeout=30,
                 provider_context=payload.get("provider_context"),
-                provider_contexts_by_profile_id=payload.get(
-                    "provider_contexts_by_profile_id"
-                ),
+                provider_contexts_by_profile_id=payload.get("provider_contexts_by_profile_id"),
                 model_routing=payload.get("model_routing"),
             )
         except Exception as exc:
@@ -199,11 +196,7 @@ class LangChainRunnableRunner:
         # without changing the adapter.
         def _call(input_dict: dict[str, Any]) -> str:
             provider, model = _bound_provider_model(
-                payload=(
-                    input_dict.get("payload", {})
-                    if isinstance(input_dict.get("payload"), dict)
-                    else {}
-                ),
+                payload=(input_dict.get("payload", {}) if isinstance(input_dict.get("payload"), dict) else {}),
                 model_provider_ref=model_provider_ref,
             )
             response = _TEXT_GENERATION.generate_text(
@@ -217,9 +210,7 @@ class LangChainRunnableRunner:
                     else None
                 ),
                 provider_contexts_by_profile_id=(
-                    input_dict.get("payload", {}).get(
-                        "provider_contexts_by_profile_id"
-                    )
+                    input_dict.get("payload", {}).get("provider_contexts_by_profile_id")
                     if isinstance(input_dict.get("payload"), dict)
                     else None
                 ),
@@ -264,9 +255,7 @@ def _parse_model_ref(model_provider_ref: str) -> str | None:
     return model_provider_ref
 
 
-def _bound_provider_model(
-    *, payload: dict[str, Any], model_provider_ref: str
-) -> tuple[str | None, str | None]:
+def _bound_provider_model(*, payload: dict[str, Any], model_provider_ref: str) -> tuple[str | None, str | None]:
     raw = payload.get("provider_context")
     context = dict(raw) if isinstance(raw, dict) else {}
     provider = str(context.get("selected_provider_id") or "").strip() or None

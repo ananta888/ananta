@@ -100,9 +100,7 @@ class InMemoryCollaborationLiveStateRepository:
         with self._lock:
             self._discard_expired(now)
             values = [
-                dict(cursor)
-                for key, cursor in self._cursors.items()
-                if key[:3] == scope and cursor["view_id"] == view
+                dict(cursor) for key, cursor in self._cursors.items() if key[:3] == scope and cursor["view_id"] == view
             ]
         return sorted(values, key=lambda item: item["actor_binding_id"])
 

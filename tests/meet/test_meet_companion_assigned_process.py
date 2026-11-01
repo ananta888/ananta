@@ -39,8 +39,15 @@ def test_assigned_child_progress_and_terminal_are_bounded_by_actual_executor(hub
         assert command == [sys.executable, "-m", "worker.meet_media.companion_task_runtime"]
         # Explicitly replace only browser execution with the declared probe;
         # actual assignment input, entrypoint, HTTP and progress ports remain.
-        child = original_spawn([sys.executable, str(Path(__file__).with_name(
-            "meet_companion_assigned_process_probe.py")), mode, str(ready)], **options)
+        child = original_spawn(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("meet_companion_assigned_process_probe.py")),
+                mode,
+                str(ready),
+            ],
+            **options,
+        )
         children.append(child)
         return child
 

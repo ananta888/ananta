@@ -237,10 +237,7 @@ def evaluate_real_media_result(
         or int(measurements.get("real_browser_process_count", 0)) < 4
         or measurements.get("publisher_upstream_peer_connection_count") != 1
         or int(measurements.get("publication_count_per_source_max", 0)) != 1
-        or not (
-            int(measurements.get("observed_rid_count", 0)) >= 2
-            or measurements.get("observed_svc_mode") is True
-        )
+        or not (int(measurements.get("observed_rid_count", 0)) >= 2 or measurements.get("observed_svc_mode") is True)
         or int(measurements.get("private_recovery_cross_receiver_matches", -1)) != 0
     ):
         reasons.add("real_media_measurements_incomplete")

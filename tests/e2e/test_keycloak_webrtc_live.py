@@ -24,12 +24,12 @@ Umgebungsvariablen:
     ANANTA_WEBRTC_URL          Override (default: https://webrtc.ananta.de)
     ANANTA_STUN_PORT           Override (default: 3478)
 """
+
 from __future__ import annotations
 
 import json
 import os
 import socket
-import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -81,11 +81,11 @@ def _resolve_host(hostname: str) -> list[str]:
 
 
 class TestKeycloakLive:
-
     def test_keycloak_dns_resolves(self) -> None:
         """keycloak.ananta.de ist per DNS auflösbar."""
         _require_live()
         from urllib.parse import urlparse
+
         host = urlparse(KEYCLOAK_BASE).hostname
         ips = _resolve_host(host)
         assert ips, f"DNS lookup failed for {host} — service may be down"
@@ -94,9 +94,9 @@ class TestKeycloakLive:
         """keycloak.ananta.de ist per HTTPS erreichbar."""
         _require_live()
         from urllib.parse import urlparse
+
         host = urlparse(KEYCLOAK_BASE).hostname
-        assert _tcp_reachable(host, 443), \
-            f"Port 443 not reachable on {host} — Keycloak may be down"
+        assert _tcp_reachable(host, 443), f"Port 443 not reachable on {host} — Keycloak may be down"
 
     def test_keycloak_oidc_discovery_responds(self) -> None:
         """OIDC Discovery Endpoint antwortet mit gültigem JSON."""
@@ -122,8 +122,9 @@ class TestKeycloakLive:
         doc = _get_json(url)
         issuer = str(doc.get("issuer") or "")
         expected_fragment = f"{KEYCLOAK_BASE}/realms/{KEYCLOAK_REALM}"
-        assert expected_fragment in issuer or issuer.rstrip("/") == expected_fragment.rstrip("/"), \
+        assert expected_fragment in issuer or issuer.rstrip("/") == expected_fragment.rstrip("/"), (
             f"Issuer mismatch. Expected fragment '{expected_fragment}' in '{issuer}'"
+        )
 
     def test_keycloak_oidc_pkce_supported(self) -> None:
         """Keycloak unterstützt PKCE (S256 als code_challenge_method)."""
@@ -131,8 +132,7 @@ class TestKeycloakLive:
         url = f"{KEYCLOAK_BASE}/realms/{KEYCLOAK_REALM}/.well-known/openid-configuration"
         doc = _get_json(url)
         methods = list(doc.get("code_challenge_methods_supported") or [])
-        assert "S256" in methods, \
-            f"PKCE S256 not in code_challenge_methods_supported: {methods}"
+        assert "S256" in methods, f"PKCE S256 not in code_challenge_methods_supported: {methods}"
 
     def test_keycloak_oidc_has_end_session_endpoint(self) -> None:
         """Keycloak stellt einen End-Session-Endpoint bereit (für Logout)."""
@@ -141,8 +141,7 @@ class TestKeycloakLive:
         doc = _get_json(url)
         end_session = str(doc.get("end_session_endpoint") or "")
         assert end_session, "end_session_endpoint missing from OIDC discovery"
-        assert KEYCLOAK_BASE in end_session, \
-            f"end_session_endpoint '{end_session}' doesn't contain '{KEYCLOAK_BASE}'"
+        assert KEYCLOAK_BASE in end_session, f"end_session_endpoint '{end_session}' doesn't contain '{KEYCLOAK_BASE}'"
 
     def test_keycloak_oidc_has_device_authorization_endpoint(self) -> None:
         """Keycloak stellt Device-Flow-Endpoint bereit (für TUI-Login)."""
@@ -150,8 +149,7 @@ class TestKeycloakLive:
         url = f"{KEYCLOAK_BASE}/realms/{KEYCLOAK_REALM}/.well-known/openid-configuration"
         doc = _get_json(url)
         device_ep = str(doc.get("device_authorization_endpoint") or "")
-        assert device_ep, \
-            "device_authorization_endpoint missing — TUI Device Flow won't work"
+        assert device_ep, "device_authorization_endpoint missing — TUI Device Flow won't work"
 
     def test_keycloak_ananta_realm_exists(self) -> None:
         """Das ananta-Realm ist bei Keycloak registriert (nicht nur /realms/master)."""
@@ -161,8 +159,9 @@ class TestKeycloakLive:
             req = urllib.request.Request(url, headers={"Accept": "application/json"})
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
-            assert data.get("realm") == KEYCLOAK_REALM, \
+            assert data.get("realm") == KEYCLOAK_REALM, (
                 f"Realm mismatch: expected '{KEYCLOAK_REALM}', got '{data.get('realm')}'"
+            )
         except urllib.error.HTTPError as exc:
             pytest.fail(f"Realm '{KEYCLOAK_REALM}' not accessible: HTTP {exc.code}")
 
@@ -171,11 +170,11 @@ class TestKeycloakLive:
 
 
 class TestWebRTCLive:
-
     def test_webrtc_dns_resolves(self) -> None:
         """webrtc.ananta.de ist per DNS auflösbar."""
         _require_live()
         from urllib.parse import urlparse
+
         host = urlparse(WEBRTC_BASE).hostname
         ips = _resolve_host(host)
         assert ips, f"DNS lookup failed for {host} — WebRTC service may be down"
@@ -184,32 +183,36 @@ class TestWebRTCLive:
         """webrtc.ananta.de ist per HTTPS (443) erreichbar."""
         _require_live()
         from urllib.parse import urlparse
+
         host = urlparse(WEBRTC_BASE).hostname
-        assert _tcp_reachable(host, 443, timeout=8.0), \
-            f"Port 443 not reachable on {host}"
+        assert _tcp_reachable(host, 443, timeout=8.0), f"Port 443 not reachable on {host}"
 
     def test_webrtc_stun_port_reachable(self) -> None:
         """STUN-Port (3478) auf webrtc.ananta.de ist TCP-erreichbar."""
         _require_live()
         from urllib.parse import urlparse
+
         host = urlparse(WEBRTC_BASE).hostname
-        assert _tcp_reachable(host, STUN_PORT, timeout=8.0), \
+        assert _tcp_reachable(host, STUN_PORT, timeout=8.0), (
             f"STUN port {STUN_PORT} not reachable on {host} — STUN/TURN service may be down"
+        )
 
     def test_webrtc_stun_probe_succeeds(self) -> None:
         """IceProbe: STUN-Server auf webrtc.ananta.de antwortet korrekt."""
         _require_live()
         from urllib.parse import urlparse
+
         host = urlparse(WEBRTC_BASE).hostname
         stun_url = f"stun:{host}:{STUN_PORT}"
         try:
             import sys
+
             sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
             from client_surfaces.operator_tui.realtime.ice_probe import IceProbe
+
             probe = IceProbe()
             result = probe.probe_stun(stun_url, timeout=8.0)
-            assert result.stun_reachable, \
-                f"STUN probe failed: {result.error or 'no error details'}"
+            assert result.stun_reachable, f"STUN probe failed: {result.error or 'no error details'}"
         except ImportError:
             pytest.skip("IceProbe not available — skipping STUN probe (TCP check passed)")
 
@@ -234,10 +237,7 @@ class TestWebRTCLive:
                 last_error = exc
             except urllib.error.URLError as exc:
                 last_error = exc
-        pytest.fail(
-            f"WebRTC service not reachable at any of {candidates}. "
-            f"Last error: {last_error}"
-        )
+        pytest.fail(f"WebRTC service not reachable at any of {candidates}. Last error: {last_error}")
 
     def test_webrtc_public_rendezvous_profile_urls_match_live(self) -> None:
         """Das public-ananta Netzwerkprofil zeigt auf die live WebRTC/Keycloak URLs."""
@@ -245,8 +245,10 @@ class TestWebRTCLive:
         try:
             import importlib
             import sys
+
             sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
             import client_surfaces.operator_tui.network_profile as np_mod
+
             importlib.reload(np_mod)
             profile = np_mod.get_profile("public-ananta")
         except (ImportError, Exception) as exc:
@@ -254,6 +256,7 @@ class TestWebRTCLive:
             return
 
         from urllib.parse import urlparse
+
         configured_keycloak = urlparse(KEYCLOAK_BASE).hostname
         configured_webrtc = urlparse(WEBRTC_BASE).hostname
 
@@ -261,12 +264,15 @@ class TestWebRTCLive:
         rendezvous_url = str(profile.get("rendezvous", {}).get("base_url") or "")
         signaling_url = str(profile.get("rendezvous", {}).get("signaling_url") or "")
 
-        assert configured_keycloak in issuer, \
+        assert configured_keycloak in issuer, (
             f"Profile issuer '{issuer}' doesn't match configured Keycloak host '{configured_keycloak}'"
-        assert configured_webrtc in rendezvous_url, \
+        )
+        assert configured_webrtc in rendezvous_url, (
             f"Profile rendezvous_url '{rendezvous_url}' doesn't match configured WebRTC host '{configured_webrtc}'"
-        assert configured_webrtc in signaling_url, \
+        )
+        assert configured_webrtc in signaling_url, (
             f"Profile signaling_url '{signaling_url}' doesn't match configured WebRTC host '{configured_webrtc}'"
+        )
 
 
 # ── Combined smoke test ───────────────────────────────────────────────────────

@@ -63,19 +63,30 @@ def _index(tmp_path, index_id, records):
     output_dir.mkdir()
     (output_dir / "index.jsonl").write_text("\n".join(json.dumps(item) for item in records), encoding="utf-8")
     return SimpleNamespace(
-        id=index_id, artifact_id=None, source_scope="repo_path", profile_name="deep_code",
-        output_dir=str(output_dir), index_metadata={"source_id": index_id + "-source"},
+        id=index_id,
+        artifact_id=None,
+        source_scope="repo_path",
+        profile_name="deep_code",
+        output_dir=str(output_dir),
+        index_metadata={"source_id": index_id + "-source"},
     )
 
 
 @pytest.fixture
 def service(tmp_path):
-    project = _index(tmp_path, "idx-project", [
-        {"path": "worker/meet_media/companion_supervisor.py", "file": "companion_supervisor.py",
-         "content": SUPERVISOR},
-        {"path": "docs/meet-companion-avatar.md", "content": "# Companion\nsupervise rejoin"},
-        {"path": "agent/other.py", "content": "unrelated"},
-    ])
+    project = _index(
+        tmp_path,
+        "idx-project",
+        [
+            {
+                "path": "worker/meet_media/companion_supervisor.py",
+                "file": "companion_supervisor.py",
+                "content": SUPERVISOR,
+            },
+            {"path": "docs/meet-companion-avatar.md", "content": "# Companion\nsupervise rejoin"},
+            {"path": "agent/other.py", "content": "unrelated"},
+        ],
+    )
     fixture = _index(tmp_path, "idx-fixture", [{"path": "fixture/supervise.py", "content": "supervise"}])
     repository = SimpleNamespace(list_completed=lambda: [project, fixture])
     return KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
@@ -96,10 +107,14 @@ def test_page_passage_points_at_the_matching_lines(service):
 
 def test_passage_lines_ignore_the_index_header_of_whole_file_records(tmp_path):
     header = "# agent/x.py\n# Themen: demo\n"
-    index = _index(tmp_path, "idx-header", [
-        {"path": "agent/x.py", "content": header + "import os\n\ndef target():\n    pass"},
-        {"path": "agent/y.py", "content": "# not/the/path\ndef target():"},
-    ])
+    index = _index(
+        tmp_path,
+        "idx-header",
+        [
+            {"path": "agent/x.py", "content": header + "import os\n\ndef target():\n    pass"},
+            {"path": "agent/y.py", "content": "# not/the/path\ndef target():"},
+        ],
+    )
     service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=lambda: [index]))
     records = {r["path"]: r for r in service.search_records_page("target", passage_chars=500)["records"]}
     assert records["agent/x.py"]["passage"]["line_start"] == 1
@@ -114,8 +129,11 @@ def test_passage_rejects_malformed_explicit_header_coordinates(offset):
     from agent.services.knowledge_index_result_projection import KnowledgeIndexResultProjector
 
     record = {
-        "path": "agent/x.py", "content": "# agent/x.py\n# Themen: demo\ndef target():\n    pass",
-        "start_line": 1, "end_line": 2, "content_line_offset": offset,
+        "path": "agent/x.py",
+        "content": "# agent/x.py\n# Themen: demo\ndef target():\n    pass",
+        "start_line": 1,
+        "end_line": 2,
+        "content_line_offset": offset,
     }
     assert KnowledgeIndexResultProjector.passage(record, "target", 500) is None
 
@@ -196,7 +214,9 @@ def test_route_honours_the_default_binding(app, monkeypatch):
     assert payload["total"] == 1 and payload["snippets"][0]["path"] == "fixture/supervise.py"
     monkeypatch.setenv(ENV_NAME, json.dumps({"*": []}))
     assert retrieve(app, "supervise") == {
-        "schema": "ananta.meet-assist-retrieve.v1", "snippets": [], "total": 0,
+        "schema": "ananta.meet-assist-retrieve.v1",
+        "snippets": [],
+        "total": 0,
     }
 
 
@@ -214,15 +234,18 @@ def test_all_caps_identifiers_do_not_become_single_letter_symbols():
     assert {"rag", "helper", "index", "service"} <= set(features.query_features("RagHelperIndexService")["symbols"])
 
 
-@pytest.mark.parametrize("content, symbol, expected", [
-    ("HANDLER_ONLY_TASK_KINDS = frozenset()", "", True),
-    ("    def chunk_records(path, text):", "", True),
-    ("class RagHelperIndexService:", "", True),
-    ("export const layerRoot: string = x", "", True),
-    ("if task_kind in HANDLER_ONLY_TASK_KINDS:", "", False),
-    ("", "RagHelperIndexService", True),
-    ("", "RagHelperIndexService.index_artifact", False),
-])
+@pytest.mark.parametrize(
+    "content, symbol, expected",
+    [
+        ("HANDLER_ONLY_TASK_KINDS = frozenset()", "", True),
+        ("    def chunk_records(path, text):", "", True),
+        ("class RagHelperIndexService:", "", True),
+        ("export const layerRoot: string = x", "", True),
+        ("if task_kind in HANDLER_ONLY_TASK_KINDS:", "", False),
+        ("", "RagHelperIndexService", True),
+        ("", "RagHelperIndexService.index_artifact", False),
+    ],
+)
 def test_records_defining_a_query_identifier_get_the_definition_bonus(content, symbol, expected):
     service = _record_scorer()
     query = {"HANDLER_ONLY_TASK_KINDS": "HANDLER_ONLY_TASK_KINDS"}.get(content.split(" ")[0].strip(), "")

@@ -21,9 +21,7 @@ def detect_terminal_graphics(env: dict[str, str] | None = None) -> tuple[Termina
         TerminalGraphicsCapability("sixel", "sixel" in term.lower(), "TERM contains sixel"),
     ]
     return tuple(
-        capability
-        if capability.supported
-        else TerminalGraphicsCapability(capability.protocol, False, "not detected")
+        capability if capability.supported else TerminalGraphicsCapability(capability.protocol, False, "not detected")
         for capability in capabilities
     )
 
@@ -39,6 +37,7 @@ def graphics_decision(env: dict[str, str] | None = None) -> dict[str, object]:
     }
     try:
         from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability as _d3d
+
         cap = _d3d(env)
         result["animation_3d"] = {
             "enabled": cap.enabled,
@@ -50,6 +49,7 @@ def graphics_decision(env: dict[str, str] | None = None) -> dict[str, object]:
         result["animation_3d"] = {"enabled": False, "reason": "import_error"}
     try:
         from client_surfaces.operator_tui.mouse import detect_mouse_support as _mouse
+
         result["mouse_support"] = _mouse(env)
     except ImportError:
         result["mouse_support"] = {"enabled": False, "reason": "import_error", "term": "(unknown)"}

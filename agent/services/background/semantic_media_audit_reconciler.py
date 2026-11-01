@@ -45,20 +45,10 @@ def start_semantic_media_audit_reconciler_thread(app: Any) -> None:
         while not stop_event.is_set():
             try:
                 with app.app_context():
-                    expired_leases = (
-                        int(leases.expire_due(limit=min(batch_size, 1_000)))
-                        if leases is not None
-                        else 0
-                    )
-                    dispatched = (
-                        outbox.dispatch_pending(limit=batch_size)
-                        if outbox is not None
-                        else None
-                    )
+                    expired_leases = int(leases.expire_due(limit=min(batch_size, 1_000))) if leases is not None else 0
+                    dispatched = outbox.dispatch_pending(limit=batch_size) if outbox is not None else None
                     deleted = int(service.delete_expired(limit=batch_size))
-                if dispatched is not None and (
-                    dispatched.delivered or dispatched.replayed or dispatched.failed
-                ):
+                if dispatched is not None and (dispatched.delivered or dispatched.replayed or dispatched.failed):
                     logging.info(
                         "Semantic media audit outbox attempted=%s delivered=%s replayed=%s failed=%s pending=%s",
                         dispatched.attempted,

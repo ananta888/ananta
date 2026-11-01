@@ -65,10 +65,7 @@ class BoundCodeCompassVectorProvider:
         if not isinstance(compatibility, CompatibilitySpec):
             raise TypeError("vector_store_compatibility_required")
         payload = compatibility.as_dict()
-        if any(
-            not str(payload.get(field) or "").strip()
-            for field in self._REQUIRED_COMPATIBILITY_FIELDS
-        ):
+        if any(not str(payload.get(field) or "").strip() for field in self._REQUIRED_COMPATIBILITY_FIELDS):
             raise ValueError("vector_store_compatibility_required")
         self._engine = engine
         self._trusted_scope = trusted_scope
@@ -145,12 +142,7 @@ class JsonlSymbolProvider:
                     continue
                 if not isinstance(record, dict):
                     continue
-                symbol = str(
-                    record.get("symbol")
-                    or record.get("name")
-                    or record.get("class_name")
-                    or ""
-                ).strip()
+                symbol = str(record.get("symbol") or record.get("name") or record.get("class_name") or "").strip()
                 file_path = str(record.get("file") or record.get("path") or "").strip()
                 record_id = str(record.get("id") or record.get("record_id") or "").strip()
                 haystack = " ".join(
@@ -235,9 +227,7 @@ def providers_from_environment(
 
     fts_path = _existing_file("ANANTA_CODECOMPASS_FTS_DB")
     if fts_path is not None:
-        providers["codecompass_fts"] = CodeCompassFtsEngine(
-            store=CodeCompassFtsStore(db_path=fts_path)
-        )
+        providers["codecompass_fts"] = CodeCompassFtsEngine(store=CodeCompassFtsStore(db_path=fts_path))
     else:
         diagnostics["codecompass_fts"] = "fts_index_not_mounted"
 
@@ -263,18 +253,10 @@ def providers_from_environment(
             )
     if configured is None:
         diagnostics["codecompass_vector"] = "vector_index_not_mounted"
-    elif (
-        configured.provider == VectorStoreProvider.QDRANT
-        and trusted_vector_scope is None
-    ):
+    elif configured.provider == VectorStoreProvider.QDRANT and trusted_vector_scope is None:
         diagnostics["codecompass_vector"] = "vector_scope_required"
-    elif (
-        configured.provider == VectorStoreProvider.QDRANT
-        and vector_compatibility is None
-    ):
-        diagnostics["codecompass_vector"] = (
-            "vector_store_compatibility_required"
-        )
+    elif configured.provider == VectorStoreProvider.QDRANT and vector_compatibility is None:
+        diagnostics["codecompass_vector"] = "vector_store_compatibility_required"
     else:
         try:
             factory = vector_store_factory or VectorStoreFactory()
@@ -296,10 +278,7 @@ def providers_from_environment(
                     trusted_scope=trusted_vector_scope,
                     compatibility=vector_compatibility,
                 )
-                if (
-                    trusted_vector_scope is not None
-                    and vector_compatibility is not None
-                )
+                if (trusted_vector_scope is not None and vector_compatibility is not None)
                 else engine
             )
         except VectorStoreConfigError as exc:

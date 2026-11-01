@@ -32,10 +32,9 @@ def test_native_graph_hub_services_never_import_worker_packages() -> None:
                 imported_modules.append(node.module or "")
             elif isinstance(node, ast.Import):
                 imported_modules.extend(alias.name for alias in node.names)
-        assert not any(
-            module == "worker" or module.startswith("worker.")
-            for module in imported_modules
-        ), f"Hub service imports worker implementation: {path}"
+        assert not any(module == "worker" or module.startswith("worker.") for module in imported_modules), (
+            f"Hub service imports worker implementation: {path}"
+        )
 
 
 def test_native_checkpoint_resume_and_stream_authority_stays_in_hub_bridge() -> None:

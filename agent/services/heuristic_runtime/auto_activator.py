@@ -18,6 +18,7 @@ Rollback triggers (ASH-032):
 Direct candidate runtime (ASH-031): candidates/ is never used as runtime
 source unless direct_candidate_runtime_allowed = True (debug-only).
 """
+
 from __future__ import annotations
 
 import json
@@ -28,27 +29,24 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-
-_DEFAULT_BASE_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics")
-)
+_DEFAULT_BASE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics"))
 
 # Rollout stages: (quota, min_decisions, label)
 ROLLOUT_STAGES = [
-    (0.1, 20,  "canary"),
-    (0.5, 50,  "partial"),
+    (0.1, 20, "canary"),
+    (0.5, 50, "partial"),
     (1.0, None, "full"),
 ]
 
 # Rollback trigger thresholds
-ROLLBACK_FALLBACK_RATE_DELTA = 0.15   # if fallback rate rises by more than this
+ROLLBACK_FALLBACK_RATE_DELTA = 0.15  # if fallback rate rises by more than this
 ROLLBACK_NEGATIVE_FEEDBACK_COUNT = 3
 
 
 @dataclass
 class RolloutState:
     candidate_id: str
-    current_stage_index: int = 0       # index into ROLLOUT_STAGES
+    current_stage_index: int = 0  # index into ROLLOUT_STAGES
     decisions_at_stage: int = 0
     started_at: float = field(default_factory=time.time)
     quota: float = 0.1
@@ -144,10 +142,13 @@ class AutoActivator:
             active_data.setdefault("heuristic_id", cid)
         params = candidate.get("parameters") or {}
         action_kind = str(params.get("action_kind") or "follow_with_distance")
-        active_data.setdefault("runtime", {
-            "action": {"kind": action_kind},
-            "triggers": [],
-        })
+        active_data.setdefault(
+            "runtime",
+            {
+                "action": {"kind": action_kind},
+                "triggers": [],
+            },
+        )
 
         active_dir = os.path.join(self._base, "active", "tui_snake")
         os.makedirs(active_dir, exist_ok=True)
@@ -159,9 +160,8 @@ class AutoActivator:
         # Audit
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
-            audit_id = audit.candidate_auto_promoted(
-                candidate_id=cid, reason_code="auto_without_human_approval"
-            )
+
+            audit_id = audit.candidate_auto_promoted(candidate_id=cid, reason_code="auto_without_human_approval")
             audit.candidate_rollout_stage_advanced(
                 candidate_id=cid,
                 stage="canary",
@@ -197,14 +197,10 @@ class AutoActivator:
 
         # Rollback checks (ASH-032)
         if fallback_rate - state.baseline_fallback_rate > ROLLBACK_FALLBACK_RATE_DELTA:
-            self._execute_rollback(
-                candidate_id, reason_code="fallback_rate_increased", state=state
-            )
+            self._execute_rollback(candidate_id, reason_code="fallback_rate_increased", state=state)
             return state
         if negative_feedback_count >= ROLLBACK_NEGATIVE_FEEDBACK_COUNT:
-            self._execute_rollback(
-                candidate_id, reason_code="user_negative_feedback_threshold_reached", state=state
-            )
+            self._execute_rollback(candidate_id, reason_code="user_negative_feedback_threshold_reached", state=state)
             return state
 
         # Stage advance check
@@ -221,6 +217,7 @@ class AutoActivator:
                 self._update_rollout_in_file(candidate_id, state)
                 try:
                     from agent.services.heuristic_runtime import snake_audit_events as audit
+
                     audit.candidate_rollout_stage_advanced(
                         candidate_id=candidate_id,
                         stage=next_label,
@@ -234,9 +231,7 @@ class AutoActivator:
 
     # ── Rollback ──────────────────────────────────────────────────────────────
 
-    def _execute_rollback(
-        self, candidate_id: str, *, reason_code: str, state: RolloutState
-    ) -> None:
+    def _execute_rollback(self, candidate_id: str, *, reason_code: str, state: RolloutState) -> None:
         state.active = False
         state.quota = 0.0
         # Move active file to quarantine
@@ -267,6 +262,7 @@ class AutoActivator:
                 break
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.heuristic_rollback(
                 from_heuristic_id=candidate_id,
                 to_heuristic_id="previous_active",

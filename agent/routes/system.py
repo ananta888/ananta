@@ -241,6 +241,7 @@ def provider_observer_snapshot():
     """
     from flask import g
     from flask import request as flask_request
+
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     urls = current_app.config.get("PROVIDER_URLS", {}) or {}
     force_refresh_param = str(flask_request.args.get("force_refresh") or "").strip().lower()
@@ -370,9 +371,7 @@ def readiness_check():
             if probe["ok"]:
                 return "llm", {
                     "provider": provider,
-                    "status": (
-                        "ok" if probe["candidate_count"] > 0 else "unstable"
-                    ),
+                    "status": ("ok" if probe["candidate_count"] > 0 else "unstable"),
                     "latency": None,
                     "code": 200,
                     "tags_url": probe.get("tags_url"),
@@ -529,16 +528,8 @@ def register_agent():
 
     agent = _services().agent_registry_service.build_registered_agent(
         normalized,
-        registration_provenance=(
-            STRICT_WORKER_REGISTRATION_PROVENANCE
-            if strict_credential is not None
-            else "legacy"
-        ),
-        authorized_capabilities=(
-            strict_credential.allowed_capabilities
-            if strict_credential is not None
-            else ()
-        ),
+        registration_provenance=(STRICT_WORKER_REGISTRATION_PROVENANCE if strict_credential is not None else "legacy"),
+        authorized_capabilities=(strict_credential.allowed_capabilities if strict_credential is not None else ()),
     )
     agent_repo.save(agent)
     try:
@@ -613,10 +604,7 @@ def probe_registered_agent():
     requested_url = str(payload.get("worker_url") or "").strip().rstrip("/")
     candidates = []
     for agent in agent_repo.get_all() or ():
-        if (
-            str(agent.role or "").strip().lower() != "worker"
-            or not bool(agent.registration_validated)
-        ):
+        if str(agent.role or "").strip().lower() != "worker" or not bool(agent.registration_validated):
             continue
         registered_url = str(agent.url or "").strip().rstrip("/")
         registered_name = str(agent.name or "").strip().lower()
@@ -625,9 +613,7 @@ def probe_registered_agent():
         for prefix in ("ai-agent-", "ananta-worker-", "worker-"):
             if hostname.startswith(prefix):
                 aliases.add(hostname.removeprefix(prefix))
-        if (requested_name and requested_name in aliases) or (
-            requested_url and requested_url == registered_url
-        ):
+        if (requested_name and requested_name in aliases) or (requested_url and requested_url == registered_url):
             candidates.append(agent)
 
     if len(candidates) != 1:
@@ -656,9 +642,7 @@ def probe_registered_agent():
         health_status = "online"
         try:
             health_payload = health_response.json() or {}
-            candidate = str(
-                ((health_payload.get("data") or {}).get("status") or "")
-            ).strip().lower()
+            candidate = str(((health_payload.get("data") or {}).get("status") or "")).strip().lower()
             if candidate in {"ok", "online", "busy", "degraded"}:
                 health_status = candidate
         except (TypeError, ValueError):
@@ -672,10 +656,7 @@ def probe_registered_agent():
             ready_data = ready_payload.get("data") or {}
             ready = bool(ready_data.get("ready"))
             readiness_checks = {
-                str(name): str(
-                    (check.get("status") if isinstance(check, dict) else check)
-                    or "unknown"
-                )
+                str(name): str((check.get("status") if isinstance(check, dict) else check) or "unknown")
                 for name, check in dict(ready_data.get("checks") or {}).items()
             }
         except (TypeError, ValueError):
@@ -685,20 +666,13 @@ def probe_registered_agent():
         data={
             "worker": {"name": worker.name, "url": worker.url},
             "health": {
-                "reachable": health_response is not None
-                and health_response.status_code < 500,
+                "reachable": health_response is not None and health_response.status_code < 500,
                 "status": health_status,
-                "http_status": (
-                    health_response.status_code
-                    if health_response is not None
-                    else None
-                ),
+                "http_status": (health_response.status_code if health_response is not None else None),
             },
             "readiness": {
                 "ready": ready,
-                "http_status": (
-                    ready_response.status_code if ready_response is not None else None
-                ),
+                "http_status": (ready_response.status_code if ready_response is not None else None),
                 "checks": readiness_checks,
             },
         }
@@ -714,8 +688,12 @@ def restart_terminal_session():
         return api_response(status="error", message="missing_forward_param", code=400)
     result = get_core_services().live_terminal_session_service.restart(forward_param)
     if not result.get("ok"):
-        return api_response(status="error", message=str(result.get("message") or "terminal_restart_failed"), data=result, code=404)
-    log_audit("terminal_session_restarted", {"session_id": forward_param, "agent_name": current_app.config.get("AGENT_NAME")})
+        return api_response(
+            status="error", message=str(result.get("message") or "terminal_restart_failed"), data=result, code=404
+        )
+    log_audit(
+        "terminal_session_restarted", {"session_id": forward_param, "agent_name": current_app.config.get("AGENT_NAME")}
+    )
     return api_response(data=result)
 
 
@@ -726,7 +704,9 @@ def restart_process():
         return api_response(status="error", message="worker_restart_not_supported", code=409)
     log_audit("worker_process_restart_requested", {"agent_name": current_app.config.get("AGENT_NAME")})
     _schedule_process_restart()
-    return api_response(data={"scheduled": True, "restart_mode": "process_exit", "agent_name": current_app.config.get("AGENT_NAME")})
+    return api_response(
+        data={"scheduled": True, "restart_mode": "process_exit", "agent_name": current_app.config.get("AGENT_NAME")}
+    )
 
 
 @system_bp.route("/rotate-token", methods=["POST"])

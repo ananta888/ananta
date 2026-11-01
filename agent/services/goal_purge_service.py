@@ -36,9 +36,7 @@ from agent.services.vector_store_authorization_policy import (
     has_reserved_vector_index_marker,
 )
 
-VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED = (
-    "vector_index_goal_purge_cancel_required"
-)
+VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED = "vector_index_goal_purge_cancel_required"
 
 
 def _engine():
@@ -78,9 +76,7 @@ class VectorIndexGoalPurgeCancelRequired(RuntimeError):
     goal_id: str
     task_id: str
     lifecycle_reason: str
-    reason_code: str = (
-        VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED
-    )
+    reason_code: str = VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED
 
     def __post_init__(self) -> None:
         RuntimeError.__init__(
@@ -93,9 +89,7 @@ class VectorIndexGoalPurgeCancelRequired(RuntimeError):
             "reason_code": self.reason_code,
             "goal_id": self.goal_id,
             "task_id": self.task_id,
-            "lifecycle_reason": (
-                self.lifecycle_reason or "vector_index_cancel_failed"
-            ),
+            "lifecycle_reason": (self.lifecycle_reason or "vector_index_cancel_failed"),
             "http_status": 409,
         }
 
@@ -135,39 +129,22 @@ class GoalPurgeService:
                 return None
 
             trace_id = str(getattr(goal, "trace_id", "") or "").strip()
-            goal_tasks = list(
-                session.exec(
-                    select(TaskDB).where(
-                        TaskDB.goal_id == goal_id_norm
-                    )
-                ).all()
-            )
+            goal_tasks = list(session.exec(select(TaskDB).where(TaskDB.goal_id == goal_id_norm)).all())
             for task in goal_tasks:
                 if is_active_recovery_task(task):
                     ensure_external_recovery_mutation_allowed(
                         task,
                         action="goal_purge",
                     )
-            task_ids = [
-                str(task.id)
-                for task in goal_tasks
-                if str(task.id or "").strip()
-            ]
-            tasks_by_id = {
-                str(task.id): task
-                for task in goal_tasks
-                if str(task.id or "").strip()
-            }
+            task_ids = [str(task.id) for task in goal_tasks if str(task.id or "").strip()]
+            tasks_by_id = {str(task.id): task for task in goal_tasks if str(task.id or "").strip()}
             cancel_attempted = 0
             cancel_ok = 0
             cancel_failed = 0
             worker_cancel_failures: list[dict] = []
-            vector_authorization = (
-                get_vector_store_authorization_policy()
-                .system_context(
-                    actor="goal_purge",
-                    purpose="goal_purge",
-                )
+            vector_authorization = get_vector_store_authorization_policy().system_context(
+                actor="goal_purge",
+                purpose="goal_purge",
             )
             for task_id in task_ids:
                 cancel_attempted += 1
@@ -192,16 +169,11 @@ class GoalPurgeService:
                         )
                 else:
                     cancel_failed += 1
-                    if has_reserved_vector_index_marker(
-                        tasks_by_id.get(task_id)
-                    ):
+                    if has_reserved_vector_index_marker(tasks_by_id.get(task_id)):
                         raise VectorIndexGoalPurgeCancelRequired(
                             goal_id=goal_id_norm,
                             task_id=task_id,
-                            lifecycle_reason=str(
-                                message
-                                or "vector_index_cancel_failed"
-                            ),
+                            lifecycle_reason=str(message or "vector_index_cancel_failed"),
                         )
             plan_ids = self._collect_ids(session.exec(select(PlanDB.id).where(PlanDB.goal_id == goal_id_norm)).all())
             planning_run_ids = self._collect_ids(
@@ -209,9 +181,7 @@ class GoalPurgeService:
             )
             worker_job_ids = self._collect_ids(
                 session.exec(
-                    select(WorkerJobDB.id).where(
-                        WorkerJobDB.parent_task_id.in_(task_ids) if task_ids else False
-                    )
+                    select(WorkerJobDB.id).where(WorkerJobDB.parent_task_id.in_(task_ids) if task_ids else False)
                 ).all()
             )
 

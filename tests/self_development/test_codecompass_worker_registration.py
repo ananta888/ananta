@@ -35,7 +35,9 @@ def test_missing_core_tool_prevents_advertisement(monkeypatch):
     monkeypatch.setattr(codecompass_worker_tools.settings, "role", "worker")
     registry = codecompass_worker_tools.get_ananta_tool_registry_service()
     original = registry.get_tool
-    monkeypatch.setattr(registry, "get_tool", lambda name: None if name == "codecompass.plan_context" else original(name))
+    monkeypatch.setattr(
+        registry, "get_tool", lambda name: None if name == "codecompass.plan_context" else original(name)
+    )
     app = Flask(__name__)
 
     codecompass_worker_tools.initialize_codecompass_worker_tools(app)

@@ -1,14 +1,14 @@
 """Tests für OIDC Device Flow (offline/mocked)."""
+
 from __future__ import annotations
 
 import time
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from client_surfaces.operator_tui.oidc_device_flow import (
+    DeviceFlowPoller,
     DeviceFlowState,
     poll_device_flow,
-    DeviceFlowPoller,
     status_lines,
 )
 
@@ -29,7 +29,8 @@ def _make_state(**kw) -> DeviceFlowState:
 
 
 def _mock_token_response(token: str):
-    import io, json
+    import json
+
     resp = MagicMock()
     resp.read.return_value = json.dumps({"access_token": token}).encode()
     resp.__enter__ = lambda s: s
@@ -38,7 +39,9 @@ def _mock_token_response(token: str):
 
 
 def _mock_pending_response():
-    import urllib.error, json
+    import json
+    import urllib.error
+
     exc = urllib.error.HTTPError(url="", code=400, msg="", hdrs=None, fp=None)
     exc.read = lambda: json.dumps({"error": "authorization_pending"}).encode()
     return exc
@@ -67,7 +70,9 @@ def test_poll_returns_expired_when_past_expiry():
 
 
 def test_poll_returns_error_on_access_denied():
-    import urllib.error, json
+    import json
+    import urllib.error
+
     state = _make_state()
     exc = urllib.error.HTTPError(url="", code=400, msg="", hdrs=None, fp=None)
     exc.read = lambda: json.dumps({"error": "access_denied"}).encode()
@@ -78,7 +83,9 @@ def test_poll_returns_error_on_access_denied():
 
 
 def test_poll_increments_interval_on_slow_down():
-    import urllib.error, json
+    import json
+    import urllib.error
+
     state = _make_state(interval=5.0)
     exc = urllib.error.HTTPError(url="", code=400, msg="", hdrs=None, fp=None)
     exc.read = lambda: json.dumps({"error": "slow_down"}).encode()
@@ -117,8 +124,11 @@ def test_poller_clear():
 def test_oidc_command_login_no_issuer():
     """Ohne konfigurierten Issuer gibt :oidc login eine Fehlermeldung."""
     from client_surfaces.operator_tui.commands import execute_command
-    from client_surfaces.operator_tui.models import OperatorState, OperatorMode
-    state = OperatorState(endpoint="http://localhost:5000", section_id="dashboard", selected_index=0, mode=OperatorMode.NORMAL)
+    from client_surfaces.operator_tui.models import OperatorMode, OperatorState
+
+    state = OperatorState(
+        endpoint="http://localhost:5000", section_id="dashboard", selected_index=0, mode=OperatorMode.NORMAL
+    )
     with patch("client_surfaces.operator_tui.network_profile.oidc_issuer", return_value=""):
         result = execute_command(":oidc login", state)
     assert not result.handled or "Issuer" in result.state.status_message or "OIDC" in result.state.status_message
@@ -126,7 +136,8 @@ def test_oidc_command_login_no_issuer():
 
 def test_oidc_command_logout_clears_token():
     from client_surfaces.operator_tui.commands import execute_command
-    from client_surfaces.operator_tui.models import OperatorState, OperatorMode
+    from client_surfaces.operator_tui.models import OperatorMode, OperatorState
+
     state = OperatorState(
         endpoint="http://localhost:5000",
         section_id="share",
@@ -140,10 +151,15 @@ def test_oidc_command_logout_clears_token():
 
 
 def test_oidc_command_status_with_token():
+    import base64
+    import json
+
     from client_surfaces.operator_tui.commands import execute_command
-    from client_surfaces.operator_tui.models import OperatorState, OperatorMode
-    import base64, json
-    payload = base64.b64encode(json.dumps({"sub": "u1", "preferred_username": "testuser", "iss": "https://kc"}).encode()).decode()
+    from client_surfaces.operator_tui.models import OperatorMode, OperatorState
+
+    payload = base64.b64encode(
+        json.dumps({"sub": "u1", "preferred_username": "testuser", "iss": "https://kc"}).encode()
+    ).decode()
     fake_token = f"header.{payload}.sig"
     state = OperatorState(
         endpoint="http://localhost:5000",

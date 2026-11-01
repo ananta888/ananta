@@ -1,4 +1,5 @@
 """T06.04: Deterministic E2E flow for planning track generation and execution handoff."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,14 @@ from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.config import settings
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState
-from scripts.e2e.e2e_artifacts import build_report, compact_summary, make_flow_entry, new_run_id, write_report, write_text_artifact
+from scripts.e2e.e2e_artifacts import (
+    build_report,
+    compact_summary,
+    make_flow_entry,
+    new_run_id,
+    write_report,
+    write_text_artifact,
+)
 
 
 def _state() -> OperatorState:

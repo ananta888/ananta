@@ -9,9 +9,7 @@ from rag_helper.extractors.typescript_test_case_collector import TypeScriptTestC
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
-TYPESCRIPT_IMPORT_PATTERN = re.compile(
-    r"^import\s+(?P<clause>.+?)\s+from\s+[\"'](?P<module>[^\"']+)[\"'];?$"
-)
+TYPESCRIPT_IMPORT_PATTERN = re.compile(r"^import\s+(?P<clause>.+?)\s+from\s+[\"'](?P<module>[^\"']+)[\"'];?$")
 
 TYPESCRIPT_TOP_LEVEL_PATTERNS = [
     (
@@ -27,9 +25,7 @@ TYPESCRIPT_TOP_LEVEL_PATTERNS = [
     ("enum", re.compile(r"^(?:export\s+)?enum\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")),
     (
         "function",
-        re.compile(
-            r"^(?:export\s+)?(?:async\s+)?function\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("
-        ),
+        re.compile(r"^(?:export\s+)?(?:async\s+)?function\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("),
     ),
     ("const", re.compile(r"^(?:export\s+)?const\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=")),
 ]
@@ -79,10 +75,12 @@ class TypeScriptModuleOutlineParser:
                 active_decorator_balance += stripped.count("(") - stripped.count(")")
                 if active_decorator_balance <= 0:
                     raw_decorator = " ".join(part for part in active_decorator_lines if part)
-                    pending_decorators.append({
-                        "name": active_decorator_lines[0].split("(", 1)[0],
-                        "raw": raw_decorator,
-                    })
+                    pending_decorators.append(
+                        {
+                            "name": active_decorator_lines[0].split("(", 1)[0],
+                            "raw": raw_decorator,
+                        }
+                    )
                     active_decorator_lines = None
                     active_decorator_balance = 0
                 brace_depth += opens - closes
@@ -97,10 +95,12 @@ class TypeScriptModuleOutlineParser:
                     active_decorator_lines = [stripped]
                     active_decorator_balance = stripped.count("(") - stripped.count(")")
                 else:
-                    pending_decorators.append({
-                        "name": stripped.split("(", 1)[0],
-                        "raw": stripped,
-                    })
+                    pending_decorators.append(
+                        {
+                            "name": stripped.split("(", 1)[0],
+                            "raw": stripped,
+                        }
+                    )
                 brace_depth += opens - closes
                 continue
 
@@ -109,15 +109,17 @@ class TypeScriptModuleOutlineParser:
                 module_name = import_match.group("module")
                 imports.append(module_name)
                 detail_id = f"typescript_import:{safe_id(rel_path)}:{index}"
-                detail_records.append({
-                    "kind": "typescript_import",
-                    "file": rel_path,
-                    "id": detail_id,
-                    "parent_id": file_id,
-                    "module": module_name,
-                    "clause": import_match.group("clause").strip(),
-                    "line": index,
-                })
+                detail_records.append(
+                    {
+                        "kind": "typescript_import",
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": file_id,
+                        "module": module_name,
+                        "clause": import_match.group("clause").strip(),
+                        "line": index,
+                    }
+                )
                 relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
                 brace_depth += opens - closes
                 continue
@@ -138,17 +140,21 @@ class TypeScriptModuleOutlineParser:
                     }
                     detail_records.append(detail_record)
                     relation_records.append({"from": file_id, "to": detail_id, "type": "contains_symbol"})
-                    symbols.append({
-                        "kind": symbol_kind,
-                        "name": top_level_symbol["name"],
-                        "line": index,
-                    })
-                    if symbol_kind == "class" and opens > closes:
-                        class_stack.append({
-                            "id": detail_id,
+                    symbols.append(
+                        {
+                            "kind": symbol_kind,
                             "name": top_level_symbol["name"],
-                            "body_depth": brace_depth + opens - closes,
-                        })
+                            "line": index,
+                        }
+                    )
+                    if symbol_kind == "class" and opens > closes:
+                        class_stack.append(
+                            {
+                                "id": detail_id,
+                                "name": top_level_symbol["name"],
+                                "body_depth": brace_depth + opens - closes,
+                            }
+                        )
                     pending_decorators = []
                     brace_depth += opens - closes
                     continue
@@ -159,20 +165,24 @@ class TypeScriptModuleOutlineParser:
                     detail_id = (
                         f"typescript_{method_info['kind']}:{safe_id(rel_path)}:{index}:{safe_id(method_info['name'])}"
                     )
-                    detail_records.append({
-                        "file": rel_path,
-                        "id": detail_id,
-                        "parent_id": class_stack[-1]["id"],
-                        "class_name": class_stack[-1]["name"],
-                        **method_info,
-                        "kind": f"typescript_{method_info['kind']}",
-                    })
+                    detail_records.append(
+                        {
+                            "file": rel_path,
+                            "id": detail_id,
+                            "parent_id": class_stack[-1]["id"],
+                            "class_name": class_stack[-1]["name"],
+                            **method_info,
+                            "kind": f"typescript_{method_info['kind']}",
+                        }
+                    )
                     relation_records.append({"from": class_stack[-1]["id"], "to": detail_id, "type": "contains_method"})
-                    symbols.append({
-                        "kind": method_info["kind"],
-                        "name": f"{class_stack[-1]['name']}.{method_info['name']}",
-                        "line": index,
-                    })
+                    symbols.append(
+                        {
+                            "kind": method_info["kind"],
+                            "name": f"{class_stack[-1]['name']}.{method_info['name']}",
+                            "line": index,
+                        }
+                    )
                     pending_decorators = []
                     brace_depth += opens - closes
                     continue
@@ -190,8 +200,7 @@ class TypeScriptModuleOutlineParser:
         top_level_symbols = [
             record
             for record in detail_records
-            if record.get("parent_id") == file_id
-            and record["kind"] != "typescript_import"
+            if record.get("parent_id") == file_id and record["kind"] != "typescript_import"
         ]
         framework_info = self.framework_annotator.annotate(
             rel_path=rel_path,
@@ -201,9 +210,7 @@ class TypeScriptModuleOutlineParser:
             detail_records=detail_records,
         )
         method_count = sum(
-            1
-            for record in detail_records
-            if record["kind"] in {"typescript_method", "typescript_constructor"}
+            1 for record in detail_records if record["kind"] in {"typescript_method", "typescript_constructor"}
         )
         index_record = {
             "kind": "typescript_file",
@@ -249,21 +256,25 @@ class TypeScriptModuleOutlineParser:
                 "parse_mode": "heuristic",
             },
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": "typescript",
-            "file": rel_path,
-            "import_count": len(imports),
-            "symbol_count": len(symbols),
-            "class_count": index_record["summary"]["class_count"],
-            "function_count": index_record["summary"]["function_count"],
-            "framework_count": index_record["summary"]["framework_count"],
-            "component_count": index_record["summary"]["component_count"],
-            "hook_count": index_record["summary"]["hook_count"],
-            "method_count": index_record["summary"]["method_count"],
-            "test_case_count": test_case_count,
-            "parse_mode": "heuristic",
-        }
-
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": "typescript",
+                "file": rel_path,
+                "import_count": len(imports),
+                "symbol_count": len(symbols),
+                "class_count": index_record["summary"]["class_count"],
+                "function_count": index_record["summary"]["function_count"],
+                "framework_count": index_record["summary"]["framework_count"],
+                "component_count": index_record["summary"]["component_count"],
+                "hook_count": index_record["summary"]["hook_count"],
+                "method_count": index_record["summary"]["method_count"],
+                "test_case_count": test_case_count,
+                "parse_mode": "heuristic",
+            },
+        )
 
     def _match_typescript_top_level_symbol(
         self,
@@ -288,11 +299,7 @@ class TypeScriptModuleOutlineParser:
                 extends_value = match.groupdict().get("extends")
                 implements_value = match.groupdict().get("implements")
                 payload["extends"] = extends_value.strip() if extends_value else None
-                payload["implements"] = [
-                    item.strip()
-                    for item in (implements_value or "").split(",")
-                    if item.strip()
-                ]
+                payload["implements"] = [item.strip() for item in (implements_value or "").split(",") if item.strip()]
             return payload
         return None
 

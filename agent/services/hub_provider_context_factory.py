@@ -56,15 +56,11 @@ class HubProviderContextSpec:
             "external_egress_allowed": self.external_egress_allowed,
             "max_attempts": self.max_attempts,
             "max_total_tokens": self.max_total_tokens,
-            "max_completion_tokens_per_call": (
-                self.max_completion_tokens_per_call
-            ),
+            "max_completion_tokens_per_call": (self.max_completion_tokens_per_call),
             "max_cost_micros": self.max_cost_micros,
             "require_hub_retry_budget": self.combined_retry_maximum > 0,
             "require_hub_provider_budget": requires_provider,
-            "provider_transport_mode": (
-                "hub_bound" if requires_provider else "none"
-            ),
+            "provider_transport_mode": ("hub_bound" if requires_provider else "none"),
             "provider_decision_reason": decision_reason,
             "combined_retry_maximum": self.combined_retry_maximum,
             "authorization_envelope": dict(self.authorization_envelope),
@@ -81,9 +77,7 @@ class HubProviderContextSpec:
                 }
             )
             if binding.endpoint_identity:
-                context["provider_endpoint_identity"] = (
-                    binding.endpoint_identity
-                )
+                context["provider_endpoint_identity"] = binding.endpoint_identity
             if profile_id:
                 context["provider_profile_id"] = str(profile_id).strip()
             if self.require_separate_provider_attempt_budget:

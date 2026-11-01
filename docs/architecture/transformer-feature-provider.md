@@ -48,7 +48,7 @@ class TransformerFeaturePolicy:
     local_only: bool = True
     allowed_base_urls: frozenset[str] = frozenset()
     model_name: str = ""
-    layer_selector: str = "last"        # last | pooled | all | layer:<n>
+    layer_selector: str = "last"  # last | pooled | all | layer:<n>
     max_input_tokens: int = 512
     no_write_mode: bool = True
     external_calls_allowed: bool = False
@@ -75,13 +75,13 @@ Every feature extraction result includes a `TransformerFeatureMetadata` record:
 ```python
 @dataclass(frozen=True)
 class TransformerFeatureMetadata:
-    provider_id: str             # stable identifier for this provider instance
-    model_version: str           # exact model name + version string
-    layer: str                   # which layer was extracted
-    pooling: str                 # mean | cls | max | none
-    dimensions: int              # output dimensionality
-    input_hash: str              # SHA-256 of normalized input text
-    config_hash: str             # SHA-256 of policy + model config
+    provider_id: str  # stable identifier for this provider instance
+    model_version: str  # exact model name + version string
+    layer: str  # which layer was extracted
+    pooling: str  # mean | cls | max | none
+    dimensions: int  # output dimensionality
+    input_hash: str  # SHA-256 of normalized input text
+    config_hash: str  # SHA-256 of policy + model config
     elapsed_ms: float
     experimental: bool
 ```
@@ -99,11 +99,11 @@ The `input_hash` allows verifying that two feature extractions used the same inp
 ```python
 @dataclass(frozen=True)
 class TransformerFeatureResult:
-    feature_vector: list[float]         # the extracted embedding/hidden state
-    feature_scores: dict[str, float]    # optional named scalar scores
+    feature_vector: list[float]  # the extracted embedding/hidden state
+    feature_scores: dict[str, float]  # optional named scalar scores
     metadata: TransformerFeatureMetadata
-    diagnostics: dict[str, Any]         # compression ratio, max_abs_error after encoding
-    policy_decision: str                # "allowed" | "blocked:<reason>"
+    diagnostics: dict[str, Any]  # compression ratio, max_abs_error after encoding
+    policy_decision: str  # "allowed" | "blocked:<reason>"
 ```
 
 If the policy blocks the call, `feature_vector` is empty, `policy_decision` is `"blocked:<reason>"`, and no network call is made.
@@ -115,7 +115,7 @@ If the policy blocks the call, `feature_vector` is empty, `policy_decision` is `
 `TransformerFeatureProvider` can be completely disabled by setting `enabled=False` in configuration:
 
 ```python
-CODECOMPASS_TRANSFORMER_FEATURE_PROVIDER_ENABLED=false
+CODECOMPASS_TRANSFORMER_FEATURE_PROVIDER_ENABLED = false
 ```
 
 When disabled:

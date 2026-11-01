@@ -18,37 +18,65 @@ from tests.pi.pi_protocol_examples import pi_events
 
 def target(**overrides):
     value = CodingAgentInferenceTarget(
-        client_id="pi", provider_id="ollama", model="selected-model", cli_model="selected-model",
-        base_url="http://ollama:11434/v1", target_kind="local_openai", api_key="synthetic-private-key",
+        client_id="pi",
+        provider_id="ollama",
+        model="selected-model",
+        cli_model="selected-model",
+        base_url="http://ollama:11434/v1",
+        target_kind="local_openai",
+        api_key="synthetic-private-key",
     )
     return replace(value, **overrides)
 
 
 def runtime():
     return {
-        "installed": True, "status": "ready", "version": "0.85.1", "binary_path": "/pinned/pi",
+        "installed": True,
+        "status": "ready",
+        "version": "0.85.1",
+        "binary_path": "/pinned/pi",
         "version_probe": {"rc": 0, "stdout": "0.85.1", "stderr": ""},
     }
 
 
 def hub_context(**overrides):
     """Synthetic policy DTO; no claim of verified Hub authorization or evidence."""
-    return replace(ProviderInvocationContext(
-        tenant_id="test-tenant", run_id="test-workflow-run", policy_version="test-policy",
-        prompt_version="test-prompt", workflow_id="test-workflow", step_id="test-step",
-        plan_hash="test-plan", authorization_envelope={"synthetic": True},
-        attempt_id="test-attempt", fencing_token=1, require_hub_provider_budget=True,
-        selected_provider_id="ollama", selected_model_id="selected-model", provider_binding_id="test-binding",
-        provider_endpoint_identity="http://ollama:11434/v1/chat/completions", provider_transport_mode="hub_bound",
-        provider_decision_reason="synthetic-test-policy", provider_call_id="test-call",
-        max_total_tokens=8192, max_completion_tokens_per_call=1024, deadline_epoch_seconds=200,
-    ), **overrides)
+    return replace(
+        ProviderInvocationContext(
+            tenant_id="test-tenant",
+            run_id="test-workflow-run",
+            policy_version="test-policy",
+            prompt_version="test-prompt",
+            workflow_id="test-workflow",
+            step_id="test-step",
+            plan_hash="test-plan",
+            authorization_envelope={"synthetic": True},
+            attempt_id="test-attempt",
+            fencing_token=1,
+            require_hub_provider_budget=True,
+            selected_provider_id="ollama",
+            selected_model_id="selected-model",
+            provider_binding_id="test-binding",
+            provider_endpoint_identity="http://ollama:11434/v1/chat/completions",
+            provider_transport_mode="hub_bound",
+            provider_decision_reason="synthetic-test-policy",
+            provider_call_id="test-call",
+            max_total_tokens=8192,
+            max_completion_tokens_per_call=1024,
+            deadline_epoch_seconds=200,
+        ),
+        **overrides,
+    )
 
 
 def budget_port():
     budget = Mock()
     budget.reserve.side_effect = lambda **kw: ProviderBudgetDecision(
-        True, "allowed", 1, kw["estimated_prompt_tokens"] + kw["context"].max_completion_tokens_per_call, 0,
+        True,
+        "allowed",
+        1,
+        kw["estimated_prompt_tokens"] + kw["context"].max_completion_tokens_per_call,
+        0,
     )
     return budget
 
@@ -58,8 +86,17 @@ def policy(*, context=None, budget=None, clock=lambda: 100):
 
 
 class Runner:
-    def __init__(self, *, return_code=0, reason="completed", truncate=False, malformed=False,
-                 key="synthetic-private-key", answer="A\u2028B", prompt="Explain this code."):
+    def __init__(
+        self,
+        *,
+        return_code=0,
+        reason="completed",
+        truncate=False,
+        malformed=False,
+        key="synthetic-private-key",
+        answer="A\u2028B",
+        prompt="Explain this code.",
+    ):
         self.calls = []
         self.return_code, self.reason, self.truncate, self.malformed = return_code, reason, truncate, malformed
         self.key, self.answer = key, answer
@@ -91,16 +128,26 @@ class Runner:
 def request(tmp_path, **overrides):
     project = tmp_path / "project"
     project.mkdir(exist_ok=True)
-    return replace(CodingAgentRunRequest(
-        prompt="Explain this code.", workspace=project, timeout_seconds=10, permission_mode="read_only",
-    ), **overrides)
+    return replace(
+        CodingAgentRunRequest(
+            prompt="Explain this code.",
+            workspace=project,
+            timeout_seconds=10,
+            permission_mode="read_only",
+        ),
+        **overrides,
+    )
 
 
 def provider(tmp_path, runner, **overrides):
     options = dict(
-        enabled=True, target=target(), authorize=lambda _: True, process_runner=runner,
+        enabled=True,
+        target=target(),
+        authorize=lambda _: True,
+        process_runner=runner,
         execution_policy=policy(),
-        runtime_probe=runtime, runtime_root=tmp_path,
+        runtime_probe=runtime,
+        runtime_root=tmp_path,
         command_builder=lambda _: ("/pinned/node", "/pinned/pi_sdk_entry.mjs", "/pinned/sdk.js"),
         environment={"PATH": "/usr/bin", "AGENT_TOKEN": "foreign", "HOME": "/foreign", "NODE_OPTIONS": "foreign"},
     )
@@ -124,32 +171,46 @@ def test_pi_authorized_no_tools_run_never_uses_project_cwd_or_foreign_environmen
     assert sink.call_count == 1 and sink.call_args.args[0].text == result.stdout
 
 
-@pytest.mark.parametrize("options,reason", [
-    ({"enabled": False}, "pi_disabled"), ({"authorize": None}, "pi_execution_not_authorized"),
-    ({"target": target(api_key=None)}, "pi_auth_required"),
-    ({"target": target(provider_id="unselected")}, "pi_target_unsupported"),
-    ({"target": target(base_url="http://user:password@host/v1")}, "pi_endpoint_invalid"),
-])
+@pytest.mark.parametrize(
+    "options,reason",
+    [
+        ({"enabled": False}, "pi_disabled"),
+        ({"authorize": None}, "pi_execution_not_authorized"),
+        ({"target": target(api_key=None)}, "pi_auth_required"),
+        ({"target": target(provider_id="unselected")}, "pi_target_unsupported"),
+        ({"target": target(base_url="http://user:password@host/v1")}, "pi_endpoint_invalid"),
+    ],
+)
 def test_pi_unready_or_unauthorized_never_executes(tmp_path, options, reason):
     runner = Runner()
     result = provider(tmp_path, runner, **options).run(request(tmp_path))
     assert not result.succeeded and result.reason_code == reason and runner.calls == []
 
 
-@pytest.mark.parametrize("options", [
-    {"session_id": "foreign-session"}, {"permission_mode": "workspace_write"},
-    {"permission_mode": "autonomous"}, {"model": "different-model"},
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"session_id": "foreign-session"},
+        {"permission_mode": "workspace_write"},
+        {"permission_mode": "autonomous"},
+        {"model": "different-model"},
+    ],
+)
 def test_pi_rejects_unsupported_capability_or_model_before_process(tmp_path, options):
     runner = Runner()
     result = provider(tmp_path, runner).run(request(tmp_path, **options))
     assert not result.succeeded and runner.calls == []
 
 
-@pytest.mark.parametrize("options", [
-    {"return_code": 124, "reason": "timeout"}, {"return_code": 130, "reason": "cancelled"},
-    {"return_code": 65, "reason": "output_limit_exceeded", "truncate": True}, {"malformed": True},
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"return_code": 124, "reason": "timeout"},
+        {"return_code": 130, "reason": "cancelled"},
+        {"return_code": 65, "reason": "output_limit_exceeded", "truncate": True},
+        {"malformed": True},
+    ],
+)
 def test_pi_failure_never_publishes_partial_text_and_cleans_runtime(tmp_path, options):
     runner, sink = Runner(**options), Mock()
     result = provider(tmp_path, runner).run(request(tmp_path), event_sink=sink)
@@ -175,8 +236,14 @@ def test_pi_remains_disabled_by_default_and_has_no_unverified_capabilities():
     value = build_cli_coding_agent_provider("pi")
     assert value.detect().state is ProviderState.UNSUPPORTED
     assert not value.descriptor.enabled_by_default
-    assert not any((value.descriptor.capabilities.tools, value.descriptor.capabilities.sandbox,
-                    value.descriptor.capabilities.session_resume, value.descriptor.capabilities.git_changes))
+    assert not any(
+        (
+            value.descriptor.capabilities.tools,
+            value.descriptor.capabilities.sandbox,
+            value.descriptor.capabilities.session_resume,
+            value.descriptor.capabilities.git_changes,
+        )
+    )
     assert value.descriptor in coding_agent_descriptors()
 
 

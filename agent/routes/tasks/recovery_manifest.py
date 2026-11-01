@@ -21,22 +21,16 @@ recovery_manifest_bp = Blueprint(
 )
 
 
-@recovery_manifest_bp.get(
-    "/internal/tasks/<task_id>/recovery-child-manifest"
-)
-@check_registered_worker_auth(
-    scope=RECOVERY_TASK_MANIFEST_SCOPE
-)
+@recovery_manifest_bp.get("/internal/tasks/<task_id>/recovery-child-manifest")
+@check_registered_worker_auth(scope=RECOVERY_TASK_MANIFEST_SCOPE)
 def recovery_child_manifest(task_id: str):
     identity = dict(getattr(g, "service_identity", {}) or {})
     worker_id = str(identity.get("worker_id") or "")
     worker_url = str(identity.get("worker_url") or "")
     try:
-        manifest = (
-            get_recovery_task_manifest_service().manifest_for_worker(
-                task_id=task_id,
-                worker_url=worker_url,
-            )
+        manifest = get_recovery_task_manifest_service().manifest_for_worker(
+            task_id=task_id,
+            worker_url=worker_url,
         )
     except RecoveryTaskManifestDenied as exc:
         log_audit(

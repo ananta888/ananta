@@ -1,15 +1,16 @@
 """CCARI-011: Flask route tests for /api/codecompass/reload-context."""
+
 from __future__ import annotations
 
 import pytest
 
-from agent.services import context_delivery_service
 from agent.services.context_delivery_service import ContextDeliveryService
 
 
 @pytest.fixture
 def client(monkeypatch):
     from flask import Flask
+
     from agent.routes.codecompass_reload import codecompass_reload_bp
 
     app = Flask(__name__)
@@ -40,8 +41,10 @@ def client(monkeypatch):
         def get_by_id(self, task_id):
             class _T:
                 id = "t1"
+
                 def model_dump(self_inner):
                     return {"id": "t1", "prompt": "x"}
+
             return _T() if task_id == "t1" else None
 
     from agent.services import repository_registry
@@ -68,9 +71,7 @@ def test_reload_context_success(client):
                 "kind": "context_reload_request",
                 "reason": "missing data",
                 "risk": "read_only",
-                "requested_context": [
-                    {"type": "symbol", "query": "Foo"}
-                ],
+                "requested_context": [{"type": "symbol", "query": "Foo"}],
             },
         },
     )

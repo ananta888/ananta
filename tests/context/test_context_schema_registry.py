@@ -46,4 +46,3 @@ def test_context_schema_registry_marks_oversized_payload_as_degraded(tmp_path: P
     registry.load_from_descriptors({"example": {"context_schemas": [str(schema_path.relative_to(tmp_path))]}})
     result = registry.validate_context(domain_id="example", payload={"large": "x" * 100})
     assert result["status"] == "degraded"
-

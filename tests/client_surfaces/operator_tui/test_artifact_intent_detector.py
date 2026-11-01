@@ -28,7 +28,9 @@ def test_hover_dwell_creates_likely_intent() -> None:
 
 def test_click_confirms_artifact_intent() -> None:
     detector = ArtifactIntentDetector(dwell_seconds=1.0)
-    target = RegionTarget(kind="artifact", section_id="artifacts", pane="content", label="Cast", payload={"selected_index": 1})
+    target = RegionTarget(
+        kind="artifact", section_id="artifacts", pane="content", label="Cast", payload={"selected_index": 1}
+    )
     mouse = MouseState(x=2, y=2, active=True, hover_started_at=4.0, last_seen_at=4.1, last_event_type="down", buttons=1)
     intent = detector.evaluate(
         now=4.1,

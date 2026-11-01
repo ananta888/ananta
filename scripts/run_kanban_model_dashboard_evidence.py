@@ -94,9 +94,7 @@ EVIDENCE_SCHEMA = "ananta.kanban-model-dashboard.evidence.v1"
 PRODUCER_NAME = "kanban-model-dashboard-evidence-producer"
 PRODUCER_VERSION = "1"
 ARTIFACT_BOUNDARY = "post_candidate_ci_release_artifact"
-EVIDENCE_RELATIVE_DIR = PurePosixPath(
-    "artifacts/e2e/kanban-model-dashboard"
-)
+EVIDENCE_RELATIVE_DIR = PurePosixPath("artifacts/e2e/kanban-model-dashboard")
 MAX_INPUT_COUNT = 160
 MAX_INPUT_BYTES = 12_000_000
 MAX_TOTAL_INPUT_BYTES = 64_000_000
@@ -111,13 +109,7 @@ ANSI_PATTERN = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def _safe_relative_path(value: str) -> PurePosixPath:
-    if (
-        not isinstance(value, str)
-        or not value
-        or len(value) > MAX_PATH_LENGTH
-        or "\\" in value
-        or "\x00" in value
-    ):
+    if not isinstance(value, str) or not value or len(value) > MAX_PATH_LENGTH or "\\" in value or "\x00" in value:
         raise EvidenceProducerError("unsafe_relative_path")
     path = PurePosixPath(value)
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
@@ -207,9 +199,13 @@ def recorded_commands_match_allowlist(
     runtime: object,
 ) -> bool:
     spec = SUITE_SPECS.get(suite)
-    if spec is None or not isinstance(commands, list) or not isinstance(
-        runtime,
-        Mapping,
+    if (
+        spec is None
+        or not isinstance(commands, list)
+        or not isinstance(
+            runtime,
+            Mapping,
+        )
     ):
         return False
     python_executable = runtime.get("python_executable")
@@ -271,16 +267,8 @@ def _validate_specs() -> None:
             ):
                 raise EvidenceProducerError("suite_command_allowlist_invalid")
             for token in command.argv:
-                if (
-                    not token
-                    or len(token) > MAX_TOKEN_LENGTH
-                    or "\x00" in token
-                    or "\n" in token
-                    or "\r" in token
-                ):
-                    raise EvidenceProducerError(
-                        "suite_command_token_invalid"
-                    )
+                if not token or len(token) > MAX_TOKEN_LENGTH or "\x00" in token or "\n" in token or "\r" in token:
+                    raise EvidenceProducerError("suite_command_token_invalid")
             _safe_relative_path(command.cwd) if command.cwd != "." else None
             if command.result_path:
                 _safe_relative_path(command.result_path)
@@ -320,11 +308,7 @@ def _validate_vitest(
         flags=re.IGNORECASE,
     )
     passed = int(match.group(1)) if match else None
-    if (
-        passed is None
-        or passed < spec.minimum_passed
-        or re.search(rb"\b[1-9]\d*\s+failed\b", combined, re.IGNORECASE)
-    ):
+    if passed is None or passed < spec.minimum_passed or re.search(rb"\b[1-9]\d*\s+failed\b", combined, re.IGNORECASE):
         raise EvidenceProducerError("vitest_result_requirements_failed")
     return {"passed": passed, "minimum_passed": spec.minimum_passed}
 
@@ -365,11 +349,7 @@ def _validate_playwright(
     unexpected = stats.get("unexpected")
     skipped = stats.get("skipped")
     projects = config.get("projects")
-    project_names = {
-        item.get("name")
-        for item in projects
-        if isinstance(projects, list) and isinstance(item, Mapping)
-    }
+    project_names = {item.get("name") for item in projects if isinstance(projects, list) and isinstance(item, Mapping)}
     if (
         not isinstance(expected, int)
         or expected < spec.minimum_passed
@@ -377,9 +357,7 @@ def _validate_playwright(
         or skipped != 0
         or not {"chromium", "firefox"}.issubset(project_names)
     ):
-        raise EvidenceProducerError(
-            "playwright_result_requirements_failed"
-        )
+        raise EvidenceProducerError("playwright_result_requirements_failed")
     return {
         "expected": expected,
         "unexpected": unexpected,
@@ -429,14 +407,10 @@ def _validate_performance_result(
             and _nested(value, "absolute_evaluation", "within_budget") is True
         )
     elif validator == "performance_angular":
-        valid = (
-            schema == "ananta.kanban-performance-local-diagnostic.v1"
-            and value.get("release_evidence") is False
-        )
+        valid = schema == "ananta.kanban-performance-local-diagnostic.v1" and value.get("release_evidence") is False
     elif validator == "performance_tui":
         valid = (
-            schema
-            == "ananta.tui-kanban-local-performance-diagnostic.v1"
+            schema == "ananta.tui-kanban-local-performance-diagnostic.v1"
             and value.get("release_evidence") is False
             and value.get("formal_gate_eligible") is False
             and _nested(value, "absolute_evaluation", "within_budget") is True
@@ -464,9 +438,7 @@ def _validate_performance_result(
             and HEX_64_PATTERN.fullmatch(profile_sha) is not None
         )
     if not valid:
-        raise EvidenceProducerError(
-            f"{validator}_result_requirements_failed"
-        )
+        raise EvidenceProducerError(f"{validator}_result_requirements_failed")
     return {"schema": schema, "requirements_satisfied": True}
 
 
@@ -477,9 +449,7 @@ def _validate_command_result(
     root: Path,
     candidate_sha: str,
 ) -> tuple[dict[str, Any], tuple[str, str] | None]:
-    if len(execution.stdout) > MAX_COMMAND_OUTPUT_BYTES or len(
-        execution.stderr
-    ) > MAX_COMMAND_OUTPUT_BYTES:
+    if len(execution.stdout) > MAX_COMMAND_OUTPUT_BYTES or len(execution.stderr) > MAX_COMMAND_OUTPUT_BYTES:
         raise EvidenceProducerError("command_output_oversized")
     if execution.failure_code:
         raise EvidenceProducerError(execution.failure_code)
@@ -526,9 +496,7 @@ def _atomic_write_json(
     *,
     replace: Callable[[str | bytes | Path, str | bytes | Path], None] = os.replace,
 ) -> None:
-    encoded = (
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
-    ).encode("utf-8")
+    encoded = (json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n").encode("utf-8")
     if len(encoded) > MAX_EVIDENCE_BYTES:
         raise EvidenceProducerError("evidence_output_oversized")
     descriptor, temporary_name = tempfile.mkstemp(
@@ -584,8 +552,7 @@ class EvidenceProducer:
             "operating_system": platform.system(),
             "operating_system_release": platform.release(),
             "machine": platform.machine(),
-            "ci": str(os.environ.get("CI") or "").lower()
-            in {"1", "true", "yes", "on"},
+            "ci": str(os.environ.get("CI") or "").lower() in {"1", "true", "yes", "on"},
         }
 
     def _verify_inputs(
@@ -697,9 +664,7 @@ class EvidenceProducer:
             payload["input_hashes"] = input_hashes
             payload["inputs"] = inputs
             payload["candidate"]["input_blobs_verified"] = True
-            if not self._npx and any(
-                "{npx}" in command.argv for command in spec.commands
-            ):
+            if not self._npx and any("{npx}" in command.argv for command in spec.commands):
                 raise EvidenceBlocked("npx_executable_missing")
 
             for index, command in enumerate(spec.commands):
@@ -714,11 +679,7 @@ class EvidenceProducer:
                 monotonic_started = self._monotonic()
                 execution = self._executor.run(
                     argv,
-                    cwd=(
-                        self._root
-                        if command.cwd == "."
-                        else self._root / command.cwd
-                    ),
+                    cwd=(self._root if command.cwd == "." else self._root / command.cwd),
                     env_overrides=dict(command.env),
                     timeout_seconds=command.timeout_seconds,
                 )
@@ -774,11 +735,7 @@ class EvidenceProducer:
             payload["reason_codes"].append(exc.reason_code)
 
         if payload["status"] != "passed":
-            payload["status"] = (
-                "blocked"
-                if not payload["commands"]
-                else "failed"
-            )
+            payload["status"] = "blocked" if not payload["commands"] else "failed"
         payload["reason_codes"] = sorted(set(payload["reason_codes"]))
         payload["produced_at"] = _utc(self._clock())
         _atomic_write_json(output, payload)
@@ -811,9 +768,7 @@ def run_producer(
     statuses = [item.get("status") for item in evidence]
     status = (
         "passed"
-        if not errors and len(evidence) == len(suites) and all(
-            item == "passed" for item in statuses
-        )
+        if not errors and len(evidence) == len(suites) and all(item == "passed" for item in statuses)
         else "blocked"
         if errors or any(item == "blocked" for item in statuses)
         else "failed"
@@ -822,10 +777,7 @@ def run_producer(
         "producer": PRODUCER_NAME,
         "candidate_sha": candidate_sha,
         "status": status,
-        "suites": [
-            {"suite": item["suite"], "status": item["status"]}
-            for item in evidence
-        ],
+        "suites": [{"suite": item["suite"], "status": item["status"]} for item in evidence],
         "errors": errors,
     }
 

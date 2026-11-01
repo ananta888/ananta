@@ -12,7 +12,10 @@ from agent.cli_backends.helpers import (
 
 
 def build_codex_runtime_diagnostics(
-    *, base_url: str | None, api_key: str | None, is_local: bool,
+    *,
+    base_url: str | None,
+    api_key: str | None,
+    is_local: bool,
 ) -> list[str]:
     diagnostics: list[str] = []
     if not base_url:
@@ -73,7 +76,9 @@ def infer_local_opencode_target(
                 probe = probe_lmstudio(base_url, timeout=timeout)
             except Exception:
                 continue
-            matched = match_lmstudio(raw_model, list(probe.get("candidates") or [])) if isinstance(probe, dict) else None
+            matched = (
+                match_lmstudio(raw_model, list(probe.get("candidates") or [])) if isinstance(probe, dict) else None
+            )
             if matched:
                 return "lmstudio", str((matched or {}).get("id") or "").strip() or raw_model
     return None, None
@@ -95,8 +100,17 @@ def build_opencode_toolless_agent_config() -> dict[str, object]:
         "tools": {
             name: False
             for name in (
-                "bash", "read", "glob", "grep", "edit", "write", "task",
-                "webfetch", "todowrite", "question", "skill",
+                "bash",
+                "read",
+                "glob",
+                "grep",
+                "edit",
+                "write",
+                "task",
+                "webfetch",
+                "todowrite",
+                "question",
+                "skill",
             )
         },
     }
@@ -124,8 +138,17 @@ def build_opencode_loop_brain_agent_config() -> dict[str, object]:
         "tools": {
             name: False
             for name in (
-                "bash", "read", "glob", "grep", "edit", "write", "task",
-                "webfetch", "todowrite", "question", "skill",
+                "bash",
+                "read",
+                "glob",
+                "grep",
+                "edit",
+                "write",
+                "task",
+                "webfetch",
+                "todowrite",
+                "question",
+                "skill",
             )
         },
     }

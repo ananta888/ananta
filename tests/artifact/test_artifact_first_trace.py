@@ -1,4 +1,5 @@
 """AFH-T019: TraceBundleV2 artifact handoff lifecycle tests."""
+
 from __future__ import annotations
 
 from worker.core.trace_bundle import TraceBundleV2
@@ -50,6 +51,7 @@ class TestTraceBundleArtifactLifecycle:
         d = trace.as_dict()
         # Ensure no raw file content slipped in
         import json
+
         serialized = json.dumps(d)
         assert "raw_content" not in serialized
         assert "file_content" not in serialized

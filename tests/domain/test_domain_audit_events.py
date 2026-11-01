@@ -68,4 +68,3 @@ def test_domain_audit_event_schema_rejects_unknown_event_type() -> None:
     }
     errors = list(_validator().iter_errors(payload))
     assert errors
-

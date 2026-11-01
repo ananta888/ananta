@@ -115,8 +115,7 @@ def extract_buildkit_spdx(
         raise ValueError("BuildKit SPDX statement is missing or has the wrong predicate type")
     subjects = statement.get("subject") or ()
     if target_digest and not any(
-        isinstance(subject, Mapping)
-        and str((subject.get("digest") or {}).get("sha256") or "") == target_digest
+        isinstance(subject, Mapping) and str((subject.get("digest") or {}).get("sha256") or "") == target_digest
         for subject in subjects
     ):
         raise ValueError("BuildKit SPDX statement is not bound to the image manifest")
@@ -156,10 +155,7 @@ def _buildkit_attested_sbom(image: str, *, image_id: str) -> Mapping[str, Any]:
                     continue
                 if isinstance(payload, Mapping):
                     document_bytes += len(raw)
-                    if (
-                        document_bytes > _MAX_ATTESTATION_DOCUMENT_BYTES
-                        or len(documents) >= _MAX_ATTESTATION_DOCUMENTS
-                    ):
+                    if document_bytes > _MAX_ATTESTATION_DOCUMENT_BYTES or len(documents) >= _MAX_ATTESTATION_DOCUMENTS:
                         raise ValueError("local image contains too much attestation metadata")
                     documents[member.name.rsplit("/", 1)[-1]] = payload
     except Exception:

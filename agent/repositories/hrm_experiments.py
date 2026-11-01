@@ -10,7 +10,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
 from agent.database import engine as default_engine
-from agent.db_models.hrm_experiment_idempotency import HrmIdempotencyReceiptDB
 from agent.db_models import (
     HrmCheckpointDB,
     HrmDatasetDB,
@@ -19,6 +18,7 @@ from agent.db_models import (
     HrmRunEventDB,
     HrmWorkerCapabilityDB,
 )
+from agent.db_models.hrm_experiment_idempotency import HrmIdempotencyReceiptDB
 
 _WRITE_LOCK = threading.RLock()
 
@@ -45,9 +45,7 @@ class HrmExperimentRepository:
         now = self._clock()
         with _WRITE_LOCK, Session(self._engine) as session:
             item = session.exec(
-                select(HrmWorkerCapabilityDB).where(
-                    HrmWorkerCapabilityDB.worker_url == worker_url
-                )
+                select(HrmWorkerCapabilityDB).where(HrmWorkerCapabilityDB.worker_url == worker_url)
             ).first()
             if item is None:
                 item = HrmWorkerCapabilityDB(
@@ -72,14 +70,10 @@ class HrmExperimentRepository:
 
     def current_capability(self, *, worker_url: str | None = None) -> HrmWorkerCapabilityDB | None:
         with Session(self._engine) as session:
-            statement = select(HrmWorkerCapabilityDB).where(
-                HrmWorkerCapabilityDB.expires_at > self._clock()
-            )
+            statement = select(HrmWorkerCapabilityDB).where(HrmWorkerCapabilityDB.expires_at > self._clock())
             if worker_url is not None:
                 statement = statement.where(HrmWorkerCapabilityDB.worker_url == worker_url)
-            return session.exec(
-                statement.order_by(HrmWorkerCapabilityDB.observed_at.desc())
-            ).first()
+            return session.exec(statement.order_by(HrmWorkerCapabilityDB.observed_at.desc())).first()
 
     def claim_idempotency(
         self,
@@ -118,9 +112,7 @@ class HrmExperimentRepository:
                 session.rollback()
                 existing = session.exec(statement).first()
                 if existing is None or existing.request_digest != request_digest:
-                    raise HrmRepositoryConflict(
-                        "hrm.idempotency_payload_conflict"
-                    ) from exc
+                    raise HrmRepositoryConflict("hrm.idempotency_payload_conflict") from exc
                 return existing, True
             session.refresh(item)
             return item, False
@@ -149,11 +141,7 @@ class HrmExperimentRepository:
     def release_idempotency(self, receipt_id: str, *, request_digest: str) -> None:
         with _WRITE_LOCK, Session(self._engine) as session:
             item = session.get(HrmIdempotencyReceiptDB, receipt_id)
-            if (
-                item is not None
-                and item.state == "pending"
-                and item.request_digest == request_digest
-            ):
+            if item is not None and item.state == "pending" and item.request_digest == request_digest:
                 session.delete(item)
                 session.commit()
 
@@ -178,8 +166,7 @@ class HrmExperimentRepository:
         with _WRITE_LOCK, Session(self._engine) as session:
             existing = session.exec(
                 self._dataset_scope(item.tenant_id, item.project_id).where(
-                    (HrmDatasetDB.dataset_id == item.dataset_id)
-                    | (HrmDatasetDB.content_digest == item.content_digest)
+                    (HrmDatasetDB.dataset_id == item.dataset_id) | (HrmDatasetDB.content_digest == item.content_digest)
                 )
             ).first()
             if existing is not None:
@@ -198,9 +185,7 @@ class HrmExperimentRepository:
     def get_dataset(self, tenant_id: str, project_id: str, dataset_id: str) -> HrmDatasetDB | None:
         with Session(self._engine) as session:
             return session.exec(
-                self._dataset_scope(tenant_id, project_id).where(
-                    HrmDatasetDB.dataset_id == dataset_id
-                )
+                self._dataset_scope(tenant_id, project_id).where(HrmDatasetDB.dataset_id == dataset_id)
             ).first()
 
     def list_datasets(self, tenant_id: str, project_id: str, *, offset: int, limit: int) -> list[HrmDatasetDB]:
@@ -248,9 +233,7 @@ class HrmExperimentRepository:
     def get_checkpoint(self, tenant_id: str, project_id: str, checkpoint_id: str) -> HrmCheckpointDB | None:
         with Session(self._engine) as session:
             return session.exec(
-                self._checkpoint_scope(tenant_id, project_id).where(
-                    HrmCheckpointDB.checkpoint_id == checkpoint_id
-                )
+                self._checkpoint_scope(tenant_id, project_id).where(HrmCheckpointDB.checkpoint_id == checkpoint_id)
             ).first()
 
     def list_checkpoints(self, tenant_id: str, project_id: str, *, offset: int, limit: int) -> list[HrmCheckpointDB]:
@@ -297,9 +280,7 @@ class HrmExperimentRepository:
 
     def get_run(self, tenant_id: str, project_id: str, run_id: str) -> HrmRunDB | None:
         with Session(self._engine) as session:
-            return session.exec(
-                self._run_scope(tenant_id, project_id).where(HrmRunDB.id == run_id)
-            ).first()
+            return session.exec(self._run_scope(tenant_id, project_id).where(HrmRunDB.id == run_id)).first()
 
     def get_run_internal(self, run_id: str) -> HrmRunDB | None:
         with Session(self._engine) as session:
@@ -327,9 +308,7 @@ class HrmExperimentRepository:
 
     def append_event(self, run: HrmRunDB, event: Mapping[str, Any]) -> HrmRunEventDB:
         with _WRITE_LOCK, Session(self._engine) as session:
-            maximum = session.exec(
-                select(func.max(HrmRunEventDB.sequence)).where(HrmRunEventDB.run_id == run.id)
-            ).one()
+            maximum = session.exec(select(func.max(HrmRunEventDB.sequence)).where(HrmRunEventDB.run_id == run.id)).one()
             sequence = int(maximum or 0) + 1
             payload = dict(event)
             payload["sequence"] = sequence
@@ -345,7 +324,9 @@ class HrmExperimentRepository:
             session.refresh(item)
             return item
 
-    def list_events(self, tenant_id: str, project_id: str, run_id: str, *, after: int, limit: int) -> list[HrmRunEventDB]:
+    def list_events(
+        self, tenant_id: str, project_id: str, run_id: str, *, after: int, limit: int
+    ) -> list[HrmRunEventDB]:
         with Session(self._engine) as session:
             return list(
                 session.exec(
@@ -361,9 +342,7 @@ class HrmExperimentRepository:
                 ).all()
             )
 
-    def last_event_sequence(
-        self, tenant_id: str, project_id: str, run_id: str
-    ) -> int:
+    def last_event_sequence(self, tenant_id: str, project_id: str, run_id: str) -> int:
         with Session(self._engine) as session:
             maximum = session.exec(
                 select(func.max(HrmRunEventDB.sequence)).where(

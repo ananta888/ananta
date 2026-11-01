@@ -17,6 +17,7 @@ otherwise a reviewer can finish without ever handing in the answer the review
 parses, and the gap only surfaces as ``worker_review_answer_missing`` after the
 single-shot review dispatch.
 """
+
 from __future__ import annotations
 
 import json
@@ -172,7 +173,11 @@ def review_workspace_dir(task: Any, fallback: str | Path) -> str:
     ``worker_execution_context.workspace.output_dir`` — the artifact and the round
     counter must live exactly there.
     """
-    context = task.get("worker_execution_context") if isinstance(task, dict) else getattr(task, "worker_execution_context", None)
+    context = (
+        task.get("worker_execution_context")
+        if isinstance(task, dict)
+        else getattr(task, "worker_execution_context", None)
+    )
     workspace = context.get("workspace") if isinstance(context, dict) else None
     output_dir = str(workspace.get("output_dir") or "").strip() if isinstance(workspace, dict) else ""
     return output_dir or str(fallback)

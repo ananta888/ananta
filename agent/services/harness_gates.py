@@ -23,8 +23,13 @@ class GateOutcome:
     details: Mapping = field(default_factory=dict)
 
     def to_mapping(self) -> dict:
-        return {"gate_id": self.gate_id, "passed": self.passed, "reason": self.reason, "hard": self.hard,
-                "details": dict(self.details)}
+        return {
+            "gate_id": self.gate_id,
+            "passed": self.passed,
+            "reason": self.reason,
+            "hard": self.hard,
+            "details": dict(self.details),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,8 +39,11 @@ class GateReport:
     reason: str | None
 
     def to_mapping(self) -> dict:
-        return {"outcomes": [outcome.to_mapping() for outcome in self.outcomes], "disqualified": self.disqualified,
-                "reason": self.reason}
+        return {
+            "outcomes": [outcome.to_mapping() for outcome in self.outcomes],
+            "disqualified": self.disqualified,
+            "reason": self.reason,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +65,7 @@ class HarnessGate:
 def threshold_gate(gate_id: str, metric: str, minimum: float, *, hard: bool = True) -> HarnessGate:
     if not finite_number(minimum):
         raise ValueError("gate_threshold_invalid")
+
     def check(candidate: Mapping) -> tuple[bool, str]:
         value = candidate.get(metric)
         if not finite_number(value):
@@ -68,6 +77,7 @@ def threshold_gate(gate_id: str, metric: str, minimum: float, *, hard: bool = Tr
 
 def security_gate(gate_id: str, metric: str) -> HarnessGate:
     """A security gate must report exactly ``True``; it is always hard."""
+
     def check(candidate: Mapping) -> tuple[bool, str]:
         return (candidate.get(metric) is True), ("ok" if candidate.get(metric) is True else "gate_security_failed")
 
@@ -77,6 +87,7 @@ def security_gate(gate_id: str, metric: str) -> HarnessGate:
 def regression_gate(gate_id: str, metric: str, baseline: float, tolerance: float, *, hard: bool = True) -> HarnessGate:
     if not finite_number(baseline) or not finite_number(tolerance) or tolerance < 0:
         raise ValueError("gate_regression_policy_invalid")
+
     def check(candidate: Mapping) -> tuple[bool, str]:
         value = candidate.get(metric)
         if not finite_number(value):

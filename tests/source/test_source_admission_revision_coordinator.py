@@ -10,10 +10,10 @@ from sqlmodel import SQLModel
 
 from agent.db_models.source_control import SourceRevisionDB
 from agent.repositories.source_admission_receipt_repository import (
-    SQLSourceAdmissionReceiptRepository,
     SourceAdmissionCounters,
     SourceAdmissionReceiptDraft,
     SourceAdmissionReceiptPersistenceError,
+    SQLSourceAdmissionReceiptRepository,
 )
 from agent.services.source_admission_revision_coordinator import (
     SourceAdmissionRevisionCoordinator,
@@ -72,9 +72,7 @@ class _ReceiptRepository:
     def get(self, *_: object) -> object | None:
         return None
 
-    def get_by_admission_digest(
-        self, tenant_id: str, project_id: str, admission_digest: str
-    ) -> object | None:
+    def get_by_admission_digest(self, tenant_id: str, project_id: str, admission_digest: str) -> object | None:
         receipt = self.receipts.get(admission_digest)
         if receipt is None:
             return None
@@ -231,7 +229,7 @@ def test_sql_receipt_repository_is_scoped_append_only_and_idempotent() -> None:
         connection.execute(
             SourceRevisionDB.__table__.insert().values(
                 source_revision_id="revision-1",
-                    connection_id="conn_" + "1" * 64,
+                connection_id="conn_" + "1" * 64,
                 tenant_id="tenant-1",
                 project_id="project-1",
                 owner_id="owner-1",

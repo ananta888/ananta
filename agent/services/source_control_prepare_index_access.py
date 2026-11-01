@@ -31,7 +31,6 @@ from ananta_contracts.source_control import (
     ProviderLocation,
 )
 
-
 _LOG = logging.getLogger(__name__)
 
 SAFE_INDEX_ACCESS_OPTION_ID = "local-redacted-one-time-index"
@@ -58,12 +57,8 @@ _SAFE_POLICY_DOCUMENT: Mapping[str, object] = {
     "rules": [
         {
             "id": "local-redacted-index-only",
-            "description": (
-                "Allow only redacted reads on a local-container worker."
-            ),
-            "allowed_provider_locations": [
-                ProviderLocation.LOCAL_CONTAINER.value
-            ],
+            "description": ("Allow only redacted reads on a local-container worker."),
+            "allowed_provider_locations": [ProviderLocation.LOCAL_CONTAINER.value],
             "read_allowed": True,
             "write_allowed": False,
             "send_allowed": False,
@@ -88,15 +83,11 @@ class SourceControlPrepareIndexAccessError(ValueError):
 
 
 class SourceControlProjectionPort(Protocol):
-    def get(
-        self, *, principal: SourceControlPrincipal, connection_id: str
-    ) -> object: ...
+    def get(self, *, principal: SourceControlPrincipal, connection_id: str) -> object: ...
 
 
 class SourceControlBindingPort(Protocol):
-    def binding(
-        self, *, resource_kind: str, resource_id: str
-    ) -> Mapping[str, object] | None: ...
+    def binding(self, *, resource_kind: str, resource_id: str) -> Mapping[str, object] | None: ...
 
 
 class DestinationCatalogPort(Protocol):
@@ -114,9 +105,7 @@ class DestinationCatalogPort(Protocol):
 class ContextPolicyLifecyclePort(Protocol):
     def active(self, **kwargs: object) -> object: ...
 
-    def versions(
-        self, **kwargs: object
-    ) -> tuple[Sequence[object], str | None]: ...
+    def versions(self, **kwargs: object) -> tuple[Sequence[object], str | None]: ...
 
     def create_draft(self, **kwargs: object) -> object: ...
 
@@ -148,9 +137,7 @@ class PrepareIndexAccessRequest:
     confirmed: bool
 
     @classmethod
-    def from_mapping(
-        cls, payload: Mapping[str, object]
-    ) -> "PrepareIndexAccessRequest":
+    def from_mapping(cls, payload: Mapping[str, object]) -> "PrepareIndexAccessRequest":
         fields = {
             "source_revision_id",
             "destination_id",
@@ -159,24 +146,16 @@ class PrepareIndexAccessRequest:
             "confirmed",
         }
         if set(payload) != fields:
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_fields_invalid"
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_fields_invalid")
         duration = payload.get("duration_seconds")
         if isinstance(duration, bool) or not isinstance(duration, int):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_duration_invalid"
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_duration_invalid")
         if payload.get("confirmed") is not True:
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_confirmation_required"
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_confirmation_required")
         for field in ("source_revision_id", "destination_id", "option_id"):
             value = payload.get(field)
             if not isinstance(value, str) or not value.strip():
-                raise SourceControlPrepareIndexAccessError(
-                    f"index_access_{field}_invalid"
-                )
+                raise SourceControlPrepareIndexAccessError(f"index_access_{field}_invalid")
         return cls(
             source_revision_id=str(payload["source_revision_id"]).strip(),
             destination_id=str(payload["destination_id"]).strip(),
@@ -315,50 +294,25 @@ class SourceControlPrepareIndexAccessService:
     ) -> Mapping[str, object]:
         snapshot = self._snapshot(actor=actor, connection_id=connection_id)
         if if_match != snapshot.etag:
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_version_conflict", status_code=412
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_version_conflict", status_code=412)
         readiness = snapshot.body.get("readiness")
-        if (
-            not isinstance(readiness, Mapping)
-            or readiness.get("ready") is not True
-        ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_not_ready", status_code=409
-            )
+        if not isinstance(readiness, Mapping) or readiness.get("ready") is not True:
+            raise SourceControlPrepareIndexAccessError("index_access_not_ready", status_code=409)
         source_revision = snapshot.source_revision
-        if (
-            source_revision is None
-            or request.source_revision_id
-            != source_revision.get("source_revision_id")
-        ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_source_revision_stale", status_code=409
-            )
+        if source_revision is None or request.source_revision_id != source_revision.get("source_revision_id"):
+            raise SourceControlPrepareIndexAccessError("index_access_source_revision_stale", status_code=409)
         if request.option_id != SAFE_INDEX_ACCESS_OPTION_ID:
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_option_invalid"
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_option_invalid")
         if not (
-            SAFE_INDEX_ACCESS_MIN_DURATION_SECONDS
-            <= request.duration_seconds
-            <= SAFE_INDEX_ACCESS_MAX_DURATION_SECONDS
+            SAFE_INDEX_ACCESS_MIN_DURATION_SECONDS <= request.duration_seconds <= SAFE_INDEX_ACCESS_MAX_DURATION_SECONDS
         ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_duration_invalid"
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_duration_invalid")
         destination = next(
-            (
-                item
-                for item in snapshot.destinations
-                if item.get("destination_id") == request.destination_id
-            ),
+            (item for item in snapshot.destinations if item.get("destination_id") == request.destination_id),
             None,
         )
         if destination is None:
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_destination_not_safe", status_code=403
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_destination_not_safe", status_code=403)
 
         policy_actor = ContextPolicyActor(
             subject_id=actor.subject_id,
@@ -387,9 +341,7 @@ class SourceControlPrepareIndexAccessService:
                 duration_seconds=request.duration_seconds,
             ),
             if_match=str(_value(policy, "etag")),
-            idempotency_key=_child_key(
-                "grant", idempotency_key, request.destination_id
-            ),
+            idempotency_key=_child_key("grant", idempotency_key, request.destination_id),
         )
         return {
             "access_ready": True,
@@ -419,35 +371,20 @@ class SourceControlPrepareIndexAccessService:
         actor: SourceControlPrincipal,
         connection_id: str,
     ) -> _ReadinessSnapshot:
-        projection = self._projections.get(
-            principal=actor, connection_id=connection_id
-        )
-        binding = self._bindings.binding(
-            resource_kind="source_connection", resource_id=connection_id
-        )
+        projection = self._projections.get(principal=actor, connection_id=connection_id)
+        binding = self._bindings.binding(resource_kind="source_connection", resource_id=connection_id)
         if (
             binding is None
             or binding.get("tenant_id") != actor.tenant_id
             or binding.get("project_id") != actor.project_id
         ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_resource_not_found", status_code=404
-            )
-        if (
-            not (_MUTATOR_ROLES & actor.roles)
-            and binding.get("owner_id") != actor.subject_id
-        ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_owner_required", status_code=403
-            )
+            raise SourceControlPrepareIndexAccessError("index_access_resource_not_found", status_code=404)
+        if not (_MUTATOR_ROLES & actor.roles) and binding.get("owner_id") != actor.subject_id:
+            raise SourceControlPrepareIndexAccessError("index_access_owner_required", status_code=403)
 
         revision = getattr(projection, "revision", None)
         admission = getattr(projection, "admission", None)
-        admission_state = str(
-            (admission or {}).get("state")
-            or (revision or {}).get("admission_state")
-            or "pending"
-        )
+        admission_state = str((admission or {}).get("state") or (revision or {}).get("admission_state") or "pending")
         source_revision = (
             {
                 "source_revision_id": revision.get("source_revision_id"),
@@ -461,10 +398,7 @@ class SourceControlPrepareIndexAccessService:
         destinations = self._safe_destinations(actor)
         reason_codes: list[str] = []
         connection = getattr(projection, "connection", {})
-        if (
-            not isinstance(connection, Mapping)
-            or connection.get("state") != "active"
-        ):
+        if not isinstance(connection, Mapping) or connection.get("state") != "active":
             reason_codes.append("connection_not_active")
         if source_revision is None:
             reason_codes.append("source_revision_missing")
@@ -484,9 +418,7 @@ class SourceControlPrepareIndexAccessService:
                 "default": SAFE_INDEX_ACCESS_DEFAULT_DURATION_SECONDS,
             },
         }
-        projection_etag = _normalize_etag(
-            str(getattr(projection, "etag", ""))
-        )
+        projection_etag = _normalize_etag(str(getattr(projection, "etag", "")))
         body: dict[str, object] = {
             "connection_id": connection_id,
             "source_revision": source_revision,
@@ -506,9 +438,7 @@ class SourceControlPrepareIndexAccessService:
             body=body,
         )
 
-    def _safe_destinations(
-        self, actor: SourceControlPrincipal
-    ) -> tuple[Mapping[str, object], ...]:
+    def _safe_destinations(self, actor: SourceControlPrincipal) -> tuple[Mapping[str, object], ...]:
         values, _next_cursor = self._destinations.list(
             tenant_id=actor.tenant_id,
             project_id=actor.project_id,
@@ -518,24 +448,18 @@ class SourceControlPrepareIndexAccessService:
         )
         projected = []
         for value in values:
-            if _value(value, "provider_location") != (
-                ProviderLocation.LOCAL_CONTAINER
-            ):
+            if _value(value, "provider_location") != (ProviderLocation.LOCAL_CONTAINER):
                 continue
             projected.append(
                 {
                     "destination_id": str(_value(value, "destination_id")),
                     "worker_id": str(_value(value, "worker_id")),
                     "runtime_kind": str(_value(value, "runtime_kind")),
-                    "provider_location": (
-                        ProviderLocation.LOCAL_CONTAINER.value
-                    ),
+                    "provider_location": (ProviderLocation.LOCAL_CONTAINER.value),
                     "data_residency": str(_value(value, "data_residency")),
                 }
             )
-        return tuple(
-            sorted(projected, key=lambda item: item["destination_id"])
-        )
+        return tuple(sorted(projected, key=lambda item: item["destination_id"]))
 
     def _ensure_policy(
         self,
@@ -556,11 +480,7 @@ class SourceControlPrepareIndexAccessService:
             limit=1,
         )
         latest = versions[0] if versions else None
-        if (
-            latest is not None
-            and _is_safe_policy(latest)
-            and str(_value(latest, "state")) == "draft"
-        ):
+        if latest is not None and _is_safe_policy(latest) and str(_value(latest, "state")) == "draft":
             draft = latest
         else:
             try:
@@ -568,14 +488,8 @@ class SourceControlPrepareIndexAccessService:
                     actor=actor,
                     policy_id=SAFE_INDEX_ACCESS_POLICY_ID,
                     document=dict(_SAFE_POLICY_DOCUMENT),
-                    expected_latest_version=(
-                        int(_value(latest, "version"))
-                        if latest is not None
-                        else None
-                    ),
-                    idempotency_key=_child_key(
-                        "policy-draft", idempotency_key, destination_id
-                    ),
+                    expected_latest_version=(int(_value(latest, "version")) if latest is not None else None),
+                    idempotency_key=_child_key("policy-draft", idempotency_key, destination_id),
                 )
             except ContextPolicyLifecycleError as exc:
                 if "version_conflict" not in exc.reason_code:
@@ -595,13 +509,8 @@ class SourceControlPrepareIndexAccessService:
             policy_id=SAFE_INDEX_ACCESS_POLICY_ID,
             version=int(_value(draft, "version")),
         )
-        if any(
-            str(_value(item, "severity")) == "error"
-            for item in diagnostics
-        ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_managed_policy_lint_failed", status_code=409
-            )
+        if any(str(_value(item, "severity")) == "error" for item in diagnostics):
+            raise SourceControlPrepareIndexAccessError("index_access_managed_policy_lint_failed", status_code=409)
         preview = self._policies.preview(
             actor=actor,
             policy_id=SAFE_INDEX_ACCESS_POLICY_ID,
@@ -611,15 +520,10 @@ class SourceControlPrepareIndexAccessService:
             operation=GrantOperation.INDEX,
             transformation=GrantTransformation.REDACTED,
         )
-        if (
-            str(_value(preview, "policy_digest"))
-            != str(_value(draft, "policy_digest"))
-            or str(_value(preview, "decision"))
-            not in {"allow", "allow_redacted"}
-        ):
-            raise SourceControlPrepareIndexAccessError(
-                "index_access_managed_policy_denied", status_code=403
-            )
+        if str(_value(preview, "policy_digest")) != str(_value(draft, "policy_digest")) or str(
+            _value(preview, "decision")
+        ) not in {"allow", "allow_redacted"}:
+            raise SourceControlPrepareIndexAccessError("index_access_managed_policy_denied", status_code=403)
         if str(_value(draft, "state")) == "active":
             return draft
         try:
@@ -628,15 +532,10 @@ class SourceControlPrepareIndexAccessService:
                 policy_id=SAFE_INDEX_ACCESS_POLICY_ID,
                 version=int(_value(draft, "version")),
                 if_match=str(_value(draft, "etag")),
-                idempotency_key=_child_key(
-                    "policy-activate", idempotency_key, destination_id
-                ),
+                idempotency_key=_child_key("policy-activate", idempotency_key, destination_id),
             )
         except ContextPolicyLifecycleError as exc:
-            if not any(
-                marker in exc.reason_code
-                for marker in ("version_conflict", "state_conflict")
-            ):
+            if not any(marker in exc.reason_code for marker in ("version_conflict", "state_conflict")):
                 raise
             active = self._active_policy(actor)
             if active is None or not _is_safe_policy(active):
@@ -645,24 +544,16 @@ class SourceControlPrepareIndexAccessService:
 
     def _active_policy(self, actor: ContextPolicyActor) -> object | None:
         try:
-            return self._policies.active(
-                actor=actor, policy_id=SAFE_INDEX_ACCESS_POLICY_ID
-            )
+            return self._policies.active(actor=actor, policy_id=SAFE_INDEX_ACCESS_POLICY_ID)
         except ContextPolicyLifecycleError as exc:
-            if not any(
-                marker in exc.reason_code
-                for marker in ("not_found", "missing")
-            ):
+            if not any(marker in exc.reason_code for marker in ("not_found", "missing")):
                 raise
             return None
 
 
 def _is_safe_policy(value: object) -> bool:
     document = _value(value, "document")
-    return (
-        isinstance(document, Mapping)
-        and _digest(document) == _SAFE_POLICY_DIGEST
-    )
+    return isinstance(document, Mapping) and _digest(document) == _SAFE_POLICY_DIGEST
 
 
 def _value(value: object, field: str) -> Any:
@@ -688,9 +579,7 @@ def _digest(value: object) -> str:
 
 
 def _operation_key(tenant_id: str, idempotency_key: str) -> str:
-    return "prepare_" + _digest(
-        {"idempotency_key": idempotency_key, "tenant_id": tenant_id}
-    )
+    return "prepare_" + _digest({"idempotency_key": idempotency_key, "tenant_id": tenant_id})
 
 
 def _child_key(operation: str, idempotency_key: str, scope: str) -> str:

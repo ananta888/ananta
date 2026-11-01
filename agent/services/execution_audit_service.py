@@ -10,7 +10,6 @@ from agent.services.audit_event_schema import (
     classify_context_classes,
 )
 
-
 EXECUTION_AUDIT_EVENT_SCHEMA = {
     "schema": "execution_audit_event.v2",
     "required_fields": list(CANONICAL_AUDIT_EVENT_SCHEMA["required_fields"]),
@@ -59,7 +58,8 @@ class ExecutionAuditService:
             details=redacted_details,
             parent_trace_id=parent_trace_id,
             context_classes=context_classes,
-            prompt_bundle_class=prompt_bundle_class or str((task_metadata or {}).get("prompt_bundle_class") or "unknown"),
+            prompt_bundle_class=prompt_bundle_class
+            or str((task_metadata or {}).get("prompt_bundle_class") or "unknown"),
         )
         payload = {
             **payload,
@@ -115,7 +115,9 @@ class ExecutionAuditService:
     ) -> None:
         self.emit(
             operation_type="write_operation",
-            outcome="success" if str(verification_result or "").strip().lower() in {"verified", "passed", "ok"} else "pending",
+            outcome="success"
+            if str(verification_result or "").strip().lower() in {"verified", "passed", "ok"}
+            else "pending",
             trace_id=trace_id,
             goal_id=goal_id,
             task_id=task_id,

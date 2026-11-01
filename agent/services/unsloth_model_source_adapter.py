@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from typing import Literal
 
-from ananta_contracts.unsloth_task import canonical_unsloth_json
 from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
 from agent.services.unsloth_task_port import (
     HubTaskSubmissionPort,
     UnslothAuditPort,
 )
+from ananta_contracts.unsloth_task import canonical_unsloth_json
 
 
 class ModelSourceValidationError(ValueError):
@@ -57,9 +57,7 @@ class UnslothModelSourceAdapter:
     _SHA256 = re.compile(r"^[0-9a-f]{64}$")
     _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
     _REVISION = re.compile(r"^[0-9a-f]{40,64}$")
-    _SCOPE_ID = re.compile(
-        r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
-    )
+    _SCOPE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")
 
     def __init__(
         self,
@@ -95,9 +93,7 @@ class UnslothModelSourceAdapter:
             "capability_facets": list(request.capability_facets),
         }
         payload_json = canonical_unsloth_json(payload)
-        confirmation = hashlib.sha256(
-            f"unsloth-model-import:{payload_json}".encode()
-        ).hexdigest()
+        confirmation = hashlib.sha256(f"unsloth-model-import:{payload_json}".encode()).hexdigest()
         return ModelImportPlan(
             task_type="ml.model.import",
             tenant_id=request.tenant_id,
@@ -106,13 +102,8 @@ class UnslothModelSourceAdapter:
         )
 
     def submit(self, plan: ModelImportPlan, *, confirmation_digest: str) -> str:
-        expected = hashlib.sha256(
-            f"unsloth-model-import:{plan.payload_json}".encode()
-        ).hexdigest()
-        if (
-            confirmation_digest != plan.confirmation_digest
-            or confirmation_digest != expected
-        ):
+        expected = hashlib.sha256(f"unsloth-model-import:{plan.payload_json}".encode()).hexdigest()
+        if confirmation_digest != plan.confirmation_digest or confirmation_digest != expected:
             raise ModelSourceValidationError(
                 "model_import_confirmation_invalid",
                 "The import plan must be explicitly confirmed without changes.",
@@ -173,8 +164,7 @@ class UnslothModelSourceAdapter:
             )
         metadata_pattern = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}$")
         if metadata_pattern.fullmatch(request.architecture) is None or (
-            request.quantization is not None
-            and metadata_pattern.fullmatch(request.quantization) is None
+            request.quantization is not None and metadata_pattern.fullmatch(request.quantization) is None
         ):
             raise ModelSourceValidationError(
                 "model_import_metadata_invalid",
@@ -183,22 +173,19 @@ class UnslothModelSourceAdapter:
         if (
             len(request.capability_facets) > 64
             or len(set(request.capability_facets)) != len(request.capability_facets)
-            or any(
-                re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,63}", facet) is None
-                for facet in request.capability_facets
-            )
+            or any(re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,63}", facet) is None for facet in request.capability_facets)
         ):
             raise ModelSourceValidationError(
                 "model_import_capability_facets_invalid",
                 "Capability facets must be unique bounded identifiers.",
             )
-        if any(
-            not pattern
-            or len(pattern) > 512
-            or pattern.startswith("/")
-            or ".." in pattern.split("/")
-            for pattern in request.allow_patterns
-        ) or len(request.allow_patterns) > 128:
+        if (
+            any(
+                not pattern or len(pattern) > 512 or pattern.startswith("/") or ".." in pattern.split("/")
+                for pattern in request.allow_patterns
+            )
+            or len(request.allow_patterns) > 128
+        ):
             raise ModelSourceValidationError(
                 "model_import_pattern_invalid",
                 "Allow patterns must be non-empty relative paths.",

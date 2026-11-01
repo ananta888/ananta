@@ -24,4 +24,3 @@ def test_route_inventory_marks_alias_routes_with_canonical_path():
     assert by_path["/health"]["canonical_path"] == "/api/system/health"
     assert by_path["/health"]["methods"] == ["GET"]
     assert by_path["/api/system/health"]["route_kind"] == "canonical"
-

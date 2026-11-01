@@ -26,13 +26,23 @@ class CostAggregationService:
     def _normalize_cost_summary(self, summary: dict[str, Any], *, task: Any, source: str) -> dict[str, Any]:
         if not isinstance(summary, dict):
             raise CostAggregationError(
-                details={"task_id": self._task_value(task, "id"), "summary_type": type(summary).__name__, "source": source}
+                details={
+                    "task_id": self._task_value(task, "id"),
+                    "summary_type": type(summary).__name__,
+                    "source": source,
+                }
             )
         provider = str(summary.get("provider") or "").strip() or None
         model = str(summary.get("model") or "").strip() or None
-        task_kind = str(
-            summary.get("task_kind") or self._task_value(task, "task_kind") or self._task_value(task, "status") or ""
-        ).strip() or None
+        task_kind = (
+            str(
+                summary.get("task_kind")
+                or self._task_value(task, "task_kind")
+                or self._task_value(task, "status")
+                or ""
+            ).strip()
+            or None
+        )
         return {
             "task_id": self._task_value(task, "id"),
             "title": self._task_value(task, "title"),
@@ -42,7 +52,9 @@ class CostAggregationService:
             "model": model,
             "tokens_total": max(0, int(summary.get("tokens_total") or 0)),
             "cost_units": round(max(0.0, float(summary.get("cost_units") or 0.0)), 6),
-            "latency_ms": max(0, int(summary.get("latency_ms") or 0)) if summary.get("latency_ms") is not None else None,
+            "latency_ms": max(0, int(summary.get("latency_ms") or 0))
+            if summary.get("latency_ms") is not None
+            else None,
             "pricing_source": str(summary.get("pricing_source") or "").strip() or None,
             "source": source,
             "available": True,
@@ -59,7 +71,9 @@ class CostAggregationService:
 
         verification_status = self._task_value(task, "verification_status", {}) or {}
         verification_results = verification_status.get("results") if isinstance(verification_status, dict) else {}
-        execution_cost = (verification_results or {}).get("execution_cost") if isinstance(verification_results, dict) else None
+        execution_cost = (
+            (verification_results or {}).get("execution_cost") if isinstance(verification_results, dict) else None
+        )
         if isinstance(execution_cost, dict):
             return self._normalize_cost_summary(execution_cost, task=task, source="verification_status")
 
@@ -81,7 +95,9 @@ class CostAggregationService:
     def aggregate_tasks(self, tasks: list[Any]) -> dict[str, Any]:
         task_items = [self.task_cost_summary(task) for task in list(tasks or [])]
         provider_breakdown: dict[str, dict[str, Any]] = {}
-        task_kind_breakdown: dict[str, dict[str, Any]] = defaultdict(lambda: {"task_kind": None, "task_count": 0, "cost_units": 0.0, "tokens_total": 0})
+        task_kind_breakdown: dict[str, dict[str, Any]] = defaultdict(
+            lambda: {"task_kind": None, "task_count": 0, "cost_units": 0.0, "tokens_total": 0}
+        )
         total_cost_units = 0.0
         total_tokens = 0
         total_latency_ms = 0
@@ -107,7 +123,13 @@ class CostAggregationService:
                 key = f"{provider}:{model}"
                 row = provider_breakdown.setdefault(
                     key,
-                    {"provider": provider or None, "model": model or None, "task_count": 0, "cost_units": 0.0, "tokens_total": 0},
+                    {
+                        "provider": provider or None,
+                        "model": model or None,
+                        "task_count": 0,
+                        "cost_units": 0.0,
+                        "tokens_total": 0,
+                    },
                 )
                 row["task_count"] += 1
                 row["cost_units"] = round(float(row["cost_units"]) + float(item.get("cost_units") or 0.0), 6)
@@ -122,8 +144,13 @@ class CostAggregationService:
             "total_latency_ms": total_latency_ms,
             "currency": "cost_units",
             "items": task_items,
-            "task_kind_breakdown": sorted(task_kind_breakdown.values(), key=lambda item: str(item.get("task_kind") or "")),
-            "provider_breakdown": sorted(provider_breakdown.values(), key=lambda item: (str(item.get("provider") or ""), str(item.get("model") or ""))),
+            "task_kind_breakdown": sorted(
+                task_kind_breakdown.values(), key=lambda item: str(item.get("task_kind") or "")
+            ),
+            "provider_breakdown": sorted(
+                provider_breakdown.values(),
+                key=lambda item: (str(item.get("provider") or ""), str(item.get("model") or "")),
+            ),
         }
 
     def aggregate_goal_costs(self, goal_id: str) -> dict[str, Any]:

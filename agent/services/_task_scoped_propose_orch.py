@@ -13,27 +13,24 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, Callable
 
-from flask import current_app, g, has_app_context, has_request_context
+from flask import g, has_request_context
 
 from agent.llm_integration import normalize_llm_call_profile_entry
-from agent.services.worker_routing_policy_utils import derive_required_capabilities
-from agent.runtime_policy import normalize_task_kind
-from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
-from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
 from agent.services.model_routing_contract import (
     extract_model_routing_from_task,
     has_model_routing_declaration,
 )
+from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
+from agent.services.product_event_service import record_product_event
+from agent.services.propose_policy_service import get_propose_policy_service
+from agent.services.service_registry import get_core_services
+from agent.services.task_runtime_service import update_local_task_status
+from agent.services.worker_routing_policy_utils import derive_required_capabilities
 from ananta_contracts.model_recovery import (
     is_recoverable_model_error_type,
     sanitize_terminal_model_recovery_signal,
 )
-from agent.services.propose_policy_service import get_propose_policy_service
-from agent.services.service_registry import get_core_services
-from agent.services.propose_policy import get_task_kind_preset
-from agent.services.product_event_service import record_product_event
-from agent.services.task_runtime_service import update_local_task_status
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
@@ -86,11 +83,10 @@ def run_propose_orchestrator_path(
     get_system_prompt_for_task: Callable,
     allow_synthetic_llm_profile_fallback: Callable,
 ) -> "TaskScopedRouteResponse":
-    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
     from agent.services._task_scoped_runtime import routing_dimensions
-    from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
-    from worker.core.propose import validate_executable_proposal
     from agent.services.propose_strategy_registry import build_strategy_registry
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+    from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
 
     propose_policy_override = task.get("propose_policy_override", {})
     task_override = {}
@@ -258,51 +254,31 @@ def run_propose_orchestrator_path(
 
     result_dict = result.to_dict()
     routing_contract = extract_model_routing_from_task(task)
-    configured_recovery = (
-        list(routing_contract.context_recovery_strategies)
-        if routing_contract is not None
-        else []
-    )
+    configured_recovery = list(routing_contract.context_recovery_strategies) if routing_contract is not None else []
     recovery_explicit = has_model_routing_declaration(task)
     if routing_contract is not None:
         recovery_explicit = bool(
-            "context_recovery_strategies"
-            in set(
-                getattr(routing_contract, "model_fields_set", set()) or set()
-            )
+            "context_recovery_strategies" in set(getattr(routing_contract, "model_fields_set", set()) or set())
         )
     if not recovery_explicit:
         from agent.services.model_invocation_service import ModelInvocationService
 
         configured_recovery = list(
-            ModelInvocationService.default_instance().get_context_recovery_policy().get(
-                "context_recovery_strategies"
-            )
+            ModelInvocationService.default_instance().get_context_recovery_policy().get("context_recovery_strategies")
             or []
         )
-    raw_terminal_model_signal = (result.metadata or {}).get(
-        "model_recovery_signal"
-    )
-    terminal_model_signal = sanitize_terminal_model_recovery_signal(
-        raw_terminal_model_signal
-    )
-    result_metadata = (
-        dict(result_dict.get("metadata") or {})
-        if isinstance(result_dict.get("metadata"), dict)
-        else {}
-    )
+    raw_terminal_model_signal = (result.metadata or {}).get("model_recovery_signal")
+    terminal_model_signal = sanitize_terminal_model_recovery_signal(raw_terminal_model_signal)
+    result_metadata = dict(result_dict.get("metadata") or {}) if isinstance(result_dict.get("metadata"), dict) else {}
     result_metadata.pop("model_recovery_signal", None)
     if terminal_model_signal is not None:
         result_metadata["model_recovery_signal"] = terminal_model_signal
     result_dict["metadata"] = result_metadata
     fallback_decision_payloads = [
-        dict(item)
-        for item in list((result.metadata or {}).get("fallback_decisions") or [])
-        if isinstance(item, dict)
+        dict(item) for item in list((result.metadata or {}).get("fallback_decisions") or []) if isinstance(item, dict)
     ]
     policy_terminal = any(
-        bool(item.get("terminal"))
-        and not is_recoverable_model_error_type(item.get("trigger"))
+        bool(item.get("terminal")) and not is_recoverable_model_error_type(item.get("trigger"))
         for item in fallback_decision_payloads
     )
     if (
@@ -312,16 +288,9 @@ def run_propose_orchestrator_path(
     ):
         policy_terminal = True
     defer_to_hub_recovery = bool(
-        not result.is_executable
-        and terminal_model_signal is not None
-        and configured_recovery
-        and not policy_terminal
+        not result.is_executable and terminal_model_signal is not None and configured_recovery and not policy_terminal
     )
-    if (
-        not result.is_executable
-        and not defer_to_hub_recovery
-        and not policy_terminal
-    ):
+    if not result.is_executable and not defer_to_hub_recovery and not policy_terminal:
         fallback_backend, fallback_reason = resolve_cli_backend(
             task_kind,
             requested_backend="auto",
@@ -352,7 +321,9 @@ def run_propose_orchestrator_path(
             fallback_command = str(parsed.get("command") or "").strip() or None
             fallback_tool_calls = parsed.get("tool_calls") if isinstance(parsed.get("tool_calls"), list) else []
             fallback_reason = str(parsed.get("reason") or result.reason or "fallback_cli_proposal").strip()
-            _usable = rc == 0 or (rc != 0 and _output_source == "stderr" and bool(fallback_command or fallback_tool_calls))
+            _usable = rc == 0 or (
+                rc != 0 and _output_source == "stderr" and bool(fallback_command or fallback_tool_calls)
+            )
             if _usable and (fallback_command or fallback_tool_calls):
                 result_dict["command"] = fallback_command
                 result_dict["tool_calls"] = fallback_tool_calls
@@ -363,7 +334,9 @@ def run_propose_orchestrator_path(
             pass
 
     _sgpt_routing = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
-    _backend_map = _sgpt_routing.get("task_kind_backend") if isinstance(_sgpt_routing.get("task_kind_backend"), dict) else {}
+    _backend_map = (
+        _sgpt_routing.get("task_kind_backend") if isinstance(_sgpt_routing.get("task_kind_backend"), dict) else {}
+    )
     _runtime_backend = str(_backend_map.get(task_kind) or _backend_map.get("*") or "").strip() or None
     propose_strategy_meta = {
         "attempted_strategies": result.metadata.get("attempted_strategies", []),
@@ -371,7 +344,8 @@ def run_propose_orchestrator_path(
         "proposal_status": result.status,
         "proposal_reason": result.reason,
         "normalization_format": result.metadata.get("source_format"),
-        "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None) or task_override.get("strategy_mode"),
+        "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None)
+        or task_override.get("strategy_mode"),
         "goal_config_source": scoped_resolution_source,
         "runtime_selection": {
             "provider": cfg.get("default_provider"),
@@ -413,7 +387,9 @@ def run_propose_orchestrator_path(
     real_llm_call_profile = list((result.metadata or {}).get("llm_call_profile") or [])
     if not real_llm_call_profile:
         real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
-    llm_call_profile = [normalize_llm_call_profile_entry(entry) for entry in real_llm_call_profile if isinstance(entry, dict)]
+    llm_call_profile = [
+        normalize_llm_call_profile_entry(entry) for entry in real_llm_call_profile if isinstance(entry, dict)
+    ]
     if not llm_call_profile and allow_synthetic_llm_profile_fallback():
         llm_call_profile = [
             {
@@ -442,8 +418,10 @@ def run_propose_orchestrator_path(
         **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
     }
     resolved_reason = str(result_dict.get("reason") or result.reason or "").strip() or result.reason
-    proposed_command = result_dict.get("command") if isinstance(result_dict.get("command"), str) else (
-        result.proposal.command if result.is_executable and result.proposal is not None else None
+    proposed_command = (
+        result_dict.get("command")
+        if isinstance(result_dict.get("command"), str)
+        else (result.proposal.command if result.is_executable and result.proposal is not None else None)
     )
     from agent.services._task_scoped_propose_persist import resolve_declared_command_if_missing
 
@@ -511,18 +489,20 @@ def run_propose_orchestrator_path(
         model=None,
         agent_cfg=cfg,
     )
-    return TaskScopedRouteResponse(data={
-        **result_dict,
-        "propose_strategy_meta": propose_strategy_meta,
-        "command": resolved_command,
-        "backend": resolved_backend,
-        "routing": {
-            "effective_backend": resolved_backend,
-            "task_kind": task_kind,
-            "goal_config_source": scoped_resolution_source,
-            **routing_dims,
-        },
-    })
+    return TaskScopedRouteResponse(
+        data={
+            **result_dict,
+            "propose_strategy_meta": propose_strategy_meta,
+            "command": resolved_command,
+            "backend": resolved_backend,
+            "routing": {
+                "effective_backend": resolved_backend,
+                "task_kind": task_kind,
+                "goal_config_source": scoped_resolution_source,
+                **routing_dims,
+            },
+        }
+    )
 
 
 _QUESTION_LIKE_KINDS = frozenset({"analysis", "research", "planning_research", "doc", "review"})
@@ -536,8 +516,9 @@ def _is_long_context_step(task: dict) -> bool:
     return isinstance(marker, dict) and marker.get("role") == "step"
 
 
-def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: Any, research_context_summary: Any,
-                             cfg: dict) -> None:
+def _record_context_strategy(
+    task: dict, tid: str, task_kind: Any, base_prompt: Any, research_context_summary: Any, cfg: dict
+) -> None:
     """LCTX-004: decide (and record) how a task whose context exceeds the window should be handled.
 
     Recording only for now (mode shadow); the strategies act on it in active mode (LCTX-005..008)."""
@@ -548,8 +529,11 @@ def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: 
         service = get_context_strategy_service((cfg or {}).get("context_strategy"))
         if service.mode == "off":
             return
-        context_text = str((research_context_summary or {}).get("prompt_section") or "") \
-            if isinstance(research_context_summary, dict) else ""
+        context_text = (
+            str((research_context_summary or {}).get("prompt_section") or "")
+            if isinstance(research_context_summary, dict)
+            else ""
+        )
         description = str(task.get("description") or "")
         # the same room as the coordinator's (window minus reserves and the fixed request part); the base prompt
         # normally is the description already -- counted once
@@ -561,15 +545,22 @@ def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: 
             return
         wec = task.get("worker_execution_context") if isinstance(task.get("worker_execution_context"), dict) else {}
         input_kind = str(task.get("context_input_kind") or wec.get("context_input_kind") or "unknown")
-        decision = service.decide(ContextStrategyRequest(
-            fit=fit, task_kind=str(task_kind or ""), input_kind=input_kind,
-            question_like=str(task_kind or "") in _QUESTION_LIKE_KINDS,
-            description=str(task.get("title") or "") + "\n" + description[:2000]))
-        record_product_event("context_strategy_decided", actor="task_scoped_execution_service",
-                             details={"task_id": tid, "mode": service.mode, **decision.to_mapping()},
-                             goal_id=str(task.get("goal_id") or "") or None)
+        decision = service.decide(
+            ContextStrategyRequest(
+                fit=fit,
+                task_kind=str(task_kind or ""),
+                input_kind=input_kind,
+                question_like=str(task_kind or "") in _QUESTION_LIKE_KINDS,
+                description=str(task.get("title") or "") + "\n" + description[:2000],
+            )
+        )
+        record_product_event(
+            "context_strategy_decided",
+            actor="task_scoped_execution_service",
+            details={"task_id": tid, "mode": service.mode, **decision.to_mapping()},
+            goal_id=str(task.get("goal_id") or "") or None,
+        )
     except Exception:  # noqa: BLE001 -- the decision point never breaks a propose
         import logging
 
         logging.getLogger(__name__).debug("context strategy decision failed", exc_info=True)
-

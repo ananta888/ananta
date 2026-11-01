@@ -73,7 +73,7 @@ def _defer_for_provider_backpressure(ctx: DispatchContext) -> TaskDispatchResult
         and callable(is_backpressure_active)
         and is_backpressure_active("ollama")
     ):
-        hold_until, hold_reason = (backpressure_details("ollama") if callable(backpressure_details) else (0.0, ""))
+        hold_until, hold_reason = backpressure_details("ollama") if callable(backpressure_details) else (0.0, "")
         hold_for = max(1, int(hold_until - time.time()))
         append_trace_event(
             task.id,
@@ -117,9 +117,11 @@ def _trip_propose_hard_guard(ctx: DispatchContext) -> TaskDispatchResult | None:
         10,
         min(int((loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_window_seconds") or 180), 3600),
     )
-    hard_guard_status = str(
-        (loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_status") or "needs_review"
-    ).strip().lower()
+    hard_guard_status = (
+        str((loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_status") or "needs_review")
+        .strip()
+        .lower()
+    )
     if hard_guard_status not in {"needs_review", "failed", "todo"}:
         hard_guard_status = "needs_review"
     recent_attempts = _recent_strategy_attempts(task, now_ts=time.time(), window_seconds=hard_guard_window_seconds)
@@ -228,10 +230,10 @@ def _proposal_budget_failure(
 
 def _base_propose_payload(task_id: str, loop: Any, context_window: Any) -> dict[str, Any]:
     propose_payload: dict[str, Any] = {"task_id": task_id, "context_window": context_window(loop)}
-    autopilot_cfg = ((loop._agent_config() or {}).get("autopilot", {}) or {})
-    strategy_mode_override = str(
-        autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"
-    ).strip().lower()
+    autopilot_cfg = (loop._agent_config() or {}).get("autopilot", {}) or {}
+    strategy_mode_override = (
+        str(autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review").strip().lower()
+    )
     # A coding task may explicitly use its existing backend strategy instead
     # of the Autopilot-wide proposal mode. Admission and tool gates still apply.
     if strategy_mode_override and strategy_mode_override != "task_default":
@@ -399,18 +401,14 @@ def run_proposal_strategies(
 
         run_evidence_context = None
         if recovery_task_role(task) == "child":
-            run_evidence_context = (
-                recovery_gate.reserve_run_evidence_context(
-                    task.id,
-                    worker_url=target_worker.url,
-                    replace=True,
-                    app=app_ctx,
-                )
+            run_evidence_context = recovery_gate.reserve_run_evidence_context(
+                task.id,
+                worker_url=target_worker.url,
+                replace=True,
+                app=app_ctx,
             )
         if run_evidence_context is not None:
-            propose_payload[
-                "recovery_run_evidence_context"
-            ] = run_evidence_context
+            propose_payload["recovery_run_evidence_context"] = run_evidence_context
         dispatch_lease = recovery_gate.acquire_dispatch_lease(
             task.id,
             phase="propose",
@@ -428,24 +426,16 @@ def run_proposal_strategies(
                 task.id,
                 "autopilot_propose_skipped_recovery_lease",
                 delegated_to=target_worker.url,
-                reason_code=(
-                    dispatch_lease.decision.reason_code
-                ),
-                source_task_id=(
-                    dispatch_lease.decision.source_task_id
-                ),
+                reason_code=(dispatch_lease.decision.reason_code),
+                source_task_id=(dispatch_lease.decision.source_task_id),
                 plan_id=dispatch_lease.decision.plan_id,
             )
             result.dispatched = True
             result.failed = True
-            result.failure_type = (
-                dispatch_lease.decision.reason_code
-            )
+            result.failure_type = dispatch_lease.decision.reason_code
             return ProposalStrategyOutcome.stopped(result)
         if dispatch_lease.token:
-            propose_payload["dispatch_lease_token"] = (
-                dispatch_lease.token
-            )
+            propose_payload["dispatch_lease_token"] = dispatch_lease.token
             propose_payload["dispatch_lease_phase"] = "propose"
         append_trace_event(
             task.id,
@@ -514,20 +504,13 @@ def run_proposal_strategies(
                             task.id,
                             "autopilot_propose_result_rejected",
                             delegated_to=target_worker.url,
-                            reason_code=(
-                                result_decision.reason_code
-                            ),
+                            reason_code=(result_decision.reason_code),
                         )
                         result.dispatched = True
                         result.failed = True
-                        result.failure_type = (
-                            result_decision.reason_code
-                        )
+                        result.failure_type = result_decision.reason_code
                         return ProposalStrategyOutcome.stopped(result)
-                    candidate_data = (
-                        services.autopilot_decision_service
-                        .normalize_proposal_data(candidate_data)
-                    )
+                    candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
                     from agent.services.recovery_worker_result_service import (
                         get_recovery_worker_result_service,
                     )
@@ -542,9 +525,7 @@ def run_proposal_strategies(
             if dispatch_lease.token:
                 recovery_gate.revoke_dispatch_lease(
                     task.id,
-                    reason_code=(
-                        "recovery_dispatch_transport_outcome_unknown"
-                    ),
+                    reason_code=("recovery_dispatch_transport_outcome_unknown"),
                     app=app_ctx,
                 )
                 append_trace_event(
@@ -553,9 +534,7 @@ def run_proposal_strategies(
                     delegated_to=target_worker.url,
                     attempt=attempt_index,
                     reason=str(strategy_exc),
-                    reason_code=(
-                        "recovery_dispatch_transport_outcome_unknown"
-                    ),
+                    reason_code=("recovery_dispatch_transport_outcome_unknown"),
                 )
             record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
             if callable(record_propose_attempt):
@@ -603,43 +582,23 @@ def run_proposal_strategies(
         record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
         if callable(record_propose_attempt):
             record_propose_attempt(task.id, success=False)
-        raw_recovery_signal = candidate_snapshot.get(
-            "model_recovery_signal"
-        )
-        terminal_recovery_signal = (
-            sanitize_terminal_model_recovery_signal(
-                raw_recovery_signal
-            )
-        )
+        raw_recovery_signal = candidate_snapshot.get("model_recovery_signal")
+        terminal_recovery_signal = sanitize_terminal_model_recovery_signal(raw_recovery_signal)
         if terminal_recovery_signal is not None:
             verified_terminal_model_signal_seen = True
         fallback_decisions = [
             dict(item)
-            for item in list(
-                candidate_snapshot.get("fallback_decisions")
-                or []
-            )[-16:]
+            for item in list(candidate_snapshot.get("fallback_decisions") or [])[-16:]
             if isinstance(item, dict)
         ]
         terminal_denial_seen = any(
-            bool(item.get("terminal"))
-            and not is_recoverable_model_error_type(
-                item.get("trigger")
-            )
+            bool(item.get("terminal")) and not is_recoverable_model_error_type(item.get("trigger"))
             for item in fallback_decisions
         )
-        terminal_signal_seen = bool(
-            candidate_snapshot.get(
-                "terminal_model_recovery_signal_seen"
-            )
-        ) or (
-            isinstance(raw_recovery_signal, dict)
-            and raw_recovery_signal.get("terminal") is True
+        terminal_signal_seen = bool(candidate_snapshot.get("terminal_model_recovery_signal_seen")) or (
+            isinstance(raw_recovery_signal, dict) and raw_recovery_signal.get("terminal") is True
         )
-        if terminal_denial_seen or (
-            terminal_signal_seen
-            and terminal_recovery_signal is None
-        ):
+        if terminal_denial_seen or (terminal_signal_seen and terminal_recovery_signal is None):
             rejected_terminal_model_signal_seen = True
         strategy_failures.append(
             {
@@ -654,45 +613,21 @@ def run_proposal_strategies(
                 "failure_type": "invalid_proposal",
                 "raw_preview": candidate_snapshot.get("raw_preview"),
                 **(
-                    {
-                        "model_recovery_signal": dict(
-                            terminal_recovery_signal
-                        )
-                    }
+                    {"model_recovery_signal": dict(terminal_recovery_signal)}
                     if terminal_recovery_signal is not None
                     else {}
                 ),
-                **(
-                    {
-                        "fallback_decisions": [
-                            dict(item)
-                            for item in fallback_decisions
-                        ]
-                    }
-                    if fallback_decisions
-                    else {}
-                ),
+                **({"fallback_decisions": [dict(item) for item in fallback_decisions]} if fallback_decisions else {}),
             }
         )
-        if (
-            terminal_recovery_signal is not None
-            or terminal_denial_seen
-            or terminal_signal_seen
-        ):
+        if terminal_recovery_signal is not None or terminal_denial_seen or terminal_signal_seen:
             append_trace_event(
                 task.id,
                 "autopilot_terminal_model_chain_observed",
                 delegated_to=target_worker.url,
                 attempt=attempt_index,
-                terminal_reason=(
-                    (
-                        terminal_recovery_signal or {}
-                    ).get("terminal_reason")
-                    or "terminal_model_denial"
-                ),
-                recovery_eligible=(
-                    terminal_recovery_signal is not None
-                ),
+                terminal_reason=((terminal_recovery_signal or {}).get("terminal_reason") or "terminal_model_denial"),
+                recovery_eligible=(terminal_recovery_signal is not None),
             )
             break
     return ProposalStrategyOutcome(

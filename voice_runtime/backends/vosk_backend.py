@@ -170,9 +170,7 @@ class VoskBackend(VoiceBackend):
                 continue
             utterance_text = text or " ".join(word.text for word in transcription_words)
             utterance_confidence = (
-                sum(utterance_confidences) / len(utterance_confidences)
-                if utterance_confidences
-                else None
+                sum(utterance_confidences) / len(utterance_confidences) if utterance_confidences else None
             )
             segments.append(
                 TranscriptionSegment(

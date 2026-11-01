@@ -65,17 +65,9 @@ def derive_root_path_candidates(
 
     def resolve(node: _PathNode, prefix: list[str]) -> None:
         depth = len(prefix)
-        big_children = [
-            (name, child)
-            for name, child in sorted(node.children.items())
-            if child.total >= min_files
-        ]
+        big_children = [(name, child) for name, child in sorted(node.children.items()) if child.total >= min_files]
         if node.direct < min_files and depth < max_root_depth:
-            dominant = [
-                (name, child)
-                for name, child in big_children
-                if child.total >= dominance * node.total
-            ]
+            dominant = [(name, child) for name, child in big_children if child.total >= dominance * node.total]
             if len(dominant) == 1:
                 resolve(dominant[0][1], [*prefix, dominant[0][0]])
                 return

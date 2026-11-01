@@ -38,11 +38,17 @@ def encode(value, *, maximum=PORT_LIMIT):
 
 
 def validate_request(value, *, expected_sequence, ports):
-    if (not isinstance(value, dict) or set(value) != {"kind", "sequence", "port", "arguments"}
-            or value["kind"] != "port" or type(value["sequence"]) is not int
-            or value["sequence"] != expected_sequence or expected_sequence > MAX_PORT_CALLS
-            or not isinstance(value["port"], str) or value["port"] not in ports
-            or not isinstance(value["arguments"], dict)):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"kind", "sequence", "port", "arguments"}
+        or value["kind"] != "port"
+        or type(value["sequence"]) is not int
+        or value["sequence"] != expected_sequence
+        or expected_sequence > MAX_PORT_CALLS
+        or not isinstance(value["port"], str)
+        or value["port"] not in ports
+        or not isinstance(value["arguments"], dict)
+    ):
         raise ValueError("meet_companion_execution_port_invalid")
     return value
 
@@ -56,8 +62,11 @@ class CompanionExecutionPorts:
 
     def call(self, port, arguments):
         sequence = self.sequence + 1
-        value = validate_request({"kind": "port", "sequence": sequence, "port": port, "arguments": arguments},
-                                 expected_sequence=sequence, ports=self.allowed)
+        value = validate_request(
+            {"kind": "port", "sequence": sequence, "port": port, "arguments": arguments},
+            expected_sequence=sequence,
+            ports=self.allowed,
+        )
         self.writer.write(encode(value, maximum=request_limit(port)))
         self.writer.flush()
         self.sequence = sequence
@@ -65,8 +74,12 @@ class CompanionExecutionPorts:
         if not raw or len(raw) > PORT_LIMIT or not raw.endswith(b"\n"):
             raise ValueError("meet_companion_execution_port_reply_invalid")
         response = decode(raw)
-        if (not isinstance(response, dict) or set(response) != {"kind", "sequence", "result"}
-                or response["kind"] != "port_result" or type(response["sequence"]) is not int
-                or response["sequence"] != sequence):
+        if (
+            not isinstance(response, dict)
+            or set(response) != {"kind", "sequence", "result"}
+            or response["kind"] != "port_result"
+            or type(response["sequence"]) is not int
+            or response["sequence"] != sequence
+        ):
             raise ValueError("meet_companion_execution_port_reply_invalid")
         return response["result"]

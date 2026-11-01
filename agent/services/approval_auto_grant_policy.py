@@ -31,9 +31,7 @@ class ApprovalAutoGrantPolicy:
 
         if approval_class == "read_only" and bool(mode_policy.get("read_only")):
             return "auto_approved:read_only"
-        if approval_class == "controlled_workspace_writes" and bool(
-            mode_policy.get("controlled_workspace_writes")
-        ):
+        if approval_class == "controlled_workspace_writes" and bool(mode_policy.get("controlled_workspace_writes")):
             return "auto_approved:controlled_workspace_writes"
         if name == "test.run" and bool(mode_policy.get("test_run")):
             return "auto_approved:test_run"
@@ -51,10 +49,8 @@ class ApprovalAutoGrantPolicy:
     ) -> bool:
         return (
             name == RECOVERY_MATERIALIZE_TOOL
-            and str(scope.get("approval_class") or "").strip()
-            == "task_materialization"
-            and str(scope.get("source") or "").strip()
-            == "model_context_recovery"
+            and str(scope.get("approval_class") or "").strip() == "task_materialization"
+            and str(scope.get("source") or "").strip() == "model_context_recovery"
             and bool(str(scope.get("plan_id") or "").strip())
             and bool(str(scope.get("source_task_id") or "").strip())
             and bool(str(scope.get("recovery_key") or "").strip())

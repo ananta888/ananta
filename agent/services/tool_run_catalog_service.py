@@ -41,13 +41,7 @@ class ToolRunCatalogService:
                 RECOVERY_RUN_SOURCE_ID_PATTERN,
             )
 
-            if (
-                RECOVERY_RUN_SOURCE_ID_PATTERN.fullmatch(
-                    normalized_source_id
-                )
-                is None
-                or len(normalized_run_id) > 200
-            ):
+            if RECOVERY_RUN_SOURCE_ID_PATTERN.fullmatch(normalized_source_id) is None or len(normalized_run_id) > 200:
                 raise ValueError("tool_run_authority_binding_invalid")
         elif normalized_scope != "test":
             # Production/local tool output is not evidence unless the Hub
@@ -56,16 +50,10 @@ class ToolRunCatalogService:
         started = float(started_at if started_at is not None else time.time())
         ended = float(ended_at if ended_at is not None else started)
         return {
-            "source_id": (
-                normalized_source_id
-                or f"RUN_{int(index):04d}"
-            ),
+            "source_id": (normalized_source_id or f"RUN_{int(index):04d}"),
             "source_type": "tool_run",
             "task_id": str(task_id),
-            "run_id": (
-                normalized_run_id
-                or f"run-{_h(str(task_id) + ':' + str(index))[:16]}"
-            ),
+            "run_id": (normalized_run_id or f"run-{_h(str(task_id) + ':' + str(index))[:16]}"),
             "tool_name": str(tool_name),
             "command": str(command),
             "exit_code": int(exit_code),

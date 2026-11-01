@@ -3,13 +3,14 @@
 Unveränderlicher Snapshot der Policy-Konfiguration zum Run-Startzeitpunkt.
 Fehlender PolicySnapshot blockiert Worker-Ausführung.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from typing import Any
 
 try:
@@ -28,12 +29,12 @@ class PolicySnapshot:
     allowed_tools: list[str]
     denied_tools: list[str]
     allowed_providers: list[str]
-    model_policy: str        # "local_only" | "any" | "allowlist"
-    network_policy: str      # "deny_all" | "restricted" | "allowed"
-    write_policy: str        # "proposal_only" | "approval_required" | "unrestricted"
+    model_policy: str  # "local_only" | "any" | "allowlist"
+    network_policy: str  # "deny_all" | "restricted" | "allowed"
+    write_policy: str  # "proposal_only" | "approval_required" | "unrestricted"
     approval_gates: list[str]
     created_at: float
-    config_hash: str         # sha256 computed after creation
+    config_hash: str  # sha256 computed after creation
 
     def as_dict(self) -> dict[str, Any]:
         return {

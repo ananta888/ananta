@@ -11,10 +11,10 @@ possibly_stale   Age 24–72 h OR knowledge-index manifest changed.
 stale            Source file hash changed since hint was written.
 invalid          Source file no longer exists; hint must be excluded.
 """
+
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -31,10 +31,18 @@ KIND_ARCHITECTURE_HINT = "architecture_hint"
 KIND_RISK_HINT = "risk_hint"
 KIND_MANUAL_NOTE = "manual_note"
 
-ALL_KINDS = frozenset({
-    KIND_FILE_SUMMARY, KIND_SYMBOL_HINT, KIND_DOMAIN_SUMMARY, KIND_GRAPH_PATH_HINT,
-    KIND_TEST_HINT, KIND_ARCHITECTURE_HINT, KIND_RISK_HINT, KIND_MANUAL_NOTE,
-})
+ALL_KINDS = frozenset(
+    {
+        KIND_FILE_SUMMARY,
+        KIND_SYMBOL_HINT,
+        KIND_DOMAIN_SUMMARY,
+        KIND_GRAPH_PATH_HINT,
+        KIND_TEST_HINT,
+        KIND_ARCHITECTURE_HINT,
+        KIND_RISK_HINT,
+        KIND_MANUAL_NOTE,
+    }
+)
 
 # ── Generator kinds ───────────────────────────────────────────────────────────
 GEN_LLM = "llm"
@@ -43,10 +51,15 @@ GEN_RESTRICTED_TRANSFORMER_INFERENCE = "restricted_transformer_inference"
 GEN_MANUAL = "manual"
 GEN_HYBRID = "hybrid"
 
-ALL_GEN_KINDS = frozenset({
-    GEN_LLM, GEN_DETERMINISTIC, GEN_RESTRICTED_TRANSFORMER_INFERENCE,
-    GEN_MANUAL, GEN_HYBRID,
-})
+ALL_GEN_KINDS = frozenset(
+    {
+        GEN_LLM,
+        GEN_DETERMINISTIC,
+        GEN_RESTRICTED_TRANSFORMER_INFERENCE,
+        GEN_MANUAL,
+        GEN_HYBRID,
+    }
+)
 
 # ── Staleness states ──────────────────────────────────────────────────────────
 STALENESS_FRESH = "fresh"
@@ -54,23 +67,31 @@ STALENESS_POSSIBLY_STALE = "possibly_stale"
 STALENESS_STALE = "stale"
 STALENESS_INVALID = "invalid"
 
-ALL_STALENESS = frozenset({
-    STALENESS_FRESH, STALENESS_POSSIBLY_STALE, STALENESS_STALE, STALENESS_INVALID,
-})
+ALL_STALENESS = frozenset(
+    {
+        STALENESS_FRESH,
+        STALENESS_POSSIBLY_STALE,
+        STALENESS_STALE,
+        STALENESS_INVALID,
+    }
+)
 
 # Tasks hints are NOT valid for (regardless of kind)
-FORBIDDEN_FOR_AUTHORITATIVE = frozenset({
-    "authoritative_code_review",
-    "security_claim_without_original_source",
-    "legal_compliance_determination",
-})
+FORBIDDEN_FOR_AUTHORITATIVE = frozenset(
+    {
+        "authoritative_code_review",
+        "security_claim_without_original_source",
+        "legal_compliance_determination",
+    }
+)
 
 # Freshness thresholds
-FRESH_TTL_SECONDS = 86_400      # 24 h
+FRESH_TTL_SECONDS = 86_400  # 24 h
 POSSIBLY_STALE_TTL_SECONDS = 259_200  # 72 h
 
 
 # ── Sub-types ─────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class SourceRef:
@@ -157,13 +178,13 @@ class ConfidenceMetadata:
 @dataclass
 class ValidityMetadata:
     scope: str = "file"  # file|symbol|domain|graph_path|test|architecture
-    valid_for_tasks: list[str] = field(default_factory=lambda: [
-        "navigation", "explanation", "context_selection"
-    ])
-    not_valid_for: list[str] = field(default_factory=lambda: [
-        "authoritative_code_review",
-        "security_claim_without_original_source",
-    ])
+    valid_for_tasks: list[str] = field(default_factory=lambda: ["navigation", "explanation", "context_selection"])
+    not_valid_for: list[str] = field(
+        default_factory=lambda: [
+            "authoritative_code_review",
+            "security_claim_without_original_source",
+        ]
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -225,6 +246,7 @@ class HintPolicyMetadata:
 
 
 # ── Root hint record ──────────────────────────────────────────────────────────
+
 
 @dataclass
 class ReferencedContextHint:
@@ -301,6 +323,7 @@ class ReferencedContextHint:
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
+
 class HintValidationError(ValueError):
     pass
 
@@ -331,6 +354,7 @@ def validate_hint(hint: ReferencedContextHint) -> None:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def make_hint_id(path: str, kind: str, extra: str = "") -> str:
     """Stable, reproducible hint ID from path + kind + optional extra."""
     raw = f"{kind}:{path}:{extra}"
@@ -339,7 +363,7 @@ def make_hint_id(path: str, kind: str, extra: str = "") -> str:
 
 def hash_file(path_str: str) -> str:
     """SHA-256 of a file's contents; empty string if file not found."""
-    import os
+
     try:
         with open(path_str, "rb") as fh:
             return hashlib.sha256(fh.read()).hexdigest()

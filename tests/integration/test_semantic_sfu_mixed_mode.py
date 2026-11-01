@@ -32,7 +32,9 @@ def test_three_receivers_share_one_upload_but_keep_independent_effective_paths()
     )
     assert plan.upload_count == 1
     assert [(row.receiver_id, row.path) for row in plan.routes] == [
-        ("bob", "semantic_sfu"), ("carol", "ordinary_sfu"), ("dave", "ordinary_sfu")
+        ("bob", "semantic_sfu"),
+        ("carol", "ordinary_sfu"),
+        ("dave", "ordinary_sfu"),
     ]
     assert plan.routes[0].private_recovery_authorized is True
     assert all(not row.private_recovery_authorized for row in plan.routes[1:])

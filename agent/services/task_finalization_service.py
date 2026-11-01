@@ -2,6 +2,7 @@
 
 Finalizes tasks from artifact evidence and emits required audit events.
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from agent.common.audit import (
-    log_audit,
+    AUDIT_ADVISORY_JSON_PARSE_FAILED_IGNORED,
+    AUDIT_ARTIFACT_COMPLETION_DECIDED,
     AUDIT_ARTIFACT_MANIFEST_COLLECTED,
     AUDIT_ARTIFACT_MANIFEST_SYNTHESIZED,
-    AUDIT_ARTIFACT_COMPLETION_DECIDED,
     AUDIT_TASK_FINALIZED_FROM_ARTIFACTS,
-    AUDIT_ADVISORY_JSON_PARSE_FAILED_IGNORED,
+    log_audit,
 )
 from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
 from agent.services.task_runtime_service import update_local_task_status
@@ -62,26 +63,43 @@ class TaskFinalizationService:
 
         # Audit: manifest collected or synthesized
         if collection.get("synthesized"):
-            log_audit(AUDIT_ARTIFACT_MANIFEST_SYNTHESIZED, {
-                "task_id": task_id, "goal_id": goal_id, "execution_id": execution_id,
-                "trace_id": trace_id, "artifact_count": len(collection.get("artifacts") or []),
-            })
+            log_audit(
+                AUDIT_ARTIFACT_MANIFEST_SYNTHESIZED,
+                {
+                    "task_id": task_id,
+                    "goal_id": goal_id,
+                    "execution_id": execution_id,
+                    "trace_id": trace_id,
+                    "artifact_count": len(collection.get("artifacts") or []),
+                },
+            )
         else:
-            log_audit(AUDIT_ARTIFACT_MANIFEST_COLLECTED, {
-                "task_id": task_id, "goal_id": goal_id, "execution_id": execution_id,
-                "trace_id": trace_id, "manifest_id": collection.get("manifest_id", ""),
-                "manifest_valid": collection.get("manifest_valid"),
-                "artifact_count": len(collection.get("artifacts") or []),
-            })
+            log_audit(
+                AUDIT_ARTIFACT_MANIFEST_COLLECTED,
+                {
+                    "task_id": task_id,
+                    "goal_id": goal_id,
+                    "execution_id": execution_id,
+                    "trace_id": trace_id,
+                    "manifest_id": collection.get("manifest_id", ""),
+                    "manifest_valid": collection.get("manifest_valid"),
+                    "artifact_count": len(collection.get("artifacts") or []),
+                },
+            )
 
         # Audit: advisory parse failure — logged separately, not authoritative
         if advisory_parse_result and advisory_parse_result.get("parse_error"):
-            log_audit(AUDIT_ADVISORY_JSON_PARSE_FAILED_IGNORED, {
-                "task_id": task_id, "goal_id": goal_id, "execution_id": execution_id,
-                "trace_id": trace_id,
-                "error_classification": advisory_parse_result.get("error_classification"),
-                "has_valid_artifacts": bool(collection.get("manifest_valid")),
-            })
+            log_audit(
+                AUDIT_ADVISORY_JSON_PARSE_FAILED_IGNORED,
+                {
+                    "task_id": task_id,
+                    "goal_id": goal_id,
+                    "execution_id": execution_id,
+                    "trace_id": trace_id,
+                    "error_classification": advisory_parse_result.get("error_classification"),
+                    "has_valid_artifacts": bool(collection.get("manifest_valid")),
+                },
+            )
 
         completion_gate = get_task_artifact_completion_gate_service()
         final_status, decision = completion_gate.decide(
@@ -96,13 +114,19 @@ class TaskFinalizationService:
             allow_synthesized_manifest=allow_synthesized_manifest,
         )
 
-        log_audit(AUDIT_ARTIFACT_COMPLETION_DECIDED, {
-            "task_id": task_id, "goal_id": goal_id, "execution_id": execution_id,
-            "trace_id": trace_id, "decision": decision.decision,
-            "reason_codes": decision.reason_codes,
-            "manifest_id": decision.manifest_id,
-            "artifact_ids": decision.artifact_ids,
-        })
+        log_audit(
+            AUDIT_ARTIFACT_COMPLETION_DECIDED,
+            {
+                "task_id": task_id,
+                "goal_id": goal_id,
+                "execution_id": execution_id,
+                "trace_id": trace_id,
+                "decision": decision.decision,
+                "reason_codes": decision.reason_codes,
+                "manifest_id": decision.manifest_id,
+                "artifact_ids": decision.artifact_ids,
+            },
+        )
 
         update_local_task_status(
             task_id,
@@ -115,16 +139,25 @@ class TaskFinalizationService:
             ),
         )
 
-        log_audit(AUDIT_TASK_FINALIZED_FROM_ARTIFACTS, {
-            "task_id": task_id, "goal_id": goal_id, "execution_id": execution_id,
-            "trace_id": trace_id, "final_status": final_status,
-            "decision": decision.decision, "reason_codes": decision.reason_codes,
-            "artifact_ids": decision.artifact_ids,
-        })
+        log_audit(
+            AUDIT_TASK_FINALIZED_FROM_ARTIFACTS,
+            {
+                "task_id": task_id,
+                "goal_id": goal_id,
+                "execution_id": execution_id,
+                "trace_id": trace_id,
+                "final_status": final_status,
+                "decision": decision.decision,
+                "reason_codes": decision.reason_codes,
+                "artifact_ids": decision.artifact_ids,
+            },
+        )
 
         log.info(
             "TaskFinalizationService: task %s finalized as %s (decision=%s)",
-            task_id, final_status, decision.decision,
+            task_id,
+            final_status,
+            decision.decision,
         )
         return {
             "task_id": task_id,

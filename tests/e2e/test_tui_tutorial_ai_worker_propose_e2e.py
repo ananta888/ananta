@@ -90,7 +90,9 @@ def test_tutorial_ai_e2e_worker_target_tag_steers_snake_to_detail_zone(monkeypat
         def read(self) -> bytes:
             return b'{"status":"success","data":{"reason":"[target=detail] Inspect artifact details now."}}'
 
-    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp())
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp()
+    )
 
     snakes = {
         "s1": {

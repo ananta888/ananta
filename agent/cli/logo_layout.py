@@ -6,7 +6,6 @@ import sys
 import tempfile
 from typing import Sequence
 
-from agent.cli.logo_assets import load_logo, strip_ansi_from_logo
 from agent.cli.status_snapshot import StatusSnapshot, format_status_compact_right
 
 COMPACT_HEADER_LINES = 8
@@ -50,15 +49,16 @@ def _render_small_logo() -> list[str]:
         sys.path.insert(0, script_dir)
     try:
         from render_terminal_logo import (
-            ASCII_PALETTES, RenderConfig, load_image,
-            render_ascii_color, svg_to_png,
+            ASCII_PALETTES,
+            RenderConfig,
+            load_image,
+            render_ascii_color,
+            svg_to_png,
         )
     except ImportError:
         return []
 
-    svg_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg")
-    )
+    svg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg"))
     if not os.path.isfile(svg_path):
         return []
 
@@ -82,7 +82,7 @@ def _render_small_logo() -> list[str]:
     return art.split("\n")
 
 
-_LOGO_FG = "\x1b[38;2;4;62;98m"   # #043E62 – dark blue, used only in fallback
+_LOGO_FG = "\x1b[38;2;4;62;98m"  # #043E62 – dark blue, used only in fallback
 _ANSI_RST = "\x1b[0m"
 
 
@@ -165,13 +165,14 @@ def render_compact_header(
 
     # ── status lines (right of logo) ──────────────────────────────────────────
     from agent.cli.status_snapshot import format_status_lines
+
     status_lines = format_status_lines(snapshot, color=use_color, width=right_width)
     while len(status_lines) < COMPACT_HEADER_LINES:
         status_lines.append("")
 
     result = []
     for i in range(COMPACT_HEADER_LINES):
-        logo_part   = logo_lines[i]   if i < len(logo_lines)   else ""
+        logo_part = logo_lines[i] if i < len(logo_lines) else ""
         status_part = status_lines[i] if i < len(status_lines) else ""
         padded = _pad_to(logo_part, logo_visual_w)
         result.append(padded + sep + status_part)

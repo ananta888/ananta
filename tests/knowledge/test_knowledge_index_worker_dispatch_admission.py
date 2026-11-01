@@ -227,15 +227,11 @@ class _AtomicReceiptLedger:
             )
             if key in self._receipts:
                 if self._bindings[key] != binding:
-                    raise ValueError(
-                        "knowledge_index_worker_dispatch_binding_conflict"
-                    )
+                    raise ValueError("knowledge_index_worker_dispatch_binding_conflict")
                 receipt = copy.deepcopy(self._receipts[key])
                 if receipt["state"] == "completed":
                     return receipt
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_result_pending"
-                )
+                raise ValueError("knowledge_index_worker_dispatch_result_pending")
             receipt = {
                 "schema": DISPATCH_RECEIPT_SCHEMA,
                 "job_id": binding["job_id"],
@@ -258,22 +254,13 @@ class _AtomicReceiptLedger:
     def complete(self, *, result_payload, **binding):
         with self._lock:
             if self.fail_completion:
-                raise RuntimeError(
-                    "simulated_worker_result_outbox_failure"
-                )
+                raise RuntimeError("simulated_worker_result_outbox_failure")
             key = (binding["worker_id"], binding["job_id"])
             if key not in self._receipts:
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_receipt_missing"
-                )
-            expected = {
-                field: self._bindings[key][field]
-                for field in binding
-            }
+                raise ValueError("knowledge_index_worker_dispatch_receipt_missing")
+            expected = {field: self._bindings[key][field] for field in binding}
             if expected != binding:
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_binding_conflict"
-                )
+                raise ValueError("knowledge_index_worker_dispatch_binding_conflict")
             encoded = json.dumps(
                 result_payload,
                 ensure_ascii=True,
@@ -285,13 +272,8 @@ class _AtomicReceiptLedger:
             digest = hashlib.sha256(encoded).hexdigest()
             receipt = self._receipts[key]
             if receipt["state"] == "completed":
-                if (
-                    receipt["result_digest"] != digest
-                    or receipt["result_payload"] != normalized
-                ):
-                    raise ValueError(
-                        "knowledge_index_worker_dispatch_result_conflict"
-                    )
+                if receipt["result_digest"] != digest or receipt["result_payload"] != normalized:
+                    raise ValueError("knowledge_index_worker_dispatch_result_conflict")
                 return copy.deepcopy(receipt)
             receipt.update(
                 {
@@ -438,9 +420,7 @@ def test_execute_claim_is_durable_before_port_and_blocks_parallel_replay() -> No
     assert completed
     assert all(value["status"] == "completed" for value in completed)
     assert len(completed) + len(rejected) == 2
-    assert set(rejected) <= {
-        "knowledge_index_worker_dispatch_result_pending"
-    }
+    assert set(rejected) <= {"knowledge_index_worker_dispatch_result_pending"}
     assert execution_calls == 1
     assert repository.write_count == 0
     assert repository.receipt_ledger.claim_count == 1
@@ -483,9 +463,7 @@ def test_lost_http_response_retry_replays_without_reexecution() -> None:
     assert first_result == replayed_result
     assert first_result["status"] == "completed"
     assert execution_calls == 1
-    assert repository.receipt_ledger.snapshot()[0]["state"] == (
-        "completed"
-    )
+    assert repository.receipt_ledger.snapshot()[0]["state"] == ("completed")
 
 
 def test_retry_after_crash_before_result_outbox_is_explicit() -> None:
@@ -522,23 +500,13 @@ def test_retry_after_crash_before_result_outbox_is_explicit() -> None:
     ) as pending:
         handler.execute(task=_task(job), request_data=request_data)
 
-    assert str(pending.value) == (
-        KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
-    )
-    assert type(pending.value).__name__ == (
-        KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE
-    )
+    assert str(pending.value) == (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON)
+    assert type(pending.value).__name__ == (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE)
     assert pending.value.status_code == 409
     assert pending.value.retryable is True
-    assert pending.value.details == {
-        "reason_code": (
-            KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
-        )
-    }
+    assert pending.value.details == {"reason_code": (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON)}
     assert execution_calls == 1
-    assert repository.receipt_ledger.snapshot()[0]["state"] == (
-        "claimed"
-    )
+    assert repository.receipt_ledger.snapshot()[0]["state"] == ("claimed")
 
 
 def test_execute_accepts_exact_manifest_already_mirrored_locally() -> None:
@@ -599,9 +567,7 @@ def test_v2_execution_fails_closed_without_deadline_aware_port() -> None:
     )
 
     assert result["status"] == "failed"
-    assert result["reason_code"] == (
-        KNOWLEDGE_INDEX_WORKER_DEADLINE_PORT_REQUIRED_REASON
-    )
+    assert result["reason_code"] == (KNOWLEDGE_INDEX_WORKER_DEADLINE_PORT_REQUIRED_REASON)
     assert execution.called is False
 
 
@@ -635,9 +601,7 @@ def test_worker_enforces_bound_runtime_inside_execution_port() -> None:
     )
 
     assert result["status"] == "failed"
-    assert result["reason_code"] == (
-        KNOWLEDGE_INDEX_WORKER_DEADLINE_EXCEEDED_REASON
-    )
+    assert result["reason_code"] == (KNOWLEDGE_INDEX_WORKER_DEADLINE_EXCEEDED_REASON)
 
 
 def test_v2_network_handler_fails_closed_without_exact_marker() -> None:

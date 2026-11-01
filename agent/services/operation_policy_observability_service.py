@@ -53,7 +53,11 @@ class OperationPolicyObservabilityService:
                 }
                 for (transport, outcome, reason), count in sorted(self._counts.items())
             ]
-        return {"schema": "ananta.operation_policy_metrics.v1", "items": rows, "count": sum(row["count"] for row in rows)}
+        return {
+            "schema": "ananta.operation_policy_metrics.v1",
+            "items": rows,
+            "count": sum(row["count"] for row in rows),
+        }
 
 
 operation_policy_observability_service = OperationPolicyObservabilityService()

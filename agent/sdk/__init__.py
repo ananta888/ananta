@@ -1,34 +1,42 @@
 from __future__ import annotations
-from flask import Flask
+
 from typing import Any, Protocol, runtime_checkable
 
+from flask import Flask
+
 from agent.services.evolution.models import (
+    ApplyResult,
     EvolutionCapability,
     EvolutionContext,
-    EvolutionResult,
     EvolutionProposal,
+    EvolutionResult,
     ValidationResult,
-    ApplyResult,
 )
+
 
 @runtime_checkable
 class EvolutionEngine(Protocol):
     """Protokoll für Evolution-Provider, damit Plugins diese implementieren können."""
+
     provider_name: str
+
     def analyze(self, context: EvolutionContext) -> EvolutionResult: ...
     def validate(self, context: EvolutionContext, proposal: EvolutionProposal) -> ValidationResult: ...
     def apply(self, context: EvolutionContext, proposal: EvolutionProposal) -> ApplyResult: ...
     def describe(self) -> Any: ...
     def supports(self, capability: EvolutionCapability | str) -> bool: ...
 
+
 class AnantaSDK:
     """Zentrale SDK-Klasse für Ananta-Plugins."""
+
     def __init__(self, app: Flask):
         self.app = app
 
     def register_evolution_provider(self, engine: EvolutionEngine, default: bool = False, replace: bool = False):
         """Registriert einen Evolution-Provider im System."""
         from agent.services.evolution.registry import register_evolution_provider
+
         return register_evolution_provider(engine, app=self.app, default=default, replace=replace)
 
     def register_blueprint(self, blueprint):
@@ -41,6 +49,7 @@ class AnantaSDK:
         if section:
             return cfg.get(section) or {}
         return cfg
+
 
 def get_sdk(app: Flask) -> AnantaSDK:
     """Gibt eine Instanz des SDKs für die gegebene App zurück."""

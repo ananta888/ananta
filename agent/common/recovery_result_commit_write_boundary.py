@@ -19,9 +19,7 @@ class RecoveryResultCommitWriteAuthority:
     accepted_result_digest: str
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoveryResultCommitWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoveryResultCommitWriteAuthority | None] = ContextVar(
     "ananta_recovery_result_commit_write_authority",
     default=None,
 )
@@ -33,10 +31,7 @@ def _lease(value: Any) -> dict[str, Any]:
 
 def _sha256_hex(value: str) -> bool:
     normalized = str(value or "").strip().lower()
-    return bool(
-        len(normalized) == 64
-        and all(character in "0123456789abcdef" for character in normalized)
-    )
+    return bool(len(normalized) == 64 and all(character in "0123456789abcdef" for character in normalized))
 
 
 def _authority(
@@ -49,27 +44,15 @@ def _authority(
     try:
         revision = int(value.get("revision") or 0)
     except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "recovery_result_commit_authority_invalid"
-        ) from exc
+        raise ValueError("recovery_result_commit_authority_invalid") from exc
     authority = RecoveryResultCommitWriteAuthority(
         task_id=normalized_task_id,
-        phase=str(
-            value.get("accepted_result_phase") or ""
-        ).strip(),
+        phase=str(value.get("accepted_result_phase") or "").strip(),
         lease_revision=revision,
-        token_digest=str(
-            value.get("token_digest") or ""
-        ).strip(),
-        request_fingerprint=str(
-            value.get("request_fingerprint") or ""
-        ).strip(),
-        accepted_result_status=str(
-            value.get("accepted_result_status") or ""
-        ).strip(),
-        accepted_result_digest=str(
-            value.get("accepted_result_digest") or ""
-        ).strip(),
+        token_digest=str(value.get("token_digest") or "").strip(),
+        request_fingerprint=str(value.get("request_fingerprint") or "").strip(),
+        accepted_result_status=str(value.get("accepted_result_status") or "").strip(),
+        accepted_result_digest=str(value.get("accepted_result_digest") or "").strip(),
     )
     if (
         not authority.task_id
@@ -77,13 +60,10 @@ def _authority(
         or authority.lease_revision < 1
         or not _sha256_hex(authority.token_digest)
         or not _sha256_hex(authority.request_fingerprint)
-        or authority.accepted_result_status
-        not in {"completed", "verification_failed"}
+        or authority.accepted_result_status not in {"completed", "verification_failed"}
         or not _sha256_hex(authority.accepted_result_digest)
     ):
-        raise ValueError(
-            "recovery_result_commit_authority_invalid"
-        )
+        raise ValueError("recovery_result_commit_authority_invalid")
     return authority
 
 

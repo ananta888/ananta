@@ -14,12 +14,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
-KNOWLEDGE_INDEX_WORKER_DEADLINE_EXCEEDED_REASON = (
-    "knowledge_index_worker_execution_deadline_exceeded"
-)
-KNOWLEDGE_INDEX_WORKER_DEADLINE_PORT_REQUIRED_REASON = (
-    "knowledge_index_worker_execution_deadline_port_required"
-)
+KNOWLEDGE_INDEX_WORKER_DEADLINE_EXCEEDED_REASON = "knowledge_index_worker_execution_deadline_exceeded"
+KNOWLEDGE_INDEX_WORKER_DEADLINE_PORT_REQUIRED_REASON = "knowledge_index_worker_execution_deadline_port_required"
 
 
 class KnowledgeIndexExecutionDeadlineError(TimeoutError):
@@ -56,9 +52,7 @@ class MonotonicKnowledgeIndexExecutionDeadline:
 
     def checkpoint(self) -> None:
         if self.remaining_seconds() <= 0:
-            raise KnowledgeIndexExecutionDeadlineError(
-                KNOWLEDGE_INDEX_WORKER_DEADLINE_EXCEEDED_REASON
-            )
+            raise KnowledgeIndexExecutionDeadlineError(KNOWLEDGE_INDEX_WORKER_DEADLINE_EXCEEDED_REASON)
 
 
 class KnowledgeIndexExecutionGuardPort(Protocol):
@@ -84,11 +78,7 @@ class MonotonicKnowledgeIndexExecutionGuard:
         *,
         max_runtime_seconds: int,
     ) -> KnowledgeIndexExecutionDeadlinePort:
-        if (
-            isinstance(max_runtime_seconds, bool)
-            or not isinstance(max_runtime_seconds, int)
-            or max_runtime_seconds < 1
-        ):
+        if isinstance(max_runtime_seconds, bool) or not isinstance(max_runtime_seconds, int) or max_runtime_seconds < 1:
             raise ValueError("knowledge_index_worker_runtime_budget_invalid")
         now = float(self._monotonic_clock())
         return MonotonicKnowledgeIndexExecutionDeadline(
@@ -114,10 +104,7 @@ class DeadlineAwareKnowledgeIndexExecutionRunner:
             return False
         return bool(
             "execution_deadline" in signature.parameters
-            or any(
-                parameter.kind is inspect.Parameter.VAR_KEYWORD
-                for parameter in signature.parameters.values()
-            )
+            or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values())
         )
 
     def execute(
@@ -129,9 +116,7 @@ class DeadlineAwareKnowledgeIndexExecutionRunner:
     ) -> Mapping[str, Any]:
         execute = getattr(execution, "execute", None)
         if not callable(execute) or not self._accepts_deadline(execute):
-            raise KnowledgeIndexExecutionDeadlineError(
-                KNOWLEDGE_INDEX_WORKER_DEADLINE_PORT_REQUIRED_REASON
-            )
+            raise KnowledgeIndexExecutionDeadlineError(KNOWLEDGE_INDEX_WORKER_DEADLINE_PORT_REQUIRED_REASON)
         execution_deadline.checkpoint()
         result = execute(
             job,

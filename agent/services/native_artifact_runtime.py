@@ -18,7 +18,8 @@ class NativeArtifactRuntime:
         service = NativeArtifactAdmissionService(
             authority=authority,
             dispatch=NativeArtifactDispatch(authority=authority, worker_id=worker_id, worker_url=worker_url),
-            storage=self._storage, **({"clock": self._clock} if self._clock is not None else {}),
+            storage=self._storage,
+            **({"clock": self._clock} if self._clock is not None else {}),
         )
         with sqlite_transaction_guard(self._engine), Session(self._engine) as session:
             if transfer is None:
@@ -32,7 +33,8 @@ class NativeArtifactRuntime:
         service = NativeArtifactInputService(
             authority=authority,
             dispatch=NativeArtifactDispatch(authority=authority, worker_id=worker_id, worker_url=worker_url),
-            storage=self._storage, **({"clock": self._clock} if self._clock is not None else {}),
+            storage=self._storage,
+            **({"clock": self._clock} if self._clock is not None else {}),
         )
         with sqlite_transaction_guard(self._engine), Session(self._engine) as session:
             return service.read(session=session, task_id=task_id, input_name=input_name)

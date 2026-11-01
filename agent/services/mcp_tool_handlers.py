@@ -134,8 +134,9 @@ def _tool_codecompass_layers_plan(*, name: str, args: dict[str, Any], context: d
     if context.get("codecompass_capability") is not None:
         scoped = service.scoped_query(context["codecompass_capability"])
         profile = str(args.get("profile_id") or "") or _default_layer_profile(scoped.list_profiles())
-        plan = scoped.plan_update(profile_id=profile, old_manifest=args.get("old_manifest") or {},
-                                  new_manifest=args.get("new_manifest") or {})
+        plan = scoped.plan_update(
+            profile_id=profile, old_manifest=args.get("old_manifest") or {}, new_manifest=args.get("new_manifest") or {}
+        )
         return {"content": [{"type": "json", "json": plan}]}
     plan = service.plan_update(
         old_manifest=args.get("old_manifest") or {},
@@ -159,7 +160,8 @@ def _tool_codecompass_architecture_intelligence(
         from agent.services.codecompass_scoped_graph import load_scoped_graph
 
         graph, snapshot_ref, revision = load_scoped_graph(
-            capability, snapshot_ref=str(args.get("snapshot_ref") or ""), revision=str(args.get("revision") or ""))
+            capability, snapshot_ref=str(args.get("snapshot_ref") or ""), revision=str(args.get("revision") or "")
+        )
         nodes, edges = graph["nodes"], graph["edges"]
     else:
         nodes, edges = _load_architecture_graph({})

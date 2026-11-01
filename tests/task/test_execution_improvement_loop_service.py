@@ -23,4 +23,3 @@ def test_build_verification_critique_contains_missing_paths() -> None:
     assert critique["schema"] == "verification_critique.v1"
     assert "frontend" in critique["missing_paths"]
     assert critique["failed_reasons"]
-

@@ -1,9 +1,10 @@
 """ScenarioConfig schema (SIM-002)."""
+
 from __future__ import annotations
 
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 TimeMode = Literal["discrete", "continuous"]
 RunnerKind = Literal["ananta", "langgraph", "n8n", "dummy"]
@@ -19,7 +20,7 @@ class BudgetConfig(BaseModel):
 
 
 class ModelStrategyEntry(BaseModel):
-    agent_id: Optional[str] = None       # None = default for all
+    agent_id: Optional[str] = None  # None = default for all
     provider: str = "dummy"
     model: str = "dummy-v1"
     temperature: float = 0.7
@@ -38,8 +39,8 @@ class LawDefinition(BaseModel):
     id: str
     description: str
     forbidden_actions: list[str] = Field(default_factory=list)
-    penalty: str = "reputation_loss"    # reputation_loss | exile | imprisonment | fine | death
-    severity: float = 1.0               # 0-1
+    penalty: str = "reputation_loss"  # reputation_loss | exile | imprisonment | fine | death
+    severity: float = 1.0  # 0-1
 
 
 class ScenarioConfig(BaseModel):

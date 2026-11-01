@@ -1,17 +1,22 @@
+import os
+import sys
 import unittest
 from unittest.mock import MagicMock
-import sys
-import os
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
+from agent.services.result_memory_service import ResultMemoryService
 from worker.core.context_access_policy import (
-    ContextAccessPolicy, ContextAccessRule, SourceType, Sensitivity, Decision, ModelScope, RequestedOperation
+    ContextAccessPolicy,
+    ContextAccessRule,
+    ModelScope,
+    Sensitivity,
+    SourceType,
 )
 from worker.core.execution_envelope import ExecutionEnvelope, ModelPolicy, ToolPolicy
-from worker.core.preflight import PreflightGate, PreflightDecision
-from agent.services.result_memory_service import ResultMemoryService
+from worker.core.preflight import PreflightDecision, PreflightGate
+
 
 class TestContextAccessPolicyRegression(unittest.TestCase):
     def setUp(self):
@@ -20,6 +25,7 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
         self.memory_repo_mock = MagicMock()
         # We need to mock the import in result_memory_service
         import agent.services.result_memory_service as rms
+
         rms.memory_entry_repo = self.memory_repo_mock
 
         self.memory_service = ResultMemoryService()
@@ -37,9 +43,9 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
                     send_allowed=False,
                     write_allowed=False,
                     cloud_allowed=False,
-                    external_worker_allowed=False
+                    external_worker_allowed=False,
                 )
-            ]
+            ],
         )
 
     def test_tool_access_denied_for_secret(self):
@@ -52,13 +58,14 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
                 {
                     "id": r.id,
                     "description": r.description,
-                    "sensitivity": r.sensitivity.value if hasattr(r.sensitivity, 'value') else r.sensitivity,
+                    "sensitivity": r.sensitivity.value if hasattr(r.sensitivity, "value") else r.sensitivity,
                     "send_allowed": r.send_allowed,
                     "write_allowed": r.write_allowed,
                     "cloud_allowed": r.cloud_allowed,
-                    "external_worker_allowed": r.external_worker_allowed
-                } for r in self.policy.rules
-            ]
+                    "external_worker_allowed": r.external_worker_allowed,
+                }
+                for r in self.policy.rules
+            ],
         }
 
         envelope = ExecutionEnvelope(
@@ -69,14 +76,14 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
             context_envelope_ref="ctx:task_1",
             model_policy=ModelPolicy(),
             tool_policy=ToolPolicy(allowed_tool_ids=["read_file"]),
-            context_access_policy=policy_dict
+            context_access_policy=policy_dict,
         )
 
         secret_block = {
             "block_id": "b1",
             "source_type": SourceType.secret_file.value,
             "source_ref": "secrets.env",
-            "sensitivity": Sensitivity.secret.value
+            "sensitivity": Sensitivity.secret.value,
         }
 
         # Should be blocked
@@ -94,7 +101,7 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
             title="Secret Memory",
             output="password=123",
             policy={"sensitivity": "secret"},
-            context_access_policy=self.policy
+            context_access_policy=self.policy,
         )
         self.assertIsNone(result)
         self.memory_repo_mock.create.assert_not_called()
@@ -125,7 +132,10 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
 
         service = ResultMemoryService(memory_entry_repository=self.memory_repo_mock)
         with synthetic_memory_access(
-            task_id="t1", goal_id="g1", channels=("hub-result-memory",), scopes=(MemoryScope.task,),
+            task_id="t1",
+            goal_id="g1",
+            channels=("hub-result-memory",),
+            scopes=(MemoryScope.task,),
         ):
             result = service.record_worker_result_memory(
                 task_id="t1",
@@ -141,6 +151,7 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
         # Legacy context approval also requires explicit current Hub grants.
         self.assertIsNotNone(result)
         self.memory_repo_mock.save.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

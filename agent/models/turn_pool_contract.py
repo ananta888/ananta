@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-
 TURN_POOL_CONTRACT_VERSION = 1
 _CAPACITY = {"accept", "reduce", "stop"}
 _HEALTH = {"healthy", "degraded", "unhealthy", "unknown"}

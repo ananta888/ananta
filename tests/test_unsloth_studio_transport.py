@@ -54,9 +54,7 @@ class _StudioHandler(BaseHTTPRequestHandler):
         self._json_response({"jsonrpc": "2.0", "id": "test", "result": {}}, 200)
 
     def do_GET(self) -> None:
-        type(self).authorizations.append(
-            (self.path, str(self.headers.get("Authorization") or ""))
-        )
+        type(self).authorizations.append((self.path, str(self.headers.get("Authorization") or "")))
         if self.path == "/api/auth/status":
             self._json_response(
                 {
@@ -145,9 +143,7 @@ def test_probe_logs_in_with_password_ref_and_validates_pinned_contract() -> None
         login = _fixture("login.v1.json")
         assert payload["available"] is True
         assert payload["studio_version"] == _fixture("health.v1.json")["studio_version"]
-        assert _StudioHandler.login_payloads == [
-            {"username": "unsloth", "password": _PASSWORD}
-        ]
+        assert _StudioHandler.login_payloads == [{"username": "unsloth", "password": _PASSWORD}]
         assert _StudioHandler.authorizations == [
             ("/api/auth/status", f"Bearer {login['access_token']}"),
             ("/api/health", f"Bearer {login['access_token']}"),
@@ -167,9 +163,7 @@ def test_transport_refreshes_rotated_single_use_token_once_after_401() -> None:
         transport = _transport(server.server_port)
         payload = transport.request_json(method="GET", path="/api/health")
         assert payload["status"] == "healthy"
-        assert _StudioHandler.refresh_payloads == [
-            {"refresh_token": _fixture("login.v1.json")["refresh_token"]}
-        ]
+        assert _StudioHandler.refresh_payloads == [{"refresh_token": _fixture("login.v1.json")["refresh_token"]}]
         assert _StudioHandler.authorizations[-1] == (
             "/api/health",
             "Bearer studio-rotated-access-token",
@@ -268,9 +262,7 @@ def test_transport_fails_closed_when_resolved_ip_is_not_allowlisted() -> None:
         UnslothStudioTransport(
             config=config,
             resolver=lambda _host, _port: ("198.51.100.7",),
-            secret_resolver=OpaqueSecretReferenceService(
-                {"UNSLOTH_TEST_PASSWORD": _PASSWORD}
-            ),
+            secret_resolver=OpaqueSecretReferenceService({"UNSLOTH_TEST_PASSWORD": _PASSWORD}),
         )
 
 
@@ -300,9 +292,7 @@ def test_dns_resolution_is_inside_the_transport_total_deadline() -> None:
     transport = UnslothStudioTransport(
         config=config,
         resolver=resolver,
-        secret_resolver=OpaqueSecretReferenceService(
-            {"UNSLOTH_TEST_PASSWORD": _PASSWORD}
-        ),
+        secret_resolver=OpaqueSecretReferenceService({"UNSLOTH_TEST_PASSWORD": _PASSWORD}),
     )
     started = time.monotonic()
     try:

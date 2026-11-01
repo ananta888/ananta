@@ -280,9 +280,7 @@ def test_workspace_payload_adapter_reopens_only_the_exact_manifest(
         workspace_catalog=catalog,
         workspace_connector=connector,
         scanner=ProductionFilesystemSourceScanner(),
-        budgets=SourceAdmissionBudgets(
-            allowed_file_types=frozenset({"txt"})
-        ),
+        budgets=SourceAdmissionBudgets(allowed_file_types=frozenset({"txt"})),
     )
 
     payload = adapter.load_bound_revision_payload(authority)
@@ -387,10 +385,7 @@ def test_production_composition_job_service_survives_late_registry_rebuild(
         composition.execution_binding_service,
         KnowledgeIndexExecutionBindingService,
     )
-    assert (
-        app.extensions["core_services"].knowledge.knowledge_index_job_service
-        is composition.job_service
-    )
+    assert app.extensions["core_services"].knowledge.knowledge_index_job_service is composition.job_service
     assert original is not composition.job_service
 
     rebuilt_queue = object()
@@ -407,7 +402,4 @@ def test_production_composition_job_service_survives_late_registry_rebuild(
     reinitialized = initialize_core_services(app)
 
     assert reinitialized.task_queue_service is rebuilt_queue
-    assert (
-        reinitialized.knowledge.knowledge_index_job_service
-        is composition.job_service
-    )
+    assert reinitialized.knowledge.knowledge_index_job_service is composition.job_service

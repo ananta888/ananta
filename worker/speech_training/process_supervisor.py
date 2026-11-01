@@ -147,8 +147,7 @@ class BoundedSpeechChildProcess:
 
     def _command(self, argv: Sequence[str]) -> tuple[str, ...]:
         if not 1 <= len(argv) <= 64 or any(
-            not isinstance(value, str) or not value or len(value) > 4096 or "\x00" in value
-            for value in argv
+            not isinstance(value, str) or not value or len(value) > 4096 or "\x00" in value for value in argv
         ):
             raise SpeechTrainingBackendError(
                 "speech_child_process_command_invalid",
@@ -173,8 +172,7 @@ class BoundedSpeechChildProcess:
         }
         supplied = dict(values or {})
         if set(supplied) - allowed or any(
-            not isinstance(value, str) or len(value) > 4096 or "\x00" in value
-            for value in supplied.values()
+            not isinstance(value, str) or len(value) > 4096 or "\x00" in value for value in supplied.values()
         ):
             raise SpeechTrainingBackendError(
                 "speech_child_process_environment_forbidden",

@@ -30,8 +30,11 @@ def hub(tmp_path):
     app.config["ROLE"] = "hub"
     app.queue, app.evidence = Queue(), Evidence()
     initialize_codecompass_layers(
-        app, environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
-        data_dir=tmp_path, task_queue=app.queue, evidence=app.evidence,
+        app,
+        environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
+        data_dir=tmp_path,
+        task_queue=app.queue,
+        evidence=app.evidence,
     )
     app.root = tmp_path / "codecompass_layers"
     app.snapshots, app.contents = SnapshotManifestStore(app.root), ContentBlobStore(app.root)
@@ -41,10 +44,16 @@ def hub(tmp_path):
 def collector(hub, *, now=None, grace=0, history_depth=0, retention=0):
     root = hub.root
     return LayerStorageGarbageCollector(
-        layers=ArtifactLayerStore(root), heads=LayerHeadRegistry(root), snapshots=SnapshotManifestStore(root),
-        contents=ContentBlobStore(root), dispatches=FileLayerDispatchRepository(root),
-        sync_state=SyncStateStore(root), clock=lambda: now if now is not None else time.time() + 10,
-        grace_seconds=grace, history_depth=history_depth, dispatch_retention_seconds=retention,
+        layers=ArtifactLayerStore(root),
+        heads=LayerHeadRegistry(root),
+        snapshots=SnapshotManifestStore(root),
+        contents=ContentBlobStore(root),
+        dispatches=FileLayerDispatchRepository(root),
+        sync_state=SyncStateStore(root),
+        clock=lambda: now if now is not None else time.time() + 10,
+        grace_seconds=grace,
+        history_depth=history_depth,
+        dispatch_retention_seconds=retention,
     )
 
 
@@ -73,8 +82,14 @@ def test_a_replaced_chain_is_swept_outside_the_history_window(hub, monkeypatch):
     chain = [*head["base_layer_set"].values(), *[d["chunks"] for d in head["ordered_delta_sets"]]]
     # Simulate a new base (compaction by rebuild) replacing the chain.
     new_base = ArtifactLayerStore(hub.root).store_layer({"schema": "x", "records": [], "snapshot_revision": "n"})[0]
-    heads.update_head(PROFILE, expected_generation=head["generation"], new_layer_id=new_base,
-                      new_layer_set={"chunks": new_base}, append_delta=False, replace_artifact_kinds=["chunks"])
+    heads.update_head(
+        PROFILE,
+        expected_generation=head["generation"],
+        new_layer_id=new_base,
+        new_layer_set={"chunks": new_base},
+        append_delta=False,
+        replace_artifact_kinds=["chunks"],
+    )
     kept_by_history = collector(hub, history_depth=10).collect(dry_run=True)
     assert kept_by_history["layers"]["swept"] == 0
     swept = collector(hub, history_depth=1).collect(dry_run=False)

@@ -45,9 +45,7 @@ def _prepare_mutation(
 ]:
     desired = mutation.value
     idempotency_digest = (
-        _digest(mutation.idempotency_key)
-        if mutation.idempotency_key is not None
-        else desired.idempotency_key_digest
+        _digest(mutation.idempotency_key) if mutation.idempotency_key is not None else desired.idempotency_key_digest
     )
     if current is not None and mutation.idempotency_key is not None:
         if current.idempotency_key_digest == idempotency_digest:
@@ -108,9 +106,7 @@ def _validate_atomic_group_mutation(
 ) -> None:
     if not isinstance(mutation, SfuAtomicGroupProjectionMutation):
         raise SfuBroadcastRepositoryError("group_projection_mutation_invalid")
-    _validate_identifier(
-        mutation.audience_projection_id, "audience_projection_id"
-    )
+    _validate_identifier(mutation.audience_projection_id, "audience_projection_id")
     _validate_mutation(mutation.mutation)
     epochs = (
         mutation.expected_policy_epoch,
@@ -146,9 +142,7 @@ def _validate_atomic_group_parent(
         or saved.key_epoch != mutation.expected_key_epoch
     ):
         return _result("stale_epoch", reason="group_projection_epoch_stale")
-    if saved.fencing_token <= 0 or (
-        current is not None and saved.fencing_token <= current.fencing_token
-    ):
+    if saved.fencing_token <= 0 or (current is not None and saved.fencing_token <= current.fencing_token):
         return _result("stale_epoch", reason="group_projection_fencing_stale")
     return None
 
@@ -257,8 +251,10 @@ def _validate_page_size_max(page_size_max: int) -> None:
 
 def _validate_retention_fence(fence: SfuAudienceRetentionFence, now: float) -> None:
     if (
-        not fence.owner_id or type(fence.fencing_token) is not int
-        or fence.fencing_token < 1 or fence.lease_expires_at <= now
+        not fence.owner_id
+        or type(fence.fencing_token) is not int
+        or fence.fencing_token < 1
+        or fence.lease_expires_at <= now
     ):
         raise SfuBroadcastRepositoryError("audience_retention_fence_invalid")
 

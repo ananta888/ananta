@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
@@ -15,7 +14,6 @@ from agent.services.source_control_legacy_migration_cli import (
     SourceControlMigrationCliError,
     SourceControlMigrationCommand,
 )
-
 
 MIGRATION_ID = "scmig_" + "a" * 64
 

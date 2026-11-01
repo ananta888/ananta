@@ -64,9 +64,6 @@ def test_criteria_get_requires_existing_row(monkeypatch):
     monkeypatch.setattr(
         route,
         "get_repository_registry",
-        lambda: SimpleNamespace(
-            text_quality_criteria_set_repo=SimpleNamespace(get_by_id=lambda _: None)
-        ),
+        lambda: SimpleNamespace(text_quality_criteria_set_repo=SimpleNamespace(get_by_id=lambda _: None)),
     )
     assert _app().test_client().get("/api/text-quality/criteria/missing").status_code == 404
-

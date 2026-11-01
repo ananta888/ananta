@@ -24,8 +24,7 @@ def cleanup(models):
     return MeetCompanionRunCleanup(SqlCompanionRunCleanup(f.database), f.registry, clock=lambda: 1234)
 
 
-@pytest.mark.parametrize("status,expected", [("completed", "failed"), ("failed", "failed"),
-                                             ("cancelled", "cancelled")])
+@pytest.mark.parametrize("status,expected", [("completed", "failed"), ("failed", "failed"), ("cancelled", "cancelled")])
 def test_terminal_task_closes_only_pending_model_runs_idempotently(models, status, expected):
     f, _service = models
     pending = reserve(models)
@@ -42,8 +41,10 @@ def test_terminal_task_closes_only_pending_model_runs_idempotently(models, statu
     assert service.terminal(f.f.task, lease_id="dispatch", runtime_id="runtime") == 0
 
 
-@pytest.mark.parametrize("status,lease,runtime", [("in_progress", "dispatch", "runtime"),
-    ("cancelled", "stale", "runtime"), ("cancelled", "dispatch", "foreign")])
+@pytest.mark.parametrize(
+    "status,lease,runtime",
+    [("in_progress", "dispatch", "runtime"), ("cancelled", "stale", "runtime"), ("cancelled", "dispatch", "foreign")],
+)
 def test_live_task_or_foreign_assignment_cannot_cleanup(models, status, lease, runtime):
     f, _service = models
     pending = reserve(models)
@@ -60,8 +61,15 @@ def test_successful_result_winning_atomic_cleanup_race_is_preserved(models, monk
     original = service.repository.terminate
 
     def race(identity, **kwargs):
-        f.registry.record_result(tenant_id="tenant", project_id="project", run_id=identity.run_id,
-            assignment_id="runtime", dispatch_lease_id="dispatch", terminal_state="succeeded", result_digest="a" * 64)
+        f.registry.record_result(
+            tenant_id="tenant",
+            project_id="project",
+            run_id=identity.run_id,
+            assignment_id="runtime",
+            dispatch_lease_id="dispatch",
+            terminal_state="succeeded",
+            result_digest="a" * 64,
+        )
         return original(identity, **kwargs)
 
     monkeypatch.setattr(service.repository, "terminate", race)
@@ -106,6 +114,7 @@ def test_failed_cleanup_keeps_task_cancelled_and_repeated_callback_retries(model
     monkeypatch.setattr(tasks, "finish", terminal)
     original = service.repository.terminate
     with monkeypatch.context() as patch:
+
         def unavailable(*_args, **_kwargs):
             raise RuntimeError("synthetic_database_unavailable")
 
@@ -126,8 +135,15 @@ def test_result_finishing_before_registry_validation_is_preserved(models, monkey
     original = f.registry.assignment_projection
 
     def race(**kwargs):
-        f.registry.record_result(tenant_id="tenant", project_id="project", run_id=kwargs["run_id"],
-            assignment_id="runtime", dispatch_lease_id="dispatch", terminal_state="succeeded", result_digest="a" * 64)
+        f.registry.record_result(
+            tenant_id="tenant",
+            project_id="project",
+            run_id=kwargs["run_id"],
+            assignment_id="runtime",
+            dispatch_lease_id="dispatch",
+            terminal_state="succeeded",
+            result_digest="a" * 64,
+        )
         return original(**kwargs)
 
     monkeypatch.setattr(f.registry, "assignment_projection", race)
@@ -136,8 +152,7 @@ def test_result_finishing_before_registry_validation_is_preserved(models, monkey
     assert state(f, pending["run"]["run_id"])["state"] == "succeeded"
 
 
-@pytest.mark.parametrize("status,expected", [("completed", "failed"), ("failed", "failed"),
-                                             ("cancelled", "cancelled")])
+@pytest.mark.parametrize("status,expected", [("completed", "failed"), ("failed", "failed"), ("cancelled", "cancelled")])
 def test_real_sql_task_cas_triggers_registry_cleanup(app, models, status, expected):
     from sqlmodel import Session
 
@@ -151,9 +166,17 @@ def test_real_sql_task_cas_triggers_registry_cleanup(app, models, status, expect
     with app.app_context():
         ensure_project(engine, tenant="tenant", project="project")
         with Session(engine) as session:
-            session.add(TaskDB(id="task", title="Synthetic model cleanup Task", tenant_id="tenant",
-                project_id="project", status="in_progress", task_kind="meet_dialog_session",
-                worker_execution_context=f.f.task.worker_execution_context))
+            session.add(
+                TaskDB(
+                    id="task",
+                    title="Synthetic model cleanup Task",
+                    tenant_id="tenant",
+                    project_id="project",
+                    status="in_progress",
+                    task_kind="meet_dialog_session",
+                    worker_execution_context=f.f.task.worker_execution_context,
+                )
+            )
             session.commit()
         tasks = HubDialogTasks(run_cleanup=service)
         assert not tasks.finish_bound("task", "foreign", "runtime", status)

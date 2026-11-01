@@ -57,9 +57,7 @@ class DendriticMemoryRuntimeGate:
             "human_intervention_required": False,
         }
         result["receipt_digest"] = canonical_digest(result)
-        result["attestation"] = hmac.new(
-            self._key, canonical_json(result).encode(), hashlib.sha256
-        ).hexdigest()
+        result["attestation"] = hmac.new(self._key, canonical_json(result).encode(), hashlib.sha256).hexdigest()
         return result
 
     def verify(self, receipt: Mapping[str, Any]) -> bool:

@@ -34,7 +34,8 @@ def visual_capabilities(tui: InteractiveOperatorTui) -> TerminalVisualCapabiliti
     term = dict(os.environ)
     return TerminalVisualCapabilities(
         ansi=True,
-        sixel="sixel" in str(term.get("TERM", "")).lower() or str(term.get("ANANTA_TUI_FORCE_SIXEL", "")).strip() == "1",
+        sixel="sixel" in str(term.get("TERM", "")).lower()
+        or str(term.get("ANANTA_TUI_FORCE_SIXEL", "")).strip() == "1",
         kitty_graphics=bool(str(term.get("KITTY_WINDOW_ID") or "").strip())
         or str(term.get("TERM", "")).lower() == "xterm-kitty",
         opengl_offscreen=str(term.get("ANANTA_TUI_VISUAL_OPENGL", "0")).strip().lower() in {"1", "true", "yes", "on"},
@@ -55,11 +56,16 @@ def load_visual_viewport_config(tui: InteractiveOperatorTui) -> VisualViewportCo
     else:
         tui._visual_config_error = ""
     env_enabled = str(os.environ.get("ANANTA_TUI_VISUAL_VIEWPORT_ENABLED", "0")).strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
     mapping: dict[str, Any] = {
         **file_mapping,
-        "enabled": env_enabled if "ANANTA_TUI_VISUAL_VIEWPORT_ENABLED" in os.environ else bool(file_mapping.get("enabled", False)),
+        "enabled": env_enabled
+        if "ANANTA_TUI_VISUAL_VIEWPORT_ENABLED" in os.environ
+        else bool(file_mapping.get("enabled", False)),
         "default_view": str(
             os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_VIEW", file_mapping.get("default_view", "renderer_diagnostics"))
         ).strip(),
@@ -83,6 +89,7 @@ def load_visual_viewport_config(tui: InteractiveOperatorTui) -> VisualViewportCo
 def build_visual_runtime(tui: InteractiveOperatorTui) -> VisualRuntime:
     def _build_opengl_renderer():
         from client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer import OpenGlOffscreenRenderer
+
         return OpenGlOffscreenRenderer()
 
     views = ViewRegistry()
@@ -196,7 +203,11 @@ def sync_visual_viewport_state(tui: InteractiveOperatorTui, *, width: int, heigh
             scroll_offset_for_view = sc.offset
             active_view_id = str(game.get("visual_viewport_active_view") or "")
             if active_view_id == "markdown_mermaid_document":
-                view_instance = runtime.get_view_instance("markdown_mermaid_document") if hasattr(runtime, "get_view_instance") else None
+                view_instance = (
+                    runtime.get_view_instance("markdown_mermaid_document")
+                    if hasattr(runtime, "get_view_instance")
+                    else None
+                )
                 if view_instance is not None and hasattr(view_instance, "apply_scroll_offset"):
                     view_instance.apply_scroll_offset(scroll_offset_for_view)
     except Exception:
@@ -228,9 +239,7 @@ def sync_visual_viewport_state(tui: InteractiveOperatorTui, *, width: int, heigh
         "h_scroll_offset": int(game.get("center_h_scroll_offset") or 0),
         "theme_version": "default",
     }
-    previous_frame_lines = [
-        str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)
-    ]
+    previous_frame_lines = [str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)]
     force_render = force_render or bool(game.pop("visual_viewport_force_render", False)) or not previous_frame_lines
     frame = runtime.render_frame(region=region, now=time.monotonic(), state=state_map, force=force_render)
     frame_lines: list[str] = list(previous_frame_lines)
@@ -260,7 +269,9 @@ def sync_visual_viewport_state(tui: InteractiveOperatorTui, *, width: int, heigh
                 sc = sm.get("center_viewport")
                 if sc is not None:
                     sc.update_dimensions(
-                        content_height=max(1, int(game["visual_viewport_scene_meta"].get("content_lines") or body_height)),
+                        content_height=max(
+                            1, int(game["visual_viewport_scene_meta"].get("content_lines") or body_height)
+                        ),
                         viewport_height=max(1, body_height),
                     )
             except Exception:
@@ -289,4 +300,5 @@ def sync_visual_viewport_state(tui: InteractiveOperatorTui, *, width: int, heigh
     new_state = tui.state.with_updates(header_logo_game=game)
     scroll_now = int(game.get("scroll_offset_center_viewport") or 0)
     from client_surfaces.operator_tui.tab_manager import save_scroll_to_active_tab
+
     tui.state = save_scroll_to_active_tab(new_state, scroll_now)

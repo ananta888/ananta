@@ -20,12 +20,17 @@ hint = svc.generate_and_store(
 # Invalidate when files change
 svc.on_files_changed(["agent/services/foo.py"])
 """
+
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Any
 
+from agent.services.referenced_context_hint_generators import (
+    DeterministicHintGenerator,
+    ManualHintImporter,
+    RestrictedInferenceHintGenerator,
+)
 from agent.services.referenced_context_hint_schema import (
     KIND_FILE_SUMMARY,
     KIND_SYMBOL_HINT,
@@ -39,13 +44,6 @@ from agent.services.referenced_context_hint_schema import (
 from agent.services.referenced_context_hint_store import (
     ReferencedContextHintStore,
     get_referenced_context_hint_store,
-)
-from agent.services.referenced_context_hint_generators import (
-    DeterministicHintGenerator,
-    HybridHintGenerator,
-    LlmHintGenerator,
-    ManualHintImporter,
-    RestrictedInferenceHintGenerator,
 )
 
 
@@ -159,9 +157,7 @@ class ReferencedContextHintService:
                 errors.append(f"{h.id}: {exc}")
         return hints, errors
 
-    def on_files_changed(
-        self, changed_paths: list[str], *, current_manifest_hash: str = ""
-    ) -> list[str]:
+    def on_files_changed(self, changed_paths: list[str], *, current_manifest_hash: str = "") -> list[str]:
         """Invalidate stale hints for changed paths. Returns affected hint IDs.
 
         Accepts both absolute and workspace-relative paths and normalises them
@@ -179,9 +175,7 @@ class ReferencedContextHintService:
                     pass
             else:
                 normalised.append(str(self._root / p))
-        return self._store.invalidate_stale_for_paths(
-            list(dict.fromkeys(normalised)), current_manifest_hash=mh
-        )
+        return self._store.invalidate_stale_for_paths(list(dict.fromkeys(normalised)), current_manifest_hash=mh)
 
     def get_hints(
         self,
@@ -278,8 +272,7 @@ class ReferencedContextHintService:
         if not hint.source_refs:
             return hint.staleness_status
         primary = hint.source_refs[0]
-        abs_path = (self._root / primary.path if not Path(primary.path).is_absolute()
-                    else Path(primary.path))
+        abs_path = self._root / primary.path if not Path(primary.path).is_absolute() else Path(primary.path)
         if not abs_path.exists():
             # Can only confirm file gone when workspace root is a real project root
             # (not ".") and we previously had a hash for this file.

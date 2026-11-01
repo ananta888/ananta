@@ -71,9 +71,7 @@ class TemporalHubClientSecurity:
             )
         for path in (*referenced_tls_files, self.api_key_file):
             if path and not Path(path).is_absolute():
-                raise TemporalHubClientConfigurationError(
-                    "Temporal credential references must be absolute paths"
-                )
+                raise TemporalHubClientConfigurationError("Temporal credential references must be absolute paths")
 
     def client_kwargs(self) -> dict[str, Any]:
         """Return kwargs accepted by ``temporalio.client.Client.connect``."""
@@ -100,9 +98,7 @@ def _checked_regular_file(path_text: str, *, maximum_bytes: int) -> Path:
     try:
         metadata = path.stat()
     except OSError as exc:
-        raise TemporalHubClientConfigurationError(
-            "Temporal credential file cannot be inspected"
-        ) from exc
+        raise TemporalHubClientConfigurationError("Temporal credential file cannot be inspected") from exc
     if not stat.S_ISREG(metadata.st_mode) or metadata.st_size <= 0 or metadata.st_size > maximum_bytes:
         raise TemporalHubClientConfigurationError("Temporal credential file is invalid")
     if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):

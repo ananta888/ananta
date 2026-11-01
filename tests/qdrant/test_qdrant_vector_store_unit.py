@@ -96,13 +96,16 @@ def test_empty_collection_returns_empty_result_without_mutation() -> None:
 
 def test_rebuild_searches_with_server_filter_and_maps_score() -> None:
     client, store = _store()
-    assert store.rebuild(
-        [
-            _point("best", (1.0, 0.0, 0.0)),
-            _point("other", (0.0, 1.0, 0.0), kind="class"),
-        ],
-        compatibility=_compatibility(),
-    ).status == "ok"
+    assert (
+        store.rebuild(
+            [
+                _point("best", (1.0, 0.0, 0.0)),
+                _point("other", (0.0, 1.0, 0.0), kind="class"),
+            ],
+            compatibility=_compatibility(),
+        ).status
+        == "ok"
+    )
 
     result = store.search_by_vector(
         VectorSearchQuery(
@@ -126,10 +129,13 @@ def test_search_maps_client_failures_without_mutating_the_index(
     reason: str,
 ) -> None:
     client, store = _store()
-    assert store.rebuild(
-        [_point("one", (1.0, 0.0, 0.0))],
-        compatibility=_compatibility(),
-    ).status == "ok"
+    assert (
+        store.rebuild(
+            [_point("one", (1.0, 0.0, 0.0))],
+            compatibility=_compatibility(),
+        ).status
+        == "ok"
+    )
     mutation_operations = (
         "create_collection",
         "delete_collection",
@@ -138,10 +144,7 @@ def test_search_maps_client_failures_without_mutating_the_index(
         "delete_by_filter",
         "swap_alias",
     )
-    mutations_before = {
-        operation: client.calls[operation]
-        for operation in mutation_operations
-    }
+    mutations_before = {operation: client.calls[operation] for operation in mutation_operations}
     query_calls_before = client.calls["query_points"]
     client.fail_next("query_points", reason)
 
@@ -158,10 +161,7 @@ def test_search_maps_client_failures_without_mutating_the_index(
     assert result.reason == reason
     assert result.diagnostics == {"status": "degraded", "reason": reason}
     assert client.calls["query_points"] == query_calls_before + 1
-    assert {
-        operation: client.calls[operation]
-        for operation in mutation_operations
-    } == mutations_before
+    assert {operation: client.calls[operation] for operation in mutation_operations} == mutations_before
 
 
 def test_upsert_skips_unchanged_source_hash_and_is_idempotent() -> None:
@@ -238,10 +238,7 @@ def test_upsert_honors_inclusive_batch_boundaries(
         compatibility=_compatibility(),
     )
     upsert_calls = client.calls["upsert"]
-    points = [
-        _point(f"new-{index}", (1.0, 0.0, 0.0))
-        for index in range(3)
-    ]
+    points = [_point(f"new-{index}", (1.0, 0.0, 0.0)) for index in range(3)]
 
     result = store.upsert(points, batch_size=batch_size)
 
@@ -253,10 +250,7 @@ def test_upsert_honors_inclusive_batch_boundaries(
 
 def test_planned_rebuild_uses_the_requested_qdrant_batch_size() -> None:
     client, store = _store()
-    points = [
-        _point(f"record-{index}", (1.0, 0.0, 0.0))
-        for index in range(3)
-    ]
+    points = [_point(f"record-{index}", (1.0, 0.0, 0.0)) for index in range(3)]
 
     result = store.rebuild_with_plan(
         points,
@@ -271,15 +265,9 @@ def test_planned_rebuild_uses_the_requested_qdrant_batch_size() -> None:
 
 def test_planned_refresh_uses_the_requested_qdrant_batch_size() -> None:
     client, store = _store()
-    points = [
-        _point(f"record-{index}", (1.0, 0.0, 0.0))
-        for index in range(3)
-    ]
+    points = [_point(f"record-{index}", (1.0, 0.0, 0.0)) for index in range(3)]
     store.rebuild(points, compatibility=_compatibility())
-    changed = [
-        replace(point, source_hash=f"changed-{point.record_id}")
-        for point in points
-    ]
+    changed = [replace(point, source_hash=f"changed-{point.record_id}") for point in points]
     upsert_calls = client.calls["upsert"]
 
     result = store.refresh_with_plan(
@@ -313,10 +301,7 @@ def test_multi_batch_partial_failure_reports_all_bounded_counts() -> None:
         [_point("seed", (1.0, 0.0, 0.0))],
         compatibility=_compatibility(),
     )
-    points = [
-        _point(f"new-{index}", (1.0, 0.0, 0.0))
-        for index in range(129)
-    ]
+    points = [_point(f"new-{index}", (1.0, 0.0, 0.0)) for index in range(129)]
     client.fail_on_nth_next("upsert", 2, "qdrant_timeout")
 
     result = store.upsert(points, batch_size=128)
@@ -328,9 +313,7 @@ def test_multi_batch_partial_failure_reports_all_bounded_counts() -> None:
     assert result.skipped == 0
     assert result.failed == 1
     assert result.diagnostics["errors"] == ("qdrant_timeout",)
-    assert result.diagnostics["failure_batches"] == (
-        {"batch_index": 1, "reason_code": "qdrant_timeout"},
-    )
+    assert result.diagnostics["failure_batches"] == ({"batch_index": 1, "reason_code": "qdrant_timeout"},)
     assert result.diagnostics["total_failure_batches"] == 1
     assert result.diagnostics["failure_batches_truncated"] is False
 
@@ -341,10 +324,7 @@ def test_multi_batch_failures_have_bounded_batch_diagnostics() -> None:
         [_point("seed", (1.0, 0.0, 0.0))],
         compatibility=_compatibility(),
     )
-    points = [
-        _point(f"new-{index}", (1.0, 0.0, 0.0))
-        for index in range(34)
-    ]
+    points = [_point(f"new-{index}", (1.0, 0.0, 0.0)) for index in range(34)]
     for _ in points:
         client.fail_next("upsert", "qdrant_timeout")
 
@@ -376,11 +356,7 @@ def test_mismatched_supplied_point_id_fails_before_network_writes(
         point_id="00000000-0000-0000-0000-000000000000",
     )
 
-    result = (
-        store.upsert([point])
-        if operation == "upsert"
-        else store.rebuild([point], compatibility=_compatibility())
-    )
+    result = store.upsert([point]) if operation == "upsert" else store.rebuild([point], compatibility=_compatibility())
 
     assert result.status == "failed"
     assert result.reason == "vector_point_id_mismatch"
@@ -462,10 +438,13 @@ def test_rebuild_failure_injection_never_mutates_or_deletes_active_collection(
 def test_cleanup_failure_after_alias_swap_does_not_turn_committed_rebuild_into_failure() -> None:
     client, store = _store(retention_collections=1)
     for record_id in ("one", "two"):
-        assert store.rebuild(
-            [_point(record_id, (1.0, 0.0, 0.0))],
-            compatibility=_compatibility(),
-        ).status == "ok"
+        assert (
+            store.rebuild(
+                [_point(record_id, (1.0, 0.0, 0.0))],
+                compatibility=_compatibility(),
+            ).status
+            == "ok"
+        )
     previous = store.collection_manager.active_collection(_scope())
     client.fail_next("delete_collection", "qdrant_unavailable")
 
@@ -496,10 +475,13 @@ class _BlockingSwapClient(FakeQdrantClient):
 def test_concurrent_reader_sees_only_complete_old_or_new_collection() -> None:
     client = _BlockingSwapClient()
     _, store = _store(client=client)
-    assert store.rebuild(
-        [_point("old", (1.0, 0.0, 0.0))],
-        compatibility=_compatibility(),
-    ).status == "ok"
+    assert (
+        store.rebuild(
+            [_point("old", (1.0, 0.0, 0.0))],
+            compatibility=_compatibility(),
+        ).status
+        == "ok"
+    )
     client.block_swap = True
     results = []
     writer = threading.Thread(
@@ -513,14 +495,10 @@ def test_concurrent_reader_sees_only_complete_old_or_new_collection() -> None:
     writer.start()
     assert client.swap_started.wait(timeout=5)
 
-    during = store.search_by_vector(
-        VectorSearchQuery((1.0, 0.0, 0.0), 10, _scope())
-    )
+    during = store.search_by_vector(VectorSearchQuery((1.0, 0.0, 0.0), 10, _scope()))
     client.allow_swap.set()
     writer.join(timeout=5)
-    after = store.search_by_vector(
-        VectorSearchQuery((1.0, 0.0, 0.0), 10, _scope())
-    )
+    after = store.search_by_vector(VectorSearchQuery((1.0, 0.0, 0.0), 10, _scope()))
 
     assert not writer.is_alive()
     assert [hit.record_id for hit in during.hits] == ["old"]
@@ -543,10 +521,13 @@ def test_delete_is_scope_checked_and_rename_is_upsert_then_delete() -> None:
 
 def test_delete_reports_scope_partial_counts_and_repetition_is_idempotent() -> None:
     client, store = _store()
-    assert store.rebuild(
-        [_point("safe", (1.0, 0.0, 0.0))],
-        compatibility=_compatibility(),
-    ).status == "ok"
+    assert (
+        store.rebuild(
+            [_point("safe", (1.0, 0.0, 0.0))],
+            compatibility=_compatibility(),
+        ).status
+        == "ok"
+    )
     active = store.collection_manager.active_collection(_scope())
     assert active is not None
     foreign_id = deterministic_point_id(_scope(), "foreign")
@@ -576,13 +557,16 @@ def test_delete_reports_scope_partial_counts_and_repetition_is_idempotent() -> N
 
 def test_delete_can_retry_transient_failure_and_remains_idempotent() -> None:
     client, store = _store()
-    assert store.rebuild(
-        [
-            _point("one", (1.0, 0.0, 0.0)),
-            _point("two", (0.0, 1.0, 0.0)),
-        ],
-        compatibility=_compatibility(),
-    ).status == "ok"
+    assert (
+        store.rebuild(
+            [
+                _point("one", (1.0, 0.0, 0.0)),
+                _point("two", (0.0, 1.0, 0.0)),
+            ],
+            compatibility=_compatibility(),
+        ).status
+        == "ok"
+    )
     client.fail_next("delete_points", "qdrant_timeout")
 
     failed = store.delete(["one", "two"], scope=_scope())
@@ -653,9 +637,7 @@ def test_search_after_restart_requires_independent_compatibility() -> None:
         collection_manager=store.collection_manager,
     )
 
-    missing = restarted.search_by_vector(
-        VectorSearchQuery((1.0, 0.0, 0.0), 10, _scope())
-    )
+    missing = restarted.search_by_vector(VectorSearchQuery((1.0, 0.0, 0.0), 10, _scope()))
     verified = restarted.search_by_vector(
         VectorSearchQuery(
             (1.0, 0.0, 0.0),
@@ -677,9 +659,7 @@ def test_search_rejects_backend_schema_mismatch_without_querying_points() -> Non
         compatibility=_compatibility(),
     )
     collection = store.collection_manager.active_collection(_scope())
-    manifest = client.collections[collection]["points"][
-        manifest_point_id(collection)
-    ]
+    manifest = client.collections[collection]["points"][manifest_point_id(collection)]
     manifest.payload["backend_schema_version"] = "qdrant_vector_store.v2"
     calls_before = client.calls["query_points"]
 
@@ -694,12 +674,8 @@ def test_search_rejects_backend_schema_mismatch_without_querying_points() -> Non
 
     assert result.reason == "migration_required"
     assert result.hits == ()
-    assert result.diagnostics["compatibility"]["expected"][
-        "backend_schema_version"
-    ] == "qdrant_vector_store.v1"
-    assert result.diagnostics["compatibility"]["found"][
-        "backend_schema_version"
-    ] == "qdrant_vector_store.v2"
+    assert result.diagnostics["compatibility"]["expected"]["backend_schema_version"] == "qdrant_vector_store.v1"
+    assert result.diagnostics["compatibility"]["found"]["backend_schema_version"] == "qdrant_vector_store.v2"
     assert client.calls["query_points"] == calls_before
 
 
@@ -789,9 +765,7 @@ def test_embedding_text_is_stored_only_after_explicit_opt_in() -> None:
         )
 
     assert "embedding_text" not in record_payload(default_client, default_store)
-    assert record_payload(opted_client, opted_store)["embedding_text"] == (
-        "sensitive source text"
-    )
+    assert record_payload(opted_client, opted_store)["embedding_text"] == ("sensitive source text")
 
 
 def test_search_returns_embedding_text_only_for_the_active_explicit_opt_in() -> None:
@@ -870,9 +844,7 @@ def test_store_emits_observations_and_observer_failure_is_non_fatal() -> None:
         [_point("one", (1.0, 0.0, 0.0))],
         compatibility=_compatibility(),
     )
-    searched = observed_store.search_by_vector(
-        VectorSearchQuery((1.0, 0.0, 0.0), 7, _scope())
-    )
+    searched = observed_store.search_by_vector(VectorSearchQuery((1.0, 0.0, 0.0), 7, _scope()))
     _, resilient_store = _store(observer=_FailingObserver())
     resilient = resilient_store.rebuild(
         [_point("two", (1.0, 0.0, 0.0))],
@@ -882,12 +854,8 @@ def test_store_emits_observations_and_observer_failure_is_non_fatal() -> None:
     assert result.status == "ok"
     assert result.accepted == 1
     assert resilient.status == "ok"
-    rebuild_event = next(
-        event for event in observer.events if event.operation == "rebuild"
-    )
-    search_event = next(
-        event for event in observer.events if event.operation == "search"
-    )
+    rebuild_event = next(event for event in observer.events if event.operation == "rebuild")
+    search_event = next(event for event in observer.events if event.operation == "search")
     assert rebuild_event.counts["accepted"] == 1
     assert rebuild_event.counts["upserted"] == 1
     assert search_event.counts == {"top_k": 7, "hits": len(searched.hits)}
@@ -1003,9 +971,7 @@ def test_security_and_schema_probe_states_always_fail_closed(
         VectorStoreFailClosedError,
         match=f"^{expected_reason}$",
     ) as captured:
-        port.search_by_vector(
-            VectorSearchQuery((1.0,), 1, _scope())
-        )
+        port.search_by_vector(VectorSearchQuery((1.0,), 1, _scope()))
 
     assert captured.value.reason == expected_reason
     assert captured.value.details == {
@@ -1054,9 +1020,7 @@ def test_security_and_schema_primary_results_cannot_select_json_fallback(
         VectorStoreFailClosedError,
         match=f"^{reason}$",
     ):
-        port.search_by_vector(
-            VectorSearchQuery((1.0,), 1, _scope())
-        )
+        port.search_by_vector(VectorSearchQuery((1.0,), 1, _scope()))
 
 
 def test_explicit_json_fallback_requires_compatible_state_and_is_trace_visible() -> None:
@@ -1096,9 +1060,7 @@ def test_explicit_json_fallback_requires_compatible_state_and_is_trace_visible()
 
 
 def test_incompatible_json_fallback_fails_closed() -> None:
-    primary = _StaticSearch(
-        VectorSearchResult((), {}, "qdrant", "qdrant", False, "qdrant_unavailable")
-    )
+    primary = _StaticSearch(VectorSearchResult((), {}, "qdrant", "qdrant", False, "qdrant_unavailable"))
     port = FallbackVectorSearch(
         primary=primary,
         fallback=primary,
@@ -1133,9 +1095,7 @@ def test_json_fallback_rejects_non_cosine_state_instead_of_misranking(
         primary=primary,
         fallback=fallback,
         policy=AvailabilityPolicy("explicit_json_fallback", "json"),
-        fallback_compatibility=lambda query: (
-            fallback.compatibility_reason(query.compatibility) == "unchanged"
-        ),
+        fallback_compatibility=lambda query: fallback.compatibility_reason(query.compatibility) == "unchanged",
     )
 
     result = port.search_by_vector(
@@ -1147,8 +1107,6 @@ def test_json_fallback_rejects_non_cosine_state_instead_of_misranking(
         )
     )
 
-    assert fallback.compatibility_reason(compatibility) == (
-        "fallback_state_incompatible"
-    )
+    assert fallback.compatibility_reason(compatibility) == ("fallback_state_incompatible")
     assert result.reason == "fallback_state_incompatible"
     assert result.hits == ()

@@ -60,9 +60,7 @@ def _session() -> JmapSessionDocument:
 
 
 def test_client_correlates_responses_by_call_id_not_position() -> None:
-    adapter = _Adapter(
-        b'{"methodResponses":[["Email/get",{"list":[]},"b"],["Mailbox/get",{"list":[]},"a"]]}'
-    )
+    adapter = _Adapter(b'{"methodResponses":[["Email/get",{"list":[]},"b"],["Mailbox/get",{"list":[]},"a"]]}')
     policy = JmapEndpointPolicy(
         config=JmapEndpointPolicyConfig(external_network_enabled=True),
         resolver=lambda _host, _port: ("93.184.216.34",),
@@ -117,9 +115,7 @@ def test_method_rate_limit_retries_reads_but_never_mutations() -> None:
     assert read.ok is True
     assert read_adapter.calls == 2
 
-    mutation_adapter = _BodiesAdapter(
-        [b'{"methodResponses":[["error",{"type":"rateLimit"},"m"]]}']
-    )
+    mutation_adapter = _BodiesAdapter([b'{"methodResponses":[["error",{"type":"rateLimit"},"m"]]}'])
     mutation_client = JmapClient(
         session=_session(),
         transport=JmapHttpTransport(endpoint_policy=policy, adapter=mutation_adapter),

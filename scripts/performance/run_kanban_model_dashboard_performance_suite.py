@@ -86,30 +86,13 @@ except ModuleNotFoundError:
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE_SCHEMA = "ananta.kanban-model-dashboard.performance-baseline.v1"
 GATE_SCHEMA = "ananta.kanban-model-dashboard.performance-gate.v1"
-DEFAULT_PROFILE = (
-    ROOT
-    / "config"
-    / "test-profiles"
-    / "kanban-model-dashboard"
-    / "formal-performance.v1.json"
-)
+DEFAULT_PROFILE = ROOT / "config" / "test-profiles" / "kanban-model-dashboard" / "formal-performance.v1.json"
 DEFAULT_BACKEND = ROOT / "artifacts" / "kanban-local-performance-diagnostic.json"
 DEFAULT_ANGULAR = ROOT / "artifacts" / "angular-kanban-local-performance-diagnostic.json"
 DEFAULT_TUI = ROOT / "artifacts" / "tui-kanban-local-performance-diagnostic.json"
 DEFAULT_PTY = ROOT / "artifacts" / "tui-kanban-pty-resize-local-diagnostic.json"
-DEFAULT_CANDIDATE = (
-    ROOT
-    / "artifacts"
-    / "test-gates"
-    / "kanban-model-dashboard-performance-baseline-candidate.v1.json"
-)
-DEFAULT_GATE = (
-    ROOT
-    / "artifacts"
-    / "test-gates"
-    / "kanban-model-dashboard-performance-gate.v1.json"
-)
-
+DEFAULT_CANDIDATE = ROOT / "artifacts" / "test-gates" / "kanban-model-dashboard-performance-baseline-candidate.v1.json"
+DEFAULT_GATE = ROOT / "artifacts" / "test-gates" / "kanban-model-dashboard-performance-gate.v1.json"
 
 
 def evaluate_absolute(
@@ -236,12 +219,9 @@ def evaluate_baseline(
         baseline.get("environment"),
         "baseline_environment",
     )
-    environment_compatible = (
-        baseline_environment.get("compatibility_sha256")
-        == environment.get("compatibility_sha256")
-        and baseline_environment.get("compatibility")
-        == environment.get("compatibility")
-    )
+    environment_compatible = baseline_environment.get("compatibility_sha256") == environment.get(
+        "compatibility_sha256"
+    ) and baseline_environment.get("compatibility") == environment.get("compatibility")
     approval_status = str(baseline.get("approval_status") or "")
     approval_valid = bool(
         approval_status == "approved"
@@ -324,15 +304,9 @@ def build_gate_report(
         approval_policy_sha256=approval_policy_sha256,
     )
     blockers: list[dict[str, Any]] = []
-    failed_budgets = [
-        metric
-        for metric, check in absolute["checks"].items()
-        if not check["passed"]
-    ]
+    failed_budgets = [metric for metric, check in absolute["checks"].items() if not check["passed"]]
     if failed_budgets:
-        blockers.append(
-            {"code": "absolute_budget_exceeded", "metrics": failed_budgets}
-        )
+        blockers.append({"code": "absolute_budget_exceeded", "metrics": failed_budgets})
     if not baseline_evaluation["profile_compatible"]:
         blockers.append({"code": "baseline_profile_mismatch"})
     if not baseline_evaluation["environment_compatible"]:
@@ -343,11 +317,7 @@ def build_gate_report(
     elif not baseline_evaluation["approval_valid"]:
         blockers.append({"code": "baseline_approval_invalid"})
     if not baseline_evaluation["within_regression_limit"]:
-        failed_regressions = [
-            metric
-            for metric, check in baseline_evaluation["checks"].items()
-            if not check["passed"]
-        ]
+        failed_regressions = [metric for metric, check in baseline_evaluation["checks"].items() if not check["passed"]]
         blockers.append(
             {
                 "code": "baseline_regression_exceeded",
@@ -355,10 +325,7 @@ def build_gate_report(
             }
         )
     passed = not blockers
-    approval_only = (
-        len(blockers) == 1
-        and blockers[0]["code"] == "baseline_approval_required"
-    )
+    approval_only = len(blockers) == 1 and blockers[0]["code"] == "baseline_approval_required"
     return {
         "schema": GATE_SCHEMA,
         "suite_id": "kanban-model-dashboard.performance.v1",
@@ -366,11 +333,7 @@ def build_gate_report(
         "status": "passed" if passed else "blocked" if approval_only else "failed",
         "release_evidence": passed,
         "formal_gate_eligible": passed,
-        "evidence_classification": (
-            "formal_release_evidence"
-            if passed
-            else "formal_gate_result_not_release_evidence"
-        ),
+        "evidence_classification": ("formal_release_evidence" if passed else "formal_gate_result_not_release_evidence"),
         "evaluated_at": evaluated_at or datetime.now(timezone.utc).isoformat(),
         "profile": {
             "id": profile["profile_id"],

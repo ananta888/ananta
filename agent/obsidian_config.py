@@ -1,4 +1,5 @@
 """Obsidian Vault Profile configuration for ANANTA (OBS-001)."""
+
 from __future__ import annotations
 
 from typing import Optional

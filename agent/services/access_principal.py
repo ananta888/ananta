@@ -58,10 +58,11 @@ def identity_claims(context: Mapping[str, Any]) -> IdentityClaims:
     username = str(context.get("sub") or context.get("username") or "").strip()
     return IdentityClaims(
         username="" if username == "agent_token" else username,
-        groups=frozenset(groups), realm_roles=frozenset(realm_roles), client_roles=frozenset(client_roles),
+        groups=frozenset(groups),
+        realm_roles=frozenset(realm_roles),
+        client_roles=frozenset(client_roles),
         tenant_id=str(context.get("tenant_id") or context.get("tenant") or context.get("tid") or "").strip() or None,
-        project_id=str(context.get("project_id") or context.get("project") or context.get("pid") or "").strip()
-        or None,
+        project_id=str(context.get("project_id") or context.get("project") or context.get("pid") or "").strip() or None,
     )
 
 
@@ -82,39 +83,71 @@ class AccessPrincipal:
         return self.grants.roles
 
     def as_dict(self) -> dict[str, Any]:
-        return {"subject_id": self.subject_id, "tenant_id": self.tenant_id, "project_id": self.project_id,
-                "auth_source": self.auth_source, "is_admin": self.is_admin, "token_roles": sorted(self.token_roles),
-                "access_roles": sorted(self.roles), "groups": sorted(self.claims.groups),
-                "realm_roles": sorted(self.claims.realm_roles), "client_roles": sorted(self.claims.client_roles),
-                "grants": {"admin": self.grants.admin, "allow_groups": sorted(self.grants.allow_groups),
-                           "allow_operations": sorted(self.grants.allow_operations),
-                           "deny_groups": sorted(self.grants.deny_groups),
-                           "deny_operations": sorted(self.grants.deny_operations),
-                           "constraints": {key: (sorted(value) if value is not None else None)
-                                           for key, value in self.grants.constraints.items()}}}
+        return {
+            "subject_id": self.subject_id,
+            "tenant_id": self.tenant_id,
+            "project_id": self.project_id,
+            "auth_source": self.auth_source,
+            "is_admin": self.is_admin,
+            "token_roles": sorted(self.token_roles),
+            "access_roles": sorted(self.roles),
+            "groups": sorted(self.claims.groups),
+            "realm_roles": sorted(self.claims.realm_roles),
+            "client_roles": sorted(self.claims.client_roles),
+            "grants": {
+                "admin": self.grants.admin,
+                "allow_groups": sorted(self.grants.allow_groups),
+                "allow_operations": sorted(self.grants.allow_operations),
+                "deny_groups": sorted(self.grants.deny_groups),
+                "deny_operations": sorted(self.grants.deny_operations),
+                "constraints": {
+                    key: (sorted(value) if value is not None else None)
+                    for key, value in self.grants.constraints.items()
+                },
+            },
+        }
 
 
 def with_memberships(claims: IdentityClaims, memberships: Mapping[str, Any] | None) -> IdentityClaims:
     """``claims`` plus stored Keycloak memberships (groups, realm roles, client roles)."""
     memberships = memberships or {}
     return IdentityClaims(
-        username=claims.username, tenant_id=claims.tenant_id, project_id=claims.project_id,
+        username=claims.username,
+        tenant_id=claims.tenant_id,
+        project_id=claims.project_id,
         groups=claims.groups | frozenset(_strings(memberships.get("groups"))),
         realm_roles=claims.realm_roles | frozenset(_strings(memberships.get("realm_roles"))),
         client_roles=claims.client_roles | frozenset(_strings(memberships.get("client_roles"))),
     )
 
 
-def build_access_principal(context: Mapping[str, Any], *, is_admin: bool, auth_source: str,
-                           grants_for: Callable[[IdentityClaims], EffectiveGrants] | None = None,
-                           memberships_for: Callable[[str], Mapping[str, Any]] | None = None) -> AccessPrincipal:
+def build_access_principal(
+    context: Mapping[str, Any],
+    *,
+    is_admin: bool,
+    auth_source: str,
+    grants_for: Callable[[IdentityClaims], EffectiveGrants] | None = None,
+    memberships_for: Callable[[str], Mapping[str, Any]] | None = None,
+) -> AccessPrincipal:
     roles = token_roles(context, is_admin=is_admin)
     claims = identity_claims(context)
     if memberships_for is not None and claims.username:
         claims = with_memberships(claims, memberships_for(claims.username))
-    subject_id = str(context.get("sub") or context.get("subject_id") or context.get("user_id")
-                     or context.get("username") or ("hub_admin" if "admin" in roles else "")).strip()
+    subject_id = str(
+        context.get("sub")
+        or context.get("subject_id")
+        or context.get("user_id")
+        or context.get("username")
+        or ("hub_admin" if "admin" in roles else "")
+    ).strip()
     grants = grants_for(claims) if grants_for is not None else EffectiveGrants()
-    return AccessPrincipal(subject_id=subject_id, tenant_id=claims.tenant_id, project_id=claims.project_id,
-                           auth_source=auth_source, is_admin=is_admin, token_roles=roles, claims=claims,
-                           grants=grants)
+    return AccessPrincipal(
+        subject_id=subject_id,
+        tenant_id=claims.tenant_id,
+        project_id=claims.project_id,
+        auth_source=auth_source,
+        is_admin=is_admin,
+        token_roles=roles,
+        claims=claims,
+        grants=grants,
+    )

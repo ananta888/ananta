@@ -2,10 +2,18 @@ from __future__ import annotations
 
 from agent.models import TaskStatus
 
-TERMINAL_TASK_STATUSES = frozenset({
-    "completed", "failed", "cancelled", "verification_failed", "skipped",
-    "aborted", "timeout", "archived",
-})
+TERMINAL_TASK_STATUSES = frozenset(
+    {
+        "completed",
+        "failed",
+        "cancelled",
+        "verification_failed",
+        "skipped",
+        "aborted",
+        "timeout",
+        "archived",
+    }
+)
 
 _STATUS_ALIASES = {
     "to-do": TaskStatus.TODO.value,

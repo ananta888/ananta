@@ -19,57 +19,23 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-from ananta_contracts.codecompass_domain_supplement import (
+# Compatibility re-exports: names that were importable from this module
+# before its collaborators were extracted.
+from ananta_contracts.codecompass_domain_supplement import (  # noqa: E402,F401,I001
     DOMAIN_SUPPLEMENT_FILENAME,
     DOMAIN_SUPPLEMENT_MEDIA_TYPE,
     DOMAIN_SUPPLEMENT_PAYLOAD_KINDS,
     DOMAIN_SUPPLEMENT_SCHEMA,
     DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID,
     DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION,
-    codecompass_domain_supplement_decode_metadata,
-)
-from ananta_contracts.codecompass_graph_limits import (
-    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
-)
-from worker.retrieval.codecompass_domain_supplement_config import (
-    DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
-    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
-)
-from worker.retrieval.codecompass_domain_supplement_content_reader import (
-    DomainSupplementLogicalContentReader,
-)
-from worker.retrieval.codecompass_domain_supplement_primitives import (
-    _SOURCE_SCHEMA,
-    _SOURCE_SQLITE_APPLICATION_ID,
-    _SOURCE_SQLITE_USER_VERSION,
-    _SOURCE_TABLE_COLUMNS,
-    _SQLITE_HEADER,
-    _SQLITE_PAGE_BYTES,
-    DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
-    CodeCompassDomainSupplementExecutionDeadlinePort,
-    DomainSupplementContent,
-    SemanticDomainIdentity,
-    _canonical_json_text,
-    _checkpoint,
-    _read_only_uri,
-    _sqlite_deadline_progress,
-    _valid_prefixed_sha256,
-    _valid_sha256,
-    _valid_source_revision_id,
-)
-from worker.retrieval.codecompass_domain_supplement_source_writer import (
-    CodeCompassDomainSupplementSourceWriter,
-)
-
-# Compatibility re-exports: names that were importable from this module
-# before its collaborators were extracted.
-from ananta_contracts.codecompass_domain_supplement import (  # noqa: E402,F401,I001
     codecompass_domain_supplement_canonical_json_bytes,
+    codecompass_domain_supplement_decode_metadata,
     codecompass_domain_supplement_encode_metadata,
     codecompass_domain_supplement_logical_chunk_header,
     codecompass_domain_supplement_logical_domain,
 )
 from ananta_contracts.codecompass_graph_limits import (  # noqa: E402,F401
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_CHUNK_BYTES,
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_DOMAINS,
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_RAW_BYTES,
@@ -78,18 +44,41 @@ from ananta_contracts.codecompass_semantic_partitions import (  # noqa: E402,F40
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
 )
 from worker.retrieval.codecompass_domain_supplement_config import (  # noqa: E402,F401
+    DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
     configured_domain_supplement_source_bytes,
     validate_domain_supplement_source_bytes,
 )
 from worker.retrieval.codecompass_domain_supplement_content_reader import (  # noqa: E402,F401
     DOMAIN_SUPPLEMENT_LOGICAL_HASH_PREFIX,
+    DomainSupplementLogicalContentReader,
 )
 from worker.retrieval.codecompass_domain_supplement_primitives import (  # noqa: E402,F401
     _DOMAIN_KINDS,
+    _SOURCE_SCHEMA,
+    _SOURCE_SQLITE_APPLICATION_ID,
+    _SOURCE_SQLITE_USER_VERSION,
+    _SOURCE_TABLE_COLUMNS,
+    _SQLITE_HEADER,
+    _SQLITE_PAGE_BYTES,
     _SQLITE_PROGRESS_OPCODES,
+    DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
+    CodeCompassDomainSupplementExecutionDeadlinePort,
+    DomainSupplementContent,
+    SemanticDomainIdentity,
     _bounded_decompress,
     _canonical_json_bytes,
+    _canonical_json_text,
+    _checkpoint,
     _prefixed_sha256,
+    _read_only_uri,
+    _sqlite_deadline_progress,
+    _valid_prefixed_sha256,
+    _valid_sha256,
+    _valid_source_revision_id,
+)
+from worker.retrieval.codecompass_domain_supplement_source_writer import (
+    CodeCompassDomainSupplementSourceWriter,
 )
 
 
@@ -105,17 +94,13 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         if maximum_bytes <= 0 or maximum_bytes > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES:
             raise ValueError("codecompass_domain_supplement_limit_invalid")
         self._maximum_bytes = int(maximum_bytes)
-        self._content_reader = (
-            content_reader or DomainSupplementLogicalContentReader()
-        )
+        self._content_reader = content_reader or DomainSupplementLogicalContentReader()
 
     def inspect_source(
         self,
         source_path: str | Path,
         *,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> DomainSupplementContent:
         _checkpoint(execution_deadline)
         path = self._validated_source_path(source_path)
@@ -143,9 +128,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         source_revision_id: str,
         source_revision_digest: str,
         expected_content_hash: str | None = None,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> dict[str, Any]:
         _checkpoint(execution_deadline)
         if not _valid_prefixed_sha256(graph_revision):
@@ -185,19 +168,17 @@ class WorkerCodeCompassDomainSupplementMaterializer:
                         source_connection,
                         execution_deadline=execution_deadline,
                     )
-                if (
-                    expected_content_hash is not None
-                    and content.logical_content_hash != expected_content_hash
-                ):
-                    raise RuntimeError(
-                        "codecompass_domain_supplement_source_content_changed"
-                    )
+                if expected_content_hash is not None and content.logical_content_hash != expected_content_hash:
+                    raise RuntimeError("codecompass_domain_supplement_source_content_changed")
                 target = sqlite3.connect(str(temporary))
                 try:
-                    with _sqlite_deadline_progress(
-                        source_connection,
-                        execution_deadline,
-                    ), _sqlite_deadline_progress(target, execution_deadline):
+                    with (
+                        _sqlite_deadline_progress(
+                            source_connection,
+                            execution_deadline,
+                        ),
+                        _sqlite_deadline_progress(target, execution_deadline),
+                    ):
                         self._initialize_target(
                             target,
                             max_page_count=max(
@@ -225,12 +206,8 @@ class WorkerCodeCompassDomainSupplementMaterializer:
                             "logical_content_hash": content.logical_content_hash,
                         }
                         target.executemany(
-                            "INSERT INTO supplement_meta(key, value) "
-                            "VALUES (?, ?)",
-                            [
-                                (key, _canonical_json_text(value))
-                                for key, value in sorted(metadata.items())
-                            ],
+                            "INSERT INTO supplement_meta(key, value) VALUES (?, ?)",
+                            [(key, _canonical_json_text(value)) for key, value in sorted(metadata.items())],
                         )
                         target.commit()
                         target.execute("VACUUM")
@@ -258,9 +235,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
             }
         except sqlite3.OperationalError as exc:
             if "full" in str(exc).lower():
-                raise RuntimeError(
-                    "codecompass_domain_supplement_too_large"
-                ) from exc
+                raise RuntimeError("codecompass_domain_supplement_too_large") from exc
             raise
         finally:
             if temporary.exists():
@@ -271,9 +246,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         cls,
         path: str | Path,
         *,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> dict[str, Any]:
         return cls._inspect_published_with(
             path,
@@ -287,9 +260,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         path: str | Path,
         *,
         content_reader: DomainSupplementLogicalContentReader,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ),
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None),
     ) -> dict[str, Any]:
         _checkpoint(execution_deadline)
         candidate = Path(path)
@@ -301,76 +272,45 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         with candidate.open("rb") as handle:
             if handle.read(len(_SQLITE_HEADER)) != _SQLITE_HEADER:
                 raise ValueError("codecompass_domain_supplement_format_invalid")
-        with closing(
-            sqlite3.connect(_read_only_uri(candidate.resolve()), uri=True)
-        ) as connection:
+        with closing(sqlite3.connect(_read_only_uri(candidate.resolve()), uri=True)) as connection:
             connection.execute("PRAGMA query_only=ON")
             connection.execute("PRAGMA trusted_schema=OFF")
             with _sqlite_deadline_progress(connection, execution_deadline):
-                if (
-                    connection.execute("PRAGMA user_version").fetchone()[0]
-                    != DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION
-                ):
-                    raise ValueError(
-                        "codecompass_domain_supplement_schema_invalid"
-                    )
-                if (
-                    connection.execute("PRAGMA application_id").fetchone()[0]
-                    != DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID
-                ):
-                    raise ValueError(
-                        "codecompass_domain_supplement_schema_invalid"
-                    )
+                if connection.execute("PRAGMA user_version").fetchone()[0] != DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION:
+                    raise ValueError("codecompass_domain_supplement_schema_invalid")
+                if connection.execute("PRAGMA application_id").fetchone()[0] != DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID:
+                    raise ValueError("codecompass_domain_supplement_schema_invalid")
                 cls._validate_published_schema(connection)
                 metadata = cls._metadata(connection)
                 if metadata.get("schema") != DOMAIN_SUPPLEMENT_SCHEMA:
-                    raise ValueError(
-                        "codecompass_domain_supplement_schema_invalid"
-                    )
+                    raise ValueError("codecompass_domain_supplement_schema_invalid")
                 graph_revision = str(metadata.get("graph_revision") or "")
                 if not _valid_prefixed_sha256(graph_revision):
-                    raise ValueError(
-                        "codecompass_domain_supplement_graph_revision_invalid"
-                    )
+                    raise ValueError("codecompass_domain_supplement_graph_revision_invalid")
                 content = content_reader.logical_content(
                     connection,
                     execution_deadline=execution_deadline,
                 )
-                if content.logical_content_hash != metadata.get(
-                    "logical_content_hash"
-                ):
-                    raise ValueError(
-                        "codecompass_domain_supplement_content_hash_mismatch"
-                    )
+                if content.logical_content_hash != metadata.get("logical_content_hash"):
+                    raise ValueError("codecompass_domain_supplement_content_hash_mismatch")
                 expected_counts = {
                     "domain_count": content.domain_count,
                     "semantic_node_count": content.semantic_node_count,
                     "semantic_edge_count": content.semantic_edge_count,
                     "declaration_edge_count": content.declaration_edge_count,
                 }
-                if any(
-                    metadata.get(key) != value
-                    for key, value in expected_counts.items()
-                ):
-                    raise ValueError(
-                        "codecompass_domain_supplement_count_mismatch"
-                    )
+                if any(metadata.get(key) != value for key, value in expected_counts.items()):
+                    raise ValueError("codecompass_domain_supplement_count_mismatch")
                 cls._validate_binding_metadata(metadata)
                 return {
                     "artifact_schema": DOMAIN_SUPPLEMENT_SCHEMA,
                     "graph_revision": graph_revision,
                     "graph_content_hash": content.logical_content_hash,
                     "source_scope": str(metadata.get("source_scope") or ""),
-                    "knowledge_index_id": str(
-                        metadata.get("knowledge_index_id") or ""
-                    ),
+                    "knowledge_index_id": str(metadata.get("knowledge_index_id") or ""),
                     "source_id": str(metadata.get("source_id") or ""),
-                    "source_revision_id": str(
-                        metadata.get("source_revision_id") or ""
-                    ),
-                    "source_revision_digest": str(
-                        metadata.get("source_revision_digest") or ""
-                    ),
+                    "source_revision_id": str(metadata.get("source_revision_id") or ""),
+                    "source_revision_digest": str(metadata.get("source_revision_digest") or ""),
                     **expected_counts,
                 }
 
@@ -385,12 +325,8 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         connection.execute("PRAGMA journal_mode=OFF")
         connection.execute("PRAGMA synchronous=OFF")
         connection.execute("PRAGMA foreign_keys=ON")
-        connection.execute(
-            f"PRAGMA application_id={DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID}"
-        )
-        connection.execute(
-            f"PRAGMA user_version={DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION}"
-        )
+        connection.execute(f"PRAGMA application_id={DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID}")
+        connection.execute(f"PRAGMA user_version={DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION}")
         connection.execute(f"PRAGMA max_page_count={int(max_page_count)}")
         connection.executescript(
             """
@@ -431,8 +367,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         objects = {
             (str(row[0]), str(row[1]))
             for row in connection.execute(
-                "SELECT type, name FROM sqlite_master "
-                "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
+                "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
             )
         }
         expected = {
@@ -468,8 +403,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
             or not str(metadata.get("source_id") or "").strip()
             or not _valid_source_revision_id(metadata.get("source_revision_id"))
             or not _valid_sha256(metadata.get("source_revision_digest"))
-            or str(metadata.get("source_id") or "")
-            != f"bound-source:{metadata.get('source_revision_id')}"
+            or str(metadata.get("source_id") or "") != f"bound-source:{metadata.get('source_revision_id')}"
         ):
             raise ValueError("codecompass_domain_supplement_binding_invalid")
 
@@ -478,9 +412,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         *,
         source: sqlite3.Connection,
         target: sqlite3.Connection,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> None:
         for domain in self._content_reader.domain_rows(
             source,
@@ -527,13 +459,9 @@ class WorkerCodeCompassDomainSupplementMaterializer:
     @staticmethod
     def _metadata(connection: sqlite3.Connection) -> dict[str, Any]:
         metadata: dict[str, Any] = {}
-        for key, raw_value in connection.execute(
-            "SELECT key, value FROM supplement_meta ORDER BY key"
-        ):
+        for key, raw_value in connection.execute("SELECT key, value FROM supplement_meta ORDER BY key"):
             try:
-                metadata[str(key)] = codecompass_domain_supplement_decode_metadata(
-                    raw_value
-                )
+                metadata[str(key)] = codecompass_domain_supplement_decode_metadata(raw_value)
             except (TypeError, ValueError) as exc:
                 raise ValueError("codecompass_domain_supplement_metadata_invalid") from exc
         return metadata
@@ -544,10 +472,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         if candidate.is_symlink() or not candidate.is_file():
             raise ValueError("codecompass_domain_supplement_source_missing")
         size_bytes = candidate.stat().st_size
-        if (
-            size_bytes <= 0
-            or size_bytes > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES
-        ):
+        if size_bytes <= 0 or size_bytes > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES:
             raise ValueError("codecompass_domain_supplement_source_too_large")
         resolved = candidate.resolve(strict=True)
         with resolved.open("rb") as handle:
@@ -560,9 +485,7 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         cls,
         path: Path,
         *,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> sqlite3.Connection:
         connection = sqlite3.connect(_read_only_uri(path), uri=True)
         try:
@@ -570,34 +493,20 @@ class WorkerCodeCompassDomainSupplementMaterializer:
             connection.execute("PRAGMA trusted_schema=OFF")
             with _sqlite_deadline_progress(connection, execution_deadline):
                 if (
-                    connection.execute("PRAGMA application_id").fetchone()[0]
-                    != _SOURCE_SQLITE_APPLICATION_ID
-                    or connection.execute("PRAGMA user_version").fetchone()[0]
-                    != _SOURCE_SQLITE_USER_VERSION
+                    connection.execute("PRAGMA application_id").fetchone()[0] != _SOURCE_SQLITE_APPLICATION_ID
+                    or connection.execute("PRAGMA user_version").fetchone()[0] != _SOURCE_SQLITE_USER_VERSION
                 ):
-                    raise ValueError(
-                        "codecompass_domain_supplement_source_schema_invalid"
-                    )
+                    raise ValueError("codecompass_domain_supplement_source_schema_invalid")
                 cls._validate_source_schema(connection)
-                metadata = connection.execute(
-                    "SELECT key, value FROM source_meta ORDER BY key"
-                ).fetchall()
+                metadata = connection.execute("SELECT key, value FROM source_meta ORDER BY key").fetchall()
                 if metadata != [("schema", _SOURCE_SCHEMA)]:
-                    raise ValueError(
-                        "codecompass_domain_supplement_source_schema_invalid"
-                    )
+                    raise ValueError("codecompass_domain_supplement_source_schema_invalid")
                 quick_check = connection.execute("PRAGMA quick_check").fetchall()
                 if quick_check != [("ok",)]:
-                    raise ValueError(
-                        "codecompass_domain_supplement_source_integrity_invalid"
-                    )
-                incomplete = connection.execute(
-                    "SELECT 1 FROM incomplete_domains LIMIT 1"
-                ).fetchone()
+                    raise ValueError("codecompass_domain_supplement_source_integrity_invalid")
+                incomplete = connection.execute("SELECT 1 FROM incomplete_domains LIMIT 1").fetchone()
                 if incomplete is not None:
-                    raise ValueError(
-                        "codecompass_domain_supplement_source_incomplete"
-                    )
+                    raise ValueError("codecompass_domain_supplement_source_incomplete")
             return connection
         except Exception:
             connection.close()
@@ -608,17 +517,12 @@ class WorkerCodeCompassDomainSupplementMaterializer:
         objects = {
             (str(row[0]), str(row[1]))
             for row in connection.execute(
-                "SELECT type, name FROM sqlite_master "
-                "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
+                "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
             )
         }
-        expected_objects = {
-            ("table", table) for table in _SOURCE_TABLE_COLUMNS
-        }
+        expected_objects = {("table", table) for table in _SOURCE_TABLE_COLUMNS}
         if objects != expected_objects:
-            raise ValueError(
-                "codecompass_domain_supplement_source_schema_invalid"
-            )
+            raise ValueError("codecompass_domain_supplement_source_schema_invalid")
         for table, expected_columns in _SOURCE_TABLE_COLUMNS.items():
             columns = tuple(
                 (
@@ -630,27 +534,20 @@ class WorkerCodeCompassDomainSupplementMaterializer:
                 for row in connection.execute(f"PRAGMA table_info({table})")
             )
             if columns != expected_columns:
-                raise ValueError(
-                    "codecompass_domain_supplement_source_schema_invalid"
-                )
+                raise ValueError("codecompass_domain_supplement_source_schema_invalid")
         for table in (
             "semantic_nodes",
             "semantic_edges",
             "declaration_edges",
             "incomplete_domains",
         ):
-            foreign_keys = connection.execute(
-                f"PRAGMA foreign_key_list({table})"
-            ).fetchall()
+            foreign_keys = connection.execute(f"PRAGMA foreign_key_list({table})").fetchall()
             if len(foreign_keys) != 1 or tuple(foreign_keys[0][2:5]) != (
                 "domains",
                 "domain_key",
                 "domain_key",
             ):
-                raise ValueError(
-                    "codecompass_domain_supplement_source_schema_invalid"
-                )
-
+                raise ValueError("codecompass_domain_supplement_source_schema_invalid")
 
 
 __all__ = [

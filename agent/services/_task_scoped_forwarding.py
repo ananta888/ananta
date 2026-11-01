@@ -172,10 +172,7 @@ def forward_task_request_if_remote(
     endpoint: str,
     payload: dict,
     forwarder: DeadlineAwareWorkerForwarder | Callable[..., Any],
-    on_success: (
-        Callable[[dict, dict], None]
-        | DeadlineAwareForwardResultAcceptor
-    ),
+    on_success: (Callable[[dict, dict], None] | DeadlineAwareForwardResultAcceptor),
     dependencies: TaskScopedForwardingDependencies | None = None,
 ) -> "TaskScopedRouteResponse | None":
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
@@ -223,15 +220,11 @@ def forward_task_request_if_remote(
             message=reason_code,
             code=409,
         )
-    governed_codecompass_v2 = (
-        _requires_governed_codecompass_transport(task)
-    )
+    governed_codecompass_v2 = _requires_governed_codecompass_transport(task)
     worker_url = task.get("assigned_agent_url")
     if not worker_url:
         if governed_codecompass_v2:
-            raise _permanent_codecompass_forwarding_error(
-                "assigned_worker_missing"
-            )
+            raise _permanent_codecompass_forwarding_error("assigned_worker_missing")
         return None
     my_url = settings.agent_url or f"http://localhost:{settings.port}"
     local_role = str(settings.role or "").strip().lower()
@@ -254,54 +247,32 @@ def forward_task_request_if_remote(
             )
         return None
     payload = dict(payload)
-    is_vector_index_task = is_authoritative_vector_index_task(
-        task
-    )
+    is_vector_index_task = is_authoritative_vector_index_task(task)
     if is_vector_index_task:
-        dispatch_phase = (
-            "propose"
-            if endpoint.rstrip("/").endswith("/step/propose")
-            else "execute"
-        )
+        dispatch_phase = "propose" if endpoint.rstrip("/").endswith("/step/propose") else "execute"
         from agent.services.vector_index_task_service import (
             get_vector_index_task_service,
         )
 
-        payload["vector_index_dispatch"] = (
-            get_vector_index_task_service().issue_dispatch_attempt(
-                job_id=tid,
-                worker_audience=str(worker_url),
-                phase=dispatch_phase,
-                actor="hub-worker-forwarder",
-            )
+        payload["vector_index_dispatch"] = get_vector_index_task_service().issue_dispatch_attempt(
+            job_id=tid,
+            worker_audience=str(worker_url),
+            phase=dispatch_phase,
+            actor="hub-worker-forwarder",
         )
     _attach_codecompass_capability(payload, task=task, worker_url=str(worker_url))
     assigned_token = task.get("assigned_agent_token")
     resolved_token = assigned_token
-    dispatch_lease_token = str(
-        payload.get("dispatch_lease_token") or ""
-    ).strip()
-    endpoint_dispatch_phase = (
-        "propose"
-        if endpoint.rstrip("/").endswith("/step/propose")
-        else "execute"
-    )
-    requested_dispatch_phase = str(
-        payload.get("dispatch_lease_phase") or ""
-    ).strip().lower()
-    if (
-        governed_codecompass_v2
-        and requested_dispatch_phase
-        and requested_dispatch_phase != endpoint_dispatch_phase
-    ):
+    dispatch_lease_token = str(payload.get("dispatch_lease_token") or "").strip()
+    endpoint_dispatch_phase = "propose" if endpoint.rstrip("/").endswith("/step/propose") else "execute"
+    requested_dispatch_phase = str(payload.get("dispatch_lease_phase") or "").strip().lower()
+    if governed_codecompass_v2 and requested_dispatch_phase and requested_dispatch_phase != endpoint_dispatch_phase:
         raise _permanent_codecompass_forwarding_error(
             "knowledge_index_dispatch_phase_mismatch",
             worker_url=str(worker_url),
         )
     dispatch_phase = (
-        endpoint_dispatch_phase
-        if governed_codecompass_v2
-        else requested_dispatch_phase or endpoint_dispatch_phase
+        endpoint_dispatch_phase if governed_codecompass_v2 else requested_dispatch_phase or endpoint_dispatch_phase
     )
     from agent.services.recovery_dispatch_gate_service import (
         get_recovery_dispatch_gate_service,
@@ -310,15 +281,8 @@ def forward_task_request_if_remote(
 
     recovery_gate = get_recovery_dispatch_gate_service()
     recovery_child = recovery_gate.is_recovery_child(task)
-    recovery_fenced = bool(
-        dispatch_lease_token
-        or recovery_child
-    )
-    requires_authenticated_forward = bool(
-        recovery_fenced
-        or is_vector_index_task
-        or governed_codecompass_v2
-    )
+    recovery_fenced = bool(dispatch_lease_token or recovery_child)
+    requires_authenticated_forward = bool(recovery_fenced or is_vector_index_task or governed_codecompass_v2)
     if recovery_child and not dispatch_lease_token:
         return TaskScopedRouteResponse(
             data={
@@ -334,12 +298,8 @@ def forward_task_request_if_remote(
     registered_agent = None
     registered_worker_token = ""
     try:
-        registered_agent = deps.hub_state.repositories().agent_repo.get_by_url(
-            worker_url
-        )
-        registered_worker_token = str(
-            getattr(registered_agent, "token", "") or ""
-        ).strip()
+        registered_agent = deps.hub_state.repositories().agent_repo.get_by_url(worker_url)
+        registered_worker_token = str(getattr(registered_agent, "token", "") or "").strip()
         if registered_worker_token:
             resolved_token = registered_worker_token
     except Exception:
@@ -371,18 +331,14 @@ def forward_task_request_if_remote(
             details={
                 "details": "assigned_worker_token_missing",
                 "worker_url": worker_url,
-            }
+            },
         )
-    if (
-        str(task.get("task_kind") or "").strip().lower() == "mail_operation"
-        and str(endpoint or "").rstrip("/").endswith("/execute")
-    ):
+    if str(task.get("task_kind") or "").strip().lower() == "mail_operation" and str(endpoint or "").rstrip(
+        "/"
+    ).endswith("/execute"):
         from agent.services.mail_task_service import get_mail_task_service
 
-        mail_lease_owner = (
-            "hub-worker:"
-            + hashlib.sha256(str(worker_url).encode("utf-8")).hexdigest()[:24]
-        )
+        mail_lease_owner = "hub-worker:" + hashlib.sha256(str(worker_url).encode("utf-8")).hexdigest()[:24]
         mail_lease = get_mail_task_service().claim_for_delegation(
             job_id=tid,
             owner_ref=mail_lease_owner,
@@ -397,10 +353,7 @@ def forward_task_request_if_remote(
     worker_result_accepted = False
     try:
         response = _invoke_governed_knowledge_index_forwarder(
-            enabled=bool(
-                governed_codecompass_v2
-                and dispatch_phase == "execute"
-            ),
+            enabled=bool(governed_codecompass_v2 and dispatch_phase == "execute"),
             task=task,
             forwarder=forwarder,
             worker_url=str(worker_url),
@@ -468,15 +421,11 @@ def forward_task_request_if_remote(
                                 "phase": dispatch_phase,
                             },
                             status="skipped",
-                            message=(
-                                "Recovery dispatch result rejected"
-                            ),
+                            message=("Recovery dispatch result rejected"),
                             code=409,
                         )
                     else:
-                        preserve_mail_lease_on_error = bool(
-                            mail_lease is not None
-                        )
+                        preserve_mail_lease_on_error = bool(mail_lease is not None)
                         _accept_forwarded_worker_result(
                             on_success,
                             response,
@@ -532,13 +481,17 @@ def persist_forwarded_execution(
     results = deps.results
 
     pi_artifacts = validate_forwarded_pi_result(
-        task_id=tid, dispatched_task=task, response=response,
+        task_id=tid,
+        dispatched_task=task,
+        response=response,
         load_task=repositories().task_repo.get_by_id,
     )
     from agent.services.native_result_forwarding import validate_forwarded_native_result
 
     validate_forwarded_native_result(
-        task_id=tid, dispatched_task=task, response=response,
+        task_id=tid,
+        dispatched_task=task,
+        response=response,
         load_task=repositories().task_repo.get_by_id,
     )
     if accept_bound_forwarded_vector_index_result(
@@ -561,15 +514,10 @@ def persist_forwarded_execution(
     recovery_child = recovery_task_role(task) == "child"
     authoritative_recovery_task = None
     if recovery_child:
-        authoritative_recovery_task = (
-            repositories().task_repo.get_by_id(tid)
-        )
+        authoritative_recovery_task = repositories().task_repo.get_by_id(tid)
         if authoritative_recovery_task is None:
             raise RuntimeError("recovery_result_task_missing")
-        history = list(
-            getattr(authoritative_recovery_task, "history", None)
-            or []
-        )
+        history = list(getattr(authoritative_recovery_task, "history", None) or [])
         proposal_meta = dict(
             getattr(
                 authoritative_recovery_task,
@@ -589,29 +537,23 @@ def persist_forwarded_execution(
     else:
         history = list(task.get("history", []) or [])
         proposal_meta = dict(task.get("last_proposal", {}) or {})
-        verification_status = dict(
-            task.get("verification_status") or {}
-        )
-    verification_status.update(
-        _accept_local_runtime_capability_result(task=task, response=response)
-    )
-    verification_status.update(
-        _accept_codecompass_layer_result(tid=tid, task=task, response=response)
-    )
+        verification_status = dict(task.get("verification_status") or {})
+    verification_status.update(_accept_local_runtime_capability_result(task=task, response=response))
+    verification_status.update(_accept_codecompass_layer_result(tid=tid, task=task, response=response))
     raw_artifacts = response.get("artifacts")
-    artifacts = pi_artifacts if pi_artifacts is not None else (
-        results.normalize_recovery_artifacts(
-            task_id=tid,
-            artifacts=raw_artifacts,
-        )
-        if recovery_child
-        else results.normalize_artifacts(
-            task_id=tid,
-            artifacts=(
-                list(raw_artifacts)
-                if isinstance(raw_artifacts, list)
-                else None
-            ),
+    artifacts = (
+        pi_artifacts
+        if pi_artifacts is not None
+        else (
+            results.normalize_recovery_artifacts(
+                task_id=tid,
+                artifacts=raw_artifacts,
+            )
+            if recovery_child
+            else results.normalize_artifacts(
+                task_id=tid,
+                artifacts=(list(raw_artifacts) if isinstance(raw_artifacts, list) else None),
+            )
         )
     )
     from agent.services.recovery_worker_result_service import (
@@ -619,13 +561,11 @@ def persist_forwarded_execution(
     )
 
     if recovery_child:
-        verification_status = (
-            get_recovery_worker_result_service().merge_response(
-                task_id=tid,
-                phase="execute",
-                response=response,
-                verification_status=verification_status,
-            )
+        verification_status = get_recovery_worker_result_service().merge_response(
+            task_id=tid,
+            phase="execute",
+            response=response,
+            verification_status=verification_status,
         )
     elif response.get("recovery_worker_result") is not None:
         raise ValueError("recovery_worker_result_unexpected")
@@ -644,17 +584,9 @@ def persist_forwarded_execution(
         verification_status["visual_process_assistant_request"] = assistant_request
     unsloth_completion_outbox_task_id = None
     worker_context = task.get("worker_execution_context")
-    unsloth_context = (
-        worker_context.get("unsloth_task")
-        if isinstance(worker_context, Mapping)
-        else None
-    )
+    unsloth_context = worker_context.get("unsloth_task") if isinstance(worker_context, Mapping) else None
     unsloth_projection = None
-    if (
-        isinstance(unsloth_context, Mapping)
-        or response.get("schema")
-        == "ananta.unsloth-worker-task-result.v1"
-    ):
+    if isinstance(unsloth_context, Mapping) or response.get("schema") == "ananta.unsloth-worker-task-result.v1":
         from agent.services.unsloth_worker_result_service import (
             get_unsloth_worker_result_projector,
         )
@@ -668,10 +600,7 @@ def persist_forwarded_execution(
         unsloth_completion_outbox_task_id = (
             str(
                 unsloth_projection.pop(
-                    (
-                        "_unsloth_completion_"
-                        "outbox_task_id"
-                    ),
+                    ("_unsloth_completion_outbox_task_id"),
                     "",
                 )
                 or ""
@@ -688,9 +617,7 @@ def persist_forwarded_execution(
         index_jobs=deps.index_jobs,
     )
     if knowledge_index_result is not None:
-        verification_status["knowledge_index_job_result"] = (
-            knowledge_index_result
-        )
+        verification_status["knowledge_index_job_result"] = knowledge_index_result
     if str(response.get("schema") or "") == "ananta.mail_task_result.v1":
         result_fields = {
             "schema",
@@ -721,9 +648,7 @@ def persist_forwarded_execution(
         if not recovery_child:
             get_mail_task_service().release_lease(
                 job_id=tid,
-                fencing_token=int(
-                    normalized_result["lease_fencing_token"]
-                ),
+                fencing_token=int(normalized_result["lease_fencing_token"]),
             )
     if execution_scope:
         verification_status["execution_scope"] = dict(execution_scope)
@@ -739,25 +664,18 @@ def persist_forwarded_execution(
         if isinstance(adapter_result, dict):
             verification_status["workflow_adapter_task_result"] = dict(adapter_result)
             nested_result = adapter_result.get("adapter_result")
-            native_verification = (
-                nested_result.get("verification")
-                if isinstance(nested_result, dict)
-                else None
-            )
+            native_verification = nested_result.get("verification") if isinstance(nested_result, dict) else None
             if isinstance(native_verification, dict) and isinstance(
                 native_verification.get("native_node_result"), dict
             ):
-                verification_status["native_node_result"] = dict(
-                    native_verification["native_node_result"]
-                )
+                verification_status["native_node_result"] = dict(native_verification["native_node_result"])
     history.append(
         {
             "event_type": "execution_result",
             "status": response.get("status"),
             "prompt": task.get("description"),
             "reason": "Forwarded to " + str(task.get("assigned_agent_url")),
-            "command": request_data.command
-            or proposal_meta.get("command"),
+            "command": request_data.command or proposal_meta.get("command"),
             "output": response.get("output"),
             "exit_code": response.get("exit_code"),
             "backend": proposal_meta.get("backend"),
@@ -789,8 +707,7 @@ def persist_forwarded_execution(
         update_task_status=deps.hub_state.update_task_status,
         bound_knowledge_index_result=(
             knowledge_index_result
-            if knowledge_index_result is not None
-            and _has_governed_codecompass_binding(task)
+            if knowledge_index_result is not None and _has_governed_codecompass_binding(task)
             else None
         ),
         publish_bound_knowledge_index_result=functools.partial(
@@ -803,13 +720,8 @@ def persist_forwarded_execution(
             get_unsloth_completion_outbox_reconciler,
         )
 
-        if not get_unsloth_completion_outbox_reconciler(
-        ).reconcile_task(
-            unsloth_completion_outbox_task_id
-        ):
-            raise RuntimeError(
-                "unsloth_completion_outbox_reconciliation_failed"
-            )
+        if not get_unsloth_completion_outbox_reconciler().reconcile_task(unsloth_completion_outbox_task_id):
+            raise RuntimeError("unsloth_completion_outbox_reconciliation_failed")
     if recovery_child:
         from agent.services.recovery_hub_run_evidence_service import (
             get_recovery_hub_run_evidence_service,
@@ -825,13 +737,11 @@ def persist_forwarded_execution(
         get_recovery_result_verification_service,
     )
 
-    verification_result = (
-        get_recovery_result_verification_service().verify_and_record(
-            task_id=tid,
-            response=response,
-            artifacts=artifacts,
-            publish_failure_status=False,
-        )
+    verification_result = get_recovery_result_verification_service().verify_and_record(
+        task_id=tid,
+        response=response,
+        artifacts=artifacts,
+        publish_failure_status=False,
     )
     if not recovery_child:
         return
@@ -843,40 +753,23 @@ def persist_forwarded_execution(
         raise RuntimeError("recovery_result_task_missing")
     final_status = (
         "completed"
-        if str(verification_result.get("status") or "")
-        .strip()
-        .lower()
-        == "passed"
+        if str(verification_result.get("status") or "").strip().lower() == "passed"
         else "verification_failed"
     )
     from agent.services.recovery_dispatch_gate_service import (
         build_recovery_result_candidate,
     )
 
-    detached = (
-        latest.model_copy(deep=True)
-        if callable(getattr(latest, "model_copy", None))
-        else copy.deepcopy(latest)
-    )
-    details = dict(
-        getattr(detached, "status_reason_details", None) or {}
-    )
+    detached = latest.model_copy(deep=True) if callable(getattr(latest, "model_copy", None)) else copy.deepcopy(latest)
+    details = dict(getattr(detached, "status_reason_details", None) or {})
     lease = dict(details.get("recovery_dispatch_lease") or {})
-    details["recovery_result_candidate"] = (
-        build_recovery_result_candidate(
-            task_id=tid,
-            status=final_status,
-            verification_record_id=str(
-                verification_result.get("record_id") or ""
-            ),
-            lease_revision=int(lease.get("revision") or 0),
-            lease_token_digest=str(
-                lease.get("token_digest") or ""
-            ),
-            request_fingerprint=str(
-                lease.get("request_fingerprint") or ""
-            ),
-        )
+    details["recovery_result_candidate"] = build_recovery_result_candidate(
+        task_id=tid,
+        status=final_status,
+        verification_record_id=str(verification_result.get("record_id") or ""),
+        lease_revision=int(lease.get("revision") or 0),
+        lease_token_digest=str(lease.get("token_digest") or ""),
+        request_fingerprint=str(lease.get("request_fingerprint") or ""),
     )
     detached.status_reason_details = details
     if hasattr(detached, "updated_at"):

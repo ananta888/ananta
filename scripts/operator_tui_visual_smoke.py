@@ -66,11 +66,18 @@ def run_smoke(*, adapter_name: str, width: int, height: int, fps: int) -> tuple[
 
     if chosen == "ansi":
         renderer = AnsiBlocksRenderer()
-        frame = renderer.render(_build_scene(), width=region.columns, height=region.rows, context=RenderContext(now=time.monotonic()))
+        frame = renderer.render(
+            _build_scene(), width=region.columns, height=region.rows, context=RenderContext(now=time.monotonic())
+        )
         adapter = AnsiOutputAdapter()
     else:
         renderer = CpuRasterRenderer()
-        frame = renderer.render(_build_scene(), width=region.pixel_width, height=region.pixel_height, context=RenderContext(now=time.monotonic()))
+        frame = renderer.render(
+            _build_scene(),
+            width=region.pixel_width,
+            height=region.pixel_height,
+            context=RenderContext(now=time.monotonic()),
+        )
         if chosen == "sixel":
             adapter = SixelOutputAdapter(enabled=True, supported=capabilities.sixel)
         elif chosen == "kitty":

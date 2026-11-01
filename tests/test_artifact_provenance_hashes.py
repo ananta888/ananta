@@ -158,4 +158,3 @@ def test_artifact_metadata_can_be_linked_to_trace_bundle_schema() -> None:
     }
 
     assert list(_trace_bundle_validator().iter_errors(payload)) == []
-

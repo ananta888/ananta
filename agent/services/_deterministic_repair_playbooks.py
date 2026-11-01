@@ -11,14 +11,8 @@ existing imports keep working unchanged.
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 from agent.services._deterministic_repair_constants import (
     INITIAL_DIAGNOSIS_PLAYBOOKS,
@@ -27,13 +21,8 @@ from agent.services._deterministic_repair_constants import (
 log = logging.getLogger(__name__)
 
 
-
-
 def get_initial_diagnosis_playbooks() -> dict[str, dict[str, Any]]:
     return copy.deepcopy(INITIAL_DIAGNOSIS_PLAYBOOKS)
-
-
-
 
 
 def validate_non_destructive_diagnosis_playbook(playbook: dict[str, Any]) -> None:
@@ -44,9 +33,6 @@ def validate_non_destructive_diagnosis_playbook(playbook: dict[str, Any]) -> Non
             raise ValueError("diagnosis_playbook_contains_mutation_candidate")
         if step_type in mutating_step_types:
             raise ValueError("diagnosis_playbook_contains_mutating_step_type")
-
-
-
 
 
 def run_diagnosis_playbook(
@@ -194,6 +180,3 @@ def run_diagnosis_playbook(
         "non_destructive_enforced": True,
         "stopped_early": stopped_early,
     }
-
-
-

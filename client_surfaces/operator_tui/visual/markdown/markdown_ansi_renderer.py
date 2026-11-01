@@ -30,12 +30,12 @@ _UNDERLINE = "\033[4m"
 
 # Heading colors by level
 _HEADING_COLORS = [
-    "\033[1;33m",   # h1: bold yellow
-    "\033[1;36m",   # h2: bold cyan
-    "\033[1;32m",   # h3: bold green
-    "\033[1;35m",   # h4: bold magenta
-    "\033[33m",     # h5: yellow
-    "\033[36m",     # h6: cyan
+    "\033[1;33m",  # h1: bold yellow
+    "\033[1;36m",  # h2: bold cyan
+    "\033[1;32m",  # h3: bold green
+    "\033[1;35m",  # h4: bold magenta
+    "\033[33m",  # h5: yellow
+    "\033[36m",  # h6: cyan
 ]
 
 
@@ -56,7 +56,7 @@ def _clip(text: str, width: int) -> str:
         return ""
     if len(text) <= width:
         return text
-    return text[:max(0, width - 1)] + "…"
+    return text[: max(0, width - 1)] + "…"
 
 
 def _render_inline_spans(spans: tuple[tuple[str, str], ...]) -> str:
@@ -83,6 +83,7 @@ def _render_inline_spans(spans: tuple[tuple[str, str], ...]) -> str:
 
 def _strip_ansi(text: str) -> str:
     import re
+
     return re.sub(r"\033\[[0-9;]*m", "", text)
 
 
@@ -103,9 +104,7 @@ def _render_table(block: TableBlock, width: int) -> list[str]:
     n_cols = max(len(r) for r in all_rows)
     col_widths: list[int] = []
     for c in range(n_cols):
-        col_widths.append(max(
-            len(str(r[c] if c < len(r) else "")) for r in all_rows
-        ))
+        col_widths.append(max(len(str(r[c] if c < len(r) else "")) for r in all_rows))
 
     # Total table width check
     total = sum(col_widths) + n_cols * 3 + 1
@@ -143,7 +142,7 @@ def _render_code_block(block: FencedCodeBlock, width: int) -> list[str]:
     lang_label = f" {block.language}" if block.language else ""
     bar = "─" * min(max(8, width - 2), 60)
     lines.append(f"{_CYAN}┌{bar}[{lang_label.strip() or 'code'}]{_R}")
-    for cl in (block.source.splitlines() or [""]):
+    for cl in block.source.splitlines() or [""]:
         # Clip long lines; do not allow ANSI injection from code content
         safe = cl.replace("\033", "^[")
         lines.append(f"{_DIM}│ {_clip(safe, width - 2)}{_R}")
@@ -222,8 +221,10 @@ def _render_block(
             fmt, img_bytes = diagram_entry
             try:
                 from client_surfaces.operator_tui.visual.markdown.block_art_renderer import (
-                    png_to_block_art, svg_to_block_art,
+                    png_to_block_art,
+                    svg_to_block_art,
                 )
+
                 if fmt in {"svg", "svg+xml"}:
                     art = svg_to_block_art(img_bytes, max_cols=w, max_rows=diagram_height)
                 else:
@@ -303,9 +304,7 @@ def render_markdown_ansi_lines(
     fallbacks = mermaid_fallbacks or {}
     all_lines: list[str] = []
     for block in blocks:
-        all_lines.extend(_render_block(
-            block, width=width, mermaid_fallbacks=fallbacks, diagram_images=diagram_images
-        ))
+        all_lines.extend(_render_block(block, width=width, mermaid_fallbacks=fallbacks, diagram_images=diagram_images))
     if not all_lines:
         return ["(empty document)"]
     return all_lines

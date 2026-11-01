@@ -41,9 +41,7 @@ class TaskMutationLockPort:
 
     @staticmethod
     def _lock_id(task_id: str) -> int:
-        digest = hashlib.sha256(
-            f"task-status-mutation:{task_id}".encode("utf-8")
-        ).hexdigest()
+        digest = hashlib.sha256(f"task-status-mutation:{task_id}".encode("utf-8")).hexdigest()
         return int(digest[:15], 16)
 
     def local_lock(self, task_id: str) -> threading.RLock:
@@ -72,20 +70,11 @@ class TaskMutationLockPort:
         """Acquire sorted advisory locks through one thread-shared connection."""
 
         engine = self._engine()
-        if (
-            str(engine.dialect.name or "").strip().lower()
-            != "postgresql"
-        ):
+        if str(engine.dialect.name or "").strip().lower() != "postgresql":
             yield True
             return
 
-        normalized_task_ids = sorted(
-            {
-                str(task_id or "").strip()
-                for task_id in task_ids
-                if str(task_id or "").strip()
-            }
-        )
+        normalized_task_ids = sorted({str(task_id or "").strip() for task_id in task_ids if str(task_id or "").strip()})
         if not normalized_task_ids:
             yield True
             return
@@ -108,9 +97,7 @@ class TaskMutationLockPort:
         try:
             if connection is None:
                 connection = engine.connect()
-                self._thread_state.distributed_connection = (
-                    connection
-                )
+                self._thread_state.distributed_connection = connection
                 opened_connection = True
             for normalized_task_id in normalized_task_ids:
                 existing = held_locks.get(normalized_task_id)
@@ -120,11 +107,7 @@ class TaskMutationLockPort:
                     continue
                 connection.execute(
                     text("SELECT pg_advisory_lock(:lock_id)"),
-                    {
-                        "lock_id": self._lock_id(
-                            normalized_task_id
-                        )
-                    },
+                    {"lock_id": self._lock_id(normalized_task_id)},
                 )
                 held_locks[normalized_task_id] = {"depth": 1}
                 acquired_ids.append(normalized_task_id)
@@ -133,22 +116,14 @@ class TaskMutationLockPort:
                 "task mutation advisory lock failed for %s",
                 ",".join(normalized_task_ids),
             )
-            for normalized_task_id in reversed(
-                incremented_ids
-            ):
+            for normalized_task_id in reversed(incremented_ids):
                 held_locks[normalized_task_id]["depth"] -= 1
             for normalized_task_id in reversed(acquired_ids):
                 held_locks.pop(normalized_task_id, None)
                 with contextlib.suppress(Exception):
                     connection.execute(
-                        text(
-                            "SELECT pg_advisory_unlock(:lock_id)"
-                        ),
-                        {
-                            "lock_id": self._lock_id(
-                                normalized_task_id
-                            )
-                        },
+                        text("SELECT pg_advisory_unlock(:lock_id)"),
+                        {"lock_id": self._lock_id(normalized_task_id)},
                     )
             if opened_connection and connection is not None:
                 connection.close()
@@ -159,9 +134,7 @@ class TaskMutationLockPort:
         try:
             yield True
         finally:
-            for normalized_task_id in reversed(
-                normalized_task_ids
-            ):
+            for normalized_task_id in reversed(normalized_task_ids):
                 state = held_locks.get(normalized_task_id)
                 if state is None:
                     continue
@@ -171,14 +144,8 @@ class TaskMutationLockPort:
                 held_locks.pop(normalized_task_id, None)
                 with contextlib.suppress(Exception):
                     connection.execute(
-                        text(
-                            "SELECT pg_advisory_unlock(:lock_id)"
-                        ),
-                        {
-                            "lock_id": self._lock_id(
-                                normalized_task_id
-                            )
-                        },
+                        text("SELECT pg_advisory_unlock(:lock_id)"),
+                        {"lock_id": self._lock_id(normalized_task_id)},
                     )
             if not held_locks and connection is not None:
                 connection.close()
@@ -202,19 +169,11 @@ class TaskMutationLockPort:
     ) -> Iterator[bool]:
         """Acquire multiple task fences in canonical order with one checkout."""
 
-        normalized_task_ids = sorted(
-            {
-                str(task_id or "").strip()
-                for task_id in task_ids
-                if str(task_id or "").strip()
-            }
-        )
+        normalized_task_ids = sorted({str(task_id or "").strip() for task_id in task_ids if str(task_id or "").strip()})
         with contextlib.ExitStack() as stack:
             for task_id in normalized_task_ids:
                 stack.enter_context(self.local_lock(task_id))
-            with self.distributed_locks(
-                normalized_task_ids
-            ) as acquired:
+            with self.distributed_locks(normalized_task_ids) as acquired:
                 yield bool(acquired)
 
 

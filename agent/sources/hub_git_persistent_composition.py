@@ -16,15 +16,15 @@ from agent.services.git_remote_policy_service import GitRemoteAccessPolicyPort
 from agent.services.hub_git_authorization_registry import (
     HubGitAuthorizationRegistryPort,
 )
-from agent.services.source_control_registered_remote_composite import (
-    CompositeRegisteredRemoteCatalog,
-)
 from agent.services.hub_git_credential_resolver import (
     GitSecretValueResolverPort,
     SubprocessGitCredentialCommandResolver,
 )
 from agent.services.remote_source_payload_store import (
     RemoteSourcePayloadStorePort,
+)
+from agent.services.source_control_registered_remote_composite import (
+    CompositeRegisteredRemoteCatalog,
 )
 from agent.sources.git_source_connector_common import GitRepositoryBudgets
 from agent.sources.hub_git_connector_composition import (
@@ -47,9 +47,7 @@ def compose_persistent_hub_git_source_connectors(
     config: Mapping[str, Any],
     secret_resolver: GitSecretValueResolverPort,
     remote_policy: GitRemoteAccessPolicyPort,
-    additional_registered_remote_registry: (
-        HubGitAuthorizationRegistryPort | None
-    ) = None,
+    additional_registered_remote_registry: (HubGitAuthorizationRegistryPort | None) = None,
     payload_store: RemoteSourcePayloadStorePort | None = None,
 ) -> PersistentHubGitConnectorComposition:
     """Build adapters without opening a DB session or resolving any secret."""
@@ -75,9 +73,7 @@ def compose_persistent_hub_git_source_connectors(
     )
     registered_remotes: HubGitAuthorizationRegistryPort = registry
     if additional_registered_remote_registry is not None:
-        registered_remotes = CompositeRegisteredRemoteCatalog(
-            (registry, additional_registered_remote_registry)
-        )
+        registered_remotes = CompositeRegisteredRemoteCatalog((registry, additional_registered_remote_registry))
     credential_resolver = SubprocessGitCredentialCommandResolver(
         secret_resolver=secret_resolver,
         credential_root=credential_root,

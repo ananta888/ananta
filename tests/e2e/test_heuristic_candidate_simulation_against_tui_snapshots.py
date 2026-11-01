@@ -2,7 +2,7 @@
 
 T08.03: Gültiger DSL-Kandidat wird gegen Snapshot-Fixture simuliert.
 """
-import pytest
+
 from agent.services.heuristic_runtime.heuristic_simulator import HeuristicSimulator
 
 _GOOD_DSL = {
@@ -31,8 +31,14 @@ _INVALID_DSL = {
 
 def _make_frames(n: int) -> list[dict]:
     return [
-        {"frame_id": f"f{i}", "screen_hash": f"hash_{i}", "active_panel": "BODY",
-         "source_surface": "tui_snake", "width": 120, "height": 32}
+        {
+            "frame_id": f"f{i}",
+            "screen_hash": f"hash_{i}",
+            "active_panel": "BODY",
+            "source_surface": "tui_snake",
+            "width": 120,
+            "height": 32,
+        }
         for i in range(n)
     ]
 

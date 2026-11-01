@@ -4,10 +4,19 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-ALLOWED_TYPES: frozenset[str] = frozenset({
-    "feat", "fix", "security", "test", "docs",
-    "refactor", "chore", "perf", "ci",
-})
+ALLOWED_TYPES: frozenset[str] = frozenset(
+    {
+        "feat",
+        "fix",
+        "security",
+        "test",
+        "docs",
+        "refactor",
+        "chore",
+        "perf",
+        "ci",
+    }
+)
 
 BLOCKED_SUBJECTS: tuple[str, ...] = (
     "fixup planning",
@@ -20,9 +29,7 @@ BLOCKED_SUBJECTS: tuple[str, ...] = (
     "changes",
 )
 
-_FORMAT_RE = re.compile(
-    r"^(?P<type>[a-z]+)(\((?P<scope>[a-z0-9._/-]+)\))?!?: (?P<subject>.{1,72})$"
-)
+_FORMAT_RE = re.compile(r"^(?P<type>[a-z]+)(\((?P<scope>[a-z0-9._/-]+)\))?!?: (?P<subject>.{1,72})$")
 
 
 @dataclass
@@ -47,9 +54,7 @@ class CommitMessageValidator:
 
         m = _FORMAT_RE.match(msg)
         if not m:
-            errors.append(
-                "format error: expected '<type>(<scope>): <subject>' with subject max 72 chars"
-            )
+            errors.append("format error: expected '<type>(<scope>): <subject>' with subject max 72 chars")
             return ValidationResult(valid=False, errors=errors)
 
         parsed_type = m.group("type")
@@ -57,9 +62,7 @@ class CommitMessageValidator:
         parsed_subject = m.group("subject")
 
         if parsed_type not in ALLOWED_TYPES:
-            errors.append(
-                f"invalid type '{parsed_type}': must be one of {sorted(ALLOWED_TYPES)}"
-            )
+            errors.append(f"invalid type '{parsed_type}': must be one of {sorted(ALLOWED_TYPES)}")
 
         subject_lower = parsed_subject.lower()
         for blocked in BLOCKED_SUBJECTS:

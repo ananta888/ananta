@@ -18,6 +18,7 @@ def test_hub_retirement_stops_legacy_loop_without_sleep_or_retry():
     supervise(retired, lambda: False, clock=lambda: 1, sleep=forbidden_sleep, log=logs.append)
     assert calls == [True] and logs == ["session_retired reason=use_hub_tasks"]
 
+
 pytestmark = pytest.mark.timeout(30)
 
 

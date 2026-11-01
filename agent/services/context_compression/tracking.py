@@ -3,6 +3,7 @@
 Events are emitted to Python logging (structured JSON) and kept in an
 in-memory ring-buffer for later inspection.
 """
+
 from __future__ import annotations
 
 import json
@@ -164,15 +165,11 @@ class CompressionTracker:
         """Return aggregate statistics over all recorded events."""
         events = list(self._events)
         total_requests = len(events)
-        total_compressed = sum(
-            1 for e in events if e.decision in ("compressed", "truncated")
-        )
+        total_compressed = sum(1 for e in events if e.decision in ("compressed", "truncated"))
         total_blocked = sum(1 for e in events if e.decision == "blocked")
         total_token_savings = sum(e.token_delta for e in events if e.token_delta > 0)
         quality_scores = [e.quality_score for e in events if e.quality_score > 0]
-        avg_quality_score = (
-            sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
-        )
+        avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
         return {
             "total_requests": total_requests,
             "total_compressed": total_compressed,

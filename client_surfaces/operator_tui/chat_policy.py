@@ -6,23 +6,23 @@ Default: DENY für alle boundary-crossing Actions.
 Policy-Entscheidung liefert: decision, reason_code, decision_ref
 Audit-Events enthalten keinen vollständigen Nachrichtentext.
 """
+
 from __future__ import annotations
 
 import hashlib
+import re
 import time
 import uuid
 from typing import Any
 
-import re
-
 # ── Sensitive patterns ─────────────────────────────────────────────────────────
 
 _SENSITIVE_PATTERNS = [
-    re.compile(r"\b[A-Za-z0-9+/]{40,}\b"),          # long base64-ish tokens
+    re.compile(r"\b[A-Za-z0-9+/]{40,}\b"),  # long base64-ish tokens
     re.compile(r"(?i)\b(password|passwd|secret|apikey|api_key|token)\s*[:=]\s*\S+"),
-    re.compile(r"\b[0-9]{12,16}\b"),                 # long numeric sequences (card-like)
-    re.compile(r"(?i)\bsk-[A-Za-z0-9]{20,}\b"),     # API key patterns
-    re.compile(r"(?i)\bghp_[A-Za-z0-9]{36,}\b"),    # GitHub PAT
+    re.compile(r"\b[0-9]{12,16}\b"),  # long numeric sequences (card-like)
+    re.compile(r"(?i)\bsk-[A-Za-z0-9]{20,}\b"),  # API key patterns
+    re.compile(r"(?i)\bghp_[A-Za-z0-9]{36,}\b"),  # GitHub PAT
 ]
 
 
@@ -101,48 +101,72 @@ def check_policy(
     # external AI cannot receive notes under any circumstance
     if is_external_ai and channel_type == "notes":
         return make_decision(
-            action=action, channel_type=channel_type, allowed=False,
-            reason_code="external_ai_notes_denied", sender_kind=sender_kind,
-            target_kind="external_ai", message_hash=msg_hash,
+            action=action,
+            channel_type=channel_type,
+            allowed=False,
+            reason_code="external_ai_notes_denied",
+            sender_kind=sender_kind,
+            target_kind="external_ai",
+            message_hash=msg_hash,
         )
 
     # notes are ALWAYS local_only (can never be sent to hub or exported)
     if channel_type == "notes" and action not in {"write_local", "send_ai"}:
         return make_decision(
-            action=action, channel_type=channel_type, allowed=False,
-            reason_code="notes_local_only", sender_kind=sender_kind,
-            target_kind="hub", message_hash=msg_hash,
+            action=action,
+            channel_type=channel_type,
+            allowed=False,
+            reason_code="notes_local_only",
+            sender_kind=sender_kind,
+            target_kind="hub",
+            message_hash=msg_hash,
         )
 
     # AI context for notes requires explicit release
     if channel_type == "notes" and action == "send_ai":
         if not notes_context_released:
             return make_decision(
-                action=action, channel_type=channel_type, allowed=False,
-                reason_code="notes_context_not_released", sender_kind=sender_kind,
-                target_kind="ai", message_hash=msg_hash,
+                action=action,
+                channel_type=channel_type,
+                allowed=False,
+                reason_code="notes_context_not_released",
+                sender_kind=sender_kind,
+                target_kind="ai",
+                message_hash=msg_hash,
             )
 
     # sensitive content check for boundary-crossing actions
     if action in {"send_hub", "send_ai", "share_context", "export"}:
         if _is_sensitive(text):
             return make_decision(
-                action=action, channel_type=channel_type, allowed=False,
-                reason_code="sensitive_content_blocked", sender_kind=sender_kind,
-                target_kind="hub" if action == "send_hub" else "ai", message_hash=msg_hash,
+                action=action,
+                channel_type=channel_type,
+                allowed=False,
+                reason_code="sensitive_content_blocked",
+                sender_kind=sender_kind,
+                target_kind="hub" if action == "send_hub" else "ai",
+                message_hash=msg_hash,
             )
 
     if action not in allowed_for_type:
         return make_decision(
-            action=action, channel_type=channel_type, allowed=False,
-            reason_code="action_not_permitted_for_channel_type", sender_kind=sender_kind,
-            target_kind="hub", message_hash=msg_hash,
+            action=action,
+            channel_type=channel_type,
+            allowed=False,
+            reason_code="action_not_permitted_for_channel_type",
+            sender_kind=sender_kind,
+            target_kind="hub",
+            message_hash=msg_hash,
         )
 
     return make_decision(
-        action=action, channel_type=channel_type, allowed=True,
-        reason_code="allowed", sender_kind=sender_kind,
-        target_kind="hub" if action == "send_hub" else "ai", message_hash=msg_hash,
+        action=action,
+        channel_type=channel_type,
+        allowed=True,
+        reason_code="allowed",
+        sender_kind=sender_kind,
+        target_kind="hub" if action == "send_hub" else "ai",
+        message_hash=msg_hash,
     )
 
 
@@ -180,6 +204,7 @@ def get_audit_log() -> list[dict[str, Any]]:
 
 
 # ── System message helper ─────────────────────────────────────────────────────
+
 
 def system_message_for_deny(decision: dict[str, Any]) -> str:
     reason = str(decision.get("reason_code") or "policy_deny")
@@ -222,7 +247,9 @@ def classify_chat_intent(message: str) -> str:
 
     # Smalltalk: short greetings / social phrases (check after content keywords)
     _SMALLTALK_PATTERNS = [
-        re.compile(r"^(hallo|hi|hey|guten\s+\w+|good\s+(morning|afternoon|evening|day)|hello|howdy|wie\s+geht|what'?s\s+up|danke|bitte|thanks?|thx|ok|okay|ja|nein|yes|no|sure|alright)[!?.]*$"),
+        re.compile(
+            r"^(hallo|hi|hey|guten\s+\w+|good\s+(morning|afternoon|evening|day)|hello|howdy|wie\s+geht|what'?s\s+up|danke|bitte|thanks?|thx|ok|okay|ja|nein|yes|no|sure|alright)[!?.]*$"
+        ),
         re.compile(r"^(wie\s+geht|how\s+are\s+you|was\s+machst|was\s+gibt|what'?s\s+new)[^a-z]*$"),
     ]
     if any(p.match(text) for p in _SMALLTALK_PATTERNS):
@@ -307,6 +334,7 @@ def apply_token_budget_policy(
 def chat_decision_to_decision_result(decision: dict[str, Any]) -> Any:
     """Adapter: konvertiert chat_policy decision-dict zu DecisionResult."""
     from agent.services.heuristic_runtime.decision_result import DecisionResult
+
     allowed = str(decision.get("decision") or "deny") == "allow"
     reason_code = str(decision.get("reason_code") or "")
     action = str(decision.get("action") or "no_action")
@@ -323,7 +351,8 @@ def chat_decision_to_decision_result(decision: dict[str, Any]) -> Any:
 
 # ── HallucinationGuardrail ────────────────────────────────────────────────────
 
-from dataclasses import dataclass, field as _field
+from dataclasses import dataclass
+from dataclasses import field as _field
 
 
 @dataclass
@@ -333,8 +362,7 @@ class GuardrailResult:
     blocked_refs: list[str] = _field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"passed": self.passed, "reason_codes": list(self.reason_codes),
-                "blocked_refs": list(self.blocked_refs)}
+        return {"passed": self.passed, "reason_codes": list(self.reason_codes), "blocked_refs": list(self.blocked_refs)}
 
 
 def validate_heuristic_answer(answer_block: Any, allowed_refs: list[str]) -> GuardrailResult:
@@ -351,8 +379,10 @@ def validate_heuristic_answer(answer_block: Any, allowed_refs: list[str]) -> Gua
     reason_codes: list[str] = []
     blocked_refs: list[str] = []
 
-    source_refs = [r.get("ref") if isinstance(r, dict) else getattr(r, "ref", str(r))
-                   for r in (getattr(answer_block, "source_refs", None) or [])]
+    source_refs = [
+        r.get("ref") if isinstance(r, dict) else getattr(r, "ref", str(r))
+        for r in (getattr(answer_block, "source_refs", None) or [])
+    ]
 
     allowed_set = set(allowed_refs)
 

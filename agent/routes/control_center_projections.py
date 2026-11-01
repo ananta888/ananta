@@ -81,11 +81,7 @@ def artifact_item(artifact: Any) -> dict[str, Any]:
         "artifact_metadata": {
             key: value
             for key in safe_metadata_fields
-            if key in metadata
-            and (
-                (value := metadata.get(key)) is None
-                or isinstance(value, (str, int, float, bool))
-            )
+            if key in metadata and ((value := metadata.get(key)) is None or isinstance(value, (str, int, float, bool)))
         },
         "created_at": float(getattr(artifact, "created_at", 0.0) or 0.0),
         "updated_at": float(getattr(artifact, "updated_at", 0.0) or 0.0),

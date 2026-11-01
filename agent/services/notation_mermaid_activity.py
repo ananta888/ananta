@@ -10,17 +10,14 @@ from agent.services.notation_renderer_common import (
     _check_identifier,
 )
 
-_VALID_ACTIVITY_SHAPES = {"action", "decision", "fork", "join", "initial",
-                           "final", "merge"}
+_VALID_ACTIVITY_SHAPES = {"action", "decision", "fork", "join", "initial", "final", "merge"}
 
 
 def _render_mermaid_activity(params: dict[str, Any]) -> tuple[str, str]:
     diagram_title = _as_str(params.get("diagram_title", "") or "", field="diagram_title")
     direction = _as_str(params.get("direction", "TB"), field="direction")
     if direction not in {"TB", "BT", "LR", "RL"}:
-        raise NotationRenderError(
-            f"direction must be one of TB/BT/LR/RL, got {direction!r}"
-        )
+        raise NotationRenderError(f"direction must be one of TB/BT/LR/RL, got {direction!r}")
     nodes_raw = _as_list(params.get("nodes"), field="nodes")
     if not nodes_raw:
         raise NotationRenderError("nodes must be a non-empty list")
@@ -42,35 +39,24 @@ def _render_mermaid_activity(params: dict[str, Any]) -> tuple[str, str]:
         shape = _as_str(n.get("shape"), field="nodes[].shape")
         if shape not in _VALID_ACTIVITY_SHAPES:
             raise NotationRenderError(
-                f"node {nid!r} has unknown shape {shape!r}; expected one of "
-                f"{sorted(_VALID_ACTIVITY_SHAPES)}"
+                f"node {nid!r} has unknown shape {shape!r}; expected one of {sorted(_VALID_ACTIVITY_SHAPES)}"
             )
         if shape == "initial":
             initial_count += 1
         elif shape == "final":
             final_count += 1
     if initial_count != 1:
-        raise NotationRenderError(
-            f"activity must contain exactly one initial node, found "
-            f"{initial_count}"
-        )
+        raise NotationRenderError(f"activity must contain exactly one initial node, found {initial_count}")
     if final_count < 1:
-        raise NotationRenderError(
-            f"activity must contain at least one final node, found "
-            f"{final_count}"
-        )
+        raise NotationRenderError(f"activity must contain at least one final node, found {final_count}")
 
     for e in edges:
         frm = _as_str(e.get("from"), field="edges[].from")
         to = _as_str(e.get("to"), field="edges[].to")
         if frm not in seen:
-            raise NotationRenderError(
-                f"edge from {frm!r} references unknown node"
-            )
+            raise NotationRenderError(f"edge from {frm!r} references unknown node")
         if to not in seen:
-            raise NotationRenderError(
-                f"edge to {to!r} references unknown node"
-            )
+            raise NotationRenderError(f"edge to {to!r} references unknown node")
 
     def _shape_line(n: dict) -> str:
         nid = _as_str(n.get("id"), field="nodes[].id")

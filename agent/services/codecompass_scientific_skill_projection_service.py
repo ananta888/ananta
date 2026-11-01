@@ -126,7 +126,9 @@ class CodeCompassScientificSkillProjectionService:
                 raise ValueError("scientific_skill_receipt_digest_invalid")
             receipt_id = f"scientific-skill-receipt:{receipt_digest}"
             nodes.append(
-                ScientificSkillGraphNode(receipt_id, "scientific_skill_receipt", receipt_digest[:12], {"digest": receipt_digest})
+                ScientificSkillGraphNode(
+                    receipt_id, "scientific_skill_receipt", receipt_digest[:12], {"digest": receipt_digest}
+                )
             )
             edges.append(ScientificSkillGraphEdge(receipt_id, skill_id, "receipts_execution_of"))
         nodes_tuple = tuple(sorted(nodes, key=lambda item: item.node_id))
@@ -138,7 +140,9 @@ class CodeCompassScientificSkillProjectionService:
             "edges": [item.__dict__ for item in edges_tuple],
             "explanation": explanation,
         }
-        return ScientificSkillGraphProjection(payload["schema"], _sha256(payload), nodes_tuple, edges_tuple, explanation)
+        return ScientificSkillGraphProjection(
+            payload["schema"], _sha256(payload), nodes_tuple, edges_tuple, explanation
+        )
 
 
 def _node_mapping(node: ScientificSkillGraphNode) -> dict[str, object]:
@@ -146,7 +150,9 @@ def _node_mapping(node: ScientificSkillGraphNode) -> dict[str, object]:
 
 
 def _sha256(value: object) -> str:
-    raw = value if isinstance(value, str) else json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    raw = (
+        value if isinstance(value, str) else json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    )
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

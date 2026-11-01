@@ -13,10 +13,14 @@ from tests.pi.test_pi_coding_agent_provider import runtime as installed_runtime
 def registered_runtime():
     return {
         "capabilities": ["workflow.adapter.native", "coding.agent.pi"],
-        "runtime_targets": [{
-            "runtime_id": "ananta-native", "runtime_kind": "docker_container", "adapter_id": "native",
-            "allowed_capabilities": ["coding.agent.pi"],
-        }],
+        "runtime_targets": [
+            {
+                "runtime_id": "ananta-native",
+                "runtime_kind": "docker_container",
+                "adapter_id": "native",
+                "allowed_capabilities": ["coding.agent.pi"],
+            }
+        ],
         "private": "must never be projected",
     }
 
@@ -31,20 +35,32 @@ def test_registered_pi_is_ready_for_assignment_not_a_verified_inference_or_auth_
     assert value["free_class"] == "open_source_byok" and value["inference_cost"] == "provider_dependent"
     assert value["global_auto_routing"] is False
     assert value["capabilities"] == {
-        "headless": True, "structured_output": True, "tools": False, "mcp": False,
-        "workspace_write": False, "session_resume": False,
+        "headless": True,
+        "structured_output": True,
+        "tools": False,
+        "mcp": False,
+        "workspace_write": False,
+        "session_resume": False,
     }
     assert "private" not in str(value) and "pinned" not in str(value)
     assert (installation, runtime) == before
 
 
-@pytest.mark.parametrize("mutation,expected", [
-    ("missing", "not_installed"), ("truthy_installed", "not_installed"),
-    ("status", "version_unverified"), ("version", "version_unverified"),
-    ("probe", "version_unverified"), ("boolean_rc", "version_unverified"),
-    ("native", "native_not_registered"), ("target", "native_not_registered"),
-    ("string_capabilities", "native_not_registered"), ("missing_target", "native_not_registered"),
-])
+@pytest.mark.parametrize(
+    "mutation,expected",
+    [
+        ("missing", "not_installed"),
+        ("truthy_installed", "not_installed"),
+        ("status", "version_unverified"),
+        ("version", "version_unverified"),
+        ("probe", "version_unverified"),
+        ("boolean_rc", "version_unverified"),
+        ("native", "native_not_registered"),
+        ("target", "native_not_registered"),
+        ("string_capabilities", "native_not_registered"),
+        ("missing_target", "native_not_registered"),
+    ],
+)
 def test_missing_or_unverified_worker_observation_does_not_become_ready(mutation, expected):
     installation, runtime = installed_runtime(), registered_runtime()
     if mutation == "missing":
@@ -102,11 +118,14 @@ def test_actual_worker_composition_projects_only_explicitly_enabled_pi(tmp_path,
     app.config["AGENT_CONFIG"] = configuration(tmp_path, enabled=enabled)
     client, _, _ = composition()
     initialize_workflow_adapter_worker_runtime(
-        app, client=client, native_executor=Mock(),
+        app,
+        client=client,
+        native_executor=Mock(),
         native_authorization_verifier=HubBackedNativeAuthorizationVerifier(),
     )
     value = pi_readiness_projection(
-        installation=installed_runtime(), runtime=workflow_adapter_registration_metadata(app),
+        installation=installed_runtime(),
+        runtime=workflow_adapter_registration_metadata(app),
     )
     assert value["native_registered"] is enabled
     assert value["state"] == ("ready_for_assignment" if enabled else "native_not_registered")
@@ -125,12 +144,15 @@ def test_hub_forwards_worker_readiness_without_probing_its_local_installation(cl
     monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
     response = client.post(
         "/api/sgpt/backends/pi/provision",
-        json={"action": "status", "worker_url": worker.url}, headers=admin_auth_header,
+        json={"action": "status", "worker_url": worker.url},
+        headers=admin_auth_header,
     )
     assert response.status_code == 200 and response.json["data"]["native_execution"] == value
     assert response.json["data"]["worker"] == {"name": "worker-1", "url": worker.url}
     assert "synthetic-private" not in str(response.json)
     assert gateway.forward_task.call_args.args[:3] == (
-        worker.url, "/api/sgpt/backends/pi/provision", {"action": "status"},
+        worker.url,
+        "/api/sgpt/backends/pi/provision",
+        {"action": "status"},
     )
     local.assert_not_called()

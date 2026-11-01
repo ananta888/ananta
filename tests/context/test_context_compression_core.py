@@ -7,6 +7,7 @@ CompressionPolicyEngine, CompressionPolicy) do not exist yet; the
 corresponding tests are marked xfail(strict=False) so the suite is
 collectable now and auto-promotes to PASS once the package is complete.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,28 +21,31 @@ try:
         TokenEstimator,
         TokenMetrics,
     )
+
     _TOKEN_ESTIMATOR_OK = True
 except ImportError:
     _TOKEN_ESTIMATOR_OK = False
 
 from agent.services.context_compression.adapter import (
-    ContextCompressionAdapter,
     CompressionRequest,
     CompressionResult,
     build_compression_adapter,
 )
+
 _ADAPTER_OK = True
 
 from agent.services.context_compression.policy_engine import (
-    CompressionPolicyEngine,
     CompressionPolicy,
+    CompressionPolicyEngine,
 )
+
 _POLICY_OK = True
 
 
 # ---------------------------------------------------------------------------
 # TokenEstimator — exists now
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not _TOKEN_ESTIMATOR_OK, reason="token_estimator not importable")
 class TestTokenEstimator:
@@ -92,6 +96,7 @@ class TestTokenEstimator:
 # ContextCompressionAdapter — not yet implemented
 # ---------------------------------------------------------------------------
 
+
 class TestContextCompressionAdapter:
     def test_build_disabled_adapter_returns_passthrough(self):
         """build_compression_adapter({"enabled": False}) → is_enabled() == False."""
@@ -114,6 +119,7 @@ class TestContextCompressionAdapter:
 # ---------------------------------------------------------------------------
 # CompressionPolicyEngine — not yet implemented
 # ---------------------------------------------------------------------------
+
 
 class TestCompressionPolicyEngine:
     def setup_method(self):

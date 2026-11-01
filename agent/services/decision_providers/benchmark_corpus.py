@@ -6,10 +6,10 @@ share a group, so validation and frozen holdout cannot see the same case.
 
 from __future__ import annotations
 
-from ananta_contracts.specialist_decision import ConfidencePolicy, InputField, SpecialistDecisionContract
+from agent.services.decision_providers.types import DecisionQuestion
 from agent.services.specialist_dataset_split import split_examples
 from agent.services.specialist_training_examples import SpecialistExampleAdmission
-from agent.services.decision_providers.types import DecisionQuestion
+from ananta_contracts.specialist_decision import ConfidencePolicy, InputField, SpecialistDecisionContract
 
 VERSION = "jeff-jev-pilot-v1"
 CASES = {

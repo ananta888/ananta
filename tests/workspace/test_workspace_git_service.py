@@ -20,6 +20,7 @@ def svc():
 
 # ── WGW-003: init tests ──────────────────────────────────────────────────────
 
+
 class TestWorkspaceGitServiceInit:
     def test_init_creates_git_repo(self, tmp_path, svc):
         ctx = svc.init_workspace(tmp_path, remote_url=None, branch="goal/abc", enabled=True)
@@ -56,6 +57,7 @@ class TestWorkspaceGitServiceInit:
 
 # ── WGW-006: branch naming tests ─────────────────────────────────────────────
 
+
 class TestResolveBranchName:
     def test_branch_name_goal_strategy(self, svc):
         name = svc.resolve_branch_name("356af41f-local-test", None, "goal")
@@ -87,6 +89,7 @@ class TestResolveBranchName:
 
 # ── WS-SYNC-006: commit_and_push / init_bare_repo ───────────────────────────
 
+
 class TestCommitAndPush:
     def _make_bare(
         self,
@@ -107,7 +110,8 @@ class TestCommitAndPush:
                 str(workspace),
                 "--no-local",
             ],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         (workspace / filename).write_text(content)
         return workspace
@@ -125,7 +129,9 @@ class TestCommitAndPush:
                 "--oneline",
                 "goal/abc123",
             ],
-            cwd=str(bare), capture_output=True, text=True,
+            cwd=str(bare),
+            capture_output=True,
+            text=True,
         )
         assert "task abc" in log.stdout
 
@@ -209,6 +215,7 @@ class TestInitBareRepo:
 
 # ── WGW-006: workspace context integration ────────────────────────────────────
 
+
 class TestWorkspaceContextGitIntegration:
     def test_workspace_context_git_context_when_enabled(self, tmp_path, svc):
         from flask import Flask
@@ -231,6 +238,7 @@ class TestWorkspaceContextGitIntegration:
             mock_ctx = MagicMock(spec=WorkspaceGitContext)
             mock_init.return_value = mock_ctx
             from agent.services.worker_workspace_service import WorkerWorkspaceService
+
             with patch(
                 "agent.services.worker_workspace_service.WorkerWorkspaceService._resolve_workspace_dir"
             ) as mock_dir:

@@ -36,9 +36,7 @@ class WindowsDesktopPolicy:
             "[Environment]::GetFolderPath("
             "[Environment+SpecialFolder]::DesktopDirectory)"
         )
-        output = self.runner.capture(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]
-        )
+        output = self.runner.capture(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script])
         try:
             windows_path = output.decode("utf-8", errors="strict").strip().strip("\ufeff")
         except UnicodeError as exc:
@@ -47,8 +45,7 @@ class WindowsDesktopPolicy:
         actual = target.resolve(strict=True)
         if actual != expected:
             raise BackupError(
-                "Windows target must equal the redirected Desktop Known Folder "
-                f"reported by Windows: {expected}"
+                f"Windows target must equal the redirected Desktop Known Folder reported by Windows: {expected}"
             )
         return actual
 
@@ -64,22 +61,11 @@ class WindowsDesktopPolicy:
             source_parent = source.parent.resolve(strict=True)
             destination_parent = destination.parent.resolve(strict=True)
         except OSError as exc:
-            raise BackupError(
-                f"Cannot inspect Windows publication paths: {exc}"
-            ) from exc
-        if (
-            stat.S_ISLNK(metadata.st_mode)
-            or not stat.S_ISDIR(metadata.st_mode)
-            or source_parent != destination_parent
-        ):
-            raise BackupError(
-                "Windows publication requires a real staging directory "
-                "beside its destination"
-            )
+            raise BackupError(f"Cannot inspect Windows publication paths: {exc}") from exc
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode) or source_parent != destination_parent:
+            raise BackupError("Windows publication requires a real staging directory beside its destination")
         if os.path.lexists(destination):
-            raise BackupError(
-                f"Backup package already exists: {destination.name}"
-            )
+            raise BackupError(f"Backup package already exists: {destination.name}")
         source_windows = self._wsl_to_windows_argument(source)
         destination_windows = self._wsl_to_windows_argument(destination)
         encoded_command = self._encoded_atomic_move_command(
@@ -98,12 +84,8 @@ class WindowsDesktopPolicy:
             )
         except BackupError as exc:
             if os.path.lexists(destination):
-                raise BackupError(
-                    f"Backup package already exists: {destination.name}"
-                ) from exc
-            raise BackupError(
-                f"Windows atomic no-clobber publication failed: {exc}"
-            ) from exc
+                raise BackupError(f"Backup package already exists: {destination.name}") from exc
+            raise BackupError(f"Windows atomic no-clobber publication failed: {exc}") from exc
 
     @classmethod
     def _encoded_atomic_move_command(
@@ -124,27 +106,25 @@ class WindowsDesktopPolicy:
         return base64.b64encode(value.encode("utf-16-le")).decode("ascii")
 
     def _wsl_to_windows_argument(self, path: Path) -> str:
-        output = self.runner.capture(
-            ["wslpath", "-w", str(path)]
-        )
+        output = self.runner.capture(["wslpath", "-w", str(path)])
         try:
-            windows_path = output.decode(
-                "utf-8",
-                errors="strict",
-            ).strip().strip("\ufeff")
+            windows_path = (
+                output.decode(
+                    "utf-8",
+                    errors="strict",
+                )
+                .strip()
+                .strip("\ufeff")
+            )
         except UnicodeError as exc:
-            raise BackupError(
-                "wslpath returned an invalid Windows path"
-            ) from exc
+            raise BackupError("wslpath returned an invalid Windows path") from exc
         if (
             _WINDOWS_PATH.fullmatch(windows_path) is None
             or "\x00" in windows_path
             or "\n" in windows_path
             or "\r" in windows_path
         ):
-            raise BackupError(
-                "wslpath returned an unsupported Windows path"
-            )
+            raise BackupError("wslpath returned an unsupported Windows path")
         return windows_path
 
     @staticmethod

@@ -74,7 +74,7 @@ def test_mixed_p0_repository_keeps_every_format_and_writes_deterministic_outputs
         "docs/page.mdx": "# Page\n<Component />\n",
         "docs/reference.rst": "Reference\n=========\n",
         "docs/overview.adoc": "= Overview\n\n== Details\n",
-        "web/app.component.html": "<main class=\"app\"><app-card /></main>\n",
+        "web/app.component.html": '<main class="app"><app-card /></main>\n',
         "web/styles.css": ".app { color: red; }\n",
         "web/styles.scss": "$gap: 1rem;\n.app { gap: $gap; }\n",
         "web/styles.sass": "$gap: 1rem\n.app\n  gap: $gap\n",
@@ -86,13 +86,12 @@ def test_mixed_p0_repository_keeps_every_format_and_writes_deterministic_outputs
         "config/app.cfg": "feature=true\n",
         "config/app.conf": "[http]\nport=8080\n",
         "config/app.properties": "app.name=ananta\n",
-        "config/app.xml": "<config><service enabled=\"true\" /></config>\n",
+        "config/app.xml": '<config><service enabled="true" /></config>\n',
         "Dockerfile": "FROM python:3.13\n",
         "Containerfile": "FROM alpine:3.21\n",
         "docker-compose.yml": "services:\n  api:\n    build: .\n",
         ".github/workflows/ci.yml": (
-            "on: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n"
-            "    steps:\n      - uses: actions/checkout@v4\n"
+            "on: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n"
         ),
         "scripts/run.sh": "#!/bin/sh\nrun() { printf safe; }\n",
         "scripts/run.bash": "#!/usr/bin/env bash\nbuild() { :; }\n",
@@ -110,7 +109,7 @@ def test_mixed_p0_repository_keeps_every_format_and_writes_deterministic_outputs
         "architecture/system.dot": "digraph G { api -> db; }\n",
         "architecture/system.gv": "digraph G { web -> api; }\n",
         "architecture/system.drawio": (
-            "<mxfile><diagram name=\"System\"><mxGraphModel><root>"
+            '<mxfile><diagram name="System"><mxGraphModel><root>'
             '<mxCell id="0"/><mxCell id="1" parent="0"/>'
             '<mxCell id="api" value="API" vertex="1" parent="1"/>'
             "</root></mxGraphModel></diagram></mxfile>\n"

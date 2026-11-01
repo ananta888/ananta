@@ -52,4 +52,3 @@ _service = StrategyPromptComposer()
 
 def get_strategy_prompt_composer() -> StrategyPromptComposer:
     return _service
-

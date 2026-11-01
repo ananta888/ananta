@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, g, request
+from flask import Blueprint, g, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit

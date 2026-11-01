@@ -67,10 +67,7 @@ def test_pty_bridge_assigns_a_controlling_terminal():
     if os.name == "nt":
         return
 
-    probe = (
-        "import os; "
-        "print(f'isatty={os.isatty(0)} controlling={os.tcgetpgrp(0) == os.getpgrp()}', flush=True)"
-    )
+    probe = "import os; print(f'isatty={os.isatty(0)} controlling={os.tcgetpgrp(0) == os.getpgrp()}', flush=True)"
     bridge = PtyBridge(shell=sys.executable, argv=[sys.executable, "-c", probe])
 
     try:

@@ -56,9 +56,7 @@ _GRAPH_OUTPUT_KINDS = frozenset(
     }
 )
 
-_GRAPH_NODE_OUTPUT_KINDS = frozenset(
-    {"graph_nodes", "semantic_nodes", "x86_nodes", "rig_nodes"}
-)
+_GRAPH_NODE_OUTPUT_KINDS = frozenset({"graph_nodes", "semantic_nodes", "x86_nodes", "rig_nodes"})
 
 
 class GraphArtifactExecutionDeadlinePort(Protocol):
@@ -145,9 +143,7 @@ def _stable_graph_revision(
     for record in records:
         provenance = record.get("_provenance")
         output_kind = (
-            str(provenance.get("output_kind") or "").strip().lower()
-            if isinstance(provenance, Mapping)
-            else ""
+            str(provenance.get("output_kind") or "").strip().lower() if isinstance(provenance, Mapping) else ""
         )
         if output_kind not in _GRAPH_OUTPUT_KINDS:
             continue
@@ -164,9 +160,7 @@ def _stable_graph_revision(
     if domain_supplement_content_hash is not None:
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", domain_supplement_content_hash):
             raise ValueError("codecompass_domain_supplement_content_hash_invalid")
-        revision_source["domain_supplement_content_hash"] = (
-            domain_supplement_content_hash
-        )
+        revision_source["domain_supplement_content_hash"] = domain_supplement_content_hash
     digest = hashlib.sha256(_canonical_json(revision_source)).hexdigest()
     return f"sha256:{digest}"
 
@@ -197,10 +191,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         max_graph_artifact_bytes: int = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
     ) -> None:
         normalized_limit = int(max_graph_artifact_bytes)
-        if (
-            normalized_limit <= 0
-            or normalized_limit > MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
-        ):
+        if normalized_limit <= 0 or normalized_limit > MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES:
             raise ValueError("codecompass_graph_artifact_limit_invalid")
         self._max_graph_artifact_bytes = normalized_limit
 
@@ -219,14 +210,8 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         try:
             loaded = CodeCompassOutputReader().load_from_output_dir(
                 output_dir=output_dir,
-                profile_name=str(
-                    run.get("profile_name")
-                    or knowledge_index.get("profile_name")
-                    or "default"
-                ),
-                source_scope=str(
-                    knowledge_index.get("source_scope") or "artifact"
-                ),
+                profile_name=str(run.get("profile_name") or knowledge_index.get("profile_name") or "default"),
+                source_scope=str(knowledge_index.get("source_scope") or "artifact"),
                 generated_at="not_recorded",
                 record_output_kinds=(
                     "graph_nodes",
@@ -240,8 +225,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             raise RuntimeError("knowledge_index_graph_output_invalid") from exc
         diagnostics = loaded.get("diagnostics")
         if isinstance(diagnostics, Mapping) and (
-            diagnostics.get("malformed_line_count", 0)
-            or diagnostics.get("skipped_non_object_count", 0)
+            diagnostics.get("malformed_line_count", 0) or diagnostics.get("skipped_non_object_count", 0)
         ):
             raise RuntimeError("knowledge_index_graph_output_invalid")
         records = []
@@ -250,10 +234,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             if isinstance(item, Mapping):
                 records.append(_sanitize_record(item))
         if _graph_export_required(knowledge_index, run) and not any(
-            str((record.get("_provenance") or {}).get("output_kind") or "")
-            .strip()
-            .lower()
-            in _GRAPH_NODE_OUTPUT_KINDS
+            str((record.get("_provenance") or {}).get("output_kind") or "").strip().lower() in _GRAPH_NODE_OUTPUT_KINDS
             for record in records
         ):
             raise RuntimeError("knowledge_index_graph_output_empty")
@@ -261,11 +242,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         manifest = raw_manifest if isinstance(raw_manifest, Mapping) else {}
         normalized_binding = self._normalize_revision_binding(
             knowledge_index=knowledge_index,
-            manifest=(
-                self._load_source_manifest(output_dir)
-                if revision_binding is not None
-                else manifest
-            ),
+            manifest=(self._load_source_manifest(output_dir) if revision_binding is not None else manifest),
             revision_binding=revision_binding,
         )
         supplement_materializer = WorkerCodeCompassDomainSupplementMaterializer()
@@ -278,15 +255,11 @@ class WorkerCodeCompassGraphArtifactMaterializer:
                     execution_deadline=execution_deadline,
                 )
             elif normalized_binding["source_scope"] == "repo_path":
-                raise RuntimeError(
-                    "knowledge_index_domain_supplement_source_missing"
-                )
+                raise RuntimeError("knowledge_index_domain_supplement_source_missing")
         revision = _stable_graph_revision(
             records,
             domain_supplement_content_hash=(
-                supplement_content.logical_content_hash
-                if supplement_content is not None
-                else None
+                supplement_content.logical_content_hash if supplement_content is not None else None
             ),
         )
         for record in records:
@@ -296,11 +269,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
                 provenance["manifest_hash"] = revision
         records.sort(key=_canonical_json)
         raw_semantic_budget = manifest.get("semantic_budget")
-        semantic_budget = (
-            dict(raw_semantic_budget)
-            if isinstance(raw_semantic_budget, Mapping)
-            else None
-        )
+        semantic_budget = dict(raw_semantic_budget) if isinstance(raw_semantic_budget, Mapping) else None
 
         store = CodeCompassGraphStore(
             index_path=output_dir / GRAPH_INDEX_FILENAME,
@@ -338,9 +307,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
                 knowledge_index_id=str(knowledge_index.get("id") or ""),
                 source_id=normalized_binding["source_id"],
                 source_revision_id=normalized_binding["source_revision_id"],
-                source_revision_digest=normalized_binding[
-                    "source_revision_digest"
-                ],
+                source_revision_digest=normalized_binding["source_revision_digest"],
                 expected_content_hash=supplement_content.logical_content_hash,
                 execution_deadline=execution_deadline,
             )
@@ -376,22 +343,12 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         }
         if set(revision_binding) != required:
             raise ValueError("knowledge_index_revision_binding_invalid")
-        normalized = {
-            field: str(revision_binding.get(field) or "").strip()
-            for field in sorted(required)
-        }
+        normalized = {field: str(revision_binding.get(field) or "").strip() for field in sorted(required)}
         if (
             normalized["source_scope"] not in {"repo_path", "artifact", "wiki"}
-            or normalized["source_id"]
-            != f"bound-source:{normalized['source_revision_id']}"
-            or re.fullmatch(
-                r"srev_[0-9a-f]{64}", normalized["source_revision_id"]
-            )
-            is None
-            or re.fullmatch(
-                r"[0-9a-f]{64}", normalized["source_revision_digest"]
-            )
-            is None
+            or normalized["source_id"] != f"bound-source:{normalized['source_revision_id']}"
+            or re.fullmatch(r"srev_[0-9a-f]{64}", normalized["source_revision_id"]) is None
+            or re.fullmatch(r"[0-9a-f]{64}", normalized["source_revision_digest"]) is None
             or not str(knowledge_index.get("id") or "").strip()
         ):
             raise ValueError("knowledge_index_revision_binding_invalid")
@@ -400,14 +357,10 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             raise ValueError("knowledge_index_revision_binding_missing")
         for field, expected in normalized.items():
             if str(metadata.get(field) or "").strip() != expected:
-                raise ValueError(
-                    f"knowledge_index_revision_binding_{field}_mismatch"
-                )
+                raise ValueError(f"knowledge_index_revision_binding_{field}_mismatch")
         for field in ("source_scope", "source_id"):
             if str(manifest.get(field) or "").strip() != normalized[field]:
-                raise ValueError(
-                    f"knowledge_index_manifest_{field}_mismatch"
-                )
+                raise ValueError(f"knowledge_index_manifest_{field}_mismatch")
         return normalized
 
     @staticmethod

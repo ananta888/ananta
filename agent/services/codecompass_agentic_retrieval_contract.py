@@ -62,6 +62,8 @@ def _max_evidence_tokens() -> int:
         return max(DEFAULT_MAX_TOKENS, context_budgets().tokens("evidence"))
     except Exception:  # noqa: BLE001 -- contract validation must not fail on configuration lookup
         return 200_000
+
+
 DEFAULT_CANDIDATE_LIMIT = 24
 MAX_CANDIDATE_LIMIT = 80
 DEFAULT_GRAPH_DEPTH = 1
@@ -187,21 +189,15 @@ def validate_request(payload: Mapping[str, Any] | None) -> dict[str, Any]:
         "scope": _normalize_scope(data.get("scope")),
         "budget": {
             "top_k": _bounded_int(budget_raw.get("top_k"), DEFAULT_TOP_K, 1, MAX_TOP_K),
-            "max_chars": _bounded_int(
-                budget_raw.get("max_chars"), DEFAULT_MAX_CHARS, 256, MAX_MAX_CHARS
-            ),
-            "max_tokens": _bounded_int(
-                budget_raw.get("max_tokens"), DEFAULT_MAX_TOKENS, 64, _max_evidence_tokens()
-            ),
+            "max_chars": _bounded_int(budget_raw.get("max_chars"), DEFAULT_MAX_CHARS, 256, MAX_MAX_CHARS),
+            "max_tokens": _bounded_int(budget_raw.get("max_tokens"), DEFAULT_MAX_TOKENS, 64, _max_evidence_tokens()),
             "candidate_limit": _bounded_int(
                 budget_raw.get("candidate_limit"),
                 DEFAULT_CANDIDATE_LIMIT,
                 1,
                 MAX_CANDIDATE_LIMIT,
             ),
-            "graph_depth": _bounded_int(
-                budget_raw.get("graph_depth"), DEFAULT_GRAPH_DEPTH, 0, 4
-            ),
+            "graph_depth": _bounded_int(budget_raw.get("graph_depth"), DEFAULT_GRAPH_DEPTH, 0, 4),
         },
         "continuation_handle": _clean_text(data.get("continuation_handle"), limit=512),
     }

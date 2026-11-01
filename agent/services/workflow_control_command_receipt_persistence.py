@@ -338,36 +338,53 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
         expected_revision: int,
         checkpoint_ref: str,
     ) -> WorkflowControlCommandReceipt:
-        values = dict(binding=binding, command_id=command_id, actor_id=actor_id, command_type=command_type,
-                      request_payload=request_payload, expected_revision=expected_revision,
-                      checkpoint_ref=checkpoint_ref)
+        values = dict(
+            binding=binding,
+            command_id=command_id,
+            actor_id=actor_id,
+            command_type=command_type,
+            request_payload=request_payload,
+            expected_revision=expected_revision,
+            checkpoint_ref=checkpoint_ref,
+        )
         for attempt in range(5):
             try:
                 return self._stage_once(**values)
             except WorkflowControlCommandReceiptError as exc:
-                if (attempt == 4 or str(exc) != 'workflow_control_command_receipt_stage_conflict'
-                        or not self._retryable_stage_contention(binding=binding, command_id=command_id,
-                            request_payload=request_payload, expected_revision=expected_revision,
-                            checkpoint_ref=checkpoint_ref)):
+                if (
+                    attempt == 4
+                    or str(exc) != "workflow_control_command_receipt_stage_conflict"
+                    or not self._retryable_stage_contention(
+                        binding=binding,
+                        command_id=command_id,
+                        request_payload=request_payload,
+                        expected_revision=expected_revision,
+                        checkpoint_ref=checkpoint_ref,
+                    )
+                ):
                     raise
-                self._retry_wait(0.05 * (2 ** attempt))
-        raise AssertionError('bounded_receipt_admission_exhausted')
+                self._retry_wait(0.05 * (2**attempt))
+        raise AssertionError("bounded_receipt_admission_exhausted")
 
-    def _retryable_stage_contention(self, *, binding, command_id, request_payload,
-                                   expected_revision, checkpoint_ref):
-        command = SignedWorkflowCommand.from_mapping(request_payload['admitted_command'])
-        nonce_hash = hashlib.sha256(command.nonce.encode('utf-8')).hexdigest()
-        nonce_id = hashlib.sha256(f'{command.tenant_id}\0{nonce_hash}'.encode('utf-8')).hexdigest()
+    def _retryable_stage_contention(self, *, binding, command_id, request_payload, expected_revision, checkpoint_ref):
+        command = SignedWorkflowCommand.from_mapping(request_payload["admitted_command"])
+        nonce_hash = hashlib.sha256(command.nonce.encode("utf-8")).hexdigest()
+        nonce_id = hashlib.sha256(f"{command.tenant_id}\0{nonce_hash}".encode("utf-8")).hexdigest()
         with Session(self._engine) as session:
             row = session.get(WorkflowControlBindingDB, binding.workflow_id)
             _assert_binding(row, binding)
-            return bool(row is not None
-                and row.runtime_revision == expected_revision and row.runtime_checkpoint_ref == checkpoint_ref
-                and not row.dispatch_intent_id and not row.command_observation_pending
-                and not row.command_receipt_id and not row.active_transition_id
+            return bool(
+                row is not None
+                and row.runtime_revision == expected_revision
+                and row.runtime_checkpoint_ref == checkpoint_ref
+                and not row.dispatch_intent_id
+                and not row.command_observation_pending
+                and not row.command_receipt_id
+                and not row.active_transition_id
                 and not (row.command_claim and row.command_claim_expires_at > float(self._clock()))
                 and session.get(WorkflowControlCommandReceiptDB, command_id) is None
-                and session.get(WorkflowCommandNonceDB, nonce_id) is None)
+                and session.get(WorkflowCommandNonceDB, nonce_id) is None
+            )
 
     def _stage_once(
         self,
@@ -831,7 +848,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                             WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_DISPATCHING,
                             WorkflowControlCommandReceiptDB.dispatch_lease_expires_at <= float(self._clock()),
                         ),
-                    )
+                    ),
                 )
                 .order_by(WorkflowControlCommandReceiptDB.created_at.asc())
                 .limit(bounded)

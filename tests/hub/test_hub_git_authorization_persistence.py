@@ -78,45 +78,63 @@ def test_registration_is_scoped_and_supports_installation_repository_fanout() ->
         clock=lambda: 100,
     )
 
-    assert repository.register(
-        _github(),
-        actor_id="operator-1",
-        reason_code="connection_created",
-    ) == 1
-    assert repository.register(
-        _github("owner/second"),
-        actor_id="operator-1",
-        reason_code="connection_created",
-    ) == 1
-    assert repository.register(
-        _generic(),
-        actor_id="operator-1",
-        reason_code="connection_created",
-    ) == 1
+    assert (
+        repository.register(
+            _github(),
+            actor_id="operator-1",
+            reason_code="connection_created",
+        )
+        == 1
+    )
+    assert (
+        repository.register(
+            _github("owner/second"),
+            actor_id="operator-1",
+            reason_code="connection_created",
+        )
+        == 1
+    )
+    assert (
+        repository.register(
+            _generic(),
+            actor_id="operator-1",
+            reason_code="connection_created",
+        )
+        == 1
+    )
 
-    assert repository.resolve_github(
-        scope=SCOPE,
-        authorization_ref="github-installation:42",
-        repository="owner/repository",
-    ) == _github()
+    assert (
+        repository.resolve_github(
+            scope=SCOPE,
+            authorization_ref="github-installation:42",
+            repository="owner/repository",
+        )
+        == _github()
+    )
     assert repository.resolve_github(
         scope=SCOPE,
         authorization_ref="github-installation:42",
         repository="owner/second",
     ) == _github("owner/second")
-    assert repository.resolve_generic(
-        scope=SCOPE,
-        remote_id="generic-origin",
-    ) == _generic()
-    assert repository.resolve_github(
-        scope=GitSourceScope(
-            tenant_id="tenant-2",
-            project_id="project-1",
-            owner_id="owner-1",
-        ),
-        authorization_ref="github-installation:42",
-        repository="owner/repository",
-    ) is None
+    assert (
+        repository.resolve_generic(
+            scope=SCOPE,
+            remote_id="generic-origin",
+        )
+        == _generic()
+    )
+    assert (
+        repository.resolve_github(
+            scope=GitSourceScope(
+                tenant_id="tenant-2",
+                project_id="project-1",
+                owner_id="owner-1",
+            ),
+            authorization_ref="github-installation:42",
+            repository="owner/repository",
+        )
+        is None
+    )
 
 
 def test_github_oauth_registration_uses_the_same_scoped_contract() -> None:
@@ -135,11 +153,14 @@ def test_github_oauth_registration_uses_the_same_scoped_contract() -> None:
         reason_code="oauth_connected",
     )
 
-    assert repository.resolve_github(
-        scope=SCOPE,
-        authorization_ref="github-oauth:user-1",
-        repository="owner/repository",
-    ) == oauth
+    assert (
+        repository.resolve_github(
+            scope=SCOPE,
+            authorization_ref="github-oauth:user-1",
+            repository="owner/repository",
+        )
+        == oauth
+    )
 
 
 def test_provider_generated_repository_bound_reference_is_persistable() -> None:
@@ -149,16 +170,17 @@ def test_provider_generated_repository_bound_reference_is_persistable() -> None:
         _github(),
         connection_ref="github-oauth:user-1",
         authorization_kind="github_oauth",
-        credential_ref=(
-            "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
-        ),
+        credential_ref=("secret://github-oauth/grant/user-1/repository/owner%2Frepository"),
     )
 
-    assert repository.register(
-        oauth,
-        actor_id="operator-1",
-        reason_code="oauth_connected",
-    ) == 1
+    assert (
+        repository.register(
+            oauth,
+            actor_id="operator-1",
+            reason_code="oauth_connected",
+        )
+        == 1
+    )
 
 
 def test_exact_registration_is_idempotent_but_changed_snapshot_conflicts() -> None:
@@ -171,11 +193,14 @@ def test_exact_registration_is_idempotent_but_changed_snapshot_conflicts() -> No
         reason_code="connection_created",
     )
 
-    assert repository.register(
-        record,
-        actor_id="operator-1",
-        reason_code="connection_retried",
-    ) == 1
+    assert (
+        repository.register(
+            record,
+            actor_id="operator-1",
+            reason_code="connection_retried",
+        )
+        == 1
+    )
     changed = replace(
         record,
         remote_url="https://github.example/changed/repository.git",
@@ -203,21 +228,27 @@ def test_revoke_uses_cas_and_preserves_immutable_revision_history() -> None:
         reason_code="connection_created",
     )
 
-    assert repository.transition_authorization_state(
-        scope=SCOPE,
-        connection_ref="github-installation:42",
-        repository="owner/repository",
-        authorization_state="revoked",
-        expected_revision=1,
-        actor_id="operator-2",
-        reason_code="provider_revoked",
-        granted_scopes=frozenset(),
-    ) == 2
-    assert repository.resolve_github(
-        scope=SCOPE,
-        authorization_ref="github-installation:42",
-        repository="owner/repository",
-    ).authorization_state == "revoked"
+    assert (
+        repository.transition_authorization_state(
+            scope=SCOPE,
+            connection_ref="github-installation:42",
+            repository="owner/repository",
+            authorization_state="revoked",
+            expected_revision=1,
+            actor_id="operator-2",
+            reason_code="provider_revoked",
+            granted_scopes=frozenset(),
+        )
+        == 2
+    )
+    assert (
+        repository.resolve_github(
+            scope=SCOPE,
+            authorization_ref="github-installation:42",
+            repository="owner/repository",
+        ).authorization_state
+        == "revoked"
+    )
     history = repository.list_revisions(
         scope=SCOPE,
         connection_ref="github-installation:42",
@@ -256,10 +287,7 @@ def test_audit_schema_and_repr_do_not_expose_url_or_credential_reference() -> No
     )
 
     assert "remote_url" not in HubGitRemoteRegistrationAuditDB.__table__.columns
-    assert (
-        "credential_ref"
-        not in HubGitRemoteRegistrationAuditDB.__table__.columns
-    )
+    assert "credential_ref" not in HubGitRemoteRegistrationAuditDB.__table__.columns
     assert record.remote_url not in repr(record)
     assert str(record.credential_ref) not in repr(record)
     with factory() as session:
@@ -302,23 +330,32 @@ def test_catalog_reads_are_strictly_tenant_project_and_owner_scoped() -> None:
         project_id=str(record.scope.project_id),
         owner_id=str(record.scope.owner_id),
     ) == (record,)
-    assert repository.list_authorizations(
-        tenant_id=str(record.scope.tenant_id),
-        project_id=str(record.scope.project_id),
-        owner_id="foreign-owner",
-    ) == ()
-    assert repository.resolve_registered_remote(
-        tenant_id=str(record.scope.tenant_id),
-        project_id=str(record.scope.project_id),
-        owner_id=str(record.scope.owner_id),
-        remote_id=record.connection_ref,
-    ) == record
-    assert repository.resolve_registered_remote(
-        tenant_id="foreign-tenant",
-        project_id=str(record.scope.project_id),
-        owner_id=str(record.scope.owner_id),
-        remote_id=record.connection_ref,
-    ) is None
+    assert (
+        repository.list_authorizations(
+            tenant_id=str(record.scope.tenant_id),
+            project_id=str(record.scope.project_id),
+            owner_id="foreign-owner",
+        )
+        == ()
+    )
+    assert (
+        repository.resolve_registered_remote(
+            tenant_id=str(record.scope.tenant_id),
+            project_id=str(record.scope.project_id),
+            owner_id=str(record.scope.owner_id),
+            remote_id=record.connection_ref,
+        )
+        == record
+    )
+    assert (
+        repository.resolve_registered_remote(
+            tenant_id="foreign-tenant",
+            project_id=str(record.scope.project_id),
+            owner_id=str(record.scope.owner_id),
+            remote_id=record.connection_ref,
+        )
+        is None
+    )
 
 
 class _NeverSecretResolver:

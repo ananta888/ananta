@@ -68,17 +68,12 @@ def resolve_dispatch_hard_timeout(
             raw_task = dict(task)
         else:
             raw_task = dict(vars(task))
-        if (
-            str(raw_task.get("task_kind") or "").strip().lower()
-            != "codecompass_index_build"
-        ):
+        if str(raw_task.get("task_kind") or "").strip().lower() != "codecompass_index_build":
             continue
         try:
-            transport_budget_seconds = (
-                resolve_knowledge_index_forward_budget_seconds(
-                    raw_task,
-                    dispatch_phase="execute",
-                )
+            transport_budget_seconds = resolve_knowledge_index_forward_budget_seconds(
+                raw_task,
+                dispatch_phase="execute",
             )
         except ValueError:
             # Invalid bindings fail in the governed dispatch gate.  They must
@@ -87,18 +82,14 @@ def resolve_dispatch_hard_timeout(
         if transport_budget_seconds is not None:
             timeout = max(
                 timeout,
-                propose_timeout
-                + transport_budget_seconds
-                + KNOWLEDGE_INDEX_SUPERVISOR_GRACE_SECONDS,
+                propose_timeout + transport_budget_seconds + KNOWLEDGE_INDEX_SUPERVISOR_GRACE_SECONDS,
             )
     return timeout
 
 
 def dispatch_queue_positions(dispatch_queue: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        str(item.get("task_id") or ""): item.get("queue_position")
-        for item in dispatch_queue
-        if item.get("task_id")
+        str(item.get("task_id") or ""): item.get("queue_position") for item in dispatch_queue if item.get("task_id")
     }
 
 
@@ -118,31 +109,39 @@ def resolve_target_worker_for_task(
     if is_native_task(task):
         from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
 
-        workers = [worker for worker in workers if
-                   getattr(worker, "role", None) == "worker"
-                   and getattr(worker, "registration_validated", False) is True
-                   and getattr(worker, "registration_provenance", None) == STRICT_WORKER_REGISTRATION_PROVENANCE
-                   and "workflow.adapter.native" in (getattr(worker, "authorized_capabilities", None) or [])]
+        workers = [
+            worker
+            for worker in workers
+            if getattr(worker, "role", None) == "worker"
+            and getattr(worker, "registration_validated", False) is True
+            and getattr(worker, "registration_provenance", None) == STRICT_WORKER_REGISTRATION_PROVENANCE
+            and "workflow.adapter.native" in (getattr(worker, "authorized_capabilities", None) or [])
+        ]
         if not workers:
             return None, worker_cursor, False, "native_worker_unavailable"
-        if getattr(task, 'task_kind', None) == 'native_result_maintenance':
+        if getattr(task, "task_kind", None) == "native_result_maintenance":
             from agent.services.native_result_maintenance_owner import require_registered_result_store_owner
             from ananta_contracts.native_result_maintenance import maintenance_task_owner
 
             try:
-                owner = maintenance_task_owner({'task_kind': task.task_kind,
-                    'worker_execution_context': getattr(task, 'worker_execution_context', None)})
+                owner = maintenance_task_owner(
+                    {
+                        "task_kind": task.task_kind,
+                        "worker_execution_context": getattr(task, "worker_execution_context", None),
+                    }
+                )
                 if owner is not None:
                     import time
 
-                    matching = [worker for worker in workers
-                                if _norm_url(getattr(worker, 'url', None)) == owner['worker_url']]
-                    if len(matching) != 1 or (assigned_agent_url and assigned_agent_url != owner['worker_url']):
-                        raise ValueError('native_result_store_recipient_mismatch')
+                    matching = [
+                        worker for worker in workers if _norm_url(getattr(worker, "url", None)) == owner["worker_url"]
+                    ]
+                    if len(matching) != 1 or (assigned_agent_url and assigned_agent_url != owner["worker_url"]):
+                        raise ValueError("native_result_store_recipient_mismatch")
                     require_registered_result_store_owner(matching[0], owner, now=time.time())
-                    return matching[0], worker_cursor, not bool(assigned_agent_url), 'native_result_store_owner_binding'
+                    return matching[0], worker_cursor, not bool(assigned_agent_url), "native_result_store_owner_binding"
             except (ValueError, TypeError, AttributeError):
-                return None, worker_cursor, False, 'native_result_store_owner_unavailable'
+                return None, worker_cursor, False, "native_result_store_owner_unavailable"
         if assigned_agent_url and not any(_norm_url(worker.url) == assigned_agent_url for worker in workers):
             return None, worker_cursor, False, "native_assigned_worker_unavailable"
     if assigned_agent_url:
@@ -169,12 +168,9 @@ def resolve_target_worker_for_task(
         knowledge_index_job = execution_context.get("knowledge_index_job")
         if (
             isinstance(knowledge_index_job, dict)
-            and knowledge_index_job.get("schema")
-            == "ananta.knowledge_index_execution_job.v2"
+            and knowledge_index_job.get("schema") == "ananta.knowledge_index_execution_job.v2"
         ):
-            destination_selection = execution_context.get(
-                "destination_selection"
-            )
+            destination_selection = execution_context.get("destination_selection")
             if not isinstance(destination_selection, dict):
                 return (
                     None,
@@ -182,14 +178,11 @@ def resolve_target_worker_for_task(
                     False,
                     "destination_worker_selection_missing",
                 )
-            destination_worker_id = str(
-                destination_selection.get("worker_id") or ""
-            ).strip()
+            destination_worker_id = str(destination_selection.get("worker_id") or "").strip()
             matching_workers = [
                 worker
                 for worker in eligible_workers
-                if str(getattr(worker, "name", None) or "").strip()
-                == destination_worker_id
+                if str(getattr(worker, "name", None) or "").strip() == destination_worker_id
             ]
             if len(matching_workers) != 1:
                 return (

@@ -1,10 +1,10 @@
 """Round 6 tests: TuiArtifactIntentStrategy, TuiDiffFocusStrategy, Eclipse strategies,
 and their bootstrap JSON files."""
+
 from __future__ import annotations
 
 import json
 import os
-import pytest
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
@@ -38,9 +38,11 @@ def _make_ctx(**kwargs) -> DecisionContext:
 
 # ── TuiArtifactIntentStrategy ────────────────────────────────────────────────
 
+
 class TestTuiArtifactIntentStrategy:
     def _strategy(self):
         from agent.heuristics.strategies.snake_tui.artifact_intent import TuiArtifactIntentStrategy
+
         return TuiArtifactIntentStrategy()
 
     def test_lurk_when_no_artifact(self):
@@ -81,9 +83,11 @@ class TestTuiArtifactIntentStrategy:
 
 # ── TuiDiffFocusStrategy ─────────────────────────────────────────────────────
 
+
 class TestTuiDiffFocusStrategy:
     def _strategy(self):
         from agent.heuristics.strategies.snake_tui.diff_focus import TuiDiffFocusStrategy
+
         return TuiDiffFocusStrategy()
 
     def test_lurk_in_diff_panel(self):
@@ -117,9 +121,11 @@ class TestTuiDiffFocusStrategy:
 
 # ── EclipseEditorLurkStrategy ────────────────────────────────────────────────
 
+
 class TestEclipseEditorLurkStrategy:
     def _strategy(self):
         from agent.heuristics.strategies.snake_eclipse.editor_lurk import EclipseEditorLurkStrategy
+
         return EclipseEditorLurkStrategy()
 
     def _eclipse_def(self, params=None):
@@ -162,9 +168,11 @@ class TestEclipseEditorLurkStrategy:
 
 # ── EclipseProblemViewStrategy ───────────────────────────────────────────────
 
+
 class TestEclipseProblemViewStrategy:
     def _strategy(self):
         from agent.heuristics.strategies.snake_eclipse.problem_view import EclipseProblemViewStrategy
+
         return EclipseProblemViewStrategy()
 
     def _eclipse_def(self):
@@ -202,9 +210,11 @@ class TestEclipseProblemViewStrategy:
 
 # ── EclipseCompareStrategy ───────────────────────────────────────────────────
 
+
 class TestEclipseCompareStrategy:
     def _strategy(self):
         from agent.heuristics.strategies.snake_eclipse.compare import EclipseCompareStrategy
+
         return EclipseCompareStrategy()
 
     def _eclipse_def(self, params=None):
@@ -252,9 +262,11 @@ class TestEclipseCompareStrategy:
 
 # ── EclipsePackageExplorerStrategy ───────────────────────────────────────────
 
+
 class TestEclipsePackageExplorerStrategy:
     def _strategy(self):
         from agent.heuristics.strategies.snake_eclipse.package_explorer import EclipsePackageExplorerStrategy
+
         return EclipsePackageExplorerStrategy()
 
     def _eclipse_def(self):
@@ -343,6 +355,7 @@ class TestRound6BootstrapFiles:
 
     def test_python_strategy_modules_are_allowlisted(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         loader = PythonStrategyLoader()
         for fn in _ECLIPSE_FILES:
             data = self._load(fn)

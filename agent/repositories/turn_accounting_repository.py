@@ -26,12 +26,9 @@ from agent.models.turn_accounting import (
     TurnAccountingScope,
 )
 
-
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PSEUDONYM = re.compile(r"^[0-9a-f]{24}$")
-_RECEIVER_CLASSES = frozenset(
-    {"direct_capable", "relay_required", "relay_preferred", "unknown"}
-)
+_RECEIVER_CLASSES = frozenset({"direct_capable", "relay_required", "relay_preferred", "unknown"})
 _COUNTER_NAMES = tuple(field.name for field in fields(TurnAccountingCounters))
 
 
@@ -53,9 +50,7 @@ class SqlTurnAccountingRepository:
                     existing = db.get(TurnAccountingLedgerDB, request.event_digest)
                     if existing is not None:
                         if existing.request_digest != request.request_digest:
-                            raise TurnAccountingRepositoryError(
-                                "turn_accounting_event_conflict", 409
-                            )
+                            raise TurnAccountingRepositoryError("turn_accounting_event_conflict", 409)
                         return TurnAccountingRepositoryResult("replayed", _record(existing))
 
                     cursor = db.exec(
@@ -92,13 +87,9 @@ class SqlTurnAccountingRepository:
             except IntegrityError as exc:
                 if attempt < 2:
                     continue
-                raise TurnAccountingRepositoryError(
-                    "turn_accounting_concurrent_write_conflict", 409
-                ) from exc
+                raise TurnAccountingRepositoryError("turn_accounting_concurrent_write_conflict", 409) from exc
             except SQLAlchemyError as exc:
-                raise TurnAccountingRepositoryError(
-                    "turn_accounting_store_unavailable", 503
-                ) from exc
+                raise TurnAccountingRepositoryError("turn_accounting_store_unavailable", 503) from exc
         raise TurnAccountingRepositoryError("turn_accounting_concurrent_write_conflict", 409)
 
     def page(
@@ -175,13 +166,9 @@ class SqlTurnAccountingRepository:
             TurnAccountingLedgerDB.pool_pseudonym == request.pool_pseudonym,
             TurnAccountingLedgerDB.retained_until > request.now,
         )
-        record_count = int(
-            db.exec(select(sa.func.count(TurnAccountingLedgerDB.id)).where(*scope_filter)).one()
-        )
+        record_count = int(db.exec(select(sa.func.count(TurnAccountingLedgerDB.id)).where(*scope_filter)).one())
         if record_count >= request.record_capacity_max:
-            raise TurnAccountingRepositoryError(
-                "turn_accounting_repository_capacity_exceeded", 503
-            )
+            raise TurnAccountingRepositoryError("turn_accounting_repository_capacity_exceeded", 503)
         if not new_source:
             return
         source_count = int(
@@ -221,11 +208,7 @@ class SqlTurnAccountingRepository:
             else []
         )
         if cursor_ids:
-            db.exec(
-                sa.delete(TurnAccountingSourceCursorDB).where(
-                    TurnAccountingSourceCursorDB.id.in_(cursor_ids)
-                )
-            )
+            db.exec(sa.delete(TurnAccountingSourceCursorDB).where(TurnAccountingSourceCursorDB.id.in_(cursor_ids)))
         return len(ledger_ids) + len(cursor_ids)
 
 
@@ -330,9 +313,7 @@ def _record(row: TurnAccountingLedgerDB) -> TurnAccountingRecord:
             "node": row.node_pseudonym,
         },
         receiver_class=row.receiver_class,
-        counters=TurnAccountingCounters(
-            **{name: getattr(row, name) for name in _COUNTER_NAMES}
-        ),
+        counters=TurnAccountingCounters(**{name: getattr(row, name) for name in _COUNTER_NAMES}),
         reason_codes=tuple(row.reason_codes),
     )
 

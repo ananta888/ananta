@@ -39,9 +39,9 @@ class OidcConfig:
 
 
 def _load() -> OidcConfig:
-    algos = tuple(
-        a.strip() for a in (settings.oidc_allowed_algorithms or "RS256").split(",") if a.strip()
-    ) or ("RS256",)
+    algos = tuple(a.strip() for a in (settings.oidc_allowed_algorithms or "RS256").split(",") if a.strip()) or (
+        "RS256",
+    )
     return OidcConfig(
         enabled=bool(settings.oidc_enabled),
         issuer_url=str(settings.oidc_issuer_url or "").strip(),

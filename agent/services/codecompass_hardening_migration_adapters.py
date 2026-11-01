@@ -176,10 +176,7 @@ def build_filesystem_migration_service(
     writes_enabled: bool = False,
     observer: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> CodeCompassHardeningMigrationService:
-    inventories = {
-        kind: FilesystemLegacyInventory(root, kind=kind)
-        for kind, root in inventory_roots.items()
-    }
+    inventories = {kind: FilesystemLegacyInventory(root, kind=kind) for kind, root in inventory_roots.items()}
     writer: Any = JsonDirectoryMigrationWriter(output_root)
     if observer is not None:
         writer = ObservableMigrationWriter(writer, observer)

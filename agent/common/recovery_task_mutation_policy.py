@@ -52,16 +52,13 @@ def recovery_task_role(task: Any) -> RecoveryTaskRole | None:
 
     details = _recovery_details(task)
     is_child = bool(
-        str(_value(task, "derivation_reason") or "").strip()
-        == "goal_task_recovery"
+        str(_value(task, "derivation_reason") or "").strip() == "goal_task_recovery"
         or details.get("model_recovery_release")
         or details.get("recovery_dispatch_lease")
     )
     if is_child:
         return "child"
-    if details.get("model_recovery") or details.get(
-        "model_recovery_strategy"
-    ):
+    if details.get("model_recovery") or details.get("model_recovery_strategy"):
         return "source"
     return None
 
@@ -77,10 +74,7 @@ def is_active_recovery_task(task: Any, *, now: float | None = None) -> bool:
         lease_expires_at = float(lease.get("expires_at") or 0.0)
     except (TypeError, ValueError):
         lease_expires_at = float("inf")
-    lease_active = (
-        lease_state in {"active", "worker_admitted"}
-        and lease_expires_at > float(now or time.time())
-    )
+    lease_active = lease_state in {"active", "worker_admitted"} and lease_expires_at > float(now or time.time())
     return status not in _TERMINAL_TASK_STATUSES or lease_active
 
 
@@ -124,15 +118,9 @@ def ensure_external_recovery_mutation_allowed(
     if role is None:
         return
     task_id = str(_value(task, "id") or "").strip()
-    source_task_id = str(
-        _value(task, "source_task_id") or ""
-    ).strip() or (task_id if role == "source" else None)
+    source_task_id = str(_value(task, "source_task_id") or "").strip() or (task_id if role == "source" else None)
     recovery = _mapping(_recovery_details(task).get("model_recovery"))
-    plan_id = (
-        str(_value(task, "plan_id") or "").strip()
-        or str(recovery.get("plan_id") or "").strip()
-        or None
-    )
+    plan_id = str(_value(task, "plan_id") or "").strip() or str(recovery.get("plan_id") or "").strip() or None
     raise RecoveryTaskMutationConflict(
         reason_code=(
             "recovery_child_mutation_requires_new_plan_approval"

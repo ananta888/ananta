@@ -27,30 +27,44 @@ def controller():
 
 
 def test_promotion_requires_a_gate_report():
-    decision = controller().decide(candidate=candidate("c", correctness=0.9, cost=50),
-                                   baseline=candidate("b", correctness=0.8, cost=100), gate_report=None)
+    decision = controller().decide(
+        candidate=candidate("c", correctness=0.9, cost=50),
+        baseline=candidate("b", correctness=0.8, cost=100),
+        gate_report=None,
+    )
     assert decision.action == "reject" and decision.reason == "promotion_requires_gate_report"
 
 
 def test_gate_failure_blocks_promotion_regardless_of_fitness():
-    decision = controller().decide(candidate=candidate("c", correctness=0.99, cost=1),
-                                   baseline=candidate("b", correctness=0.5, cost=999),
-                                   gate_report=gate_report(disqualified=True, reason="gate_regression"))
+    decision = controller().decide(
+        candidate=candidate("c", correctness=0.99, cost=1),
+        baseline=candidate("b", correctness=0.5, cost=999),
+        gate_report=gate_report(disqualified=True, reason="gate_regression"),
+    )
     assert decision.action == "reject" and decision.reason == "gate_disqualified:gate_regression"
 
 
 def test_dominating_candidate_is_promoted():
-    decision = controller().decide(candidate=candidate("c", correctness=0.9, cost=50),
-                                   baseline=candidate("b", correctness=0.8, cost=100), gate_report=gate_report())
+    decision = controller().decide(
+        candidate=candidate("c", correctness=0.9, cost=50),
+        baseline=candidate("b", correctness=0.8, cost=100),
+        gate_report=gate_report(),
+    )
     assert decision.action == "promote"
 
 
 def test_dominated_candidate_is_rejected_and_tradeoff_goes_to_canary():
-    rejected = controller().decide(candidate=candidate("c", correctness=0.7, cost=200),
-                                   baseline=candidate("b", correctness=0.8, cost=100), gate_report=gate_report())
+    rejected = controller().decide(
+        candidate=candidate("c", correctness=0.7, cost=200),
+        baseline=candidate("b", correctness=0.8, cost=100),
+        gate_report=gate_report(),
+    )
     assert rejected.action == "reject" and rejected.reason == "dominated_by_baseline"
-    canary = controller().decide(candidate=candidate("c", correctness=0.95, cost=200),
-                                 baseline=candidate("b", correctness=0.8, cost=100), gate_report=gate_report())
+    canary = controller().decide(
+        candidate=candidate("c", correctness=0.95, cost=200),
+        baseline=candidate("b", correctness=0.8, cost=100),
+        gate_report=gate_report(),
+    )
     assert canary.action == "canary" and canary.canary_fraction == 0.2
 
 
@@ -68,6 +82,9 @@ def test_invalid_canary_fraction_is_rejected():
 
 def test_gate_engine_integration_uses_real_hard_gates():
     report = GateEngine([threshold_gate("correctness", "task_correctness", 0.8)]).evaluate({"task_correctness": 0.5})
-    decision = controller().decide(candidate=candidate("c", correctness=0.5, cost=10),
-                                   baseline=candidate("b", correctness=0.8, cost=100), gate_report=report)
+    decision = controller().decide(
+        candidate=candidate("c", correctness=0.5, cost=10),
+        baseline=candidate("b", correctness=0.8, cost=100),
+        gate_report=report,
+    )
     assert decision.action == "reject"

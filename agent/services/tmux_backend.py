@@ -6,7 +6,6 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 
-
 _SAFE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._:-]+$")
 
 
@@ -57,7 +56,9 @@ class TmuxSessionBackend:
     def send_input(self, *, session_name: str, text: str) -> None:
         tmux = self._require_tmux()
         name = self._validate_name(session_name)
-        result = subprocess.run([tmux, "send-keys", "-t", f"{name}:0.0", str(text), "C-m"], capture_output=True, text=True)  # noqa: S603
+        result = subprocess.run(
+            [tmux, "send-keys", "-t", f"{name}:0.0", str(text), "C-m"], capture_output=True, text=True
+        )  # noqa: S603
         if result.returncode != 0:
             raise TmuxBackendError("tmux_send_input_failed")
 

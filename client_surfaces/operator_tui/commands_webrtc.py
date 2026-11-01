@@ -2,6 +2,7 @@
 
 Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 """
+
 from __future__ import annotations
 
 import html as _html
@@ -9,14 +10,12 @@ import urllib.parse
 from pathlib import Path
 
 from client_surfaces.operator_tui.keybindings_config import display_for_action
-from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
-
-
-
+from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState
 
 # ---------------------------------------------------------------------------
 # center.browser commands (carbonyl-005)
 # ---------------------------------------------------------------------------
+
 
 def execute_center_browser_command(raw_command: str, state: OperatorState) -> CommandResult | None:
     """Handle center.browser.* commands. Returns None if not a browser command."""
@@ -34,6 +33,7 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
         else:
             # :cb without args — show status
             from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+
             cap = detect_carbonyl_browser()
             msg = f"browser: carbonyl {'verfügbar' if cap.available else 'nicht gefunden — ' + cap.unavailable_reason}"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
@@ -66,7 +66,7 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
 <div><span class="k">status:</span> <span class="v">{status}</span></div></div>
 <div class="grid">
 <div class="card"><div class="h">AI-Snake</div>
-<div><span class="k">active:</span> <span class="{'ok' if snake_active else 'warn'}">{snake_active}</span></div>
+<div><span class="k">active:</span> <span class="{"ok" if snake_active else "warn"}">{snake_active}</span></div>
 <div><span class="k">paused:</span> <span class="v">{snake_paused}</span></div>
 <div><span class="k">mode:</span> <span class="v">{_html.escape(snake_mode)}</span></div>
 <div><span class="k">runtime:</span> <span class="v">{_html.escape(runtime)}</span></div></div>
@@ -118,9 +118,7 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
         )
 
     # :center.browser.url <url>  or  :browser <url>
-    if cmd in {"center.browser.url", "center.browser.open"} or (
-        cmd == "center.browser.toggle" and len(parts) > 1
-    ):
+    if cmd in {"center.browser.url", "center.browser.open"} or (cmd == "center.browser.toggle" and len(parts) > 1):
         url = parts[1] if len(parts) > 1 else ""
         if not url:
             return CommandResult(
@@ -130,6 +128,7 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
             )
         # Check carbonyl availability immediately
         from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+
         cap = detect_carbonyl_browser()
         if not cap.available:
             msg = f"browser: carbonyl nicht gefunden — {cap.unavailable_reason} | npm install -g carbonyl"
@@ -157,8 +156,7 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
                 mode=OperatorMode.NORMAL,
                 command_line="",
                 status_message=(
-                    f"browser: öffne {url} | "
-                    f"{display_for_action('center_browser_toggle', 'Ctrl+2')} toggle | Esc exit"
+                    f"browser: öffne {url} | {display_for_action('center_browser_toggle', 'Ctrl+2')} toggle | Esc exit"
                 ),
             ),
             "center.browser.url",
@@ -225,6 +223,7 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
 
     if cmd in {"center.webview.open", "center.webview.snake"}:
         from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+
         mode = "snake" if cmd.endswith(".snake") else "dashboard"
         cap = detect_carbonyl_browser()
         if not cap.available:
@@ -279,10 +278,16 @@ def _handle_webrtc_command(command: str, args: list[str], state: OperatorState) 
         Accept a pending artifact offer.
     """
     try:
-        from client_surfaces.operator_tui.realtime.webrtc_session_controller import WebRtcSessionController
         from client_surfaces.operator_tui.realtime.signaling_client import SignalingClient
+        from client_surfaces.operator_tui.realtime.webrtc_audit import (  # noqa: F401 — availability probe
+            EVENT_ERROR,
+            EVENT_SESSION_CLOSED,
+            EVENT_SESSION_START,
+            WebRtcAuditEvent,
+            WebRtcAuditLog,
+        )
         from client_surfaces.operator_tui.realtime.webrtc_policy import WebRtcPolicy
-        from client_surfaces.operator_tui.realtime.webrtc_audit import WebRtcAuditLog, WebRtcAuditEvent, EVENT_SESSION_START, EVENT_SESSION_CLOSED, EVENT_ERROR
+        from client_surfaces.operator_tui.realtime.webrtc_session_controller import WebRtcSessionController
     except ImportError as exc:
         msg = f"WebRTC realtime stack not available: {exc}"
         return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
@@ -292,6 +297,7 @@ def _handle_webrtc_command(command: str, args: list[str], state: OperatorState) 
     oidc_subject_hash = ""
     if oidc_token:
         import hashlib as _hl
+
         oidc_subject_hash = _hl.sha256(oidc_token.encode()).hexdigest()[:16]
 
     # Resolve session_id: last arg if it doesn't look like an offer_id

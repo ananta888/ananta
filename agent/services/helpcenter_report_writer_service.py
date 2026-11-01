@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -113,16 +113,16 @@ def write_helpcenter_report(
     ]
     analysis_payload.setdefault("generated_at", _now_iso())
     analysis_payload["redaction_status"] = str(
-        analysis_payload.get("redaction_status")
-        or message_payload.get("redaction_status")
-        or "pending"
+        analysis_payload.get("redaction_status") or message_payload.get("redaction_status") or "pending"
     )
     analysis_payload["source_kind"] = str(message_payload.get("source_kind") or "").strip()
     analysis_payload["severity"] = str(message_payload.get("severity") or "warning").strip()
     if isinstance(message_payload.get("meta"), dict):
         analysis_payload["source_metadata"] = dict(message_payload.get("meta") or {})
     source_meta = dict(analysis_payload.get("source_metadata") or {})
-    analysis_payload["fetched_at"] = str(message_payload.get("received_at") or analysis_payload.get("generated_at") or _now_iso())
+    analysis_payload["fetched_at"] = str(
+        message_payload.get("received_at") or analysis_payload.get("generated_at") or _now_iso()
+    )
     analysis_payload["source_url"] = str(message_payload.get("raw_ref") or source_meta.get("url") or "")
     analysis_payload["workflow_run_id"] = int(source_meta.get("run_id") or 0)
     analysis_payload["job_id"] = int(source_meta.get("job_id") or 0)

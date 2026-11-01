@@ -1,4 +1,5 @@
 """Unit tests for PromptRedactionService. PTI-027."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 @pytest.fixture
 def svc():
     from agent.services.prompt_redaction_service import PromptRedactionService
+
     return PromptRedactionService()
 
 

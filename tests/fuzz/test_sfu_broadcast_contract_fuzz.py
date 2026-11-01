@@ -36,9 +36,7 @@ def _cases() -> int:
 
 
 DESCRIPTOR = ContractVersionDescriptor("fuzz.contract.v1", "1", 1)
-COMPATIBILITY = ContractReaderCompatibility(
-    schema_versions={"fuzz.contract.v1": frozenset({"1"})}
-)
+COMPATIBILITY = ContractReaderCompatibility(schema_versions={"fuzz.contract.v1": frozenset({"1"})})
 
 
 @pytest.mark.parametrize("seed", _seeds())
@@ -126,9 +124,15 @@ def test_signature_and_scope_mutations_never_verify(seed: int) -> None:
     now = datetime(2026, 7, 22, tzinfo=timezone.utc)
     scope = SfuMemberDigestScope("tenant-a", "room-a", "publication-a", 3)
     record = DigestKeyMetadata(
-        "key-a", "HMAC-SHA256", 1, 1, scope.fingerprint(),
-        DigestKeyLifecycleState.ACTIVE, now - timedelta(seconds=1),
-        now + timedelta(hours=1), now,
+        "key-a",
+        "HMAC-SHA256",
+        1,
+        1,
+        scope.fingerprint(),
+        DigestKeyLifecycleState.ACTIVE,
+        now - timedelta(seconds=1),
+        now + timedelta(hours=1),
+        now,
     )
     reader = _Reader(record)
     service = SfuMemberDigestKeyContractService(
@@ -146,4 +150,3 @@ def test_signature_and_scope_mutations_never_verify(seed: int) -> None:
         assert service.verify_digest(b"member-set", scope, tampered).valid is False
     wrong_scope = SfuMemberDigestScope("tenant-a", "room-b", "publication-a", 3)
     assert service.verify_digest(b"member-set", wrong_scope, value).valid is False
-

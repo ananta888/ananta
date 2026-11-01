@@ -10,6 +10,7 @@ Three public methods cover the three use-cases:
 Module-level singleton + ``get_tool_schema_adapter()`` getter follow the
 pattern used by every other ananta service.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -34,9 +35,7 @@ class ToolSchemaAdapterService:
         include_dynamic: bool = False,
     ) -> str:
         """Return the compact tool description string for the worker prompt."""
-        return get_ananta_tool_registry_service().describe_for_prompt(
-            allowed_tools, include_dynamic=include_dynamic
-        )
+        return get_ananta_tool_registry_service().describe_for_prompt(allowed_tools, include_dynamic=include_dynamic)
 
     def get_openai_tools(
         self,

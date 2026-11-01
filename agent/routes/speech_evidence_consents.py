@@ -38,9 +38,7 @@ def grant_speech_evidence_consent():
         return _error(exc)
 
 
-@speech_evidence_consents_bp.get(
-    "/v1/voice/speech-evidence-consents/<consent_id>"
-)
+@speech_evidence_consents_bp.get("/v1/voice/speech-evidence-consents/<consent_id>")
 @check_user_auth
 def get_speech_evidence_consent(consent_id: str):
     try:
@@ -53,9 +51,7 @@ def get_speech_evidence_consent(consent_id: str):
         return _error(exc)
 
 
-@speech_evidence_consents_bp.post(
-    "/v1/voice/speech-evidence-consents/<consent_id>/<action>"
-)
+@speech_evidence_consents_bp.post("/v1/voice/speech-evidence-consents/<consent_id>/<action>")
 @check_user_auth
 def mutate_speech_evidence_consent(consent_id: str, action: str):
     try:
@@ -122,9 +118,7 @@ def mutate_speech_evidence_consent(consent_id: str, action: str):
 def _principal() -> VoicePrincipal:
     identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
     subject = str(identity.get("sub") or identity.get("username") or "").strip()
-    tenant_id = str(
-        identity.get("tenant_id") or identity.get("tenant") or subject
-    ).strip()
+    tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
     if not subject or not tenant_id:
         raise SpeechEvidenceGovernanceError(
             "speech_consent_unauthenticated",
@@ -184,8 +178,7 @@ def _if_match() -> int:
 def _identifier(value: object, reason_code: str) -> str:
     rendered = str(value or "").strip()
     if not 1 <= len(rendered) <= 160 or any(
-        not (character.isalnum() or character in "._:@-")
-        for character in rendered
+        not (character.isalnum() or character in "._:@-") for character in rendered
     ):
         raise SpeechEvidenceGovernanceError(
             reason_code,

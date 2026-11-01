@@ -18,38 +18,31 @@ from typing import TYPE_CHECKING
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
-from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
-from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
+from client_surfaces.operator_tui.audit_nav import audit_nav_items, grouped_audit_items
 from client_surfaces.operator_tui.chat_long_message import (
-    compact_chat_message_text,
-    get_render_mode,
-    is_showing_chat_long_message,
     long_message_history_rows,
-    should_use_middle_view_for_message,
 )
-from client_surfaces.operator_tui.chat_state import get_active_channel
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
+from client_surfaces.operator_tui.keybindings_config import display_for_action
+from client_surfaces.operator_tui.keymap import hints_for_mode
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.sections import SECTIONS
 from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
-from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
-from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
+from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_prefix
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine, SplashState
-
-
-
+    from agent.cli.splash import SplashMachine
 
 
 # === Cross-module imports (resolve symbols from other sub-modules) ===
-from client_surfaces.operator_tui import _renderer_utils as _ru_x
-from client_surfaces.operator_tui._renderer_utils import (_clip, _overlay_text, _snake_palette, _trim_visible_leading_spaces, _chat_channel_label, _inline_input_with_cursor, _pane_title)
+from client_surfaces.operator_tui._renderer_utils import (
+    _chat_channel_label,
+    _clip,
+    _inline_input_with_cursor,
+    _pane_title,
+    _snake_palette,
+    _trim_visible_leading_spaces,
+)
+
 # === Module-level state (constants) ===
 _LOGO_COLS = 50
 _LOGO_COLS_MAX = 72
@@ -58,12 +51,11 @@ _RIGHT_PANEL_MIN_WIDTH = 40
 _RIGHT_PANEL_MAX_WIDTH = 52
 
 
-
 # === Functions extracted from the original renderer.py ===
+
 
 def _share_only_nav_mode() -> bool:
     return str(os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV") or "").strip().lower() in {"1", "true", "yes", "on"}
-
 
 
 def _left_align_logo_lines(lines: list[str]) -> list[str]:
@@ -80,11 +72,9 @@ def _left_align_logo_lines(lines: list[str]) -> list[str]:
     return [_trim_visible_leading_spaces(line, trim) for line in lines]
 
 
-
 def _logo_cols_for_width(width: int) -> int:
     # Keep a readable right panel while maximizing logo fidelity on wide terminals.
     return max(_LOGO_COLS, min(_LOGO_COLS_MAX, width - 28 - len(_LOGO_SEP)))
-
 
 
 def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | None = None) -> list[str]:
@@ -113,10 +103,10 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
         from client_surfaces.operator_tui.logo_inline import (
             render_logo_braille,
             render_logo_braille_animated,
-            render_logo_snake_game_playable,
-            render_logo_snake_game_animated,
-            render_logo_halfblock_animated,
             render_logo_halfblock,
+            render_logo_halfblock_animated,
+            render_logo_snake_game_animated,
+            render_logo_snake_game_playable,
         )
 
         if header_3d and not no_3d:
@@ -171,10 +161,8 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
 
     # Fallback: existing ASCII art via logo_layout (pass snapshot=None → logo only)
     from agent.cli.logo_layout import render_compact_header
-    return _left_align_logo_lines(
-        render_compact_header(snapshot=None, terminal_width=cols + 20, color=color)
-    )
 
+    return _left_align_logo_lines(render_compact_header(snapshot=None, terminal_width=cols + 20, color=color))
 
 
 def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows: int, *, logo_cols: int) -> list[str]:
@@ -187,7 +175,6 @@ def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows
         padded = logo_part + " " * max(0, logo_cols - visible)
         result.append(padded + _LOGO_SEP + right_part)
     return result
-
 
 
 def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
@@ -216,6 +203,7 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
             section=state.section_id,
         )
         from agent.cli.status_snapshot import format_status_lines
+
         right_lines = format_status_lines(snapshot, color=color, width=right_width)
 
     while len(right_lines) < COMPACT_HEADER_LINES:
@@ -225,7 +213,6 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
         left_lines.append("")
 
     return _assemble_header_lines(left_lines, right_lines, COMPACT_HEADER_LINES, logo_cols=left_cols)
-
 
 
 def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
@@ -238,9 +225,7 @@ def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
 
     snakes_raw = game.get("snakes")
     snakes: dict[str, dict[str, object]] = (
-        {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)}
-        if isinstance(snakes_raw, dict)
-        else {}
+        {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)} if isinstance(snakes_raw, dict) else {}
     )
     if not snakes:
         snakes = {
@@ -260,12 +245,16 @@ def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
     def _access_for(sid: str, snap: dict[str, object]) -> str:
         if sid == local_id:
             return "full"
-        level = str(remote_access.get(sid) or snap.get("access_level") or ("view" if sid == "s-ai" else "cancel")).lower()
+        level = str(
+            remote_access.get(sid) or snap.get("access_level") or ("view" if sid == "s-ai" else "cancel")
+        ).lower()
         if level not in {"cancel", "view", "full"}:
             return "cancel"
         return level
 
-    ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == local_id else (1 if str(kv[0]) == "s-ai" else 2), str(kv[0])))
+    ordered = sorted(
+        snakes.items(), key=lambda kv: (0 if str(kv[0]) == local_id else (1 if str(kv[0]) == "s-ai" else 2), str(kv[0]))
+    )
     lines = [_pane_title("SNAKE", state.focus == FocusPane.HEADER)]
     if active:
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Modus aktiv ({status}).", width))
@@ -328,7 +317,6 @@ def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
     return lines
 
 
-
 def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, CONFIG_LABELS, config_value, is_cycleable
 
@@ -337,9 +325,16 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     if game.get("active"):
         status = "running" if game.get("alive", True) else "game over"
         snakes = game.get("snakes") if isinstance(game.get("snakes"), dict) else {}
-        peer_count = len([k for k in snakes.keys() if str(k) != str(game.get("local_snake_id") or "s1")]) if snakes else 0
+        peer_count = (
+            len([k for k in snakes.keys() if str(k) != str(game.get("local_snake_id") or "s1")]) if snakes else 0
+        )
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Modus aktiv  {status}", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-ID: {game.get('local_snake_id', 's1')} · Peers: {peer_count}", width))
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} Snake-ID: {game.get('local_snake_id', 's1')} · Peers: {peer_count}",
+                width,
+            )
+        )
         lines.append(
             _clip(
                 f"{DEFAULT_THEME.muted_prefix} {display_for_action('snake_toggle_selection', 'Ctrl+X')}=Markieren, "
@@ -357,7 +352,10 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         )
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snakes (OIDC / Farbe / Nachricht):", width))
         if snakes:
-            ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == str(game.get("local_snake_id") or "s1") else 1, str(kv[0])))
+            ordered = sorted(
+                snakes.items(),
+                key=lambda kv: (0 if str(kv[0]) == str(game.get("local_snake_id") or "s1") else 1, str(kv[0])),
+            )
             for sid, snap in ordered:
                 if not isinstance(snap, dict):
                     continue
@@ -393,7 +391,6 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     return lines
 
 
-
 def _render_splash_header(splash: SplashMachine, state: OperatorState, width: int) -> list[str]:
     from agent.cli.splash import SplashState
     from agent.cli.status_snapshot import collect_status
@@ -412,7 +409,6 @@ def _render_splash_header(splash: SplashMachine, state: OperatorState, width: in
     color = not state.terminal_graphics.get("no_color", False) if state.terminal_graphics else True
 
     return splash.render(snapshot, width=width, color=color)
-
 
 
 def _navigation_lines(state: OperatorState) -> list[str]:
@@ -506,7 +502,6 @@ def _navigation_lines(state: OperatorState) -> list[str]:
     return lines
 
 
-
 def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     if not game:
@@ -515,7 +510,7 @@ def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
     llm = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
     if llm:
         lm_label = str(llm.get("model") or "LM") if llm.get("reachable") else "local/offline"
-        lines.append(f"    LLM: {lm_label[:max(8, width - 10)]}")
+        lines.append(f"    LLM: {lm_label[: max(8, width - 10)]}")
     cc_status = str(game.get("codecompass_build_status") or "").strip()
     if cc_status:
         lines.append(f"    CodeCompass: {cc_status}")
@@ -523,6 +518,7 @@ def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
         lines.append("    Chat: panel open")
     try:
         from client_surfaces.operator_tui.chat_state import get_chat_state, unread_total
+
         unread = unread_total(get_chat_state(dict(game)))
     except Exception:
         unread = 0
@@ -532,7 +528,7 @@ def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
     target = artifact_chat.get("active_target") if isinstance(artifact_chat, dict) else None
     if isinstance(target, dict):
         label = str(target.get("label") or target.get("path") or target.get("id") or "artifact")
-        lines.append(f"    Active: {label[:max(8, width - 12)]}")
+        lines.append(f"    Active: {label[: max(8, width - 12)]}")
     history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
     if history:
         lines.append("    AI Flow:")
@@ -543,17 +539,18 @@ def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
             target_name = str(entry.get("target") or "content")
             text = str(entry.get("text") or "").strip()
             label = f"{source}->{target_name}: {text}" if text else f"{source}->{target_name}"
-            lines.append(f"      {label[:max(8, width - 8)]}")
+            lines.append(f"      {label[: max(8, width - 8)]}")
     if len(lines) == 2:
         return []
     return lines
 
 
-
 def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     visual = dict(game.get("visual_runtime_status") or {})
-    visual_enabled = bool(dict(game.get("visual_viewport") or {}).get("enabled")) or bool(game.get("visual_viewport_enabled"))
+    visual_enabled = bool(dict(game.get("visual_viewport") or {}).get("enabled")) or bool(
+        game.get("visual_viewport_enabled")
+    )
     parts = [
         f"endpoint={state.endpoint}",
         f"auth={state.auth_state}",
@@ -599,12 +596,12 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         if metrics:
             parts.append(
                 "gfx="
-                f"{metrics.get('backend','?')}:"
-                f"{metrics.get('render_ms','?')}/"
-                f"{metrics.get('encode_ms','?')}/"
-                f"{metrics.get('output_ms','?')}ms"
+                f"{metrics.get('backend', '?')}:"
+                f"{metrics.get('render_ms', '?')}/"
+                f"{metrics.get('encode_ms', '?')}/"
+                f"{metrics.get('output_ms', '?')}ms"
             )
-            parts.append(f"gfx_fps={metrics.get('fps','?')}")
+            parts.append(f"gfx_fps={metrics.get('fps', '?')}")
             frame_w = metrics.get("frame_w")
             frame_h = metrics.get("frame_h")
             if frame_w and frame_h:
@@ -622,12 +619,17 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
             parts.append("vvp_err")
     try:
         from client_surfaces.operator_tui.chat_state import get_chat_state
+
         active_chat = str(get_chat_state(dict(game)).get("active_channel") or "room:main")
     except Exception:
         active_chat = ""
-    if active_chat and (bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")) or bool(game.get("free_mode"))):
+    if active_chat and (
+        bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")) or bool(game.get("free_mode"))
+    ):
         try:
-            from client_surfaces.operator_tui.chat_state import get_chat_state as _gcs2, get_active_session as _gas2
+            from client_surfaces.operator_tui.chat_state import get_active_session as _gas2
+            from client_surfaces.operator_tui.chat_state import get_chat_state as _gcs2
+
             _sess = _gas2(_gcs2(dict(game)))
             _sess_name = str(_sess.get("name") or "") if _sess else ""
         except Exception:
@@ -637,6 +639,7 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
     if not bool(game.get("free_mode")):
         try:
             from client_surfaces.operator_tui.chat_state import get_chat_state, unread_total
+
             unread = unread_total(get_chat_state(dict(game)))
         except Exception:
             unread = 0
@@ -645,9 +648,9 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
     return _clip(" ".join(parts), width)
 
 
-
 def _command_line(state: OperatorState, width: int) -> str:
     import time as _time
+
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     if state.mode.value != "command":
         # Show last command feedback for 4 seconds after executing a command
@@ -669,7 +672,6 @@ def _command_line(state: OperatorState, width: int) -> str:
     return _clip(f":{visible}{hist_sfx}", width)
 
 
-
 def _tab_bar_line(state: OperatorState, width: int) -> str:
     """Render the tab bar as a single line. Active tab is shown inverted."""
     tabs = state.open_tabs
@@ -680,7 +682,6 @@ def _tab_bar_line(state: OperatorState, width: int) -> str:
     visible = tabs[offset:]
     overflow_left = offset > 0
 
-    parts: list[str] = []
     used_width = 2 if overflow_left else 0  # '‹ '
 
     overflow_right = False
@@ -714,7 +715,6 @@ def _tab_bar_line(state: OperatorState, width: int) -> str:
     if plain_len < width:
         result += " " * (width - plain_len)
     return result
-
 
 
 def _hints_line(state: OperatorState, width: int) -> str:
@@ -770,14 +770,12 @@ def _hints_line(state: OperatorState, width: int) -> str:
             )
     if len(state.open_tabs) >= 2 and state.mode is OperatorMode.NORMAL and not _share_only_nav_mode():
         tab_hints = (
-            f"[{display_for_action('tab_close', 'Ctrl+W')}] Tab×  "
-            f"[{display_for_action('tab_next', 'Ctrl+Tab')}] Tab→  "
+            f"[{display_for_action('tab_close', 'Ctrl+W')}] Tab×  [{display_for_action('tab_next', 'Ctrl+Tab')}] Tab→  "
         )
         hints = tab_hints + hints
     if "Commands:" not in hints and not bool(game.get("active")):
         hints = f"Commands: :refresh :section <id>  {hints}"
     return _clip(hints, width)
-
 
 
 def _header_rule(width: int, focused: bool = False) -> str:
@@ -788,6 +786,3 @@ def _header_rule(width: int, focused: bool = False) -> str:
     left = dashes // 2
     right = dashes - left
     return "-" * left + label + "-" * right
-
-
-

@@ -115,9 +115,7 @@ def index_existing_descriptors(
         if not isinstance(raw, dict):
             continue
         domain_id = str(raw.get("domain_id") or child.name)
-        out[domain_id] = _normalize_descriptor(
-            domain_id, raw, str(descriptor_path)
-        )
+        out[domain_id] = _normalize_descriptor(domain_id, raw, str(descriptor_path))
     return out
 
 
@@ -164,10 +162,14 @@ def build_descriptor_mismatches(
             )
             continue
         candidate_paths = _candidate_paths(candidate)
-        matched_paths = [p for p in descriptor.code_paths if any(
-            candidate_paths and (p == rp or p.startswith(rp + "/") or rp.startswith(p + "/"))
-            for rp in candidate_paths
-        )]
+        matched_paths = [
+            p
+            for p in descriptor.code_paths
+            if any(
+                candidate_paths and (p == rp or p.startswith(rp + "/") or rp.startswith(p + "/"))
+                for rp in candidate_paths
+            )
+        ]
         if descriptor.code_paths and not matched_paths:
             warnings.append(
                 {
@@ -186,12 +188,8 @@ def build_descriptor_mismatches(
             continue
         if descriptor.code_paths:
             for code_path in descriptor.code_paths:
-                if not any(
-                    code_path == rp or code_path.startswith(rp + "/")
-                    for rp in candidate_paths
-                ) and not any(
-                    rp == code_path or rp.startswith(code_path + "/")
-                    for rp in candidate_paths
+                if not any(code_path == rp or code_path.startswith(rp + "/") for rp in candidate_paths) and not any(
+                    rp == code_path or rp.startswith(code_path + "/") for rp in candidate_paths
                 ):
                     warnings.append(
                         {

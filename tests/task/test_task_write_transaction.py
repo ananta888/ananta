@@ -41,7 +41,9 @@ def terminalize(repository, mode):
         task.status = "completed"
         return repository.save(task)
     result = repository.compare_and_set_status(
-        "test-task", expected_statuses={"in_progress"}, target_status="completed",
+        "test-task",
+        expected_statuses={"in_progress"},
+        target_status="completed",
     )
     assert result.updated
     return result.task

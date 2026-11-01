@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from agent.services.sfu_broadcast_control_observability import (
-    SfuBroadcastControlObservationPort,
-    control_observer_or_null,
-    observed_control_path,
-)
-
 import hashlib
 import json
 from dataclasses import dataclass
 from typing import Mapping, Protocol
 
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
 from agent.services.sfu_runtime_capability_evaluator import (
     SfuRuntimeCapabilityEvaluation,
     SfuRuntimeCapabilityEvaluator,
@@ -95,16 +94,9 @@ class SfuRuntimeObservationService:
         now_ms: int,
     ) -> SfuRuntimeObservationResult:
         if not trust.transport_authenticated:
-            raise SfuRuntimeObservationError(
-                "sfu_runtime_observation_transport_untrusted", status_code=403
-            )
-        if (
-            document.get("producer_mode") == "authenticated_runtime_extension"
-            and not trust.signature_verified
-        ):
-            raise SfuRuntimeObservationError(
-                "sfu_runtime_observation_signature_unverified", status_code=403
-            )
+            raise SfuRuntimeObservationError("sfu_runtime_observation_transport_untrusted", status_code=403)
+        if document.get("producer_mode") == "authenticated_runtime_extension" and not trust.signature_verified:
+            raise SfuRuntimeObservationError("sfu_runtime_observation_signature_unverified", status_code=403)
         evaluation = self._evaluator.evaluate(document, trust, now_ms=now_ms)
         canonical = json.dumps(
             document,

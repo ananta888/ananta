@@ -11,13 +11,13 @@ ist. Status basiert auf messbaren Signalen und Evidence — nicht auf LLM-Schät
 
 ```python
 class CodeStatus(str, Enum):
-    ACTIVE          = "active"          # klare Evidence für aktive Nutzung
-    LIKELY_ACTIVE   = "likely_active"   # schwache, aber plausible Nutzungszeichen
-    UNKNOWN         = "unknown"         # keine ausreichenden Signale
-    DEPRECATED      = "deprecated"      # explizit als veraltet markiert
-    DEAD_CANDIDATE  = "dead_candidate"  # keine Nutzung nachweisbar, kein aktueller Commit
-    RISKY           = "risky"           # aktiv, aber mit bekannten Problemen (Security, TODO)
-    UNCERTAIN       = "uncertain"       # widersprüchliche Signale, Einzelnachweise erforderlich
+    ACTIVE = "active"  # klare Evidence für aktive Nutzung
+    LIKELY_ACTIVE = "likely_active"  # schwache, aber plausible Nutzungszeichen
+    UNKNOWN = "unknown"  # keine ausreichenden Signale
+    DEPRECATED = "deprecated"  # explizit als veraltet markiert
+    DEAD_CANDIDATE = "dead_candidate"  # keine Nutzung nachweisbar, kein aktueller Commit
+    RISKY = "risky"  # aktiv, aber mit bekannten Problemen (Security, TODO)
+    UNCERTAIN = "uncertain"  # widersprüchliche Signale, Einzelnachweise erforderlich
 ```
 
 ---
@@ -50,9 +50,9 @@ führen zu `UNCERTAIN`:
 @dataclass
 class StatusResult:
     status: CodeStatus
-    score: float                   # gewichtete Summe der Signale
+    score: float  # gewichtete Summe der Signale
     signals: list[SignalEvidence]  # alle ausgewerteten Signale mit Einzelergebnis
-    conflict_notes: list[str]      # Erklärung bei UNCERTAIN
+    conflict_notes: list[str]  # Erklärung bei UNCERTAIN
     manual_override: ManualOverride | None
 ```
 
@@ -70,7 +70,7 @@ class ManualOverride:
     forced_status: CodeStatus
     author: str
     reason: str
-    expires_at: datetime | None    # optionales Ablaufdatum
+    expires_at: datetime | None  # optionales Ablaufdatum
     created_at: datetime
 ```
 

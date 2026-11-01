@@ -90,11 +90,14 @@ write. Non-primitive values (lists, dicts) are also stripped.
 
 ```python
 from client_surfaces.operator_tui.config.user_config_manager import (
-    UserConfigManager, load_user_config, save_user_config, flush_user_config,
+    UserConfigManager,
+    load_user_config,
+    save_user_config,
+    flush_user_config,
 )
 
 # Load merged settings
-settings = load_user_config()                   # uses CWD
+settings = load_user_config()  # uses CWD
 settings = load_user_config(cwd=Path("/proj"))  # project-specific
 
 # Save single change

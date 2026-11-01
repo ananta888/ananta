@@ -6,6 +6,7 @@ Schema: schemas/blueprints/seed_template_catalog.v1.json
 
 Appendix references ({{appendix:name}}) in prompt_template are expanded during load.
 """
+
 from __future__ import annotations
 
 import copy
@@ -47,11 +48,13 @@ class SeedTemplateCatalog:
         result = []
         for tpl in self._catalog.get("templates") or []:
             if str(tpl.get("team_type") or "") == team_type:
-                result.append({
-                    "name": str(tpl["name"]),
-                    "description": str(tpl.get("description") or ""),
-                    "prompt_template": self._expand(str(tpl.get("prompt_template") or "")),
-                })
+                result.append(
+                    {
+                        "name": str(tpl["name"]),
+                        "description": str(tpl.get("description") or ""),
+                        "prompt_template": self._expand(str(tpl.get("prompt_template") or "")),
+                    }
+                )
         return result
 
     def get_role_specs_for_team_type(self, team_type: str) -> list[dict[str, str]]:
@@ -75,12 +78,14 @@ class SeedTemplateCatalog:
             return []
         result = []
         for tpl in self._catalog.get("templates") or []:
-            result.append({
-                "name": str(tpl["name"]),
-                "description": str(tpl.get("description") or ""),
-                "team_type": str(tpl.get("team_type") or ""),
-                "prompt_template": self._expand(str(tpl.get("prompt_template") or "")),
-            })
+            result.append(
+                {
+                    "name": str(tpl["name"]),
+                    "description": str(tpl.get("description") or ""),
+                    "team_type": str(tpl.get("team_type") or ""),
+                    "prompt_template": self._expand(str(tpl.get("prompt_template") or "")),
+                }
+            )
         return result
 
     def known_team_types(self) -> list[str]:
@@ -103,10 +108,11 @@ class SeedTemplateCatalog:
         payload = self._load_merged_payload()
         try:
             from jsonschema import Draft202012Validator
+
             schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
             errors = sorted(Draft202012Validator(schema).iter_errors(payload), key=lambda e: list(e.path))
             if errors:
-                msgs = "; ".join(f"{'.'.join(map(str,e.path)) or '<root>'}: {e.message}" for e in errors)
+                msgs = "; ".join(f"{'.'.join(map(str, e.path)) or '<root>'}: {e.message}" for e in errors)
                 raise ValueError(f"invalid seed template catalog {self.catalog_path}: {msgs}")
         except ImportError:
             pass  # jsonschema not available — skip validation
@@ -150,8 +156,10 @@ class SeedTemplateCatalog:
 
     def _expand(self, text: str) -> str:
         appendixes: dict[str, str] = dict((self._catalog or {}).get("appendixes") or {})
+
         def _replace(m: re.Match) -> str:
             return appendixes.get(m.group(1), m.group(0))
+
         return _APPENDIX_RE.sub(_replace, text)
 
 

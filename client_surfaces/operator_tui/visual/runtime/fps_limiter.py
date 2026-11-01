@@ -16,4 +16,3 @@ class FpsLimiter:
 
     def reset(self, *, now: float) -> None:
         self._next_allowed_at = float(now)
-

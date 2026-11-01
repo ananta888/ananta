@@ -6,22 +6,20 @@ avg_latency_ms, expired_usage_count, policy_violations, can_activate.
 
 Candidate with policy_violations > 0 → can_activate=False.
 """
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.services.heuristic_runtime.chain import RuleChain
-from agent.services.heuristic_runtime.chat_selectors import build_chat_selector_chain
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
-from agent.services.heuristic_runtime.snake_rules import build_snake_rule_chain
 from agent.services.heuristic_runtime.strategy import decide_for_context
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class SimulationFixture:
@@ -43,6 +41,7 @@ class SimulationFixture:
 
 
 # ── Report ────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class SimulationReport:
@@ -94,6 +93,7 @@ class SimulationReport:
 
 # ── Harness ───────────────────────────────────────────────────────────────────
 
+
 class HeuristicSimulationHarness:
     def simulate(
         self,
@@ -124,7 +124,7 @@ class HeuristicSimulationHarness:
                 total += 1
 
                 is_no_match = result.is_no_good_match()
-                is_wrong = (expected is not None and result.action_kind != expected and not is_no_match)
+                is_wrong = expected is not None and result.action_kind != expected and not is_no_match
 
                 if is_no_match:
                     no_matches += 1
@@ -139,15 +139,17 @@ class HeuristicSimulationHarness:
                 if any("capability_violation" in rc for rc in result.reason_codes):
                     policy_violations += 1
 
-                details.append({
-                    "surface": ctx.source_surface,
-                    "action_kind": result.action_kind,
-                    "confidence": result.confidence,
-                    "expected": expected,
-                    "is_no_match": is_no_match,
-                    "is_wrong": is_wrong,
-                    "latency_ms": round(elapsed_ms, 2),
-                })
+                details.append(
+                    {
+                        "surface": ctx.source_surface,
+                        "action_kind": result.action_kind,
+                        "confidence": result.confidence,
+                        "expected": expected,
+                        "is_no_match": is_no_match,
+                        "is_wrong": is_wrong,
+                        "latency_ms": round(elapsed_ms, 2),
+                    }
+                )
 
         return SimulationReport(
             candidate_id=candidate.heuristic_id,
@@ -184,11 +186,13 @@ class HeuristicSimulationHarness:
                     ai_status="offline",
                     selected_artifacts=snap.get("selected_artifacts", []),
                     active_goal_id=snap.get("active_goal_id"),
-                    recent_events=[{
-                        "kind": "chat_message",
-                        "normalized_value": query[:200],
-                        "timestamp": time.time(),
-                    }],
+                    recent_events=[
+                        {
+                            "kind": "chat_message",
+                            "normalized_value": query[:200],
+                            "timestamp": time.time(),
+                        }
+                    ],
                 )
                 runs.append((ctx, fixture.expected_action_kind))
 

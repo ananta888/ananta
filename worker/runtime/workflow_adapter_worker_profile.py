@@ -15,12 +15,8 @@ from agent.providers.lc_lg import LangGraphProviderConfig
 from ananta_contracts.native_result_maintenance import require_result_store_identifier
 from worker.runtime.native_graph.pi_configuration import NativePiWorkerProfile
 
-WORKFLOW_ADAPTER_WORKER_PROFILE_SCHEMA = (
-    "ananta.workflow-adapter-worker-profile.v1"
-)
-WORKFLOW_ADAPTER_WORKER_PROFILE_ENV = (
-    "ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE"
-)
+WORKFLOW_ADAPTER_WORKER_PROFILE_SCHEMA = "ananta.workflow-adapter-worker-profile.v1"
+WORKFLOW_ADAPTER_WORKER_PROFILE_ENV = "ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE"
 
 
 class WorkflowAdapterWorkerProfileError(ValueError):
@@ -40,7 +36,7 @@ class NativeGraphWorkerProfile(BaseModel):
     result_retirement: StrictBool | None = None
     result_store_binding_id: StrictStr | None = None
 
-    @field_validator('result_store_binding_id')
+    @field_validator("result_store_binding_id")
     @classmethod
     def _result_store_binding(cls, value):
         return require_result_store_identifier(value) if value is not None else None
@@ -49,9 +45,8 @@ class NativeGraphWorkerProfile(BaseModel):
     @classmethod
     def _bounded_unique_identifiers(cls, values: list[str]) -> list[str]:
         normalized = [str(value).strip() for value in values]
-        if (
-            any(not value or len(value) > 128 or "\x00" in value for value in normalized)
-            or len(set(normalized)) != len(normalized)
+        if any(not value or len(value) > 128 or "\x00" in value for value in normalized) or len(set(normalized)) != len(
+            normalized
         ):
             raise ValueError("workflow adapter worker identifier invalid")
         return normalized
@@ -60,20 +55,30 @@ class NativeGraphWorkerProfile(BaseModel):
     def _enabled_requires_scope(self) -> "NativeGraphWorkerProfile":
         if self.enabled and (not self.allowed_task_types or not self.capabilities):
             raise ValueError("enabled Native profile requires task types and capabilities")
-        if self.pi is not None and self.pi.enabled and (
-            not self.enabled or "pi_coding_agent" not in self.allowed_task_types
-            or "coding.agent.pi" not in self.capabilities
+        if (
+            self.pi is not None
+            and self.pi.enabled
+            and (
+                not self.enabled
+                or "pi_coding_agent" not in self.allowed_task_types
+                or "coding.agent.pi" not in self.capabilities
+            )
         ):
             raise ValueError("pi_native_deployment_scope_required")
-        if self.result_maintenance and (not self.enabled
-                or 'native_result_maintenance' not in self.allowed_task_types
-                or 'workflow.result_maintenance' not in self.capabilities):
-            raise ValueError('native_result_maintenance_deployment_scope_required')
+        if self.result_maintenance and (
+            not self.enabled
+            or "native_result_maintenance" not in self.allowed_task_types
+            or "workflow.result_maintenance" not in self.capabilities
+        ):
+            raise ValueError("native_result_maintenance_deployment_scope_required")
         if self.result_store_binding_id is not None and self.result_maintenance is not True:
-            raise ValueError('native_result_store_maintenance_scope_required')
-        if self.result_retirement is True and (self.result_maintenance is not True
-                or self.result_store_binding_id is None or 'workflow.result_retirement' not in self.capabilities):
-            raise ValueError('native_result_retirement_deployment_scope_required')
+            raise ValueError("native_result_store_maintenance_scope_required")
+        if self.result_retirement is True and (
+            self.result_maintenance is not True
+            or self.result_store_binding_id is None
+            or "workflow.result_retirement" not in self.capabilities
+        ):
+            raise ValueError("native_result_retirement_deployment_scope_required")
         return self
 
 
@@ -109,16 +114,11 @@ class WorkflowAdapterWorkerProfile(BaseModel):
         serialization_alias="schema",
     )
     providers: _ProviderProfiles = Field(default_factory=_ProviderProfiles)
-    worker_runtime: _WorkerRuntimeProfiles = Field(
-        default_factory=_WorkerRuntimeProfiles
-    )
+    worker_runtime: _WorkerRuntimeProfiles = Field(default_factory=_WorkerRuntimeProfiles)
 
     @model_validator(mode="after")
     def _requires_one_explicit_adapter(self) -> "WorkflowAdapterWorkerProfile":
-        if (
-            self.providers.langgraph is None
-            and self.worker_runtime.native_graph is None
-        ):
+        if self.providers.langgraph is None and self.worker_runtime.native_graph is None:
             raise ValueError("workflow adapter worker profile is empty")
         return self
 
@@ -154,9 +154,7 @@ def load_workflow_adapter_worker_profile(
 ) -> WorkflowAdapterWorkerProfile:
     path = Path(str(raw_path or "").strip())
     if not path.is_absolute() or path.is_symlink():
-        raise WorkflowAdapterWorkerProfileError(
-            "workflow_adapter_worker_profile_path_invalid"
-        )
+        raise WorkflowAdapterWorkerProfileError("workflow_adapter_worker_profile_path_invalid")
     try:
         metadata = path.stat()
         if (
@@ -165,25 +163,19 @@ def load_workflow_adapter_worker_profile(
             or metadata.st_size < 2
             or metadata.st_size > 65_536
         ):
-            raise WorkflowAdapterWorkerProfileError(
-                "workflow_adapter_worker_profile_file_unsafe"
-            )
+            raise WorkflowAdapterWorkerProfileError("workflow_adapter_worker_profile_file_unsafe")
         raw = path.read_bytes()
     except WorkflowAdapterWorkerProfileError:
         raise
     except OSError as exc:
-        raise WorkflowAdapterWorkerProfileError(
-            "workflow_adapter_worker_profile_unreadable"
-        ) from exc
+        raise WorkflowAdapterWorkerProfileError("workflow_adapter_worker_profile_unreadable") from exc
     try:
         decoded = json.loads(raw.decode("utf-8"))
         if not isinstance(decoded, Mapping):
             raise ValueError("profile must be an object")
         return WorkflowAdapterWorkerProfile.model_validate(dict(decoded))
     except (UnicodeError, ValueError) as exc:
-        raise WorkflowAdapterWorkerProfileError(
-            "workflow_adapter_worker_profile_invalid"
-        ) from exc
+        raise WorkflowAdapterWorkerProfileError("workflow_adapter_worker_profile_invalid") from exc
 
 
 __all__ = [

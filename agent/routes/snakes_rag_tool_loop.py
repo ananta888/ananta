@@ -10,6 +10,7 @@ aliases; the loop itself is composed from
 :mod:`.snakes_rag_tool_loop_tools` (tool-call execution) and
 :mod:`.snakes_rag_tool_loop_session` (iteration control).
 """
+
 from __future__ import annotations
 
 import logging

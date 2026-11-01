@@ -49,12 +49,9 @@ class KittyOutputAdapter:
         encoded = base64.b64encode(bytes(payload)).decode("ascii")
         # Place image at viewport top-left cell.
         stream.write(f"\x1b[{region.y + 1};{region.x + 1}H")
-        stream.write(
-            f"\x1b_Ga=T,f=100,i={self.image_id},c={region.columns},r={region.rows},m=0;{encoded}\x1b\\"
-        )
+        stream.write(f"\x1b_Ga=T,f=100,i={self.image_id},c={region.columns},r={region.rows},m=0;{encoded}\x1b\\")
         self.last_error = ""
         return DrawResult(drawn=True, reason="ok", metadata=self.status())
 
     def last_frame_metadata(self) -> dict[str, Any]:
         return dict(self._last_frame_metadata)
-

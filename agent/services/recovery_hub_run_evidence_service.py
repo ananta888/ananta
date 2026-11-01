@@ -16,27 +16,25 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from ananta_contracts.recovery_run_evidence import (
-    build_recovery_tool_run_context,
-)
-
-
 from agent.services.recovery_hub_run_evidence_contract import (
-    RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA,
-    RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA,
-    RecoveryHubRunEvidenceError,
     _CATALOG_FIELDS,
     _LEASE_BINDING_FIELDS,
     _RECORD_FIELDS,
     _RESULT_BINDING_FIELDS,
     _RESULT_BINDING_SCHEMA,
     _RUN_SOURCE_ID,
+    RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA,
+    RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA,
+    RecoveryHubRunEvidenceError,
     _digest,
     _latest_execution_event,
     _lease_binding,
     _mapping,
     _sha256,
     _value,
+)
+from ananta_contracts.recovery_run_evidence import (
+    build_recovery_tool_run_context,
 )
 
 
@@ -52,13 +50,7 @@ class RecoveryHubRunEvidenceService:
     ) -> None:
         self._repository_provider = repository_provider
         self._clock = clock
-        self._record_id_factory = (
-            record_id_factory
-            or (
-                lambda: "recovery-tool-run-"
-                + secrets.token_urlsafe(24)
-            )
-        )
+        self._record_id_factory = record_id_factory or (lambda: "recovery-tool-run-" + secrets.token_urlsafe(24))
 
     def _repos(self):
         if self._repository_provider is not None:
@@ -91,17 +83,13 @@ class RecoveryHubRunEvidenceService:
         task_id: str,
     ) -> dict[str, Any]:
         if not isinstance(value, Mapping):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_tool_run_record_missing"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_tool_run_record_missing")
         record = copy.deepcopy(dict(value))
         if (
             set(record) != _RECORD_FIELDS
-            or record.get("schema")
-            != RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA
+            or record.get("schema") != RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA
             or str(record.get("task_id") or "") != task_id
-            or str(record.get("source_id") or "")
-            != _RUN_SOURCE_ID
+            or str(record.get("source_id") or "") != _RUN_SOURCE_ID
             or record.get("source_type") != "tool_run"
             or record.get("allowed_for_llm_scope") is not True
             or not str(record.get("record_id") or "").strip()
@@ -117,32 +105,20 @@ class RecoveryHubRunEvidenceService:
             or isinstance(record.get("reserved_at"), bool)
             or not str(record.get("worker_url") or "").strip()
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_tool_run_record_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_tool_run_record_invalid")
         for field in ("proposal_lease", "execute_lease"):
             binding = record.get(field)
-            if binding is not None and (
-                not isinstance(binding, Mapping)
-                or set(binding) != _LEASE_BINDING_FIELDS
-            ):
-                raise RecoveryHubRunEvidenceError(
-                    "recovery_hub_tool_run_record_invalid"
-                )
+            if binding is not None and (not isinstance(binding, Mapping) or set(binding) != _LEASE_BINDING_FIELDS):
+                raise RecoveryHubRunEvidenceError("recovery_hub_tool_run_record_invalid")
             if isinstance(binding, Mapping):
                 _lease_binding(binding)
         expected_digest = cls._record_digest(record)
         actual_digest = str(record.get("record_digest") or "")
-        if (
-            len(actual_digest) != 64
-            or not hmac.compare_digest(
-                actual_digest,
-                expected_digest,
-            )
+        if len(actual_digest) != 64 or not hmac.compare_digest(
+            actual_digest,
+            expected_digest,
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_tool_run_record_digest_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_tool_run_record_digest_mismatch")
         return record
 
     def prepare_for_dispatch_lease(
@@ -157,10 +133,7 @@ class RecoveryHubRunEvidenceService:
 
         normalized_task_id = str(task_id or "").strip()
         normalized_phase = str(phase or "").strip().lower()
-        if (
-            not normalized_task_id
-            or normalized_phase not in {"propose", "execute"}
-        ):
+        if not normalized_task_id or normalized_phase not in {"propose", "execute"}:
             return dict(details)
         binding = _lease_binding(lease)
         updated = copy.deepcopy(dict(details))
@@ -178,17 +151,10 @@ class RecoveryHubRunEvidenceService:
             # RUN authority and therefore fail closed for RUN citations.
             return updated
         if str(existing.get("state") or "") != "reserved":
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_reservation_inactive"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_reservation_inactive")
         record = existing
-        if (
-            str(record.get("worker_url") or "").rstrip("/")
-            != binding["worker_url"]
-        ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_tool_run_worker_mismatch"
-            )
+        if str(record.get("worker_url") or "").rstrip("/") != binding["worker_url"]:
+            raise RecoveryHubRunEvidenceError("recovery_hub_tool_run_worker_mismatch")
         if normalized_phase == "propose":
             record["proposal_lease"] = binding
         else:
@@ -196,11 +162,9 @@ class RecoveryHubRunEvidenceService:
             record["state"] = "dispatched"
         record["record_digest"] = self._record_digest(record)
         updated["recovery_hub_tool_run_record"] = record
-        updated["recovery_tool_run_context"] = (
-            build_recovery_tool_run_context(
-                task_id=normalized_task_id,
-                records=[record],
-            )
+        updated["recovery_tool_run_context"] = build_recovery_tool_run_context(
+            task_id=normalized_task_id,
+            records=[record],
         )
         return updated
 
@@ -215,17 +179,11 @@ class RecoveryHubRunEvidenceService:
         """Reserve the provided RUN ID before request fingerprinting."""
 
         normalized_task_id = str(task_id or "").strip()
-        normalized_worker_url = str(
-            worker_url or ""
-        ).strip().rstrip("/")
+        normalized_worker_url = str(worker_url or "").strip().rstrip("/")
         if not normalized_task_id or not normalized_worker_url:
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_reservation_binding_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_reservation_binding_invalid")
         updated = copy.deepcopy(dict(details))
-        raw_existing = updated.get(
-            "recovery_hub_tool_run_record"
-        )
+        raw_existing = updated.get("recovery_hub_tool_run_record")
         if raw_existing is not None:
             existing = self._validate_record(
                 raw_existing,
@@ -233,17 +191,12 @@ class RecoveryHubRunEvidenceService:
             )
             if not replace and (
                 str(existing.get("state") or "") == "reserved"
-                and str(
-                    existing.get("worker_url") or ""
-                ).rstrip("/")
-                == normalized_worker_url
+                and str(existing.get("worker_url") or "").rstrip("/") == normalized_worker_url
             ):
                 return updated
         record: dict[str, Any] = {
             "schema": RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA,
-            "record_id": str(
-                self._record_id_factory() or ""
-            ).strip(),
+            "record_id": str(self._record_id_factory() or "").strip(),
             "source_id": _RUN_SOURCE_ID,
             "source_type": "tool_run",
             "task_id": normalized_task_id,
@@ -259,11 +212,9 @@ class RecoveryHubRunEvidenceService:
         }
         record["record_digest"] = self._record_digest(record)
         updated["recovery_hub_tool_run_record"] = record
-        updated["recovery_tool_run_context"] = (
-            build_recovery_tool_run_context(
-                task_id=normalized_task_id,
-                records=[record],
-            )
+        updated["recovery_tool_run_context"] = build_recovery_tool_run_context(
+            task_id=normalized_task_id,
+            records=[record],
         )
         return updated
 
@@ -285,9 +236,7 @@ class RecoveryHubRunEvidenceService:
         authority_raw = details.get("recovery_tool_run_context")
         if authority_raw is None:
             if value is not None:
-                raise RecoveryHubRunEvidenceError(
-                    "recovery_tool_run_context_unexpected"
-                )
+                raise RecoveryHubRunEvidenceError("recovery_tool_run_context_unexpected")
             return None
         try:
             authority = validate_recovery_tool_run_context(
@@ -304,9 +253,7 @@ class RecoveryHubRunEvidenceService:
             str(authority.get("digest") or ""),
             str(supplied.get("digest") or ""),
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_tool_run_context_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_tool_run_context_mismatch")
         return supplied
 
     @classmethod
@@ -315,28 +262,18 @@ class RecoveryHubRunEvidenceService:
         value: Any,
     ) -> dict[str, Any]:
         if not isinstance(value, Mapping):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_result_binding_missing"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_result_binding_missing")
         binding = copy.deepcopy(dict(value))
         if (
             set(binding) != _RESULT_BINDING_FIELDS
             or binding.get("schema") != _RESULT_BINDING_SCHEMA
-            or str(binding.get("source_id") or "")
-            != _RUN_SOURCE_ID
+            or str(binding.get("source_id") or "") != _RUN_SOURCE_ID
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_result_binding_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_result_binding_invalid")
         expected = cls._result_binding_digest(binding)
         actual = str(binding.get("digest") or "")
-        if (
-            len(actual) != 64
-            or not hmac.compare_digest(actual, expected)
-        ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_result_binding_digest_mismatch"
-            )
+        if len(actual) != 64 or not hmac.compare_digest(actual, expected):
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_result_binding_digest_mismatch")
         return binding
 
     @classmethod
@@ -360,9 +297,7 @@ class RecoveryHubRunEvidenceService:
             "source_id": str(record.get("source_id") or ""),
             "lease_revision": lease_values["revision"],
             "lease_token_digest": lease_values["token_digest"],
-            "request_fingerprint": lease_values[
-                "request_fingerprint"
-            ],
+            "request_fingerprint": lease_values["request_fingerprint"],
             "worker_url": lease_values["worker_url"],
             "worker_result_digest": worker_result_digest,
             "command_sha256": _sha256(command),
@@ -379,23 +314,15 @@ class RecoveryHubRunEvidenceService:
     def _worker_run_candidates(
         envelope: Mapping[str, Any],
     ) -> list[dict[str, Any]]:
-        projection = _mapping(
-            envelope.get("verification_projection")
-        )
-        answer_verification = _mapping(
-            projection.get("answer_verification")
-        )
+        projection = _mapping(envelope.get("verification_projection"))
+        answer_verification = _mapping(projection.get("answer_verification"))
         raw = answer_verification.get("tool_run_refs")
         if raw is None:
             return []
         if not isinstance(raw, list):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_worker_run_evidence_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_worker_run_evidence_invalid")
         if any(not isinstance(value, Mapping) for value in raw):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_worker_run_evidence_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_worker_run_evidence_invalid")
         return [dict(value) for value in raw]
 
     @staticmethod
@@ -473,9 +400,7 @@ class RecoveryHubRunEvidenceService:
         repos = repositories or self._repos()
         task = repos.task_repo.get_by_id(normalized_task_id)
         if task is None:
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_task_missing"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_task_missing")
         details = _mapping(_value(task, "status_reason_details"))
         if details.get("recovery_hub_tool_run_record") is None:
             return []
@@ -485,23 +410,15 @@ class RecoveryHubRunEvidenceService:
         )
         lease = _mapping(details.get("recovery_dispatch_lease"))
         if (
-            lease.get("schema")
-            != "ananta.recovery_dispatch_lease.v1"
+            lease.get("schema") != "ananta.recovery_dispatch_lease.v1"
             or lease.get("phase") != "execute"
             or lease.get("state") != "worker_admitted"
-            or _mapping(record.get("execute_lease"))
-            != _lease_binding(lease)
+            or _mapping(record.get("execute_lease")) != _lease_binding(lease)
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_lease_binding_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_lease_binding_mismatch")
         serializer = getattr(request_data, "model_dump", None)
         request_payload = (
-            serializer()
-            if callable(serializer)
-            else dict(request_data)
-            if isinstance(request_data, Mapping)
-            else {}
+            serializer() if callable(serializer) else dict(request_data) if isinstance(request_data, Mapping) else {}
         )
         from agent.services.recovery_dispatch_gate_service import (
             recovery_dispatch_request_fingerprint,
@@ -514,9 +431,7 @@ class RecoveryHubRunEvidenceService:
                 request_payload,
             ),
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_request_binding_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_request_binding_mismatch")
         from agent.services.recovery_worker_result_service import (
             RecoveryWorkerResultService,
         )
@@ -530,45 +445,26 @@ class RecoveryHubRunEvidenceService:
             phase="execute",
         )
         verification = _mapping(_value(task, "verification_status"))
-        persisted_envelope = _mapping(
-            _mapping(
-                verification.get("recovery_worker_results")
-            ).get("execute")
-        )
+        persisted_envelope = _mapping(_mapping(verification.get("recovery_worker_results")).get("execute"))
         if envelope != persisted_envelope:
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_worker_result_binding_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_worker_result_binding_mismatch")
         command = str(request_payload.get("command") or "")
         output = str(response.get("output") or "")
         raw_exit_code = response.get("exit_code")
         exit_code = (
-            int(raw_exit_code)
-            if isinstance(raw_exit_code, int)
-            and not isinstance(raw_exit_code, bool)
-            else None
+            int(raw_exit_code) if isinstance(raw_exit_code, int) and not isinstance(raw_exit_code, bool) else None
         )
-        response_status = str(
-            response.get("status") or ""
-        ).strip().lower()
-        if (
-            str(_value(task, "last_output") or "") != output
-            or _value(task, "last_exit_code") != raw_exit_code
-        ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_result_persistence_mismatch"
-            )
+        response_status = str(response.get("status") or "").strip().lower()
+        if str(_value(task, "last_output") or "") != output or _value(task, "last_exit_code") != raw_exit_code:
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_result_persistence_mismatch")
         event = _latest_execution_event(task)
         if (
             str(event.get("command") or "") != command
             or str(event.get("output") or "") != output
             or event.get("exit_code") != raw_exit_code
-            or str(event.get("status") or "").strip().lower()
-            != response_status
+            or str(event.get("status") or "").strip().lower() != response_status
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_result_persistence_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_result_persistence_mismatch")
         result_binding = self._build_result_binding(
             task_id=normalized_task_id,
             record=record,
@@ -583,26 +479,24 @@ class RecoveryHubRunEvidenceService:
             "result_verified",
             "evidence_missing",
         }:
-            existing_binding = self._validate_result_binding(
-                record.get("result_binding")
-            )
+            existing_binding = self._validate_result_binding(record.get("result_binding"))
             if existing_binding != result_binding:
-                raise RecoveryHubRunEvidenceError(
-                    "recovery_hub_run_result_replay_mismatch"
-                )
+                raise RecoveryHubRunEvidenceError("recovery_hub_run_result_replay_mismatch")
             evidence = record.get("evidence_entry")
-            return [copy.deepcopy(dict(evidence))] if isinstance(
-                evidence,
-                Mapping,
-            ) else []
+            return (
+                [copy.deepcopy(dict(evidence))]
+                if isinstance(
+                    evidence,
+                    Mapping,
+                )
+                else []
+            )
 
         candidates = self._worker_run_candidates(envelope)
         evidence_entry: dict[str, Any] | None = None
         if command and exit_code is not None and candidates:
             if len(candidates) != 1:
-                raise RecoveryHubRunEvidenceError(
-                    "recovery_worker_run_evidence_mismatch"
-                )
+                raise RecoveryHubRunEvidenceError("recovery_worker_run_evidence_mismatch")
             evidence_entry = self._build_evidence_entry(
                 task_id=normalized_task_id,
                 record=record,
@@ -611,41 +505,23 @@ class RecoveryHubRunEvidenceService:
                 output=output,
                 exit_code=exit_code,
             )
-            if self._candidate_projection(candidates[0]) != (
-                self._candidate_projection(evidence_entry)
-            ):
-                raise RecoveryHubRunEvidenceError(
-                    "recovery_worker_run_evidence_mismatch"
-                )
+            if self._candidate_projection(candidates[0]) != (self._candidate_projection(evidence_entry)):
+                raise RecoveryHubRunEvidenceError("recovery_worker_run_evidence_mismatch")
         elif candidates:
-            raise RecoveryHubRunEvidenceError(
-                "recovery_worker_run_evidence_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_worker_run_evidence_mismatch")
 
-        record["state"] = (
-            "result_verified"
-            if evidence_entry is not None
-            else "evidence_missing"
-        )
+        record["state"] = "result_verified" if evidence_entry is not None else "evidence_missing"
         record["result_binding"] = result_binding
         record["evidence_entry"] = evidence_entry
         record["record_digest"] = self._record_digest(record)
         catalog: dict[str, Any] = {
-            "schema": (
-                RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA
-            ),
+            "schema": (RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA),
             "task_id": normalized_task_id,
             "record_id": record["record_id"],
             "result_binding": copy.deepcopy(result_binding),
-            "entries": (
-                [copy.deepcopy(evidence_entry)]
-                if evidence_entry is not None
-                else []
-            ),
+            "entries": ([copy.deepcopy(evidence_entry)] if evidence_entry is not None else []),
         }
-        catalog["catalog_digest"] = self._catalog_digest(
-            catalog
-        )
+        catalog["catalog_digest"] = self._catalog_digest(catalog)
         details["recovery_hub_tool_run_record"] = record
         verification["recovery_hub_run_evidence"] = catalog
         task.status_reason_details = details
@@ -664,42 +540,27 @@ class RecoveryHubRunEvidenceService:
         record: Mapping[str, Any],
     ) -> dict[str, Any]:
         if not isinstance(value, Mapping):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_catalog_missing"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_catalog_missing")
         catalog = copy.deepcopy(dict(value))
         entries = catalog.get("entries")
         if (
             set(catalog) != _CATALOG_FIELDS
-            or catalog.get("schema")
-            != RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA
+            or catalog.get("schema") != RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA
             or str(catalog.get("task_id") or "") != task_id
-            or str(catalog.get("record_id") or "")
-            != str(record.get("record_id") or "")
+            or str(catalog.get("record_id") or "") != str(record.get("record_id") or "")
             or not isinstance(entries, list)
             or len(entries) > 1
             or any(not isinstance(item, Mapping) for item in entries)
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_catalog_invalid"
-            )
-        if cls._validate_result_binding(
-            catalog.get("result_binding")
-        ) != cls._validate_result_binding(
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_catalog_invalid")
+        if cls._validate_result_binding(catalog.get("result_binding")) != cls._validate_result_binding(
             record.get("result_binding")
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_catalog_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_catalog_mismatch")
         expected = cls._catalog_digest(catalog)
         actual = str(catalog.get("catalog_digest") or "")
-        if (
-            len(actual) != 64
-            or not hmac.compare_digest(actual, expected)
-        ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_catalog_digest_mismatch"
-            )
+        if len(actual) != 64 or not hmac.compare_digest(actual, expected):
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_catalog_digest_mismatch")
         return catalog
 
     @classmethod
@@ -713,9 +574,7 @@ class RecoveryHubRunEvidenceService:
         task: Any,
     ) -> dict[str, Any]:
         if not isinstance(value, Mapping):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_entry_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_entry_invalid")
         entry = copy.deepcopy(dict(value))
         output = str(_value(task, "last_output") or "")
         event = _latest_execution_event(task)
@@ -724,9 +583,7 @@ class RecoveryHubRunEvidenceService:
             raw_exit_code,
             bool,
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_entry_invalid"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_entry_invalid")
         expected = cls._build_evidence_entry(
             task_id=task_id,
             record=record,
@@ -736,9 +593,7 @@ class RecoveryHubRunEvidenceService:
             exit_code=raw_exit_code,
         )
         if entry != expected:
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_entry_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_entry_mismatch")
         return entry
 
     def for_task(
@@ -748,17 +603,13 @@ class RecoveryHubRunEvidenceService:
         """Load only evidence still bound to the authoritative Task result."""
 
         normalized_task_id = str(task_id or "").strip()
-        task = self._repos().task_repo.get_by_id(
-            normalized_task_id
-        )
+        task = self._repos().task_repo.get_by_id(normalized_task_id)
         if task is None:
             return None
         details = _mapping(_value(task, "status_reason_details"))
         raw_record = details.get("recovery_hub_tool_run_record")
         verification = _mapping(_value(task, "verification_status"))
-        raw_catalog = verification.get(
-            "recovery_hub_run_evidence"
-        )
+        raw_catalog = verification.get("recovery_hub_run_evidence")
         if raw_record is None and raw_catalog is None:
             return None
         record = self._validate_record(
@@ -773,36 +624,24 @@ class RecoveryHubRunEvidenceService:
         lease = _mapping(details.get("recovery_dispatch_lease"))
         if (
             lease.get("phase") != "execute"
-            or str(lease.get("state") or "")
-            not in {"worker_admitted", "result_accepted"}
-            or _mapping(record.get("execute_lease"))
-            != _lease_binding(lease)
+            or str(lease.get("state") or "") not in {"worker_admitted", "result_accepted"}
+            or _mapping(record.get("execute_lease")) != _lease_binding(lease)
         ):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_lease_binding_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_lease_binding_mismatch")
         catalog = self._validate_catalog(
             raw_catalog,
             task_id=normalized_task_id,
             record=record,
         )
-        binding = self._validate_result_binding(
-            record.get("result_binding")
-        )
+        binding = self._validate_result_binding(record.get("result_binding"))
         event = _latest_execution_event(task)
-        verification_results = _mapping(
-            verification.get("recovery_worker_results")
-        )
-        execute_envelope = _mapping(
-            verification_results.get("execute")
-        )
+        verification_results = _mapping(verification.get("recovery_worker_results"))
+        execute_envelope = _mapping(verification_results.get("execute"))
         expected_binding = self._build_result_binding(
             task_id=normalized_task_id,
             record=record,
             lease=lease,
-            worker_result_digest=str(
-                execute_envelope.get("digest") or ""
-            ),
+            worker_result_digest=str(execute_envelope.get("digest") or ""),
             command=str(event.get("command") or ""),
             output=str(_value(task, "last_output") or ""),
             exit_code=(
@@ -817,14 +656,10 @@ class RecoveryHubRunEvidenceService:
                 )
                 else None
             ),
-            response_status=str(
-                event.get("status") or ""
-            ).strip().lower(),
+            response_status=str(event.get("status") or "").strip().lower(),
         )
         if binding != expected_binding:
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_result_binding_mismatch"
-            )
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_result_binding_mismatch")
         entries = [
             self._validate_evidence_entry(
                 value,
@@ -835,21 +670,15 @@ class RecoveryHubRunEvidenceService:
             )
             for value in catalog["entries"]
         ]
-        if (
-            str(record.get("state") or "") == "result_verified"
-        ) != bool(entries):
-            raise RecoveryHubRunEvidenceError(
-                "recovery_hub_run_evidence_state_mismatch"
-            )
+        if (str(record.get("state") or "") == "result_verified") != bool(entries):
+            raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_state_mismatch")
         return entries
 
 
 _SERVICE = RecoveryHubRunEvidenceService()
 
 
-def get_recovery_hub_run_evidence_service() -> (
-    RecoveryHubRunEvidenceService
-):
+def get_recovery_hub_run_evidence_service() -> RecoveryHubRunEvidenceService:
     return _SERVICE
 
 

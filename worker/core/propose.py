@@ -4,14 +4,14 @@ Only ExecutableProposal may be passed to the execute step.  All other
 ProposeStrategyResult kinds are advisory or terminal and must not become
 runnable control state.
 """
+
 from __future__ import annotations
 
 import time
 import uuid
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
-from abc import ABC, abstractmethod
-
 
 # ── ProposeStrategyResult status codes ────────────────────────────────────────
 
@@ -28,12 +28,15 @@ _EXECUTABLE_ONLY = {STATUS_EXECUTABLE}
 
 # ── ProposalBase ────────────────────────────────────────────────────────
 
+
 class ProposalBase(ABC):
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:
         raise NotImplementedError
 
+
 # ── ExecutableProposal ────────────────────────────────────────────────────────
+
 
 @dataclass
 class ExecutableProposal(ProposalBase):
@@ -41,6 +44,7 @@ class ExecutableProposal(ProposalBase):
 
     Invariant: at least one of ``command`` or ``tool_calls`` must be present.
     """
+
     proposal_id: str
     goal_id: str
     task_id: str
@@ -141,6 +145,7 @@ class ProposalBase(ABC):
     def to_dict(self) -> dict[str, Any]:
         raise NotImplementedError
 
+
 @dataclass
 class AdvisoryProposalArtifact(ProposalBase):
     proposal_id: str
@@ -170,6 +175,7 @@ class AdvisoryProposalArtifact(ProposalBase):
             "created_at": self.created_at,
             "metadata": dict(self.metadata),
         }
+
 
 @dataclass
 class PatchProposalArtifact(ProposalBase):
@@ -204,6 +210,7 @@ class PatchProposalArtifact(ProposalBase):
             "metadata": dict(self.metadata),
         }
 
+
 @dataclass
 class FileProposalArtifact(ProposalBase):
     proposal_id: str
@@ -237,6 +244,7 @@ class FileProposalArtifact(ProposalBase):
             "metadata": dict(self.metadata),
         }
 
+
 @dataclass
 class PlannerProposalArtifact(ProposalBase):
     proposal_id: str
@@ -268,7 +276,9 @@ class PlannerProposalArtifact(ProposalBase):
             "metadata": dict(self.metadata),
         }
 
+
 # ── ProposeStrategyResult ─────────────────────────────────────────────────────
+
 
 @dataclass
 class ProposeStrategyResult:
@@ -277,6 +287,7 @@ class ProposeStrategyResult:
     Only ``status == 'executable'`` may carry a non-None ``proposal``.
     Free text alone is never executable.
     """
+
     status: str
     strategy_id: str
     proposal: ProposalBase | None = None
@@ -288,14 +299,24 @@ class ProposeStrategyResult:
 
     def __post_init__(self) -> None:
         valid = {
-            STATUS_EXECUTABLE, STATUS_DECLINED, STATUS_ADVISORY,
-            STATUS_NEEDS_REVIEW, STATUS_FAILED, STATUS_POLICY_DENIED,
+            STATUS_EXECUTABLE,
+            STATUS_DECLINED,
+            STATUS_ADVISORY,
+            STATUS_NEEDS_REVIEW,
+            STATUS_FAILED,
+            STATUS_POLICY_DENIED,
         }
         if self.status not in valid:
             raise ValueError(f"invalid_propose_strategy_result_status: {self.status!r}")
-        if self.status == STATUS_EXECUTABLE and (self.proposal is None or not isinstance(self.proposal, ExecutableProposal)):
+        if self.status == STATUS_EXECUTABLE and (
+            self.proposal is None or not isinstance(self.proposal, ExecutableProposal)
+        ):
             raise ValueError("executable_result_requires_ExecutableProposal")
-        if self.status != STATUS_EXECUTABLE and self.proposal is not None and isinstance(self.proposal, ExecutableProposal):
+        if (
+            self.status != STATUS_EXECUTABLE
+            and self.proposal is not None
+            and isinstance(self.proposal, ExecutableProposal)
+        ):
             raise ValueError("non_executable_result_must_not_carry_ExecutableProposal")
 
     @property
@@ -424,6 +445,7 @@ class ProposeStrategyResult:
 
 # ── ExecutableProposal validation helper (T001) ───────────────────────────────
 
+
 def validate_executable_proposal(
     raw: "dict | ExecutableProposal",
 ) -> "tuple[str | None, list, str | None]":
@@ -436,7 +458,7 @@ def validate_executable_proposal(
         return raw.command, list(raw.tool_calls), raw.reason
     if not isinstance(raw, dict):
         raise ValueError(f"invalid_proposal_type: expected dict, got {type(raw).__name__}")
-    command = (raw.get("command") or None)
+    command = raw.get("command") or None
     if command is not None:
         command = str(command).strip() or None
     tool_calls = raw.get("tool_calls") or []

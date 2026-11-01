@@ -68,12 +68,23 @@ def prepared(app, tmp_path, monkeypatch):
     service, registry, principal, winner, _adapter = _candidate.__wrapped__(app, tmp_path, monkeypatch)
     # Prepare actual trained bytes first, then persist synthetic evaluation references.
     record = service.prepare(principal, winner)
-    receipts = tuple((role, SpecialistEvaluationReceipt(
-        job_id=f"synthetic-{role}", job_version=2, attempt_id=f"synthetic-{role}-attempt",
-        dataset_id=f"synthetic-{role}-dataset", dataset_version=1,
-        adapter_id=winner.outcome.adapter_id, adapter_sha256=winner.outcome.adapter_digest,
-        base_model_sha256=winner.outcome.base_model_digest, request_digest="d" * 64,
-    )) for role in ("validation", "holdout"))
+    receipts = tuple(
+        (
+            role,
+            SpecialistEvaluationReceipt(
+                job_id=f"synthetic-{role}",
+                job_version=2,
+                attempt_id=f"synthetic-{role}-attempt",
+                dataset_id=f"synthetic-{role}-dataset",
+                dataset_version=1,
+                adapter_id=winner.outcome.adapter_id,
+                adapter_sha256=winner.outcome.adapter_digest,
+                base_model_sha256=winner.outcome.base_model_digest,
+                request_digest="d" * 64,
+            ),
+        )
+        for role in ("validation", "holdout")
+    )
     winner = replace(winner, evaluations=receipts, split_manifest_digest="c" * 64)
     decision = PromotionDecision(True, (), "quality", record.eval_report_ref, None, "a" * 64, None)
     store = SpecialistBenchmarkProjectionStore(artifact_root=tmp_path)
@@ -81,14 +92,21 @@ def prepared(app, tmp_path, monkeypatch):
     reader = SpecialistRegisteredBenchmarkReader(registry=registry, reports=store)
     evidence = _evidence()
     evidence.update(
-        job_id="synthetic-holdout", attempt_id="synthetic-holdout-attempt",
-        adapter_id=winner.outcome.adapter_id, artifact_sha256=record.artifact_sha256,
-        base_model_id=record.base_model, base_model_sha256=winner.outcome.base_model_digest,
+        job_id="synthetic-holdout",
+        attempt_id="synthetic-holdout-attempt",
+        adapter_id=winner.outcome.adapter_id,
+        artifact_sha256=record.artifact_sha256,
+        base_model_id=record.base_model,
+        base_model_sha256=winner.outcome.base_model_digest,
     )
     policy = ReceiptPolicyFixture()
     legacy = RoleEvidenceFixture(evidence)
     model = SpecialistPromotionEvaluationReadModel(
-        record=record, decision=decision, benchmarks=reader, receipts=policy, evaluation_evidence=legacy,
+        record=record,
+        decision=decision,
+        benchmarks=reader,
+        receipts=policy,
+        evaluation_evidence=legacy,
         execution_bindings=SyntheticExecutionPolicyFixture(),
     )
     return registry, principal, record, winner, decision, store, reader, policy, legacy, model
@@ -186,9 +204,13 @@ def test_real_hub_test_evidence_never_promotes_native_candidate(prepared, tmp_pa
     source = _source(hub, scope="test", synthetic=True, tenant_id=principal.tenant_id)
     run = _run(hub, source_id=source.source_id, scope="test", synthetic=True, tenant_id=principal.tenant_id)
     run = hub.record_result(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id,
-        assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
-        terminal_state="succeeded", result_digest="f" * 64,
+        tenant_id=run.tenant_id,
+        project_id=run.project_id,
+        run_id=run.run_id,
+        assignment_id=run.assignment_id,
+        dispatch_lease_id=run.dispatch_lease_id,
+        terminal_state="succeeded",
+        result_digest="f" * 64,
     )
     evaluation._evidence.update(source_ids=[source.source_id], run_ids=[run.run_id])
     evaluation.validation.update(source_ids=[source.source_id], run_ids=[run.run_id])
@@ -198,8 +220,12 @@ def test_real_hub_test_evidence_never_promotes_native_candidate(prepared, tmp_pa
             pytest.fail("Synthetic evidence must stop promotion before Storage mutation")
 
     facade = build_hub_specialist_promotion(
-        registry=registry, artifact_root=tmp_path, record=record, decision=decision,
-        receipts=policy, evaluation_evidence=evaluation,
+        registry=registry,
+        artifact_root=tmp_path,
+        record=record,
+        decision=decision,
+        receipts=policy,
+        evaluation_evidence=evaluation,
         release_evidence=HubRegisteredReleaseEvidence(registry=hub, runs=[run]),
         audit_sink=lambda *_args: pytest.fail("No promotion audit without promotion"),
         storage_references=StorageMustNotMutate(),
@@ -208,9 +234,13 @@ def test_real_hub_test_evidence_never_promotes_native_candidate(prepared, tmp_pa
     )
     with pytest.raises(ValueError):
         facade.promote(
-            principal, record, expected_revision=record.registry_version,
-            idempotency_key="synthetic-specialist-promotion-denial", approved_by="synthetic-policy",
-            reason="headless synthetic policy test", minimum_score=0,
+            principal,
+            record,
+            expected_revision=record.registry_version,
+            idempotency_key="synthetic-specialist-promotion-denial",
+            approved_by="synthetic-policy",
+            reason="headless synthetic policy test",
+            minimum_score=0,
         )
     current = registry.get(record.adapter_id, tenant_id=principal.tenant_id, owner_subject=principal.subject)
     assert current == record and not current.promotion_history
@@ -233,18 +263,30 @@ def test_native_reader_allows_only_exact_atomic_promotion_replay(prepared, histo
     registry, principal, record, _winner, decision, store, _reader, *_ = prepared
     if history_bound:
         promoted, replayed = registry.promote_evaluated(
-            record.adapter_id, artifact_sha256=record.artifact_sha256, evaluation_id=record.eval_report_ref,
-            evidence={key: value for key, value in {**_evidence(), "metrics": {"aggregate_score": record.eval_score}}
-                      .items() if key not in {"artifact_sha256", "validation_dataset_hash"}},
-            tenant_id=principal.tenant_id, owner_subject=principal.subject,
-            expected_version=record.registry_version, approved_by="synthetic-policy",
-            reason="synthetic replay fixture", idempotency_key="synthetic-native-replay-fixture",
+            record.adapter_id,
+            artifact_sha256=record.artifact_sha256,
+            evaluation_id=record.eval_report_ref,
+            evidence={
+                key: value
+                for key, value in {**_evidence(), "metrics": {"aggregate_score": record.eval_score}}.items()
+                if key not in {"artifact_sha256", "validation_dataset_hash"}
+            },
+            tenant_id=principal.tenant_id,
+            owner_subject=principal.subject,
+            expected_version=record.registry_version,
+            approved_by="synthetic-policy",
+            reason="synthetic replay fixture",
+            idempotency_key="synthetic-native-replay-fixture",
         )
         assert promoted.status == "approved" and not replayed
     else:
         registry.approve(
-            record.adapter_id, approved_by="synthetic-policy", reason="synthetic legacy approval",
-            tenant_id=principal.tenant_id, owner_subject=principal.subject, expected_version=record.registry_version,
+            record.adapter_id,
+            approved_by="synthetic-policy",
+            reason="synthetic legacy approval",
+            tenant_id=principal.tenant_id,
+            owner_subject=principal.subject,
+            expected_version=record.registry_version,
         )
     reader = SpecialistRegisteredBenchmarkReader(registry=registry, reports=store, allow_promotion_replay=True)
     guard = SpecialistBenchmarkPromotionGuard(reader=reader, decision=decision)
@@ -274,15 +316,23 @@ def test_promotion_rechecks_guard_before_storage_mutation(tmp_path):
 
     guard = RevokedGuard()
     facade = MlInternEvaluationPromotionFacade(
-        evaluations=_EvaluationStore(_evidence()), registry=registry,
-        trusted_source_ids=(SOURCE_ID,), trusted_run_ids=(RUN_ID,), audit_sink=lambda *_args: None,
-        promotion_guard=guard, storage_references=StorageMustNotMutate(),
+        evaluations=_EvaluationStore(_evidence()),
+        registry=registry,
+        trusted_source_ids=(SOURCE_ID,),
+        trusted_run_ids=(RUN_ID,),
+        audit_sink=lambda *_args: None,
+        promotion_guard=guard,
+        storage_references=StorageMustNotMutate(),
     )
     with pytest.raises(ValueError, match="quality_policy_revoked"):
         facade.promote(
-            MlInternTrainingPrincipal("tenant-a", "admin-a"), record,
-            expected_revision=record.registry_version, idempotency_key="revoked-specialist-quality",
-            approved_by="synthetic-policy", reason="synthetic quality revocation", minimum_score=0.8,
+            MlInternTrainingPrincipal("tenant-a", "admin-a"),
+            record,
+            expected_revision=record.registry_version,
+            idempotency_key="revoked-specialist-quality",
+            approved_by="synthetic-policy",
+            reason="synthetic quality revocation",
+            minimum_score=0.8,
         )
     assert guard.calls == 2
     assert registry.get(record.adapter_id, tenant_id="tenant-a", owner_subject="admin-a") == record

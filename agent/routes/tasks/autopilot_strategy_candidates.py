@@ -45,7 +45,9 @@ def _extract_strategy_state(task: Any) -> dict[str, Any]:
     strategy = dict(verification.get("autopilot_strategy") or {})
     failed_models = _normalize_model_list(strategy.get("failed_models"))
     failed_temperatures = _normalize_temperature_list(strategy.get("failed_temperatures"))
-    failed_sources = [str(item or "").strip() for item in list(strategy.get("failed_sources") or []) if str(item or "").strip()]
+    failed_sources = [
+        str(item or "").strip() for item in list(strategy.get("failed_sources") or []) if str(item or "").strip()
+    ]
     return {
         "failed_models": failed_models,
         "failed_temperatures": failed_temperatures,
@@ -70,10 +72,13 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
         return _runtime_caps_cache
 
     app = getattr(loop, "_app", None)
-    app_cfg = (getattr(app, "config", {}) or {})
+    app_cfg = getattr(app, "config", {}) or {}
     provider_urls = dict(app_cfg.get("PROVIDER_URLS") or {})
-    llm_cfg = ((loop._agent_config() or {}).get("llm_config") or {})
-    default_provider = str(llm_cfg.get("provider") or (loop._agent_config() or {}).get("default_provider") or "").strip().lower() or None
+    llm_cfg = (loop._agent_config() or {}).get("llm_config") or {}
+    default_provider = (
+        str(llm_cfg.get("provider") or (loop._agent_config() or {}).get("default_provider") or "").strip().lower()
+        or None
+    )
     default_provider = default_provider if default_provider in {"lmstudio", "ollama"} else None
     lmstudio_url = str(provider_urls.get("lmstudio") or "").strip()
     ollama_url = str(provider_urls.get("ollama") or "").strip()
@@ -88,7 +93,11 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
     if lmstudio_url:
         try:
             probe = probe_lmstudio_runtime(lmstudio_url, timeout=timeout_seconds)
-            runtime["lmstudio"] = {"ok": bool(probe.get("ok")), "status": probe.get("status"), "candidate_count": int(probe.get("candidate_count") or 0)}
+            runtime["lmstudio"] = {
+                "ok": bool(probe.get("ok")),
+                "status": probe.get("status"),
+                "candidate_count": int(probe.get("candidate_count") or 0),
+            }
             for item in list(probe.get("candidates") or []):
                 model_id = str((item or {}).get("id") or "").strip()
                 if not model_id:
@@ -103,7 +112,11 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
     if ollama_url:
         try:
             probe = probe_ollama_runtime(ollama_url, timeout=timeout_seconds)
-            runtime["ollama"] = {"ok": bool(probe.get("ok")), "status": probe.get("status"), "candidate_count": int(probe.get("candidate_count") or 0)}
+            runtime["ollama"] = {
+                "ok": bool(probe.get("ok")),
+                "status": probe.get("status"),
+                "candidate_count": int(probe.get("candidate_count") or 0),
+            }
             for item in list(probe.get("models") or []):
                 model_id = str((item or {}).get("name") or "").strip()
                 if not model_id:
@@ -128,7 +141,9 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
     return result
 
 
-def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict[str, Any], state: dict[str, Any]) -> list[dict[str, Any]]:
+def _proposal_strategy_candidates(
+    *, loop: Any, task: Any, base_model_meta: dict[str, Any], state: dict[str, Any]
+) -> list[dict[str, Any]]:
     cfg = loop._agent_config() or {}
     strategy_cfg = _strategy_cfg(loop)
     failed_models = set(state.get("failed_models") or [])

@@ -7,6 +7,7 @@ importable from here. ``handle_diff3_command`` dispatches through
 ``dispatch_ai_diff_request`` is resolved through this module at call time
 (tests patch it here).
 """
+
 from __future__ import annotations
 
 import hashlib

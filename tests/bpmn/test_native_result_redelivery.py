@@ -31,8 +31,9 @@ from worker.runtime.native_graph.result_store import SQLiteNativeResultStore
 def redelivery(native, tmp_path, monkeypatch):
     task = native.repository.get_by_id(native.task_id)
     assignments = SQLAlchemyWorkflowWorkerAssignmentStore(native.engine)
-    assignment = assignments.get(tenant_id=task.tenant_id, run_id=native.command.run_id,
-                                  step_id=native.command.node.node_id)
+    assignment = assignments.get(
+        tenant_id=task.tenant_id, run_id=native.command.run_id, step_id=native.command.node.node_id
+    )
     journal = SQLAlchemyNativeDispatchJournal(native.engine)
     claim = journal.begin(task=task, assignment=assignment)
     journal.settle(task=task, claim=claim, accepted=False)
@@ -46,9 +47,15 @@ def redelivery(native, tmp_path, monkeypatch):
     # Reopen persisted Worker output as a restarted execution process would.
     store = SQLiteNativeResultStore(store.path)
     token = "synthetic-worker-token-" + "x" * 40
-    worker = SimpleNamespace(name=assignment.worker_id, url=assignment.worker_url, role="worker", token=token,
-                             registration_validated=True, registration_provenance="hub_credential_registry_v1",
-                             authorized_capabilities=["workflow.adapter.native"])
+    worker = SimpleNamespace(
+        name=assignment.worker_id,
+        url=assignment.worker_url,
+        role="worker",
+        token=token,
+        registration_validated=True,
+        registration_provenance="hub_credential_registry_v1",
+        authorized_capabilities=["workflow.adapter.native"],
+    )
     from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
 
     worker.registration_provenance = STRICT_WORKER_REGISTRATION_PROVENANCE
@@ -61,29 +68,43 @@ def redelivery(native, tmp_path, monkeypatch):
     def consumer(_task):
         raise AssertionError("Redelivery must not execute a command")
 
-    app.register_blueprint(create_native_execution_blueprint(
-        token_provider=lambda: token, recipient_provider=lambda: (worker.name, worker.url),
-        verification_provider=lambda: verifier, consumer=consumer, result_store_provider=lambda: store,
-    ))
+    app.register_blueprint(
+        create_native_execution_blueprint(
+            token_provider=lambda: token,
+            recipient_provider=lambda: (worker.name, worker.url),
+            verification_provider=lambda: verifier,
+            consumer=consumer,
+            result_store_provider=lambda: store,
+        )
+    )
 
     def fetch(url, endpoint, payload, **options):
         calls.append(endpoint)
-        response = app.test_client().post(endpoint, json=payload,
-                                         headers={"Authorization": "Bearer " + options["token"]})
+        response = app.test_client().post(
+            endpoint, json=payload, headers={"Authorization": "Bearer " + options["token"]}
+        )
         assert response.status_code == 200
         return response.json
 
     def accept(**values):
-        validate_forwarded_native_result(task_id=task.id, dispatched_task=values["task"],
-                                         response=values["response"], load_task=native.repository.get_by_id)
+        validate_forwarded_native_result(
+            task_id=task.id,
+            dispatched_task=values["task"],
+            response=values["response"],
+            load_task=native.repository.get_by_id,
+        )
         native.response = values["response"]
         complete(native)
 
     monkeypatch.setattr("agent.services.native_dispatch_result_recovery.time.time", lambda: 100)
     ports = NativeResultRecoveryPorts(
-        repository=native.repository, journal=journal, assignments=assignments,
-        workers=SimpleNamespace(get_by_url=lambda url: worker), signing_keys=lambda: signer,
-        transport=SimpleNamespace(forward_task=fetch), accept_result=accept,
+        repository=native.repository,
+        journal=journal,
+        assignments=assignments,
+        workers=SimpleNamespace(get_by_url=lambda url: worker),
+        signing_keys=lambda: signer,
+        transport=SimpleNamespace(forward_task=fetch),
+        accept_result=accept,
     )
     return SimpleNamespace(native=native, ports=ports, task=task, calls=calls)
 
@@ -100,13 +121,16 @@ def test_stored_worker_result_closes_original_journal_without_execution(redelive
     assert recover_native_dispatch_results(ports=run.ports, tenant_id=run.task.tenant_id)["results"] == []
 
 
-@pytest.mark.parametrize("model,field,value", [
-    (WorkflowExecutionOwnershipDB, "lease_expires_at", 1),
-    (WorkflowExecutionOwnershipDB, "fencing_token", 99),
-    (WorkflowWorkerAssignmentDB, "revision", 2),
-    (WorkflowAuthorizationGrantDB, "grant_digest", "a" * 64),
-    (AgentInfoDB, "registration_validated", False),
-])
+@pytest.mark.parametrize(
+    "model,field,value",
+    [
+        (WorkflowExecutionOwnershipDB, "lease_expires_at", 1),
+        (WorkflowExecutionOwnershipDB, "fencing_token", 99),
+        (WorkflowWorkerAssignmentDB, "revision", 2),
+        (WorkflowAuthorizationGrantDB, "grant_digest", "a" * 64),
+        (AgentInfoDB, "registration_validated", False),
+    ],
+)
 def test_redelivery_does_not_revive_stale_or_revoked_authority(redelivery, model, field, value):
     run = redelivery
     with Session(run.native.engine) as session:

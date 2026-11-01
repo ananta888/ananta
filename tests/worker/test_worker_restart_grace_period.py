@@ -22,8 +22,16 @@ class _Registry:
 def test_available_workers_marks_restart_grace(monkeypatch):
     now = time.time()
     workers = [
-        SimpleNamespace(url="http://w-online:5000", role="worker", status="online", registration_validated=True, last_seen=now),
-        SimpleNamespace(url="http://w-restart:5000", role="worker", status="degraded", registration_validated=True, last_seen=now - 30),
+        SimpleNamespace(
+            url="http://w-online:5000", role="worker", status="online", registration_validated=True, last_seen=now
+        ),
+        SimpleNamespace(
+            url="http://w-restart:5000",
+            role="worker",
+            status="degraded",
+            registration_validated=True,
+            last_seen=now - 30,
+        ),
     ]
     import agent.services.autopilot_support_service as mod
 

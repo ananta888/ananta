@@ -152,13 +152,7 @@ class QuantizationAnalyzer:
             "F8_E4M3",
             "F8_E5M2",
         }
-        affected = tuple(
-            sorted(
-                name
-                for name, dtype in tensor_dtypes.items()
-                if dtype in quantized_dtypes
-            )
-        )
+        affected = tuple(sorted(name for name, dtype in tensor_dtypes.items() if dtype in quantized_dtypes))
         return affected[: self._max_affected_tensors]
 
     @staticmethod

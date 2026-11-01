@@ -6,34 +6,43 @@ skill runs, skill proposals, subworker spawns, artifact persistence, result reco
 Events exclude raw secrets and full prompts.
 Unknown event types raise ValueError (fail-closed per AWF-T006).
 """
+
 from __future__ import annotations
 
 import time
 from typing import Any
 
-WORKER_AUDIT_EVENTS = frozenset({
-    "worker_preflight_decision",
-    "worker_tool_invocation",
-    "worker_provider_call",
-    "worker_memory_write",
-    "worker_skill_run",
-    "worker_skill_proposal",
-    "worker_subworker_spawn",
-    "worker_artifact_persisted",
-    "worker_result_recorded",
-})
+WORKER_AUDIT_EVENTS = frozenset(
+    {
+        "worker_preflight_decision",
+        "worker_tool_invocation",
+        "worker_provider_call",
+        "worker_memory_write",
+        "worker_skill_run",
+        "worker_skill_proposal",
+        "worker_subworker_spawn",
+        "worker_artifact_persisted",
+        "worker_result_recorded",
+    }
+)
 
-_SENSITIVE_KEYS = frozenset({
-    "api_key", "secret", "password", "token", "credential",
-    "raw_prompt", "full_prompt", "raw_output", "private_key",
-})
+_SENSITIVE_KEYS = frozenset(
+    {
+        "api_key",
+        "secret",
+        "password",
+        "token",
+        "credential",
+        "raw_prompt",
+        "full_prompt",
+        "raw_output",
+        "private_key",
+    }
+)
 
 
 def _scrub(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        k: "[REDACTED]" if any(s in str(k).lower() for s in _SENSITIVE_KEYS) else v
-        for k, v in payload.items()
-    }
+    return {k: "[REDACTED]" if any(s in str(k).lower() for s in _SENSITIVE_KEYS) else v for k, v in payload.items()}
 
 
 def emit_worker_audit_event(

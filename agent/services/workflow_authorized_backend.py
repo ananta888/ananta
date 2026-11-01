@@ -195,10 +195,11 @@ class AuthorizedWorkflowBackend:
 
         binding = self._bindings.get(workflow_id)
         if binding is None or (binding.tenant_id, binding.subject_id) != (
-                self._principal.tenant_id, self._principal.subject_id):
-            raise PermissionError('workflow_run_not_found')
-        self._control.authorize_query(principal=self._principal, workflow_id=binding.workflow_id,
-                                      run_id=binding.run_id)
+            self._principal.tenant_id,
+            self._principal.subject_id,
+        ):
+            raise PermissionError("workflow_run_not_found")
+        self._control.authorize_query(principal=self._principal, workflow_id=binding.workflow_id, run_id=binding.run_id)
         return project_bpmn_definition(binding)
 
     def cancel_workflow(self, workflow_id: str, reason: str = "") -> dict[str, Any]:

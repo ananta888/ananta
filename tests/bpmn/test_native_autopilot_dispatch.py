@@ -26,7 +26,7 @@ def dispatch(native, monkeypatch):  # noqa: F811
 
     signer = Ed25519SigningKeyRing({"synthetic": base64.b64encode(b"s" * 32).decode()}, active_key_id="synthetic")
     verifier = Ed25519VerificationKeyRing.from_mapping(signer.verification_mapping())
-    worker = SimpleNamespace(name="worker-1", role="worker", url="http://worker-1:5000", token="synthetic-" + "w"*40)
+    worker = SimpleNamespace(name="worker-1", role="worker", url="http://worker-1:5000", token="synthetic-" + "w" * 40)
     with Session(native.engine) as session:
         task = session.get(TaskDB, native.task_id)
         task.assigned_agent_url = worker.url
@@ -40,8 +40,9 @@ def dispatch(native, monkeypatch):  # noqa: F811
 
     def forward(worker_url, endpoint, payload, **options):
         calls.append((worker_url, endpoint, payload, options))
-        projected = verify_native_execution_request(payload, key_ring=verifier,
-                                                     worker_id=worker.name, worker_url=worker.url)
+        projected = verify_native_execution_request(
+            payload, key_ring=verifier, worker_id=worker.name, worker_url=worker.url
+        )
         assert "assigned_agent_token" not in projected and "history" not in projected
         if state.race:
             complete(native)
@@ -50,8 +51,12 @@ def dispatch(native, monkeypatch):  # noqa: F811
         return state.response
 
     def accept(**values):
-        validate_forwarded_native_result(task_id=native.task_id, dispatched_task=values["task"],
-                                         response=values["response"], load_task=native.repository.get_by_id)
+        validate_forwarded_native_result(
+            task_id=native.task_id,
+            dispatched_task=values["task"],
+            response=values["response"],
+            load_task=native.repository.get_by_id,
+        )
         native.response = values["response"]
         complete(native)
 
@@ -69,8 +74,11 @@ def dispatch(native, monkeypatch):  # noqa: F811
     from agent.services.native_result_task_projection import native_task_command
 
     app.extensions[NATIVE_DISPATCH_PORTS.extension_key] = NativeDispatchPorts(
-        command=native_task_command, assignment=assignment, signing_keys=lambda: signer,
-        transport=lambda: SimpleNamespace(forward_task=forward), accept_result=accept,
+        command=native_task_command,
+        assignment=assignment,
+        signing_keys=lambda: signer,
+        transport=lambda: SimpleNamespace(forward_task=forward),
+        accept_result=accept,
         journal=lambda: SQLAlchemyNativeDispatchJournal(native.engine),
     )
     # SQL fixture uses a deterministic 100-second authorization clock.
@@ -79,9 +87,14 @@ def dispatch(native, monkeypatch):  # noqa: F811
         repository_registry=lambda _app: SimpleNamespace(task_repo=native.repository),
         current_task_status=lambda tid, **_kwargs: native.repository.get_by_id(tid).status,
     )
-    ctx = SimpleNamespace(task=task, target_worker=worker, app_ctx=app, dependencies=dependencies,
-                          update_local_task_status=update,
-                          append_trace_event=lambda tid, event, **values: traces.append((tid,event,values)))
+    ctx = SimpleNamespace(
+        task=task,
+        target_worker=worker,
+        app_ctx=app,
+        dependencies=dependencies,
+        update_local_task_status=update,
+        append_trace_event=lambda tid, event, **values: traces.append((tid, event, values)),
+    )
     return SimpleNamespace(ctx=ctx, state=state, calls=calls, traces=traces, native=native)
 
 
@@ -102,11 +115,11 @@ def test_failed_preparation_cannot_reserve_dispatch_or_contact_worker(dispatch):
     from agent.db_models.native_dispatch import NativeDispatchDB
 
     def denied(**_values):
-        raise ValueError('synthetic_preparation_denied')
+        raise ValueError("synthetic_preparation_denied")
 
     ports = dispatch.ctx.app_ctx.extensions[NATIVE_DISPATCH_PORTS.extension_key]
     dispatch.ctx.app_ctx.extensions[NATIVE_DISPATCH_PORTS.extension_key] = replace(ports, prepare_task=denied)
-    result = dispatch_native_task(dispatch.ctx, policy={'execute_timeout': 30})
+    result = dispatch_native_task(dispatch.ctx, policy={"execute_timeout": 30})
     assert result.failed and not result.completed and dispatch.calls == []
     with Session(dispatch.native.engine) as session:
         assert not session.exec(select(NativeDispatchDB)).all()
@@ -121,15 +134,15 @@ def test_preparation_cannot_rewrite_the_closed_native_command(dispatch):
 
     def mutate(**values):
         with Session(dispatch.native.engine) as session, session.begin():
-            row = session.get(TaskDB, values['task_id'])
+            row = session.get(TaskDB, values["task_id"])
             context = copy.deepcopy(row.worker_execution_context)
-            context['native_node_command']['control_task_id'] = 'synthetic-unapproved-controller'
+            context["native_node_command"]["control_task_id"] = "synthetic-unapproved-controller"
             row.worker_execution_context = context
             session.add(row)
 
     ports = dispatch.ctx.app_ctx.extensions[NATIVE_DISPATCH_PORTS.extension_key]
     dispatch.ctx.app_ctx.extensions[NATIVE_DISPATCH_PORTS.extension_key] = replace(ports, prepare_task=mutate)
-    result = dispatch_native_task(dispatch.ctx, policy={'execute_timeout': 30})
+    result = dispatch_native_task(dispatch.ctx, policy={"execute_timeout": 30})
     assert result.failed and not result.completed and dispatch.calls == []
     with Session(dispatch.native.engine) as session:
         assert not session.exec(select(NativeDispatchDB)).all()
@@ -178,10 +191,13 @@ def test_generic_tasks_continue_to_existing_dispatch_phases():
 def test_native_commands_are_never_replanned_by_the_context_splitter():
     from agent.routes.tasks.autopilot_task_dispatcher import _split_if_beyond_context
 
-    task = SimpleNamespace(worker_execution_context={"runtime_path":"native_graph_node"})
-    assert _split_if_beyond_context(task, app=SimpleNamespace(config={"AGENT_CONFIG": {
-        "context_strategy": {"mode":"active"}}})) is None
-
+    task = SimpleNamespace(worker_execution_context={"runtime_path": "native_graph_node"})
+    assert (
+        _split_if_beyond_context(
+            task, app=SimpleNamespace(config={"AGENT_CONFIG": {"context_strategy": {"mode": "active"}}})
+        )
+        is None
+    )
 
 
 def test_unknown_transport_is_not_sent_again_even_after_status_reset(dispatch):

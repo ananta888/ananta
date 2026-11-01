@@ -26,10 +26,8 @@ def initialize_local_runtime_capability_services(app: Flask) -> LocalRuntimeCapa
     if role != "hub":
         status = LocalRuntimeCapabilityWiringStatus(False, "local_runtime_capability_hub_role_required")
     else:
-        app.extensions["local_runtime_capability_refresh_dispatch"] = (
-            LocalRuntimeCapabilityRefreshDispatcher(
-                provider_urls=dict(app.config.get("PROVIDER_URLS") or {}),
-            )
+        app.extensions["local_runtime_capability_refresh_dispatch"] = LocalRuntimeCapabilityRefreshDispatcher(
+            provider_urls=dict(app.config.get("PROVIDER_URLS") or {}),
         )
         status = LocalRuntimeCapabilityWiringStatus(True)
     app.extensions["local_runtime_capability_wiring_status"] = status

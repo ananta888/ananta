@@ -1,5 +1,4 @@
 import subprocess
-import threading
 from unittest.mock import patch
 
 from agent.cli_backends import sgpt

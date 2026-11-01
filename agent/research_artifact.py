@@ -1,4 +1,3 @@
-import json
 import re
 import time
 from typing import Any
@@ -55,16 +54,20 @@ def normalize_research_artifact(
     if len(summary) > 400:
         summary = summary[:397].rstrip() + "..."
 
-    cfg = resolve_research_backend_config(provider_override=backend) if is_research_backend(backend) else {
-        "provider": backend,
-        "display_name": backend,
-        "mode": "cli",
-        "command": "",
-        "working_dir": None,
-        "result_format": "markdown",
-        "selected": False,
-        "selected_provider": None,
-    }
+    cfg = (
+        resolve_research_backend_config(provider_override=backend)
+        if is_research_backend(backend)
+        else {
+            "provider": backend,
+            "display_name": backend,
+            "mode": "cli",
+            "command": "",
+            "working_dir": None,
+            "result_format": "markdown",
+            "selected": False,
+            "selected_provider": None,
+        }
+    )
     sources = _extract_source_records(text)
     citations = _extract_citation_records(text, sources)
     ready = bool(text and sources)

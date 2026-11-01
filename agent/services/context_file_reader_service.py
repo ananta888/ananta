@@ -5,11 +5,11 @@ Policy-checked file reader for worker context handoff.
 Enforces: path traversal protection, allowed_extensions, denied_globs,
 max_bytes per file, and workspace boundary checks.
 """
+
 from __future__ import annotations
 
 import fnmatch
 import hashlib
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,24 +19,59 @@ from typing import Any
 @dataclass
 class FileReadPolicy:
     workspace_root: str | Path = ""
-    allowed_extensions: list[str] = field(default_factory=lambda: [
-        ".py", ".ts", ".tsx", ".js", ".jsx",
-        ".go", ".rs", ".java", ".cs", ".cpp", ".c", ".h",
-        ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg",
-        ".md", ".txt", ".sh", ".bash",
-        ".sql", ".html", ".css", ".scss",
-    ])
-    denied_globs: list[str] = field(default_factory=lambda: [
-        "**/.env", "**/.env.*",
-        "**/secrets.*", "**/secret.*",
-        "**/*.key", "**/*.pem", "**/*.p12", "**/*.pfx",
-        "**/id_rsa", "**/id_ed25519", "**/id_ecdsa",
-        "**/.ssh/**",
-        "**/credentials.json", "**/credentials.yaml",
-        "**/token.json", "**/token.txt",
-        "**/__pycache__/**", "**/*.pyc",
-        "**/.git/**",
-    ])
+    allowed_extensions: list[str] = field(
+        default_factory=lambda: [
+            ".py",
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".cs",
+            ".cpp",
+            ".c",
+            ".h",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".ini",
+            ".cfg",
+            ".md",
+            ".txt",
+            ".sh",
+            ".bash",
+            ".sql",
+            ".html",
+            ".css",
+            ".scss",
+        ]
+    )
+    denied_globs: list[str] = field(
+        default_factory=lambda: [
+            "**/.env",
+            "**/.env.*",
+            "**/secrets.*",
+            "**/secret.*",
+            "**/*.key",
+            "**/*.pem",
+            "**/*.p12",
+            "**/*.pfx",
+            "**/id_rsa",
+            "**/id_ed25519",
+            "**/id_ecdsa",
+            "**/.ssh/**",
+            "**/credentials.json",
+            "**/credentials.yaml",
+            "**/token.json",
+            "**/token.txt",
+            "**/__pycache__/**",
+            "**/*.pyc",
+            "**/.git/**",
+        ]
+    )
     max_bytes_per_file: int = 256 * 1024  # 256 KB
     allow_binary: bool = False
 
@@ -116,14 +151,24 @@ class ContextFileReaderService:
             raw = abs_path.read_bytes()
         except FileNotFoundError:
             return FileReadResult(
-                path=relative_path, content="", sha256="", byte_count=0,
-                line_count=0, read_at=read_at, policy_applied="file_not_found",
+                path=relative_path,
+                content="",
+                sha256="",
+                byte_count=0,
+                line_count=0,
+                read_at=read_at,
+                policy_applied="file_not_found",
                 error=f"File not found: {relative_path!r}",
             )
         except PermissionError:
             return FileReadResult(
-                path=relative_path, content="", sha256="", byte_count=0,
-                line_count=0, read_at=read_at, policy_applied="permission_denied",
+                path=relative_path,
+                content="",
+                sha256="",
+                byte_count=0,
+                line_count=0,
+                read_at=read_at,
+                policy_applied="permission_denied",
                 error=f"Permission denied: {relative_path!r}",
             )
 
@@ -138,8 +183,13 @@ class ContextFileReaderService:
                     content = raw.decode("utf-8")
                 except UnicodeDecodeError:
                     return FileReadResult(
-                        path=relative_path, content="", sha256="", byte_count=len(raw),
-                        line_count=0, read_at=read_at, policy_applied="binary_denied",
+                        path=relative_path,
+                        content="",
+                        sha256="",
+                        byte_count=len(raw),
+                        line_count=0,
+                        read_at=read_at,
+                        policy_applied="binary_denied",
                         error=f"Binary file skipped: {relative_path!r}",
                     )
             else:
@@ -176,12 +226,18 @@ class ContextFileReaderService:
             except ValueError as exc:
                 if not skip_errors:
                     raise
-                results.append(FileReadResult(
-                    path=rp, content="", sha256="", byte_count=0,
-                    line_count=0, read_at=time.time(),
-                    policy_applied="policy_violation",
-                    error=str(exc),
-                ))
+                results.append(
+                    FileReadResult(
+                        path=rp,
+                        content="",
+                        sha256="",
+                        byte_count=0,
+                        line_count=0,
+                        read_at=time.time(),
+                        policy_applied="policy_violation",
+                        error=str(exc),
+                    )
+                )
         return results
 
     def read_required_files(

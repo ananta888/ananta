@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
+
 from agent.services.hermes_worker_profile import get_default_hermes_profile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,6 +72,7 @@ class CapabilityRegistry:
 
     def hermes_capability_decision(self, capability_id: str) -> dict[str, Any]:
         from agent.services.hermes_worker_profile import normalize_capability
+
         profile = get_default_hermes_profile()
         raw = str(capability_id or "").strip().lower()
         normalized = normalize_capability(raw)  # HF-T002/T003: resolve aliases before check

@@ -74,10 +74,10 @@ reg.enable("repo_context_review")  # explicit enable required
 ```python
 policy = {
     "enabled": True,
-    "redact_before_persist": True,       # default: True
-    "archive_raw_output": False,          # default: False (safe)
+    "redact_before_persist": True,  # default: True
+    "archive_raw_output": False,  # default: False (safe)
     "default_memory_scope": "task",
-    "default_ttl_seconds": None,          # None = keep forever
+    "default_ttl_seconds": None,  # None = keep forever
     "sensitivity": "internal",
 }
 ```
@@ -86,6 +86,7 @@ policy = {
 
 ```python
 from worker.core.diagnostics import build_worker_diagnostics_read_model
+
 diag = build_worker_diagnostics_read_model(
     native_worker_enabled=True,
     tool_registry=my_tool_registry,

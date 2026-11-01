@@ -149,8 +149,7 @@ class ResourceAdmissionController:
             if (
                 self._ram_bytes + requirement.ram_bytes > budget.max_ram_bytes
                 or self._vram_bytes + requirement.vram_bytes > budget.max_vram_bytes
-                or self._concurrency_slots + requirement.concurrency_slots
-                > budget.max_concurrent_backends
+                or self._concurrency_slots + requirement.concurrency_slots > budget.max_concurrent_backends
                 or self._audio_ms + audio_ms > budget.max_audio_ms
             ):
                 return None

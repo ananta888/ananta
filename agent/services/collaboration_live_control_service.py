@@ -91,9 +91,7 @@ class CollaborationLiveControlService:
         keys = self._keys(tenant_id, workspace_id, room_id)
         view = require_id(view_id, "view_id")
         now = self._clock()
-        items = self._state.cursors(
-            tenant_id=keys[0], workspace_id=keys[1], room_id=keys[2], view_id=view, now=now
-        )
+        items = self._state.cursors(tenant_id=keys[0], workspace_id=keys[1], room_id=keys[2], view_id=view, now=now)
         return {"items": items, "server_time": now}
 
     def grant_control(
@@ -222,5 +220,6 @@ class CollaborationLiveControlService:
             require_id(workspace_id, "workspace_id"),
             require_id(room_id, "room_id"),
         )
+
 
 __all__ = ["CollaborationLiveControlService"]

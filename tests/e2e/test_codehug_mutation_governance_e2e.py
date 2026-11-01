@@ -4,8 +4,7 @@ from dataclasses import dataclass
 
 from flask import Flask
 
-from agent.routes.source_control_v1 import SourceControlV1RequestGuard
-from agent.routes.source_control_v1 import create_source_control_v1_blueprint
+from agent.routes.source_control_v1 import SourceControlV1RequestGuard, create_source_control_v1_blueprint
 from agent.services.project_access_authority import AuthorizedProjectScope
 
 
@@ -75,7 +74,8 @@ def _app(monkeypatch):
     )
     app = Flask(__name__)
     app.extensions["project_access_authority"] = _ProjectAccessAuthority()
-    app.register_blueprint(create_source_control_v1_blueprint(
+    app.register_blueprint(
+        create_source_control_v1_blueprint(
             api,
             request_guard=request_guard,
             auth_decorator=lambda view: view,
@@ -111,9 +111,7 @@ def test_direct_tamper_cannot_supply_write_or_security_bindings(
             },
         )
         assert response.status_code == 400
-        assert response.get_json()["error"]["code"] == (
-            "request_fields_forbidden"
-        )
+        assert response.get_json()["error"]["code"] == ("request_fields_forbidden")
     assert api.calls == []
 
 

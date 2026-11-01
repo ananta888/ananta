@@ -28,9 +28,14 @@ B = "b" * 64
 
 def genome(**changes) -> HarnessGenome:
     base = dict(
-        code_hash=A, config_hash=B,
-        prompt=PromptStrategy(system_ref="prompt://system", user_ref="prompt://user",
-                              repair_ref="prompt://repair", few_shot_refs=("demo://one",)),
+        code_hash=A,
+        config_hash=B,
+        prompt=PromptStrategy(
+            system_ref="prompt://system",
+            user_ref="prompt://user",
+            repair_ref="prompt://repair",
+            few_shot_refs=("demo://one",),
+        ),
         context=ContextPolicy(budget_tokens=32768, reserved_completion_tokens=2048, reserved_tool_tokens=512),
         tools=ToolPolicy(allowed_tools=("repo.grep", "repo.read_file_range"), timeout_ms=30_000),
         model_routing=ModelRouting(provider_id="llamacpp", model_id="bonsai-27b", fallback_chain=("llm",)),
@@ -58,8 +63,9 @@ def test_semantically_identical_genomes_share_the_id():
 
 
 def test_any_semantic_change_changes_the_id_and_is_diffable():
-    changed = genome(context=ContextPolicy(budget_tokens=65536, reserved_completion_tokens=2048,
-                                           reserved_tool_tokens=512))
+    changed = genome(
+        context=ContextPolicy(budget_tokens=65536, reserved_completion_tokens=2048, reserved_tool_tokens=512)
+    )
     assert changed.genome_id != genome().genome_id
     diff = genome().diff(changed)
     assert diff == {"context.budget_tokens": [32768, 65536]}

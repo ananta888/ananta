@@ -28,11 +28,7 @@ def pin_private_container_address(
     resolver: AddressResolver | None = None,
 ) -> str:
     try:
-        addresses = tuple(
-            dict.fromkeys(
-                str(value) for value in (resolver or _resolve_addresses)(hostname, port)
-            )
-        )
+        addresses = tuple(dict.fromkeys(str(value) for value in (resolver or _resolve_addresses)(hostname, port)))
     except OSError as exc:
         raise PrivateContainerResolutionError(
             "worker_unavailable",
@@ -66,10 +62,7 @@ def _resolve_addresses(hostname: str, port: int) -> tuple[str, ...]:
         return (str(ipaddress.ip_address(hostname)),)
     except ValueError:
         return tuple(
-            dict.fromkeys(
-                str(item[4][0])
-                for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
-            )
+            dict.fromkeys(str(item[4][0]) for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM))
         )
 
 
@@ -78,7 +71,4 @@ def _is_private_container_address(
 ) -> bool:
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
         return False
-    return any(
-        address.version == network.version and address in network
-        for network in _PRIVATE_CONTAINER_NETWORKS
-    )
+    return any(address.version == network.version and address in network for network in _PRIVATE_CONTAINER_NETWORKS)

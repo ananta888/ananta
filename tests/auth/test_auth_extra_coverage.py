@@ -172,7 +172,9 @@ def test_check_auth_warns_for_weak_user_secret(app, caplog):
 
     previous_secret = settings.secret_key
     settings.secret_key = "short-secret"
-    user_token = jwt.encode({"username": "admin_user", "role": "admin", "exp": time.time() + 3600}, settings.secret_key, algorithm="HS256")
+    user_token = jwt.encode(
+        {"username": "admin_user", "role": "admin", "exp": time.time() + 3600}, settings.secret_key, algorithm="HS256"
+    )
     try:
         with caplog.at_level("WARNING"):
             with app.test_client() as client:

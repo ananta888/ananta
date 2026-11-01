@@ -25,7 +25,7 @@ from agent.services.pattern_template_renderer import PatternTemplateRenderer, Te
 from agent.services.pattern_registry import get_registry
 
 registry = get_registry()
-entry = registry.get("python.strategy")          # catalog entry
+entry = registry.get("python.strategy")  # catalog entry
 renderer = PatternTemplateRenderer()
 
 # Load template files from the catalog entry
@@ -297,27 +297,24 @@ routes to `NotationRenderer` when `category == "diagram_notation"`.
 from agent.services.notation_renderer import get_notation_renderer
 
 r = get_notation_renderer()
-artifact = r.render(pattern_plan={
-    "pattern_id": "mermaid.class",
-    "language": "mermaid",
-    "parameters": {
-        "diagram_title": "Order Strategy",
-        "direction": "LR",
-        "classes": [
-            {"name": "OrderStrategy", "stereotype": "interface",
-             "methods": ["calculate(order: Order): Money"]},
-            {"name": "StandardPricing",
-             "methods": ["calculate(order: Order): Money"]},
-        ],
-        "relationships": [
-            {"type": "realization",
-             "from": "StandardPricing", "to": "OrderStrategy"},
-            {"type": "association",
-             "from": "Order", "to": "OrderStrategy",
-             "to_label": "1"},
-        ],
-    },
-})
+artifact = r.render(
+    pattern_plan={
+        "pattern_id": "mermaid.class",
+        "language": "mermaid",
+        "parameters": {
+            "diagram_title": "Order Strategy",
+            "direction": "LR",
+            "classes": [
+                {"name": "OrderStrategy", "stereotype": "interface", "methods": ["calculate(order: Order): Money"]},
+                {"name": "StandardPricing", "methods": ["calculate(order: Order): Money"]},
+            ],
+            "relationships": [
+                {"type": "realization", "from": "StandardPricing", "to": "OrderStrategy"},
+                {"type": "association", "from": "Order", "to": "OrderStrategy", "to_label": "1"},
+            ],
+        },
+    }
+)
 print(artifact.source)
 # classDiagram
 # %% Order Strategy
@@ -329,45 +326,43 @@ print(artifact.source)
 #   ...
 print(f"sha256={artifact.sha256} manifest={artifact.manifest_sha256}")
 artifact_on_disk = r.render(
-    pattern_plan={...}, target_root="/tmp/out",
+    pattern_plan={...},
+    target_root="/tmp/out",
 )
 ```
 
 #### 2. Render a BPMN 2.0 process
 
 ```python
-artifact = r.render(pattern_plan={
-    "pattern_id": "bpmn.process",
-    "language": "bpmn",
-    "parameters": {
-        "definitions_id": "Definitions_1",
-        "process_id": "Process_OrderFulfillment",
-        "process_name": "Order Fulfillment",
-        "elements": [
-            {"type": "startEvent", "id": "StartEvent_1",
-             "name": "Order Received"},
-            {"type": "userTask", "id": "Task_Pick",
-             "name": "Pick Items"},
-            {"type": "exclusiveGateway", "id": "Gateway_Stock",
-             "name": "Stock Available?"},
-            {"type": "serviceTask", "id": "Task_Ship",
-             "name": "Ship Order"},
-            {"type": "endEvent", "id": "EndEvent_Done",
-             "name": "Done"},
-        ],
-        "flows": [
-            {"id": "Flow_1", "sourceRef": "StartEvent_1",
-             "targetRef": "Task_Pick"},
-            {"id": "Flow_2", "sourceRef": "Task_Pick",
-             "targetRef": "Gateway_Stock"},
-            {"id": "Flow_3", "sourceRef": "Gateway_Stock",
-             "targetRef": "Task_Ship",
-             "conditionExpression": "${stockAvailable}"},
-            {"id": "Flow_4", "sourceRef": "Task_Ship",
-             "targetRef": "EndEvent_Done"},
-        ],
-    },
-})
+artifact = r.render(
+    pattern_plan={
+        "pattern_id": "bpmn.process",
+        "language": "bpmn",
+        "parameters": {
+            "definitions_id": "Definitions_1",
+            "process_id": "Process_OrderFulfillment",
+            "process_name": "Order Fulfillment",
+            "elements": [
+                {"type": "startEvent", "id": "StartEvent_1", "name": "Order Received"},
+                {"type": "userTask", "id": "Task_Pick", "name": "Pick Items"},
+                {"type": "exclusiveGateway", "id": "Gateway_Stock", "name": "Stock Available?"},
+                {"type": "serviceTask", "id": "Task_Ship", "name": "Ship Order"},
+                {"type": "endEvent", "id": "EndEvent_Done", "name": "Done"},
+            ],
+            "flows": [
+                {"id": "Flow_1", "sourceRef": "StartEvent_1", "targetRef": "Task_Pick"},
+                {"id": "Flow_2", "sourceRef": "Task_Pick", "targetRef": "Gateway_Stock"},
+                {
+                    "id": "Flow_3",
+                    "sourceRef": "Gateway_Stock",
+                    "targetRef": "Task_Ship",
+                    "conditionExpression": "${stockAvailable}",
+                },
+                {"id": "Flow_4", "sourceRef": "Task_Ship", "targetRef": "EndEvent_Done"},
+            ],
+        },
+    }
+)
 ```
 
 The emitted XML uses the OMG BPMN 2.0 namespace

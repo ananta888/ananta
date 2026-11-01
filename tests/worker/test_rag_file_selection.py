@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from worker.coding.file_selection import FileSelectionLimits, select_candidate_files, select_candidate_files_from_hybrid_retrieval
+from worker.coding.file_selection import (
+    FileSelectionLimits,
+    select_candidate_files,
+    select_candidate_files_from_hybrid_retrieval,
+)
 
 
 def test_file_selection_prefers_ranked_refs_with_provenance() -> None:

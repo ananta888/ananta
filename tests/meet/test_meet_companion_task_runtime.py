@@ -50,7 +50,7 @@ def test_owner_tracks_speaking_generations_restores_idle_and_keeps_sources_indep
     from worker.meet_media.companion_media import SpeechAvatarPublisher
 
     session, page, controls, media = runtime()
-    pcm = pcm_bytes(tone(.3))
+    pcm = pcm_bytes(tone(0.3))
     ports, _events = fake_ports(FakeClock())
     clips = SpeechAvatarPublisher(ports, encoder=fake_encoder).prepare(pcm)[1]
     media.speaking.return_value = clips
@@ -105,7 +105,8 @@ def test_renewal_reads_current_hub_grant_but_does_not_extend_past_task_deadline(
     session.client.assignment["deadline"] = 300
     session.client.read = Mock(return_value={"grant": "synthetic-grant"})
     page.evaluate.side_effect = lambda expression, *_args: (
-        {"state": "closed"} if "speech.status" in expression else {"joined": True, "lease": {"expiresAt": expiry}})
+        {"state": "closed"} if "speech.status" in expression else {"joined": True, "lease": {"expiresAt": expiry}}
+    )
     try:
         session.renew()
         session.client.read.assert_called_once_with()
@@ -123,7 +124,8 @@ def test_active_speech_defers_native_renewal_without_skipping_hub_validation(sta
     session.client.assignment["deadline"] = 300
     session.client.read = Mock(return_value={"grant": "synthetic-grant"})
     page.evaluate.side_effect = lambda expression, *_args: (
-        {"state": state} if "speech.status" in expression else {"joined": True, "lease": {"expiresAt": 120_000}})
+        {"state": state} if "speech.status" in expression else {"joined": True, "lease": {"expiresAt": 120_000}}
+    )
     try:
         assert session.renew() is False
         session.client.read.assert_called_once_with()
@@ -138,7 +140,8 @@ def test_unknown_speech_state_cannot_authorize_renewal():
     session.client.assignment["deadline"] = 300
     session.client.read = Mock(return_value={"grant": "synthetic-grant"})
     page.evaluate.side_effect = lambda expression, *_args: (
-        {"state": "unknown"} if "speech.status" in expression else {"joined": True, "lease": {"expiresAt": 120_000}})
+        {"state": "unknown"} if "speech.status" in expression else {"joined": True, "lease": {"expiresAt": 120_000}}
+    )
     try:
         with pytest.raises(ValueError, match="renewal_speech_state_invalid"):
             session.renew()
@@ -276,8 +279,9 @@ def test_runtime_entrypoint_closes_assignment_input_and_reports_terminal_once(mo
     monkeypatch.setattr(runtime_module.sys, "stdin", SimpleNamespace(buffer=source))
     monkeypatch.delenv("ANANTA_MEET_CONTROL_PROGRESS_FD", raising=False)
     monkeypatch.delenv("MEET_HUB_COMPANION_TASK_URL", raising=False)
-    hub = SimpleNamespace(url="http://127.0.0.1/api/meet/v1/internal/dialog",
-                          key=b"synthetic-private-worker-key-32bytes", call=Mock())
+    hub = SimpleNamespace(
+        url="http://127.0.0.1/api/meet/v1/internal/dialog", key=b"synthetic-private-worker-key-32bytes", call=Mock()
+    )
     monkeypatch.setattr("worker.meet_media.dialog_client.HubDialogClient", lambda _assignment: hub)
     run = Mock(side_effect=CompanionControlLost("synthetic_cancel") if fails else None)
     monkeypatch.setattr(runtime_module, "run", run)

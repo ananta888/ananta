@@ -29,7 +29,11 @@ def test_ai_response_is_rendered_near_target() -> None:
         header_logo_game={
             "tutorial_mode": True,
             "tutorial_propose_history": [
-                {"source": "openai-compatible", "target": "content", "text": "Artifacts enthalten Cast und E2E Reports."}
+                {
+                    "source": "openai-compatible",
+                    "target": "content",
+                    "text": "Artifacts enthalten Cast und E2E Reports.",
+                }
             ],
         },
     )

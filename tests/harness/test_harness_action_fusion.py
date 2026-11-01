@@ -7,10 +7,18 @@ import pytest
 from agent.services.harness_action_fusion import ActionFuser, FusedAction, ToolAction
 
 
-def action(action_id, tool="repo.read_file_range", *, group="read_batch", idempotent=True, side_effect_free=True,
-           cost_ms=10.0):
-    return ToolAction(action_id=action_id, tool=tool, arguments=(("path", action_id),),
-                      idempotent=idempotent, side_effect_free=side_effect_free, fusion_group=group, cost_ms=cost_ms)
+def action(
+    action_id, tool="repo.read_file_range", *, group="read_batch", idempotent=True, side_effect_free=True, cost_ms=10.0
+):
+    return ToolAction(
+        action_id=action_id,
+        tool=tool,
+        arguments=(("path", action_id),),
+        idempotent=idempotent,
+        side_effect_free=side_effect_free,
+        fusion_group=group,
+        cost_ms=cost_ms,
+    )
 
 
 def test_consecutive_safe_actions_in_the_same_group_are_fused():
@@ -22,8 +30,14 @@ def test_consecutive_safe_actions_in_the_same_group_are_fused():
 
 
 def test_unsafe_or_other_group_actions_break_the_fusion_run():
-    actions = [action("a"), action("b", group="other"), action("c", idempotent=False),
-               action("d", side_effect_free=False), action("e"), action("f")]
+    actions = [
+        action("a"),
+        action("b", group="other"),
+        action("c", idempotent=False),
+        action("d", side_effect_free=False),
+        action("e"),
+        action("f"),
+    ]
     plan = ActionFuser().plan(actions)
     fused = [step for step in plan.steps if isinstance(step, FusedAction)]
     assert len(fused) == 1
@@ -48,8 +62,13 @@ def test_measurement_reports_saved_calls():
     actions = [action("a"), action("b"), action("c"), action("d")]
     plan = ActionFuser().plan(actions)
     metrics = ActionFuser.measure(plan)
-    assert metrics == {"unfused_calls": 4, "fused_calls": 1, "saved_calls": 3,
-                       "unfused_cost_ms": 40.0, "fused_cost_ms": 40.0}
+    assert metrics == {
+        "unfused_calls": 4,
+        "fused_calls": 1,
+        "saved_calls": 3,
+        "unfused_cost_ms": 40.0,
+        "fused_cost_ms": 40.0,
+    }
 
 
 def test_invalid_action_is_rejected():

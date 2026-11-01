@@ -19,8 +19,9 @@ def restore_model(directory, *, open_url=urllib.request.urlopen):
         raise ValueError("test_model_destination_not_fresh")
     directory.mkdir(mode=0o755)
     try:
-        request = urllib.request.Request(REGISTRY + "/manifests/1.5b", headers={
-            "Accept": "application/vnd.docker.distribution.manifest.v2+json"})
+        request = urllib.request.Request(
+            REGISTRY + "/manifests/1.5b", headers={"Accept": "application/vnd.docker.distribution.manifest.v2+json"}
+        )
         with open_url(request, timeout=20) as response:
             raw = response.read(65_537)
         if len(raw) > 65_536 or hashlib.sha256(raw).hexdigest() != MODEL_DIGEST:
@@ -31,8 +32,11 @@ def restore_model(directory, *, open_url=urllib.request.urlopen):
         deadline = time.monotonic() + 600
         for layer in [manifest["config"], *manifest["layers"]]:
             digest, size = layer["digest"], layer["size"]
-            if (not re.fullmatch(r"sha256:[a-f0-9]{64}", digest)
-                    or type(size) is not int or not 0 < size <= 1_000_000_000):
+            if (
+                not re.fullmatch(r"sha256:[a-f0-9]{64}", digest)
+                or type(size) is not int
+                or not 0 < size <= 1_000_000_000
+            ):
                 raise ValueError("test_model_blob_invalid")
             target = blobs / digest.replace(":", "-")
             checksum, received = hashlib.sha256(), 0

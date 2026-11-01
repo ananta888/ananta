@@ -41,9 +41,7 @@ def _issuer(
 
 
 def _verifier() -> OrganizationResearchDispatchCapabilityVerifier:
-    return OrganizationResearchDispatchCapabilityVerifier(
-        _HUB_SIGNING_KEY_RING.verification_key_ring()
-    )
+    return OrganizationResearchDispatchCapabilityVerifier(_HUB_SIGNING_KEY_RING.verification_key_ring())
 
 
 def _origin_bundle() -> SimpleNamespace:
@@ -148,9 +146,7 @@ def _unsigned_payload() -> dict:
             "bundle_metadata": bundle.bundle_metadata,
         },
         "allowed_tools": [],
-        "expected_output_schema": {
-            "schema_ref": "todos/todo.schema.json"
-        },
+        "expected_output_schema": {"schema_ref": "todos/todo.schema.json"},
     }
     return {
         "id": "research-subtask-1",
@@ -189,19 +185,13 @@ def _unsigned_payload() -> dict:
 def _signed_payload() -> dict:
     payload = _unsigned_payload()
     policy = payload["worker_execution_context"]["source_context_policy"]
-    destination = payload["worker_execution_context"][
-        "research_destination_binding"
-    ]
-    payload["hub_dispatch_capability"] = (
-        _issuer().issue(
-            payload=payload,
-            worker_url=_WORKER_URL,
-            source_context_bundle_digest=policy[
-                "context_bundle_digest"
-            ],
-            destination_binding_digest=destination["binding_digest"],
-            worker_job_id="worker-job-1",
-        )
+    destination = payload["worker_execution_context"]["research_destination_binding"]
+    payload["hub_dispatch_capability"] = _issuer().issue(
+        payload=payload,
+        worker_url=_WORKER_URL,
+        source_context_bundle_digest=policy["context_bundle_digest"],
+        destination_binding_digest=destination["binding_digest"],
+        worker_job_id="worker-job-1",
     )
     return payload
 
@@ -231,9 +221,7 @@ def test_dispatch_capability_is_worker_payload_job_and_assignment_bound():
     )
 
     assert claims["worker_job_id"] == "worker-job-1"
-    assert claims["organization_assignment_id"] == (
-        "organization-assignment-1"
-    )
+    assert claims["organization_assignment_id"] == ("organization-assignment-1")
     assert claims["context_bundle_id"] == "catalog-context-origin"
     assert claims["destination_binding_digest"] == "b" * 64
 
@@ -255,8 +243,7 @@ def test_worker_intake_materializes_task_bound_context_and_replays_exactly(
 ):
     payload = _signed_payload()
     service = OrganizationResearchWorkerIntakeService(
-        capability_verifier=_verifier(),
-        session_factory=lambda: Session(intake_engine)
+        capability_verifier=_verifier(), session_factory=lambda: Session(intake_engine)
     )
 
     first = service.admit(
@@ -278,47 +265,30 @@ def test_worker_intake_materializes_task_bound_context_and_replays_exactly(
         assert task.current_worker_job_id == "worker-job-1"
         assert task.context_bundle_id == first["context_bundle_id"]
         assert "context" not in task.worker_execution_context
-        admission = task.worker_execution_context[
-            "hub_research_dispatch_admission"
-        ]
-        assert admission["organization_assignment_id"] == (
-            "organization-assignment-1"
-        )
+        admission = task.worker_execution_context["hub_research_dispatch_admission"]
+        assert admission["organization_assignment_id"] == ("organization-assignment-1")
         assert admission["destination_binding_digest"] == "b" * 64
         clone = session.get(ContextBundleDB, task.context_bundle_id)
         assert clone is not None
         assert clone.task_id == task.id
-        assert clone.context_text == (
-            "[SRC_0001] authoritative evidence"
-        )
-        assert clone.bundle_metadata["hub_research_dispatch"][
-            "origin_context_bundle_id"
-        ] == "catalog-context-origin"
+        assert clone.context_text == ("[SRC_0001] authoritative evidence")
+        assert clone.bundle_metadata["hub_research_dispatch"]["origin_context_bundle_id"] == "catalog-context-origin"
 
 
 def test_worker_intake_recomputes_origin_context_digest(intake_engine):
     payload = _unsigned_payload()
-    payload["worker_execution_context"]["context"][
-        "context_text"
-    ] = "content changed before signing"
+    payload["worker_execution_context"]["context"]["context_text"] = "content changed before signing"
     policy = payload["worker_execution_context"]["source_context_policy"]
-    destination = payload["worker_execution_context"][
-        "research_destination_binding"
-    ]
-    payload["hub_dispatch_capability"] = (
-        _issuer().issue(
-            payload=payload,
-            worker_url=_WORKER_URL,
-            source_context_bundle_digest=policy[
-                "context_bundle_digest"
-            ],
-            destination_binding_digest=destination["binding_digest"],
-            worker_job_id="worker-job-1",
-        )
+    destination = payload["worker_execution_context"]["research_destination_binding"]
+    payload["hub_dispatch_capability"] = _issuer().issue(
+        payload=payload,
+        worker_url=_WORKER_URL,
+        source_context_bundle_digest=policy["context_bundle_digest"],
+        destination_binding_digest=destination["binding_digest"],
+        worker_job_id="worker-job-1",
     )
     service = OrganizationResearchWorkerIntakeService(
-        capability_verifier=_verifier(),
-        session_factory=lambda: Session(intake_engine)
+        capability_verifier=_verifier(), session_factory=lambda: Session(intake_engine)
     )
 
     with pytest.raises(
@@ -339,16 +309,12 @@ def test_worker_service_credential_cannot_mint_hub_dispatch_authority(
 ):
     payload = _unsigned_payload()
     policy = payload["worker_execution_context"]["source_context_policy"]
-    destination = payload["worker_execution_context"][
-        "research_destination_binding"
-    ]
+    destination = payload["worker_execution_context"]["research_destination_binding"]
     rogue_key_ring = Ed25519SigningKeyRing(
         {"worker-controlled": base64.b64encode(b"w" * 32)},
         active_key_id="worker-controlled",
     )
-    payload["hub_dispatch_capability"] = _issuer(
-        key_ring=rogue_key_ring
-    ).issue(
+    payload["hub_dispatch_capability"] = _issuer(key_ring=rogue_key_ring).issue(
         payload=payload,
         worker_url=_WORKER_URL,
         source_context_bundle_digest=policy["context_bundle_digest"],
@@ -356,15 +322,12 @@ def test_worker_service_credential_cannot_mint_hub_dispatch_authority(
         worker_job_id="worker-job-1",
     )
     service = OrganizationResearchWorkerIntakeService(
-        capability_verifier=_verifier(),
-        session_factory=lambda: Session(intake_engine)
+        capability_verifier=_verifier(), session_factory=lambda: Session(intake_engine)
     )
 
     with pytest.raises(
         OrganizationResearchWorkerIntakeError,
-        match=(
-            "organization_research_dispatch_capability_signature_invalid"
-        ),
+        match=("organization_research_dispatch_capability_signature_invalid"),
     ):
         service.admit(
             payload,
@@ -383,9 +346,7 @@ def test_worker_intake_requires_public_verification_keyring(
 
     with pytest.raises(
         OrganizationResearchWorkerIntakeError,
-        match=(
-            "organization_research_dispatch_verification_keyring_required"
-        ),
+        match=("organization_research_dispatch_verification_keyring_required"),
     ) as exc_info:
         service.admit(
             _signed_payload(),
@@ -404,17 +365,11 @@ def test_internal_research_intake_rejects_hub_role(
     response = client.post(
         "/internal/tasks/organization-planning-research",
         json={},
-        headers={
-            "Authorization": (
-                "Bearer test-agent-token-with-sufficient-length-1234567890"
-            )
-        },
+        headers={"Authorization": ("Bearer test-agent-token-with-sufficient-length-1234567890")},
     )
 
     assert response.status_code == 403
-    assert response.get_json()["data"]["reason_code"] == (
-        "organization_research_worker_role_required"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("organization_research_worker_role_required")
 
 
 def test_internal_research_intake_requires_service_identity(
@@ -428,9 +383,7 @@ def test_internal_research_intake_requires_service_identity(
     )
 
     assert response.status_code == 403
-    assert response.get_json()["data"]["reason_code"] == (
-        "workflow_service_auth_required"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("workflow_service_auth_required")
 
 
 def test_internal_research_intake_passes_only_canonical_worker_identity(
@@ -467,11 +420,7 @@ def test_internal_research_intake_passes_only_canonical_worker_identity(
     response = client.post(
         "/internal/tasks/organization-planning-research",
         json={"id": "research-subtask-1"},
-        headers={
-            "Authorization": (
-                "Bearer test-agent-token-with-sufficient-length-1234567890"
-            )
-        },
+        headers={"Authorization": ("Bearer test-agent-token-with-sufficient-length-1234567890")},
     )
 
     assert response.status_code == 202
@@ -501,17 +450,13 @@ def test_internal_research_intake_rejects_missing_canonical_worker_identity(
         "/internal/tasks/organization-planning-research",
         json={"id": "research-subtask-1"},
         headers={
-            "Authorization": (
-                "Bearer test-agent-token-with-sufficient-length-1234567890"
-            ),
+            "Authorization": ("Bearer test-agent-token-with-sufficient-length-1234567890"),
             "Host": "spoofed-worker:5000",
         },
     )
 
     assert response.status_code == 503
-    assert response.get_json()["data"]["reason_code"] == (
-        "organization_research_worker_identity_unavailable"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("organization_research_worker_identity_unavailable")
 
 
 def test_public_tasks_still_reject_reserved_research_context(client):
@@ -526,14 +471,8 @@ def test_public_tasks_still_reject_reserved_research_context(client):
                 "context": {"context_text": "forged"},
             },
         },
-        headers={
-            "Authorization": (
-                "Bearer test-agent-token-with-sufficient-length-1234567890"
-            )
-        },
+        headers={"Authorization": ("Bearer test-agent-token-with-sufficient-length-1234567890")},
     )
 
     assert response.status_code == 403
-    assert response.get_json()["data"]["reason_code"] == (
-        "context_bundle_reserved_ingress_forbidden"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("context_bundle_reserved_ingress_forbidden")

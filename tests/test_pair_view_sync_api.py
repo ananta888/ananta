@@ -5,6 +5,7 @@ response fields on /view/poll. The legacy `data.frames` shape is
 preserved by the change (covered by test_share_view_transport_api),
 so the new contract adds on top of it without breaking clients.
 """
+
 from __future__ import annotations
 
 import time

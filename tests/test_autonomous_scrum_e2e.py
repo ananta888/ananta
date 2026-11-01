@@ -7,8 +7,8 @@ from agent.db_models import AgentInfoDB, ConfigDB
 from agent.db_models.teams import TeamDB
 from agent.repository import agent_repo, config_repo, team_repo
 from agent.routes.tasks.autopilot import AUTOPILOT_STATE_KEY, AutonomousLoopManager, autonomous_loop
-from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
 
 @pytest.mark.integration

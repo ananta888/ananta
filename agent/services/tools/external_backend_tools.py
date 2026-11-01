@@ -7,6 +7,7 @@ routing logic); ineligible backends return a policy-style error instead
 of being invoked. The proposal prompt explicitly forbids mutations so an
 external agent never executes uncontrolled changes from this path.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -43,7 +44,9 @@ def run_external_backend_tool(
     backend, task_kind = mapping
     prompt = str((arguments or {}).get("prompt") or "").strip()
     if not prompt:
-        return build_tool_result(tool_name=tool_name, tool_call_id=tool_call_id, status="error", error="prompt_required")
+        return build_tool_result(
+            tool_name=tool_name, tool_call_id=tool_call_id, status="error", error="prompt_required"
+        )
 
     from agent.services.tool_routing_service import get_tool_routing_service
 

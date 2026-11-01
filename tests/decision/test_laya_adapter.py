@@ -1,4 +1,5 @@
 """The local laya-serve adapter: Jev wire reuse, local trust policy, key handling."""
+
 from __future__ import annotations
 
 import io
@@ -119,7 +120,9 @@ def test_a_configured_key_travels():
         return _Response(LAYA_RESPONSE)
 
     provider = LayaDecisionProvider(
-        base_url="http://laya:8080", allowed_hosts=["laya"], api_key=lambda: "shared-secret",
+        base_url="http://laya:8080",
+        allowed_hosts=["laya"],
+        api_key=lambda: "shared-secret",
         opener=opener,
     )
     provider.decide(REQUEST)
@@ -132,8 +135,9 @@ def test_a_configured_key_travels():
 )
 def test_endpoints_outside_the_allowed_local_hosts_are_rejected(url):
     with pytest.raises(DecisionProviderError):
-        LayaDecisionProvider(base_url=url, allowed_hosts=["laya", "localhost", "127.0.0.1"],
-                             api_key=lambda: None, opener=_Opener())
+        LayaDecisionProvider(
+            base_url=url, allowed_hosts=["laya", "localhost", "127.0.0.1"], api_key=lambda: None, opener=_Opener()
+        )
 
 
 def test_health_probe_answers_availability():
@@ -148,9 +152,12 @@ def test_health_probe_answers_availability():
     )
     assert provider.is_available() == (True, "ok")
     assert seen["url"] == "http://laya:8080/health"
-    unreachable = LayaDecisionProvider(base_url="http://laya:8080", allowed_hosts=["laya"],
-                                       api_key=lambda: None,
-                                       opener=lambda *a, **k: (_ for _ in ()).throw(OSError("down")))
+    unreachable = LayaDecisionProvider(
+        base_url="http://laya:8080",
+        allowed_hosts=["laya"],
+        api_key=lambda: None,
+        opener=lambda *a, **k: (_ for _ in ()).throw(OSError("down")),
+    )
     assert unreachable.is_available() == (False, "server_unreachable")
 
 
@@ -163,17 +170,23 @@ def test_oversized_states_are_rejected_before_the_wire():
 
 
 def test_config_builds_an_agreement_of_laya_and_local_decision():
-    config = normalize_decision_config({
-        "enabled": True,
-        "providers": {
-            "laya": {"enabled": True, "base_url": "http://laya:8080"},
-            "local_decision": {"enabled": True, "base_url": "http://egpu-code:18150"},
-        },
-        "areas": {
-            "tool_routing": {"mode": "shadow", "cascade": [["laya", "local_decision"]], "question_thresholds": {}},
-            "retrieval_intent": {"mode": "shadow", "cascade": ["laya", "local_decision"], "question_thresholds": {}},
-        },
-    })
+    config = normalize_decision_config(
+        {
+            "enabled": True,
+            "providers": {
+                "laya": {"enabled": True, "base_url": "http://laya:8080"},
+                "local_decision": {"enabled": True, "base_url": "http://egpu-code:18150"},
+            },
+            "areas": {
+                "tool_routing": {"mode": "shadow", "cascade": [["laya", "local_decision"]], "question_thresholds": {}},
+                "retrieval_intent": {
+                    "mode": "shadow",
+                    "cascade": ["laya", "local_decision"],
+                    "question_thresholds": {},
+                },
+            },
+        }
+    )
     assert config["providers"]["laya"]["base_url"] == "http://laya:8080"
     tool_routing = config["areas"]["tool_routing"]
     assert tool_routing["cascade"] == [["laya", "local_decision"]]

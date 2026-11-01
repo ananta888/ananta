@@ -58,9 +58,7 @@ class TurnAccountingIngestResult:
 
 
 class TurnAccountingService:
-    RECEIVER_CLASSES = frozenset(
-        {"direct_capable", "relay_required", "relay_preferred", "unknown"}
-    )
+    RECEIVER_CLASSES = frozenset({"direct_capable", "relay_required", "relay_preferred", "unknown"})
 
     def __init__(
         self,
@@ -210,10 +208,7 @@ class TurnAccountingService:
         tolerance_bytes: int,
     ) -> str:
         values = (turn_egress_bytes, sfu_egress_bytes, tolerance_bytes)
-        if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in values
-        ):
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in values):
             raise TurnAccountingError("turn_accounting_reconciliation_input_invalid")
         if abs(turn_egress_bytes - sfu_egress_bytes) > tolerance_bytes:
             return "turn_accounting_sfu_egress_reconciliation_required"
@@ -253,9 +248,7 @@ class TurnAccountingService:
 
     @staticmethod
     def _validate_identifier(value: str) -> None:
-        if not isinstance(value, str) or not re.fullmatch(
-            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", value
-        ):
+        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", value):
             raise TurnAccountingError("turn_accounting_scope_invalid")
 
     def _digest(self, domain: str, value: str) -> str:

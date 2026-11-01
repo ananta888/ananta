@@ -38,15 +38,13 @@ def authorized_task_source_payload(task_id: str):
         )
     try:
         principal = get_authenticated_source_control_principal()
-        organization_membership = current_app.extensions.get(
-            "organization_membership_service"
-        ) or OrganizationMembershipService()
+        organization_membership = (
+            current_app.extensions.get("organization_membership_service") or OrganizationMembershipService()
+        )
         get_task_source_verification_access_service().require(
             task=task,
             principal=principal,
-            project_access=current_app.extensions.get(
-                "project_access_authority"
-            ),
+            project_access=current_app.extensions.get("project_access_authority"),
             organization_membership=organization_membership,
         )
     except SourceControlAccessPolicyError as exc:
@@ -57,11 +55,7 @@ def authorized_task_source_payload(task_id: str):
             code=403,
         )
     except TaskSourceVerificationAccessError as exc:
-        message = (
-            "not_found"
-            if exc.status_code == 404
-            else "service_unavailable"
-        )
+        message = "not_found" if exc.status_code == 404 else "service_unavailable"
         return None, api_response(
             status="error",
             message=message,

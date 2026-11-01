@@ -1,4 +1,5 @@
 """HDW-005: hub decides and dispatches; WorkerRuntime executes."""
+
 from __future__ import annotations
 
 from agent.models import TaskStepProposeRequest
@@ -71,4 +72,3 @@ def test_hub_direct_lists_files_without_llm_and_dispatches_to_runtime(tmp_path, 
     assert runtime.calls[0]["tool_name"] == "repo.list_files"
     assert runtime.calls[0]["workspace_dir"] == str(tmp_path.resolve())
     assert response["cost_summary"]["tokens_total"] == 0
-

@@ -133,8 +133,9 @@ def test_hypothesis_shrinks_a_mutated_transition_to_the_offending_action() -> No
     mutated[AgentRunState.COMPLETED] = frozenset({AgentRunState.RUNNING})
     found = find(
         st.tuples(st.sampled_from(tuple(AgentRunState)), st.sampled_from(tuple(AgentRunState))),
-        lambda transition: (transition[1] in mutated[transition[0]])
-        != (transition[1] in REFERENCE_TRANSITIONS[transition[0]]),
+        lambda transition: (
+            (transition[1] in mutated[transition[0]]) != (transition[1] in REFERENCE_TRANSITIONS[transition[0]])
+        ),
         settings=settings(max_examples=200, deadline=None, database=None, derandomize=True),
     )
     assert found == (AgentRunState.COMPLETED, AgentRunState.RUNNING)

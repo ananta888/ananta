@@ -5,6 +5,7 @@ the hub tool policy before execution; denied calls become evidence and
 ``approval_required`` decisions are registered as pending approvals (never
 waited on here).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,8 +29,14 @@ def block_unanalyzed_mutation(session: MutationSession, turn: LoopTurn) -> bool:
     if session.cfg.get("require_code_analysis") is not True or not session.analysis_gate.pending:
         return False
     turn.row["result"] = "code_analysis_required"
-    session.add_evidence({"kind": "code_analysis_result", "status": "policy_blocked",
-                          "error": "code_analysis_required", "data": session.analysis_gate.state()})
+    session.add_evidence(
+        {
+            "kind": "code_analysis_result",
+            "status": "policy_blocked",
+            "error": "code_analysis_required",
+            "data": session.analysis_gate.state(),
+        }
+    )
     return True
 
 
@@ -63,8 +70,9 @@ def build_patch_tool_call(message: dict[str, Any], rel: str) -> tuple[str, dict[
     }
 
 
-def _route_read_tool(session: MutationSession, turn: LoopTurn, tool_name: str, arguments: dict[str, Any]
-                     ) -> tuple[str, dict[str, Any]]:
+def _route_read_tool(
+    session: MutationSession, turn: LoopTurn, tool_name: str, arguments: dict[str, Any]
+) -> tuple[str, dict[str, Any]]:
     """DPRV ``tool_routing``: upgrade a blind read to the routed inspection tool."""
     from agent.cli_backends.workspace_mutation.tool_routing import prefer_read_tool
 
@@ -191,7 +199,9 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
         from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
 
         blocked = build_tool_result(
-            tool_name=tool_name, tool_call_id=tool_call_id, status="error",
+            tool_name=tool_name,
+            tool_call_id=tool_call_id,
+            status="error",
             error="read_only_blocked_action_required",
             warnings=["too_many_consecutive_reads"],
             data={"action_required": ACTION_NUDGE},
@@ -222,7 +232,7 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     if tool_name == "codecompass.plan_context" and result.get("status") == "ok":
         _materialize_context_ranges(session, result, tool_call_id, tool_cfg)
     if session.cfg.get("require_code_analysis") is True:
-        reads = ((result.get("data") or {}).get("materialized_range_results") or [])
+        reads = (result.get("data") or {}).get("materialized_range_results") or []
         if tool_name == "repo.read_file_range":
             reads = [result]
         from agent.cli_backends.workspace_mutation.analysis import collect_read_observations
@@ -285,9 +295,7 @@ def _test_command_refusal_budget(
             "reason": "command_not_allowlisted",
             "command": command,
             "refused_commands": refusals,
-            "allowlisted_test_commands": list(
-                (session.cfg or {}).get("allowlisted_test_commands") or []
-            ),
+            "allowlisted_test_commands": list((session.cfg or {}).get("allowlisted_test_commands") or []),
         },
         turn.err,
     )

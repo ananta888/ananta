@@ -3,9 +3,9 @@
 Contains: _tutorial_target_label, _record_tutorial_propose_event,
           _tutorial_ai_target_cell, _step_toward_cell
 """
+
 from __future__ import annotations
 
-import json
 from typing import Any
 
 

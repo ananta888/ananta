@@ -1,21 +1,20 @@
 import json
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List
+
 from agent.db_models import ContextAccessPolicyDB
 from agent.repositories.context_access_policy_repo import get_context_access_policy_repo
 from agent.services.source_classification_service import get_source_classification_service
 from ananta_contracts.context_access_policy import (
     ContextAccessPolicy,
+    ContextAccessPolicyEvaluator,
     ContextAccessRule,
-    DestinationContext,
     ContextBlockAccessDecision,
-    Sensitivity,
-    ModelScope,
-    SourceType,
     Decision,
-    ReasonCode,
-    RequestedOperation,
-    ContextAccessPolicyEvaluator
+    DestinationContext,
+    ModelScope,
+    Sensitivity,
 )
+
 
 class ContextAccessPolicyService:
     def __init__(self):
@@ -48,15 +47,23 @@ class ContextAccessPolicyService:
         # T001: Policy validation rejects rules that allow cloud for sensitivity=secret
         for rule in policy.rules:
             if rule.sensitivity in [Sensitivity.secret, Sensitivity.credential]:
-                if rule.cloud_allowed or ModelScope.approved_cloud in rule.allowed_model_scopes or ModelScope.public_cloud in rule.allowed_model_scopes:
+                if (
+                    rule.cloud_allowed
+                    or ModelScope.approved_cloud in rule.allowed_model_scopes
+                    or ModelScope.public_cloud in rule.allowed_model_scopes
+                ):
                     # Unless explicitly marked as impossible/invalid or admin override with approval requirement
                     if not rule.approval_required:
-                        errors.append(f"Rule {rule.id}: Sensitive data (secret/credential) cannot be allowed for cloud without approval.")
+                        errors.append(
+                            f"Rule {rule.id}: Sensitive data (secret/credential) cannot be allowed for cloud without approval."
+                        )
 
             # T001: Policy validation rejects write_allowed=true when no allowed worker/runtime/tool constraints exist
             if rule.write_allowed:
                 if not (rule.allowed_worker_kinds or rule.allowed_runtime_kinds or rule.allowed_model_scopes):
-                   errors.append(f"Rule {rule.id}: write_allowed=true requires at least one worker/runtime/model constraint.")
+                    errors.append(
+                        f"Rule {rule.id}: write_allowed=true requires at least one worker/runtime/model constraint."
+                    )
 
         return errors
 
@@ -72,7 +79,7 @@ class ContextAccessPolicyService:
         )
 
         if not sorted_policies:
-            return None # Should have system defaults at least
+            return None  # Should have system defaults at least
 
         merged_rules: List[ContextAccessRule] = []
         for p in sorted_policies:
@@ -86,10 +93,12 @@ class ContextAccessPolicyService:
             scope="merged",
             rules=merged_rules,
             defaults=base.defaults,
-            precedence=base.precedence
+            precedence=base.precedence,
         )
 
-    def compute_decision_hash(self, policy: ContextAccessPolicy, block_metadata: Dict[str, Any], destination: DestinationContext) -> str:
+    def compute_decision_hash(
+        self, policy: ContextAccessPolicy, block_metadata: Dict[str, Any], destination: DestinationContext
+    ) -> str:
         evaluator = ContextAccessPolicyEvaluator(policy)
         return evaluator.compute_decision_hash(block_metadata, destination)
 
@@ -109,7 +118,9 @@ class ContextAccessPolicyService:
             return f"[SUMMARY of {len(lines)} lines]: {lines[0]} ... {lines[-1]}"
         return content
 
-    def get_decision(self, policy: ContextAccessPolicy, block_metadata: Dict[str, Any], destination: DestinationContext) -> ContextBlockAccessDecision:
+    def get_decision(
+        self, policy: ContextAccessPolicy, block_metadata: Dict[str, Any], destination: DestinationContext
+    ) -> ContextBlockAccessDecision:
         # T011: can_send_context_block decision engine
         # T013: Write access decision engine
         effective_policy = policy or self.get_default_policy()
@@ -124,38 +135,41 @@ class ContextAccessPolicyService:
                 description="Secrets are never allowed for public cloud",
                 sensitivity=Sensitivity.secret,
                 cloud_allowed=False,
-                allowed_model_scopes=[ModelScope.local_model, ModelScope.private_remote]
+                allowed_model_scopes=[ModelScope.local_model, ModelScope.private_remote],
             ),
             ContextAccessRule(
                 id="default-redact-sensitive-cloud",
                 description="Security sensitive data must be redacted for cloud",
                 sensitivity=Sensitivity.security_sensitive,
                 redaction_required=True,
-                cloud_allowed=True
+                cloud_allowed=True,
             ),
             ContextAccessRule(
                 id="default-allow-public",
                 description="Public data is always allowed",
                 sensitivity=Sensitivity.public,
                 cloud_allowed=True,
-                send_allowed=True
+                send_allowed=True,
             ),
             ContextAccessRule(
                 id="default-internal-redact",
                 description="Internal data requires redaction for cloud",
                 sensitivity=Sensitivity.project_internal,
                 redaction_required=True,
-                cloud_allowed=True
-            )
+                cloud_allowed=True,
+            ),
         ]
         return ContextAccessPolicy(
             policy_id=f"default-{scope}",
             version=1,
             scope=scope,
             rules=rules,
-            defaults={"send_allowed": False, "read_allowed": True, "write_allowed": False}
+            defaults={"send_allowed": False, "read_allowed": True, "write_allowed": False},
         )
-    def filter_blocks(self, policy: ContextAccessPolicy | None, blocks: List[Dict[str, Any]], destination: DestinationContext) -> List[Dict[str, Any]]:
+
+    def filter_blocks(
+        self, policy: ContextAccessPolicy | None, blocks: List[Dict[str, Any]], destination: DestinationContext
+    ) -> List[Dict[str, Any]]:
         # T016: CodeCompass/RAG retrieval must filter before prompt assembly
         effective_policy = policy or self.get_default_policy()
         filtered = []
@@ -174,27 +188,34 @@ class ContextAccessPolicyService:
                     processed_block["content"] = self.redact_content(block.get("content", ""))
                 elif decision.decision == Decision.allow_summary_only:
                     processed_block["content"] = self.summarize_content(block.get("content", ""))
-                
+
                 filtered.append(processed_block)
         return filtered
 
     def audit_decision(self, decision: ContextBlockAccessDecision, task_id: str):
         # T031: Add context access decisions to Audit events
         from agent.common.audit import log_audit
+
         log_audit(
             action="context_access_decision",
             details={
                 "task_id": task_id,
                 "block_id": decision.block_id,
-                "decision": decision.decision.value if hasattr(decision.decision, 'value') else decision.decision,
-                "reason_code": (decision.reason_code.value if hasattr(decision.reason_code, 'value') else decision.reason_code) if decision.reason_code else None,
+                "decision": decision.decision.value if hasattr(decision.decision, "value") else decision.decision,
+                "reason_code": (
+                    decision.reason_code.value if hasattr(decision.reason_code, "value") else decision.reason_code
+                )
+                if decision.reason_code
+                else None,
                 "reason_detail": decision.reason_detail,
                 "source_ref": decision.source_ref,
                 "matched_rule_ids": decision.matched_rule_ids or [],
-                "effective_sensitivity": decision.effective_sensitivity.value if hasattr(decision.effective_sensitivity, 'value') else decision.effective_sensitivity,
+                "effective_sensitivity": decision.effective_sensitivity.value
+                if hasattr(decision.effective_sensitivity, "value")
+                else decision.effective_sensitivity,
                 "policy_version": decision.policy_version,
-                "decision_hash": decision.decision_hash
-            }
+                "decision_hash": decision.decision_hash,
+            },
         )
 
     def match_source(self, rule: ContextAccessRule, block_metadata: Dict[str, Any]) -> bool:
@@ -213,7 +234,7 @@ class ContextAccessPolicyService:
                 "version": policy.version,
                 "scope": policy.scope,
                 "precedence": policy.precedence,
-                "rules": [vars(r) for r in policy.rules]
+                "rules": [vars(r) for r in policy.rules],
             }
             json.dump(data, f, indent=2, default=str)
 
@@ -227,7 +248,7 @@ class ContextAccessPolicyService:
                 version=data["version"],
                 scope=data["scope"],
                 rules=rules,
-                precedence=data.get("precedence", 0)
+                precedence=data.get("precedence", 0),
             )
 
     def check_required_context(self, blocks: List[Dict[str, Any]], required_class: str) -> bool:
@@ -237,6 +258,7 @@ class ContextAccessPolicyService:
             if block.get("context_class") == required_class:
                 return True
         return False
+
     _SCOPE_PRECEDENCE: Dict[str, int] = {
         "system_default": 0,
         "project": 10,

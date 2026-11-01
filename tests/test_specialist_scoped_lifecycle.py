@@ -13,9 +13,16 @@ from tests.test_specialist_model_factory_e2e import POLICY
 def _approved(registry, adapter_id, version, principal, task_kind):
     scope = {"tenant_id": principal.tenant_id, "owner_subject": principal.subject}
     registry.register_trained(
-        adapter_id=adapter_id, display_name="Synthetic test adapter", version=version, base_model="base",
-        method="lora", artifact_paths={"adapter_storage_ref": "synthetic-fixture/adapter"}, config_hash="a" * 64, artifact_sha256="b" * 64,
-        task_kinds=[task_kind], **scope,
+        adapter_id=adapter_id,
+        display_name="Synthetic test adapter",
+        version=version,
+        base_model="base",
+        method="lora",
+        artifact_paths={"adapter_storage_ref": "synthetic-fixture/adapter"},
+        config_hash="a" * 64,
+        artifact_sha256="b" * 64,
+        task_kinds=[task_kind],
+        **scope,
     )
     registry.set_eval_report(adapter_id, eval_report_ref="synthetic-evaluation", eval_score=1.0, **scope)
     registry.approve(adapter_id, approved_by="automated-test-fixture", reason="synthetic fixture only", **scope)
@@ -34,8 +41,14 @@ def test_factory_selection_and_rollback_preserve_tenant_owner_and_specialist(tmp
     _approved(registry, "other-specialist", "v5", principal, "specialist:other")
     lifecycle = HubSpecialistLifecycle(principal=principal, registry=registry)
     factory = SpecialistModelFactory(
-        GATE, trainer=None, partition_predictor=object(), registry=registry, policy=POLICY,
-        benchmark_version="bench-v1", candidate_registration=object(), lifecycle=lifecycle,
+        GATE,
+        trainer=None,
+        partition_predictor=object(),
+        registry=registry,
+        policy=POLICY,
+        benchmark_version="bench-v1",
+        candidate_registration=object(),
+        lifecycle=lifecycle,
     )
     assert factory.active_version("base") == "v2"
     assert factory.rollback("version-two") == "version-one"
@@ -50,9 +63,13 @@ def test_factory_selection_and_rollback_preserve_tenant_owner_and_specialist(tmp
 
 def test_real_factory_lifecycle_never_falls_back_to_unscoped_registry(tmp_path):
     factory = SpecialistModelFactory(
-        GATE, trainer=None, partition_predictor=object(),
-        registry=MlInternAdapterRegistryService(tmp_path / "registry.json"), policy=POLICY,
-        benchmark_version="bench-v1", candidate_registration=object(),
+        GATE,
+        trainer=None,
+        partition_predictor=object(),
+        registry=MlInternAdapterRegistryService(tmp_path / "registry.json"),
+        policy=POLICY,
+        benchmark_version="bench-v1",
+        candidate_registration=object(),
     )
     with pytest.raises(ValueError, match="specialist_scoped_lifecycle_required"):
         factory.active_version("base")

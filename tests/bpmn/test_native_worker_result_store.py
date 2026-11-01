@@ -31,8 +31,10 @@ def test_result_survives_reopening_and_never_reexecutes(store, signed):
         reopened.reserve(task)
 
 
-@pytest.mark.parametrize("field,value", [("project_id", "foreign"), ("id", "foreign"),
-                                         ("tenant_id", "foreign"), ("input_files", ["different"])])
+@pytest.mark.parametrize(
+    "field,value",
+    [("project_id", "foreign"), ("id", "foreign"), ("tenant_id", "foreign"), ("input_files", ["different"])],
+)
 def test_foreign_projection_cannot_read_result(store, signed, field, value):
     task = signed[0]["task"]
     store.reserve(task)
@@ -54,7 +56,10 @@ def test_expiry_scrubs_payload_but_keeps_no_resend_tombstone(store, signed):
         store.read(task)
     with sqlite3.connect(store.path) as db:
         assert db.execute("SELECT state, result_json, result_digest FROM native_results").fetchone() == (
-            "expired", None, None)
+            "expired",
+            None,
+            None,
+        )
     with pytest.raises(ValueError, match="already_reserved"):
         store.reserve(task)
 
@@ -90,11 +95,15 @@ def test_result_retrieval_does_not_call_consumer_and_requires_signature(store, s
     calls = []
     app = Flask(__name__)
     app.config["ROLE"] = "worker"
-    app.register_blueprint(create_native_execution_blueprint(
-        token_provider=lambda: TOKEN, recipient_provider=lambda: (WORKER["worker_id"], WORKER["worker_url"]),
-        verification_provider=lambda: verifier, result_store_provider=lambda: store,
-        consumer=lambda task: calls.append(task) or {"status": "completed", "output": "synthetic"},
-    ))
+    app.register_blueprint(
+        create_native_execution_blueprint(
+            token_provider=lambda: TOKEN,
+            recipient_provider=lambda: (WORKER["worker_id"], WORKER["worker_url"]),
+            verification_provider=lambda: verifier,
+            result_store_provider=lambda: store,
+            consumer=lambda task: calls.append(task) or {"status": "completed", "output": "synthetic"},
+        )
+    )
     client = app.test_client()
     headers = {"Authorization": "Bearer " + TOKEN}
     assert client.post("/api/internal/native-tasks/execute", json=value, headers=headers).status_code == 200
@@ -126,8 +135,10 @@ def test_expiry_maintenance_is_bounded_and_preserves_replay_fences(store, signed
     # Minimal deterministic slots exercise batch handling without content reads.
     with sqlite3.connect(store.path) as db:
         for index in range(3):
-            db.execute("INSERT INTO native_results VALUES (?, ?, ?, 'ready', ?, ?, ?)",
-                       (task["tenant_id"], "synthetic-slot-" + str(index), "bound", '"private"', "digest", 101))
+            db.execute(
+                "INSERT INTO native_results VALUES (?, ?, ?, 'ready', ?, ?, ?)",
+                (task["tenant_id"], "synthetic-slot-" + str(index), "bound", '"private"', "digest", 101),
+            )
     store.reserve(task)
     store.publish(task, {"status": "completed", "output": "private"})
     clock[0] = 101
@@ -135,8 +146,13 @@ def test_expiry_maintenance_is_bounded_and_preserves_replay_fences(store, signed
     assert store.expire_results(batch_size=2) == 2
     assert store.expire_results(batch_size=2) == 0
     with sqlite3.connect(store.path) as db:
-        assert db.execute("SELECT count(*) FROM native_results WHERE state='expired' "
-                          "AND result_json IS NULL AND result_digest IS NULL").fetchone()[0] == 4
+        assert (
+            db.execute(
+                "SELECT count(*) FROM native_results WHERE state='expired' "
+                "AND result_json IS NULL AND result_digest IS NULL"
+            ).fetchone()[0]
+            == 4
+        )
     with pytest.raises(ValueError, match="already_reserved"):
         store.reserve(task)
 
@@ -250,7 +266,10 @@ def test_maintenance_runs_as_bounded_headless_subprocess(store, signed):
         [sys.executable, "-m", "worker.runtime.native_graph.result_maintenance", "--batch-size", "1"],
         cwd=Path(__file__).resolve().parents[2],
         env={"ANANTA_NATIVE_RESULT_STORE_PATH": str(store.path), "PYTHONDONTWRITEBYTECODE": "1"},
-        capture_output=True, text=True, timeout=10, check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
     )
     assert json.loads(result.stdout)["scrubbed_results"] == 1
     assert "private-canary" not in result.stdout and result.stderr == ""

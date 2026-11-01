@@ -6,12 +6,17 @@ import copy
 def pi_events(*, workspace="/workspace", model="selected-model", provider="ananta", answer="A\u2028B"):
     user = {"role": "user", "content": [{"type": "text", "text": "Explain this code."}]}
     assistant = {
-        "role": "assistant", "content": [{"type": "text", "text": answer}],
-        "api": "openai-completions", "provider": provider, "model": model, "stopReason": "stop",
+        "role": "assistant",
+        "content": [{"type": "text", "text": answer}],
+        "api": "openai-completions",
+        "provider": provider,
+        "model": model,
+        "stopReason": "stop",
     }
     return [
         {"type": "session", "version": 3, "cwd": workspace},
-        {"type": "agent_start"}, {"type": "turn_start"},
+        {"type": "agent_start"},
+        {"type": "turn_start"},
         {"type": "message_start", "message": {"role": "user"}},
         {"type": "message_end", "message": copy.deepcopy(user)},
         {"type": "message_start", "message": {"role": "assistant"}},

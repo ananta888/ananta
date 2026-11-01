@@ -54,16 +54,22 @@ _stable_edge_id = stable_edge_id
 def _empty_x86_index() -> dict[str, Any]:
     return {
         "schema": "codecompass_x86_graph.v1",
-        "nodes": [], "edges": [], "nodes_by_id": {},
-        "node_count": 0, "edge_count": 0,
+        "nodes": [],
+        "edges": [],
+        "nodes_by_id": {},
+        "node_count": 0,
+        "edge_count": 0,
     }
 
 
 def _empty_rig_index() -> dict[str, Any]:
     return {
         "schema": "codecompass_repository_intelligence.v1",
-        "nodes": [], "edges": [], "nodes_by_id": {},
-        "node_count": 0, "edge_count": 0,
+        "nodes": [],
+        "edges": [],
+        "nodes_by_id": {},
+        "node_count": 0,
+        "edge_count": 0,
     }
 
 
@@ -129,9 +135,7 @@ class CodeCompassGraphStore:
         record_assembler: GraphOutputRecordAssembler | None = None,
     ):
         self._index_path = Path(index_path)
-        self._visual_metrics_path = (
-            Path(visual_metrics_path) if visual_metrics_path is not None else None
-        )
+        self._visual_metrics_path = Path(visual_metrics_path) if visual_metrics_path is not None else None
         self._record_assembler = record_assembler or GraphOutputRecordAssembler()
         self._cached_payload: dict[str, Any] | None = None
         self._visual_metrics_loaded = False
@@ -159,10 +163,7 @@ class CodeCompassGraphStore:
             return self._cached_payload
         if self._index_path.is_symlink() or not self._index_path.is_file():
             raise RuntimeError("codecompass_graph_artifact_invalid")
-        if (
-            self._max_artifact_bytes is not None
-            and self._index_path.stat().st_size > self._max_artifact_bytes
-        ):
+        if self._max_artifact_bytes is not None and self._index_path.stat().st_size > self._max_artifact_bytes:
             raise RuntimeError("codecompass_graph_artifact_too_large")
         payload = json.loads(self._index_path.read_text(encoding="utf-8"))
         state = dict(payload.get("state") or {})
@@ -185,16 +186,12 @@ class CodeCompassGraphStore:
             semantic_edges = _dict_items(payload, "semantic_edges")
         equivalence_rules = _dict_items(payload, "equivalence_rules")
         edge_lookup = {
-            str(item.get("edge_id") or ""): item
-            for item in [*edges, *semantic_edges]
-            if str(item.get("edge_id") or "")
+            str(item.get("edge_id") or ""): item for item in [*edges, *semantic_edges] if str(item.get("edge_id") or "")
         }
         raw_outgoing_index = payload.get("outgoing_index")
         raw_incoming_index = payload.get("incoming_index")
         if not isinstance(raw_outgoing_index, dict) or not isinstance(raw_incoming_index, dict):
-            raw_outgoing_index, raw_incoming_index = self._build_edge_indexes(
-                [*edges, *semantic_edges]
-            )
+            raw_outgoing_index, raw_incoming_index = self._build_edge_indexes([*edges, *semantic_edges])
         self._cached_payload = {
             "state": state,
             "nodes": nodes,
@@ -226,12 +223,8 @@ class CodeCompassGraphStore:
                     equivalence_rules,
                 )
             ),
-            "outgoing_index": self._hydrate_edge_index(
-                raw_outgoing_index, edge_lookup
-            ),
-            "incoming_index": self._hydrate_edge_index(
-                raw_incoming_index, edge_lookup
-            ),
+            "outgoing_index": self._hydrate_edge_index(raw_outgoing_index, edge_lookup),
+            "incoming_index": self._hydrate_edge_index(raw_incoming_index, edge_lookup),
             "diagnostics": dict(payload.get("diagnostics") or {}),
         }
         return self._cached_payload
@@ -295,19 +288,14 @@ class CodeCompassGraphStore:
             if path.is_symlink() or not path.is_file():
                 self._visual_metrics_loaded = True
                 return None
-            if (
-                self._max_artifact_bytes is not None
-                and path.stat().st_size > self._max_artifact_bytes
-            ):
+            if self._max_artifact_bytes is not None and path.stat().st_size > self._max_artifact_bytes:
                 self._visual_metrics_loaded = True
                 return None
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             self._visual_metrics_loaded = True
             return None
-        self._cached_visual_metrics = (
-            dict(payload) if isinstance(payload, dict) else None
-        )
+        self._cached_visual_metrics = dict(payload) if isinstance(payload, dict) else None
         self._visual_metrics_loaded = True
         return self._cached_visual_metrics
 

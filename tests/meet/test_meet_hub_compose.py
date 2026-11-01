@@ -89,8 +89,9 @@ def test_hub_overlay_defaults_leave_new_policy_and_features_disabled(tmp_path):
 
 
 def test_assigned_profile_and_legacy_policy_forward_only_explicit_operator_values(tmp_path):
-    profile = json.dumps({"backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64,
-                          "auto_execute": False})
+    profile = json.dumps(
+        {"backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64, "auto_execute": False}
+    )
     options = {name: "1" for name in FLAGS if name.startswith("ANANTA_MEET_COMPANION_")}
     options.update(ANANTA_MEET_COMPANION_MODEL_PROFILE=profile, ANANTA_MEET_COMPANION_LEGACY_ENABLED="0")
     service = render(tmp_path, options)["services"]["ai-agent-hub"]

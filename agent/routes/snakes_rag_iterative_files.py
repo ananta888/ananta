@@ -3,6 +3,7 @@
 Import-graph and symbol-graph expansion, catalog filtering, initial chunk
 filtering, batch-mode file resolution and token-bounded batch planning.
 """
+
 from __future__ import annotations
 
 import ast as _ast
@@ -16,17 +17,19 @@ _log = logging.getLogger("agent.routes.snakes_rag_iterative")
 
 # Raw CodeCompass data files — large machine-readable JSONL/JSON blobs that are
 # useless for the LLM (component-catalog.md is loaded separately as overview).
-CODECOMPASS_DATA_FILES = frozenset({
-    "rag-helper/out/context.jsonl",
-    "rag-helper/out/details.jsonl",
-    "rag-helper/out/embedding.jsonl",
-    "rag-helper/out/graph_edges.jsonl",
-    "rag-helper/out/graph_nodes.jsonl",
-    "rag-helper/out/index.jsonl",
-    "rag-helper/out/manifest.json",
-    "rag-helper/out/relations.jsonl",
-    "rag-helper/out/component-catalog.md",  # already included as catalog overview
-})
+CODECOMPASS_DATA_FILES = frozenset(
+    {
+        "rag-helper/out/context.jsonl",
+        "rag-helper/out/details.jsonl",
+        "rag-helper/out/embedding.jsonl",
+        "rag-helper/out/graph_edges.jsonl",
+        "rag-helper/out/graph_nodes.jsonl",
+        "rag-helper/out/index.jsonl",
+        "rag-helper/out/manifest.json",
+        "rag-helper/out/relations.jsonl",
+        "rag-helper/out/component-catalog.md",  # already included as catalog overview
+    }
+)
 _BATCH_FRAMING_OVERHEAD_CHARS = 200  # system prompt + question + batch header
 _CHARS_PER_TOKEN = 4
 
@@ -81,11 +84,7 @@ def _expand_python_imports(
                             break
         return candidates
 
-    frontier = [
-        repo_root / e["path"]
-        for e in file_entries
-        if e["path"].endswith(".py")
-    ]
+    frontier = [repo_root / e["path"] for e in file_entries if e["path"].endswith(".py")]
     added = list(file_entries)
 
     for _level in range(depth):
@@ -108,6 +107,7 @@ def _expand_python_imports(
             break
 
     return added
+
 
 def _expand_via_symbol_graph(
     file_entries: list[dict],
@@ -192,8 +192,7 @@ def _filter_catalog_to_relevant_modules(catalog_text: str, source_paths: list[st
         mn = module_name.replace("-", "_")
         top = mn.split(".")[0]
         return top in top_prefixes or any(
-            mn == p or mn.startswith(p + ".") or p.startswith(mn + ".")
-            for p in top_prefixes
+            mn == p or mn.startswith(p + ".") or p.startswith(mn + ".") for p in top_prefixes
         )
 
     parts = _re.split(r"(?=\n### `)", catalog_text)
@@ -209,9 +208,9 @@ def _filter_catalog_to_relevant_modules(catalog_text: str, source_paths: list[st
 
 def filter_initial_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
-        ch for ch in chunks
-        if ch["source"] not in CODECOMPASS_DATA_FILES
-        and not should_skip_initial_pack(str(ch.get("source") or ""))
+        ch
+        for ch in chunks
+        if ch["source"] not in CODECOMPASS_DATA_FILES and not should_skip_initial_pack(str(ch.get("source") or ""))
     ]
 
 

@@ -16,9 +16,7 @@ def _render_mermaid_usecase(params: dict[str, Any]) -> tuple[str, str]:
     system_name = _as_str(params.get("system_name"), field="system_name")
     direction = _as_str(params.get("direction", "LR"), field="direction")
     if direction not in {"TB", "BT", "LR", "RL"}:
-        raise NotationRenderError(
-            f"direction must be one of TB/BT/LR/RL, got {direction!r}"
-        )
+        raise NotationRenderError(f"direction must be one of TB/BT/LR/RL, got {direction!r}")
     actors_raw = _as_list(params.get("actors"), field="actors")
     if not actors_raw:
         raise NotationRenderError("actors must be a non-empty list")
@@ -52,24 +50,17 @@ def _render_mermaid_usecase(params: dict[str, Any]) -> tuple[str, str]:
 
     for lnk in associations:
         if lnk.get("actor") not in actor_ids:
-            raise NotationRenderError(
-                f"association actor {lnk.get('actor')!r} references unknown actor"
-            )
+            raise NotationRenderError(f"association actor {lnk.get('actor')!r} references unknown actor")
         if lnk.get("use_case") not in use_case_ids:
-            raise NotationRenderError(
-                f"association use_case {lnk.get('use_case')!r} references "
-                f"unknown use-case"
-            )
+            raise NotationRenderError(f"association use_case {lnk.get('use_case')!r} references unknown use-case")
     for lnk in includes + extends:
         if lnk.get("from") not in use_case_ids:
             raise NotationRenderError(
-                f"<<{'include' if lnk in includes else 'extend'}>> "
-                f"from {lnk.get('from')!r} references unknown use-case"
+                f"<<{'include' if lnk in includes else 'extend'}>> from {lnk.get('from')!r} references unknown use-case"
             )
         if lnk.get("to") not in use_case_ids:
             raise NotationRenderError(
-                f"<<{'include' if lnk in includes else 'extend'}>> "
-                f"to {lnk.get('to')!r} references unknown use-case"
+                f"<<{'include' if lnk in includes else 'extend'}>> to {lnk.get('to')!r} references unknown use-case"
             )
 
     lines: list[str] = [f"flowchart {direction}"]

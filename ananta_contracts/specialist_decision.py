@@ -293,7 +293,9 @@ def _contract(specialist_id, decision, fields, labels, *, safety=None, abstain=N
         safety_roles=dict(safety or {}),
         abstain_label=abstain,
         escalate_label=escalate,
-        confidence=ConfidencePolicy(enabled=confidence, abstain_below=0.6 if confidence and (abstain or escalate) else None),
+        confidence=ConfidencePolicy(
+            enabled=confidence, abstain_below=0.6 if confidence and (abstain or escalate) else None
+        ),
     )
 
 
@@ -304,13 +306,25 @@ def builtin_contracts() -> dict[str, SpecialistDecisionContract]:
             "tool-router",
             "Which allowed tool (or no tool) should be used for the next step?",
             (("step_goal", "string"), ("allowed_tools", "string_list"), ("recent_observations", "string")),
-            ("tool:codecompass.retrieve", "tool:run_tests", "tool:read_file", "tool:apply_patch", "no_tool", "escalate"),
+            (
+                "tool:codecompass.retrieve",
+                "tool:run_tests",
+                "tool:read_file",
+                "tool:apply_patch",
+                "no_tool",
+                "escalate",
+            ),
             escalate="escalate",
         ),
         _contract(
             "code-risk-gate",
             "Is a proposed code/tool action allowed within the defined risk classes?",
-            (("action_kind", "string"), ("target_paths", "string_list"), ("diff_summary", "string"), ("policy_profile", "string")),
+            (
+                ("action_kind", "string"),
+                ("target_paths", "string_list"),
+                ("diff_summary", "string"),
+                ("policy_profile", "string"),
+            ),
             ("allow", "deny", "escalate"),
             safety={"allow": SAFETY_ALLOW, "deny": SAFETY_DENY, "escalate": SAFETY_NEUTRAL},
             escalate="escalate",
@@ -327,7 +341,13 @@ def builtin_contracts() -> dict[str, SpecialistDecisionContract]:
             "structured-output-repair",
             "Which minimal typed repair brings a known output into the expected contract?",
             (("expected_schema", "string"), ("raw_output", "string"), ("parser_error", "string")),
-            ("repair:strip_markdown_fence", "repair:close_json", "repair:coerce_types", "repair:none_needed", "escalate"),
+            (
+                "repair:strip_markdown_fence",
+                "repair:close_json",
+                "repair:coerce_types",
+                "repair:none_needed",
+                "escalate",
+            ),
             escalate="escalate",
         ),
         _contract(

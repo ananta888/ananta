@@ -397,7 +397,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                         "task_statuses": statuses,
                         "workers": worker_diagnostics(),
                         "exchange_failures": exchange_failures,
-                    "authorization_transport": transport_observation,
+                        "authorization_transport": transport_observation,
                     }
                 )
             )
@@ -438,7 +438,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "task_statuses": statuses,
                 "workers": worker_diagnostics(),
                 "exchange_failures": exchange_failures,
-                    "authorization_transport": transport_observation,
+                "authorization_transport": transport_observation,
             }
         )
         both = guarded_turn.screen_observation(command("screens"), 2)
@@ -451,7 +451,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "task_statuses": statuses,
                 "workers": worker_diagnostics(),
                 "exchange_failures": exchange_failures,
-                    "authorization_transport": transport_observation,
+                "authorization_transport": transport_observation,
             }
         )
         if media is not None and not room_recovery.enabled:

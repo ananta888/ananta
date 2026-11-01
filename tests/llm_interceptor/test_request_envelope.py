@@ -40,4 +40,3 @@ def test_envelope_streaming_and_tool_request():
     )
     assert env.stream is True
     assert isinstance(env.raw_payload.get("tools"), list)
-

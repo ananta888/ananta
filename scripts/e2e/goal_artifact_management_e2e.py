@@ -1,4 +1,5 @@
 """T06.04: Deterministischer E2E-Flow für Goal Artifact Management."""
+
 from __future__ import annotations
 
 import json
@@ -125,7 +126,15 @@ def main() -> int:
     flow_log = write_text_artifact(run_id, "goal-artifact-management", "flow.log", json.dumps(result, indent=2))
     report = build_report(
         run_id,
-        [make_flow_entry(flow_id="goal-artifact-management", status="passed", blocking=True, logs=[flow_log], artifact_refs=[result["cast_file"]])],
+        [
+            make_flow_entry(
+                flow_id="goal-artifact-management",
+                status="passed",
+                blocking=True,
+                logs=[flow_log],
+                artifact_refs=[result["cast_file"]],
+            )
+        ],
     )
     report_ref = write_report(run_id, report)
     print(compact_summary(report))

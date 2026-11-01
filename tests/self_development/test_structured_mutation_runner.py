@@ -3,6 +3,7 @@
 No live model is needed: the HTTP seam and the runner selection are exercised
 with fakes, so these tests run headless like the rest of the suite.
 """
+
 from __future__ import annotations
 
 import io
@@ -33,9 +34,7 @@ def test_schema_covers_every_mutation_kind_and_parser_requirements():
     assert "files" in by_kind["workspace_write"]["required"]
     assert "target_path" in by_kind["patch_request"]["required"]
     assert "tool_name" in by_kind["tool_request"]["required"]
-    assert {"sources", "findings", "change_reasoning", "test_reasoning"} <= set(
-        by_kind["code_analysis"]["required"]
-    )
+    assert {"sources", "findings", "change_reasoning", "test_reasoning"} <= set(by_kind["code_analysis"]["required"])
     assert "answer" in by_kind["final_answer"]["required"]
 
 
@@ -43,9 +42,7 @@ def test_runner_posts_json_schema_and_returns_a_parseable_answer(monkeypatch):
     from agent.cli_backends.workspace_mutation import structured_runner as mod
     from agent.cli_backends.workspace_mutation.prompts import parse_mutation_output
 
-    answer = json.dumps(
-        {"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": "python -m pytest"}}
-    )
+    answer = json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": "python -m pytest"}})
     captured: dict = {}
 
     def fake_urlopen(request, timeout=None, *args, **kwargs):
@@ -94,9 +91,7 @@ def test_runner_reports_transport_errors_as_llm_failure(monkeypatch):
     from agent.cli_backends.workspace_mutation import structured_runner as mod
 
     def raise_http(request, timeout=None, *args, **kwargs):
-        raise urllib.error.HTTPError(
-            request.full_url, 500, "boom", hdrs=None, fp=io.BytesIO(b"server exploded")
-        )
+        raise urllib.error.HTTPError(request.full_url, 500, "boom", hdrs=None, fp=io.BytesIO(b"server exploded"))
 
     monkeypatch.setattr(mod, "_resolve_base_url", lambda: "http://llamacpp:18150/v1")
     monkeypatch.setattr(mod, "_resolve_model", lambda model: "ananta-code-27b")

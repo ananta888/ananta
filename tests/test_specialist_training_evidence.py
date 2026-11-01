@@ -27,15 +27,28 @@ def lifecycle(app, tmp_path, monkeypatch):
         "specialist_dataset": canonical_digest({"dataset_binding": specialist_dataset_binding(dataset)}),
         "specialist_base_model": canonical_digest({"model_id": command.base_model, "snapshot_hash": "b" * 64}),
     }
-    sources = tuple(hub.register_source(
-        tenant_id=principal.tenant_id, project_id="synthetic-project", origin_type=origin,
-        origin_digest=origins[origin],
-        content_digest=content, policy_digest="c" * 64, evidence_scope="test", synthetic=True,
-    ) for origin, content in (("specialist_dataset", dataset.content_sha256), ("specialist_base_model", "b" * 64)))
+    sources = tuple(
+        hub.register_source(
+            tenant_id=principal.tenant_id,
+            project_id="synthetic-project",
+            origin_type=origin,
+            origin_digest=origins[origin],
+            content_digest=content,
+            policy_digest="c" * 64,
+            evidence_scope="test",
+            synthetic=True,
+        )
+        for origin, content in (("specialist_dataset", dataset.content_sha256), ("specialist_base_model", "b" * 64))
+    )
     context = SpecialistRunPolicyContext(
-        project_id="synthetic-project", repository_revision="1" * 40,
-        execution_profile_digest="d" * 64, environment_digest="e" * 64, base_model_digest="b" * 64,
-        evidence_scope="test", synthetic=True, sources=sources,
+        project_id="synthetic-project",
+        repository_revision="1" * 40,
+        execution_profile_digest="d" * 64,
+        environment_digest="e" * 64,
+        base_model_digest="b" * 64,
+        evidence_scope="test",
+        synthetic=True,
+        sources=sources,
     )
 
     class PolicyContextFixture:
@@ -47,11 +60,16 @@ def lifecycle(app, tmp_path, monkeypatch):
 
     policy = PolicyContextFixture()
     evidence = SpecialistTrainingEvidenceService(
-        repository=repo, registry=hub, contexts=policy, model_catalog={command.base_model: {"snapshot_hash": "b" * 64}},
+        repository=repo,
+        registry=hub,
+        contexts=policy,
+        model_catalog={command.base_model: {"snapshot_hash": "b" * 64}},
     )
     control = MlInternTrainingControlService(
-        {"enabled": True, "artifact_root": str(tmp_path / "artifacts")}, repository=repo,
-        executor=InlineExecutor(), evidence_lifecycle=evidence,
+        {"enabled": True, "artifact_root": str(tmp_path / "artifacts")},
+        repository=repo,
+        executor=InlineExecutor(),
+        evidence_lifecycle=evidence,
     )
     calls = []
 
@@ -60,11 +78,19 @@ def lifecycle(app, tmp_path, monkeypatch):
         current = repo.get_job(principal, job.id)
         assert current.result_summary[ASSIGNMENT_KEY] == projection
         # The Registry projection is available only while its run is reserved.
-        assert hub.assignment_projection(
-            tenant_id=principal.tenant_id, project_id=context.project_id, run_id=projection["run_id"],
-            task_id=job.task_id, assignment_id=job.worker_job_id, dispatch_lease_id=job.active_attempt_id,
-            input_digest=job.request_digest, expected_binding_digest=projection["binding_digest"],
-        ) == projection
+        assert (
+            hub.assignment_projection(
+                tenant_id=principal.tenant_id,
+                project_id=context.project_id,
+                run_id=projection["run_id"],
+                task_id=job.task_id,
+                assignment_id=job.worker_job_id,
+                dispatch_lease_id=job.active_attempt_id,
+                input_digest=job.request_digest,
+                expected_binding_digest=projection["binding_digest"],
+            )
+            == projection
+        )
         calls.append(job.id)
         return {"status": "dry_run_completed", "metrics": {}, "artifacts": []}
 
@@ -75,7 +101,9 @@ def lifecycle(app, tmp_path, monkeypatch):
 def _create(lifecycle):
     repo, principal, command, _hub, _policy, _evidence, control, _calls = lifecycle
     accepted, _replayed = control.create_job(
-        principal, command.request_spec, idempotency_key="synthetic-evidence-cycle",
+        principal,
+        command.request_spec,
+        idempotency_key="synthetic-evidence-cycle",
     )
     return repo.get_job(principal, accepted["id"])
 
@@ -86,16 +114,26 @@ def test_actual_control_reserves_before_execution_and_completes_exact_run(lifecy
     assert job.status == "completed" and calls == [job.id]
     projection = job.result_summary[ASSIGNMENT_KEY]
     run = hub.require_run_result(
-        tenant_id=principal.tenant_id, project_id=policy.value.project_id, run_id=projection["run_id"],
-        task_id=job.task_id, assignment_id=job.worker_job_id, dispatch_lease_id=job.active_attempt_id,
-        input_digest=job.request_digest, source_ids=projection["source_ids"],
-        result_digest=canonical_digest(job.result_summary), expected_binding_digest=projection["binding_digest"],
+        tenant_id=principal.tenant_id,
+        project_id=policy.value.project_id,
+        run_id=projection["run_id"],
+        task_id=job.task_id,
+        assignment_id=job.worker_job_id,
+        dispatch_lease_id=job.active_attempt_id,
+        input_digest=job.request_digest,
+        source_ids=projection["source_ids"],
+        result_digest=canonical_digest(job.result_summary),
+        expected_binding_digest=projection["binding_digest"],
     )
     assert run.synthetic and run.evidence_scope == "test"
     assert not hub.verify_release_binding(
-        tenant_id=principal.tenant_id, project_id=policy.value.project_id, run_id=run.run_id,
-        task_id=job.task_id, repository_revision=policy.value.repository_revision,
-        source_ids=run.source_ids, required_scope="production",
+        tenant_id=principal.tenant_id,
+        project_id=policy.value.project_id,
+        run_id=run.run_id,
+        task_id=job.task_id,
+        repository_revision=policy.value.repository_revision,
+        source_ids=run.source_ids,
+        required_scope="production",
     ).verified
     evidence.complete(principal, repo.get_job(principal, job.id))  # Exact completion replay is idempotent.
     with pytest.raises(ValueError, match="pre_execution_attempt_required"):
@@ -134,9 +172,13 @@ def test_registry_completion_failure_is_bounded_audited_and_not_release_evidence
     assert len(pending) == 1 and pending[0].payload["reason_code"] == "synthetic_registry_unavailable"
     projection = job.result_summary[ASSIGNMENT_KEY]
     assert not hub.verify_release_binding(
-        tenant_id=principal.tenant_id, project_id=policy.value.project_id, run_id=projection["run_id"],
-        task_id=job.task_id, repository_revision=policy.value.repository_revision,
-        source_ids=projection["source_ids"], required_scope="production",
+        tenant_id=principal.tenant_id,
+        project_id=policy.value.project_id,
+        run_id=projection["run_id"],
+        task_id=job.task_id,
+        repository_revision=policy.value.repository_revision,
+        source_ids=projection["source_ids"],
+        required_scope="production",
     ).verified
 
 
@@ -159,21 +201,40 @@ def test_live_policy_fixture_delivers_pre_reserved_projection_to_worker_port(lif
             projection = spec[ASSIGNMENT_KEY]
             assert job.result_summary[ASSIGNMENT_KEY] == projection
             assert projection["dispatch_lease_id"] == attempt_id
-            assert hub.assignment_projection(
-                tenant_id=principal.tenant_id, project_id=policy.value.project_id, run_id=projection["run_id"],
-                task_id=job.task_id, assignment_id=job.worker_job_id, dispatch_lease_id=attempt_id,
-            ) == projection
+            assert (
+                hub.assignment_projection(
+                    tenant_id=principal.tenant_id,
+                    project_id=policy.value.project_id,
+                    run_id=projection["run_id"],
+                    task_id=job.task_id,
+                    assignment_id=job.worker_job_id,
+                    dispatch_lease_id=attempt_id,
+                )
+                == projection
+            )
             seen.append(job_id)
             return {"status": "dry_run_completed", "metrics": {}, "artifacts": []}
 
     control = MlInternTrainingControlService(
-        {"enabled": True, "mode": "live", "base_models": [command.base_model],
-         "artifact_root": str(tmp_path / "artifacts")}, repository=repo,
-        executor=InlineExecutor(), execution_port=SyntheticWorker(), evidence_lifecycle=evidence,
+        {
+            "enabled": True,
+            "mode": "live",
+            "base_models": [command.base_model],
+            "artifact_root": str(tmp_path / "artifacts"),
+        },
+        repository=repo,
+        executor=InlineExecutor(),
+        execution_port=SyntheticWorker(),
+        evidence_lifecycle=evidence,
     )
     accepted, _replayed = control.create_job(
-        principal, {**command.request_spec, "mode": "live", "live_confirmed": True,
-                    "risk_reason": "Explicit headless synthetic mock-worker policy fixture"},
+        principal,
+        {
+            **command.request_spec,
+            "mode": "live",
+            "live_confirmed": True,
+            "risk_reason": "Explicit headless synthetic mock-worker policy fixture",
+        },
         idempotency_key="synthetic-live-worker-projection",
     )
     job = repo.get_job(principal, accepted["id"])
@@ -196,10 +257,16 @@ def test_failed_and_cancelled_execution_preserve_fenced_terminal_run(lifecycle, 
     assert job.status == terminal and repo.get_attempt(job.active_attempt_id).status == terminal
     projection = job.result_summary[ASSIGNMENT_KEY]
     run = hub.require_run_result(
-        tenant_id=principal.tenant_id, project_id=policy.value.project_id, run_id=projection["run_id"],
-        task_id=job.task_id, assignment_id=job.worker_job_id, dispatch_lease_id=job.active_attempt_id,
-        input_digest=job.request_digest, source_ids=projection["source_ids"],
-        result_digest=canonical_digest(job.result_summary), expected_binding_digest=projection["binding_digest"],
+        tenant_id=principal.tenant_id,
+        project_id=policy.value.project_id,
+        run_id=projection["run_id"],
+        task_id=job.task_id,
+        assignment_id=job.worker_job_id,
+        dispatch_lease_id=job.active_attempt_id,
+        input_digest=job.request_digest,
+        source_ids=projection["source_ids"],
+        result_digest=canonical_digest(job.result_summary),
+        expected_binding_digest=projection["binding_digest"],
         terminal_state=terminal,
     )
     assert run.state == terminal and run.synthetic

@@ -3,10 +3,11 @@
 Entscheidet welcher Kontext-Modus für einen Chat-Intent gilt und
 welche Context-Quellen erlaubt/blockiert sind.
 """
+
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 MODES = ("safe_minimal_chat", "project_chat", "tool_enabled_chat", "deep_analysis")

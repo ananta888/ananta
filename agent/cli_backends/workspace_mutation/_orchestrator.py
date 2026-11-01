@@ -22,6 +22,7 @@ written to ``.ananta/mutation-report.json``; the artifact sync path
 reads it and never registers success artifacts for blocked runs
 (AWWPI-017).
 """
+
 from __future__ import annotations
 
 import logging
@@ -245,9 +246,7 @@ def run_ananta_worker_workspace_mutation(
     # test.run before final_answer, so a refused command can never be satisfied. It is bound to
     # the same ``cfg`` list ``test.run`` is judged against, so prompt and gate cannot drift. The
     # brief file is bound separately (it is written without this config in hand).
-    prompt = _align_declared_test_command(
-        str(prompt or ""), list(cfg.get("allowlisted_test_commands") or [])
-    )
+    prompt = _align_declared_test_command(str(prompt or ""), list(cfg.get("allowlisted_test_commands") or []))
     session.task_prompt = str(prompt or "")
     instructions = _build_mode_instructions(mode)
     if session.analysis_gate.required:
@@ -324,11 +323,13 @@ def _record_invalid_output(
             "iteration": iteration,
             "warning": "previous_answer_was_not_valid_mutation_json",
             "expected_example": {
-                "kind": "tool_request", "tool_name": "repo.read_file_range",
+                "kind": "tool_request",
+                "tool_name": "repo.read_file_range",
                 "arguments": {"path": "app.py", "line_start": 1, "line_end": 80},
             },
             "expected_final_answer_example": {
-                "kind": "final_answer", "answer": "the complete analysis as one string",
+                "kind": "final_answer",
+                "answer": "the complete analysis as one string",
             },
         }
     )

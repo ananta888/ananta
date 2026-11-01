@@ -5,15 +5,18 @@ try:
     from agent.metrics import SHELL_POOL_BUSY, SHELL_POOL_FREE, SHELL_POOL_SIZE
 except (ImportError, ModuleNotFoundError):
     try:
-        from config import settings
         from metrics import SHELL_POOL_BUSY, SHELL_POOL_FREE, SHELL_POOL_SIZE
+
+        from config import settings
     except (ImportError, ModuleNotFoundError):
+
         class MockMetric:
             def set(self, val):
                 pass
 
         SHELL_POOL_SIZE = SHELL_POOL_BUSY = SHELL_POOL_FREE = MockMetric()
         if "settings" not in locals():
+
             class MockSettings:
                 shell_path = None
                 shell_pool_size = 5

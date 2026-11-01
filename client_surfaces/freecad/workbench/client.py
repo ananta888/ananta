@@ -99,7 +99,12 @@ class FreecadHubClient:
             goal = str(payload.get("goal") or "").strip()
             if not goal:
                 return {"status": "degraded", "reason": "goal_missing"}
-            return {"status": "accepted", "goal": goal, "capability_id": payload.get("capability_id"), "task_id": "fc-task-1"}
+            return {
+                "status": "accepted",
+                "goal": goal,
+                "capability_id": payload.get("capability_id"),
+                "task_id": "fc-task-1",
+            }
         if action == "approval_decision":
             approval_id = str(payload.get("approval_id") or "").strip()
             decision = str(payload.get("decision") or "").strip().lower()

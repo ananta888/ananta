@@ -295,8 +295,7 @@ class SqlSpeechReconciliationResultCollector:
             return
         event = self._audit.prepare_transition(
             idempotency_key=(
-                f"speech-reconciliation-collector:{job.job_id}:"
-                f"{job.attempt_id}:{transition}:{reason_code}"
+                f"speech-reconciliation-collector:{job.job_id}:{job.attempt_id}:{transition}:{reason_code}"
             ),
             tenant_id=row.tenant_id,
             scope=f"speech-job:{job.job_id}",
@@ -393,9 +392,7 @@ def build_speech_reconciliation_result_collector(
             repository=repository,
             ledgers=SqlTenantResolvingSpeechReconciliationLedgerLookup(),
         ),
-        training=SpeechReconciliationTrainingDelegate(
-            training_admission or _UnavailableSpeechTrainingAdmission()
-        ),
+        training=SpeechReconciliationTrainingDelegate(training_admission or _UnavailableSpeechTrainingAdmission()),
         training_budgets=RepositorySpeechReconciliationTrainingBudgetResolver(repository),
         audit=audit,
     )
@@ -435,13 +432,15 @@ def start_speech_reconciliation_result_collector_thread(app: Any) -> None:
         factory = (
             extensions.get("speech_reconciliation_result_collector_factory") if isinstance(extensions, dict) else None
         )
-        service = factory() if callable(factory) else build_speech_reconciliation_result_collector(
-            audit=(extensions.get("semantic_media_audit_recorder") if isinstance(extensions, dict) else None),
-            training_admission=(
-                extensions.get("speech_reconciliation_training_admission")
-                if isinstance(extensions, dict)
-                else None
-            ),
+        service = (
+            factory()
+            if callable(factory)
+            else build_speech_reconciliation_result_collector(
+                audit=(extensions.get("semantic_media_audit_recorder") if isinstance(extensions, dict) else None),
+                training_admission=(
+                    extensions.get("speech_reconciliation_training_admission") if isinstance(extensions, dict) else None
+                ),
+            )
         )
     except Exception as exc:
         logging.warning(

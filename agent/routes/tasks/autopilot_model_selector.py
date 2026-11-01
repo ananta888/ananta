@@ -78,7 +78,9 @@ def _normalize_model_candidate(model: str | None, *, cfg: dict[str, Any]) -> str
     return normalize_legacy_model_name(model, provider=_preferred_benchmark_provider(cfg))
 
 
-def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | None = None) -> tuple[str | None, dict[str, Any]]:
+def _select_model_for_task(
+    *, loop: Any, task: Any, excluded_models: set[str] | None = None
+) -> tuple[str | None, dict[str, Any]]:
     cfg = loop._agent_config() or {}
     role_overrides = _normalize_override_map(cfg.get("role_model_overrides"))
     template_overrides = _normalize_override_map(cfg.get("template_model_overrides"))
@@ -117,7 +119,9 @@ def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | 
         source = "task_kind_model_overrides"
 
     if selected_model is None:
-        default_model_candidate = _normalize_model_candidate(str(cfg.get("default_model") or cfg.get("model") or "").strip(), cfg=cfg)
+        default_model_candidate = _normalize_model_candidate(
+            str(cfg.get("default_model") or cfg.get("model") or "").strip(), cfg=cfg
+        )
         if default_model_candidate and default_model_candidate not in excluded:
             selected_model = default_model_candidate
             source = "agent_default_model"

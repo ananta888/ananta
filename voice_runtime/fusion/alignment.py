@@ -42,9 +42,7 @@ class TokenSource:
     token: str | None
 
 
-def align_tokens_to_anchor(
-    anchor: tuple[str, ...], candidate: tuple[str, ...]
-) -> tuple[TokenSource, ...]:
+def align_tokens_to_anchor(anchor: tuple[str, ...], candidate: tuple[str, ...]) -> tuple[TokenSource, ...]:
     """Unicode-normalized deterministic fallback for candidates without times.
 
     Unequal replacements and insertions stay outside this per-token projection;
@@ -128,10 +126,7 @@ class CandidateAlignment:
             elif span.operation == "delete":
                 for reference_index in range(span.reference_start_index, span.reference_end_index):
                     mapped[reference_index] = TokenSource(reference_index, None, None)
-        return tuple(
-            mapped.get(index, TokenSource(index, None, None))
-            for index in range(len(self.reference_tokens))
-        )
+        return tuple(mapped.get(index, TokenSource(index, None, None)) for index in range(len(self.reference_tokens)))
 
 
 def candidate_tokens(candidate: TranscriptionCandidate) -> tuple[CandidateToken, ...]:
@@ -179,10 +174,10 @@ def align_candidates(
 ) -> CandidateAlignment:
     reference_tokens = candidate_tokens(reference)
     compared_tokens = candidate_tokens(candidate)
-    use_time = bool(reference_tokens and compared_tokens) and any(
-        item.has_time for item in reference_tokens
-    ) and any(
-        item.has_time for item in compared_tokens
+    use_time = (
+        bool(reference_tokens and compared_tokens)
+        and any(item.has_time for item in reference_tokens)
+        and any(item.has_time for item in compared_tokens)
     )
     method: AlignmentMethod = "time_v1" if use_time else "unicode_text_v1"
     raw_operations = (
@@ -191,8 +186,7 @@ def align_candidates(
         else _text_operations(reference_tokens, compared_tokens)
     )
     spans = tuple(
-        _span_from_operation(operation, reference_tokens, compared_tokens, method)
-        for operation in raw_operations
+        _span_from_operation(operation, reference_tokens, compared_tokens, method) for operation in raw_operations
     )
     return CandidateAlignment(
         reference_candidate_id=reference.candidate_id,
@@ -311,11 +305,7 @@ def _time_operations(
             )
             costs[i][j] = cost
             if move_rank == 0:
-                moves[i][j] = (
-                    "equal"
-                    if reference[i - 1].normalized == candidate[j - 1].normalized
-                    else "replace"
-                )
+                moves[i][j] = "equal" if reference[i - 1].normalized == candidate[j - 1].normalized else "replace"
             else:
                 moves[i][j] = "delete" if move_rank == 1 else "insert"
 
@@ -349,13 +339,11 @@ def _pair_cost(reference: CandidateToken, candidate: CandidateToken) -> int:
     assert candidate.start_ms is not None and candidate.end_ms is not None
     overlap = max(
         0,
-        min(reference.end_ms, candidate.end_ms)
-        - max(reference.start_ms, candidate.start_ms),
+        min(reference.end_ms, candidate.end_ms) - max(reference.start_ms, candidate.start_ms),
     )
     union = max(
         1,
-        max(reference.end_ms, candidate.end_ms)
-        - min(reference.start_ms, candidate.start_ms),
+        max(reference.end_ms, candidate.end_ms) - min(reference.start_ms, candidate.start_ms),
     )
     overlap_penalty = 1_000 - (overlap * 1_000 // union)
     text_penalty = 0 if reference.normalized == candidate.normalized else 750
@@ -367,12 +355,7 @@ def _coalesce_operations(
 ) -> tuple[tuple[AlignmentOperation, int, int, int, int], ...]:
     result: list[tuple[AlignmentOperation, int, int, int, int]] = []
     for operation in operations:
-        if (
-            result
-            and result[-1][0] == operation[0]
-            and result[-1][2] == operation[1]
-            and result[-1][4] == operation[3]
-        ):
+        if result and result[-1][0] == operation[0] and result[-1][2] == operation[1] and result[-1][4] == operation[3]:
             previous = result[-1]
             result[-1] = (previous[0], previous[1], operation[2], previous[3], operation[4])
         else:

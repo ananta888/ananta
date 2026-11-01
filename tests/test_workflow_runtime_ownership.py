@@ -106,12 +106,8 @@ def test_heartbeat_and_orphan_reconciliation_fail_closed(ownership_store) -> Non
         now=105,
     )
     assert heartbeat.lease_expires_at == 115
-    assert ownership_store.reconcile_orphan(
-        tenant_id="tenant-a", run_id="run-1", step_id="step-1", now=114
-    ) is None
-    orphan = ownership_store.reconcile_orphan(
-        tenant_id="tenant-a", run_id="run-1", step_id="step-1", now=116
-    )
+    assert ownership_store.reconcile_orphan(tenant_id="tenant-a", run_id="run-1", step_id="step-1", now=114) is None
+    orphan = ownership_store.reconcile_orphan(tenant_id="tenant-a", run_id="run-1", step_id="step-1", now=116)
     assert orphan is not None and orphan.status == "orphaned"
     event = ownership_event(orphan, correlation_id="corr", causation_id="reconciler")
     assert event.event_type == "workflow.step.orphaned"

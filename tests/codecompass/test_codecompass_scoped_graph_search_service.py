@@ -8,7 +8,12 @@ def test_graph_search_ranks_matches_and_expands_bounded_neighbors() -> None:
         query="CodeCompass retrieval",
         nodes=[
             {"id": "repo", "kind": "repository", "name": "Ananta"},
-            {"id": "retrieval", "kind": "source_file", "name": "codecompass_retrieval.py", "file": "agent/services/codecompass_retrieval.py"},
+            {
+                "id": "retrieval",
+                "kind": "source_file",
+                "name": "codecompass_retrieval.py",
+                "file": "agent/services/codecompass_retrieval.py",
+            },
             {"id": "worker", "kind": "source_file", "name": "worker.py", "file": "worker/retrieval/worker.py"},
         ],
         edges=[

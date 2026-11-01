@@ -35,4 +35,3 @@ def test_codecompass_document_normalizer_hash_is_deterministic():
     one = normalize_codecompass_records(records=records, manifest_hash="mh-1")
     two = normalize_codecompass_records(records=records, manifest_hash="mh-1")
     assert one[0]["document_hash"] == two[0]["document_hash"]
-

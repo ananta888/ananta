@@ -6,32 +6,48 @@ from scripts.validate_todo_consistency import validate_todo_payload
 
 
 def _track_payload():
-    return {"schema_version": "todo.v2", "tracks": [
-        {"id": "track-a", "status": "partial", "priority": "P0", "tasks": [
-            {"id": "a", "status": "partial", "depends_on": []},
-        ]},
-        {"id": "track-b", "status": "open", "priority": "P1", "tasks": [
-            {"id": "b", "status": "open", "depends_on": ["a"]},
-        ]},
-    ]}
+    return {
+        "schema_version": "todo.v2",
+        "tracks": [
+            {
+                "id": "track-a",
+                "status": "partial",
+                "priority": "P0",
+                "tasks": [
+                    {"id": "a", "status": "partial", "depends_on": []},
+                ],
+            },
+            {
+                "id": "track-b",
+                "status": "open",
+                "priority": "P1",
+                "tasks": [
+                    {"id": "b", "status": "open", "depends_on": ["a"]},
+                ],
+            },
+        ],
+    }
 
 
 def test_nested_tracks_validate_all_tasks_and_cross_track_dependencies():
     assert validate_todo_payload(_track_payload()) == []
 
 
-@pytest.mark.parametrize("mutation, expected", [
-    ("duplicate_task", "unique nonempty id required across tracks"),
-    ("duplicate_track", "unique nonempty id required"),
-    ("unknown_dependency", "unknown task"),
-    ("cycle", "dependency cycle"),
-    ("self_dependency", "dependency cycle"),
-    ("false_completion", "completed track contains unfinished tasks"),
-    ("unknown_status", "unsupported status"),
-    ("unknown_priority", "unsupported priority"),
-    ("missing_tasks", "nonempty list required"),
-    ("invalid_dependency", "string list required"),
-])
+@pytest.mark.parametrize(
+    "mutation, expected",
+    [
+        ("duplicate_task", "unique nonempty id required across tracks"),
+        ("duplicate_track", "unique nonempty id required"),
+        ("unknown_dependency", "unknown task"),
+        ("cycle", "dependency cycle"),
+        ("self_dependency", "dependency cycle"),
+        ("false_completion", "completed track contains unfinished tasks"),
+        ("unknown_status", "unsupported status"),
+        ("unknown_priority", "unsupported priority"),
+        ("missing_tasks", "nonempty list required"),
+        ("invalid_dependency", "string list required"),
+    ],
+)
 def test_nested_track_inconsistencies_are_not_hidden(mutation, expected):
     value = _track_payload()
     first, second = value["tracks"]

@@ -43,4 +43,3 @@ class RetrievalIndexStore:
         denied = {str(item).strip() for item in list(paths or []) if str(item).strip()}
         remaining = [item for item in list(current.get("entries") or []) if str(item.get("path") or "") not in denied]
         self.save(state=dict(state or {}), entries=remaining)
-

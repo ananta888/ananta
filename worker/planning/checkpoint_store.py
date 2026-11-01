@@ -17,4 +17,3 @@ class PlannerCheckpointStore:
         if not self._path.exists():
             return None
         return json.loads(self._path.read_text(encoding="utf-8"))
-

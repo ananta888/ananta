@@ -1,71 +1,72 @@
 """Backward-compatible facade for the split operator-TUI chat state."""
+
 from __future__ import annotations
 
 import time
 from typing import Any
 
+# ── Re-exports from chat_channel ──────────────────────────────────────────────
+from client_surfaces.operator_tui.chat_channel import (
+    add_direct_channel,
+    default_channels,
+    get_active_channel,
+    get_channel,
+    make_channel,
+    switch_channel,
+)
+
+# ── Re-exports from chat_message ──────────────────────────────────────────────
+from client_surfaces.operator_tui.chat_message import (
+    append_artifact_graph_explanation,
+    append_message,
+    maybe_add_prediction_comment,
+    sanitize_text,
+    unread_total,
+)
+
 # ── Re-exports from chat_models ───────────────────────────────────────────────
 from client_surfaces.operator_tui.chat_models import (
-    ChatState,
     ChannelType,
-    Visibility,
+    ChatAnswerBlock,
+    ChatState,
     DeliveryState,
     SenderKind,
     SourceRef,
-    ChatAnswerBlock,
-    make_message,
+    Visibility,
     make_heuristic_message,
-)
-
-# ── Re-exports from chat_channel ──────────────────────────────────────────────
-from client_surfaces.operator_tui.chat_channel import (
-    make_channel,
-    default_channels,
-    get_channel,
-    get_active_channel,
-    switch_channel,
-    add_direct_channel,
+    make_message,
 )
 
 # ── Re-exports from chat_session ──────────────────────────────────────────────
 from client_surfaces.operator_tui.chat_session import (
     _DEFAULT_SESSION_SETTINGS,
-    PREDICTIVE_GUIDE_KEYS,
-    PRESET_PREDICTIVE_QUIET,
-    PRESET_PREDICTIVE_BALANCED,
-    PRESET_PREDICTIVE_EAGER,
-    PREDICTIVE_PRESETS,
-    DEFAULT_SESSIONS,
+    _SESSION_OVERRIDE_KEYS,
     DEFAULT_CHAT_PROFILES,
     DEFAULT_CHAT_TYPES,
-    make_session,
-    default_sessions,
-    default_conversations,
-    default_chat_profiles,
+    DEFAULT_SESSIONS,
+    PREDICTIVE_GUIDE_KEYS,
+    PREDICTIVE_PRESETS,
+    PRESET_PREDICTIVE_BALANCED,
+    PRESET_PREDICTIVE_EAGER,
+    PRESET_PREDICTIVE_QUIET,
     _ensure_settings_delta,
-    get_sessions,
-    get_session,
-    get_active_session,
-    active_session_id,
     active_session_channel_id,
-    _SESSION_OVERRIDE_KEYS,
-    get_effective_chat_settings,
-    clear_session_messages,
-    clear_all_session_messages,
+    active_session_id,
     add_session,
+    clear_all_session_messages,
+    clear_session_messages,
+    default_chat_profiles,
+    default_conversations,
+    default_sessions,
     delete_session,
+    ensure_session_channels,
+    get_active_session,
+    get_effective_chat_settings,
+    get_session,
+    get_sessions,
+    make_session,
     set_active_session,
     update_session_settings,
-    ensure_session_channels,
-)
-
-# ── Re-exports from chat_message ──────────────────────────────────────────────
-from client_surfaces.operator_tui.chat_message import (
-    append_message,
-    sanitize_text,
-    unread_total,
-    maybe_add_prediction_comment,
-    append_artifact_graph_explanation,
 )
 
 

@@ -16,7 +16,6 @@ from agent.services.source_control_adapter_common import (
     public_projection,
 )
 
-
 _BOUND_INDEX_PLAN_FIELDS = frozenset(
     {
         "hub_task_id",
@@ -38,9 +37,7 @@ _BOUND_INDEX_PLAN_FIELDS = frozenset(
         "records",
     }
 )
-_BOUND_INDEX_REMOTE_PLAN_FIELDS = frozenset(
-    {"source_payload_digest", "source_payload_connection_id"}
-)
+_BOUND_INDEX_REMOTE_PLAN_FIELDS = frozenset({"source_payload_digest", "source_payload_connection_id"})
 
 _REPOSITORY_CONNECTOR_SCOPES = frozenset(
     {
@@ -83,12 +80,8 @@ class HubBoundSourceIndexSubmissionAdapter:
         idempotency_key: str,
         profile_name: str,
     ) -> Mapping[str, object]:
-        plan_method = getattr(
-            self._planner, "plan_bound_source_revision", None
-        )
-        submit_method = getattr(
-            self._jobs, "submit_bound_source_revision_job", None
-        )
+        plan_method = getattr(self._planner, "plan_bound_source_revision", None)
+        submit_method = getattr(self._jobs, "submit_bound_source_revision_job", None)
         if not callable(plan_method) or not callable(submit_method):
             raise SourceControlProductionAdapterError(
                 "source_index_governance_backend_unconfigured",
@@ -106,25 +99,15 @@ class HubBoundSourceIndexSubmissionAdapter:
             idempotency_key=idempotency_key,
         )
         if not isinstance(raw_plan, Mapping):
-            raise SourceControlProductionAdapterError(
-                "source_index_governance_plan_invalid", status_code=502
-            )
+            raise SourceControlProductionAdapterError("source_index_governance_plan_invalid", status_code=502)
         plan = dict(raw_plan)
         plan_fields = set(plan)
         remote_plan_fields = plan_fields & _BOUND_INDEX_REMOTE_PLAN_FIELDS
-        if (
-            plan_fields
-            not in (
-                _BOUND_INDEX_PLAN_FIELDS,
-                _BOUND_INDEX_PLAN_FIELDS
-                | _BOUND_INDEX_REMOTE_PLAN_FIELDS,
-            )
-            or remote_plan_fields
-            not in (set(), set(_BOUND_INDEX_REMOTE_PLAN_FIELDS))
-        ):
-            raise SourceControlProductionAdapterError(
-                "source_index_governance_plan_invalid", status_code=502
-            )
+        if plan_fields not in (
+            _BOUND_INDEX_PLAN_FIELDS,
+            _BOUND_INDEX_PLAN_FIELDS | _BOUND_INDEX_REMOTE_PLAN_FIELDS,
+        ) or remote_plan_fields not in (set(), set(_BOUND_INDEX_REMOTE_PLAN_FIELDS)):
+            raise SourceControlProductionAdapterError("source_index_governance_plan_invalid", status_code=502)
         if remote_plan_fields:
             if (
                 re.fullmatch(
@@ -132,30 +115,19 @@ class HubBoundSourceIndexSubmissionAdapter:
                     str(plan["source_payload_digest"]),
                 )
                 is None
-                or plan["source_payload_connection_id"]
-                != connection.connection_id
+                or plan["source_payload_connection_id"] != connection.connection_id
             ):
-                raise SourceControlProductionAdapterError(
-                    "source_index_governance_plan_stale", status_code=409
-                )
+                raise SourceControlProductionAdapterError("source_index_governance_plan_stale", status_code=409)
         if (
             plan["source_revision_id"] != revision.source_revision_id
             or plan["source_revision_digest"] != revision.revision_digest
             or plan["source_scope"] != connection.connector_type
             or plan["source_id"] != str(descriptor.get("source_id") or "")
         ):
-            raise SourceControlProductionAdapterError(
-                "source_index_governance_plan_stale", status_code=409
-            )
+            raise SourceControlProductionAdapterError("source_index_governance_plan_stale", status_code=409)
         execution_plan = {
-            **{
-                key: value
-                for key, value in plan.items()
-                if key not in _BOUND_INDEX_REMOTE_PLAN_FIELDS
-            },
-            "source_scope": _runtime_index_source_scope(
-                plan["source_scope"]
-            ),
+            **{key: value for key, value in plan.items() if key not in _BOUND_INDEX_REMOTE_PLAN_FIELDS},
+            "source_scope": _runtime_index_source_scope(plan["source_scope"]),
         }
         result = submit_method(
             tenant_id=connection.tenant_id,
@@ -172,9 +144,7 @@ class HubBoundSourceIndexSubmissionAdapter:
         )
         public = public_projection(result)
         if not isinstance(public, Mapping):
-            raise SourceControlProductionAdapterError(
-                "source_index_submission_result_invalid", status_code=502
-            )
+            raise SourceControlProductionAdapterError("source_index_submission_result_invalid", status_code=502)
         return dict(public)
 
 

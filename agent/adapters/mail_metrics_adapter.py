@@ -10,9 +10,7 @@ _OPERATIONS = frozenset(
     {"discovery", "sync", "query", "metadata", "body", "attachment", "mutation", "migration", "cutover", "diagnose"}
 )
 _OUTCOMES = frozenset({"success", "failure", "cancelled", "blocked"})
-_ERROR_CLASSES = frozenset(
-    {"none", "config", "auth", "transport", "protocol", "policy", "store", "timeout", "unknown"}
-)
+_ERROR_CLASSES = frozenset({"none", "config", "auth", "transport", "protocol", "policy", "store", "timeout", "unknown"})
 _CHANGE_KINDS = frozenset({"created", "updated", "destroyed", "stale", "reset"})
 _CIRCUIT_STATES = frozenset({"closed", "open", "half_open"})
 
@@ -97,10 +95,7 @@ class MailMetricsAdapter:
                 error_class = candidate
                 break
         outcome = (
-            "success"
-            if str(getattr(event, "outcome", "")).lower()
-            in {"ok", "success", "completed"}
-            else "failure"
+            "success" if str(getattr(event, "outcome", "")).lower() in {"ok", "success", "completed"} else "failure"
         )
         operation = str(getattr(event, "phase", "") or "diagnose")
         self.record_call(
@@ -161,9 +156,7 @@ class MailMetricsAdapter:
         bounded_provider = _bounded(provider, _PROVIDERS, "none")
         bounded_state = _bounded(state, _CIRCUIT_STATES, "open")
         for candidate in sorted(_CIRCUIT_STATES):
-            MAIL_CIRCUIT_STATE.labels(bounded_provider, candidate).set(
-                1 if candidate == bounded_state else 0
-            )
+            MAIL_CIRCUIT_STATE.labels(bounded_provider, candidate).set(1 if candidate == bounded_state else 0)
 
     @staticmethod
     def bounded_labels_for_test(**kwargs: Any) -> dict[str, str]:

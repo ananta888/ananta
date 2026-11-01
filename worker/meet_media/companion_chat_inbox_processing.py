@@ -7,6 +7,7 @@ def serve_inbox(inbox, ledger, *, send, ack, answer, log):
     # Freeze this page before model/TTS work. Concurrent cooperative polling
     # may add later pages; their cursors must never join this ACK.
     batch = inbox.batch()
+
     def bounded_answer(event, deliver):
         try:
             answer(event, deliver)

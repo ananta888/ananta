@@ -24,6 +24,7 @@ class PolicyDecision:
 
     def to_decision_result(self) -> Any:
         from agent.services.heuristic_runtime.decision_result import DecisionResult
+
         if not self.allowed:
             return DecisionResult.policy_denied(self.reason_code or "policy_blocked")
         return DecisionResult(
@@ -48,7 +49,11 @@ def evaluate_policy(
     if boundary_key == "external_provider" and external_provider:
         allowed = False
         reason = "external_provider_denied"
-    elif boundary_key in {"worker_request", "lmstudio_prompt", "external_provider"} and external_provider and not training_context_allowed:
+    elif (
+        boundary_key in {"worker_request", "lmstudio_prompt", "external_provider"}
+        and external_provider
+        and not training_context_allowed
+    ):
         allowed = False
         reason = "training_context_cloud_denied"
     elif boundary_key in {"worker_request", "lmstudio_prompt"} and not selected_artifact_allowed:

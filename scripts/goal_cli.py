@@ -18,12 +18,12 @@ Beispiele:
   # Aktive Goals anzeigen
   python scripts/goal_cli.py goals
 """
-from __future__ import annotations
 
-import os
+from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from typing import Any
@@ -111,7 +111,7 @@ def _print_goal_summary(base: str, goal_id: str, token: str) -> None:
         if isinstance(tasks, list):
             print(f"\nTasks ({len(tasks)}):")
             for t in tasks:
-                print(f"  {t.get('id','')[:16]}  {t.get('status',''):20}  {t.get('title','')[:50]}")
+                print(f"  {t.get('id', '')[:16]}  {t.get('status', ''):20}  {t.get('title', '')[:50]}")
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -140,7 +140,7 @@ def cmd_goals(args: argparse.Namespace) -> int:
     print(f"{'ID':38} {'STATUS':20} {'CREATED':12}")
     print("-" * 72)
     for g in goals:
-        print(f"{g.get('id',''):38} {g.get('status',''):20} {int(g.get('created_at',0))}")
+        print(f"{g.get('id', ''):38} {g.get('status', ''):20} {int(g.get('created_at', 0))}")
     return 0
 
 
@@ -237,7 +237,9 @@ def main() -> int:
     run_p = sub.add_parser("run", help="Goal einreichen")
     run_p.add_argument("goal", help="Goal-Text")
     run_p.add_argument("--profile", default="opencode_preconfigured", help="Config-Profil")
-    run_p.add_argument("--software", action="store_true", default=False, help="Software-Projekt-Modus (new_software_project)")
+    run_p.add_argument(
+        "--software", action="store_true", default=False, help="Software-Projekt-Modus (new_software_project)"
+    )
     run_p.add_argument("--no-wait", dest="wait", action="store_false", default=True)
     run_p.add_argument("--timeout", type=int, default=900, help="Warte-Timeout in Sekunden")
     run_p.add_argument("--poll", type=float, default=10.0, help="Poll-Intervall in Sekunden")

@@ -8,9 +8,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Iterator, Mapping
 
-RECOVERY_DEPENDENCY_RECONCILIATION_SCHEMA = (
-    "ananta.recovery_dependency_reconciliation.v1"
-)
+RECOVERY_DEPENDENCY_RECONCILIATION_SCHEMA = "ananta.recovery_dependency_reconciliation.v1"
 RECOVERY_DEPENDENCY_RECONCILIATION_FIELDS = frozenset(
     {
         "schema",
@@ -51,9 +49,7 @@ class RecoveryDependencyReconciliationWriteAuthority:
     reconciled_at: float
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoveryDependencyReconciliationWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoveryDependencyReconciliationWriteAuthority | None] = ContextVar(
     "ananta_recovery_dependency_reconciliation_write_authority",
     default=None,
 )
@@ -61,13 +57,8 @@ _ACTIVE_AUTHORITY: ContextVar[
 
 def _identifier(value: Any) -> str:
     normalized = str(value or "").strip()
-    if (
-        not normalized
-        or len(normalized.encode("utf-8")) > 256
-    ):
-        raise ValueError(
-            "recovery_dependency_reconciliation_authority_invalid"
-        )
+    if not normalized or len(normalized.encode("utf-8")) > 256:
+        raise ValueError("recovery_dependency_reconciliation_authority_invalid")
     return normalized
 
 
@@ -77,17 +68,14 @@ def _authority(
     marker: Any,
 ) -> RecoveryDependencyReconciliationWriteAuthority:
     if not isinstance(marker, Mapping):
-        raise ValueError(
-            "recovery_dependency_reconciliation_authority_invalid"
-        )
+        raise ValueError("recovery_dependency_reconciliation_authority_invalid")
     value = dict(marker)
     normalized_task_id = _identifier(task_id)
     raw_statuses = value.get("dependency_statuses")
     raw_failed_ids = value.get("failed_dependency_ids")
     if (
         set(value) != RECOVERY_DEPENDENCY_RECONCILIATION_FIELDS
-        or value.get("schema")
-        != RECOVERY_DEPENDENCY_RECONCILIATION_SCHEMA
+        or value.get("schema") != RECOVERY_DEPENDENCY_RECONCILIATION_SCHEMA
         or not isinstance(raw_statuses, list)
         or not raw_statuses
         or len(raw_statuses) > _MAX_DEPENDENCIES
@@ -95,79 +83,47 @@ def _authority(
         or not raw_failed_ids
         or len(raw_failed_ids) > _MAX_DEPENDENCIES
     ):
-        raise ValueError(
-            "recovery_dependency_reconciliation_authority_invalid"
-        )
+        raise ValueError("recovery_dependency_reconciliation_authority_invalid")
     dependency_statuses: list[tuple[str, str]] = []
     seen_ids: set[str] = set()
     for entry in raw_statuses:
-        if (
-            not isinstance(entry, Mapping)
-            or set(entry) != {"task_id", "status"}
-        ):
-            raise ValueError(
-                "recovery_dependency_reconciliation_authority_invalid"
-            )
+        if not isinstance(entry, Mapping) or set(entry) != {"task_id", "status"}:
+            raise ValueError("recovery_dependency_reconciliation_authority_invalid")
         dependency_id = _identifier(entry.get("task_id"))
         status = str(entry.get("status") or "").strip().lower()
-        if (
-            dependency_id in seen_ids
-            or not status
-            or len(status.encode("utf-8")) > 64
-        ):
-            raise ValueError(
-                "recovery_dependency_reconciliation_authority_invalid"
-            )
+        if dependency_id in seen_ids or not status or len(status.encode("utf-8")) > 64:
+            raise ValueError("recovery_dependency_reconciliation_authority_invalid")
         seen_ids.add(dependency_id)
         dependency_statuses.append((dependency_id, status))
-    failed_dependency_ids = tuple(
-        _identifier(value) for value in raw_failed_ids
-    )
+    failed_dependency_ids = tuple(_identifier(value) for value in raw_failed_ids)
     expected_failed_ids = tuple(
-        dependency_id
-        for dependency_id, status in dependency_statuses
-        if status in _FAILURE_STATUSES
+        dependency_id for dependency_id, status in dependency_statuses if status in _FAILURE_STATUSES
     )
     try:
         reconciled_at = float(value.get("reconciled_at"))
     except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "recovery_dependency_reconciliation_authority_invalid"
-        ) from exc
+        raise ValueError("recovery_dependency_reconciliation_authority_invalid") from exc
     authority = RecoveryDependencyReconciliationWriteAuthority(
         task_id=normalized_task_id,
-        source_task_id=_identifier(
-            value.get("source_task_id")
-        ),
-        previous_status=str(
-            value.get("previous_status") or ""
-        )
-        .strip()
-        .lower(),
-        target_status=str(value.get("target_status") or "")
-        .strip()
-        .lower(),
+        source_task_id=_identifier(value.get("source_task_id")),
+        previous_status=str(value.get("previous_status") or "").strip().lower(),
+        target_status=str(value.get("target_status") or "").strip().lower(),
         reason_code=str(value.get("reason_code") or "").strip(),
         dependency_statuses=tuple(dependency_statuses),
         failed_dependency_ids=failed_dependency_ids,
         reconciled_at=reconciled_at,
     )
     if (
-        str(value.get("task_id") or "").strip()
-        != normalized_task_id
-        or authority.previous_status
-        not in {"blocked", "blocked_by_dependency"}
+        str(value.get("task_id") or "").strip() != normalized_task_id
+        or authority.previous_status not in {"blocked", "blocked_by_dependency"}
         or authority.target_status != "failed"
         or authority.reason_code != "recovery_dependency_terminal"
         or failed_dependency_ids != expected_failed_ids
-        or len(set(failed_dependency_ids))
-        != len(failed_dependency_ids)
+        or len(set(failed_dependency_ids)) != len(failed_dependency_ids)
         or not math.isfinite(authority.reconciled_at)
         or authority.reconciled_at <= 0.0
     ):
-        raise ValueError(
-            "recovery_dependency_reconciliation_authority_invalid"
-        )
+        raise ValueError("recovery_dependency_reconciliation_authority_invalid")
     return authority
 
 

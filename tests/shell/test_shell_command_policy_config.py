@@ -1,4 +1,5 @@
 """SCG-017: Config override tests for shell_command_policy."""
+
 from __future__ import annotations
 
 from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy

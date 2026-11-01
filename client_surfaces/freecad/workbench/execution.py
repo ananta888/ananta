@@ -30,6 +30,17 @@ def execute_approved_macro(
     )
     errors = validate_freecad_bridge_envelope(envelope)
     if errors:
-        return {"status": "blocked", "reason": "approval_required", "errors": errors, "report": build_execution_report(correlation_id=correlation_id, script_hash=script_hash, status="blocked")}
+        return {
+            "status": "blocked",
+            "reason": "approval_required",
+            "errors": errors,
+            "report": build_execution_report(correlation_id=correlation_id, script_hash=script_hash, status="blocked"),
+        }
     response = client.execute_macro(envelope)
-    return {"status": str(response.get("status") or "degraded"), "response": response, "report": build_execution_report(correlation_id=correlation_id, script_hash=script_hash, status=str(response.get("status") or "degraded"))}
+    return {
+        "status": str(response.get("status") or "degraded"),
+        "response": response,
+        "report": build_execution_report(
+            correlation_id=correlation_id, script_hash=script_hash, status=str(response.get("status") or "degraded")
+        ),
+    }

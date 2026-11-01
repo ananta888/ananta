@@ -1,22 +1,23 @@
 """ProposeStrategyRegistry — builds real strategy dict. FA-T021."""
+
 from __future__ import annotations
 
 from typing import Dict
 
-from worker.core.propose_orchestrator import ProposeStrategy
-from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
-from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
-from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
-from worker.core.worker_strategy import WorkerStrategy
-from worker.core.agent_loop_tool_calling_strategy import AgentLoopToolCallingStrategy
-from worker.core.cli_agent_patch_strategy import CliAgentPatchStrategy
-from worker.core.hermes_proposal_strategy import HermesProposalStrategy
-from worker.core.repair_procedure_runner_strategy import RepairProcedureRunnerStrategy
+from agent.services.propose_strategies.advisory_proposal_strategy import AdvisoryProposalStrategy
 from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
     FlexibleLLMNormalizationStrategy,
 )
-from agent.services.propose_strategies.advisory_proposal_strategy import AdvisoryProposalStrategy
 from agent.services.propose_strategies.human_review_strategy import HumanReviewStrategy
+from worker.core.agent_loop_tool_calling_strategy import AgentLoopToolCallingStrategy
+from worker.core.cli_agent_patch_strategy import CliAgentPatchStrategy
+from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
+from worker.core.hermes_proposal_strategy import HermesProposalStrategy
+from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
+from worker.core.propose_orchestrator import ProposeStrategy
+from worker.core.repair_procedure_runner_strategy import RepairProcedureRunnerStrategy
+from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
+from worker.core.worker_strategy import WorkerStrategy
 
 
 def build_strategy_registry() -> Dict[str, ProposeStrategy]:

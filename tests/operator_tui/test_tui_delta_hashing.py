@@ -1,7 +1,6 @@
 """Tests für deterministische Hashing-Eigenschaften des Delta-Systems."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from client_surfaces.operator_tui.snapshot import CellGrid
 from client_surfaces.operator_tui.snapshot_delta import DeltaEncoder, _line_hash

@@ -1,16 +1,28 @@
 """DSL Security — Capability-Grenzen für tui_snake DSL-Heuristiken."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-_SNAKE_FORBIDDEN_CAPABILITIES = frozenset({
-    "network_access", "secret_access", "file_write", "send_to_worker",
-    "request_context_extension", "inline_code", "shell_command",
-})
-_SNAKE_ALLOWED_CAPABILITIES = frozenset({
-    "read_local_context", "read_artifact_refs", "read_active_task",
-})
+_SNAKE_FORBIDDEN_CAPABILITIES = frozenset(
+    {
+        "network_access",
+        "secret_access",
+        "file_write",
+        "send_to_worker",
+        "request_context_extension",
+        "inline_code",
+        "shell_command",
+    }
+)
+_SNAKE_ALLOWED_CAPABILITIES = frozenset(
+    {
+        "read_local_context",
+        "read_artifact_refs",
+        "read_active_task",
+    }
+)
 
 
 @dataclass

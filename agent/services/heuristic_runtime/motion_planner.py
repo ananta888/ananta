@@ -1,10 +1,9 @@
 """Motion Planner — berechnet dx/dy aus DSL-Action und Snake-Kopfposition."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-
-from agent.services.heuristic_runtime.decision_result import SuggestedMotion
 
 
 @dataclass

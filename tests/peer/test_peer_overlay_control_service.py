@@ -228,10 +228,7 @@ def test_publication_plan_applies_tenant_cost_admission_after_security_gates(tmp
             subject_peer_id=peer_id,
             expected_revision=revision,
         )
-    expanded = [
-        {**candidates()[0], "peer_id": peer_id, "eligible_since_ms": 1}
-        for peer_id in peer_ids
-    ]
+    expanded = [{**candidates()[0], "peer_id": peer_id, "eligible_since_ms": 1} for peer_id in peer_ids]
     now_seconds = int(datetime.now(timezone.utc).timestamp())
     plan = control.plan_publication(
         tenant_id="tenant-1",

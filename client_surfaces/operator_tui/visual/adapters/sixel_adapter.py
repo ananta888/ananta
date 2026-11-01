@@ -15,6 +15,7 @@ _ST = "\x1b\\"
 def _png_to_rgba(payload: bytes | bytearray) -> tuple[bytes, int, int] | None:
     try:
         from PIL import Image  # type: ignore
+
         img = Image.open(io.BytesIO(bytes(payload))).convert("RGBA")
         return img.tobytes(), img.width, img.height
     except Exception:
@@ -34,6 +35,7 @@ def _encode_sixel(rgba: bytes, width: int, height: int) -> str | None:
     """Minimal but real Sixel encoder using Pillow quantization (MIMG-011 / MDP-013)."""
     try:
         from PIL import Image  # type: ignore
+
         img = Image.frombytes("RGBA", (width, height), rgba).convert("RGB")
         q_img = img.quantize(colors=256, method=Image.Quantize.MEDIANCUT)  # type: ignore[attr-defined]
         palette_flat = q_img.getpalette() or []
@@ -61,7 +63,7 @@ def _encode_sixel(rgba: bytes, width: int, height: int) -> str | None:
                     ci = pixels[y * width + x]
                     if ci not in color_data:
                         color_data[ci] = [0] * width
-                    color_data[ci][x] |= (1 << dy)
+                    color_data[ci][x] |= 1 << dy
 
             first = True
             for ci, masks in sorted(color_data.items()):

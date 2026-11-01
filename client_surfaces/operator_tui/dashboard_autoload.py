@@ -40,11 +40,7 @@ class DashboardSectionAutoloader:
 
     def is_loading(self, section_id: str) -> bool:
         candidate = str(section_id or "").strip().lower()
-        return (
-            self._task is not None
-            and not self._task.done()
-            and self._task_section == candidate
-        )
+        return self._task is not None and not self._task.done() and self._task_section == candidate
 
     def request(self, section_id: str) -> bool:
         candidate = str(section_id or "").strip().lower()

@@ -1,4 +1,5 @@
 """ArtifactManifestService — Hub-side manifest loading, validation and trust evaluation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,9 +11,15 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 _ALLOWED_KINDS = {
-    "generated_file", "modified_file", "patch_file",
-    "command_output", "test_result", "verification_result",
-    "planner_proposal", "summary", "other",
+    "generated_file",
+    "modified_file",
+    "patch_file",
+    "command_output",
+    "test_result",
+    "verification_result",
+    "planner_proposal",
+    "summary",
+    "other",
 }
 
 
@@ -36,7 +43,14 @@ class ArtifactManifestService:
         if manifest.get("schema") != "artifact_manifest.v1":
             errors.append("wrong_schema_version")
 
-        for required_field in ("manifest_id", "goal_id", "task_id", "execution_id", "trace_id", "produced_by_worker_id"):
+        for required_field in (
+            "manifest_id",
+            "goal_id",
+            "task_id",
+            "execution_id",
+            "trace_id",
+            "produced_by_worker_id",
+        ):
             if not str(manifest.get(required_field) or "").strip():
                 errors.append(f"missing_field:{required_field}")
 

@@ -143,13 +143,23 @@ def run_gate(
             )
             reasons.extend(external_reasons)
             external_verified = not external_reasons
-    status = "unverified" if plan_only else (
-        "passed" if not reasons and external_verified and privacy_summary["decision"] == "allow" else
-        "failed" if any(reason not in {
-            "real_privacy_surfaces_unavailable",
-            "external_browser_container_media_evidence_unavailable",
-        } for reason in reasons) else
-        "blocked"
+    status = (
+        "unverified"
+        if plan_only
+        else (
+            "passed"
+            if not reasons and external_verified and privacy_summary["decision"] == "allow"
+            else "failed"
+            if any(
+                reason
+                not in {
+                    "real_privacy_surfaces_unavailable",
+                    "external_browser_container_media_evidence_unavailable",
+                }
+                for reason in reasons
+            )
+            else "blocked"
+        )
     )
     report = {
         "schema": "ananta.sfu-broadcast-security-gate.v1",
@@ -206,4 +216,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

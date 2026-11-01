@@ -14,8 +14,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.sfu_broadcast_release_common import (  # noqa: E402
-    atomic_write_report, build_report, canonical_sha256, content_reasons,
-    read_bounded_json, unavailable_report, validate_bindings,
+    atomic_write_report,
+    build_report,
+    canonical_sha256,
+    content_reasons,
+    read_bounded_json,
+    unavailable_report,
+    validate_bindings,
 )
 
 DEFAULT_PROFILE = ROOT / "config/test-profiles/sfu-broadcast/nightly-runtime.v1.json"
@@ -69,15 +74,13 @@ def evaluate(
     if not isinstance(resources, Mapping):
         reasons.add("nightly_gate_resource_peaks_missing")
         resources = {}
-    if (
-        not isinstance(resources.get("memory_bytes"), int)
-        or resources.get("memory_bytes", 0) > profile.get("limits", {}).get("memory_bytes_max", 0)
-    ):
+    if not isinstance(resources.get("memory_bytes"), int) or resources.get("memory_bytes", 0) > profile.get(
+        "limits", {}
+    ).get("memory_bytes_max", 0):
         reasons.add("nightly_gate_memory_limit_invalid")
-    if (
-        not isinstance(resources.get("elapsed_seconds"), int)
-        or resources.get("elapsed_seconds", 0) > profile.get("limits", {}).get("timeout_seconds_max", 0)
-    ):
+    if not isinstance(resources.get("elapsed_seconds"), int) or resources.get("elapsed_seconds", 0) > profile.get(
+        "limits", {}
+    ).get("timeout_seconds_max", 0):
         reasons.add("nightly_gate_timeout_limit_invalid")
     return build_report(
         schema=f"ananta.sfu-broadcast-{kind}-gate.v1",
@@ -107,8 +110,10 @@ def main() -> int:
     parent = read_bounded_json(args.parent_evidence) if args.parent_evidence else None
     report = (
         evaluate(
-            profile, read_bounded_json(args.external_result),
-            kind=args.kind, parent=parent,
+            profile,
+            read_bounded_json(args.external_result),
+            kind=args.kind,
+            parent=parent,
         )
         if args.external_result
         else unavailable_report(

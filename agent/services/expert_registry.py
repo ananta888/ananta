@@ -2,12 +2,13 @@
 
 Thin wrapper around ExpertRegistry for application-wide use.
 """
+
 from __future__ import annotations
 
 import threading
 from pathlib import Path
 
-from agent.services.expert_definition import ExpertDefinition, ExpertRegistry
+from agent.services.expert_definition import ExpertRegistry
 
 _registry: ExpertRegistry | None = None
 _lock = threading.Lock()

@@ -13,6 +13,7 @@ fail-closed: disagreement, low confidence and transport failures never approve
 an acceptance; a veto-only gate where the decision never grants approval by
 itself.
 """
+
 from __future__ import annotations
 
 import json
@@ -64,9 +65,7 @@ def _criteria(requirements: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(str(item) for item in raw)
 
 
-def _decision_text(
-    *, requirements: Mapping[str, Any], changed_files: Mapping[str, str], analysis: str
-) -> str:
+def _decision_text(*, requirements: Mapping[str, Any], changed_files: Mapping[str, str], analysis: str) -> str:
     parts = [
         "Independent acceptance review of one change (decision scoring).",
         "Task requirements (JSON):",
@@ -85,8 +84,7 @@ def _questions(criteria: Sequence[str]) -> tuple:
     items = [
         DecisionQuestion.noul(
             f"criterion_{index}",
-            f"Acceptance criterion {index}: {text} "
-            "Is this criterion satisfied by the changed files and the analysis?",
+            f"Acceptance criterion {index}: {text} Is this criterion satisfied by the changed files and the analysis?",
         )
         for index, text in enumerate(criteria)
     ]
@@ -137,9 +135,7 @@ class DecisionReviewVerdictProducer:
         if len(criteria) + 1 > 32:
             raise AcceptanceReviewError("review_verdict_schema_too_large")
         request = DecisionRequest(
-            state=_decision_text(
-                requirements=requirements, changed_files=changed_files, analysis=analysis
-            ),
+            state=_decision_text(requirements=requirements, changed_files=changed_files, analysis=analysis),
             questions=_questions(criteria),
             purpose="self_development_review",
         )
@@ -150,7 +146,9 @@ class DecisionReviewVerdictProducer:
             raise AcceptanceReviewError("review_verdict_decision_failed") from exc
         _log.info(
             "review verdict stage=%s outcome=%s latency_ms=%.0f",
-            trace.provider_id, trace.outcome, trace.latency_ms,
+            trace.provider_id,
+            trace.outcome,
+            trace.latency_ms,
         )
         if result is None:
             if trace.outcome == "disagreement":
@@ -159,8 +157,7 @@ class DecisionReviewVerdictProducer:
                 return _blocked(len(criteria), FINDING_ABSTAINED)
             raise AcceptanceReviewError("review_verdict_decision_failed")
         passed = tuple(
-            float(result.answers[f"criterion_{index}"].probability or 0.0) >= 0.5
-            for index in range(len(criteria))
+            float(result.answers[f"criterion_{index}"].probability or 0.0) >= 0.5 for index in range(len(criteria))
         )
         flagged = float(result.answers["findings_reported"].probability or 0.0) >= 0.5
         findings = (FINDING_REPORTED,) if flagged else ()

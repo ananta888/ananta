@@ -172,4 +172,3 @@ class WikiRecordNormalizer:
                 }
             )
         return normalized
-

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult, STATUS_DECLINED, STATUS_FAILED
-
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.model_invocation_service import ModelInvocationService
+from worker.core.propose import STATUS_DECLINED, STATUS_FAILED, ProposeStrategyResult
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 
 
 class LLMRepairStrategy(ProposeStrategy):
@@ -56,6 +55,7 @@ class LLMRepairStrategy(ProposeStrategy):
 
         try:
             from agent.services.system_prompt_catalog import get_system_prompt
+
             _repair_tpl = get_system_prompt("system.llm_repair", "")
         except Exception:
             _repair_tpl = ""
@@ -86,9 +86,7 @@ class LLMRepairStrategy(ProposeStrategy):
             normalized = self.normalizer.normalize(
                 repair_output,
                 context,
-                allow_shell_execution=bool(
-                    getattr(getattr(context, "policy", None), "allow_shell_execution", False)
-                ),
+                allow_shell_execution=bool(getattr(getattr(context, "policy", None), "allow_shell_execution", False)),
             )
 
             if normalized.is_executable:
@@ -103,7 +101,11 @@ class LLMRepairStrategy(ProposeStrategy):
                     strategy_id="llm_repair_strategy",
                     reason="repair_normalization_failed",
                     reason_codes=["repair_failed", normalized.reason or "unknown"],
-                    metadata={"repair_attempted": True, "repair_success": False, "repair_output_preview": repair_output[:200]}
+                    metadata={
+                        "repair_attempted": True,
+                        "repair_success": False,
+                        "repair_output_preview": repair_output[:200],
+                    },
                 )
         except Exception as e:
             return ProposeStrategyResult(
@@ -111,5 +113,5 @@ class LLMRepairStrategy(ProposeStrategy):
                 strategy_id="llm_repair_strategy",
                 reason=f"repair_call_failed: {str(e)}",
                 reason_codes=["repair_call_failed"],
-                metadata={"repair_attempted": True, "repair_success": False}
+                metadata={"repair_attempted": True, "repair_success": False},
             )

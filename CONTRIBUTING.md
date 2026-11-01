@@ -65,7 +65,7 @@ To maintain code quality and architectural integrity, please follow these guardr
 Run relevant checks before submitting changes, for example:
 
 - backend tests with `pytest`
-- backend linting with `python -m flake8 agent tests`
+- backend linting with `ruff check agent tests` (ruff is the single linter; line length 120)
 - security lint with `ruff check agent/ --select=E,F,W,S603,S607`
 - shim-detector: `python scripts/check_cli_backend_shim_imports.py` (must exit 0)
 

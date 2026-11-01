@@ -128,4 +128,3 @@ class DomainPolicyService:
             "reason": "default_decision_applied",
             "source": "default_decision",
         }
-

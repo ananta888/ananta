@@ -47,9 +47,7 @@ def test_personalization_fernet_key_is_required_and_hub_only() -> None:
     assert key_name not in compose["x-voice-runtime-common"]["environment"]
     assert key_name not in compose["x-restricted-inference-common"]["environment"]
 
-    base = yaml.safe_load(
-        (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8")
-    )
+    base = yaml.safe_load((ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8"))
     for service_name in ("ai-agent-worker-base", "angular-frontend-base"):
         assert key_name not in (base["services"][service_name].get("environment") or {})
     angular_sources = "\n".join(
@@ -82,9 +80,7 @@ def test_only_runtime_containers_receive_model_execution_profile_and_devices() -
     nvidia = {name for name in services if name.endswith("-nvidia")}
     assert nvidia == {"voice-runtime-nvidia", "restricted-inference-nvidia"}
     for name, service in services.items():
-        device_reservations = (
-            service.get("deploy", {}).get("resources", {}).get("reservations", {}).get("devices", ())
-        )
+        device_reservations = service.get("deploy", {}).get("resources", {}).get("reservations", {}).get("devices", ())
         if name in nvidia:
             assert device_reservations
         else:
@@ -92,12 +88,10 @@ def test_only_runtime_containers_receive_model_execution_profile_and_devices() -
 
 
 def test_runtime_images_exclude_hub_and_peer_execution_packages() -> None:
-    voice_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.voice-runtime").read_text(
+    voice_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.voice-runtime").read_text(encoding="utf-8")
+    restricted_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.restricted-inference").read_text(
         encoding="utf-8"
     )
-    restricted_dockerfile = (
-        ROOT / "docker" / "compose-next" / "Dockerfile.restricted-inference"
-    ).read_text(encoding="utf-8")
     assert "COPY --chown=10001:10001 agent" not in voice_dockerfile
     assert "COPY --chown=10001:10001 worker" not in voice_dockerfile
     assert "COPY --chown=10002:10002 voice_runtime" not in restricted_dockerfile
@@ -105,9 +99,9 @@ def test_runtime_images_exclude_hub_and_peer_execution_packages() -> None:
 
 
 def test_restricted_cpu_image_pins_cpu_only_pytorch() -> None:
-    requirements = (
-        ROOT / "docker" / "compose-next" / "requirements.restricted-inference-cpu.txt"
-    ).read_text(encoding="utf-8")
+    requirements = (ROOT / "docker" / "compose-next" / "requirements.restricted-inference-cpu.txt").read_text(
+        encoding="utf-8"
+    )
 
     assert "--extra-index-url https://download.pytorch.org/whl/cpu" in requirements
     assert "torch==2.6.0+cpu" in requirements
@@ -115,15 +109,13 @@ def test_restricted_cpu_image_pins_cpu_only_pytorch() -> None:
 
 
 def test_nvidia_images_have_separate_pinned_cuda_user_space_dependencies() -> None:
-    voice_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.voice-runtime").read_text(
+    voice_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.voice-runtime").read_text(encoding="utf-8")
+    restricted_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.restricted-inference").read_text(
         encoding="utf-8"
     )
-    restricted_dockerfile = (
-        ROOT / "docker" / "compose-next" / "Dockerfile.restricted-inference"
-    ).read_text(encoding="utf-8")
-    voice_requirements = (
-        ROOT / "docker" / "compose-next" / "requirements.voice-nvidia.txt"
-    ).read_text(encoding="utf-8")
+    voice_requirements = (ROOT / "docker" / "compose-next" / "requirements.voice-nvidia.txt").read_text(
+        encoding="utf-8"
+    )
     restricted_requirements = (
         ROOT / "docker" / "compose-next" / "requirements.restricted-inference-nvidia.txt"
     ).read_text(encoding="utf-8")
@@ -131,7 +123,7 @@ def test_nvidia_images_have_separate_pinned_cuda_user_space_dependencies() -> No
     assert "requirements.voice-nvidia.txt" in voice_dockerfile
     assert "nvidia-cublas-cu12==12.4.5.8" in voice_requirements
     assert "nvidia-cudnn-cu12==9.1.0.70" in voice_requirements
-    assert "NVIDIA_REQUIRE_CUDA=\"cuda>=12.4\"" in voice_dockerfile
+    assert 'NVIDIA_REQUIRE_CUDA="cuda>=12.4"' in voice_dockerfile
     assert "FROM base AS nvidia" in restricted_dockerfile
     assert "FROM cpu AS nvidia" not in restricted_dockerfile
     assert "requirements.restricted-inference-nvidia.txt" in restricted_dockerfile

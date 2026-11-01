@@ -15,6 +15,7 @@ Tests nutzen FakeSandbox, Produktion nutzt local_process_restricted oder Docker.
 from pathlib import Path
 from typing import Protocol
 
+
 class SandboxBackend(Protocol):
     def start(self, config: "SandboxConfig") -> str:
         """Startet Sandbox, gibt sandbox_id zurück."""
@@ -24,7 +25,7 @@ class SandboxBackend(Protocol):
         self,
         sandbox_id: str,
         cmd: list[str],
-        timeout: int,                  # Sekunden
+        timeout: int,  # Sekunden
         env_override: dict | None = None,
     ) -> "ExecResult":
         """Führt Befehl in Sandbox aus. Blockiert bis Abschluss oder Timeout."""
@@ -55,16 +56,17 @@ class SandboxBackend(Protocol):
 @dataclass
 class ExecResult:
     exit_code: int
-    stdout: str           # ggf. gekürzt nach max_output_bytes
+    stdout: str  # ggf. gekürzt nach max_output_bytes
     stderr: str
     duration_seconds: float
     timed_out: bool
-    cmd_hash: str         # sha256 von cmd (für Audit)
+    cmd_hash: str  # sha256 von cmd (für Audit)
+
 
 @dataclass
 class FileDiff:
     path: str
-    change_type: str      # "added" | "modified" | "deleted"
+    change_type: str  # "added" | "modified" | "deleted"
     content_hash_before: str | None
     content_hash_after: str | None
 ```
@@ -91,14 +93,14 @@ wenn explizit in der Projektconfig aktiviert.
 ```python
 @dataclass
 class SandboxConfig:
-    backend_id: str                    # aus Backends-Tabelle
-    max_cpu_seconds: int = 60          # CPU-Zeitlimit
+    backend_id: str  # aus Backends-Tabelle
+    max_cpu_seconds: int = 60  # CPU-Zeitlimit
     max_memory_mb: int = 512
-    network: str = "none"              # "none" | "restricted" | "allowed"
+    network: str = "none"  # "none" | "restricted" | "allowed"
     allowed_paths: list[str] = field(default_factory=list)
     env_allowlist: list[str] = field(default_factory=list)  # erlaubte ENV-Keys
     working_dir: str | None = None
-    image: str | None = None           # nur für docker_container
+    image: str | None = None  # nur für docker_container
 ```
 
 Default: `network="none"`. Netzwerkzugriff muss explizit per Policy und SandboxConfig
@@ -126,11 +128,11 @@ Jeder `exec()`-Aufruf erzeugt einen Audit-Event:
 class SandboxAuditEvent:
     sandbox_id: str
     run_id: str
-    cmd_hash: str          # sha256(cmd) — nicht der Befehl selbst im Log
+    cmd_hash: str  # sha256(cmd) — nicht der Befehl selbst im Log
     exit_code: int
     duration_seconds: float
     timed_out: bool
-    policy_class: str      # Sandbox-Netzwerkklasse
+    policy_class: str  # Sandbox-Netzwerkklasse
     created_at: float
 ```
 
@@ -147,7 +149,7 @@ class FakeSandbox:
     """Kein Subprocess — gibt konfigurierte ExecResults zurück."""
 
     def __init__(self, responses: dict[str, ExecResult]):
-        self._responses = responses   # cmd_hash → ExecResult
+        self._responses = responses  # cmd_hash → ExecResult
 
     def exec(self, sandbox_id, cmd, timeout, env_override=None) -> ExecResult:
         key = hashlib.sha256(" ".join(cmd).encode()).hexdigest()

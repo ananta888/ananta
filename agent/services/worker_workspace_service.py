@@ -84,7 +84,15 @@ class WorkerWorkspaceService:
         except Exception:
             return False
 
-    def _resolve_workspace_dir(self, *, output_dir: str | None, workspace_root: str, agent_name: str, scope_key: str, explicit_scope_key: bool = False) -> Path:
+    def _resolve_workspace_dir(
+        self,
+        *,
+        output_dir: str | None,
+        workspace_root: str,
+        agent_name: str,
+        scope_key: str,
+        explicit_scope_key: bool = False,
+    ) -> Path:
         workspace_root_path = Path(os.path.abspath(str(Path(workspace_root).expanduser())))
         if output_dir:
             requested = self._normalize_requested_output_dir(
@@ -241,12 +249,7 @@ class WorkerWorkspaceService:
             workspace_root = str(Path(settings.data_dir) / "worker-runtime")
 
         resolved_agent_name = _safe_segment(
-            agent_name
-            or (
-                current_app.config.get("AGENT_NAME")
-                if has_app_context()
-                else settings.agent_name
-            ),
+            agent_name or (current_app.config.get("AGENT_NAME") if has_app_context() else settings.agent_name),
             fallback="worker",
         )
         task_id = _safe_segment(workspace_cfg.get("task_id") or task.get("id"), fallback="task")
@@ -258,12 +261,16 @@ class WorkerWorkspaceService:
         scope_key = _safe_segment(explicit_scope_key_str, fallback=f"{task_id}-{worker_job_id}")
         explicit_scope_key = bool(explicit_scope_key_str)
         effective_runtime_cfg = dict(((task or {}).get("effective_config") or {}).get("worker_runtime") or {})
-        workspace_reuse_mode = str(
-            workspace_cfg.get("workspace_reuse_mode")
-            or runtime_cfg.get("workspace_reuse_mode")
-            or effective_runtime_cfg.get("workspace_reuse_mode")
-            or ""
-        ).strip().lower()
+        workspace_reuse_mode = (
+            str(
+                workspace_cfg.get("workspace_reuse_mode")
+                or runtime_cfg.get("workspace_reuse_mode")
+                or effective_runtime_cfg.get("workspace_reuse_mode")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
         if workspace_reuse_mode == "goal_worker":
             goal_id_raw = _safe_segment((task or {}).get("goal_id"), fallback="")
             if goal_id_raw:
@@ -388,8 +395,7 @@ class WorkerWorkspaceService:
         if not declared:
             return
         rows = [
-            {"workspace_path": rel, "allowed_operations": ["read", "write", "patch", "replace"]}
-            for rel in declared
+            {"workspace_path": rel, "allowed_operations": ["read", "write", "patch", "replace"]} for rel in declared
         ]
         self._write_json(workspace_dir / ".ananta" / "materialization-manifest.json", rows)
 
@@ -412,7 +418,9 @@ class WorkerWorkspaceService:
             "sync_to_hub": bool(artifact_sync_cfg.get("sync_to_hub", True)),
             "collection_name": str(artifact_sync_cfg.get("collection_name") or "task-execution-results").strip(),
             "max_changed_files": max(1, min(int(artifact_sync_cfg.get("max_changed_files") or 30), 200)),
-            "max_file_size_bytes": max(1024, min(int(artifact_sync_cfg.get("max_file_size_bytes") or (2 * 1024 * 1024)), 25 * 1024 * 1024)),
+            "max_file_size_bytes": max(
+                1024, min(int(artifact_sync_cfg.get("max_file_size_bytes") or (2 * 1024 * 1024)), 25 * 1024 * 1024)
+            ),
         }
 
         git_context = self._init_git_context(task=task, workspace_dir=workspace_dir)
@@ -480,14 +488,20 @@ class WorkerWorkspaceService:
         try:
             execution_context = dict((task or {}).get("worker_execution_context") or {})
             effective_config = dict((task or {}).get("effective_config") or {})
-            runtime_sync_mode = str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
+            runtime_sync_mode = (
+                str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
+            )
             agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
-            sync_mode = str(
-                (execution_context.get("workspace") or {}).get("sync_mode")
-                or agent_cfg.get("workspace", {}).get("sync_mode")
-                or runtime_sync_mode
-                or ""
-            ).strip().lower()
+            sync_mode = (
+                str(
+                    (execution_context.get("workspace") or {}).get("sync_mode")
+                    or agent_cfg.get("workspace", {}).get("sync_mode")
+                    or runtime_sync_mode
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             if sync_mode != "artifact_hub_sync":
                 return None
             goal_id = str((task or {}).get("goal_id") or "").strip()
@@ -495,6 +509,7 @@ class WorkerWorkspaceService:
             if not goal_id or not task_id:
                 return None
             from agent.services.task_artifact_materializer import get_task_artifact_materializer
+
             return get_task_artifact_materializer().materialize_predecessor_artifacts(
                 goal_id=goal_id,
                 task_id=task_id,
@@ -507,14 +522,14 @@ class WorkerWorkspaceService:
     def _resolve_context_policy(self, *, task: dict):
         try:
             from agent.services.workspace_context_policy import get_workspace_context_policy_resolver
+
             effective_config = dict((task or {}).get("effective_config") or {})
             task_kind = str((task or {}).get("task_kind") or "")
             agent_template = str((task or {}).get("agent_template") or "")
-            return get_workspace_context_policy_resolver().resolve(
-                effective_config, task_kind, agent_template or None
-            )
+            return get_workspace_context_policy_resolver().resolve(effective_config, task_kind, agent_template or None)
         except Exception:
             from agent.services.workspace_context_policy import WorkspaceContextPolicy
+
             return WorkspaceContextPolicy()
 
     def acquire_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> tuple[bool, str | None]:
@@ -622,6 +637,7 @@ class WorkerWorkspaceService:
                 AUDIT_WORKSPACE_BASELINE_CREATED,
                 audit_workspace_mutation_event,
             )
+
             manifest_path = Path(str(meta.get("baseline_dir") or "")) / "manifest.json"
             baseline_hash: str | None = None
             if manifest_path.is_file():
@@ -744,7 +760,9 @@ class WorkerWorkspaceService:
         return payload if isinstance(payload, dict) else None
 
     @classmethod
-    def _mutation_sync_filter(cls, *, workspace_dir: Path, changed_rel_paths: list[str]) -> tuple[list[str], str | None]:
+    def _mutation_sync_filter(
+        cls, *, workspace_dir: Path, changed_rel_paths: list[str]
+    ) -> tuple[list[str], str | None]:
         """AWWPI-017: drop blocked paths (or everything on policy_blocked).
 
         Without a mutation report the change list passes through unchanged
@@ -917,6 +935,7 @@ class WorkerWorkspaceService:
             changed_rel_paths=changed_rel_paths,
             sync_cfg=sync_cfg,
         )
+
 
 worker_workspace_service = WorkerWorkspaceService()
 

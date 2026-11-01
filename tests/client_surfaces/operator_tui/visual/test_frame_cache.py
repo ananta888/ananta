@@ -39,4 +39,3 @@ def test_backpressure_drops_stale_animation_frames() -> None:
     assert pending is not None
     assert pending.payload == ["f2"]
     assert pressure.stats().dropped_frames == 1
-

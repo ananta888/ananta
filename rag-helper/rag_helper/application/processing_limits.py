@@ -79,8 +79,4 @@ class ProcessingLimits:
     canvas_max_nodes: int | None = None
 
     def as_options(self) -> dict[str, object]:
-        return {
-            key: value
-            for key, value in asdict(self).items()
-            if value is not None
-        }
+        return {key: value for key, value in asdict(self).items() if value is not None}

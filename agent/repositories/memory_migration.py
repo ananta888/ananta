@@ -25,9 +25,13 @@ class MemoryMetadataMigrationRepository:
             raise ValueError("memory_migration_backend_unsupported")
         if self._engine.dialect.name == "sqlite":
             # Reserve the write transaction before snapshots, including across engines.
-            session.exec(update(MemoryEntryDB).where(false()).values(
-                memory_metadata=MemoryEntryDB.memory_metadata,
-            ))
+            session.exec(
+                update(MemoryEntryDB)
+                .where(false())
+                .values(
+                    memory_metadata=MemoryEntryDB.memory_metadata,
+                )
+            )
         else:
             # One Hub migration writer prevents concurrent reuse of a batch ID.
             session.exec(text("SELECT pg_advisory_xact_lock(731909484502116)")).all()
@@ -49,9 +53,17 @@ class MemoryMetadataMigrationRepository:
             if not dry_run:
                 self._lock(session)
                 statement = statement.with_for_update()
-            if batch_id is not None and session.exec(select(MemoryMigrationBackupDB).where(
-                MemoryMigrationBackupDB.batch_id == batch_id,
-            ).limit(1)).first() is not None:
+            if (
+                batch_id is not None
+                and session.exec(
+                    select(MemoryMigrationBackupDB)
+                    .where(
+                        MemoryMigrationBackupDB.batch_id == batch_id,
+                    )
+                    .limit(1)
+                ).first()
+                is not None
+            ):
                 raise ValueError("memory_migration_batch_exists")
             rows = session.exec(statement).all()
             for row in rows:
@@ -71,11 +83,16 @@ class MemoryMetadataMigrationRepository:
                     continue
                 if not dry_run:
                     if batch_id is not None:
-                        session.add(MemoryMigrationBackupDB(
-                            batch_id=batch_id, entry_id=row.id, task_id=row.task_id, goal_id=row.goal_id,
-                            original_metadata=deepcopy(row.memory_metadata or {}),
-                            migrated_metadata=deepcopy(migrated),
-                        ))
+                        session.add(
+                            MemoryMigrationBackupDB(
+                                batch_id=batch_id,
+                                entry_id=row.id,
+                                task_id=row.task_id,
+                                goal_id=row.goal_id,
+                                original_metadata=deepcopy(row.memory_metadata or {}),
+                                migrated_metadata=deepcopy(migrated),
+                            )
+                        )
                     row.memory_metadata = migrated
                     session.add(row)
                 updated += 1
@@ -83,8 +100,15 @@ class MemoryMetadataMigrationRepository:
             if not dry_run:
                 session.commit()
         if dry_run:
-            return {"scanned": len(rows), "updated": 0, "would_update": updated, "next_cursor": cursor,
-                    "unclassified": unclassified, "dry_run": True, "production_release_evidence": False}
+            return {
+                "scanned": len(rows),
+                "updated": 0,
+                "would_update": updated,
+                "next_cursor": cursor,
+                "unclassified": unclassified,
+                "dry_run": True,
+                "production_release_evidence": False,
+            }
         return {"scanned": len(rows), "updated": updated, "next_cursor": cursor}
 
     @staticmethod
@@ -98,12 +122,19 @@ class MemoryMetadataMigrationRepository:
             registered = session.get(MemoryRunPolicyDB, stored_namespace["run_id"])
             if registered is not None and registered.policy_digest == metadata.get("memory_policy_digest"):
                 issued = decode_policy(registered.policy)
-                if (issued.digest == registered.policy_digest and asdict(issued.namespace) == stored_namespace
-                        and task is not None and row.goal_id == task.goal_id
-                        and (task.tenant_id, task.project_id, task.id, task.goal_id) == (
-                            issued.namespace.tenant_id, issued.namespace.workspace_id,
-                            issued.namespace.task_id, issued.namespace.goal_id,
-                        )):
+                if (
+                    issued.digest == registered.policy_digest
+                    and asdict(issued.namespace) == stored_namespace
+                    and task is not None
+                    and row.goal_id == task.goal_id
+                    and (task.tenant_id, task.project_id, task.id, task.goal_id)
+                    == (
+                        issued.namespace.tenant_id,
+                        issued.namespace.workspace_id,
+                        issued.namespace.task_id,
+                        issued.namespace.goal_id,
+                    )
+                ):
                     return metadata
         result = dict(metadata)
         # Migration never restores an unchecked legacy policy or scope promotion.
@@ -114,26 +145,37 @@ class MemoryMetadataMigrationRepository:
         ).to_mapping()
         if task is not None and task.tenant_id and task.project_id and row.goal_id == task.goal_id:
             try:
-                namespace = MemoryNamespace(tenant_id=task.tenant_id, workspace_id=task.project_id,
-                                            task_id=task.id, goal_id=task.goal_id)
+                namespace = MemoryNamespace(
+                    tenant_id=task.tenant_id, workspace_id=task.project_id, task_id=task.id, goal_id=task.goal_id
+                )
             except ValueError:
                 pass
             else:
                 result["memory_namespace"] = asdict(namespace)
-                result["memory_admission"] = {"classification": "admitted_untrusted_task",
-                                               "authority": "hub_sql_task_owner_v1"}
+                result["memory_admission"] = {
+                    "classification": "admitted_untrusted_task",
+                    "authority": "hub_sql_task_owner_v1",
+                }
                 return result
-        result["memory_admission"] = {"classification": "quarantined",
-                                      "reason_code": "memory_owner_namespace_unclassified"}
+        result["memory_admission"] = {
+            "classification": "quarantined",
+            "reason_code": "memory_owner_namespace_unclassified",
+        }
         return result
 
     def rollback(self, batch_id):
         require_memory_identifier(batch_id, "batch_id")
         with Session(self._engine) as session:
             self._lock(session)
-            backups = session.exec(select(MemoryMigrationBackupDB).where(
-                MemoryMigrationBackupDB.batch_id == batch_id,
-            ).order_by(MemoryMigrationBackupDB.entry_id).limit(1001).with_for_update()).all()
+            backups = session.exec(
+                select(MemoryMigrationBackupDB)
+                .where(
+                    MemoryMigrationBackupDB.batch_id == batch_id,
+                )
+                .order_by(MemoryMigrationBackupDB.entry_id)
+                .limit(1001)
+                .with_for_update()
+            ).all()
             if not backups:
                 raise ValueError("memory_migration_batch_unknown")
             if len(backups) > 1000:
@@ -142,9 +184,13 @@ class MemoryMetadataMigrationRepository:
             for backup in backups:
                 if backup.restored:
                     continue
-                row = session.exec(select(MemoryEntryDB).where(
-                    MemoryEntryDB.id == backup.entry_id,
-                ).with_for_update()).first()
+                row = session.exec(
+                    select(MemoryEntryDB)
+                    .where(
+                        MemoryEntryDB.id == backup.entry_id,
+                    )
+                    .with_for_update()
+                ).first()
                 if row is None or (row.task_id, row.goal_id) != (backup.task_id, backup.goal_id):
                     raise ValueError("memory_migration_rollback_conflict")
                 if row.memory_metadata != backup.migrated_metadata:

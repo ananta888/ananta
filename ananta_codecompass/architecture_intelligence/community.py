@@ -6,7 +6,6 @@ import hashlib
 from collections import Counter
 from typing import Any
 
-
 ALGORITHM = {"name": "label_propagation", "version": "1", "parameters": {"iterations": 8}}
 
 

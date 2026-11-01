@@ -17,7 +17,13 @@ from tests.test_specialist_runtime_candidate import candidate as _candidate
 def report(app, tmp_path, monkeypatch):
     _service, _registry, principal, winner, _adapter = _candidate.__wrapped__(app, tmp_path, monkeypatch)
     decision = PromotionDecision(
-        True, (), "quality", winner.result.to_mapping()["result_digest"], None, "a" * 64, None,
+        True,
+        (),
+        "quality",
+        winner.result.to_mapping()["result_digest"],
+        None,
+        "a" * 64,
+        None,
     )
     return SpecialistBenchmarkProjectionStore(artifact_root=tmp_path), principal, winner, decision
 
@@ -46,7 +52,10 @@ def test_real_registration_persists_report_without_productive_approval(app, tmp_
     store = SpecialistBenchmarkProjectionStore(artifact_root=tmp_path)
     decision = PromotionDecision(True, (), "quality", winner.result.to_mapping()["result_digest"], None, "a" * 64, None)
     registration = HubSpecialistCandidateRegistration(
-        principal=principal, candidates=service, registry=registry, reports=store,
+        principal=principal,
+        candidates=service,
+        registry=registry,
+        reports=store,
     )
     adapter_id, status = registration.register(winner, decision)
     assert status == "evaluated"

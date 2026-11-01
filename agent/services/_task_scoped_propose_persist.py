@@ -231,7 +231,7 @@ def _verification_command_from_task_description(task: Any) -> str | None:
         span = _declared_test_command_span(description, marker)
         if span is None:
             continue
-        command = " ".join(description[span[0]:span[1]].split())
+        command = " ".join(description[span[0] : span[1]].split())
         if command:
             return command
     return None

@@ -13,14 +13,14 @@ from agent.services.provider_catalog_inventory_adapter import (
 from ananta_contracts.model_catalog import (
     ModelAvailability,
     ModelCapabilityClaim,
+    ModelCatalog,
     ModelHealth,
     ModelInventoryDescriptor,
     ModelMetadataEvidence,
+    ModelMetadataFact,
     ModelRuntime,
     ModelSourceKind,
-    ModelCatalog,
     ModelSummary,
-    ModelMetadataFact,
 )
 
 
@@ -41,11 +41,13 @@ def _model(
         availability=ModelAvailability.AVAILABLE,
         health=ModelHealth.HEALTHY,
         listing_supported=True,
-        capabilities=(ModelCapabilityClaim(
-            capability_id="tools",
-            value=claim,
-            evidence=ModelMetadataEvidence.DETECTED,
-        ),),
+        capabilities=(
+            ModelCapabilityClaim(
+                capability_id="tools",
+                value=claim,
+                evidence=ModelMetadataEvidence.DETECTED,
+            ),
+        ),
     )
 
 
@@ -81,9 +83,7 @@ def test_source_failure_preserves_stale_snapshot_and_other_sources():
 
     assert [item.model_id for item in initial.models] == ["first", "second"]
     assert [item.model_id for item in degraded.models] == ["first", "second"]
-    first_status = next(
-        item for item in degraded.sources if item.source_id == "source:first"
-    )
+    first_status = next(item for item in degraded.sources if item.source_id == "source:first")
     assert first_status.status == "degraded"
     assert first_status.from_cache is True
     assert first_status.reason_code == "provider_unavailable"
@@ -116,42 +116,54 @@ def test_parallel_force_refreshes_are_coalesced():
 
 
 def test_deduplication_reports_conflicting_capability_evidence():
-    detected = _Adapter("source:detected", (
-        _model("same", "source:detected", claim="supported"),
-    ))
-    declared = _Adapter("source:declared", (
-        _model("same", "source:declared", claim="unsupported"),
-    ))
+    detected = _Adapter("source:detected", (_model("same", "source:detected", claim="supported"),))
+    declared = _Adapter("source:declared", (_model("same", "source:declared", claim="unsupported"),))
     catalog = ModelInventoryService((detected, declared)).catalog()
 
     assert len(catalog.models) == 1
-    assert catalog.models[0].source_ids == (
-        "source:declared", "source:detected"
-    )
+    assert catalog.models[0].source_ids == ("source:declared", "source:detected")
     assert catalog.models[0].capabilities[0].value == "unknown"
     assert catalog.models[0].conflicts == ("capability:tools",)
 
 
 def test_deduplication_preserves_sources_and_surfaces_scalar_conflicts():
-    first = _model("same", "source:first").model_copy(update={
-        "context_window": 8192,
-        "metadata_facts": (ModelMetadataFact(
-            fact_id="model_role", value="coder",
-            evidence=ModelMetadataEvidence.DECLARED, source_id="source:first",
-        ),),
-    })
-    second = _model("same", "source:second").model_copy(update={
-        "context_window": 32768,
-        "metadata_facts": (ModelMetadataFact(
-            fact_id="model_role", value="chat",
-            evidence=ModelMetadataEvidence.DETECTED, source_id="source:second",
-        ),),
-    })
+    first = _model("same", "source:first").model_copy(
+        update={
+            "context_window": 8192,
+            "metadata_facts": (
+                ModelMetadataFact(
+                    fact_id="model_role",
+                    value="coder",
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id="source:first",
+                ),
+            ),
+        }
+    )
+    second = _model("same", "source:second").model_copy(
+        update={
+            "context_window": 32768,
+            "metadata_facts": (
+                ModelMetadataFact(
+                    fact_id="model_role",
+                    value="chat",
+                    evidence=ModelMetadataEvidence.DETECTED,
+                    source_id="source:second",
+                ),
+            ),
+        }
+    )
 
-    merged = ModelInventoryService((
-        _Adapter("source:first", (first,)),
-        _Adapter("source:second", (second,)),
-    )).catalog().models[0]
+    merged = (
+        ModelInventoryService(
+            (
+                _Adapter("source:first", (first,)),
+                _Adapter("source:second", (second,)),
+            )
+        )
+        .catalog()
+        .models[0]
+    )
 
     assert merged.context_window is None
     assert "context_window" in merged.conflicts
@@ -165,16 +177,12 @@ def test_source_exception_text_is_redacted_unless_it_is_a_reason_code():
     adapter.failure_message = "supersecrettoken"
     catalog = ModelInventoryService((adapter,)).catalog()
 
-    assert catalog.sources[0].reason_code == (
-        "model_inventory_source_error:RuntimeError"
-    )
+    assert catalog.sources[0].reason_code == ("model_inventory_source_error:RuntimeError")
     assert "supersecrettoken" not in catalog.model_dump_json()
 
 
 def test_inventory_handles_five_thousand_models_with_stable_revision():
-    models = tuple(
-        _model(f"model-{index}", "source:large") for index in range(5000)
-    )
+    models = tuple(_model(f"model-{index}", "source:large") for index in range(5000))
     adapter = _Adapter("source:large", models)
     service = ModelInventoryService((adapter,))
     first = service.catalog()
@@ -187,17 +195,19 @@ def test_inventory_handles_five_thousand_models_with_stable_revision():
 
 def test_remote_hub_inventory_marks_declared_trust_and_hop_limit_without_url():
     adapter = ProviderCatalogModelInventoryAdapter(
-        lambda _force: ModelCatalog(models=(ModelSummary(
-            provider_id="remote-hub-a",
-            runtime=ModelRuntime.REMOTE,
-            model_id="remote-model",
-            display_name="Remote Model",
-            availability=ModelAvailability.AVAILABLE,
-            health=ModelHealth.HEALTHY,
-        ),)),
-        lambda: {
-            "remote-hub-a": {"trust_level": "private", "max_hops": 2}
-        },
+        lambda _force: ModelCatalog(
+            models=(
+                ModelSummary(
+                    provider_id="remote-hub-a",
+                    runtime=ModelRuntime.REMOTE,
+                    model_id="remote-model",
+                    display_name="Remote Model",
+                    availability=ModelAvailability.AVAILABLE,
+                    health=ModelHealth.HEALTHY,
+                ),
+            )
+        ),
+        lambda: {"remote-hub-a": {"trust_level": "private", "max_hops": 2}},
     )
 
     model = adapter.collect().models[0]

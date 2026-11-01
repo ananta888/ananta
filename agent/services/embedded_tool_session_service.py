@@ -121,18 +121,21 @@ class EmbeddedToolSessionService:
         if self._session_service is not None:
             return self._session_service
         from agent.services.live_terminal_session_service import live_terminal_session_service
+
         return live_terminal_session_service
 
     def _get_registry(self):
         if self._registry is not None:
             return self._registry
         from agent.services.tui_tool_registry import get_tui_tool_registry
+
         return get_tui_tool_registry()
 
     def _get_resolver(self):
         if self._resolver is not None:
             return self._resolver
         from agent.services.editor_resolver import get_editor_resolver
+
         return get_editor_resolver()
 
     def _store_meta(self, meta: EmbeddedSessionMeta) -> None:
@@ -171,6 +174,7 @@ class EmbeddedToolSessionService:
             return EmbeddedSessionResult.failure(sid, REASON_PERMISSION_DENIED)
 
         from agent.services.workspace_path_validator import WorkspacePathValidator
+
         validator = WorkspacePathValidator(workspace)
         path_result = validator.validate(file_path)
         if not path_result.ok:
@@ -202,7 +206,11 @@ class EmbeddedToolSessionService:
         self._store_meta(meta)
         LOGGER.info(
             "Editor session launched: session=%s editor=%s file=%s target=%s readonly=%s",
-            sid, resolution.editor_id, path_result.resolved_path, target_type, readonly,
+            sid,
+            resolution.editor_id,
+            path_result.resolved_path,
+            target_type,
+            readonly,
         )
         return EmbeddedSessionResult.success(sid, meta)
 

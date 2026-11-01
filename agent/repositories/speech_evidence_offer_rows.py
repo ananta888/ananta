@@ -64,10 +64,7 @@ def offer_record(row: SpeechEvidenceOfferDB) -> SpeechEvidenceOfferRecord:
         retention_seconds=int(row.retention_seconds),
         trainer_class=row.trainer_class,
         group_ids=tuple(str(value) for value in row.group_ids),
-        group_previews=tuple(
-            SpeechEvidenceGroupPreview.from_mapping(value)
-            for value in (row.group_previews or [])
-        ),
+        group_previews=tuple(SpeechEvidenceGroupPreview.from_mapping(value) for value in (row.group_previews or [])),
         group_preview_digest=str(row.group_preview_digest or ""),
         total_bytes=int(row.total_bytes),
         sender_consent_digest=row.sender_consent_digest,

@@ -62,9 +62,7 @@ def test_operations_resolve_persistent_selector_before_legacy_registry() -> None
         selector_id="workspace-example",
         relative_path="src",
     )
-    SQLSourceControlRepository(engine).save_connection_with_selector(
-        connection, binding
-    )
+    SQLSourceControlRepository(engine).save_connection_with_selector(connection, binding)
     refresh = _Refresh()
     operations = HubSourceControlOperationsAdapter(
         engine=engine,

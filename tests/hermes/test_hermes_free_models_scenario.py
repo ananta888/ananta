@@ -28,5 +28,9 @@ def test_scenario_free_suffix_policy_matches_model_ids() -> None:
     hermes_cfg = scenario["config_overrides"]["hermes_worker_adapter"]
     policy = hermes_cfg["model_selection_policy"]
     assert policy["require_free_model_suffix"] is True
-    models = [hermes_cfg["default_model"], *hermes_cfg["task_kind_models"].values(), *hermes_cfg["fallback_free_models"]]
+    models = [
+        hermes_cfg["default_model"],
+        *hermes_cfg["task_kind_models"].values(),
+        *hermes_cfg["fallback_free_models"],
+    ]
     assert all(str(model).endswith(":free") for model in models)

@@ -7,6 +7,7 @@ own: effective chat settings, retrieval budgets, snippet merging, memory
 context defaults, backend resolution, the ``/snake/ask`` v2 payload and the
 diagnostics written back into the TUI state.
 """
+
 from __future__ import annotations
 
 import os

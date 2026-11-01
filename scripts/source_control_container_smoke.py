@@ -13,12 +13,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
 
-
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DEFINITION = (
-    ROOT
-    / "artifacts/test-gates/source-control-container-smoke-definition.json"
-)
+DEFAULT_DEFINITION = ROOT / "artifacts/test-gates/source-control-container-smoke-definition.json"
 
 
 def _digest(value: object) -> str:
@@ -37,8 +33,7 @@ def load_definition(path: Path) -> Mapping[str, Any]:
     if (
         not isinstance(payload, dict)
         or set(payload) != {"schema", "checks", "limits"}
-        or payload["schema"]
-        != "ananta.source-control.container-smoke-definition.v1"
+        or payload["schema"] != "ananta.source-control.container-smoke-definition.v1"
         or not isinstance(payload["checks"], list)
         or not isinstance(payload["limits"], dict)
     ):
@@ -78,10 +73,7 @@ def execute(
     started = time.monotonic()
     results: list[dict[str, object]] = []
     for check in definition["checks"]:
-        if (
-            time.monotonic() - started
-            > float(limits["total_timeout_seconds"])
-        ):
+        if time.monotonic() - started > float(limits["total_timeout_seconds"]):
             results.append(
                 {
                     "id": str(check["id"]),
@@ -128,9 +120,7 @@ def execute(
                 "id": str(check["id"]),
                 "status": "passed" if passed else "failed",
                 "http_status": status_code,
-                "duration_ms": round(
-                    (time.monotonic() - request_started) * 1000, 3
-                ),
+                "duration_ms": round((time.monotonic() - request_started) * 1000, 3),
                 "body_digest": hashlib.sha256(body).hexdigest(),
                 "reason_code": None if passed else "unexpected_http_status",
             }
@@ -139,21 +129,13 @@ def execute(
                 "id": str(check["id"]),
                 "status": "failed",
                 "http_status": None,
-                "duration_ms": round(
-                    (time.monotonic() - request_started) * 1000, 3
-                ),
+                "duration_ms": round((time.monotonic() - request_started) * 1000, 3),
                 "body_digest": None,
                 "reason_code": "container_check_failed",
             }
         results.append(result)
     statuses = {str(item["status"]) for item in results}
-    overall = (
-        "failed"
-        if "failed" in statuses
-        else "unverified"
-        if "unverified" in statuses
-        else "passed"
-    )
+    overall = "failed" if "failed" in statuses else "unverified" if "unverified" in statuses else "passed"
     return {
         "schema": "ananta.source-control.container-smoke-evidence.v1",
         "definition_digest": _digest(definition),
@@ -182,7 +164,7 @@ def main() -> int:
             if args.execute
             else plan(definition)
         )
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, json.JSONDecodeError):
         report = {
             "schema": "ananta.source-control.container-smoke-evidence.v1",
             "definition_digest": "0" * 64,

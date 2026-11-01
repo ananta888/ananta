@@ -16,21 +16,13 @@ def test_offer_preview_migration_is_additive_restart_safe_and_reversible(monkeyp
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    migration = importlib.import_module(
-        "migrations.versions.a9b0c1d2e3f4_add_signed_speech_evidence_offer_previews"
-    )
+    migration = importlib.import_module("migrations.versions.a9b0c1d2e3f4_add_signed_speech_evidence_offer_previews")
     with database.begin() as connection:
         connection.execute(
-            sa.text(
-                "CREATE TABLE speech_evidence_offers "
-                "(offer_id VARCHAR PRIMARY KEY, state VARCHAR NOT NULL)"
-            )
+            sa.text("CREATE TABLE speech_evidence_offers (offer_id VARCHAR PRIMARY KEY, state VARCHAR NOT NULL)")
         )
         connection.execute(
-            sa.text(
-                "INSERT INTO speech_evidence_offers (offer_id, state) "
-                "VALUES ('legacy-offer', 'invalidated')"
-            )
+            sa.text("INSERT INTO speech_evidence_offers (offer_id, state) VALUES ('legacy-offer', 'invalidated')")
         )
         monkeypatch.setattr(migration, "op", Operations(MigrationContext.configure(connection)))
 
@@ -52,6 +44,9 @@ def test_offer_preview_migration_is_additive_restart_safe_and_reversible(monkeyp
         migration.downgrade()
         columns = {row["name"] for row in inspect(connection).get_columns("speech_evidence_offers")}
         assert columns == {"offer_id", "state"}
-        assert connection.execute(
-            sa.text("SELECT state FROM speech_evidence_offers WHERE offer_id = 'legacy-offer'")
-        ).scalar_one() == "invalidated"
+        assert (
+            connection.execute(
+                sa.text("SELECT state FROM speech_evidence_offers WHERE offer_id = 'legacy-offer'")
+            ).scalar_one()
+            == "invalidated"
+        )

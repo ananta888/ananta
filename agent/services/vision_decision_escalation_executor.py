@@ -16,6 +16,7 @@ carries those escalations out, bounded and fail-closed:
 A failure never becomes a value and never a default label. Images, prompts, answers and keys are
 never logged; audit projections carry field names, targets, statuses, reasons and scores only.
 """
+
 from __future__ import annotations
 
 import base64
@@ -82,7 +83,9 @@ class VisionEscalationConfig:
     ticket_ttl_seconds: float = DEFAULT_TICKET_TTL_SECONDS
 
     @classmethod
-    def from_env(cls, decision: VisionDecisionConfig, environ: Mapping[str, str] | None = None) -> "VisionEscalationConfig":
+    def from_env(
+        cls, decision: VisionDecisionConfig, environ: Mapping[str, str] | None = None
+    ) -> "VisionEscalationConfig":
         """Read only when VisionDecision is enabled; raises ``VisionDecisionConfigurationError``."""
         env = os.environ if environ is None else environ
 
@@ -190,7 +193,12 @@ class ChatCompletionEscalationHandler:
                 png = prepare_image(content, max_bytes=self._max_image_bytes, max_side=self._max_image_side)
             except ImageRejected as exc:
                 return ChatEscalationAnswer(False, error_code=exc.code)
-            parts.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(png).decode("ascii")}})
+            parts.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64," + base64.b64encode(png).decode("ascii")},
+                }
+            )
         questions = "\n".join(f"- {spec.name}: {spec.description}" for spec in specs)
         prompt = "\n\n".join(
             item
@@ -357,7 +365,9 @@ class VisionEscalationExecutor:
                     suggestion=answer.values[e.field],
                     answered_by_model=answer.model,
                 )
-        to_human += [(e, (), None) for e in escalations if e.target is EscalationTarget.HUMAN and e.field in task.fields]
+        to_human += [
+            (e, (), None) for e in escalations if e.target is EscalationTarget.HUMAN and e.field in task.fields
+        ]
         for e, extra, error_code in to_human:
             results[e.field] = self._ticket(task, e, principal, reasons=e.reasons + extra, error_code=error_code)
         return results
@@ -401,7 +411,10 @@ def build_escalation_executor(
     transport: VisionDecisionTransport | None = None,
 ) -> VisionEscalationExecutor:
     handlers: dict[EscalationTarget, ChatCompletionEscalationHandler] = {}
-    for target, cfg in ((EscalationTarget.CHAT_COMPLETION, escalation.chat), (EscalationTarget.LARGER_MODEL, escalation.larger_model)):
+    for target, cfg in (
+        (EscalationTarget.CHAT_COMPLETION, escalation.chat),
+        (EscalationTarget.LARGER_MODEL, escalation.larger_model),
+    ):
         if cfg is not None:
             handlers[target] = ChatCompletionEscalationHandler(
                 cfg,

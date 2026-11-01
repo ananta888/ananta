@@ -4,7 +4,7 @@ import time
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -66,9 +66,7 @@ class SfuBroadcastRuntimeProjectionStateDB(SQLModel, table=True):
 
     __tablename__ = "sfu_broadcast_runtime_projection_states"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "target_runtime_id", name="uq_sfu_runtime_projection_target"
-        ),
+        sa.UniqueConstraint("tenant_id", "target_runtime_id", name="uq_sfu_runtime_projection_target"),
         sa.CheckConstraint("fencing_token > 0", name="ck_sfu_runtime_projection_fencing"),
         sa.CheckConstraint("version > 0", name="ck_sfu_runtime_projection_version"),
         sa.Index(

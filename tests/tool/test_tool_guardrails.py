@@ -158,10 +158,13 @@ def test_token_cap_follows_the_context_window_when_enabled(monkeypatch):
 
     fixed = evaluate_tool_call_guardrails(calls, {"llm_tool_guardrails": guard}, token_usage=usage)
     following = evaluate_tool_call_guardrails(
-        calls, {"llm_tool_guardrails": {**guard, "max_tokens_follow_context_window": True}}, token_usage=usage)
+        calls, {"llm_tool_guardrails": {**guard, "max_tokens_follow_context_window": True}}, token_usage=usage
+    )
     beyond = evaluate_tool_call_guardrails(
-        calls, {"llm_tool_guardrails": {**guard, "max_tokens_follow_context_window": True}},
-        token_usage={"estimated_total_tokens": 40000})
+        calls,
+        {"llm_tool_guardrails": {**guard, "max_tokens_follow_context_window": True}},
+        token_usage={"estimated_total_tokens": 40000},
+    )
 
     assert "guardrail_max_estimated_tokens_exceeded" in fixed.reasons
     assert following.allowed and following.details["max_tokens_per_request"] == 32768

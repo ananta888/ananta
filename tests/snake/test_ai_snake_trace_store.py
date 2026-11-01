@@ -148,7 +148,8 @@ def test_recorder_failed_event_with_error(recorder):
 def test_recorder_tool_call_serializes_args_redacted(recorder):
     rec, store, trace_id = recorder
     rec.event(
-        "tool_call_completed", "Tool ausgeführt",
+        "tool_call_completed",
+        "Tool ausgeführt",
         details={"tool": "search", "args": {"Authorization": "Bearer secret123", "query": "test"}},
     )
     events = store.get_events(trace_id, since_seq=0)

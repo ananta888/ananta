@@ -13,7 +13,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-
 revision: str = "3bf2c3d4e5f6"
 down_revision: str | Sequence[str] | None = "2ae1f2a3b4c5"
 branch_labels: str | Sequence[str] | None = None
@@ -128,8 +127,7 @@ def upgrade() -> None:
                 name="ck_sfu_broadcast_audience_epochs_non_negative",
             ),
             sa.CheckConstraint(
-                "length(audience_digest) = 64 AND length(policy_digest) = 64 "
-                "AND length(membership_digest) = 64",
+                "length(audience_digest) = 64 AND length(policy_digest) = 64 AND length(membership_digest) = 64",
                 name="ck_sfu_broadcast_audience_digest_length",
             ),
             sa.PrimaryKeyConstraint("id"),
@@ -173,8 +171,7 @@ def upgrade() -> None:
                 name="ck_sfu_receiver_group_epochs_non_negative",
             ),
             sa.CheckConstraint(
-                "length(group_digest) = 64 AND length(membership_digest) = 64 "
-                "AND length(key_digest) = 64",
+                "length(group_digest) = 64 AND length(membership_digest) = 64 AND length(key_digest) = 64",
                 name="ck_sfu_receiver_group_digest_length",
             ),
             sa.PrimaryKeyConstraint("id"),
@@ -292,11 +289,7 @@ def downgrade() -> None:
 
     if bind.dialect.name == "postgresql":
         for table in _TABLES:
-            op.execute(
-                sa.text(
-                    f"DROP FUNCTION IF EXISTS validate_{table}_projection() CASCADE"
-                )
-            )
+            op.execute(sa.text(f"DROP FUNCTION IF EXISTS validate_{table}_projection() CASCADE"))
 
 
 def _install_validation_triggers(bind: sa.engine.Connection) -> None:
@@ -306,9 +299,7 @@ def _install_validation_triggers(bind: sa.engine.Connection) -> None:
     if bind.dialect.name == "postgresql":
         _install_postgresql_validation_triggers()
         return
-    raise RuntimeError(
-        f"SFU broadcast projection validation is unsupported on {bind.dialect.name}"
-    )
+    raise RuntimeError(f"SFU broadcast projection validation is unsupported on {bind.dialect.name}")
 
 
 def _sqlite_json_reference(collection: str, reference: str, key_name: str) -> str:
@@ -339,13 +330,9 @@ def _sqlite_room_reference(publication: bool, subscription: bool) -> str:
         "s.revision = NEW.room_state_revision",
     ]
     if publication:
-        predicates.append(
-            _sqlite_json_reference("publications", "publication_ref", "publication_id")
-        )
+        predicates.append(_sqlite_json_reference("publications", "publication_ref", "publication_id"))
     if subscription:
-        predicates.append(
-            _sqlite_json_reference("subscriptions", "subscription_ref", "subscription_id")
-        )
+        predicates.append(_sqlite_json_reference("subscriptions", "subscription_ref", "subscription_id"))
     return " AND ".join(f"({predicate})" for predicate in predicates)
 
 
@@ -394,7 +381,8 @@ def _install_sqlite_validation_triggers() -> None:
         for operation in ("INSERT", "UPDATE"):
             trigger = f"trg_{table}_validate_{operation.lower()}"
             op.execute(sa.text(f"DROP TRIGGER IF EXISTS {trigger}"))
-            op.execute(sa.text(f"""
+            op.execute(
+                sa.text(f"""
                 CREATE TRIGGER {trigger}
                 BEFORE {operation} ON {table}
                 FOR EACH ROW
@@ -409,7 +397,8 @@ def _install_sqlite_validation_triggers() -> None:
                                       AND NEW.expires_at <= CAST(strftime('%s', 'now') AS REAL)
                         THEN RAISE(ABORT, 'sfu_broadcast_projection_expired') END;
                 END
-            """))
+            """)
+            )
 
         monotone = " OR ".join(
             [
@@ -421,14 +410,16 @@ def _install_sqlite_validation_triggers() -> None:
         )
         trigger = f"trg_{table}_monotone_update"
         op.execute(sa.text(f"DROP TRIGGER IF EXISTS {trigger}"))
-        op.execute(sa.text(f"""
+        op.execute(
+            sa.text(f"""
             CREATE TRIGGER {trigger}
             BEFORE UPDATE ON {table}
             FOR EACH ROW WHEN {monotone}
             BEGIN
                 SELECT RAISE(ABORT, 'non_monotone_sfu_broadcast_projection_update');
             END
-        """))
+        """)
+        )
 
 
 def _postgres_json_reference(collection: str, reference: str, key_name: str) -> str:
@@ -462,13 +453,9 @@ def _postgres_room_reference(publication: bool, subscription: bool) -> str:
         "s.revision = NEW.room_state_revision",
     ]
     if publication:
-        predicates.append(
-            _postgres_json_reference("publications", "publication_ref", "publication_id")
-        )
+        predicates.append(_postgres_json_reference("publications", "publication_ref", "publication_id"))
     if subscription:
-        predicates.append(
-            _postgres_json_reference("subscriptions", "subscription_ref", "subscription_id")
-        )
+        predicates.append(_postgres_json_reference("subscriptions", "subscription_ref", "subscription_id"))
     return " AND ".join(f"({predicate})" for predicate in predicates)
 
 
@@ -521,7 +508,8 @@ def _install_postgresql_validation_triggers() -> None:
                 *(f"NEW.{column} < OLD.{column}" for column in epochs),
             ]
         )
-        op.execute(sa.text(f"""
+        op.execute(
+            sa.text(f"""
             CREATE OR REPLACE FUNCTION {function}() RETURNS trigger
             LANGUAGE plpgsql AS $$
             BEGIN
@@ -548,11 +536,14 @@ def _install_postgresql_validation_triggers() -> None:
                 RETURN NEW;
             END;
             $$
-        """))
+        """)
+        )
         trigger = f"trg_{table}_validate"
         op.execute(sa.text(f"DROP TRIGGER IF EXISTS {trigger} ON {table}"))
-        op.execute(sa.text(f"""
+        op.execute(
+            sa.text(f"""
             CREATE TRIGGER {trigger}
             BEFORE INSERT OR UPDATE ON {table}
             FOR EACH ROW EXECUTE FUNCTION {function}()
-        """))
+        """)
+        )

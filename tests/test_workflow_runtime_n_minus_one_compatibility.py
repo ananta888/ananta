@@ -99,9 +99,7 @@ def test_shared_n_minus_one_fixture_is_deterministic_and_isolated() -> None:
         ),
     ],
 )
-def test_public_contract_loaders_quarantine_explicit_unknown_versions(
-    loader, payload
-) -> None:
+def test_public_contract_loaders_quarantine_explicit_unknown_versions(loader, payload) -> None:
     with pytest.raises(
         UnsupportedSchemaVersion,
         match="runtime_contract_quarantined",

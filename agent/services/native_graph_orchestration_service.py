@@ -136,10 +136,15 @@ class NativeGraphOrchestrator:
         delegated_capabilities: frozenset[str] = NATIVE_DELEGATED_CAPABILITIES,
         run_lease_service: BpmnRunLeasePort | None = None,
     ) -> None:
-        if (not isinstance(delegated_capabilities, frozenset) or len(delegated_capabilities) > 128
-                or any(not isinstance(value, str) or not 0 < len(value) <= 128
-                       or any(ord(char) < 33 for char in value) for value in delegated_capabilities)):
-            raise ValueError('native_delegated_capability_catalog_invalid')
+        if (
+            not isinstance(delegated_capabilities, frozenset)
+            or len(delegated_capabilities) > 128
+            or any(
+                not isinstance(value, str) or not 0 < len(value) <= 128 or any(ord(char) < 33 for char in value)
+                for value in delegated_capabilities
+            )
+        ):
+            raise ValueError("native_delegated_capability_catalog_invalid")
         self._delegated_capabilities = delegated_capabilities
         self._checkpoints = checkpoints
         self._events = events
@@ -148,8 +153,11 @@ class NativeGraphOrchestrator:
         self._policy = policy
         self._components = component_compiler
         self._clock = clock
-        self._run_leases = (run_lease_service if run_lease_service is not None
-                            else BpmnRunLeaseService(checkpoints=checkpoints, keys=key_ring, clock=clock))
+        self._run_leases = (
+            run_lease_service
+            if run_lease_service is not None
+            else BpmnRunLeaseService(checkpoints=checkpoints, keys=key_ring, clock=clock)
+        )
         bpmn_events = bpmn_events or BpmnNativeEventRuntime(
             store=CheckpointEventWaitStore(checkpoints, key_ring),
             clock=clock,
@@ -211,11 +219,7 @@ class NativeGraphOrchestrator:
                 event_plan_scope(plan)
             except ValueError as exc:
                 reasons.append(str(exc))
-        unsupported = (
-            set(plan.capabilities)
-            - set(self.capabilities)
-            - self._delegated_capabilities
-        )
+        unsupported = set(plan.capabilities) - set(self.capabilities) - self._delegated_capabilities
         reasons.extend(f"native_capability_unsupported:{value}" for value in sorted(unsupported))
         for node in plan.nodes:
             if node.node_type not in {"task", "merge", "checkpoint", "component", "bpmn_control", "bpmn_wait"}:
@@ -265,12 +269,13 @@ class NativeGraphOrchestrator:
             effective_plan=plan.to_dict(),
             control_lease=lease,
         )
-        if plan.metadata.get('hub_control_lease_required') is True:
+        if plan.metadata.get("hub_control_lease_required") is True:
             state.hub_started_at = float(self._clock())
             state.hub_deadline_at = state.hub_started_at + plan.budget.timeout_seconds
-            if state.hub_started_at < 0 or not all(math.isfinite(value) for value in (
-                    state.hub_started_at, state.hub_deadline_at)):
-                raise ValueError('native_hub_run_clock_invalid')
+            if state.hub_started_at < 0 or not all(
+                math.isfinite(value) for value in (state.hub_started_at, state.hub_deadline_at)
+            ):
+                raise ValueError("native_hub_run_clock_invalid")
         if plan.metadata.get("bpmn_definition_hash") or plan.metadata.get("bpmn_activation_expansion"):
             state.bpmn_started_at = float(self._clock())
             if not math.isfinite(state.bpmn_started_at) or state.bpmn_started_at < 0:
@@ -286,7 +291,7 @@ class NativeGraphOrchestrator:
             dedupe_key=f"native:{request.run_id}:started",
             payload={"runtime_id": self.runtime_id, "plan_hash": plan.plan_hash},
         )
-        if plan.metadata.get('hub_control_lease_required') is True:
+        if plan.metadata.get("hub_control_lease_required") is True:
             # Opted-in Hub automations need a durable recovery point before
             # their first external queue/grant/ownership effect.
             self._lifecycle.save_checkpoint(plan, request, state)
@@ -445,11 +450,14 @@ class NativeGraphOrchestrator:
     ) -> None:
         if state.input_data != request.input_data:
             raise ValueError("native_graph_input_binding_mismatch")
-        if request.plan.metadata.get('hub_control_lease_required') is True:
+        if request.plan.metadata.get("hub_control_lease_required") is True:
             start, deadline = state.hub_started_at, state.hub_deadline_at
-            if (any(type(value) not in {int, float} or not math.isfinite(value) for value in (start, deadline))
-                    or start < 0 or deadline != start + request.plan.budget.timeout_seconds):
-                raise ValueError('native_hub_deadline_binding_mismatch')
+            if (
+                any(type(value) not in {int, float} or not math.isfinite(value) for value in (start, deadline))
+                or start < 0
+                or deadline != start + request.plan.budget.timeout_seconds
+            ):
+                raise ValueError("native_hub_deadline_binding_mismatch")
         if request.plan.metadata.get("bpmn_definition_hash") or request.plan.metadata.get("bpmn_activation_expansion"):
             start, deadline = state.bpmn_started_at, state.bpmn_deadline_at
             if any(type(value) not in {int, float} or not math.isfinite(value) for value in (start, deadline)):
@@ -463,4 +471,3 @@ class NativeGraphOrchestrator:
             or state.worker_parallel_limit != request.worker_parallel_limit
         ):
             raise ValueError("native_graph_parallel_limit_binding_mismatch")
-

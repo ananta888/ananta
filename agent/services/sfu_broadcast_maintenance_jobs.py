@@ -34,7 +34,8 @@ class SfuCommandOutboxDeliveryPort(Protocol):
     """Durable command outbox delivery; the idempotency ledger is not this port."""
 
     def deliver_pending(
-        self, request: SfuMaintenanceBatchRequest,
+        self,
+        request: SfuMaintenanceBatchRequest,
     ) -> SfuMaintenanceBatchResult: ...
 
 
@@ -42,7 +43,8 @@ class SfuDigestDestructionPendingPort(Protocol):
     """Idempotently destroy KMS material and CAS its durable metadata state."""
 
     def destroy_pending(
-        self, request: SfuMaintenanceBatchRequest,
+        self,
+        request: SfuMaintenanceBatchRequest,
     ) -> SfuMaintenanceBatchResult: ...
 
 
@@ -50,7 +52,8 @@ class SfuBlindIndexReindexPort(Protocol):
     """Reindex one durable page using the configured active/previous key set."""
 
     def reindex_blind_indexes(
-        self, request: SfuMaintenanceBatchRequest,
+        self,
+        request: SfuMaintenanceBatchRequest,
     ) -> SfuMaintenanceBatchResult: ...
 
 
@@ -58,7 +61,8 @@ class SfuTtlPurgePort(Protocol):
     """Physically purge one durable page after policy and legal-hold checks."""
 
     def purge_expired(
-        self, request: SfuMaintenanceBatchRequest,
+        self,
+        request: SfuMaintenanceBatchRequest,
     ) -> SfuMaintenanceBatchResult: ...
 
 
@@ -95,10 +99,7 @@ class _SfuBoundedMaintenanceJob:
             or not 0 <= result.processed <= context.batch_size_max
             or (
                 result.next_cursor is not None
-                and (
-                    not isinstance(result.next_cursor, str)
-                    or not 1 <= len(result.next_cursor) <= 4096
-                )
+                and (not isinstance(result.next_cursor, str) or not 1 <= len(result.next_cursor) <= 4096)
             )
         ):
             raise RuntimeError("sfu_maintenance_result_invalid")

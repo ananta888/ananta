@@ -1,4 +1,5 @@
 """StrategyModeService — WSM-T001/WSM-T005 named strategy mode presets."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

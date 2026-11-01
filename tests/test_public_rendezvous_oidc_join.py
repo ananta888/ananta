@@ -1,8 +1,8 @@
 """PRD02.02: Tests für OIDC-Token-Bindung an Rendezvous-Join."""
+
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from agent.services.rendezvous_service import RendezvousService
 
@@ -10,6 +10,7 @@ from agent.services.rendezvous_service import RendezvousService
 @pytest.fixture(autouse=True)
 def reset_state():
     import agent.services.rendezvous_service as svc
+
     svc._sessions.clear()
     svc._participants.clear()
     svc._invite_codes.clear()
@@ -25,7 +26,9 @@ def test_join_requires_oidc_sub():
     svc = RendezvousService()
     session = svc.create_session(owner_user_id="u1", owner_device_fingerprint="fp", oidc_issuer="")
     code = session["invite_code"]
-    result = svc.join_session(invite_code=code, user_id="u2", user_sub="", device_id="d", device_fingerprint="fp2", oidc_issuer="")
+    result = svc.join_session(
+        invite_code=code, user_id="u2", user_sub="", device_id="d", device_fingerprint="fp2", oidc_issuer=""
+    )
     assert not result["ok"]
     assert result["reason"] == "oidc_sub_required"
 
@@ -90,6 +93,7 @@ def test_user_sub_from_token_not_body():
 
 def test_expired_session_rejected():
     import time
+
     svc = RendezvousService()
     session = svc.create_session(
         owner_user_id="u1",

@@ -51,6 +51,7 @@ from ananta_contracts.recovery_artifact_ingress import (
 def _repos():
     return get_repository_registry()
 
+
 # Pub/Sub Mechanismus für Task-Updates (Liste von Tupeln: (tid, queue))
 # In-Memory Cache für Tasks (Veraltet, durch Paginierung ersetzt)
 _tasks_cache = None
@@ -138,9 +139,7 @@ def _forward_to_worker(
     deadline_monotonic = None
     if transport_deadline is not None:
         if not isinstance(transport_deadline, WorkerTransportDeadline):
-            raise WorkerForwardPermanentTransportError(
-                "worker_forward_transport_deadline_invalid"
-            )
+            raise WorkerForwardPermanentTransportError("worker_forward_transport_deadline_invalid")
         # A governed deadline is an upper bound, never a minimum.  Global
         # command/http settings therefore cannot extend this request.
         timeout = transport_deadline.requests_timeout()
@@ -154,9 +153,7 @@ def _forward_to_worker(
         except (TypeError, ValueError):
             timeout = 60
         try:
-            agent_cfg = (
-                current_app.config.get("AGENT_CONFIG", {}) or {}
-            ) if current_app else {}
+            agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if current_app else {}
         except RuntimeError:
             agent_cfg = {}
         try:
@@ -179,24 +176,16 @@ def _forward_to_worker(
             timeout = max(timeout, int(deadline_monotonic - time.monotonic()) + 1)
     headers = {"Authorization": f"Bearer {token}"} if token else None
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
-    recovery_forward = bool(
-        str(data.get("dispatch_lease_token") or "").strip()
-    )
+    recovery_forward = bool(str(data.get("dispatch_lease_token") or "").strip())
     vector_forward = isinstance(
         data.get("vector_index_dispatch"),
         Mapping,
     )
     knowledge_index_forward = bool(
         isinstance(data.get("knowledge_index_dispatch"), Mapping)
-        and data["knowledge_index_dispatch"].get("task_kind")
-        == "codecompass_index_build"
+        and data["knowledge_index_dispatch"].get("task_kind") == "codecompass_index_build"
     )
-    secure_forward = (
-        recovery_forward
-        or vector_forward
-        or knowledge_index_forward
-        or transport_deadline is not None
-    )
+    secure_forward = recovery_forward or vector_forward or knowledge_index_forward or transport_deadline is not None
     request_options: dict[str, Any] = {
         "data": data,
         "headers": headers,
@@ -218,22 +207,15 @@ def _forward_to_worker(
     except HttpTransportResponseLost as exc:
         raise WorkerForwardAmbiguousTransportError() from exc
     except HttpTransportCancelled as exc:
-        raise WorkerForwardPermanentTransportError(
-            "worker_forward_transport_cancelled"
-        ) from exc
+        raise WorkerForwardPermanentTransportError("worker_forward_transport_cancelled") from exc
     except TypeError:
         if secure_forward:
-            raise WorkerForwardPermanentTransportError(
-                "worker_forward_secure_transport_unsupported"
-            )
+            raise WorkerForwardPermanentTransportError("worker_forward_secure_transport_unsupported")
         # Backward-compatible path for callsites/tests that monkeypatch _http_post
         # without newer keyword arguments.
         response = _http_post(url, data=data, headers=headers, timeout=timeout)
     if response is None:
-        if (
-            transport_deadline is not None
-            and transport_deadline.remaining_seconds() <= 0
-        ):
+        if transport_deadline is not None and transport_deadline.remaining_seconds() <= 0:
             raise WorkerForwardDeadlineExceeded()
         return None
     if isinstance(response, dict):
@@ -243,9 +225,7 @@ def _forward_to_worker(
     code = int(getattr(response, "status_code", 500) or 500)
     if 300 <= code < 400:
         close_http_response(response)
-        raise WorkerForwardPermanentTransportError(
-            "worker_forward_redirect_forbidden"
-        )
+        raise WorkerForwardPermanentTransportError("worker_forward_redirect_forbidden")
     if recovery_forward:
         body = _parse_bounded_recovery_worker_response(
             response,
@@ -302,9 +282,7 @@ def _forward_to_worker(
         try:
             body = response.json()
         except Exception:
-            body = {
-                "raw": str(getattr(response, "text", "") or "")[:600]
-            }
+            body = {"raw": str(getattr(response, "text", "") or "")[:600]}
     finally:
         close_http_response(response)
     return _worker_error_payload(
@@ -368,23 +346,14 @@ def _parse_bounded_worker_response(
     transport_deadline: WorkerTransportDeadline | None = None,
 ) -> Any:
     headers = getattr(response, "headers", None)
-    content_length = (
-        headers.get("Content-Length")
-        if isinstance(headers, Mapping)
-        else None
-    )
+    content_length = headers.get("Content-Length") if isinstance(headers, Mapping) else None
     try:
         declared_bytes = int(content_length)
     except (TypeError, ValueError):
         declared_bytes = None
     try:
-        if (
-            declared_bytes is not None
-            and declared_bytes > maximum_bytes
-        ):
-            raise WorkerForwardPermanentTransportError(
-                f"{reason_prefix}_too_large"
-            )
+        if declared_bytes is not None and declared_bytes > maximum_bytes:
+            raise WorkerForwardPermanentTransportError(f"{reason_prefix}_too_large")
         chunks: list[bytes] = []
         total_bytes = 0
         iter_content = getattr(response, "iter_content", None)
@@ -398,23 +367,17 @@ def _parse_bounded_worker_response(
                 transport_deadline=transport_deadline,
             )
         else:
-            content_chunks = (
-                getattr(response, "content", b""),
-            )
+            content_chunks = (getattr(response, "content", b""),)
         for chunk in content_chunks:
             if transport_deadline is not None:
                 transport_deadline.require_remaining_seconds()
             if not chunk:
                 continue
             if not isinstance(chunk, bytes):
-                raise WorkerForwardPermanentTransportError(
-                    f"{reason_prefix}_bytes_invalid"
-                )
+                raise WorkerForwardPermanentTransportError(f"{reason_prefix}_bytes_invalid")
             total_bytes += len(chunk)
             if total_bytes > maximum_bytes:
-                raise WorkerForwardPermanentTransportError(
-                    f"{reason_prefix}_too_large"
-                )
+                raise WorkerForwardPermanentTransportError(f"{reason_prefix}_too_large")
             chunks.append(chunk)
         try:
             parsed = json.loads(b"".join(chunks))
@@ -424,13 +387,9 @@ def _parse_bounded_worker_response(
             UnicodeError,
             ValueError,
         ) as exc:
-            raise WorkerForwardPermanentTransportError(
-                f"{reason_prefix}_json_invalid"
-            ) from exc
+            raise WorkerForwardPermanentTransportError(f"{reason_prefix}_json_invalid") from exc
         if not isinstance(parsed, Mapping):
-            raise WorkerForwardPermanentTransportError(
-                f"{reason_prefix}_json_invalid"
-            )
+            raise WorkerForwardPermanentTransportError(f"{reason_prefix}_json_invalid")
         if transport_deadline is not None:
             transport_deadline.require_remaining_seconds()
         return parsed

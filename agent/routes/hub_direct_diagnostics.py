@@ -16,6 +16,7 @@ lifecycle.
 Operator-TUI integration is a documented TODO
 (``docs/architecture/hub-direct-execution.md``).
 """
+
 from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request
@@ -180,7 +181,9 @@ def rollback_custom_tool(name: str):
 
     payload = request.get_json(silent=True) or {}
     try:
-        record = CustomToolPromotionService(registry=get_dynamic_tool_registry_service()).rollback(name, int(payload.get("version") or 0))
+        record = CustomToolPromotionService(registry=get_dynamic_tool_registry_service()).rollback(
+            name, int(payload.get("version") or 0)
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 409
     return jsonify({"name": record.get("name"), "version": record.get("version"), "status": record.get("status")})

@@ -1,9 +1,8 @@
 """Tests for AugmentContextProvider and ProviderRouter (AUG-100 to AUG-104)."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
-
-import pytest
 
 from agent.services.augment.augment_config import AugmentConfig
 from agent.services.augment.augment_context_provider import (
@@ -18,10 +17,10 @@ from agent.services.context_providers.context_provider_port import (
     ContextScope,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_health(ready: bool = True) -> MagicMock:
     h = MagicMock()
@@ -82,6 +81,7 @@ def _make_item(
 # AUG-100: Provider activation guard
 # ---------------------------------------------------------------------------
 
+
 def test_disabled_when_mcp_disabled():
     cfg = _cfg(enabled=False)
     provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True))
@@ -118,6 +118,7 @@ def test_retrieve_disabled_returns_error():
 # AUG-101: Default-deny and path policy
 # ---------------------------------------------------------------------------
 
+
 def test_default_deny_scope_with_no_allowed_paths():
     """Scope provided but allowed_paths empty (from both scope and config) → no_allowed_paths."""
     cfg = _cfg(enabled=True)
@@ -134,8 +135,7 @@ def test_no_scope_uses_config_allowed_paths():
     cfg.security.allowed_paths = ["src/"]
     fake_results = [AugmentRawResult(path="src/foo.py", snippet="x" * 10, score=0.8)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     result = provider.retrieve("query")  # no scope
     assert result.error is None
     assert len(result.items) == 1
@@ -146,8 +146,7 @@ def test_retrieve_with_fake_mcp_caller():
     cfg.security.allowed_paths = ["src/"]
     fake_results = [AugmentRawResult(path="src/foo.py", snippet="x" * 100, score=0.8)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     result = provider.retrieve("query", scope=_scope(allowed=["src/"], denied=[]))
     assert result.error is None
     assert len(result.items) == 1
@@ -162,8 +161,7 @@ def test_denied_path_blocked():
     cfg.security.allowed_paths = []
     fake_results = [AugmentRawResult(path=".env", snippet="SECRET=abc", score=0.9)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     result = provider.retrieve("query")
     assert result.items == []
     assert result.provider_metadata.get("blocked", 0) >= 1
@@ -175,8 +173,7 @@ def test_denied_path_not_forwarded_to_mcp():
     cfg.security.allowed_paths = ["src/"]
     cfg.security.denied_paths = [".env", "secrets"]
     mcp_caller = MagicMock(return_value=[])
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     provider.retrieve("query", scope=_scope(allowed=["src/"], denied=[]))
     call_args = mcp_caller.call_args[0][0]
     assert "denied_paths" not in call_args
@@ -192,8 +189,7 @@ def test_always_blocked_segments_filtered():
         AugmentRawResult(path="node_modules/foo/index.js", snippet="module", score=0.7),
     ]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     result = provider.retrieve("query")
     assert result.items == []
     assert result.provider_metadata.get("blocked", 0) >= 1
@@ -203,14 +199,14 @@ def test_always_blocked_segments_filtered():
 # AUG-103: Snippet and char limits
 # ---------------------------------------------------------------------------
 
+
 def test_snippet_truncated():
     """Snippets longer than MAX_SNIPPET_CHARS are clipped (AUG-103)."""
     cfg = _cfg(enabled=True)
     long_snippet = "a" * 5000
     fake_results = [AugmentRawResult(path="src/big.py", snippet=long_snippet, score=0.7)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     result = provider.retrieve("query", scope=_scope(allowed=["src/"], denied=[]))
     assert result.truncated is True
     assert len(result.items) == 1
@@ -225,8 +221,7 @@ def test_snippet_not_truncated_when_within_limit():
     snippet = "x" * 100
     fake_results = [AugmentRawResult(path="src/small.py", snippet=snippet, score=0.7)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     result = provider.retrieve("query", scope=_scope(allowed=["src/"], denied=[]))
     assert result.truncated is False
     assert result.items[0].redaction_state == "clean"
@@ -236,14 +231,10 @@ def test_snippet_not_truncated_when_within_limit():
 def test_max_results_capped_by_config():
     cfg = _cfg(enabled=True)
     cfg.mcp.max_results = 3
-    fake_results = [
-        AugmentRawResult(path=f"src/f{i}.py", snippet="x", score=0.5)
-        for i in range(10)
-    ]
+    fake_results = [AugmentRawResult(path=f"src/f{i}.py", snippet="x", score=0.5) for i in range(10)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
-    result = provider.retrieve("query", scope=_scope(allowed=["src/"], denied=[]))
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
+    provider.retrieve("query", scope=_scope(allowed=["src/"], denied=[]))
     # MCP is called with max_results <= config.mcp.max_results
     call_args = mcp_caller.call_args[0][0]
     assert call_args["max_results"] <= 3
@@ -252,6 +243,7 @@ def test_max_results_capped_by_config():
 # ---------------------------------------------------------------------------
 # Capabilities and health surface
 # ---------------------------------------------------------------------------
+
 
 def test_capabilities_semantic_search_not_cross_repo():
     """Augment provider supports semantic search and is workspace-scoped, not cross-repo."""
@@ -295,13 +287,13 @@ def test_health_returns_unavailable_when_not_ready():
 # AUG-104: Stats / audit trail
 # ---------------------------------------------------------------------------
 
+
 def test_stats_recorded_after_retrieve():
     cfg = _cfg(enabled=True)
     cfg.security.allowed_paths = ["src/"]
     fake_results = [AugmentRawResult(path="src/a.py", snippet="code", score=0.7)]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     provider.retrieve("my query", scope=_scope(allowed=["src/"], denied=[]))
     stats = provider.last_stats()
     assert stats is not None
@@ -319,8 +311,7 @@ def test_stats_tracks_blocked_items():
         AugmentRawResult(path="src/ok.py", snippet="code", score=0.7),
     ]
     mcp_caller = MagicMock(return_value=fake_results)
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True),
-                                      mcp_caller=mcp_caller)
+    provider = AugmentContextProvider(config=cfg, health_status=_mock_health(True), mcp_caller=mcp_caller)
     provider.retrieve("q")
     stats = provider.last_stats()
     assert stats is not None
@@ -330,6 +321,7 @@ def test_stats_tracks_blocked_items():
 # ---------------------------------------------------------------------------
 # AUG-102: ProviderRouter
 # ---------------------------------------------------------------------------
+
 
 def _fake_cc(items: list[ContextItem] | None = None) -> object:
     class FakeCC:
@@ -343,6 +335,7 @@ def _fake_cc(items: list[ContextItem] | None = None) -> object:
                 truncated=False,
                 error=None,
             )
+
     return FakeCC()
 
 
@@ -361,6 +354,7 @@ def _fake_aug(items: list[ContextItem] | None = None, enabled: bool = True) -> o
                 truncated=False,
                 error=None,
             )
+
     return FakeAug()
 
 
@@ -379,8 +373,7 @@ def test_router_codecompass_only_uses_only_cc():
 def test_router_codecompass_only_ignores_augment():
     """Even if augment has results, CODECOMPASS_ONLY never calls it."""
     cc_items = [_make_item(item_id="1", provider="cc", path="a.py", score=0.5)]
-    aug_items = [_make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9,
-                            source_kind="augment_mcp")]
+    aug_items = [_make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9, source_kind="augment_mcp")]
     router = ProviderRouter(
         codecompass_provider=_fake_cc(cc_items),
         augment_provider=_fake_aug(aug_items),
@@ -391,8 +384,7 @@ def test_router_codecompass_only_ignores_augment():
 
 
 def test_router_augment_only_returns_aug_items():
-    aug_items = [_make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9,
-                            source_kind="augment_mcp")]
+    aug_items = [_make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9, source_kind="augment_mcp")]
     router = ProviderRouter(
         codecompass_provider=_fake_cc([]),
         augment_provider=_fake_aug(aug_items, enabled=True),
@@ -415,8 +407,7 @@ def test_router_augment_only_disabled_returns_empty():
 
 def test_router_hybrid_fallback_uses_aug_when_cc_empty():
     """When CC returns no items (avg_score=0 < threshold), Augment is called."""
-    aug_item = _make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9,
-                          source_kind="augment_mcp")
+    aug_item = _make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9, source_kind="augment_mcp")
     router = ProviderRouter(
         codecompass_provider=_fake_cc([]),
         augment_provider=_fake_aug([aug_item], enabled=True),
@@ -430,8 +421,7 @@ def test_router_hybrid_fallback_uses_aug_when_cc_empty():
 def test_router_hybrid_fallback_skips_aug_when_cc_good():
     """When CC items have high avg_score, Augment is NOT called."""
     cc_items = [_make_item(item_id="1", provider="cc", path="a.py", score=0.9)]
-    aug_item = _make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.5,
-                          source_kind="augment_mcp")
+    aug_item = _make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.5, source_kind="augment_mcp")
     router = ProviderRouter(
         codecompass_provider=_fake_cc(cc_items),
         augment_provider=_fake_aug([aug_item], enabled=True),
@@ -444,8 +434,7 @@ def test_router_hybrid_fallback_skips_aug_when_cc_good():
 
 def test_router_hybrid_parallel_merges_results():
     cc_item = _make_item(item_id="1", provider="cc", path="a.py", score=0.8)
-    aug_item = _make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9,
-                          source_kind="augment_mcp")
+    aug_item = _make_item(item_id="2", provider="augment_mcp", path="b.py", score=0.9, source_kind="augment_mcp")
     router = ProviderRouter(
         codecompass_provider=_fake_cc([cc_item]),
         augment_provider=_fake_aug([aug_item], enabled=True),
@@ -460,8 +449,7 @@ def test_router_hybrid_parallel_merges_results():
 def test_router_hybrid_parallel_deduplicates():
     """Same path from both providers → keep only the higher-score hit."""
     cc_item = _make_item(item_id="1", provider="cc", path="a.py", score=0.8)
-    aug_item = _make_item(item_id="2", provider="augment_mcp", path="a.py", score=0.7,
-                          source_kind="augment_mcp")
+    aug_item = _make_item(item_id="2", provider="augment_mcp", path="a.py", score=0.7, source_kind="augment_mcp")
     router = ProviderRouter(
         codecompass_provider=_fake_cc([cc_item]),
         augment_provider=_fake_aug([aug_item], enabled=True),

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import tempfile
 import threading
@@ -75,12 +75,7 @@ class DuckDBSnapshotManager:
         return hashlib.sha256(raw).hexdigest()
 
     def pointer_path(self, scope: VectorScope) -> Path:
-        return (
-            Path(self._config.snapshot_root)
-            / "pointers"
-            / self._scope_key(scope)
-            / self._config.active_pointer_name
-        )
+        return Path(self._config.snapshot_root) / "pointers" / self._scope_key(scope) / self._config.active_pointer_name
 
     def snapshot_path(self, scope: VectorScope, fingerprint: str, version: str) -> Path:
         folder = self._snapshot_folder(scope, fingerprint)

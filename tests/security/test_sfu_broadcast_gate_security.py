@@ -48,13 +48,18 @@ class _Crypto:
 def _service(state=DigestKeyLifecycleState.ACTIVE):
     scope = SfuMemberDigestScope("tenant-a", "room-a", "publication-a", 4)
     record = DigestKeyMetadata(
-        "key-a", "HMAC-SHA256", 1, 1, scope.fingerprint(), state,
-        NOW - timedelta(seconds=1), NOW + timedelta(hours=1), NOW,
+        "key-a",
+        "HMAC-SHA256",
+        1,
+        1,
+        scope.fingerprint(),
+        state,
+        NOW - timedelta(seconds=1),
+        NOW + timedelta(hours=1),
+        NOW,
     )
     reader = _Reader(record)
-    return SfuMemberDigestKeyContractService(
-        reader=reader, writer=_Writer(), crypto=_Crypto(), clock=_Clock()
-    ), scope
+    return SfuMemberDigestKeyContractService(reader=reader, writer=_Writer(), crypto=_Crypto(), clock=_Clock()), scope
 
 
 def test_cross_tenant_room_publication_and_epoch_digest_replay_fails_closed() -> None:
@@ -82,16 +87,9 @@ def test_destroyed_or_compromised_key_cannot_verify_prior_authority() -> None:
 
 
 def test_gate_report_scanner_detects_secret_pii_and_unverified_identifiers() -> None:
-    assert "gate_pii_pattern_detected" in scan_content_free_document(
-        {"diagnostic": "person@example.test"}
-    )
-    assert "gate_credential_pattern_detected" in scan_content_free_document(
-        {"diagnostic": "Bearer opaque-test-value"}
-    )
-    assert "gate_private_network_identifier_detected" in scan_content_free_document(
-        {"diagnostic": "192.168.10.20"}
-    )
+    assert "gate_pii_pattern_detected" in scan_content_free_document({"diagnostic": "person@example.test"})
+    assert "gate_credential_pattern_detected" in scan_content_free_document({"diagnostic": "Bearer opaque-test-value"})
+    assert "gate_private_network_identifier_detected" in scan_content_free_document({"diagnostic": "192.168.10.20"})
     assert "gate_unverified_source_run_identifier_detected" in scan_content_free_document(
         {"diagnostic": "RUN_NOT_VERIFIED"}
     )
-

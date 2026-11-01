@@ -186,10 +186,7 @@ def get_worker_execution_context(
             task_id=tid,
         )
     except ContextBundleTaskAccessError as exc:
-        if (
-            exc.reason_code != CONTEXT_BUNDLE_NOT_FOUND
-            or not isinstance(execution_context.get("context"), dict)
-        ):
+        if exc.reason_code != CONTEXT_BUNDLE_NOT_FOUND or not isinstance(execution_context.get("context"), dict):
             raise
         # Legacy Hub tasks may carry an embedded context with a synthetic
         # bundle reference that was never persisted. Generic task ingress
@@ -213,20 +210,12 @@ def get_worker_execution_context(
         )
         execution_context["worker_profile"] = profile
         execution_context["profile_source"] = profile_source
-        auto_bundle_cfg = dict(
-            (agent_cfg.get("worker_runtime") or {}).get("codecompass_auto_bundle") or {}
-        )
-        if auto_bundle_cfg.get("enabled") and not list(
-            (execution_context.get("context") or {}).get("chunks") or []
-        ):
+        auto_bundle_cfg = dict((agent_cfg.get("worker_runtime") or {}).get("codecompass_auto_bundle") or {})
+        if auto_bundle_cfg.get("enabled") and not list((execution_context.get("context") or {}).get("chunks") or []):
             kind_filter = [
-                str(k).strip().lower()
-                for k in list(auto_bundle_cfg.get("task_kinds") or [])
-                if str(k).strip()
+                str(k).strip().lower() for k in list(auto_bundle_cfg.get("task_kinds") or []) if str(k).strip()
             ]
-            routing_kind = str(
-                (execution_context.get("routing_hints") or {}).get("task_kind") or ""
-            ).strip().lower()
+            routing_kind = str((execution_context.get("routing_hints") or {}).get("task_kind") or "").strip().lower()
             if not kind_filter or not routing_kind or routing_kind in kind_filter:
                 try:
                     resolved = get_context_manager_service().ensure_task_context_bundle(
@@ -238,10 +227,7 @@ def get_worker_execution_context(
                     if bundle:
                         ctx = dict(execution_context.get("context") or {})
                         ctx.setdefault("chunks", []).extend(list(bundle.chunks or []))
-                        ctx["token_estimate"] = (
-                            int(ctx.get("token_estimate") or 0)
-                            + int(bundle.token_estimate or 0)
-                        )
+                        ctx["token_estimate"] = int(ctx.get("token_estimate") or 0) + int(bundle.token_estimate or 0)
                         if not ctx.get("context_text") and bundle.context_text:
                             ctx["context_text"] = bundle.context_text
                         execution_context["context"] = ctx
@@ -348,7 +334,9 @@ def prepare_task_cli_session(
     opencode_execution_mode = resolve_opencode_execution_mode(agent_cfg)
     opencode_interactive_launch_mode = resolve_opencode_interactive_launch_mode(agent_cfg)
     terminal_execution_mode = (
-        opencode_execution_mode if backend_name == "opencode" and opencode_execution_mode in {"live_terminal", "interactive_terminal"} else None
+        opencode_execution_mode
+        if backend_name == "opencode" and opencode_execution_mode in {"live_terminal", "interactive_terminal"}
+        else None
     )
     if not terminal_execution_mode and (not policy["enabled"] or not policy["allow_task_scoped_auto_session"]):
         return None
@@ -372,7 +360,11 @@ def prepare_task_cli_session(
             scope_kind=scope_kind,
         )
     session_reused = False
-    if session and str(session.get("status") or "").strip().lower() == "active" and str(session.get("backend") or "").strip().lower() == backend_name:
+    if (
+        session
+        and str(session.get("status") or "").strip().lower() == "active"
+        and str(session.get("backend") or "").strip().lower() == backend_name
+    ):
         session_payload = dict(session)
         session_reused = True
     else:
@@ -433,6 +425,7 @@ def prepare_task_cli_session(
         )
     if terminal_execution_mode:
         import agent.services.task_scoped_execution_service as _svc_mod
+
         terminal_meta = (
             _svc_mod.get_live_terminal_session_service().ensure_session_for_cli(
                 session_payload,
@@ -446,8 +439,12 @@ def prepare_task_cli_session(
             if isinstance(verification.get("interactive_terminal_workspace"), dict)
             else {}
         )
-        if terminal_execution_mode == "interactive_terminal" and not interactive_terminal_workspace.get("baseline_ready"):
-            baseline_meta = get_worker_workspace_service().refresh_interactive_terminal_baseline(workspace_dir=Path(workspace_dir))
+        if terminal_execution_mode == "interactive_terminal" and not interactive_terminal_workspace.get(
+            "baseline_ready"
+        ):
+            baseline_meta = get_worker_workspace_service().refresh_interactive_terminal_baseline(
+                workspace_dir=Path(workspace_dir)
+            )
             interactive_terminal_workspace = {
                 "baseline_ready": True,
                 **baseline_meta,
@@ -487,7 +484,8 @@ def prepare_task_cli_session(
 
         runtime_meta = get_opencode_runtime_service().ensure_session_runtime(session_payload, model=model)
         session_payload = (
-            get_cli_session_service().get_session(str(session_payload.get("id") or ""), include_history=False) or session_payload
+            get_cli_session_service().get_session(str(session_payload.get("id") or ""), include_history=False)
+            or session_payload
         )
         verification["cli_session"] = {
             **verification.get("cli_session", {}),
@@ -653,16 +651,12 @@ def build_task_propose_prompt(
                 prompt_sections.append(f"Kurzvorschau Research-Kontext: {research_preview}")
     if allowed_tools:
         prompt_sections.append(
-            "Tool-Scope fuer diesen Task (nur diese Tools verwenden): "
-            + ", ".join(str(item) for item in allowed_tools)
+            "Tool-Scope fuer diesen Task (nur diese Tools verwenden): " + ", ".join(str(item) for item in allowed_tools)
         )
-    prompt_sections.append(
-        f"Worker-Ausfuehrungsprofil: {worker_profile} (source={profile_source})."
-    )
+    prompt_sections.append(f"Worker-Ausfuehrungsprofil: {worker_profile} (source={profile_source}).")
     if expected_output_schema and not compact_profile and not mutation_instructions:
         prompt_sections.append(
-            "Erwartetes Output-Schema (Kurzfassung): "
-            + json.dumps(expected_output_schema, ensure_ascii=False)[:400]
+            "Erwartetes Output-Schema (Kurzfassung): " + json.dumps(expected_output_schema, ensure_ascii=False)[:400]
         )
     if stack_diagnostics and not compact_profile:
         prompt_sections.append(get_instruction_layer_service().render_diagnostics_brief(stack_diagnostics))
@@ -799,12 +793,20 @@ def routing_dimensions(
     requested = str(requested_backend or "auto").strip().lower()
     normalized_profile = normalize_worker_execution_profile(worker_profile)
     normalized_profile_source = str(profile_source or "agent_default").strip().lower() or "agent_default"
-    cfg = agent_cfg if isinstance(agent_cfg, dict) else ((current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {})
+    cfg = (
+        agent_cfg
+        if isinstance(agent_cfg, dict)
+        else ((current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {})
+    )
     runtime_cfg = cfg.get("worker_runtime") if isinstance(cfg.get("worker_runtime"), dict) else {}
-    native_runtime_cfg = runtime_cfg.get("native_worker_runtime") if isinstance(runtime_cfg.get("native_worker_runtime"), dict) else {}
+    native_runtime_cfg = (
+        runtime_cfg.get("native_worker_runtime") if isinstance(runtime_cfg.get("native_worker_runtime"), dict) else {}
+    )
     runtime_path = None
     if backend == "ananta-worker":
-        runtime_path = "native_worker_pipeline" if bool(native_runtime_cfg.get("enabled", False)) else "sgpt_fallback_proxy"
+        runtime_path = (
+            "native_worker_pipeline" if bool(native_runtime_cfg.get("enabled", False)) else "sgpt_fallback_proxy"
+        )
     dimensions = {
         "requested_backend": requested or "auto",
         "execution_backend": backend or requested or "sgpt",
@@ -825,7 +827,9 @@ def routing_dimensions(
         runtime_cfg = resolve_codex_runtime_config() if has_app_context() else {}
         dimensions.update(
             {
-                "inference_provider": runtime_cfg.get("target_provider") or str(cfg.get("default_provider") or "").strip().lower() or "openai_compatible",
+                "inference_provider": runtime_cfg.get("target_provider")
+                or str(cfg.get("default_provider") or "").strip().lower()
+                or "openai_compatible",
                 "inference_base_url": runtime_cfg.get("base_url"),
                 "inference_target_kind": runtime_cfg.get("target_kind"),
                 "inference_target_provider_type": runtime_cfg.get("target_provider_type"),

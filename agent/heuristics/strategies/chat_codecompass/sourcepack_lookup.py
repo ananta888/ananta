@@ -1,4 +1,5 @@
 """SourcePackLookupStrategy — chat_codecompass_sourcepack_lookup_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import CodeCompassReadPort, HeuristicStrategyBase
@@ -8,8 +9,18 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _TECHNICAL_KEYWORDS = (
-    "api", "service", "repository", "config", "schema", "model",
-    "controller", "handler", "util", "helper", "type", "interface",
+    "api",
+    "service",
+    "repository",
+    "config",
+    "schema",
+    "model",
+    "controller",
+    "handler",
+    "util",
+    "helper",
+    "type",
+    "interface",
 )
 
 

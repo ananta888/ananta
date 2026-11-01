@@ -1,7 +1,6 @@
 """Tests für Heuristic Simulator (T06.05)."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.services.heuristic_runtime.heuristic_simulator import (
     HeuristicSimulator,

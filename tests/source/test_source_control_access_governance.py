@@ -159,11 +159,14 @@ def test_unbound_legacy_objects_are_admin_only() -> None:
         roles=frozenset({"admin"}),
     )
 
-    assert policy.authorize(
-        principal=user,
-        action=SourceControlAction.detail,
-        binding=binding,
-    ).status_code == 404
+    assert (
+        policy.authorize(
+            principal=user,
+            action=SourceControlAction.detail,
+            binding=binding,
+        ).status_code
+        == 404
+    )
     admin_decision = policy.authorize(
         principal=admin,
         action=SourceControlAction.detail,

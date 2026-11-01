@@ -4,6 +4,7 @@ The audit facade is imported lazily on every call so that tests patching
 ``agent.common.audit.audit_workspace_mutation_event`` observe the events.
 Audit failures never break the loop (best effort, as before the split).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,12 +14,12 @@ _VIOLATING_SOURCE_LINE_DECISIONS = {"blocked", "followup_required"}
 
 
 def _blocked_change_ids(blocked_changes: list[Any]) -> list[str]:
-    return [f"{row.get('path','')}:{row.get('reason','')}" for row in blocked_changes if isinstance(row, dict)]
+    return [f"{row.get('path', '')}:{row.get('reason', '')}" for row in blocked_changes if isinstance(row, dict)]
 
 
 def _source_line_violation_ids(source_line_result: dict[str, Any], decisions: set[str]) -> list[str]:
     return [
-        f"{row.get('path','')}:{row.get('reason_code','')}"
+        f"{row.get('path', '')}:{row.get('reason_code', '')}"
         for row in list(source_line_result.get("file_results") or [])
         if isinstance(row, dict) and str(row.get("decision") or "") in decisions
     ]

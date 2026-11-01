@@ -45,8 +45,7 @@ BUILTIN_ROLES: dict[str, dict[str, Any]] = {
     "maintainer": {
         "name": "Maintainer",
         "description": "Developer plus repository writes (patches, files) and write-class MCP tools.",
-        "grants": {"allow_groups": [*READ_GROUPS, "ananta.tool.execution.v1", "ananta.tool.write.v1",
-                                    "mcp.write.v1"]},
+        "grants": {"allow_groups": [*READ_GROUPS, "ananta.tool.execution.v1", "ananta.tool.write.v1", "mcp.write.v1"]},
     },
     "admin": {
         "name": "Admin",
@@ -148,9 +147,12 @@ def effective_grants(roles: Mapping[str, Mapping[str, Any]], role_ids: Iterable[
             elif constraints.get(key, set()) is not None:
                 constraints[key] = set(constraints.get(key) or set()) | set(role_constraints[key])
     return EffectiveGrants(
-        roles=frozenset(wanted), admin=admin,
-        allow_groups=frozenset(lists["allow_groups"]), allow_operations=frozenset(lists["allow_operations"]),
-        deny_groups=frozenset(lists["deny_groups"]), deny_operations=frozenset(lists["deny_operations"]),
+        roles=frozenset(wanted),
+        admin=admin,
+        allow_groups=frozenset(lists["allow_groups"]),
+        allow_operations=frozenset(lists["allow_operations"]),
+        deny_groups=frozenset(lists["deny_groups"]),
+        deny_operations=frozenset(lists["deny_operations"]),
         constraints={key: (frozenset(value) if value is not None else None) for key, value in constraints.items()},
     )
 

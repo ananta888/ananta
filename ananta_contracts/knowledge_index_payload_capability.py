@@ -7,10 +7,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-
-KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER = (
-    "X-Ananta-Source-Access-Manifest"
-)
+KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER = "X-Ananta-Source-Access-Manifest"
 _MAX_CAPABILITY_BYTES = 32 * 1024
 
 
@@ -43,14 +40,8 @@ def decode_knowledge_index_payload_capability(
         )
         decoded = json.loads(raw.decode("ascii"))
     except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ValueError(
-            "knowledge_index_payload_capability_invalid"
-        ) from exc
-    if (
-        not isinstance(decoded, dict)
-        or not decoded
-        or len(raw) > _MAX_CAPABILITY_BYTES
-    ):
+        raise ValueError("knowledge_index_payload_capability_invalid") from exc
+    if not isinstance(decoded, dict) or not decoded or len(raw) > _MAX_CAPABILITY_BYTES:
         raise ValueError("knowledge_index_payload_capability_invalid")
     return dict(decoded)
 

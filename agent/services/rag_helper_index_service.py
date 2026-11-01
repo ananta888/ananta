@@ -374,11 +374,7 @@ class RagHelperIndexService:
                     show_progress=show_progress,
                     error_log_file=error_log_file,
                     file_inclusion_predicate=file_type_policy.allows_file,
-                    execution_checkpoint=(
-                        execution_deadline.checkpoint
-                        if execution_deadline is not None
-                        else None
-                    ),
+                    execution_checkpoint=(execution_deadline.checkpoint if execution_deadline is not None else None),
                 )
             _checkpoint(execution_deadline)
             manifest = self._enrich_rag_helper_file_type_manifest(
@@ -463,12 +459,8 @@ class RagHelperIndexService:
             created_by=created_by,
             collection_id=scope_id,
         )
-        previous_signature = (knowledge_index.index_metadata or {}).get(
-            "file_type_contract_signature"
-        )
-        previous_fingerprint = (knowledge_index.index_metadata or {}).get(
-            "source_fingerprint"
-        )
+        previous_signature = (knowledge_index.index_metadata or {}).get("file_type_contract_signature")
+        previous_fingerprint = (knowledge_index.index_metadata or {}).get("source_fingerprint")
         if (
             knowledge_index.status == "completed"
             and previous_signature == file_type_signature
@@ -491,9 +483,7 @@ class RagHelperIndexService:
             )
             return knowledge_index, dummy_run
 
-        previous_contract = dict(
-            (knowledge_index.index_metadata or {}).get("file_type_contract") or {}
-        )
+        previous_contract = dict((knowledge_index.index_metadata or {}).get("file_type_contract") or {})
         previous_manifest = self._load_manifest(
             Path(knowledge_index.manifest_path)
             if knowledge_index.manifest_path
@@ -611,12 +601,10 @@ class RagHelperIndexService:
                     "index_record_count": manifest.get("index_record_count", 0),
                 },
             }
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(
-                scope="repo_path", status="completed", profile=profile["name"]
-            ).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(
-                scope="repo_path", profile=profile["name"]
-            ).observe(duration_ms / 1000.0)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="repo_path", status="completed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="repo_path", profile=profile["name"]).observe(
+                duration_ms / 1000.0
+            )
             self._observe_rag_helper_file_type_metrics(manifest)
             return self._knowledge_index_repo.save(knowledge_index), run
         except Exception as exc:
@@ -630,12 +618,10 @@ class RagHelperIndexService:
             knowledge_index.updated_at = time.time()
             knowledge_index.index_metadata = {**(knowledge_index.index_metadata or {}), "last_error": str(exc)[:500]}
             self._knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(
-                scope="repo_path", status="failed", profile=profile["name"]
-            ).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(
-                scope="repo_path", profile=profile["name"]
-            ).observe(duration_ms / 1000.0)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="repo_path", status="failed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="repo_path", profile=profile["name"]).observe(
+                duration_ms / 1000.0
+            )
             raise
 
     def index_source_records(
@@ -662,6 +648,7 @@ class RagHelperIndexService:
         for direct callers.
         """
         from pathlib import Path as _Path
+
         _checkpoint(execution_deadline)
         normalized_scope = self._normalize_source_scope(source_scope)
         normalized_source_id = str(source_id or "").strip()
@@ -779,10 +766,7 @@ class RagHelperIndexService:
                 )
             else:
                 index_path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
-                graph_export_mode = str(
-                    profile.get("limits", {}).get("graph_export_mode")
-                    or "off"
-                ).strip().lower()
+                graph_export_mode = str(profile.get("limits", {}).get("graph_export_mode") or "off").strip().lower()
                 graph_manifest: dict[str, Any] = {}
                 if normalized_scope == "repo_path" and graph_export_mode != "off":
                     if self._repository_graph_builder is None:

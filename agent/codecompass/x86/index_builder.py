@@ -1,8 +1,9 @@
 """X86CC-014, X86CC-016: Index builder for x86 CodeCompass records."""
+
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from agent.codecompass.x86.adapter import X86DisassemblerAdapter
@@ -100,23 +101,29 @@ class X86IndexBuilder:
         if len(instr_nodes) > limits.max_instructions:
             truncation_info["instructions_truncated"] = len(instr_nodes) - limits.max_instructions
             instr_nodes = instr_nodes[: limits.max_instructions]
-            diags.append(x86_diag_dict(
-                INDEX_TRUNCATED,
-                f"Instructions truncated to {limits.max_instructions} (prefer entry point / symbols)",
-                severity="warning",
-            ))
+            diags.append(
+                x86_diag_dict(
+                    INDEX_TRUNCATED,
+                    f"Instructions truncated to {limits.max_instructions} (prefer entry point / symbols)",
+                    severity="warning",
+                )
+            )
 
         fn_nodes = [n for n in other_nodes if n.get("kind") == "function"]
         if len(fn_nodes) > limits.max_functions:
             truncation_info["functions_truncated"] = len(fn_nodes) - limits.max_functions
             fn_nodes = fn_nodes[: limits.max_functions]
-            diags.append(x86_diag_dict(INDEX_TRUNCATED, f"Functions truncated to {limits.max_functions}", severity="warning"))
+            diags.append(
+                x86_diag_dict(INDEX_TRUNCATED, f"Functions truncated to {limits.max_functions}", severity="warning")
+            )
 
         str_nodes = [n for n in other_nodes if n.get("kind") == "string_literal"]
         if len(str_nodes) > limits.max_strings:
             truncation_info["strings_truncated"] = len(str_nodes) - limits.max_strings
             str_nodes = str_nodes[: limits.max_strings]
-            diags.append(x86_diag_dict(INDEX_TRUNCATED, f"Strings truncated to {limits.max_strings}", severity="warning"))
+            diags.append(
+                x86_diag_dict(INDEX_TRUNCATED, f"Strings truncated to {limits.max_strings}", severity="warning")
+            )
 
         non_special = [n for n in other_nodes if n.get("kind") not in {"function", "string_literal"}]
         all_nodes = _sort_nodes(non_special + fn_nodes + instr_nodes + str_nodes)
@@ -125,19 +132,23 @@ class X86IndexBuilder:
         # Annotate with provenance
         for n in all_nodes:
             n.setdefault("_provenance", {})
-            n["_provenance"].update({
-                "output_kind": "x86_nodes",
-                "adapter": adapter.name,
-                "profile": input_record.abi,
-                "source_input": input_record.kind,
-            })
+            n["_provenance"].update(
+                {
+                    "output_kind": "x86_nodes",
+                    "adapter": adapter.name,
+                    "profile": input_record.abi,
+                    "source_input": input_record.kind,
+                }
+            )
 
         for e in all_edges:
             e.setdefault("_provenance", {})
-            e["_provenance"].update({
-                "output_kind": "x86_edges",
-                "adapter": adapter.name,
-            })
+            e["_provenance"].update(
+                {
+                    "output_kind": "x86_edges",
+                    "adapter": adapter.name,
+                }
+            )
 
         profile = str(meta.get("profile") or input_record.abi or "unknown_x86")
         manifest = build_manifest(

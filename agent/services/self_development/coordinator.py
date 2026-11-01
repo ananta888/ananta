@@ -175,9 +175,7 @@ class DevelopmentCoordinator:
                         "required_capabilities": ["coding", "testing", "workflow.adapter.native", "codecompass"],
                         "depends_on": dependency_ids,
                         **(
-                            {"assigned_agent_url": item["assigned_agent_url"]}
-                            if item.get("assigned_agent_url")
-                            else {}
+                            {"assigned_agent_url": item["assigned_agent_url"]} if item.get("assigned_agent_url") else {}
                         ),
                     },
                 )
@@ -559,9 +557,9 @@ class DevelopmentCoordinator:
                 '`codecompass.plan_context` with {"query": "<what changes and why>"}`; on the opencode path the '
                 "MCP equivalent is `ananta_codecompass_codecompass_plan_context` with the same argument. "
                 "(2) fetch the authoritative excerpts with "
-                '`codecompass.get_file_context` (loop) or `ananta_codecompass_codecompass_get_file_context` '
+                "`codecompass.get_file_context` (loop) or `ananta_codecompass_codecompass_get_file_context` "
                 '(opencode), arguments {"paths": [<files you change>], "line_ranges": [{path, line_start, '
-                'line_end}]}. Do not read those files with your own read tools: the Hub binds exactly these '
+                "line_end}]}. Do not read those files with your own read tools: the Hub binds exactly these "
                 "CodeCompass ranges to this task and blocks publication without them."
                 + "\nRun exactly: "
                 + profile["command"]
@@ -753,7 +751,10 @@ class DevelopmentCoordinator:
             event_details={"worker_url": worker_url, "recovered_from_workspace": True},
             last_output="recovered from workspace artifacts",
             last_exit_code=0,
-            last_proposal={"command": command, "reason": "Workspace mutation finished; execute Hub-allowlisted verification"},
+            last_proposal={
+                "command": command,
+                "reason": "Workspace mutation finished; execute Hub-allowlisted verification",
+            },
         )
         return True
 

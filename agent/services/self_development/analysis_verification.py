@@ -1,4 +1,5 @@
 """Hub verification of the delegated runtime's source-analysis prerequisite."""
+
 from __future__ import annotations
 
 import hashlib
@@ -20,7 +21,7 @@ class AnalysisVerificationError(ValueError):
 class ObservedRange(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
     path: str
-    file_sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+    file_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     line_start: int = Field(ge=1)
     line_end: int = Field(ge=1)
 
@@ -36,7 +37,7 @@ class RecordedAnalysis(BaseModel):
 class AnalysisObservation(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
     required: Literal[True]
-    status: Literal['accepted']
+    status: Literal["accepted"]
     # The gateway rejects a report that cannot show a CodeCompass observation: the
     # flag is deliberately a Literal so `codecompass_observed: false` fails schema
     # validation before it could ever be verified (see
@@ -48,14 +49,13 @@ class AnalysisObservation(BaseModel):
 
 class WorkerAnalysisReport(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
-    schema_name: Literal['ananta_worker_mutation_report.v1'] = Field(alias='schema')
+    schema_name: Literal["ananta_worker_mutation_report.v1"] = Field(alias="schema")
     task_id: str
-    outcome: Literal['final_answer']
+    outcome: Literal["final_answer"]
     code_analysis: AnalysisObservation
 
 
-def verify_worker_analysis(workspace: Path, *, task_id: str,
-                           baseline: Mapping[str, str]) -> WorkerAnalysisReport:
+def verify_worker_analysis(workspace: Path, *, task_id: str, baseline: Mapping[str, str]) -> WorkerAnalysisReport:
     """Bind observed source ranges to real bytes of this Task's workspace.
 
     A citation is grounded when it names the exported revision (pre-write) or
@@ -65,12 +65,11 @@ def verify_worker_analysis(workspace: Path, *, task_id: str,
     invented and fail closed.
     """
     try:
-        report = WorkerAnalysisReport.model_validate_json(
-            read_source(workspace, '.ananta/mutation-report.json'))
+        report = WorkerAnalysisReport.model_validate_json(read_source(workspace, ".ananta/mutation-report.json"))
     except (OSError, ValueError) as exc:
-        raise AnalysisVerificationError('worker_code_analysis_report_required') from exc
+        raise AnalysisVerificationError("worker_code_analysis_report_required") from exc
     if report.task_id != task_id:
-        raise AnalysisVerificationError('worker_code_analysis_task_mismatch')
+        raise AnalysisVerificationError("worker_code_analysis_task_mismatch")
     observation = report.code_analysis
     for ref in observation.analysis.sources:
         grounded = baseline.get(ref.path) == ref.file_sha256
@@ -80,9 +79,11 @@ def verify_worker_analysis(workspace: Path, *, task_id: str,
             except ValueError:
                 current = None
             grounded = current == ref.file_sha256
-        if (not grounded
-                or not any(source.path == ref.path and source.file_sha256 == ref.file_sha256
-                    and source.line_start <= ref.line_start <= ref.line_end <= source.line_end
-                    for source in observation.observed_sources)):
-            raise AnalysisVerificationError('worker_code_analysis_source_mismatch')
+        if not grounded or not any(
+            source.path == ref.path
+            and source.file_sha256 == ref.file_sha256
+            and source.line_start <= ref.line_start <= ref.line_end <= source.line_end
+            for source in observation.observed_sources
+        ):
+            raise AnalysisVerificationError("worker_code_analysis_source_mismatch")
     return report

@@ -12,13 +12,13 @@ from agent.services.critical_workflow_state_service import get_critical_workflow
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.integration_registry_service import get_integration_registry_service
-from agent.services.operations_observability_service import get_operations_observability_service
 from agent.services.operation_policy_observability_service import get_operation_policy_observability_service
 from agent.services.operation_policy_service import (
     OperationAuthContext,
     get_operation_policy_service,
 )
 from agent.services.operation_registry_service import get_operation_registry_service
+from agent.services.operations_observability_service import get_operations_observability_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.task_context_bundle_access_service import (
@@ -154,8 +154,7 @@ class ConfigReadModelService:
                         for decision in result.decisions
                     ],
                     "blocked_candidates": [
-                        {"profile_id": profile_id, "reason": reason}
-                        for profile_id, reason in result.blocked_candidates
+                        {"profile_id": profile_id, "reason": reason} for profile_id, reason in result.blocked_candidates
                     ],
                 }
             )
@@ -164,7 +163,9 @@ class ConfigReadModelService:
             "status": "loaded",
             "profiles": [_profile_row(profile) for profile in profiles],
             "matrix": matrix,
-            "benchmark_ranking": resolver.benchmark_ranking_read_model() if hasattr(resolver, "benchmark_ranking_read_model") else {},
+            "benchmark_ranking": resolver.benchmark_ranking_read_model()
+            if hasattr(resolver, "benchmark_ranking_read_model")
+            else {},
             "effective_winner": {
                 "profile_id": winner.profile.profile_id if winner.profile else None,
                 "provider_id": winner.profile.provider_id if winner.profile else None,
@@ -172,8 +173,7 @@ class ConfigReadModelService:
                 "final_source": winner.final_source,
                 "final_rank": winner.final_rank,
                 "blocked_candidates": [
-                    {"profile_id": profile_id, "reason": reason}
-                    for profile_id, reason in winner.blocked_candidates
+                    {"profile_id": profile_id, "reason": reason} for profile_id, reason in winner.blocked_candidates
                 ],
             },
         }
@@ -210,16 +210,13 @@ class ConfigReadModelService:
             final_candidates = max(0, int(candidate_counts.get("final") or 0))
             duplicate_rate = min(
                 1.0,
-                float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0)) / float(all_candidates),
+                float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0))
+                / float(all_candidates),
             )
             noise_rate = min(1.0, max(0.0, float(all_candidates - final_candidates) / float(all_candidates)))
             entries.append(
                 {
-                    "task_kind": str(
-                        retrieval_hints.get("task_kind")
-                        or task.get("task_kind")
-                        or "unknown"
-                    ).strip()
+                    "task_kind": str(retrieval_hints.get("task_kind") or task.get("task_kind") or "unknown").strip()
                     or "unknown",
                     "bundle_mode": str(context_policy.get("mode") or "unknown").strip() or "unknown",
                     "window_profile": str(context_policy.get("window_profile") or "unknown").strip() or "unknown",
@@ -264,7 +261,9 @@ class ConfigReadModelService:
             "by_window_profile": _aggregate("window_profile"),
         }
 
-    def _build_critical_workflow_observability(self, tasks: list[dict], *, max_tasks: int = 120, max_proposals_per_task: int = 8) -> dict:
+    def _build_critical_workflow_observability(
+        self, tasks: list[dict], *, max_tasks: int = 120, max_proposals_per_task: int = 8
+    ) -> dict:
         repos = get_repository_registry()
         workflow_service = get_critical_workflow_state_service()
         recent_tasks = sorted(
@@ -289,7 +288,9 @@ class ConfigReadModelService:
             task_id = str(task.get("id") or "").strip()
             if not task_id:
                 continue
-            for proposal in repos.evolution_proposal_repo.get_by_task_id(task_id, limit=max(1, int(max_proposals_per_task))):
+            for proposal in repos.evolution_proposal_repo.get_by_task_id(
+                task_id, limit=max(1, int(max_proposals_per_task))
+            ):
                 proposal_id = str(getattr(proposal, "id", "") or "").strip()
                 if not proposal_id or proposal_id in seen_proposals:
                     continue
@@ -309,8 +310,12 @@ class ConfigReadModelService:
 
                 sample_size += 1
                 transition_count_total += len(history)
-                blocked_events = sum(1 for event in history if str((event or {}).get("to_state") or "").strip().lower() == "blocked")
-                timeout_events = sum(1 for event in history if str((event or {}).get("to_state") or "").strip().lower() == "timeout")
+                blocked_events = sum(
+                    1 for event in history if str((event or {}).get("to_state") or "").strip().lower() == "blocked"
+                )
+                timeout_events = sum(
+                    1 for event in history if str((event or {}).get("to_state") or "").strip().lower() == "timeout"
+                )
                 blocked_transition_count += blocked_events
                 timeout_transition_count += timeout_events
                 if not bool(replay.get("valid")):
@@ -448,7 +453,9 @@ class ConfigReadModelService:
             tasks=tasks if include_task_snapshot else [],
             config=cfg,
         )
-        critical_workflow_observability = self._build_critical_workflow_observability(tasks if include_task_snapshot else [])
+        critical_workflow_observability = self._build_critical_workflow_observability(
+            tasks if include_task_snapshot else []
+        )
         contract_catalog = contract_catalog_builder()
         task_status_contract = build_task_status_contract()
         task_state_machine = build_task_state_machine_contract()
@@ -462,7 +469,9 @@ class ConfigReadModelService:
             "model": str(llm_cfg.get("model") or "").strip() or None,
             "active": bool(llm_cfg.get("provider") or llm_cfg.get("model")),
             "source": {
-                "provider": "agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider",
+                "provider": "agent_config.llm_config.provider"
+                if llm_cfg.get("provider")
+                else "agent_config.default_provider",
                 "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
             },
         }
@@ -470,23 +479,30 @@ class ConfigReadModelService:
             "provider": explicit_override["provider"] or effective_default_provider,
             "model": explicit_override["model"] or effective_default_model,
             "mode": "explicit_override" if explicit_override["active"] else "default_config",
-            "source": explicit_override["source"] if explicit_override["active"] else {
-                "provider": "agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider",
+            "source": explicit_override["source"]
+            if explicit_override["active"]
+            else {
+                "provider": "agent_config.llm_config.provider"
+                if llm_cfg.get("provider")
+                else "agent_config.default_provider",
                 "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
             },
         }
-        recommended_runtime = benchmark_recommendation.get("recommended") if isinstance(benchmark_recommendation, dict) else None
+        recommended_runtime = (
+            benchmark_recommendation.get("recommended") if isinstance(benchmark_recommendation, dict) else None
+        )
         codex_runtime = resolve_codex_runtime_config()
         routing_decision_service = get_routing_decision_service()
         routing_fallback_policy = routing_decision_service.resolve_fallback_policy(cfg)
-        planning_learning_summary = planning_learning_summary_builder(cfg) if callable(planning_learning_summary_builder) else {}
+        planning_learning_summary = (
+            planning_learning_summary_builder(cfg) if callable(planning_learning_summary_builder) else {}
+        )
         effective_runtime = {
             "provider": (recommended_runtime or {}).get("provider") or configured_runtime["provider"],
             "model": (recommended_runtime or {}).get("model") or configured_runtime["model"],
             "mode": "benchmark_recommendation" if recommended_runtime else configured_runtime["mode"],
             "selection_source": (
-                (recommended_runtime or {}).get("selection_source")
-                or configured_runtime["source"]["provider"]
+                (recommended_runtime or {}).get("selection_source") or configured_runtime["source"]["provider"]
             ),
             "benchmark_applied": bool(recommended_runtime),
             "replaces_configured": bool(
@@ -523,13 +539,20 @@ class ConfigReadModelService:
         research_backend_cfg = resolve_research_backend_config(agent_cfg=cfg)
         research_backend_review = review_policy(cfg, research_backend_cfg.get("provider"), "research")
         exposure_policy = get_exposure_policy_service().normalize_exposure_policy((cfg or {}).get("exposure_policy"))
-        cli_session_mode = (cfg or {}).get("cli_session_mode") if isinstance((cfg or {}).get("cli_session_mode"), dict) else {}
-        propose_policy_cfg = (cfg or {}).get("propose_policy") if isinstance((cfg or {}).get("propose_policy"), dict) else {}
+        cli_session_mode = (
+            (cfg or {}).get("cli_session_mode") if isinstance((cfg or {}).get("cli_session_mode"), dict) else {}
+        )
+        propose_policy_cfg = (
+            (cfg or {}).get("propose_policy") if isinstance((cfg or {}).get("propose_policy"), dict) else {}
+        )
         propose_policy_summary = {
             "context_compaction_enabled": bool(propose_policy_cfg.get("context_compaction_enabled", True)),
             "context_compaction_required": bool(propose_policy_cfg.get("context_compaction_required", False)),
             "context_compactor_fail_open": bool(propose_policy_cfg.get("context_compactor_fail_open", False)),
-            "context_compactor_profile": str(propose_policy_cfg.get("context_compactor_profile") or "default").strip().lower() or "default",
+            "context_compactor_profile": str(propose_policy_cfg.get("context_compactor_profile") or "default")
+            .strip()
+            .lower()
+            or "default",
         }
         task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
         recent_timeline = []
@@ -575,8 +598,12 @@ class ConfigReadModelService:
                     "provider": effective_default_provider,
                     "model": effective_default_model,
                     "source": {
-                        "provider": "agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider",
-                        "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
+                        "provider": "agent_config.llm_config.provider"
+                        if llm_cfg.get("provider")
+                        else "agent_config.default_provider",
+                        "model": "agent_config.llm_config.model"
+                        if llm_cfg.get("model")
+                        else "agent_config.default_model",
                     },
                 },
                 "explicit_override": explicit_override,
@@ -587,13 +614,23 @@ class ConfigReadModelService:
                 "artifact_flow": artifact_flow_summary_builder(cfg),
                 "planning_learning": planning_learning_summary,
                 "opencode_runtime": {
-                    "tool_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("tool_mode") or "full")).strip().lower()
+                    "tool_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("tool_mode") or "full"))
+                    .strip()
+                    .lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)
                     else "full",
-                    "execution_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("execution_mode") or "live_terminal")).strip().lower()
+                    "execution_mode": str(
+                        (((cfg or {}).get("opencode_runtime") or {}).get("execution_mode") or "live_terminal")
+                    )
+                    .strip()
+                    .lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)
                     else "live_terminal",
-                    "interactive_launch_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("interactive_launch_mode") or "run")).strip().lower()
+                    "interactive_launch_mode": str(
+                        (((cfg or {}).get("opencode_runtime") or {}).get("interactive_launch_mode") or "run")
+                    )
+                    .strip()
+                    .lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)
                     else "run",
                 },
@@ -639,7 +676,9 @@ class ConfigReadModelService:
                         "stateful_backends": list(cli_session_mode.get("stateful_backends") or []),
                         "max_turns_per_session": int(cli_session_mode.get("max_turns_per_session") or 40),
                         "max_sessions": int(cli_session_mode.get("max_sessions") or 200),
-                        "allow_task_scoped_auto_session": bool(cli_session_mode.get("allow_task_scoped_auto_session", True)),
+                        "allow_task_scoped_auto_session": bool(
+                            cli_session_mode.get("allow_task_scoped_auto_session", True)
+                        ),
                         "reuse_scope": str(cli_session_mode.get("reuse_scope") or "task"),
                         "native_opencode_sessions": bool(cli_session_mode.get("native_opencode_sessions", False)),
                     },

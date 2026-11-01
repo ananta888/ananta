@@ -10,6 +10,7 @@ The issuer enforces:
   - No issuance if policy service denies the request
   - Emits audit events for issuance success and denial
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +18,7 @@ import logging
 import subprocess
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from agent.common.audit import log_audit
@@ -217,7 +218,6 @@ class SshCertificateIssuer:
         user_id: str,
     ) -> SshCertificateIssueResult:
         import os
-        import tempfile
 
         ca_url = settings.ssh_ca_step_ca_url
         provisioner = settings.ssh_ca_step_ca_provisioner
@@ -238,15 +238,23 @@ class SshCertificateIssuer:
         #     --ca-url <ca_url> --fingerprint <ca_fingerprint> \
         #     --not-after <validity>s --principal <principal>
         cmd = [
-            "step", "ssh", "certificate",
+            "step",
+            "ssh",
+            "certificate",
             principal,
             key_path,
-            "--provisioner", provisioner,
-            "--ca-url", ca_url,
-            "--fingerprint", ca_fingerprint,
-            "--not-after", f"{validity}s",
-            "--principal", principal,
-            "--no-password", "--insecure",
+            "--provisioner",
+            provisioner,
+            "--ca-url",
+            ca_url,
+            "--fingerprint",
+            ca_fingerprint,
+            "--not-after",
+            f"{validity}s",
+            "--principal",
+            principal,
+            "--no-password",
+            "--insecure",
         ]
 
         try:
@@ -293,13 +301,16 @@ class SshCertificateIssuer:
         if not settings.ssh_audit_enabled:
             return
         try:
-            log_audit("ssh_certificate_issuance_denied", {
-                "reason_code": reason,
-                "decision_id": decision_id,
-                "target_type": target_type,
-                "sub": str(claims.get("sub") or "")[:40],
-                "auth_source": "oidc",
-            })
+            log_audit(
+                "ssh_certificate_issuance_denied",
+                {
+                    "reason_code": reason,
+                    "decision_id": decision_id,
+                    "target_type": target_type,
+                    "sub": str(claims.get("sub") or "")[:40],
+                    "auth_source": "oidc",
+                },
+            )
         except Exception:
             pass
 
@@ -308,16 +319,19 @@ class SshCertificateIssuer:
         if not settings.ssh_audit_enabled:
             return
         try:
-            log_audit("ssh_certificate_issued", {
-                "decision_id": result.decision_id,
-                "key_id": result.key_id,
-                "user_id": user_id[:40],
-                "principal": principal,
-                "target_type": target_type,
-                "expires_at": result.expires_at,
-                "auth_source": "oidc",
-                "policy_version": settings.terminal_policy_version,
-            })
+            log_audit(
+                "ssh_certificate_issued",
+                {
+                    "decision_id": result.decision_id,
+                    "key_id": result.key_id,
+                    "user_id": user_id[:40],
+                    "principal": principal,
+                    "target_type": target_type,
+                    "expires_at": result.expires_at,
+                    "auth_source": "oidc",
+                    "policy_version": settings.terminal_policy_version,
+                },
+            )
         except Exception:
             pass
 

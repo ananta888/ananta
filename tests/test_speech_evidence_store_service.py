@@ -103,9 +103,7 @@ def test_quarantine_persists_ciphertext_only_and_duplicate_is_idempotent() -> No
         limit=10,
         now_ms=1_000_000,
     )
-    assert [(item.event_type, item.transition) for item in audit_rows] == [
-        ("speech_evidence", "quarantined")
-    ]
+    assert [(item.event_type, item.transition) for item in audit_rows] == [("speech_evidence", "quarantined")]
 
 
 def test_digest_retention_and_implicit_training_fail_closed() -> None:
@@ -273,14 +271,12 @@ def test_precommit_partial_write_rolls_back_evidence_and_destroys_orphan_dek() -
         _store_payload(store, consent, prefix, b"partial-write-secret")
 
     assert captured.value.reason_code == "speech_evidence_write_failed"
-    assert encryption.destroyed == [
-        ("speech-key-partial-write-canary", principal(prefix).tenant_id)
-    ]
+    assert encryption.destroyed == [("speech-key-partial-write-canary", principal(prefix).tenant_id)]
     with Session(engine) as session:
         rows = session.exec(
-            __import__("sqlmodel").select(SpeechEvidenceDB).where(
-                SpeechEvidenceDB.tenant_id == principal(prefix).tenant_id
-            )
+            __import__("sqlmodel")
+            .select(SpeechEvidenceDB)
+            .where(SpeechEvidenceDB.tenant_id == principal(prefix).tenant_id)
         ).all()
     assert rows == []
 
@@ -316,20 +312,26 @@ def test_postcommit_outbox_crash_is_recoverable_without_destroying_persisted_key
     with pytest.raises(SpeechEvidenceStoreError) as captured:
         _store_payload(store, consent, prefix, payload)
     assert captured.value.reason_code == "speech_evidence_lineage_delivery_pending"
-    assert lineage.delegate.recover_pending(
-        tenant_id=principal(prefix).tenant_id,
-        owner_subject=principal(prefix).subject,
-    ) == 1
-    recovered, created = _store_payload(store, consent, prefix, payload)
-    assert not created
-    assert store._encryption.decrypt(  # noqa: SLF001 - verify the committed DEK survived recovery
-        repository.encrypted(
+    assert (
+        lineage.delegate.recover_pending(
             tenant_id=principal(prefix).tenant_id,
             owner_subject=principal(prefix).subject,
-            evidence_id=recovered.evidence_id,
-        ),
-        security_mode="trusted_compute",
-    ) == payload
+        )
+        == 1
+    )
+    recovered, created = _store_payload(store, consent, prefix, payload)
+    assert not created
+    assert (
+        store._encryption.decrypt(  # noqa: SLF001 - verify the committed DEK survived recovery
+            repository.encrypted(
+                tenant_id=principal(prefix).tenant_id,
+                owner_subject=principal(prefix).subject,
+                evidence_id=recovered.evidence_id,
+            ),
+            security_mode="trusted_compute",
+        )
+        == payload
+    )
 
 
 def test_duplicate_after_key_loss_is_rejected_instead_of_silently_referenced() -> None:

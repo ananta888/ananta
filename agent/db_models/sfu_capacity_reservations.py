@@ -4,9 +4,8 @@ import time
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
-
 
 _RESOURCE_COLUMNS = (
     "cpu_millicores",
@@ -25,9 +24,7 @@ class SfuCapacityLedgerDB(SQLModel, table=True):
 
     __tablename__ = "sfu_capacity_ledgers"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "cluster_id", "region", "tenant_scope", name="uq_sfu_capacity_ledger_scope"
-        ),
+        sa.UniqueConstraint("cluster_id", "region", "tenant_scope", name="uq_sfu_capacity_ledger_scope"),
         *(sa.CheckConstraint(f"{name} >= 0", name=f"ck_sfu_capacity_ledger_{name}") for name in _RESOURCE_COLUMNS),
         sa.CheckConstraint("version > 0", name="ck_sfu_capacity_ledger_version"),
     )
@@ -73,9 +70,7 @@ class SfuCapacityReservationDB(SQLModel, table=True):
         sa.Index("ix_sfu_capacity_reservation_node", "observed_node_id", "status"),
     )
 
-    id: str = Field(
-        default_factory=lambda: f"sfu-capacity-{uuid.uuid4().hex}", primary_key=True
-    )
+    id: str = Field(default_factory=lambda: f"sfu-capacity-{uuid.uuid4().hex}", primary_key=True)
     tenant_id: str = Field(index=True)
     room_id: str = Field(index=True)
     cluster_id: str = Field(index=True)
@@ -108,9 +103,7 @@ class SfuCapacityReservationMutationDB(SQLModel, table=True):
 
     __tablename__ = "sfu_capacity_reservation_mutations"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "command_id_digest", name="uq_sfu_capacity_mutation_command"
-        ),
+        sa.UniqueConstraint("tenant_id", "command_id_digest", name="uq_sfu_capacity_mutation_command"),
         sa.CheckConstraint(
             "length(command_id_digest) = 64 AND length(request_digest) = 64",
             name="ck_sfu_capacity_mutation_digest_length",

@@ -18,6 +18,7 @@ an implicit allow or a default label.
 Stream sessions (``gate_stream_event``): only a non-debounced ``final`` event reaches the gate;
 ``partial`` results are provisional, and ``speech_start``/``revoked``/``dropped`` carry no value.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from agent.services.context_delivery_service import ContextDeliveryService
 from agent.services.context_file_selector import provider_to_llm_scope
@@ -55,7 +52,9 @@ class TestSelectiveDeliveryWithGitWorkspace:
         git_ctx = None
         workspace_ctx = MagicMock()
         workspace_ctx.workspace_dir = tmp_path
-        workspace_ctx.context_policy = WorkspaceContextPolicy(scope_mode="selective", max_files=200, sensitivity_ceiling="confidential")
+        workspace_ctx.context_policy = WorkspaceContextPolicy(
+            scope_mode="selective", max_files=200, sensitivity_ceiling="confidential"
+        )
         workspace_ctx.git_context = git_ctx
 
         chunks = [{"path": "secret.py", "sensitivity": "secret", "score": 1.0}]
@@ -87,12 +86,12 @@ class TestSelectiveDeliveryWithGitWorkspace:
         assert result.delivered_paths == []
         assert result.policy_scope_mode == "full"
 
-
     def test_provider_to_llm_scope_external(self):
         assert provider_to_llm_scope("openai", "https://api.openai.com") == "external_cloud_allowed"
 
     def test_selector_and_resolver_independently_importable(self):
         from agent.services.context_file_selector import ContextFileSelector
         from agent.services.workspace_context_policy import WorkspaceContextPolicyResolver
+
         assert ContextFileSelector is not None
         assert WorkspaceContextPolicyResolver is not None

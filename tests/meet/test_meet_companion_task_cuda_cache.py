@@ -31,6 +31,7 @@ def test_private_cache_is_distinct_bounded_and_removed_with_its_owner():
 def test_optional_source_retirement_keeps_cache_until_execution_stops():
     cache = TaskCudaCache()
     path = Path(cache.environment["CUDA_CACHE_PATH"])
+
     class Execution:
         def call(self, *args, **kwargs):
             raise CompanionSourceInterrupted("synthetic_speech_retired")
@@ -61,14 +62,17 @@ def test_failed_execution_cleanup_still_retires_only_owned_scratch():
 
 def test_factory_failure_removes_new_task_cache_and_preserves_parent_environment(monkeypatch):
     import worker.meet_media.companion_task_model_selection as selection
+
     client = SimpleNamespace(assignment=assignment())
     client.assignment["capabilities"] = ["chat.read", "chat.send", "speech.publish"]
     paths = []
+
     def fail(**options):
         paths.append(Path(options["environment"]["CUDA_CACHE_PATH"]))
         assert paths[-1].exists()
         assert options["environment"]["CUDA_CACHE_MAXSIZE"] == "33554432"
         raise RuntimeError("synthetic_constructor_failed")
+
     monkeypatch.setattr(selection, "CompanionExecutionProcess", fail)
     monkeypatch.setenv("CUDA_CACHE_PATH", "/synthetic/foreign-cache")
     with pytest.raises(RuntimeError):

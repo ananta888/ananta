@@ -16,6 +16,7 @@ result that is not a policy-allowed ``act`` never executes. ``grants_permission`
 a decision value never grants a permission. Audit projections carry no audio, transcript, label or
 confirmation id.
 """
+
 from __future__ import annotations
 
 import os

@@ -62,10 +62,13 @@ def material_fit(text: str, service: Any = None, window_tokens: int | None = Non
     from agent.context_window import check_fit
 
     overhead = getattr(service, "request_overhead_tokens", None)
-    budgets = ContextBudgets(int(window_tokens or effective_window_tokens()),
-                             int(overhead) if overhead is not None else request_overhead_tokens())
-    return check_fit(prompt=text, window_tokens=budgets.window,
-                     output_reserve_tokens=budgets.window - budgets.available)
+    budgets = ContextBudgets(
+        int(window_tokens or effective_window_tokens()),
+        int(overhead) if overhead is not None else request_overhead_tokens(),
+    )
+    return check_fit(
+        prompt=text, window_tokens=budgets.window, output_reserve_tokens=budgets.window - budgets.available
+    )
 
 
 def _details(task: Any) -> dict[str, Any]:
@@ -88,16 +91,28 @@ def _with_waves(steps: list[PlannedStep], parallelism: int) -> list[PlannedStep]
         if step.kind == "map":
             position = maps.index(step)
             if position >= parallelism:
-                step = PlannedStep(step.key, step.kind, step.title, step.description,
-                                   step.depends_on + (maps[position - parallelism].key,), step.sources)
+                step = PlannedStep(
+                    step.key,
+                    step.kind,
+                    step.title,
+                    step.description,
+                    step.depends_on + (maps[position - parallelism].key,),
+                    step.sources,
+                )
         waved.append(step)
     return waved
 
 
 class LongContextCoordinator:
-    def __init__(self, *, ingest_task: Callable[..., Any], update_status: Callable[..., Any],
-                 get_task: Callable[[str], Any], record_event: Callable[..., Any] | None = None,
-                 strategy_service_factory: Callable[[Any], Any] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        ingest_task: Callable[..., Any],
+        update_status: Callable[..., Any],
+        get_task: Callable[[str], Any],
+        record_event: Callable[..., Any] | None = None,
+        strategy_service_factory: Callable[[Any], Any] | None = None,
+    ) -> None:
         self._ingest = ingest_task
         self._update = update_status
         self._get_task = get_task
@@ -110,8 +125,9 @@ class LongContextCoordinator:
 
     # --- 1. split -------------------------------------------------------------------------------------
 
-    def maybe_split(self, task: Any, *, config: Mapping[str, Any] | None,
-                    overflowed: bool = False, window_tokens: int | None = None) -> SplitResult | None:
+    def maybe_split(
+        self, task: Any, *, config: Mapping[str, Any] | None, overflowed: bool = False, window_tokens: int | None = None
+    ) -> SplitResult | None:
         """Handle ``task`` when active and its context does not fit; ``None`` otherwise.
 
         ``overflowed``: a model call already failed on the window (LCTX-009) -- even if the estimate says the
@@ -125,27 +141,40 @@ class LongContextCoordinator:
         marker = _details(task).get(MARKER) or {}
         nesting = int(marker.get("nesting") or 0)
         role = marker.get("role")
-        if role in {"parent", "externalized"} or (role == "step" and marker.get("kind") != "reduce") \
-                or nesting >= MAX_NESTING:
+        if (
+            role in {"parent", "externalized"}
+            or (role == "step" and marker.get("kind") != "reduce")
+            or nesting >= MAX_NESTING
+        ):
             return None  # already handled, a step, or nested deep enough: run as is
         context = _context(task)
         title = str(getattr(task, "title", "") or "").strip()
         material = str(getattr(task, "description", "") or "")
-        parts = [(str(p.get("id") or f"part-{i + 1}"), str(p.get("text") or ""))
-                 for i, p in enumerate(context.get("context_parts") or []) if isinstance(p, Mapping)]
+        parts = [
+            (str(p.get("id") or f"part-{i + 1}"), str(p.get("text") or ""))
+            for i, p in enumerate(context.get("context_parts") or [])
+            if isinstance(p, Mapping)
+        ]
         size_text = "\n".join([title, material] + [text for _id, text in parts])
         fit = material_fit(size_text, service, window_tokens)
         if fit.fits and overflowed:
             from agent.context_window import ContextFit
 
-            fit = ContextFit(fit.window_tokens, fit.output_reserve_tokens,
-                             max(fit.estimated_tokens, int(fit.budget_tokens * 1.2)))
+            fit = ContextFit(
+                fit.window_tokens, fit.output_reserve_tokens, max(fit.estimated_tokens, int(fit.budget_tokens * 1.2))
+            )
         if fit.fits:
             return None
         input_kind = "parts" if parts else str(context.get("context_input_kind") or "unknown")
-        decision = service.decide(ContextStrategyRequest(
-            fit=fit, task_kind=str(getattr(task, "task_kind", "") or ""), input_kind=input_kind, parts=len(parts),
-            description=f"{title}\n{material[:1500]}"))
+        decision = service.decide(
+            ContextStrategyRequest(
+                fit=fit,
+                task_kind=str(getattr(task, "task_kind", "") or ""),
+                input_kind=input_kind,
+                parts=len(parts),
+                description=f"{title}\n{material[:1500]}",
+            )
+        )
         goal = str(context.get("context_goal") or title or material[:500]).strip()
         strategy = decision.strategy
         if strategy == "escalate" and role == "escalated":
@@ -163,15 +192,22 @@ class LongContextCoordinator:
         if strategy != decision.strategy:
             from agent.services.context_strategy_service import ContextStrategyDecision
 
-            decision = ContextStrategyDecision(strategy, "escalation_resumed", "rules", decision.fit,
-                                               {"chunk_budget_tokens": int(decision.fit.budget_tokens * chunk_fill)})
+            decision = ContextStrategyDecision(
+                strategy,
+                "escalation_resumed",
+                "rules",
+                decision.fit,
+                {"chunk_budget_tokens": int(decision.fit.budget_tokens * chunk_fill)},
+            )
         chunk_tokens = int(decision.parameters.get("chunk_budget_tokens") or decision.fit.budget_tokens * chunk_fill)
         chunks = pack_parts(parts, chunk_tokens) if parts else split_ordered(material, chunk_tokens)
         from agent.services.long_context_plan import APPROVED_MAX_STEPS, MAX_STEPS
 
         max_steps = APPROVED_MAX_STEPS if role == "escalated" else MAX_STEPS
-        steps = _with_waves(build_plan(decision.strategy, goal, chunks, title=title, max_steps=max_steps),
-                            int(decision.parameters.get("parallelism") or 0))
+        steps = _with_waves(
+            build_plan(decision.strategy, goal, chunks, title=title, max_steps=max_steps),
+            int(decision.parameters.get("parallelism") or 0),
+        )
         return self._materialize(task, decision, steps, nesting)
 
     def _materialize(self, task: Any, decision: Any, steps: list[PlannedStep], nesting: int) -> SplitResult:
@@ -181,36 +217,71 @@ class LongContextCoordinator:
         for step in steps:
             depends_on = [ids[key] for key in step.depends_on]
             self._ingest(
-                task_id=ids[step.key], status="blocked_by_dependency" if depends_on else "todo",
-                title=step.title, description=step.description,
-                priority=str(getattr(task, "priority", "") or "medium"), created_by="hub-long-context",
-                source="long_context", team_id=getattr(task, "team_id", None),
+                task_id=ids[step.key],
+                status="blocked_by_dependency" if depends_on else "todo",
+                title=step.title,
+                description=step.description,
+                priority=str(getattr(task, "priority", "") or "medium"),
+                created_by="hub-long-context",
+                source="long_context",
+                team_id=getattr(task, "team_id", None),
                 event_type="long_context_step_created",
                 extra_fields={
-                    "goal_id": getattr(task, "goal_id", None), "source_task_id": task_id,
+                    "goal_id": getattr(task, "goal_id", None),
+                    "source_task_id": task_id,
                     "derivation_reason": f"long_context_{decision.strategy}",
                     "derivation_depth": int(getattr(task, "derivation_depth", 0) or 0) + 1,
-                    "depends_on": depends_on, "task_kind": getattr(task, "task_kind", None),
+                    "depends_on": depends_on,
+                    "task_kind": getattr(task, "task_kind", None),
                     # a merge step that is itself too large is merged piece by piece (hierarchical reduce)
                     "worker_execution_context": {**step_context, "context_input_kind": "ordered"}
-                    if step.kind in {"reduce", "consolidate"} else step_context,
-                    "status_reason_details": {MARKER: {
-                        "role": "step", "parent_task_id": task_id, "key": step.key, "kind": step.kind,
-                        "nesting": nesting + (1 if step.kind == "reduce" else 0), "sources": list(step.sources)}},
-                })
+                    if step.kind in {"reduce", "consolidate"}
+                    else step_context,
+                    "status_reason_details": {
+                        MARKER: {
+                            "role": "step",
+                            "parent_task_id": task_id,
+                            "key": step.key,
+                            "kind": step.kind,
+                            "nesting": nesting + (1 if step.kind == "reduce" else 0),
+                            "sources": list(step.sources),
+                        }
+                    },
+                },
+            )
         final_id = ids[steps[-1].key]
-        details = {**_details(task), MARKER: {
-            "role": "parent", "strategy": decision.strategy, "steps": list(ids.values()), "final": final_id,
-            "decision": decision.to_mapping(), "nesting": nesting}}
-        self._update(task_id, "blocked_by_dependency", depends_on=[final_id], status_reason_details=details,
-                     assigned_agent_url=None, event_type="long_context_split",
-                     event_details={"strategy": decision.strategy, "steps": len(ids)})
-        self._record("long_context_split", task_id=task_id, strategy=decision.strategy, steps=len(ids),
-                     ratio=round(decision.fit.ratio, 2))
+        details = {
+            **_details(task),
+            MARKER: {
+                "role": "parent",
+                "strategy": decision.strategy,
+                "steps": list(ids.values()),
+                "final": final_id,
+                "decision": decision.to_mapping(),
+                "nesting": nesting,
+            },
+        }
+        self._update(
+            task_id,
+            "blocked_by_dependency",
+            depends_on=[final_id],
+            status_reason_details=details,
+            assigned_agent_url=None,
+            event_type="long_context_split",
+            event_details={"strategy": decision.strategy, "steps": len(ids)},
+        )
+        self._record(
+            "long_context_split",
+            task_id=task_id,
+            strategy=decision.strategy,
+            steps=len(ids),
+            ratio=round(decision.fit.ratio, 2),
+        )
         return SplitResult(task_id, decision.strategy, tuple(ids.values()), final_id)
 
-    def _externalize(self, task: Any, decision: Any, goal: str, material: str,
-                     parts: list[tuple[str, str]]) -> SplitResult:
+    def _externalize(
+        self, task: Any, decision: Any, goal: str, material: str, parts: list[tuple[str, str]]
+    ) -> SplitResult:
         """compact / retrieve: the material moves into a workspace file the worker reads section by section."""
         from agent.services.context_chunking import split_ordered
 
@@ -226,33 +297,60 @@ class LongContextCoordinator:
                 label += f" (+{len(headings) - 4})"
             outline.append(f"- Abschnitt {chunk.index + 1}, Zeilen {line}–{line + lines - 1}: {label}")
             line += lines + 1  # the blank line between chunks
-        reading = ("Lies es vollständig, Abschnitt für Abschnitt (`repo.read_file_range`), und halte das Wesentliche "
-                   "fest, bevor du antwortest." if decision.strategy == "compact" else
-                   "Suche zuerst gezielt nach den Begriffen der Aufgabe (`repo.grep` in dieser Datei, auch "
-                   "Varianten und Umgebungsvariablen-Namen), lies dann die Fundstellen und nur die relevanten "
-                   "Abschnitte (`repo.read_file_range` mit den Zeilen aus der Gliederung). Antworte nur mit dem, "
-                   "was im Material steht, und nenne die Quelle (Dokument).")
+        reading = (
+            "Lies es vollständig, Abschnitt für Abschnitt (`repo.read_file_range`), und halte das Wesentliche "
+            "fest, bevor du antwortest."
+            if decision.strategy == "compact"
+            else "Suche zuerst gezielt nach den Begriffen der Aufgabe (`repo.grep` in dieser Datei, auch "
+            "Varianten und Umgebungsvariablen-Namen), lies dann die Fundstellen und nur die relevanten "
+            "Abschnitte (`repo.read_file_range` mit den Zeilen aus der Gliederung). Antworte nur mit dem, "
+            "was im Material steht, und nenne die Quelle (Dokument)."
+        )
         size = f"~{decision.fit.estimated_tokens} Token, {decision.fit.ratio:.1f}× das Kontextfenster"
-        description = (f"Aufgabe: {goal}\n\nDas Material zu dieser Aufgabe ist umfangreich ({size}) und liegt in "
-                       f"`{MATERIAL_FILE}`. "
-                       f"{reading}\n\nGliederung:\n" + "\n".join(outline[:200]))
+        description = (
+            f"Aufgabe: {goal}\n\nDas Material zu dieser Aufgabe ist umfangreich ({size}) und liegt in "
+            f"`{MATERIAL_FILE}`. "
+            f"{reading}\n\nGliederung:\n" + "\n".join(outline[:200])
+        )
         context = {**{k: v for k, v in _context(task).items() if k != "context_parts"}, "context_material": text}
-        details = {**_details(task), MARKER: {"role": "externalized", "strategy": decision.strategy,
-                                              "decision": decision.to_mapping(), "sections": len(outline)}}
-        self._update(str(task.id), str(getattr(task, "status", "") or "todo"), description=description,
-                     worker_execution_context=context, status_reason_details=details,
-                     event_type="long_context_externalized",
-                     event_details={"strategy": decision.strategy, "sections": len(outline)})
-        self._record("long_context_externalized", task_id=str(task.id), strategy=decision.strategy,
-                     sections=len(outline), ratio=round(decision.fit.ratio, 2))
+        details = {
+            **_details(task),
+            MARKER: {
+                "role": "externalized",
+                "strategy": decision.strategy,
+                "decision": decision.to_mapping(),
+                "sections": len(outline),
+            },
+        }
+        self._update(
+            str(task.id),
+            str(getattr(task, "status", "") or "todo"),
+            description=description,
+            worker_execution_context=context,
+            status_reason_details=details,
+            event_type="long_context_externalized",
+            event_details={"strategy": decision.strategy, "sections": len(outline)},
+        )
+        self._record(
+            "long_context_externalized",
+            task_id=str(task.id),
+            strategy=decision.strategy,
+            sections=len(outline),
+            ratio=round(decision.fit.ratio, 2),
+        )
         return SplitResult(str(task.id), decision.strategy, (), "")
 
     def _escalate(self, task: Any, decision: Any) -> SplitResult:
         """Too large to handle automatically: pause for a human; resuming processes it piece by piece."""
         details = {**_details(task), MARKER: {"role": "escalated", "decision": decision.to_mapping()}}
-        self._update(str(task.id), "paused", status_reason_details=details,
-                     status_reason_code="context_too_large_needs_decision", event_type="long_context_escalated",
-                     event_details={"ratio": round(decision.fit.ratio, 2)})
+        self._update(
+            str(task.id),
+            "paused",
+            status_reason_details=details,
+            status_reason_code="context_too_large_needs_decision",
+            event_type="long_context_escalated",
+            event_details={"ratio": round(decision.fit.ratio, 2)},
+        )
         self._record("long_context_escalated", task_id=str(task.id), ratio=round(decision.fit.ratio, 2))
         return SplitResult(str(task.id), "escalate", (), "")
 
@@ -267,12 +365,22 @@ class LongContextCoordinator:
             output = step_result(final) if final is not None else ""
             # like the recovery finalizer: the Hub completes a task whose result its steps produced. The state
             # machine knows no blocked -> completed edge, so this one audited transition is forced.
-            self._update(str(task.id), "completed", last_output=output, last_exit_code=0, force=True,
-                         event_type="long_context_completed",
-                         event_details={"strategy": marker.get("strategy"), "final_step": marker.get("final")})
+            self._update(
+                str(task.id),
+                "completed",
+                last_output=output,
+                last_exit_code=0,
+                force=True,
+                event_type="long_context_completed",
+                event_details={"strategy": marker.get("strategy"), "final_step": marker.get("final")},
+            )
             self._record("long_context_completed", task_id=str(task.id), strategy=marker.get("strategy"))
-            return {"task_id": task.id, "event_type": "long_context_completed", "depends_on": dependency_ids,
-                    "reason": "final_step_completed"}
+            return {
+                "task_id": task.id,
+                "event_type": "long_context_completed",
+                "depends_on": dependency_ids,
+                "reason": "final_step_completed",
+            }
         description = str(getattr(task, "description", "") or "")
         if role != "step" or DEPENDENCY_OUTPUTS not in description:
             return None
@@ -285,10 +393,19 @@ class LongContextCoordinator:
             if dep_marker.get("parent_task_id") != marker.get("parent_task_id"):
                 continue  # a wave dependency or a foreign task: not an input of this step
             outputs.append(f"### {getattr(dep, 'title', dep_id)}\n{step_result(dep)}")
-        self._update(str(task.id), "todo", description=description.replace(DEPENDENCY_OUTPUTS, "\n\n".join(outputs)),
-                     event_type="long_context_step_ready", event_details={"inputs": len(outputs)})
-        return {"task_id": task.id, "event_type": "long_context_step_ready", "depends_on": dependency_ids,
-                "reason": "dependency_outputs_inserted"}
+        self._update(
+            str(task.id),
+            "todo",
+            description=description.replace(DEPENDENCY_OUTPUTS, "\n\n".join(outputs)),
+            event_type="long_context_step_ready",
+            event_details={"inputs": len(outputs)},
+        )
+        return {
+            "task_id": task.id,
+            "event_type": "long_context_step_ready",
+            "depends_on": dependency_ids,
+            "reason": "dependency_outputs_inserted",
+        }
 
 
 def get_long_context_coordinator() -> LongContextCoordinator:
@@ -303,6 +420,9 @@ def get_long_context_coordinator() -> LongContextCoordinator:
         except Exception:  # noqa: BLE001 -- events never change the flow
             _log.debug("long context event failed", exc_info=True)
 
-    return LongContextCoordinator(ingest_task=get_task_queue_service().ingest_task,
-                                  update_status=update_local_task_status, get_task=task_repo.get_by_id,
-                                  record_event=record)
+    return LongContextCoordinator(
+        ingest_task=get_task_queue_service().ingest_task,
+        update_status=update_local_task_status,
+        get_task=task_repo.get_by_id,
+        record_event=record,
+    )

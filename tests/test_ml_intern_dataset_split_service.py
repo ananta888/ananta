@@ -23,16 +23,13 @@ def _catalog(tmp_path: Path) -> MlInternDatasetCatalogService:
 
 def _records(count: int, *, prefix: str = "R") -> list[dict]:
     return [
-        {"instruction": f"{prefix} instruction {index}", "output": f"{prefix} output {index}"}
-        for index in range(count)
+        {"instruction": f"{prefix} instruction {index}", "output": f"{prefix} output {index}"} for index in range(count)
     ]
 
 
 def _semantic_pairs(catalog, dataset_id: str, partition: str) -> list[tuple[str, str]]:
     rows = []
-    with catalog.open_partition(
-        tenant_id="t", principal_id="p", dataset_id=dataset_id, partition=partition
-    ) as handle:
+    with catalog.open_partition(tenant_id="t", principal_id="p", dataset_id=dataset_id, partition=partition) as handle:
         for line in handle:
             record = json.loads(line)
             rows.append((record.get("instruction"), record.get("output")))
@@ -41,9 +38,7 @@ def _semantic_pairs(catalog, dataset_id: str, partition: str) -> list[tuple[str,
 
 def test_split_is_reproducible_seeded_non_overlapping_and_invalidates_validation(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path)
-    created = catalog.create_from_records(
-        tenant_id="t", principal_id="p", records=_records(30), name="Split"
-    )
+    created = catalog.create_from_records(tenant_id="t", principal_id="p", records=_records(30), name="Split")
     catalog.validate_dataset(tenant_id="t", principal_id="p", dataset_id=created["dataset_id"])
     service = MlInternDatasetSplitService(catalog)
 
@@ -97,9 +92,7 @@ def test_normalized_duplicate_groups_stay_together(tmp_path: Path) -> None:
             for index in range(4)
         ]
     )
-    created = catalog.create_from_records(
-        tenant_id="t", principal_id="p", records=records, name="Grouped"
-    )
+    created = catalog.create_from_records(tenant_id="t", principal_id="p", records=records, name="Grouped")
     result = MlInternDatasetSplitService(catalog).split(
         tenant_id="t", principal_id="p", dataset_id=created["dataset_id"], seed=11
     )
@@ -143,24 +136,16 @@ def test_explicit_lineage_roots_stay_in_one_partition(tmp_path: Path) -> None:
             dataset_id=created["dataset_id"],
             partition=partition,
         ) as handle:
-            locations.extend(
-                partition
-                for line in handle
-                if json.loads(line).get("lineage_root_id") == "workbook-one"
-            )
+            locations.extend(partition for line in handle if json.loads(line).get("lineage_root_id") == "workbook-one")
     assert len(locations) == 4
     assert len(set(locations)) == 1
 
 
 def test_small_or_single_group_dataset_has_clear_failure(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path)
-    small = catalog.create_from_records(
-        tenant_id="t", principal_id="p", records=_records(3), name="Small"
-    )
+    small = catalog.create_from_records(tenant_id="t", principal_id="p", records=_records(3), name="Small")
     with pytest.raises(DatasetSplitError) as exc:
-        MlInternDatasetSplitService(catalog).split(
-            tenant_id="t", principal_id="p", dataset_id=small["dataset_id"]
-        )
+        MlInternDatasetSplitService(catalog).split(tenant_id="t", principal_id="p", dataset_id=small["dataset_id"])
     assert exc.value.reason_code == "dataset_too_small_for_split"
 
 
@@ -238,9 +223,7 @@ def test_external_validation_dataset_is_atomically_attached_and_pair_validated(t
 def test_external_validation_attach_rejects_same_or_overlapping_dataset(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path)
     train_records = _records(5, prefix="Train")
-    train = catalog.create_from_records(
-        tenant_id="t", principal_id="p", records=train_records, name="Train"
-    )
+    train = catalog.create_from_records(tenant_id="t", principal_id="p", records=train_records, name="Train")
     overlap = catalog.create_from_records(
         tenant_id="t",
         principal_id="p",

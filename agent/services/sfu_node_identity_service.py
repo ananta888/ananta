@@ -15,7 +15,7 @@ from typing import Mapping
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519, ed448, padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID
 
 from agent.repositories.sfu_runtime_identity_repository import (
@@ -106,9 +106,7 @@ class SfuNodeTrustPolicy:
         return cls.from_mapping(payload, base_dir=config_path.parent)
 
     @classmethod
-    def from_mapping(
-        cls, payload: Mapping[str, object], *, base_dir: Path | None = None
-    ) -> "SfuNodeTrustPolicy":
+    def from_mapping(cls, payload: Mapping[str, object], *, base_dir: Path | None = None) -> "SfuNodeTrustPolicy":
         mode = str(payload.get("runtime_control_mode") or "").strip()
         if mode not in _MODES:
             raise SfuNodeIdentityError("sfu_runtime_control_mode_invalid", status_code=503)
@@ -122,7 +120,11 @@ class SfuNodeTrustPolicy:
             raise SfuNodeIdentityError("sfu_activation_evidence_invalid", status_code=503)
         enrollment = payload.get("enrollment") if isinstance(payload.get("enrollment"), Mapping) else {}
         rotation = payload.get("rotation") if isinstance(payload.get("rotation"), Mapping) else {}
-        extension = payload.get("authenticated_runtime_extension") if isinstance(payload.get("authenticated_runtime_extension"), Mapping) else {}
+        extension = (
+            payload.get("authenticated_runtime_extension")
+            if isinstance(payload.get("authenticated_runtime_extension"), Mapping)
+            else {}
+        )
         ca_certificates: list[x509.Certificate] = []
         root = base_dir or Path.cwd()
         for configured_path in extension.get("trusted_ca_pem_files") or ():
@@ -147,12 +149,16 @@ class SfuNodeTrustPolicy:
             trusted_ca_certificates=tuple(ca_certificates),
             revoked_certificate_fingerprints=revoked,
         )
-        if min(
-            policy.enrollment_window_seconds,
-            policy.enrollment_max_attempts,
-            policy.proof_clock_skew_seconds,
-            policy.node_revocation_max_seconds,
-        ) <= 0 or policy.rotation_overlap_seconds < 0:
+        if (
+            min(
+                policy.enrollment_window_seconds,
+                policy.enrollment_max_attempts,
+                policy.proof_clock_skew_seconds,
+                policy.node_revocation_max_seconds,
+            )
+            <= 0
+            or policy.rotation_overlap_seconds < 0
+        ):
             raise SfuNodeIdentityError("sfu_node_trust_config_invalid", status_code=503)
         return policy
 
@@ -171,9 +177,7 @@ class SfuNodeIdentityService:
         self.policy = policy
         self._clock = clock
 
-    def enroll(
-        self, command: SfuNodeCredentialCommand, *, source: str
-    ) -> SfuRuntimeIdentityMutationResult:
+    def enroll(self, command: SfuNodeCredentialCommand, *, source: str) -> SfuRuntimeIdentityMutationResult:
         self._validate_common(command, operation="enroll")
         if command.expected_version != 0:
             raise SfuNodeIdentityError("sfu_identity_create_expected_version_invalid")
@@ -330,9 +334,7 @@ class SfuNodeIdentityService:
         _validate_roles(command.roles)
         if any(marker in command.public_key_pem.upper() for marker in _PRIVATE_MARKERS):
             raise SfuNodeIdentityError("sfu_private_key_material_forbidden")
-        if command.certificate_pem and any(
-            marker in command.certificate_pem.upper() for marker in _PRIVATE_MARKERS
-        ):
+        if command.certificate_pem and any(marker in command.certificate_pem.upper() for marker in _PRIVATE_MARKERS):
             raise SfuNodeIdentityError("sfu_private_key_material_forbidden")
         if operation not in {"enroll", "rotate"}:
             raise SfuNodeIdentityError("sfu_identity_operation_invalid")
@@ -424,8 +426,9 @@ class SfuNodeIdentityService:
         expected_san = f"{self.policy.extension_san_prefix}/{role}/{node_id}"
         try:
             sans = tuple(
-                certificate.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-                .value.get_values_for_type(x509.UniformResourceIdentifier)
+                certificate.extensions.get_extension_for_oid(
+                    ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+                ).value.get_values_for_type(x509.UniformResourceIdentifier)
             )
         except x509.ExtensionNotFound as exc:
             raise SfuNodeIdentityError("sfu_certificate_san_missing", status_code=403) from exc

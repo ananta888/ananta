@@ -24,6 +24,7 @@ Optional:
     ANANTA_TUI_LLM_API_BASE=http://localhost:1234/v1
     ANANTA_TUI_LLM_MODEL=meta-llama_-_llama-3.2-1b-instruct
 """
+
 from __future__ import annotations
 
 import json
@@ -37,7 +38,6 @@ import pytest
 
 from client_surfaces.operator_tui.chat_memory import ChatMemoryContext, MemoryTurn
 from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder
-
 from scripts.e2e.record_tui_demo import record_tui_demo
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,8 +71,7 @@ def _require_live_lmstudio() -> tuple[str, str]:
     """
     if not (_env_flag("ANANTA_E2E_LIVE_TUI_LLM") or _env_flag("ANANTA_E2E_LIVE_LMSTUDIO")):
         pytest.skip(
-            "Set ANANTA_E2E_LIVE_TUI_LLM=1 or ANANTA_E2E_LIVE_LMSTUDIO=1 "
-            "to run the live TUI AI-Snake propose flow E2E."
+            "Set ANANTA_E2E_LIVE_TUI_LLM=1 or ANANTA_E2E_LIVE_LMSTUDIO=1 to run the live TUI AI-Snake propose flow E2E."
         )
     api_base = _lmstudio_api_base()
     try:
@@ -116,6 +115,7 @@ def _resolve_ref(ref: str) -> Path:
 
 # ── Test 1: LMStudio-Konnektivität ──────────────────────────────────────
 
+
 def test_lmstudio_connectivity_probe() -> None:
     """Test 1: LMStudio muss erreichbar sein und auf Chat-Requests antworten."""
     api_base, model = _require_live_lmstudio()
@@ -126,6 +126,7 @@ def test_lmstudio_connectivity_probe() -> None:
 
 
 # ── Test 2: ChatPromptBuilder Informationsfluss ─────────────────────────
+
 
 def _build_test_memory() -> ChatMemoryContext:
     """Erzeugt einen ChatMemoryContext mit realistischen Testdaten,
@@ -142,8 +143,7 @@ def _build_test_memory() -> ChatMemoryContext:
             "und Priorität erklärt. User fragt nun nach Priorisierung."
         ),
         active_target_excerpt=(
-            "active goal: Improve TUI onboarding (status=active)\n"
-            "ready goal: Explain AI-snake guidance (status=ready)"
+            "active goal: Improve TUI onboarding (status=active)\nready goal: Explain AI-snake guidance (status=ready)"
         ),
         codecompass_refs=[
             "client_surfaces/operator_tui/chat_prompt_builder.py :: ChatPromptBuilder.build",
@@ -201,6 +201,7 @@ def test_chat_prompt_builder_context_assembly() -> None:
 
 
 # ── Test 3: Vollständiger snake/ask propose flow ────────────────────────
+
 
 def _build_grounded_prompt() -> str:
     """Baut einen Prompt, wie er vom ChatPromptBuilder + CodeCompass + RAG
@@ -290,13 +291,13 @@ def test_snake_ask_propose_flow_with_lmstudio(monkeypatch) -> None:
     has_goal_context = "goal" in keywords_lower or "ziel" in keywords_lower
     has_priority_context = "priorit" in keywords_lower or "active" in keywords_lower or "ready" in keywords_lower
     assert has_goal_context or has_priority_context, (
-        f"Answer does not reference Goals/prioritization context. "
-        f"Answer snippet: {answer[:200]}"
+        f"Answer does not reference Goals/prioritization context. Answer snippet: {answer[:200]}"
     )
     print("  ✓ Antwort referenziert Goals/Priorisierung-Kontext")
 
 
 # ── Test 4: TUI-Cast-Aufnahme mit Vollständigem Flow ────────────────────
+
 
 def test_tui_snake_chat_propose_flow_cast(monkeypatch) -> None:
     """Test 4: Zeichnet eine TUI-Session mit AI-Snake-Chat auf.
@@ -394,7 +395,7 @@ def test_tui_snake_chat_propose_flow_cast(monkeypatch) -> None:
         "Der System-Prompt verlangt diesen Marker als Präfix der Antwort. "
         f"Plain tail: {plain[-1500:]}"
     )
-    print(f"  ✓ LLM-Marker im Cast gefunden")
+    print("  ✓ LLM-Marker im Cast gefunden")
 
     # (b) Schlüsselkonzepte — müssen in der ANTWORT erscheinen,
     #     nicht nur in der Frage. Wir suchen daher NACH dem
@@ -417,33 +418,25 @@ def test_tui_snake_chat_propose_flow_cast(monkeypatch) -> None:
         f"{missing_concepts}. "
         f"Antwort tail: {answer_text[:500]!r}"
     )
-    print(
-        f"  ✓ LLM-Antwort enthält alle "
-        f"{len(expected_concepts)} Schlüsselkonzepte"
-    )
+    print(f"  ✓ LLM-Antwort enthält alle {len(expected_concepts)} Schlüsselkonzepte")
 
     # (c) Anzeige-Reihenfolge — Antwort muss NACH der Frage
     #     erscheinen. Der Frage-Marker wird im Cast sichtbar,
     #     weil der User ihn tippt.
     question_marker = "Antworte exakt mit dem Marker"
     question_idx = plain.find(question_marker)
-    assert question_idx >= 0, (
-        f"Frage-Marker {question_marker!r} nicht im Cast. "
-        f"Plain tail: {plain[-1500:]}"
-    )
+    assert question_idx >= 0, f"Frage-Marker {question_marker!r} nicht im Cast. Plain tail: {plain[-1500:]}"
     assert marker_idx > question_idx, (
         f"LLM-Antwort erscheint vor oder gleichzeitig mit der Frage "
         f"(Frage an Pos. {question_idx}, Antwort an Pos. {marker_idx})"
     )
-    print(
-        f"  ✓ Antwort erscheint nach der Frage "
-        f"(Δ = {marker_idx - question_idx} Zeichen)"
-    )
+    print(f"  ✓ Antwort erscheint nach der Frage (Δ = {marker_idx - question_idx} Zeichen)")
 
     print("  ✓ TUI-Cast erfolgreich aufgezeichnet und verifiziert")
 
 
 # ── Test 5: Vollständiger End-to-End-Diagnostik-Report ──────────────────
+
 
 def test_snake_chat_propose_flow_diagnostics(monkeypatch) -> None:
     """Test 5: Gibt einen vollständigen Diagnostik-Report über den
@@ -462,12 +455,12 @@ def test_snake_chat_propose_flow_diagnostics(monkeypatch) -> None:
     print("=" * 70)
 
     # 1. LMStudio Info
-    print(f"\n  [1] LMStudio")
+    print("\n  [1] LMStudio")
     print(f"       API Base: {api_base}")
     print(f"       Model:    {model}")
 
     # 2. ChatPromptBuilder Info
-    print(f"\n  [2] ChatPromptBuilder → Prompt-Zusammenstellung")
+    print("\n  [2] ChatPromptBuilder → Prompt-Zusammenstellung")
     memory = _build_test_memory()
     builder = ChatPromptBuilder(
         question="Wie priorisiere ich schnell?",
@@ -485,11 +478,11 @@ def test_snake_chat_propose_flow_diagnostics(monkeypatch) -> None:
     print(f"       Rolling sum:    {len(result.worker_v2_payload['memory_context']['rolling_summary'])} chars")
 
     # 3. Propose Flow
-    print(f"\n  [3] Propose Flow (Hub-Route)")
-    print(f"       POST /snake/ask  ← TUI sendet Frage + Kontext")
-    print(f"       → _worker_propose()  → Worker /step/propose")
-    print(f"       → Fallback: generate_text() → LMStudio Direct")
-    print(f"       → Antwort zurück an TUI")
+    print("\n  [3] Propose Flow (Hub-Route)")
+    print("       POST /snake/ask  ← TUI sendet Frage + Kontext")
+    print("       → _worker_propose()  → Worker /step/propose")
+    print("       → Fallback: generate_text() → LMStudio Direct")
+    print("       → Antwort zurück an TUI")
 
     # 4. Prompt (gekürzt)
     print(f"\n  [4] Prompt an LLM ({len(result.prompt_text)} chars)")
@@ -504,21 +497,21 @@ def test_snake_chat_propose_flow_diagnostics(monkeypatch) -> None:
         api_base,
         model,
     )
-    print(f"\n  [5] LMStudio Probe-Response")
+    print("\n  [5] LMStudio Probe-Response")
     print(f"       '{reply}'")
 
     # 6. TUI Cast
-    print(f"\n  [6] TUI .cast Recording")
-    print(f"       Scene: snake-mode-live-e2e")
-    print(f"       Format: asciinema v2 (newline-delimited JSON)")
+    print("\n  [6] TUI .cast Recording")
+    print("       Scene: snake-mode-live-e2e")
+    print("       Format: asciinema v2 (newline-delimited JSON)")
     print(f"       Enthält: {result.included_sections}")
-    print(f"       Frage + Antwort + Flow-Marker")
+    print("       Frage + Antwort + Flow-Marker")
     separator = "=" * 70
     print(f"\n  {separator}")
-    print(f"  FAZIT: Der propose flow sammelt aktiv_target, rolling_summary,")
-    print(f"  recent_turns, codecompass, rag und runtime_status als Kontext.")
-    print(f"  Diese Informationen werden via /snake/ask an den Hub gesendet,")
-    print(f"  der sie entweder an einen Worker oder direkt an LMStudio")
-    print(f"  weiterleitet. Die Antwort wird in der TUI angezeigt und")
-    print(f"  als .cast aufgezeichnet.")
+    print("  FAZIT: Der propose flow sammelt aktiv_target, rolling_summary,")
+    print("  recent_turns, codecompass, rag und runtime_status als Kontext.")
+    print("  Diese Informationen werden via /snake/ask an den Hub gesendet,")
+    print("  der sie entweder an einen Worker oder direkt an LMStudio")
+    print("  weiterleitet. Die Antwort wird in der TUI angezeigt und")
+    print("  als .cast aufgezeichnet.")
     print(f"  {separator}")

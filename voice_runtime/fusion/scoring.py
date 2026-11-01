@@ -68,9 +68,7 @@ class CalibrationProfile:
 
     def applies_to(self, candidate: TranscriptionCandidate) -> bool:
         language_matches = self.language == "*" or self.language == (candidate.language or "")
-        hardware_matches = self.hardware_profile == "*" or self.hardware_profile == (
-            candidate.device or ""
-        )
+        hardware_matches = self.hardware_profile == "*" or self.hardware_profile == (candidate.device or "")
         return language_matches and hardware_matches
 
     @property
@@ -187,12 +185,7 @@ class CandidateScorer:
         confidence_reason: str | None = None
         if candidate.confidence is None:
             confidence_reason = "confidence_missing"
-        elif (
-            profile
-            and profile.comparable
-            and calibrated is not None
-            and allow_calibrated_signals
-        ):
+        elif profile and profile.comparable and calibrated is not None and allow_calibrated_signals:
             confidence_signal = VersionedSignal(
                 value=calibrated,
                 version=f"{profile.calibrator_version}:{profile.dataset_version}",
@@ -223,8 +216,7 @@ class CandidateScorer:
         optional = {
             "agreement": supplied.agreement,
             "glossary": supplied.glossary or _candidate_signal(candidate, "glossary"),
-            "language_model": supplied.language_model
-            or _candidate_signal(candidate, "language_model"),
+            "language_model": supplied.language_model or _candidate_signal(candidate, "language_model"),
             "audio_quality": supplied.audio_quality or _candidate_signal(candidate, "audio_quality"),
         }
         calibration_quality = (
@@ -233,10 +225,7 @@ class CandidateScorer:
                 version=f"calibration-report:{profile.dataset_version}",
                 artifact_digest=profile.artifact_digest,
             )
-            if profile
-            and profile.comparable
-            and profile.evaluation is not None
-            and allow_calibrated_signals
+            if profile and profile.comparable and profile.evaluation is not None and allow_calibrated_signals
             else None
         )
         all_signals: dict[str, VersionedSignal | None] = {
@@ -258,9 +247,7 @@ class CandidateScorer:
         ):
             signal = all_signals[name]
             weight = weights[name]
-            contribution = (
-                _decimal(signal.value) * _decimal(weight) if signal is not None else Decimal("0")
-            )
+            contribution = _decimal(signal.value) * _decimal(weight) if signal is not None else Decimal("0")
             total += contribution
             if signal is None:
                 missing.append(name)
@@ -286,9 +273,7 @@ class CandidateScorer:
             "confidence_comparable": confidence_signal is not None,
             "calibration": profile.dataset_version if profile else "raw_uncalibrated",
             "calibration_digest": profile.artifact_digest if profile else None,
-            "calibration_report": profile.evaluation.as_dict()
-            if profile and profile.evaluation
-            else None,
+            "calibration_report": profile.evaluation.as_dict() if profile and profile.evaluation else None,
             "threshold_version": profile.threshold_version if profile else None,
             "minimum_confidence": profile.minimum_confidence if profile else None,
             "below_threshold": bool(
@@ -331,15 +316,11 @@ def load_calibration_profiles(path: str | Path) -> dict[tuple[str, ...], Calibra
         threshold_mapping = thresholds if isinstance(thresholds, Mapping) else {}
         threshold_version = str(threshold_mapping.get("version") or "").strip() or None
         minimum_confidence_raw = threshold_mapping.get("minimum_confidence")
-        minimum_confidence = (
-            float(minimum_confidence_raw) if minimum_confidence_raw is not None else None
-        )
+        minimum_confidence = float(minimum_confidence_raw) if minimum_confidence_raw is not None else None
         if minimum_confidence is not None and not 0.0 <= minimum_confidence <= 1.0:
             raise ValueError("voice calibration minimum confidence must be within [0, 1]")
         language = str(threshold_mapping.get("language") or "*").strip()
-        hardware_profile = str(
-            threshold_mapping.get("hardware_profile") or "*"
-        ).strip()
+        hardware_profile = str(threshold_mapping.get("hardware_profile") or "*").strip()
         key: tuple[str, ...] = (
             (backend, revision)
             if language == "*" and hardware_profile == "*"

@@ -4,6 +4,7 @@ Runs the registered semantic adapters over the selected files and returns the
 bounded graph records plus a summary. The repository root is an explicit
 input so callers (and tests) decide which tree relative paths refer to.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -68,19 +69,13 @@ def build_semantic_translation_records(files: list[Path], *, root: Path) -> tupl
         "parser_strategies": dict(sorted(parser_strategies.items())),
         "record_count": len(records),
         "node_count": sum(
-            1
-            for row in records
-            if (row.get("_provenance") or {}).get("output_kind") == "semantic_nodes"
+            1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "semantic_nodes"
         ),
         "edge_count": sum(
-            1
-            for row in records
-            if (row.get("_provenance") or {}).get("output_kind") == "semantic_edges"
+            1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "semantic_edges"
         ),
         "rule_count": sum(
-            1
-            for row in records
-            if (row.get("_provenance") or {}).get("output_kind") == "equivalence_rules"
+            1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "equivalence_rules"
         ),
         "warnings": [str(row.get("code") or row) for row in diagnostics],
         "diagnostics": diagnostics,

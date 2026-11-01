@@ -43,10 +43,7 @@ def _fixture(*, runner):
             "metadata": {"source_id": "SRC_0002"},
         },
     ]
-    context_text = "\n\n".join(
-        f"[{row['metadata']['source_id']}] {row['source']}\n{row['content']}"
-        for row in chunks
-    )
+    context_text = "\n\n".join(f"[{row['metadata']['source_id']}] {row['source']}\n{row['content']}" for row in chunks)
     manifest = {
         "schema": "organization_research_context_manifest.v1",
         "id": origin_bundle_id,
@@ -192,9 +189,7 @@ def _valid_output() -> str:
                         "risk": "medium",
                         "type": "implementation",
                         "depends_on": [],
-                        "acceptance_criteria": [
-                            "The evaluator emits a deterministic report for the bound inputs."
-                        ],
+                        "acceptance_criteria": ["The evaluator emits a deterministic report for the bound inputs."],
                         "evidence_claim_refs": ["CLM_0001", "CLM_0002"],
                     }
                 ],
@@ -251,9 +246,7 @@ def _request():
 
 def test_handler_proposes_only_the_bound_executor_command():
     calls = []
-    handler, task, _finalized = _fixture(
-        runner=lambda **kwargs: calls.append(kwargs)
-    )
+    handler, task, _finalized = _fixture(runner=lambda **kwargs: calls.append(kwargs))
 
     result = handler.propose(tid=task["id"], task=task)
 
@@ -355,9 +348,7 @@ def test_handler_adapts_model_cited_items_when_quality_profile_is_missing():
     item = payload["categories"][0]["items"][0]
     item["evidence_claim_refs"] = ["CLM_0042"]
     item["source_citation_refs"] = ["SRC_0001"]
-    item["evidence_summary"] = (
-        "The evaluator compares deterministic reasoning results."
-    )
+    item["evidence_summary"] = "The evaluator compares deterministic reasoning results."
 
     def runner(**kwargs):
         calls.append(kwargs)
@@ -383,9 +374,7 @@ def test_handler_adapts_model_cited_items_when_quality_profile_is_missing():
         "confidence": "partially_verified",
     }
     assert bound["claims"][1]["citation_refs"] == ["RUN_0001"]
-    assert normalized["categories"][0]["items"][0][
-        "evidence_claim_refs"
-    ] == ["CLM_0001", "CLM_0002"]
+    assert normalized["categories"][0]["items"][0]["evidence_claim_refs"] == ["CLM_0001", "CLM_0002"]
 
 
 def test_handler_projects_root_level_claims_into_closed_quality_schema():
@@ -454,12 +443,10 @@ def test_handler_repairs_scalar_item_contract_fields_once():
 
 def test_handler_denies_tampered_context_before_cli_execution():
     calls = []
-    handler, task, finalized = _fixture(
-        runner=lambda **kwargs: calls.append(kwargs)
-    )
-    task["worker_execution_context"]["source_context_policy"][
-        "context_bundle_digest"
-    ] = hashlib.sha256(b"tampered").hexdigest()
+    handler, task, finalized = _fixture(runner=lambda **kwargs: calls.append(kwargs))
+    task["worker_execution_context"]["source_context_policy"]["context_bundle_digest"] = hashlib.sha256(
+        b"tampered"
+    ).hexdigest()
 
     result = handler.propose(tid=task["id"], task=task)
 

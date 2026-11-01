@@ -1,4 +1,5 @@
 """Factory for the active WorkflowBackend."""
+
 from __future__ import annotations
 
 import os
@@ -49,12 +50,10 @@ class WorkflowBackendConfig:
             temporal_address=str(os.environ.get("ANANTA_TEMPORAL_ADDRESS") or "localhost:7233").strip(),
             temporal_namespace=str(os.environ.get("ANANTA_TEMPORAL_NAMESPACE") or "default").strip() or "default",
             temporal_task_queue=(
-                str(os.environ.get("ANANTA_TEMPORAL_TASK_QUEUE") or "ananta-workflows").strip()
-                or "ananta-workflows"
+                str(os.environ.get("ANANTA_TEMPORAL_TASK_QUEUE") or "ananta-workflows").strip() or "ananta-workflows"
             ),
             temporal_workflow_type=(
-                str(os.environ.get("ANANTA_TEMPORAL_WORKFLOW_TYPE") or "AnantaWorkflow").strip()
-                or "AnantaWorkflow"
+                str(os.environ.get("ANANTA_TEMPORAL_WORKFLOW_TYPE") or "AnantaWorkflow").strip() or "AnantaWorkflow"
             ),
             temporal_ui_url=str(os.environ.get("ANANTA_TEMPORAL_UI_URL") or "http://localhost:8233").strip(),
         )

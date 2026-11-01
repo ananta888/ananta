@@ -10,27 +10,19 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
+from typing import Any
 
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
-
+from agent.services import _deterministic_repair_utils as _drr_utils
 from agent.services._deterministic_repair_constants import (
     ALLOWED_EVIDENCE_TYPES,
     ENVIRONMENT_SIMILARITY_MODEL,
 )
-from agent.services import _deterministic_repair_utils as _drr_utils
+
 _detect_severity = _drr_utils._detect_severity
 
 
 log = logging.getLogger(__name__)
-
-
 
 
 def compute_environment_similarity(
@@ -66,24 +58,24 @@ def compute_environment_similarity(
     }
 
 
-
-
-
 def collect_environment_facts(mode_data: dict[str, Any]) -> dict[str, Any]:
     platform = str(mode_data.get("platform_target") or "unknown").strip().lower() or "unknown"
     facts = {
         "os_family": "windows" if platform == "windows11" else ("linux" if platform == "ubuntu" else "unknown"),
         "platform_target": platform,
-        "distro": str(mode_data.get("distro") or ("ubuntu" if platform == "ubuntu" else "windows11" if platform == "windows11" else "unknown")),
-        "package_manager": str(mode_data.get("package_manager") or ("apt_dpkg" if platform == "ubuntu" else "winget_or_choco" if platform == "windows11" else "unknown")),
+        "distro": str(
+            mode_data.get("distro")
+            or ("ubuntu" if platform == "ubuntu" else "windows11" if platform == "windows11" else "unknown")
+        ),
+        "package_manager": str(
+            mode_data.get("package_manager")
+            or ("apt_dpkg" if platform == "ubuntu" else "winget_or_choco" if platform == "windows11" else "unknown")
+        ),
         "runtime_versions": dict(mode_data.get("runtime_versions") or {}),
         "container_state": str(mode_data.get("container_state") or "unknown"),
         "service_state": str(mode_data.get("service_state") or "unknown"),
     }
     return facts
-
-
-
 
 
 def ingest_structured_logs(logs: list[dict[str, Any]] | list[str], *, source: str = "unknown") -> list[dict[str, Any]]:
@@ -114,9 +106,6 @@ def ingest_structured_logs(logs: list[dict[str, Any]] | list[str], *, source: st
     return structured
 
 
-
-
-
 def capture_command_result(
     *,
     command: str,
@@ -136,9 +125,6 @@ def capture_command_result(
         "health_check": str(health_check or "").strip() or None,
         "status": "success" if int(exit_code) == 0 else "failure",
     }
-
-
-
 
 
 def normalize_evidence_bundle(
@@ -178,6 +164,3 @@ def normalize_evidence_bundle(
             "dropped_noise_count": dropped_noise,
         },
     }
-
-
-

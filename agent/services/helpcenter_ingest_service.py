@@ -73,9 +73,7 @@ def ingest_github_failures(
     for row in raw_rows[:resolved_limit]:
         normalized = adapter.normalize_message(dict(row))
         log_text = str(
-            dict(row.get("job") or {}).get("log_excerpt")
-            or dict(row.get("run") or {}).get("log_excerpt")
-            or ""
+            dict(row.get("job") or {}).get("log_excerpt") or dict(row.get("run") or {}).get("log_excerpt") or ""
         )
         analysis = analyze_helpcenter_message(normalized, log_text=log_text)
         if dry_run:

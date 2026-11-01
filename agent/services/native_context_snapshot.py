@@ -24,9 +24,14 @@ def snapshot_chunks(raw: Any) -> str:
     for item in raw:
         content, source, kind, sensitivity = native_context_chunk_fields(item)
         if (
-            not isinstance(content, str) or not content or len(content.encode("utf-8")) > MAX_NATIVE_CONTEXT_BYTES
-            or not isinstance(source, str) or not source or len(source) > 1024
-            or "://" in source or any(ord(c) < 32 for c in source)
+            not isinstance(content, str)
+            or not content
+            or len(content.encode("utf-8")) > MAX_NATIVE_CONTEXT_BYTES
+            or not isinstance(source, str)
+            or not source
+            or len(source) > 1024
+            or "://" in source
+            or any(ord(c) < 32 for c in source)
         ):
             raise ValueError("native_context_chunk_invalid")
         chunk = {"source_ref": source, "source_type": kind.value, "content": content}
@@ -48,8 +53,14 @@ class NativeContextSnapshot:
 
     @classmethod
     def create(
-        cls, *, task_id: str, command: Mapping[str, Any], source_bundle_id: str,
-        source_task_id: str, chunks: Any, access: Mapping[str, str],
+        cls,
+        *,
+        task_id: str,
+        command: Mapping[str, Any],
+        source_bundle_id: str,
+        source_task_id: str,
+        chunks: Any,
+        access: Mapping[str, str],
     ) -> NativeContextSnapshot:
         task_id = bounded_context_identifier(task_id)
         command_digest = native_context_digest(dict(command))
@@ -57,7 +68,8 @@ class NativeContextSnapshot:
         metadata = {
             "native_context_access": dict(access),
             "native_context_snapshot": {
-                "schema": "ananta.native-context-snapshot.v1", "command_digest": command_digest,
+                "schema": "ananta.native-context-snapshot.v1",
+                "command_digest": command_digest,
                 "source_bundle_id": bounded_context_identifier(source_bundle_id),
                 "source_task_id": bounded_context_identifier(source_task_id),
                 "chunks_digest": native_context_digest(json.loads(chunks_json)),
@@ -69,9 +81,13 @@ class NativeContextSnapshot:
 
     def values(self) -> dict[str, Any]:
         return {
-            "id": self.bundle_id, "task_id": self.task_id, "bundle_type": "native_pi_context",
-            "context_text": None, "retrieval_run_id": None,
-            "chunks": json.loads(self.chunks_json), "bundle_metadata": json.loads(self.metadata_json),
+            "id": self.bundle_id,
+            "task_id": self.task_id,
+            "bundle_type": "native_pi_context",
+            "context_text": None,
+            "retrieval_run_id": None,
+            "chunks": json.loads(self.chunks_json),
+            "bundle_metadata": json.loads(self.metadata_json),
         }
 
     def matches(self, stored: Any) -> bool:
@@ -97,13 +113,18 @@ def validate_prepared_native_context(*, task: Mapping[str, Any], bundle: Any, co
     stored = field("bundle_metadata")
     lineage = stored.get("native_context_snapshot") if isinstance(stored, Mapping) else None
     if (
-        metadata.get("context_bundle_mode") != "control_task" or not isinstance(lineage, Mapping)
+        metadata.get("context_bundle_mode") != "control_task"
+        or not isinstance(lineage, Mapping)
         or task.get("parent_task_id") != command["control_task_id"]
     ):
         raise ValueError("native_context_snapshot_binding_mismatch")
     expected = NativeContextSnapshot.create(
-        task_id=task["id"], command=command, source_bundle_id=lineage.get("source_bundle_id"),
-        source_task_id=command["control_task_id"], chunks=field("chunks"), access={
+        task_id=task["id"],
+        command=command,
+        source_bundle_id=lineage.get("source_bundle_id"),
+        source_task_id=command["control_task_id"],
+        chunks=field("chunks"),
+        access={
             "policy_id": bounded_context_identifier(metadata.get("context_policy_id")),
             "destination_id": bounded_context_identifier(metadata.get("context_destination_id")),
             "provider_endpoint_identity": command["provider_binding"]["endpoint_identity"],

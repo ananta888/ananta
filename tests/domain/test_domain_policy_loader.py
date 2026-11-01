@@ -115,4 +115,3 @@ def test_domain_policy_loader_rejects_unknown_capability_references(tmp_path: Pa
     )
     with pytest.raises(ValueError, match="unknown capability_id"):
         loader.load_pack(policy_path, known_domains={"example"})
-

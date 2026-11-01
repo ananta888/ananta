@@ -13,4 +13,3 @@ def test_does_not_map_redirect_or_pipe():
     mapper = CommandToToolMapper()
     assert mapper.map("echo x > app.py").mapped_tool is None
     assert mapper.map("cat a | grep b").mapped_tool is None
-

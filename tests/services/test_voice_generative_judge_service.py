@@ -102,17 +102,13 @@ def test_hub_delegates_to_worker_and_selects_only_a_known_candidate() -> None:
     assert trace["execution_path"] == "generative_judge_worker"
     assert trace["selected_choice_id"] == "candidate-001"
     assert port.requests[0].task_id == "voice-generative-judge-child"
-    assert tracker.finished == [
-        ("voice-generative-judge-child", "selected", "generative_judge_selected")
-    ]
+    assert tracker.finished == [("voice-generative-judge-child", "selected", "generative_judge_selected")]
 
 
 def test_unprovenanced_selection_and_timeout_preserve_exact_baseline() -> None:
     for selection in ("candidate-999", TimeoutError("timeout")):
         tracker = _Tracker()
-        outcome = _apply(
-            VoiceGenerativeJudgeService(worker_port=_Port(selection), task_tracker=tracker)
-        )
+        outcome = _apply(VoiceGenerativeJudgeService(worker_port=_Port(selection), task_tracker=tracker))
         assert outcome.applied is False
         assert outcome.result["text"] == "baseline"
         assert outcome.reason_code == "generative_judge_failed"
@@ -152,9 +148,7 @@ def test_oversized_or_nul_baseline_and_candidates_never_break_main_voice_result(
     for baseline in ("x" * 8_001, "baseline\x00invalid"):
         result = _result()
         result["text"] = baseline
-        result["candidates"].append(
-            {"candidate_id": "invalid", "status": "succeeded", "text": "candidate\x00invalid"}
-        )
+        result["candidates"].append({"candidate_id": "invalid", "status": "succeeded", "text": "candidate\x00invalid"})
         port = _Port()
 
         outcome = _apply(

@@ -74,15 +74,9 @@ def resolve_dashboard_feature_flags(
     return DashboardFeatureFlags(
         angular_kanban=enabled("feature_angular_kanban_enabled"),
         angular_model_dashboard=angular_model_dashboard,
-        model_catalog_v2=staged(
-            "feature_model_catalog_v2_enabled", angular_model_dashboard
-        ),
-        model_routing_editor=staged(
-            "feature_model_routing_editor_enabled", angular_model_dashboard
-        ),
-        legacy_model_picker_deprecation=staged(
-            "feature_legacy_model_picker_deprecation_enabled", False
-        ),
+        model_catalog_v2=staged("feature_model_catalog_v2_enabled", angular_model_dashboard),
+        model_routing_editor=staged("feature_model_routing_editor_enabled", angular_model_dashboard),
+        legacy_model_picker_deprecation=staged("feature_legacy_model_picker_deprecation_enabled", False),
         tui_kanban=enabled("feature_tui_kanban_enabled"),
         tui_model_menu=enabled("feature_tui_model_menu_enabled"),
     )

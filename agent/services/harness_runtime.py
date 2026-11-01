@@ -128,8 +128,9 @@ def _default_context_strategy() -> ContextStrategyPort:
         strategy_id = "fixed_reservation"
 
         def reservation(self, policy: ContextPolicy) -> ContextReservation:
-            return ContextReservation(policy.budget_tokens, policy.reserved_completion_tokens,
-                                      policy.reserved_tool_tokens)
+            return ContextReservation(
+                policy.budget_tokens, policy.reserved_completion_tokens, policy.reserved_tool_tokens
+            )
 
     return _ReservationContext()
 
@@ -150,9 +151,13 @@ def build_default_strategy_registry() -> StrategyRegistry:
     registry = StrategyRegistry()
     registry.register("context", "fixed_reservation", _default_context_strategy)
     registry.register("tools", "contract", _default_tool_strategy)
-    for family, strategy_id in (("memory", "policy_gateway"), ("delegation", "hub_only"),
-                                ("verification", "hub_gate"), ("stop_retry", "task_terminal"),
-                                ("reducer", "none")):
+    for family, strategy_id in (
+        ("memory", "policy_gateway"),
+        ("delegation", "hub_only"),
+        ("verification", "hub_gate"),
+        ("stop_retry", "task_terminal"),
+        ("reducer", "none"),
+    ):
         registry.register(family, strategy_id, lambda strategy_id=strategy_id: _StubStrategy(strategy_id))
     return registry
 
@@ -174,8 +179,14 @@ class HarnessRuntimeDescriptor:
 class HarnessRuntime:
     """A validated binding of one genome to concrete strategies and capabilities."""
 
-    def __init__(self, genome: HarnessGenome, *, strategies: StrategyRegistry, gates: GateRegistryPort,
-                 authorized_tools: frozenset[str] = frozenset()):
+    def __init__(
+        self,
+        genome: HarnessGenome,
+        *,
+        strategies: StrategyRegistry,
+        gates: GateRegistryPort,
+        authorized_tools: frozenset[str] = frozenset(),
+    ):
         genome.assert_valid()
         self._genome = genome
         self._strategies = strategies
@@ -223,8 +234,9 @@ class HarnessRuntime:
     def describe(self) -> HarnessRuntimeDescriptor:
         return HarnessRuntimeDescriptor(
             genome_id=self._genome.genome_id,
-            strategies={family: getattr(strategy, "strategy_id", "unknown")
-                        for family, strategy in self._selected.items()},
+            strategies={
+                family: getattr(strategy, "strategy_id", "unknown") for family, strategy in self._selected.items()
+            },
             effective_tools=self._effective_tools,
             immutable_gates=self._genome.gates.gate_refs,
             promotion_ref=self._genome.gates.promotion_ref,
@@ -239,17 +251,30 @@ def _delegation_id(topology: AgentTopology) -> str:
     return "hub_only" if topology.delegation_depth == 0 else "delegated"
 
 
-def baseline_genome(*, code_hash: str, config_hash: str, provider_id: str, model_id: str,
-                    gate_refs: tuple[str, ...], promotion_ref: str, budget_tokens: int = 32768,
-                    reserved_completion_tokens: int = 2048, allowed_tools: tuple[str, ...] = ()) -> HarnessGenome:
+def baseline_genome(
+    *,
+    code_hash: str,
+    config_hash: str,
+    provider_id: str,
+    model_id: str,
+    gate_refs: tuple[str, ...],
+    promotion_ref: str,
+    budget_tokens: int = 32768,
+    reserved_completion_tokens: int = 2048,
+    allowed_tools: tuple[str, ...] = (),
+) -> HarnessGenome:
     """The current Ananta behaviour as a genome: single agent, hub gate, no fusion."""
     return HarnessGenome(
-        code_hash=code_hash, config_hash=config_hash,
+        code_hash=code_hash,
+        config_hash=config_hash,
         prompt=PromptStrategy(system_ref="prompt://ananta/system", user_ref="prompt://ananta/user"),
         context=ContextPolicy(budget_tokens=budget_tokens, reserved_completion_tokens=reserved_completion_tokens),
         tools=ToolPolicy(allowed_tools=allowed_tools, routing_heuristic="contract", action_fusion=False),
         model_routing=ModelRouting(provider_id=provider_id, model_id=model_id),
         gates=GatePolicy(gate_refs=gate_refs, promotion_ref=promotion_ref),
-        memory=MemoryPolicy(), retrieval=RetrievalPolicy(), topology=AgentTopology(),
-        reducer=ReducerPolicy(), verification=VerificationPolicy(),
+        memory=MemoryPolicy(),
+        retrieval=RetrievalPolicy(),
+        topology=AgentTopology(),
+        reducer=ReducerPolicy(),
+        verification=VerificationPolicy(),
     )

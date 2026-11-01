@@ -6,9 +6,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-DEV_AUTH_COMPOSE = (
-    ROOT / "docker" / "compose-next" / "compose.workflow-runtime.dev-auth.yml"
-)
+DEV_AUTH_COMPOSE = ROOT / "docker" / "compose-next" / "compose.workflow-runtime.dev-auth.yml"
 ENTRYPOINT = ROOT / "scripts" / "quickstart-single-image-entrypoint.sh"
 
 
@@ -43,11 +41,7 @@ def _run_migration_policy(tmp_path: Path, value: str) -> tuple[int, list[str]]:
         env=environment,
         text=True,
     )
-    calls = (
-        migration_log.read_text(encoding="utf-8").splitlines()
-        if migration_log.exists()
-        else []
-    )
+    calls = migration_log.read_text(encoding="utf-8").splitlines() if migration_log.exists() else []
     return completed.returncode, calls
 
 
@@ -99,26 +93,18 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
     assert "deerflow_runner" in entrypoint
     assert "ml_intern_runner" in entrypoint
     assert "DEFAULT_PROVIDER=openai requires OPENAI_API_KEY" in entrypoint
-    assert worker_body.index("run_db_migrations_if_enabled") < worker_body.index(
-        "exec python -m agent.ai_agent"
-    )
+    assert worker_body.index("run_db_migrations_if_enabled") < worker_body.index("exec python -m agent.ai_agent")
     assert "prepare_runtime_directories" in agent_only_body
     assert "prepare_runtime_directories" in single_container_body
 
 
 def test_quickstart_compose_binds_openai_key_to_hub_only() -> None:
-    compose = yaml.safe_load(
-        (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(
-            encoding="utf-8"
-        )
-    )
+    compose = yaml.safe_load((ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8"))
 
     hub_environment = compose["services"]["ai-agent-hub-base"]["environment"]
     assert hub_environment["ANANTA_USER_JSON"] == "/app/data/user.json"
     assert hub_environment["OPENAI_API_KEY"] == "${OPENAI_API_KEY:-}"
-    assert hub_environment["OPENAI_URL"] == (
-        "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
-    )
+    assert hub_environment["OPENAI_URL"] == ("${OPENAI_URL:-https://api.openai.com/v1/chat/completions}")
 
     for service_name in ("ai-agent-worker-base", "angular-frontend-base"):
         environment = compose["services"][service_name]["environment"]
@@ -127,17 +113,11 @@ def test_quickstart_compose_binds_openai_key_to_hub_only() -> None:
 
 
 def test_dev_auth_overlay_assigns_database_migrations_only_to_hub() -> None:
-    services = yaml.safe_load(DEV_AUTH_COMPOSE.read_text(encoding="utf-8"))[
-        "services"
-    ]
+    services = yaml.safe_load(DEV_AUTH_COMPOSE.read_text(encoding="utf-8"))["services"]
 
-    assert services["ai-agent-hub"]["environment"][
-        "ANANTA_RUN_DB_MIGRATIONS"
-    ] == "1"
+    assert services["ai-agent-hub"]["environment"]["ANANTA_RUN_DB_MIGRATIONS"] == "1"
     for worker_name in ("ai-agent-alpha", "ai-agent-beta"):
-        assert services[worker_name]["environment"][
-            "ANANTA_RUN_DB_MIGRATIONS"
-        ] == "0"
+        assert services[worker_name]["environment"]["ANANTA_RUN_DB_MIGRATIONS"] == "0"
 
     for service_name in ("ai-agent-hub", "ai-agent-alpha", "ai-agent-beta"):
         assert services[service_name]["command"] == "python -m agent.ai_agent"

@@ -43,7 +43,9 @@ def test_prompt_text_cannot_disable_redaction_or_policy():
     }
     client = app.test_client()
     for text in injections:
-        resp = client.post("/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": text}]})
+        resp = client.post(
+            "/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": text}]}
+        )
         assert resp.status_code in {200, 403}
 
 
@@ -94,8 +96,10 @@ def test_provider_key_never_in_response_or_audit_shape():
     }
     client = app.test_client()
     for item in samples:
-        resp = client.post("/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": item["text"]}]})
+        resp = client.post(
+            "/v1/chat/completions",
+            json={"model": "intercepted-coder", "messages": [{"role": "user", "content": item["text"]}]},
+        )
         data = json.dumps(resp.get_json())
         assert "OPENROUTER_API_KEY" not in data
         assert "Bearer supersecrettoken123" not in data
-

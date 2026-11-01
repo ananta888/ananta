@@ -1,5 +1,4 @@
-"""Grant preset, grant administration and index-access routes of the Source Control v1 API.
-"""
+"""Grant preset, grant administration and index-access routes of the Source Control v1 API."""
 
 from __future__ import annotations
 
@@ -33,7 +32,8 @@ def register_grant_routes(
     @check_auth
     @boundary
     def list_grant_presets():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.LIST,
             resource_kind="source_access_grant",
             collection=True,
@@ -66,7 +66,8 @@ def register_grant_routes(
     @check_auth
     @boundary
     def list_grants():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.LIST,
             resource_kind="source_access_grant",
             collection=True,
@@ -99,16 +100,15 @@ def register_grant_routes(
     @check_auth
     @boundary
     def create_grant():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_access_grant",
             collection=True,
         )
         if denied is not None:
             return denied
-        principal, project_id, _, _, _ = request_guard.catalog_request(
-            allowed=frozenset({"project_id"})
-        )
+        principal, project_id, _, _, _ = request_guard.catalog_request(allowed=frozenset({"project_id"}))
         payload = json_object()
         fields = frozenset(
             {
@@ -138,16 +138,15 @@ def register_grant_routes(
     @check_auth
     @boundary
     def revoke_grant(grant_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.POLICY,
             resource_kind="source_access_grant",
             collection=True,
         )
         if denied is not None:
             return denied
-        principal, project_id, _, _, _ = request_guard.catalog_request(
-            allowed=frozenset({"project_id"})
-        )
+        principal, project_id, _, _, _ = request_guard.catalog_request(allowed=frozenset({"project_id"}))
         payload = json_object()
         fields = frozenset({"reason_code"})
         require_exact_fields(payload, fields, required=fields)
@@ -166,16 +165,13 @@ def register_grant_routes(
             response.headers["ETag"] = f'"{grant["etag"]}"'
         return response
 
-    @blueprint.get(
-        "/connections/<connection_id>/actions/prepare-index-access"
-    )
+    @blueprint.get("/connections/<connection_id>/actions/prepare-index-access")
     @check_auth
     @boundary
     def prepare_index_access_options(connection_id: str):
-        principal, project_id, _, _, _ = request_guard.catalog_request(
-            allowed=frozenset({"project_id"})
-        )
-        denied = request_guard.authorize(api,
+        principal, project_id, _, _, _ = request_guard.catalog_request(allowed=frozenset({"project_id"}))
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.INDEX,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -194,16 +190,13 @@ def register_grant_routes(
             response.headers["ETag"] = f'"{etag}"'
         return response
 
-    @blueprint.post(
-        "/connections/<connection_id>/actions/prepare-index-access"
-    )
+    @blueprint.post("/connections/<connection_id>/actions/prepare-index-access")
     @check_auth
     @boundary
     def prepare_index_access(connection_id: str):
-        principal, project_id, _, _, _ = request_guard.catalog_request(
-            allowed=frozenset({"project_id"})
-        )
-        denied = request_guard.authorize(api,
+        principal, project_id, _, _, _ = request_guard.catalog_request(allowed=frozenset({"project_id"}))
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.INDEX,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -223,9 +216,7 @@ def register_grant_routes(
         )
         require_exact_fields(payload, fields, required=fields)
         if payload.get("confirmed") is not True:
-            raise SourceControlApiError(
-                "index_access_confirmation_required"
-            )
+            raise SourceControlApiError("index_access_confirmation_required")
         if_match, idempotency_key = require_grant_mutation_headers()
         data = api.prepare_index_access(
             principal=principal,

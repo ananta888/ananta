@@ -32,8 +32,8 @@ from agent.services.cognitive_style_service import (
 from agent.services.model_catalog_service import ModelCatalogCapabilityPolicy
 from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from ananta_contracts.cognitive_style import (
-    ComplementaryStyleExperimentCommand,
     CognitiveStyleMutationCommand,
+    ComplementaryStyleExperimentCommand,
     StyleBenchmarkRunCommand,
     StyleEvolutionFromEvidenceCommand,
     StyleEvolutionProposalCommand,
@@ -75,11 +75,7 @@ def _denied(capability: str):
 
 
 def _profiles() -> tuple[ModelProfile, ...]:
-    path = str(
-        current_app.config.get("MODEL_PROFILES_PATH")
-        or os.environ.get("MODEL_PROFILES_PATH")
-        or ""
-    ).strip()
+    path = str(current_app.config.get("MODEL_PROFILES_PATH") or os.environ.get("MODEL_PROFILES_PATH") or "").strip()
     if not path:
         return ()
     loaded = ModelProfileLoader().load_file(path)
@@ -106,26 +102,27 @@ def put_cognitive_styles():
     if not _allowed(STYLE_MUTATE_CAPABILITY):
         return _denied(STYLE_MUTATE_CAPABILITY)
     try:
-        command = CognitiveStyleMutationCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = CognitiveStyleMutationCommand.model_validate(request.get_json(silent=True))
         updated = get_cognitive_style_service().mutate(command)
     except ValidationError:
-        return api_response(
-            status="error", message="cognitive_style_mutation_invalid", code=400
-        )
+        return api_response(status="error", message="cognitive_style_mutation_invalid", code=400)
     except CognitiveStyleConflict as exc:
         return api_response(
-            status="error", message=str(exc),
-            data={"current_revision": exc.current_revision}, code=409,
+            status="error",
+            message=str(exc),
+            data={"current_revision": exc.current_revision},
+            code=409,
         )
-    log_audit("cognitive_style_configuration_updated", {
-        "previous_revision": command.expected_revision,
-        "revision": updated.revision,
-        "profile_count": len(updated.profiles),
-        "target_count": len(updated.role_targets),
-        "overlay_count": len(updated.overlays),
-    })
+    log_audit(
+        "cognitive_style_configuration_updated",
+        {
+            "previous_revision": command.expected_revision,
+            "revision": updated.revision,
+            "profile_count": len(updated.profiles),
+            "target_count": len(updated.role_targets),
+            "overlay_count": len(updated.overlays),
+        },
+    )
     return api_response(data=updated.model_dump(mode="json", by_alias=True))
 
 
@@ -143,9 +140,7 @@ def preview_cognitive_style_benchmark():
             temperatures=command.temperatures,
         )
     except ValidationError:
-        return api_response(
-            status="error", message="cognitive_style_benchmark_command_invalid", code=400
-        )
+        return api_response(status="error", message="cognitive_style_benchmark_command_invalid", code=400)
     return api_response(data=plan.model_dump(mode="json", by_alias=True))
 
 
@@ -157,22 +152,20 @@ def run_cognitive_style_benchmark():
     try:
         command = StyleBenchmarkRunCommand.model_validate(request.get_json(silent=True))
     except ValidationError:
-        return api_response(
-            status="error", message="cognitive_style_benchmark_command_invalid", code=400
-        )
+        return api_response(status="error", message="cognitive_style_benchmark_command_invalid", code=400)
     profile = next(
         (item for item in _profiles() if item.profile_id == command.context.model_profile_id),
         None,
     )
     if profile is None:
-        return api_response(
-            status="error", message="cognitive_style_model_profile_not_found", code=404
-        )
+        return api_response(status="error", message="cognitive_style_model_profile_not_found", code=404)
     current_revision = get_cognitive_style_service().read().configuration.revision
     if command.expected_revision != current_revision:
         return api_response(
-            status="error", message="cognitive_style_revision_conflict",
-            data={"current_revision": current_revision}, code=409,
+            status="error",
+            message="cognitive_style_revision_conflict",
+            data={"current_revision": current_revision},
+            code=409,
         )
     plan = CognitiveStyleBenchmarkSuite.plan(
         command.context,
@@ -189,11 +182,14 @@ def run_cognitive_style_benchmark():
     from agent import metrics
 
     metrics.AGENT_STYLE_BENCHMARKS_TOTAL.labels(outcome="queued").inc()
-    log_audit("cognitive_style_benchmark_queued", {
-        "job_id": job["job_id"],
-        "model_profile_id": profile.profile_id,
-        "observation_count": len(plan.variants) * plan.repeats * len(plan.seeds) * len(plan.temperatures),
-    })
+    log_audit(
+        "cognitive_style_benchmark_queued",
+        {
+            "job_id": job["job_id"],
+            "model_profile_id": profile.profile_id,
+            "observation_count": len(plan.variants) * plan.repeats * len(plan.seeds) * len(plan.temperatures),
+        },
+    )
     return api_response(data=job, code=202)
 
 
@@ -204,7 +200,8 @@ def get_cognitive_style_benchmark_job(job_id: str):
         return _denied(STYLE_READ_CAPABILITY)
     job = get_benchmark_job_service().get_job(job_id)
     if not job or job.get("job_type") not in {
-        "cognitive_style_benchmark", "cognitive_style_rebenchmark",
+        "cognitive_style_benchmark",
+        "cognitive_style_rebenchmark",
     }:
         return api_response(status="error", message="benchmark_job_not_found", code=404)
     return api_response(data=job)
@@ -247,18 +244,16 @@ def rebenchmark_drifted_cognitive_styles():
     if not _allowed(STYLE_BENCHMARK_CAPABILITY):
         return _denied(STYLE_BENCHMARK_CAPABILITY)
     try:
-        command = StyleRebenchmarkDueCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = StyleRebenchmarkDueCommand.model_validate(request.get_json(silent=True))
     except ValidationError:
-        return api_response(
-            status="error", message="style_rebenchmark_command_invalid", code=400
-        )
+        return api_response(status="error", message="style_rebenchmark_command_invalid", code=400)
     read = get_cognitive_style_service().read()
     if command.expected_revision != read.configuration.revision:
         return api_response(
-            status="error", message="cognitive_style_revision_conflict",
-            data={"current_revision": read.configuration.revision}, code=409,
+            status="error",
+            message="cognitive_style_revision_conflict",
+            data={"current_revision": read.configuration.revision},
+            code=409,
         )
     schedule = CognitiveStyleRebenchmarkPlanner().plan(
         command=command,
@@ -267,9 +262,7 @@ def rebenchmark_drifted_cognitive_styles():
     )
     response = {
         "drift": schedule.drift.model_dump(mode="json", by_alias=True),
-        "scheduled_profile_ids": [
-            item.profile.profile_id for item in schedule.work_items
-        ],
+        "scheduled_profile_ids": [item.profile.profile_id for item in schedule.work_items],
         "skipped_profile_ids": list(schedule.skipped_profile_ids),
         "job": None,
     }
@@ -284,12 +277,15 @@ def rebenchmark_drifted_cognitive_styles():
     from agent import metrics
 
     metrics.AGENT_STYLE_BENCHMARKS_TOTAL.labels(outcome="queued").inc()
-    log_audit("cognitive_style_rebenchmark_queued", {
-        "job_id": job["job_id"],
-        "configuration_revision": command.expected_revision,
-        "scheduled_profile_ids": response["scheduled_profile_ids"],
-        "skipped_profile_ids": response["skipped_profile_ids"],
-    })
+    log_audit(
+        "cognitive_style_rebenchmark_queued",
+        {
+            "job_id": job["job_id"],
+            "configuration_revision": command.expected_revision,
+            "scheduled_profile_ids": response["scheduled_profile_ids"],
+            "skipped_profile_ids": response["skipped_profile_ids"],
+        },
+    )
     return api_response(data=response, code=202)
 
 
@@ -317,9 +313,7 @@ def analyze_cognitive_style_retrospective():
     if not _allowed(STYLE_READ_CAPABILITY):
         return _denied(STYLE_READ_CAPABILITY)
     try:
-        command = StyleRetrospectiveAnalysisCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = StyleRetrospectiveAnalysisCommand.model_validate(request.get_json(silent=True))
     except ValidationError:
         return api_response(status="error", message="style_retrospective_invalid", code=400)
     report = CognitiveStyleRetrospectiveService().analyze(command.signals)
@@ -336,9 +330,7 @@ def evaluate_complementary_style_experiment():
     if not _allowed(STYLE_READ_CAPABILITY):
         return _denied(STYLE_READ_CAPABILITY)
     try:
-        command = ComplementaryStyleExperimentCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = ComplementaryStyleExperimentCommand.model_validate(request.get_json(silent=True))
     except ValidationError:
         return api_response(status="error", message="style_experiment_invalid", code=400)
     report = ComplementaryStyleExperimentService().evaluate(command)
@@ -362,16 +354,17 @@ def record_cognitive_style_mismatch():
         return api_response(status="error", message="style_mismatch_evidence_invalid", code=400)
     except CognitiveStyleConflict as exc:
         return api_response(status="error", message=str(exc), data={"current_revision": exc.current_revision}, code=409)
-    log_audit("cognitive_style_mismatch_recorded", {
-        "evidence_id": command.evidence.evidence_id,
-        "signal": command.evidence.signal,
-        "causes_reclassification": False,
-    })
+    log_audit(
+        "cognitive_style_mismatch_recorded",
+        {
+            "evidence_id": command.evidence.evidence_id,
+            "signal": command.evidence.signal,
+            "causes_reclassification": False,
+        },
+    )
     from agent import metrics
 
-    metrics.AGENT_STYLE_MISMATCH_EVENTS_TOTAL.labels(
-        signal=command.evidence.signal
-    ).inc()
+    metrics.AGENT_STYLE_MISMATCH_EVENTS_TOTAL.labels(signal=command.evidence.signal).inc()
     return api_response(data=read.model_dump(mode="json", by_alias=True))
 
 
@@ -382,19 +375,20 @@ def propose_cognitive_style_evolution():
         return _denied(STYLE_MUTATE_CAPABILITY)
     try:
         command = StyleEvolutionProposalCommand.model_validate(request.get_json(silent=True))
-        read = get_cognitive_style_service().add_proposal(
-            command.proposal, expected_revision=command.expected_revision
-        )
+        read = get_cognitive_style_service().add_proposal(command.proposal, expected_revision=command.expected_revision)
     except ValidationError:
         return api_response(status="error", message="style_evolution_proposal_invalid", code=400)
     except (CognitiveStyleConflict, ValueError) as exc:
         code = 409 if isinstance(exc, CognitiveStyleConflict) else 400
         return api_response(status="error", message=str(exc), code=code)
-    log_audit("cognitive_style_evolution_proposed", {
-        "proposal_id": command.proposal.proposal_id,
-        "proposal_type": command.proposal.proposal_type,
-        "review_required": True,
-    })
+    log_audit(
+        "cognitive_style_evolution_proposed",
+        {
+            "proposal_id": command.proposal.proposal_id,
+            "proposal_type": command.proposal.proposal_type,
+            "review_required": True,
+        },
+    )
     from agent import metrics
 
     metrics.AGENT_STYLE_EVOLUTION_PROPOSALS_TOTAL.labels(
@@ -409,9 +403,7 @@ def propose_cognitive_style_evolution_from_evidence():
     if not _allowed(STYLE_MUTATE_CAPABILITY):
         return _denied(STYLE_MUTATE_CAPABILITY)
     try:
-        command = StyleEvolutionFromEvidenceCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = StyleEvolutionFromEvidenceCommand.model_validate(request.get_json(silent=True))
         service = get_cognitive_style_service()
         current = service.read()
         evidence = next(
@@ -433,17 +425,18 @@ def propose_cognitive_style_evolution_from_evidence():
     except (CognitiveStyleConflict, ValueError) as exc:
         code = 409 if isinstance(exc, CognitiveStyleConflict) else 400
         return api_response(status="error", message=str(exc), code=code)
-    log_audit("cognitive_style_evolution_proposed", {
-        "proposal_id": proposal.proposal_id,
-        "proposal_type": proposal.proposal_type,
-        "evidence_id": command.evidence_id,
-        "review_required": True,
-    })
+    log_audit(
+        "cognitive_style_evolution_proposed",
+        {
+            "proposal_id": proposal.proposal_id,
+            "proposal_type": proposal.proposal_type,
+            "evidence_id": command.evidence_id,
+            "review_required": True,
+        },
+    )
     from agent import metrics
 
-    metrics.AGENT_STYLE_EVOLUTION_PROPOSALS_TOTAL.labels(
-        proposal_type=proposal.proposal_type, status="proposed"
-    ).inc()
+    metrics.AGENT_STYLE_EVOLUTION_PROPOSALS_TOTAL.labels(proposal_type=proposal.proposal_type, status="proposed").inc()
     return api_response(data=read.model_dump(mode="json", by_alias=True))
 
 
@@ -453,9 +446,7 @@ def transition_cognitive_style_evolution(proposal_id: str):
     if not _allowed(STYLE_MUTATE_CAPABILITY):
         return _denied(STYLE_MUTATE_CAPABILITY)
     try:
-        command = StyleEvolutionTransitionMutationCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = StyleEvolutionTransitionMutationCommand.model_validate(request.get_json(silent=True))
         read = get_cognitive_style_service().transition_proposal(
             proposal_id,
             command.transition,
@@ -466,16 +457,17 @@ def transition_cognitive_style_evolution(proposal_id: str):
     except (CognitiveStyleConflict, ValueError) as exc:
         code = 409 if isinstance(exc, CognitiveStyleConflict) else 400
         return api_response(status="error", message=str(exc), code=code)
-    log_audit("cognitive_style_evolution_transitioned", {
-        "proposal_id": proposal_id,
-        "target_status": command.transition.target_status,
-        "review_reference_present": bool(command.transition.review_reference),
-    })
+    log_audit(
+        "cognitive_style_evolution_transitioned",
+        {
+            "proposal_id": proposal_id,
+            "target_status": command.transition.target_status,
+            "review_reference_present": bool(command.transition.review_reference),
+        },
+    )
     from agent import metrics
 
-    proposal = next(
-        item for item in read.evolution_proposals if item.proposal_id == proposal_id
-    )
+    proposal = next(item for item in read.evolution_proposals if item.proposal_id == proposal_id)
     metrics.AGENT_STYLE_EVOLUTION_PROPOSALS_TOTAL.labels(
         proposal_type=proposal.proposal_type, status=command.transition.target_status
     ).inc()

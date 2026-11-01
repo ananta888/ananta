@@ -1045,7 +1045,7 @@ def test_visual_routes_expose_pause_resume_and_retry_through_hub_control(
     reset_workflow_backend_control_facade()
     workflow_route_authorization_service.clear()
     app = Flask(__name__)
-    app.config.update(TESTING=True, AGENT_TOKEN=None, ROLE='hub')
+    app.config.update(TESTING=True, AGENT_TOKEN=None, ROLE="hub")
     app.register_blueprint(vp_bp)
     client = app.test_client()
     token = generate_token(

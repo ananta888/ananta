@@ -13,9 +13,7 @@ from agent.routes.ml_intern_training_route_support import _principal
 from agent.services.research_training_run_service import ResearchTrainingDenied
 from agent.services.research_training_state_store import ResearchTrainingStateConflict
 
-research_training_bp = Blueprint(
-    "research_training", __name__, url_prefix="/api/ml-intern-training/research"
-)
+research_training_bp = Blueprint("research_training", __name__, url_prefix="/api/ml-intern-training/research")
 _WORKER_SCOPE = "ml-intern:research-training:worker"
 _API_PREFIX = "/api/ml-intern-training/research"
 
@@ -66,10 +64,7 @@ def _project_id() -> str:
 
 def _authenticated_worker_id() -> str:
     identity = dict(
-        getattr(g, "worker_identity", {})
-        or getattr(g, "service_identity", {})
-        or getattr(g, "auth_payload", {})
-        or {}
+        getattr(g, "worker_identity", {}) or getattr(g, "service_identity", {}) or getattr(g, "auth_payload", {}) or {}
     )
     value = str(identity.get("worker_id") or identity.get("sub") or identity.get("client_id") or "").strip()
     if not value:

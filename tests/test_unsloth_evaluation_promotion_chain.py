@@ -25,17 +25,20 @@ from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
 
 SOURCE_ID = "SRC_training-source"
 RUN_ID = "RUN_evaluation-run"
-HASHES = {name: character * 64 for name, character in zip(
-    (
-        "artifact",
-        "dataset",
-        "fence",
-        "model",
-        "adapter",
-        "export",
-    ),
-    "abcdef",
-)}
+HASHES = {
+    name: character * 64
+    for name, character in zip(
+        (
+            "artifact",
+            "dataset",
+            "fence",
+            "model",
+            "adapter",
+            "export",
+        ),
+        "abcdef",
+    )
+}
 
 
 class _EvaluationStore:
@@ -134,12 +137,8 @@ def test_facade_appends_one_immutable_idempotent_promotion(tmp_path: Path):
     assert replayed_again is True
     assert promoted.registry_version == replay.registry_version
     assert len(promoted.promotion_history) == 1
-    assert promoted.promotion_history[0]["revision_before"] == (
-        evaluated.registry_version
-    )
-    assert promoted.promotion_history[0]["revision_after"] == (
-        evaluated.registry_version + 1
-    )
+    assert promoted.promotion_history[0]["revision_before"] == (evaluated.registry_version)
+    assert promoted.promotion_history[0]["revision_after"] == (evaluated.registry_version + 1)
     assert "reason" not in promoted.promotion_history[0]
     assert audit[0][0] == "unsloth.artifact_promoted"
 

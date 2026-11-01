@@ -113,9 +113,7 @@ class ProviderWireCodec:
                         "tool_calls": [],
                         "reasoning_content": normalized["thinking"],
                     },
-                    "finish_reason": normalized["finish_reason"] or (
-                        "stop" if normalized["done"] else None
-                    ),
+                    "finish_reason": normalized["finish_reason"] or ("stop" if normalized["done"] else None),
                 }
             ],
             "usage": {
@@ -163,9 +161,7 @@ class ProviderWireCodec:
                         "tool_calls": tool_calls,
                         "reasoning_content": normalized["thinking"],
                     },
-                    "finish_reason": normalized["finish_reason"] or (
-                        "stop" if normalized["done"] else None
-                    ),
+                    "finish_reason": normalized["finish_reason"] or ("stop" if normalized["done"] else None),
                 }
             ],
             "usage": {

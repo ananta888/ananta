@@ -126,20 +126,14 @@ def test_dataset_admission_rejects_direct_paths_and_scope_confusion():
         media_type="application/json",
         verified=True,
     )
-    service = HrmManifestAdmissionService(
-        artifacts=_Artifacts(inspection), repository=_Repository()
-    )
+    service = HrmManifestAdmissionService(artifacts=_Artifacts(inspection), repository=_Repository())
     direct = _dataset()
     direct["source"]["locator"] = "/tmp/puzzles.json"
 
     with pytest.raises(HrmAdmissionError, match="hrm.dataset_locator_forbidden"):
-        service.admit_dataset(
-            direct, scope=HrmAdmissionScope("tenant-a", "project-a")
-        )
+        service.admit_dataset(direct, scope=HrmAdmissionScope("tenant-a", "project-a"))
     with pytest.raises(HrmAdmissionError, match="hrm.scope_mismatch"):
-        service.admit_dataset(
-            _dataset(), scope=HrmAdmissionScope("tenant-b", "project-a")
-        )
+        service.admit_dataset(_dataset(), scope=HrmAdmissionScope("tenant-b", "project-a"))
 
 
 def test_checkpoint_admission_promotes_only_inspected_safetensors():

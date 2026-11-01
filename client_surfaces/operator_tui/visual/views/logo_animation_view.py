@@ -43,4 +43,3 @@ class LogoAnimationView:
             nodes=nodes,
             metadata={"animated": True, "phase": round(self._phase, 4)},
         )
-

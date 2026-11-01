@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Protocol, runtime_checkable
 
-
 MetricValue = int | float
 
 

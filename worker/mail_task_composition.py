@@ -8,8 +8,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
 
-from agent.services.imap_connector_service import ImapConnectorService
 from agent.adapters.mail_metrics_adapter import MailMetricsAdapter
+from agent.services.imap_connector_service import ImapConnectorService
 from agent.services.imap_provider_adapter import ImapProviderAdapter
 from agent.services.jmap_auth_service import JmapAuthService
 from agent.services.jmap_endpoint_policy import (
@@ -119,8 +119,7 @@ class _ObservedMailTaskExecution:
                 if success
                 else (
                     reason
-                    if reason.startswith("mail_")
-                    and reason.replace("_", "").isalnum()
+                    if reason.startswith("mail_") and reason.replace("_", "").isalnum()
                     else f"mail_{component}_failed"
                 )
             ),
@@ -140,11 +139,7 @@ def _bool(source: Mapping[str, str], name: str, default: bool) -> bool:
 
 
 def _csv(source: Mapping[str, str], name: str) -> tuple[str, ...]:
-    return tuple(
-        value.strip()
-        for value in str(source.get(name) or "").split(",")
-        if value.strip()
-    )
+    return tuple(value.strip() for value in str(source.get(name) or "").split(",") if value.strip())
 
 
 class _DeniedMutationIntentVerifier:
@@ -168,8 +163,7 @@ class _SafeMutationAuditSink:
         reason_code: str,
     ) -> None:
         _LOGGER.info(
-            "mail_mutation_audit account_id=%s operation=%s intent_ref=%s "
-            "audit_ref=%s outcome=%s reason_code=%s",
+            "mail_mutation_audit account_id=%s operation=%s intent_ref=%s audit_ref=%s outcome=%s reason_code=%s",
             account_id,
             operation,
             intent_ref,
@@ -187,18 +181,13 @@ def build_production_mail_task_execution(
 ) -> Any:
     source = dict(os.environ if environ is None else environ)
     repo_root = Path(source.get("ANANTA_REPO_ROOT") or ".").resolve()
-    data_root = Path(
-        source.get("ANANTA_MAIL_DATA_ROOT")
-        or repo_root / "data" / "mail"
-    ).resolve()
+    data_root = Path(source.get("ANANTA_MAIL_DATA_ROOT") or repo_root / "data" / "mail").resolve()
     transactional_state = build_transactional_mail_runtime_state(
         database_path=data_root / "runtime-state-v1.sqlite3",
         fault_injector=sync_fault_injector,
     )
     metadata = transactional_state.metadata_store
-    mailboxes = PersistentMailboxLocatorStore(
-        store_path=data_root / "mailbox-locators-v1.json"
-    )
+    mailboxes = PersistentMailboxLocatorStore(store_path=data_root / "mailbox-locators-v1.json")
     sync_state = transactional_state.sync_state_store
     feature_policy = MailFeaturePolicy(
         mail_enabled=_bool(source, "ANANTA_MAIL_ENABLED", True),
@@ -248,11 +237,7 @@ def build_production_mail_task_execution(
         limits=feature_policy.limits,
         observer=metrics,
     )
-    availability = (
-        runtime_availability
-        if runtime_availability is not None
-        else get_mail_runtime_availability_policy()
-    )
+    availability = runtime_availability if runtime_availability is not None else get_mail_runtime_availability_policy()
     audit_sink = _SafeMutationAuditSink()
 
     def router_factory(
@@ -295,23 +280,13 @@ def build_production_mail_task_execution(
             factories["imap"] = imap
         return MailProviderRouter(factories)
 
-    secret_roots = _csv(source, "ANANTA_MAIL_SECRET_ROOTS") or (
-        "/run/secrets",
-    )
+    secret_roots = _csv(source, "ANANTA_MAIL_SECRET_ROOTS") or ("/run/secrets",)
     secret_resolver = EnvFileMailSecretResolver(
         environ=source,
         allowed_file_roots=secret_roots,
     )
-    hub_url = str(
-        source.get("ANANTA_MAIL_HUB_URL")
-        or source.get("HUB_URL")
-        or "http://localhost:5000"
-    ).strip()
-    hub_token = str(
-        source.get("ANANTA_MAIL_HUB_TOKEN")
-        or source.get("ANANTA_AUTH_TOKEN")
-        or ""
-    ).strip()
+    hub_url = str(source.get("ANANTA_MAIL_HUB_URL") or source.get("HUB_URL") or "http://localhost:5000").strip()
+    hub_token = str(source.get("ANANTA_MAIL_HUB_TOKEN") or source.get("ANANTA_AUTH_TOKEN") or "").strip()
     intent_client = (
         HttpMailOperationIntentClient(
             hub_url=hub_url,
@@ -322,9 +297,7 @@ def build_production_mail_task_execution(
         else None
     )
     execution = ProviderMailTaskExecution(
-        accounts=MailAccountService(
-            store_path=data_root / "accounts-v2.json"
-        ),
+        accounts=MailAccountService(store_path=data_root / "accounts-v2.json"),
         auth=MailAccountAuthResolver(
             username_resolver=secret_resolver,
             credential_resolver=secret_resolver,

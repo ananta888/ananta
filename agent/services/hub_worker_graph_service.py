@@ -4,6 +4,7 @@ This service exposes configured hub/worker relationships for UI inspection.
 It does not dispatch work and does not create worker-to-worker orchestration.
 The hub remains the only control-plane node.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -95,13 +96,15 @@ class HubWorkerGraphService:
         for worker_id in self._configured_workers(cfg):
             node = self._worker_node(worker_id, cfg)
             nodes[node.id] = node
-            edges.append(HubWorkerEdge(
-                source=hub.id,
-                target=node.id,
-                edge_type="controls_worker",
-                label="Hub steuert",
-                data={"control_plane": "hub"},
-            ))
+            edges.append(
+                HubWorkerEdge(
+                    source=hub.id,
+                    target=node.id,
+                    edge_type="controls_worker",
+                    label="Hub steuert",
+                    data={"control_plane": "hub"},
+                )
+            )
 
         for task_kind in self._task_kinds(cfg):
             task_node = HubWorkerNode(
@@ -117,33 +120,32 @@ class HubWorkerGraphService:
             preferred = self._preferred_worker_for_task(task_kind, cfg)
             target = f"worker_instance::{preferred}"
             if target in nodes:
-                edges.append(HubWorkerEdge(
-                    source=hub.id,
-                    target=target,
-                    edge_type="routes_task_to_worker",
-                    label=f"{task_kind} -> {preferred}",
-                    data={"task_kind": task_kind, "preferred_worker": preferred},
-                ))
-                edges.append(HubWorkerEdge(
-                    source=task_node.id,
-                    target=target,
-                    edge_type="routes_task_to_worker",
-                    label=preferred,
-                    data={"task_kind": task_kind},
-                ))
-            else:
-                diagnostics.append(
-                    f"Routing for task_kind={task_kind} targets missing worker "
-                    f"{preferred}"
+                edges.append(
+                    HubWorkerEdge(
+                        source=hub.id,
+                        target=target,
+                        edge_type="routes_task_to_worker",
+                        label=f"{task_kind} -> {preferred}",
+                        data={"task_kind": task_kind, "preferred_worker": preferred},
+                    )
                 )
+                edges.append(
+                    HubWorkerEdge(
+                        source=task_node.id,
+                        target=target,
+                        edge_type="routes_task_to_worker",
+                        label=preferred,
+                        data={"task_kind": task_kind},
+                    )
+                )
+            else:
+                diagnostics.append(f"Routing for task_kind={task_kind} targets missing worker {preferred}")
 
         self._add_fallback_chain(cfg, nodes, edges)
         self._add_taskflows(cfg, nodes, edges, diagnostics)
 
         if not any(node.node_type == "worker_instance" for node in nodes.values()):
-            diagnostics.append(
-                "No configured workers discovered; hub-only graph returned"
-            )
+            diagnostics.append("No configured workers discovered; hub-only graph returned")
 
         return {
             "schema": "ananta.hub_worker_graph.v1",
@@ -157,9 +159,7 @@ class HubWorkerGraphService:
 
     def _configured_workers(self, cfg: dict[str, Any]) -> list[str]:
         found: list[str] = []
-        chat_backend = self._normalize_worker_id(
-            cfg.get("chat_backend") or cfg.get("backend")
-        )
+        chat_backend = self._normalize_worker_id(cfg.get("chat_backend") or cfg.get("backend"))
         if chat_backend:
             found.append(chat_backend)
         if isinstance(cfg.get("worker_runtime"), dict):
@@ -173,9 +173,7 @@ class HubWorkerGraphService:
         if isinstance(specialized, dict):
             for profile in (specialized.get("profiles") or {}).values():
                 if isinstance(profile, dict):
-                    backend_id = self._normalize_worker_id(
-                        profile.get("backend_id") or profile.get("backend_type")
-                    )
+                    backend_id = self._normalize_worker_id(profile.get("backend_id") or profile.get("backend_type"))
                     if backend_id:
                         found.append(backend_id)
         deduped: list[str] = []
@@ -193,13 +191,8 @@ class HubWorkerGraphService:
         }.get(worker_id)
         block = self._worker_config_block(worker_id, cfg)
         diagnostics: list[str] = []
-        if worker_id == "opencode" and not isinstance(
-            cfg.get("opencode_runtime"), dict
-        ):
-            diagnostics.append(
-                "opencode_runtime not configured; "
-                "worker is inferred from backend selection"
-            )
+        if worker_id == "opencode" and not isinstance(cfg.get("opencode_runtime"), dict):
+            diagnostics.append("opencode_runtime not configured; worker is inferred from backend selection")
         if worker_id == "hermes" and not block.get("enabled", False):
             diagnostics.append("hermes adapter is not enabled")
         return HubWorkerNode(
@@ -240,11 +233,7 @@ class HubWorkerGraphService:
     def _task_kinds(cfg: dict[str, Any]) -> list[str]:
         configured = cfg.get("hub_worker_task_kinds")
         if isinstance(configured, list):
-            values = [
-                str(item or "").strip()
-                for item in configured
-                if str(item or "").strip()
-            ]
+            values = [str(item or "").strip() for item in configured if str(item or "").strip()]
             if values:
                 return sorted(set(values))
         return [
@@ -266,9 +255,7 @@ class HubWorkerGraphService:
             if isinstance(cfg.get("opencode_runtime"), dict):
                 return "opencode"
             return "ananta-worker"
-        if task_kind == "review" and isinstance(
-            cfg.get("hermes_worker_adapter"), dict
-        ):
+        if task_kind == "review" and isinstance(cfg.get("hermes_worker_adapter"), dict):
             return "hermes"
         return "ananta-worker"
 
@@ -288,9 +275,7 @@ class HubWorkerGraphService:
             ]
         if not fallback_order:
             fallback_order = [
-                worker_id.split("::", 1)[1]
-                for worker_id, node in nodes.items()
-                if node.node_type == "worker_instance"
+                worker_id.split("::", 1)[1] for worker_id, node in nodes.items() if node.node_type == "worker_instance"
             ]
         if len(fallback_order) < 2:
             return
@@ -307,13 +292,15 @@ class HubWorkerGraphService:
         for index, worker_id in enumerate(fallback_order):
             target = f"worker_instance::{worker_id}"
             if target in nodes:
-                edges.append(HubWorkerEdge(
-                    source=chain_id,
-                    target=target,
-                    edge_type="falls_back_to",
-                    label=str(index + 1),
-                    data={"order": index + 1},
-                ))
+                edges.append(
+                    HubWorkerEdge(
+                        source=chain_id,
+                        target=target,
+                        edge_type="falls_back_to",
+                        label=str(index + 1),
+                        data={"order": index + 1},
+                    )
+                )
 
     def _add_taskflows(
         self,
@@ -323,10 +310,14 @@ class HubWorkerGraphService:
         diagnostics: list[str],
     ) -> None:
         raw_flows = cfg.get("hub_worker_taskflows")
-        flows = raw_flows if isinstance(raw_flows, dict) else {
-            "repair": ["Planner", "Developer", "Reviewer", "Verifier"],
-            "new_software_project": ["Planner", "Developer", "Reviewer"],
-        }
+        flows = (
+            raw_flows
+            if isinstance(raw_flows, dict)
+            else {
+                "repair": ["Planner", "Developer", "Reviewer", "Verifier"],
+                "new_software_project": ["Planner", "Developer", "Reviewer"],
+            }
+        )
         for flow_id, raw_steps in flows.items():
             if not isinstance(raw_steps, list):
                 diagnostics.append(f"Taskflow {flow_id} steps must be a list")
@@ -363,29 +354,35 @@ class HubWorkerGraphService:
                         "worker": worker,
                     },
                 )
-                edges.append(HubWorkerEdge(
-                    source=taskflow_id,
-                    target=step_id,
-                    edge_type="executes_step",
-                    label=str(index + 1),
-                ))
-                if previous_step_id:
-                    edges.append(HubWorkerEdge(
-                        source=previous_step_id,
+                edges.append(
+                    HubWorkerEdge(
+                        source=taskflow_id,
                         target=step_id,
-                        edge_type="hands_off_artifact_to",
-                        label="handoff",
-                    ))
+                        edge_type="executes_step",
+                        label=str(index + 1),
+                    )
+                )
+                if previous_step_id:
+                    edges.append(
+                        HubWorkerEdge(
+                            source=previous_step_id,
+                            target=step_id,
+                            edge_type="hands_off_artifact_to",
+                            label="handoff",
+                        )
+                    )
                 previous_step_id = step_id
                 worker_target = f"worker_instance::{worker}"
                 if worker and worker_target in nodes:
-                    edges.append(HubWorkerEdge(
-                        source=step_id,
-                        target=worker_target,
-                        edge_type="routes_task_to_worker",
-                        label=worker,
-                        data={"taskflow_id": flow_id, "step": step_name},
-                    ))
+                    edges.append(
+                        HubWorkerEdge(
+                            source=step_id,
+                            target=worker_target,
+                            edge_type="routes_task_to_worker",
+                            label=worker,
+                            data={"taskflow_id": flow_id, "step": step_name},
+                        )
+                    )
 
     @staticmethod
     def _normalize_worker_id(value: Any) -> str:

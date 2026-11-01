@@ -1,7 +1,6 @@
 """CRPS-008/009/013: Tests for profile-driven source_type_weights and negative pattern filtering."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.services.retrieval_profile_service import (
     DOMAIN_CODECOMPASS,
@@ -41,7 +40,12 @@ class TestApplyProfileSourceConstraintsRanking:
             source_types=["repo", "artifact"],
             source_type_weights={"repo": 1.45, "artifact": 1.05, "wiki": 0.3, "task_memory": 0.95},
             retrieval_intent="code_explanation_with_codecompass",
-            negative_source_patterns=["book-of-ananta", "snake_tutor", "terminal-header-logo-renderer", "markdown_mermaid"],
+            negative_source_patterns=[
+                "book-of-ananta",
+                "snake_tutor",
+                "terminal-header-logo-renderer",
+                "markdown_mermaid",
+            ],
         )
         chunks = [
             self._make_chunk("agent/services/rag_service.py", "repo", score=0.85),
@@ -143,9 +147,9 @@ class TestProfileWeightsMerging:
     def test_game_profile_weights_repo_low(self):
         """Game/tutorial profile must have low repo weight."""
         from agent.services.retrieval_profile_service import (
+            _PROFILE_TABLE,
             DOMAIN_ANANTA_GAME,
             INTENT_TUTORIAL,
-            _PROFILE_TABLE,
         )
 
         spec = _PROFILE_TABLE.get((DOMAIN_ANANTA_GAME, INTENT_TUTORIAL))
@@ -188,7 +192,7 @@ class TestNegativeSourcePatternsInProfiles:
         """Architecture overview needs wiki — must not penalize it."""
         from agent.services.retrieval_profile_service import _PROFILE_TABLE
 
-        spec = _PROFILE_TABLE.get((DOMAIN_CODECOMPASS, INTENT_CODE_EXPLANATION))
+        _PROFILE_TABLE.get((DOMAIN_CODECOMPASS, INTENT_CODE_EXPLANATION))
         # Architecture profile should have empty negative_source_patterns
         arch_spec = _PROFILE_TABLE.get(
             (DOMAIN_CODECOMPASS, "architecture_overview"),

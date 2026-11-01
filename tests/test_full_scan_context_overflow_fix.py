@@ -9,9 +9,9 @@ These cover:
 - _worker_chat_full_scan() returns a context_overflow error in the trace when
   every batch came back with empty_reason=context_overflow_likely
 """
+
 from __future__ import annotations
 
-import json
 from unittest.mock import patch
 
 
@@ -38,7 +38,7 @@ def _test_parse_model_contexts_invalid():
     assert _parse_model_contexts("not-json") == {}
     assert _parse_model_contexts('{"a": "bad"}') == {}
     # Negative/zero values are dropped; non-dict is rejected
-    assert _parse_model_contexts('[]') == {}
+    assert _parse_model_contexts("[]") == {}
     assert _parse_model_contexts('{"good": 4096, "neg": -1, "zero": 0, "bad": "x"}') == {"good": 4096}
 
 
@@ -142,6 +142,7 @@ def test_full_scan_auto_shrinks_oversized_batch():
     )
     import pathlib
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = pathlib.Path(tmpdir)
         for i in range(10):
@@ -187,6 +188,7 @@ def test_full_scan_returns_context_overflow_error_in_trace():
     cfg = _make_cfg()
     import pathlib
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = pathlib.Path(tmpdir)
         for i in range(4):
@@ -207,10 +209,7 @@ def test_full_scan_returns_context_overflow_error_in_trace():
     assert "error_hint" in trace
     assert "chat_full_scan_files_per_batch" in trace["error_hint"]
     # batch_metas should preserve the per-batch context overflow markers
-    assert all(
-        m.get("empty_reason") == "context_overflow_likely"
-        for m in trace["batch_metas"]
-    )
+    assert all(m.get("empty_reason") == "context_overflow_likely" for m in trace["batch_metas"])
 
 
 def test_lmstudio_strategy_attaches_overflow_metadata(monkeypatch):

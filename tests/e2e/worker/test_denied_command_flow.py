@@ -53,7 +53,9 @@ def test_denied_command_is_blocked_before_execution_and_traced(tmp_path: Path) -
 
     # No side effect in repository files.
     assert marker.read_text(encoding="utf-8") == "safe\n"
-    denied = build_degraded_state(state="denied_policy", machine_reason="policy_denied", details={"command": plan["command"]})
+    denied = build_degraded_state(
+        state="denied_policy", machine_reason="policy_denied", details={"command": plan["command"]}
+    )
     trace = build_trace_metadata(
         trace_id="tr-30",
         task_id="AW-T30",

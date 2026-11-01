@@ -187,10 +187,14 @@ class SQLiteExecutionOwnershipStore:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
                 if _control_lease is not None:
-                    self._validate_control_lease({
-                        "tenant_id": tenant_id, "workflow_id": workflow_id,
-                        "run_id": run_id, "_control_lease": _control_lease,
-                    })
+                    self._validate_control_lease(
+                        {
+                            "tenant_id": tenant_id,
+                            "workflow_id": workflow_id,
+                            "run_id": run_id,
+                            "_control_lease": _control_lease,
+                        }
+                    )
                 current = self._read(*key)
                 if current is not None and current.workflow_id != str(workflow_id):
                     raise OptimisticConcurrencyError("execution_ownership_workflow_binding_conflict")

@@ -6,13 +6,11 @@ does not know how a source is registered or later consumed by planners/workers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
 import re
 import time
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable, Protocol
-
-from ananta_contracts.source_control import SourceRevision, derive_source_revision_id
 
 from agent.repositories.source_admission_receipt_repository import (
     SourceAdmissionCounters,
@@ -31,7 +29,7 @@ from agent.sources.registered_workspace_connector import (
     RegisteredWorkspace,
     WorkspaceInventoryManifest,
 )
-
+from ananta_contracts.source_control import SourceRevision, derive_source_revision_id
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -102,9 +100,7 @@ class SourceAdmissionRevisionCoordinator:
         self._budgets = budgets or SourceAdmissionBudgets()
         self._clock = clock
 
-    def admit(
-        self, request: SourceAdmissionRevisionRequest
-    ) -> SourceAdmissionRevisionResult:
+    def admit(self, request: SourceAdmissionRevisionRequest) -> SourceAdmissionRevisionResult:
         self._validate_request(request)
 
         scan_result = self._scanner.scan(
@@ -233,14 +229,11 @@ class SourceAdmissionRevisionCoordinator:
             or receipt.revision_digest != decision.revision_digest
             or receipt.manifest_digest != decision.manifest_digest
             or receipt.policy_digest != decision.policy_digest
-            or receipt.inventory_evidence_digest
-            != decision.inventory_evidence_digest
+            or receipt.inventory_evidence_digest != decision.inventory_evidence_digest
             or receipt.scan_evidence_digest != decision.scan_evidence_digest
             or receipt.admission_digest != decision.admission_digest
         ):
-            raise SourceAdmissionRevisionError(
-                "source_admission_receipt_identity_conflict"
-            )
+            raise SourceAdmissionRevisionError("source_admission_receipt_identity_conflict")
 
 
 __all__ = [

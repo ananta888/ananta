@@ -1,15 +1,13 @@
 """WS-SYNC-009: Prove that Task 2 only sees Task 1's files via explicit sync — not via shared filesystem.
 WS-SYNC-003: TaskArtifactMaterializer unit tests.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # ── WS-SYNC-009: Isolation / Leakage ────────────────────────────────────────
+
 
 class TestWorkspaceIsolation:
     """Task-scoped workspaces must not bleed files to sibling tasks without explicit sync."""
@@ -50,7 +48,10 @@ class TestWorkspaceIsolation:
 
         mat = TaskArtifactMaterializer()
 
-        with patch("agent.services.task_artifact_materializer.TaskArtifactMaterializer._try_local", return_value=artifact_content):
+        with patch(
+            "agent.services.task_artifact_materializer.TaskArtifactMaterializer._try_local",
+            return_value=artifact_content,
+        ):
             with patch("agent.repositories.tasks.TaskRepository.get_by_goal_id", return_value=[fake_task1]):
                 manifest = mat.materialize_predecessor_artifacts(
                     goal_id="goal-123",
@@ -132,7 +133,9 @@ class TestWorkspaceIsolation:
         ]
 
         mat = TaskArtifactMaterializer()
-        with patch("agent.services.task_artifact_materializer.TaskArtifactMaterializer._try_local", return_value=b"evil"):
+        with patch(
+            "agent.services.task_artifact_materializer.TaskArtifactMaterializer._try_local", return_value=b"evil"
+        ):
             with patch("agent.repositories.tasks.TaskRepository.get_by_goal_id", return_value=[evil_task]):
                 mat.materialize_predecessor_artifacts(
                     goal_id="goal-123",
@@ -159,7 +162,10 @@ class TestWorkspaceIsolation:
         ]
 
         mat = TaskArtifactMaterializer()
-        with patch("agent.services.task_artifact_materializer.TaskArtifactMaterializer._try_local", return_value=b"remote_version = True"):
+        with patch(
+            "agent.services.task_artifact_materializer.TaskArtifactMaterializer._try_local",
+            return_value=b"remote_version = True",
+        ):
             with patch("agent.repositories.tasks.TaskRepository.get_by_goal_id", return_value=[task1]):
                 mat.materialize_predecessor_artifacts(
                     goal_id="goal-123",
@@ -201,6 +207,7 @@ class TestWorkspaceIsolation:
 
 # ── WS-SYNC-003: Artifact fetch fallback chain ───────────────────────────────
 
+
 class TestArtifactFetchFallback:
     def test_local_path_used_when_file_exists(self, tmp_path):
         from agent.services.task_artifact_materializer import TaskArtifactMaterializer
@@ -232,8 +239,9 @@ class TestArtifactFetchFallback:
         assert content is None
 
     def test_try_http_returns_none_on_connection_error(self):
-        from agent.services.task_artifact_materializer import TaskArtifactMaterializer
         import requests
+
+        from agent.services.task_artifact_materializer import TaskArtifactMaterializer
 
         mat = TaskArtifactMaterializer()
         with patch("requests.get", side_effect=requests.ConnectionError("refused")):

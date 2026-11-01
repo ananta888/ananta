@@ -6,6 +6,7 @@ Tests:
 - Callback with wrong state raises ValueError
 - No token value appears in any logged/str output (mock exchange)
 """
+
 from __future__ import annotations
 
 import base64
@@ -13,7 +14,7 @@ import hashlib
 import json
 import time
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from client_surfaces.operator_tui.auth.oidc_auth_controller import OidcAuthController
 from client_surfaces.operator_tui.auth.oidc_models import (
@@ -134,8 +135,7 @@ class TestCallbackValidation(unittest.TestCase):
         """Callback with provider error param must return OidcAuthResult(ok=False)."""
         request = _make_request(state="mystate")
         callback_url = (
-            "http://127.0.0.1:12345/callback"
-            "?error=access_denied&error_description=User+denied+access&state=mystate"
+            "http://127.0.0.1:12345/callback?error=access_denied&error_description=User+denied+access&state=mystate"
         )
         result = self.ctrl.complete_callback(callback_url, request, self.provider)
         self.assertFalse(result.ok)
@@ -146,8 +146,9 @@ class TestCallbackValidation(unittest.TestCase):
         request = _make_request(state="correct_state")
         callback_url = "http://127.0.0.1:12345/callback?code=mycode&state=correct_state"
         with patch.object(
-            self.ctrl, "_exchange_code",
-            return_value=OidcAuthResult(ok=True, provider_id="test_provider", access_token="<present>")
+            self.ctrl,
+            "_exchange_code",
+            return_value=OidcAuthResult(ok=True, provider_id="test_provider", access_token="<present>"),
         ) as mock_exchange:
             result = self.ctrl.complete_callback(callback_url, request, self.provider)
         mock_exchange.assert_called_once()
@@ -229,8 +230,8 @@ class TestTokenNotExposedInOutput(unittest.TestCase):
 
     def test_exchange_code_error_does_not_leak_token(self):
         """_exchange_code error path must not include token-like values."""
-        import urllib.error
         import io
+        import urllib.error
 
         ctrl = OidcAuthController()
         provider = _make_provider()
@@ -243,10 +244,14 @@ class TestTokenNotExposedInOutput(unittest.TestCase):
                 code=400,
                 msg="Bad Request",
                 hdrs=None,  # type: ignore
-                fp=io.BytesIO(json.dumps({
-                    "error": "invalid_grant",
-                    "error_description": "Code invalid",
-                }).encode()),
+                fp=io.BytesIO(
+                    json.dumps(
+                        {
+                            "error": "invalid_grant",
+                            "error_description": "Code invalid",
+                        }
+                    ).encode()
+                ),
             )
             mock_open.side_effect = mock_exc
             result = ctrl._exchange_code("some_code", request, provider)
@@ -277,27 +282,31 @@ class TestOidcIdentityDerivation(unittest.TestCase):
 
     def test_valid_id_token_claims_are_extracted(self):
         request = _make_request(nonce="nonce-123")
-        token = _jwt_payload({
-            "iss": self.provider.issuer,
-            "aud": self.provider.client_id,
-            "nonce": "nonce-123",
-            "exp": time.time() + 300,
-            "sub": "subject-1",
-            "preferred_username": "alice",
-        })
+        token = _jwt_payload(
+            {
+                "iss": self.provider.issuer,
+                "aud": self.provider.client_id,
+                "nonce": "nonce-123",
+                "exp": time.time() + 300,
+                "sub": "subject-1",
+                "preferred_username": "alice",
+            }
+        )
         subject, username = self.ctrl._extract_validated_id_token_claims(token, request, self.provider)
         self.assertEqual(subject, "subject-1")
         self.assertEqual(username, "alice")
 
     def test_wrong_nonce_claims_are_rejected(self):
         request = _make_request(nonce="nonce-123")
-        token = _jwt_payload({
-            "iss": self.provider.issuer,
-            "aud": self.provider.client_id,
-            "nonce": "wrong",
-            "exp": time.time() + 300,
-            "sub": "subject-1",
-        })
+        token = _jwt_payload(
+            {
+                "iss": self.provider.issuer,
+                "aud": self.provider.client_id,
+                "nonce": "wrong",
+                "exp": time.time() + 300,
+                "sub": "subject-1",
+            }
+        )
         self.assertEqual(self.ctrl._extract_validated_id_token_claims(token, request, self.provider), ("", ""))
 
     def test_realtime_identity_has_no_raw_token_material(self):

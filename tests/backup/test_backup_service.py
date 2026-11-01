@@ -24,21 +24,14 @@ class FakeArchive:
     def verify_public_recipient(self, recipient: object) -> None:
         self.verified = True
 
-    def encrypt_trees(
-        self, plans: Sequence[object], recipient: object, destination: Path
-    ) -> None:
+    def encrypt_trees(self, plans: Sequence[object], recipient: object, destination: Path) -> None:
         self.encrypted_roots = [
-            str(getattr(plan, "archive_root"))
-            if getattr(plan, "archive_root") is not None
-            else None
-            for plan in plans
+            str(getattr(plan, "archive_root")) if getattr(plan, "archive_root") is not None else None for plan in plans
         ]
-        payload_plan = next(
-            plan for plan in plans if getattr(plan, "archive_root") is None
+        payload_plan = next(plan for plan in plans if getattr(plan, "archive_root") is None)
+        self.encrypted_environment = (getattr(payload_plan, "source") / "configuration" / ".env").read_text(
+            encoding="utf-8"
         )
-        self.encrypted_environment = (
-            getattr(payload_plan, "source") / "configuration" / ".env"
-        ).read_text(encoding="utf-8")
         destination.write_bytes(b"encrypted-only")
 
 
@@ -86,9 +79,7 @@ class FakeCompose:
         catalog.write_text("TABLE public.task", encoding="utf-8")
         return catalog
 
-    def capture_reproducibility(
-        self, layout: ComposeLayout, destination: Path
-    ) -> dict[str, str]:
+    def capture_reproducibility(self, layout: ComposeLayout, destination: Path) -> dict[str, str]:
         destination.mkdir()
         files = {
             ".env": "POSTGRES_PASSWORD=encrypted-only\n",
@@ -199,9 +190,7 @@ def test_backup_publishes_ciphertext_and_checksum_only_to_both_targets(
             "ananta-backup-test.tar.zst.gpg",
             "checksum.json",
         ]
-        assert (package / "ananta-backup-test.tar.zst.gpg").read_bytes() == (
-            b"encrypted-only"
-        )
+        assert (package / "ananta-backup-test.tar.zst.gpg").read_bytes() == (b"encrypted-only")
         checksum = json.loads((package / "checksum.json").read_text(encoding="utf-8"))
         assert checksum["encrypted"] is True
         assert checksum["sha256"] == result.sha256

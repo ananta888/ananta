@@ -214,9 +214,7 @@ def test_evaluation_is_offline_deterministic_and_distinguishes_duplicate_classes
     ]
     assert ("exact_duplicate_invoice", "row_3", {"related_locator": "row_2"}) in duplicates
     assert any(
-        rule_id == "similar_invoice_candidate"
-        and locator == "row_4"
-        and parameters["related_locator"] == "row_2"
+        rule_id == "similar_invoice_candidate" and locator == "row_4" and parameters["related_locator"] == "row_2"
         for rule_id, locator, parameters in duplicates
     )
 

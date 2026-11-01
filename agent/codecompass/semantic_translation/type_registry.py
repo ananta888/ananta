@@ -47,7 +47,9 @@ class TypeMappingRegistry:
     def get(self, rule_id: str) -> TypeMapping | None:
         return self._by_id.get(str(rule_id or "").strip())
 
-    def map_type(self, source_type: str, *, source_language: str, target_language: str, policy: dict | None = None) -> dict:
+    def map_type(
+        self, source_type: str, *, source_language: str, target_language: str, policy: dict | None = None
+    ) -> dict:
         source = normalize_java_type(source_type)
         src_lang = str(source_language or "").lower()
         target_lang = str(target_language or "").lower()
@@ -75,23 +77,29 @@ class TypeMappingRegistry:
                 result.append(mapped)
         return result
 
-    def find_by_semantic_kind(self, semantic_kind: str, *, source_language: str = "", target_language: str = "") -> list[TypeMapping]:
+    def find_by_semantic_kind(
+        self, semantic_kind: str, *, source_language: str = "", target_language: str = ""
+    ) -> list[TypeMapping]:
         kind = str(semantic_kind or "").strip().lower()
         src = str(source_language or "").strip().lower()
         tgt = str(target_language or "").strip().lower()
         return [
-            rule for rule in self._rules
+            rule
+            for rule in self._rules
             if rule.semantic_kind == kind
             and (not src or rule.source_language == src)
             and (not tgt or rule.target_language == tgt)
         ]
 
-    def find_by_lossiness(self, lossiness: str, *, source_language: str = "", target_language: str = "") -> list[TypeMapping]:
+    def find_by_lossiness(
+        self, lossiness: str, *, source_language: str = "", target_language: str = ""
+    ) -> list[TypeMapping]:
         loss = str(lossiness or "").strip().lower()
         src = str(source_language or "").strip().lower()
         tgt = str(target_language or "").strip().lower()
         return [
-            rule for rule in self._rules
+            rule
+            for rule in self._rules
             if rule.lossiness == loss
             and (not src or rule.source_language == src)
             and (not tgt or rule.target_language == tgt)
@@ -113,7 +121,9 @@ def _apply_rule(rule: TypeMapping, source: str, policy: dict) -> dict | None:
         inner = source[len(base) + 1 : -1].strip()
         target = rule.target_pattern.replace("T", inner)
         if rule.rule_id.endswith("optional_to_ts"):
-            inner_mapped = TypeMappingRegistry().map_type(inner, source_language="java", target_language="typescript", policy=policy)
+            inner_mapped = TypeMappingRegistry().map_type(
+                inner, source_language="java", target_language="typescript", policy=policy
+            )
             target = f"{inner_mapped.get('target_type', inner)} | undefined"
         elif rule.rule_id.endswith("optional_to_kotlin"):
             if not policy.get("allow_optional_to_nullable", False):
@@ -125,23 +135,35 @@ def _apply_rule(rule: TypeMapping, source: str, policy: dict) -> dict | None:
                     "lossiness": "policy_guarded",
                     "warnings": ["optional_to_nullable_requires_policy"],
                 }
-            inner_mapped = TypeMappingRegistry().map_type(inner, source_language="java", target_language="kotlin", policy=policy)
+            inner_mapped = TypeMappingRegistry().map_type(
+                inner, source_language="java", target_language="kotlin", policy=policy
+            )
             target = f"{inner_mapped.get('target_type', inner)}?"
         elif rule.rule_id.endswith("list_to_ts") or rule.rule_id.endswith("set_to_ts"):
-            inner_mapped = TypeMappingRegistry().map_type(inner, source_language="java", target_language="typescript", policy=policy)
+            inner_mapped = TypeMappingRegistry().map_type(
+                inner, source_language="java", target_language="typescript", policy=policy
+            )
             target = f"{inner_mapped.get('target_type', inner)}[]"
         elif rule.rule_id.endswith("list_to_kotlin"):
-            inner_mapped = TypeMappingRegistry().map_type(inner, source_language="java", target_language="kotlin", policy=policy)
+            inner_mapped = TypeMappingRegistry().map_type(
+                inner, source_language="java", target_language="kotlin", policy=policy
+            )
             target = f"List<{inner_mapped.get('target_type', inner)}>"
         return _result(rule, source, target)
     if pattern == "Map<K,V>" and source.startswith("Map<") and source.endswith(">"):
         inner = source[4:-1]
         parts = _split_generic_args(inner)
         if len(parts) != 2:
-            return _result(rule, source, rule.target_pattern, status="needs_review", extra_warnings=["map_generic_parse_failed"])
+            return _result(
+                rule, source, rule.target_pattern, status="needs_review", extra_warnings=["map_generic_parse_failed"]
+            )
         if rule.target_language == "typescript":
-            k = TypeMappingRegistry().map_type(parts[0], source_language="java", target_language="typescript", policy=policy)
-            v = TypeMappingRegistry().map_type(parts[1], source_language="java", target_language="typescript", policy=policy)
+            k = TypeMappingRegistry().map_type(
+                parts[0], source_language="java", target_language="typescript", policy=policy
+            )
+            v = TypeMappingRegistry().map_type(
+                parts[1], source_language="java", target_language="typescript", policy=policy
+            )
             return _result(rule, source, f"Record<{k.get('target_type')}, {v.get('target_type')}>")
         v = TypeMappingRegistry().map_type(parts[1], source_language="java", target_language="kotlin", policy=policy)
         k = TypeMappingRegistry().map_type(parts[0], source_language="java", target_language="kotlin", policy=policy)
@@ -153,7 +175,9 @@ def _apply_rule(rule: TypeMapping, source: str, policy: dict) -> dict | None:
     return None
 
 
-def _result(rule: TypeMapping, source: str, target: str, *, status: str = "ok", extra_warnings: list[str] | None = None) -> dict:
+def _result(
+    rule: TypeMapping, source: str, target: str, *, status: str = "ok", extra_warnings: list[str] | None = None
+) -> dict:
     warnings = [*rule.warnings, *(extra_warnings or [])]
     if rule.lossiness == "lossy" and status == "ok":
         status = "needs_review"
@@ -194,12 +218,39 @@ _BUILTIN_RULES = [
     TypeMapping("java_int_to_ts", "java", "typescript", "int", "number"),
     TypeMapping("java_boolean_to_ts", "java", "typescript", "Boolean", "boolean"),
     TypeMapping("java_bool_to_ts", "java", "typescript", "boolean", "boolean"),
-    TypeMapping("java_bigdecimal_to_ts_number", "java", "typescript", "BigDecimal", "string", lossiness="policy_guarded", warnings=("bigdecimal_preserved_as_string_by_default",)),
-    TypeMapping("java_localdate_to_ts", "java", "typescript", "LocalDate", "string", warnings=("date_format_contract_required",)),
-    TypeMapping("java_localdatetime_to_ts", "java", "typescript", "LocalDateTime", "string", warnings=("datetime_format_contract_required",)),
-    TypeMapping("java_optional_to_ts", "java", "typescript", "Optional<T>", "T | undefined", semantic_kind="optional_absence"),
+    TypeMapping(
+        "java_bigdecimal_to_ts_number",
+        "java",
+        "typescript",
+        "BigDecimal",
+        "string",
+        lossiness="policy_guarded",
+        warnings=("bigdecimal_preserved_as_string_by_default",),
+    ),
+    TypeMapping(
+        "java_localdate_to_ts", "java", "typescript", "LocalDate", "string", warnings=("date_format_contract_required",)
+    ),
+    TypeMapping(
+        "java_localdatetime_to_ts",
+        "java",
+        "typescript",
+        "LocalDateTime",
+        "string",
+        warnings=("datetime_format_contract_required",),
+    ),
+    TypeMapping(
+        "java_optional_to_ts", "java", "typescript", "Optional<T>", "T | undefined", semantic_kind="optional_absence"
+    ),
     TypeMapping("java_list_to_ts", "java", "typescript", "List<T>", "T[]", semantic_kind="collection"),
-    TypeMapping("java_set_to_ts", "java", "typescript", "Set<T>", "T[]", semantic_kind="collection", warnings=("set_uniqueness_not_enforced_by_array",)),
+    TypeMapping(
+        "java_set_to_ts",
+        "java",
+        "typescript",
+        "Set<T>",
+        "T[]",
+        semantic_kind="collection",
+        warnings=("set_uniqueness_not_enforced_by_array",),
+    ),
     TypeMapping("java_map_to_ts", "java", "typescript", "Map<K,V>", "Record<K, V>", semantic_kind="map"),
     TypeMapping("java_string_to_kotlin", "java", "kotlin", "String", "String"),
     TypeMapping("java_uuid_to_kotlin", "java", "kotlin", "UUID", "String", warnings=("uuid_import_policy_required",)),
@@ -211,7 +262,15 @@ _BUILTIN_RULES = [
     TypeMapping("java_bigdecimal_to_kotlin", "java", "kotlin", "BigDecimal", "BigDecimal"),
     TypeMapping("java_localdate_to_kotlin", "java", "kotlin", "LocalDate", "LocalDate"),
     TypeMapping("java_localdatetime_to_kotlin", "java", "kotlin", "LocalDateTime", "LocalDateTime"),
-    TypeMapping("java_optional_to_kotlin", "java", "kotlin", "Optional<T>", "T?", semantic_kind="optional_absence", lossiness="policy_guarded"),
+    TypeMapping(
+        "java_optional_to_kotlin",
+        "java",
+        "kotlin",
+        "Optional<T>",
+        "T?",
+        semantic_kind="optional_absence",
+        lossiness="policy_guarded",
+    ),
     TypeMapping("java_list_to_kotlin", "java", "kotlin", "List<T>", "List<T>", semantic_kind="collection"),
     TypeMapping("java_set_to_kotlin", "java", "kotlin", "Set<T>", "Set<T>", semantic_kind="collection"),
     TypeMapping("java_map_to_kotlin", "java", "kotlin", "Map<K,V>", "Map<K, V>", semantic_kind="map"),

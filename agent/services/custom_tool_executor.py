@@ -15,6 +15,7 @@ mutation gate (HDE-018): a before/after workspace baseline detects
 undeclared file changes and blocks the result with a canonical
 ``workspace_mutation_blocked`` audit event.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -32,7 +33,7 @@ from agent.common.audit import (
     AUDIT_WORKSPACE_MUTATION_EVALUATED,
     audit_workspace_mutation_event,
 )
-from agent.services.custom_tool_proposal_service import SCRIPT_BODY_DIGEST_FIELD, _PLACEHOLDER_RE
+from agent.services.custom_tool_proposal_service import _PLACEHOLDER_RE, SCRIPT_BODY_DIGEST_FIELD
 from agent.services.shell_command_policy import ShellCommandAnalyzer
 from agent.services.tools._evidence import EVIDENCE_KIND_TEST_OUTPUT, build_evidence_entry, build_tool_result
 
@@ -50,7 +51,9 @@ class WorkspaceBaseline:
     reason_code: str | None = None
 
 
-def _blocked(*, tool_name: str, tool_call_id: str, error: str, risk_class: str = "execution", status: str = "rejected") -> dict[str, Any]:
+def _blocked(
+    *, tool_name: str, tool_call_id: str, error: str, risk_class: str = "execution", status: str = "rejected"
+) -> dict[str, Any]:
     return build_tool_result(
         tool_name=tool_name, tool_call_id=tool_call_id, status=status, risk_class=risk_class, error=error
     )
@@ -77,7 +80,9 @@ def _workspace_baseline(workspace: Path) -> WorkspaceBaseline:
             reason_code = "baseline_read_error"
             continue
         snapshot[str(path.relative_to(workspace))] = digest
-    return WorkspaceBaseline(files=snapshot, complete=complete, scanned_file_count=min(count, _BASELINE_MAX_FILES), reason_code=reason_code)
+    return WorkspaceBaseline(
+        files=snapshot, complete=complete, scanned_file_count=min(count, _BASELINE_MAX_FILES), reason_code=reason_code
+    )
 
 
 def _changed_paths(before: WorkspaceBaseline, after: WorkspaceBaseline) -> list[str]:
@@ -116,7 +121,9 @@ class CustomToolExecutor:
 
         workspace = Path(str(workspace_dir or "")).resolve()
         if not workspace.is_dir():
-            return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error="invalid_workspace", risk_class=risk_class)
+            return _blocked(
+                tool_name=tool_name, tool_call_id=tool_call_id, error="invalid_workspace", risk_class=risk_class
+            )
 
         argument_errors = self._validate_arguments(spec, args, workspace)
         if argument_errors:
@@ -163,7 +170,12 @@ class CustomToolExecutor:
                 baseline=baseline,
                 tool_name=tool_name,
             )
-            return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error="workspace_baseline_incomplete", risk_class=risk_class)
+            return _blocked(
+                tool_name=tool_name,
+                tool_call_id=tool_call_id,
+                error="workspace_baseline_incomplete",
+                risk_class=risk_class,
+            )
 
         timeout = int(spec.get("timeout_seconds") or 30)
         output_max = int(spec.get("output_max_chars") or 4000)
@@ -182,10 +194,15 @@ class CustomToolExecutor:
             exit_code = completed.returncode
             output = (completed.stdout or "") + (("\n" + completed.stderr) if completed.stderr else "")
         except subprocess.TimeoutExpired:
-            return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error=f"timeout_after_{timeout}s", risk_class=risk_class)
+            return _blocked(
+                tool_name=tool_name, tool_call_id=tool_call_id, error=f"timeout_after_{timeout}s", risk_class=risk_class
+            )
         except (OSError, ValueError) as exc:
             return build_tool_result(
-                tool_name=tool_name, tool_call_id=tool_call_id, status="error", risk_class=risk_class,
+                tool_name=tool_name,
+                tool_call_id=tool_call_id,
+                status="error",
+                risk_class=risk_class,
                 error=f"custom_tool_execution_failed:{exc}",
             )
 
@@ -197,7 +214,12 @@ class CustomToolExecutor:
                 baseline=after_baseline,
                 tool_name=tool_name,
             )
-            return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error="workspace_baseline_incomplete", risk_class=risk_class)
+            return _blocked(
+                tool_name=tool_name,
+                tool_call_id=tool_call_id,
+                error="workspace_baseline_incomplete",
+                risk_class=risk_class,
+            )
         changed = _changed_paths(baseline, after_baseline)
         mutation_error = self._evaluate_mutations(
             spec, mutation_declaration=mutation_declaration, changed=changed, task_id=task_id, tool_name=tool_name
@@ -205,7 +227,9 @@ class CustomToolExecutor:
         if mutation_error:
             return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error=mutation_error, risk_class=risk_class)
 
-        truncated_output = output if len(output) <= output_max else output[: max(1, output_max - 12)].rstrip() + "\n[truncated]"
+        truncated_output = (
+            output if len(output) <= output_max else output[: max(1, output_max - 12)].rstrip() + "\n[truncated]"
+        )
         entry, _ = build_evidence_entry(
             kind=EVIDENCE_KIND_TEST_OUTPUT,
             excerpt=truncated_output,
@@ -368,10 +392,7 @@ class CustomToolExecutor:
             return "read_only_tool_mutated_workspace"
         allowed_paths = [str(p) for p in (spec.get("allowed_paths") or [])]
         denied_paths = [str(p) for p in (spec.get("denied_paths") or [])]
-        violations = [
-            path for path in changed
-            if not _match_any(path, allowed_paths) or _match_any(path, denied_paths)
-        ]
+        violations = [path for path in changed if not _match_any(path, allowed_paths) or _match_any(path, denied_paths)]
         if violations:
             audit_workspace_mutation_event(
                 AUDIT_WORKSPACE_MUTATION_BLOCKED,

@@ -193,7 +193,9 @@ class InMemorySideEffectLedger:
         if current is None:
             raise KeyError("side_effect_operation_not_found")
         return lease.store.mutate_fenced(
-            lease=lease, recipient=current, mutation=lambda: self.authorize(operation_id, **values),
+            lease=lease,
+            recipient=current,
+            mutation=lambda: self.authorize(operation_id, **values),
         )
 
     def __init__(self) -> None:

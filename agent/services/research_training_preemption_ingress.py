@@ -85,9 +85,7 @@ class ResearchTrainingPreemptionIngress:
         ):
             raise ValueError("research_preemption_checkpoint_binding_invalid")
         stage_kind = assignment["stage"]["kind"]
-        artifact_kind = {"pretrain": "base_checkpoint", "sft": "sft_checkpoint", "rl": "rl_checkpoint"}.get(
-            stage_kind
-        )
+        artifact_kind = {"pretrain": "base_checkpoint", "sft": "sft_checkpoint", "rl": "rl_checkpoint"}.get(stage_kind)
         if artifact_kind is None:
             raise ValueError("research_preemption_stage_invalid")
         manifest = ResearchArtifactManifestV1.from_mapping(

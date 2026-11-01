@@ -22,8 +22,10 @@ class TerminalSessionRepository:
 
     def list_by_user_id(self, user_id: str) -> list[TerminalSessionDB]:
         with Session(engine) as session:
-            stmt = select(TerminalSessionDB).where(TerminalSessionDB.created_by_user_id == str(user_id)).order_by(
-                TerminalSessionDB.created_at.desc()
+            stmt = (
+                select(TerminalSessionDB)
+                .where(TerminalSessionDB.created_by_user_id == str(user_id))
+                .order_by(TerminalSessionDB.created_at.desc())
             )
             return list(session.exec(stmt).all())
 
@@ -73,5 +75,9 @@ class TerminalEventRepository:
 
     def list_by_session(self, session_id: str) -> list[TerminalEventDB]:
         with Session(engine) as session:
-            stmt = select(TerminalEventDB).where(TerminalEventDB.session_id == str(session_id)).order_by(TerminalEventDB.timestamp.asc())
+            stmt = (
+                select(TerminalEventDB)
+                .where(TerminalEventDB.session_id == str(session_id))
+                .order_by(TerminalEventDB.timestamp.asc())
+            )
             return list(session.exec(stmt).all())

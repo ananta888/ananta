@@ -3,6 +3,7 @@
 In-memory SQLite world (pattern from test_alwa_e2e_pipeline): the
 production approval service runs unchanged against a fresh engine.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,7 +38,9 @@ def approval_world(monkeypatch, tmp_path):
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
     audit_events: list[tuple[str, dict]] = []
-    monkeypatch.setattr("agent.common.audit.log_audit", lambda action, details=None: audit_events.append((action, details or {})))
+    monkeypatch.setattr(
+        "agent.common.audit.log_audit", lambda action, details=None: audit_events.append((action, details or {}))
+    )
     from agent.services.approval_request_service import ApprovalRequestService
 
     svc = ApprovalRequestService(

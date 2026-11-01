@@ -19,9 +19,11 @@ def authenticate(monkeypatch, subject="owner"):
     monkeypatch.setattr(
         auth,
         "_validate_user_jwt",
-        lambda token: {"sub": subject, "tenant_id": "tenant", "project_id": "project", "role": "user"}
-        if token == "synthetic-user"
-        else None,
+        lambda token: (
+            {"sub": subject, "tenant_id": "tenant", "project_id": "project", "role": "user"}
+            if token == "synthetic-user"
+            else None
+        ),
     )
     monkeypatch.setattr(auth, "_user_token_allows_current_request", lambda _: True)
 

@@ -69,17 +69,22 @@ def _decide(name):
     decision = policy_service.decide(
         descriptor, policy, OperationAuthContext(auth_source="agent_auth", is_admin=False, approval_granted=False)
     )
-    if decision.allowed and (
-        descriptor is None or descriptor.access_class != "read" or descriptor.side_effecting
-    ):
+    if decision.allowed and (descriptor is None or descriptor.access_class != "read" or descriptor.side_effecting):
         # Belt and braces: a registry change must not turn a companion tool into a mutation.
         return descriptor, decision, False, policy
     return descriptor, decision, decision.allowed, policy
 
 
 def _audit(name, *, outcome, trace_id, project, details):
-    audit_tool_call("meet_companion_tool_called", name, outcome=outcome, trace_id=trace_id,
-                    target_scope={"project_id": project}, actor_role="meet_companion", details=details)
+    audit_tool_call(
+        "meet_companion_tool_called",
+        name,
+        outcome=outcome,
+        trace_id=trace_id,
+        target_scope={"project_id": project},
+        actor_role="meet_companion",
+        details=details,
+    )
 
 
 def _execute(name, arguments, capability, project=None):

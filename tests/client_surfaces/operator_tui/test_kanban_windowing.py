@@ -76,17 +76,13 @@ def test_shell_and_hit_map_keep_global_selection_visible_after_resize(
     height: int,
     monkeypatch,
 ) -> None:
-    enabled_sections = sections.dashboard_sections(
-        {"ANANTA_TUI_KANBAN_ENABLED": "1"}
-    )
+    enabled_sections = sections.dashboard_sections({"ANANTA_TUI_KANBAN_ENABLED": "1"})
     monkeypatch.setattr(
         sections,
         "SECTIONS",
         sections.SECTIONS
         + tuple(
-            section
-            for section in enabled_sections
-            if section.id not in {current.id for current in sections.SECTIONS}
+            section for section in enabled_sections if section.id not in {current.id for current in sections.SECTIONS}
         ),
     )
     payload = _payload()
@@ -107,17 +103,11 @@ def test_shell_and_hit_map_keep_global_selection_visible_after_resize(
         splash=None,
     )
     index = build_region_index(state, width=width, height=height)
-    kanban_targets = [
-        region.target
-        for region in index._regions
-        if region.target.section_id == "kanban"
-    ]
+    kanban_targets = [region.target for region in index._regions if region.target.section_id == "kanban"]
 
     assert "K999" in rendered
     assert any(
-        target.kind == "dashboard_item"
-        and target.payload.get("selected_index") == 999
-        for target in kanban_targets
+        target.kind == "dashboard_item" and target.payload.get("selected_index") == 999 for target in kanban_targets
     )
     assert not any(target.kind == "item" for target in kanban_targets)
 
@@ -140,8 +130,5 @@ def test_wide_viewport_pages_columns_and_regions_with_global_indices() -> None:
     assert "C8" in lines[1]
     assert "C9" in lines[1]
     assert any("K999" in line for line in lines)
-    assert any(
-        region.target.payload.get("selected_index") == 999
-        for region in regions
-    )
+    assert any(region.target.payload.get("selected_index") == 999 for region in regions)
     assert all(0 <= region.x1 <= region.x2 <= 119 for region in regions)

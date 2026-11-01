@@ -98,10 +98,13 @@ def test_hub_supplies_the_profile_and_rejects_missing_or_mutated_worker_receipts
     for payload in ({"text": "Hallo", "speech_profile": speech_profile()}, {"text": "Hallo", "voice_id": "other"}):
         with pytest.raises(MeetError, match="payload_invalid"):
             runtime.execute(PRINCIPAL, "project", payload)
-    worker.execute.side_effect = lambda request: result() | {
-        "task_id": request["task_id"],
-        "lease_id": request["lease_id"],
-    }
+    worker.execute.side_effect = lambda request: (
+        result()
+        | {
+            "task_id": request["task_id"],
+            "lease_id": request["lease_id"],
+        }
+    )
     with pytest.raises(MeetError, match="speech_mismatch"):
         runtime.execute(PRINCIPAL, "project", {"text": "Hallo"})
     assert tasks.finish.call_args.args[1] == "failed"

@@ -1,8 +1,11 @@
 from __future__ import annotations
-import json, time, uuid
+
+import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
 
 class WorkflowKind(str, Enum):
     CONTEXT_RETRIEVAL = "context_retrieval"
@@ -13,11 +16,13 @@ class WorkflowKind(str, Enum):
     DELEGATION_PLANNING = "delegation_planning"
     FULL_PIPELINE = "full_pipeline"
 
+
 class ProviderMode(str, Enum):
     LOCAL_ONLY = "local_only"
     FAKE = "fake"
     AUGMENT = "augment"
     HYBRID = "hybrid"
+
 
 class EvalVerdict(str, Enum):
     PASS = "pass"
@@ -25,6 +30,7 @@ class EvalVerdict(str, Enum):
     FAIL = "fail"
     SKIPPED = "skipped"
     NO_GOLD_SET = "no_gold_set"
+
 
 @dataclass
 class GoldExpectation:
@@ -34,6 +40,7 @@ class GoldExpectation:
     max_latency_ms: int = 10000
     required_keywords: list[str] = field(default_factory=list)
     rubric_notes: str = ""
+
 
 @dataclass
 class WorkflowSpec:
@@ -46,6 +53,7 @@ class WorkflowSpec:
     max_cost_units: float = 1.0
     requires_approval: bool = False
     tags: list[str] = field(default_factory=list)
+
 
 @dataclass
 class BenchmarkSample:
@@ -63,16 +71,18 @@ class BenchmarkSample:
     error: str | None
     created_at: float
 
+
 @dataclass
 class EvalResult:
     verdict: EvalVerdict
-    score: float           # 0.0-1.0
+    score: float  # 0.0-1.0
     latency_ok: bool
     cost_ok: bool
     files_hit_count: int
     files_missed: list[str]
     symbols_hit_count: int
     notes: str
+
 
 @dataclass
 class WorkflowResult:
@@ -104,6 +114,7 @@ class WorkflowResult:
             "created_at": self.created_at,
         }
 
+
 @dataclass
 class BenchmarkRun:
     run_id: str
@@ -120,7 +131,8 @@ class BenchmarkRun:
     created_at: float
 
     def pass_rate(self) -> float:
-        if self.total_workflows == 0: return 0.0
+        if self.total_workflows == 0:
+            return 0.0
         return self.passed / self.total_workflows
 
     def as_dict(self) -> dict[str, Any]:
@@ -128,8 +140,10 @@ class BenchmarkRun:
             "run_id": self.run_id,
             "name": self.name,
             "total_workflows": self.total_workflows,
-            "passed": self.passed, "partial": self.partial,
-            "failed": self.failed, "skipped": self.skipped,
+            "passed": self.passed,
+            "partial": self.partial,
+            "failed": self.failed,
+            "skipped": self.skipped,
             "pass_rate": round(self.pass_rate(), 3),
             "avg_score": round(self.avg_score, 3),
             "total_latency_ms": self.total_latency_ms,
@@ -141,7 +155,7 @@ class BenchmarkRun:
     def to_markdown(self) -> str:
         lines = [
             f"# Benchmark Run: {self.name}",
-            f"",
+            "",
             f"**Run ID:** `{self.run_id}`  ",
             f"**Pass Rate:** {self.pass_rate():.0%}  ",
             f"**Avg Score:** {self.avg_score:.2f}  ",
@@ -164,6 +178,7 @@ class BenchmarkRun:
             if r.eval_result.files_missed:
                 lines.append(f"- **{r.workflow_name}**: {', '.join(r.eval_result.files_missed)}")
         return "\n".join(lines)
+
 
 class BenchmarkSuiteRunner:
     """
@@ -197,11 +212,19 @@ class BenchmarkSuiteRunner:
             sample = self._simulate_retrieval(spec)
         except Exception as e:
             sample = BenchmarkSample(
-                sample_id=str(uuid.uuid4())[:8], workflow_id=spec.workflow_id,
-                provider_mode=spec.provider_mode.value, query=spec.query,
-                retrieved_files=[], retrieved_symbols=[], scores=[],
-                latency_ms=0, cost_units=0.0, approval_gates_triggered=0,
-                test_coverage_pct=None, error=str(e), created_at=time.time(),
+                sample_id=str(uuid.uuid4())[:8],
+                workflow_id=spec.workflow_id,
+                provider_mode=spec.provider_mode.value,
+                query=spec.query,
+                retrieved_files=[],
+                retrieved_symbols=[],
+                scores=[],
+                latency_ms=0,
+                cost_units=0.0,
+                approval_gates_triggered=0,
+                test_coverage_pct=None,
+                error=str(e),
+                created_at=time.time(),
             )
 
         eval_result = self._evaluate(spec, sample)
@@ -245,8 +268,16 @@ class BenchmarkSuiteRunner:
             return EvalResult(EvalVerdict.FAIL, 0.0, False, True, 0, [], 0, f"error: {sample.error}")
 
         if spec.gold is None:
-            return EvalResult(EvalVerdict.NO_GOLD_SET, 0.5, True, True, len(sample.retrieved_files),
-                             [], len(sample.retrieved_symbols), "no gold set defined")
+            return EvalResult(
+                EvalVerdict.NO_GOLD_SET,
+                0.5,
+                True,
+                True,
+                len(sample.retrieved_files),
+                [],
+                len(sample.retrieved_symbols),
+                "no gold set defined",
+            )
 
         gold = spec.gold
         latency_ok = sample.latency_ms <= gold.max_latency_ms
@@ -276,8 +307,12 @@ class BenchmarkSuiteRunner:
             verdict = EvalVerdict.FAIL
 
         return EvalResult(
-            verdict=verdict, score=round(score, 3), latency_ok=latency_ok, cost_ok=cost_ok,
-            files_hit_count=files_hit, files_missed=missed,
+            verdict=verdict,
+            score=round(score, 3),
+            latency_ok=latency_ok,
+            cost_ok=cost_ok,
+            files_hit_count=files_hit,
+            files_missed=missed,
             symbols_hit_count=sym_hit,
             notes=f"F1={score:.2f}, {files_hit}/{len(expected)} files hit",
         )
@@ -291,19 +326,37 @@ class BenchmarkSuiteRunner:
         total_cost = sum(r.sample.cost_units for r in results)
         avg_score = sum(r.eval_result.score for r in results) / max(len(results), 1)
         return BenchmarkRun(
-            run_id=str(uuid.uuid4()), name=name, results=results,
-            total_workflows=len(results), passed=passed, partial=partial,
-            failed=failed, skipped=skipped, avg_score=round(avg_score, 3),
-            total_latency_ms=total_latency, total_cost_units=round(total_cost, 6),
+            run_id=str(uuid.uuid4()),
+            name=name,
+            results=results,
+            total_workflows=len(results),
+            passed=passed,
+            partial=partial,
+            failed=failed,
+            skipped=skipped,
+            avg_score=round(avg_score, 3),
+            total_latency_ms=total_latency,
+            total_cost_units=round(total_cost, 6),
             created_at=time.time(),
         )
 
-def make_workflow(*, name: str, kind: WorkflowKind, query: str,
-                 expected_files: list[str] | None = None,
-                 provider_mode: ProviderMode = ProviderMode.FAKE,
-                 requires_approval: bool = False) -> WorkflowSpec:
+
+def make_workflow(
+    *,
+    name: str,
+    kind: WorkflowKind,
+    query: str,
+    expected_files: list[str] | None = None,
+    provider_mode: ProviderMode = ProviderMode.FAKE,
+    requires_approval: bool = False,
+) -> WorkflowSpec:
     gold = GoldExpectation(expected_files=list(expected_files or [])) if expected_files else None
     return WorkflowSpec(
-        workflow_id=str(uuid.uuid4())[:8], name=name, kind=kind, query=query,
-        provider_mode=provider_mode, gold=gold, requires_approval=requires_approval,
+        workflow_id=str(uuid.uuid4())[:8],
+        name=name,
+        kind=kind,
+        query=query,
+        provider_mode=provider_mode,
+        gold=gold,
+        requires_approval=requires_approval,
     )

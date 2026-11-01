@@ -45,11 +45,7 @@ class MlInternLoraRuntimeManagementService:
         result = dict(self._inference.capabilities())
         result["runtime_handoff"] = {
             "available": self._endpoint_registry is not None,
-            "reason_code": (
-                None
-                if self._endpoint_registry is not None
-                else "runtime_endpoint_registry_unconfigured"
-            ),
+            "reason_code": (None if self._endpoint_registry is not None else "runtime_endpoint_registry_unconfigured"),
             "api_capabilities": [
                 "anthropic_messages",
                 "openai_chat",
@@ -87,9 +83,7 @@ class MlInternLoraRuntimeManagementService:
                 tenant_id=tenant_id,
                 endpoint_id=endpoint_id,
                 expected_revision=expected_revision,
-                reason_sha256=hashlib.sha256(
-                    normalized_reason.encode("utf-8")
-                ).hexdigest(),
+                reason_sha256=hashlib.sha256(normalized_reason.encode("utf-8")).hexdigest(),
                 actor_id=owner_subject,
             )
         except RuntimeEndpointRegistryError as exc:

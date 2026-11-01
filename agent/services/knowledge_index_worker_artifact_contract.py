@@ -60,12 +60,8 @@ PUBLIC_ARTIFACT_SCHEMAS = {
 }
 MAX_REFS_PER_UNIT = len(OUTPUT_FILENAMES)
 MAX_RESULT_ARTIFACT_REFS = MAX_RESULT_UNITS * MAX_REFS_PER_UNIT
-MATERIALIZATION_BINDING_METADATA_KEY = (
-    KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY
-)
-MATERIALIZATION_BINDING_SCHEMA = (
-    KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA
-)
+MATERIALIZATION_BINDING_METADATA_KEY = KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY
+MATERIALIZATION_BINDING_SCHEMA = KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA
 PENDING_PROJECTION_STATE = "pending"
 JOB_ID_PATTERN = re.compile(r"^knowledge-index-[0-9a-f]{32}$")
 _SOURCE_SCOPES = frozenset(
@@ -103,9 +99,7 @@ def result_units(result: Mapping[str, Any]) -> list[dict[str, Any]]:
     if isinstance(knowledge_index, Mapping) and isinstance(run, Mapping):
         return [{"knowledge_index": dict(knowledge_index), "run": dict(run)}]
     raw_units = result.get("results")
-    if not isinstance(raw_units, list) or any(
-        not isinstance(item, Mapping) for item in raw_units
-    ):
+    if not isinstance(raw_units, list) or any(not isinstance(item, Mapping) for item in raw_units):
         raise ValueError("knowledge_index_worker_result_units_invalid")
     units = [dict(item) for item in raw_units]
     if not units or any(
@@ -125,9 +119,7 @@ def _unit_keys(units: list[Mapping[str, Any]]) -> set[tuple[str, str]]:
             run_payload,
             Mapping,
         ):
-            raise ValueError(
-                "knowledge_index_worker_result_units_invalid"
-            )
+            raise ValueError("knowledge_index_worker_result_units_invalid")
         index_id = safe_identifier(
             index_payload.get("id"),
             field="index_id",
@@ -138,9 +130,7 @@ def _unit_keys(units: list[Mapping[str, Any]]) -> set[tuple[str, str]]:
         )
         key = (index_id, run_id)
         if key in unit_keys:
-            raise ValueError(
-                "knowledge_index_worker_result_unit_duplicate"
-            )
+            raise ValueError("knowledge_index_worker_result_unit_duplicate")
         unit_keys.add(key)
     return unit_keys
 
@@ -151,9 +141,7 @@ def _references_total_size(
 ) -> int:
     seen_artifact_ids: set[str] = set()
     seen_coordinates: set[tuple[str, str, str]] = set()
-    refs_per_unit: dict[tuple[str, str], int] = {
-        key: 0 for key in unit_keys
-    }
+    refs_per_unit: dict[tuple[str, str], int] = {key: 0 for key in unit_keys}
     total_size = 0
     for reference in references:
         artifact_id = safe_identifier(
@@ -162,9 +150,7 @@ def _references_total_size(
         )
         role = str(reference.get("role") or "").strip()
         if role not in OUTPUT_FILENAMES:
-            raise ValueError(
-                "knowledge_index_worker_artifact_role_invalid"
-            )
+            raise ValueError("knowledge_index_worker_artifact_role_invalid")
         index_id = safe_identifier(
             reference.get("knowledge_index_id"),
             field="index_id",
@@ -175,34 +161,18 @@ def _references_total_size(
         )
         unit_key = (index_id, run_id)
         if unit_key not in unit_keys:
-            raise ValueError(
-                "knowledge_index_worker_artifact_ref_unreferenced"
-            )
+            raise ValueError("knowledge_index_worker_artifact_ref_unreferenced")
         coordinates = (index_id, run_id, role)
-        if (
-            artifact_id in seen_artifact_ids
-            or coordinates in seen_coordinates
-        ):
-            raise ValueError(
-                "knowledge_index_worker_artifact_ref_duplicate"
-            )
+        if artifact_id in seen_artifact_ids or coordinates in seen_coordinates:
+            raise ValueError("knowledge_index_worker_artifact_ref_duplicate")
         seen_artifact_ids.add(artifact_id)
         seen_coordinates.add(coordinates)
         refs_per_unit[unit_key] += 1
         if refs_per_unit[unit_key] > MAX_REFS_PER_UNIT:
-            raise ValueError(
-                "knowledge_index_worker_artifact_ref_limit_exceeded"
-            )
+            raise ValueError("knowledge_index_worker_artifact_ref_limit_exceeded")
         raw_size = reference.get("size_bytes")
-        if (
-            isinstance(raw_size, bool)
-            or not isinstance(raw_size, int)
-            or raw_size < 0
-            or raw_size > MAX_ARTIFACT_BYTES
-        ):
-            raise ValueError(
-                "knowledge_index_worker_artifact_size_invalid"
-            )
+        if isinstance(raw_size, bool) or not isinstance(raw_size, int) or raw_size < 0 or raw_size > MAX_ARTIFACT_BYTES:
+            raise ValueError("knowledge_index_worker_artifact_size_invalid")
         total_size += raw_size
     return total_size
 
@@ -216,17 +186,13 @@ def validate_result_reference_contract(
 ) -> None:
     maximum_units = 1 if bound_v2 else MAX_RESULT_UNITS
     if len(units) > maximum_units:
-        raise ValueError(
-            "knowledge_index_worker_result_unit_limit_exceeded"
-        )
+        raise ValueError("knowledge_index_worker_result_unit_limit_exceeded")
     maximum_refs = min(
         MAX_RESULT_ARTIFACT_REFS,
         len(units) * MAX_REFS_PER_UNIT,
     )
     if len(references) > maximum_refs:
-        raise ValueError(
-            "knowledge_index_worker_artifact_ref_limit_exceeded"
-        )
+        raise ValueError("knowledge_index_worker_artifact_ref_limit_exceeded")
 
     unit_keys = _unit_keys(units)
     total_size = _references_total_size(references, unit_keys)
@@ -234,25 +200,17 @@ def validate_result_reference_contract(
     result_budget = MAX_RESULT_ARTIFACT_BYTES
     if bound_v2:
         resources = envelope.get("resources")
-        max_output_bytes = (
-            resources.get("max_output_bytes")
-            if isinstance(resources, Mapping)
-            else None
-        )
+        max_output_bytes = resources.get("max_output_bytes") if isinstance(resources, Mapping) else None
         if (
             isinstance(max_output_bytes, bool)
             or not isinstance(max_output_bytes, int)
             or max_output_bytes < 1
             or max_output_bytes > MAX_RESULT_ARTIFACT_BYTES
         ):
-            raise ValueError(
-                "knowledge_index_worker_output_budget_invalid"
-            )
+            raise ValueError("knowledge_index_worker_output_budget_invalid")
         result_budget = max_output_bytes
     if total_size > result_budget:
-        raise ValueError(
-            "knowledge_index_worker_output_budget_exceeded"
-        )
+        raise ValueError("knowledge_index_worker_output_budget_exceeded")
 
 
 def validate_unit_reference_budget(
@@ -261,25 +219,14 @@ def validate_unit_reference_budget(
     total_size = 0
     for role, reference in by_role.items():
         expected_filename = OUTPUT_FILENAMES.get(role)
-        if (
-            expected_filename is None
-            or str(reference.get("filename") or "") != expected_filename
-        ):
+        if expected_filename is None or str(reference.get("filename") or "") != expected_filename:
             raise ValueError("knowledge_index_worker_artifact_role_invalid")
         raw_size = reference.get("size_bytes")
-        if (
-            isinstance(raw_size, bool)
-            or not isinstance(raw_size, int)
-            or raw_size < 0
-            or raw_size > MAX_ARTIFACT_BYTES
-        ):
+        if isinstance(raw_size, bool) or not isinstance(raw_size, int) or raw_size < 0 or raw_size > MAX_ARTIFACT_BYTES:
             raise ValueError("knowledge_index_worker_artifact_size_invalid")
         if role in PRIMARY_GRAPH_ROLES and raw_size > MAX_GRAPH_JSON_BYTES:
             raise ValueError("knowledge_index_worker_graph_artifact_too_large")
-        if (
-            role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE
-            and raw_size > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES
-        ):
+        if role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE and raw_size > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES:
             raise ValueError("knowledge_index_worker_domain_supplement_too_large")
         total_size += raw_size
         if total_size > MAX_UNIT_ARTIFACT_BYTES:
@@ -300,15 +247,9 @@ def validate_index_source_binding(
     if (
         len(source_revision_id) != 69
         or not source_revision_id.startswith("srev_")
-        or any(
-            character not in "0123456789abcdef"
-            for character in source_revision_id[5:]
-        )
+        or any(character not in "0123456789abcdef" for character in source_revision_id[5:])
         or len(source_revision_digest) != 64
-        or any(
-            character not in "0123456789abcdef"
-            for character in source_revision_digest
-        )
+        or any(character not in "0123456789abcdef" for character in source_revision_digest)
         or source_id != f"bound-source:{source_revision_id}"
         or str(metadata.get("source_scope") or "") != source_scope
         or str(metadata.get("source_id") or "") != source_id
@@ -320,9 +261,7 @@ def validate_index_source_binding(
     ):
         supplied = metadata.get(field)
         if supplied not in {None, "", expected}:
-            raise ValueError(
-                "knowledge_index_worker_domain_supplement_binding_invalid"
-            )
+            raise ValueError("knowledge_index_worker_domain_supplement_binding_invalid")
 
 
 def materialization_bindings(
@@ -336,53 +275,28 @@ def materialization_bindings(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     normalized_job_id = str(job_id or "").strip()
     if not JOB_ID_PATTERN.fullmatch(normalized_job_id):
-        raise ValueError(
-            "knowledge_index_worker_materialization_binding_invalid"
-        )
-    execution_job_schema = str(
-        envelope.get("schema")
-        or KNOWLEDGE_INDEX_LEGACY_JOB_SCHEMA
-    )
+        raise ValueError("knowledge_index_worker_materialization_binding_invalid")
+    execution_job_schema = str(envelope.get("schema") or KNOWLEDGE_INDEX_LEGACY_JOB_SCHEMA)
     if execution_job_schema not in {
         KNOWLEDGE_INDEX_LEGACY_JOB_SCHEMA,
         KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
-    } or bound_v2 != (
-        execution_job_schema
-        == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-    ):
-        raise ValueError(
-            "knowledge_index_worker_materialization_binding_invalid"
-        )
+    } or bound_v2 != (execution_job_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA):
+        raise ValueError("knowledge_index_worker_materialization_binding_invalid")
     authority = envelope.get("authority_binding")
     assignment = envelope.get("assignment")
-    authority_digest = str(
-        authority.get("binding_digest")
-        if isinstance(authority, Mapping)
-        else ""
-    ).strip()
-    assignment_id = str(
-        assignment.get("assignment_id")
-        if isinstance(assignment, Mapping)
-        else ""
-    ).strip()
+    authority_digest = str(authority.get("binding_digest") if isinstance(authority, Mapping) else "").strip()
+    assignment_id = str(assignment.get("assignment_id") if isinstance(assignment, Mapping) else "").strip()
     if projection_state not in {
         PENDING_PROJECTION_STATE,
         KNOWLEDGE_INDEX_PROJECTED_STATE,
     }:
-        raise ValueError(
-            "knowledge_index_worker_materialization_binding_invalid"
-        )
+        raise ValueError("knowledge_index_worker_materialization_binding_invalid")
     if bound_v2 and (
         len(authority_digest) != 64
-        or any(
-            character not in "0123456789abcdef"
-            for character in authority_digest
-        )
+        or any(character not in "0123456789abcdef" for character in authority_digest)
         or not assignment_id
     ):
-        raise ValueError(
-            "knowledge_index_worker_materialization_binding_invalid"
-        )
+        raise ValueError("knowledge_index_worker_materialization_binding_invalid")
     common = {
         "schema": MATERIALIZATION_BINDING_SCHEMA,
         "execution_job_schema": execution_job_schema,

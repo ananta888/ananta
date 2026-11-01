@@ -111,6 +111,7 @@ for _path in functions_folder.glob("*.py"):
 # UTCR-004: AnantaToolRegistryService-backed native schema loader
 # ---------------------------------------------------------------------------
 
+
 def get_ananta_worker_native_schemas(allowed_tools: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """UTCR-004: Return OpenAI-tool schemas from AnantaToolRegistryService.
 

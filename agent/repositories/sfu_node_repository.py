@@ -18,7 +18,6 @@ from sqlmodel import Session, select
 from agent.database import engine as default_engine
 from agent.db_models import SfuNodeDB, SfuNodeMutationDB
 
-
 HEALTH_STATUSES = frozenset({"unknown", "healthy", "degraded", "unhealthy"})
 DRAIN_STATES = frozenset({"active", "draining", "drained"})
 MAX_PAGE_SIZE = 200
@@ -134,9 +133,7 @@ class SfuNodeRepositoryPort(Protocol):
         fencing_token: int = 0,
     ) -> SfuNodeRecord: ...
 
-    def get_node(
-        self, *, tenant_id: str, cluster_id: str, node_id: str
-    ) -> SfuNodeRecord | None: ...
+    def get_node(self, *, tenant_id: str, cluster_id: str, node_id: str) -> SfuNodeRecord | None: ...
 
     def record_observation(
         self,
@@ -285,9 +282,7 @@ class SqlSfuNodeRepository:
         except SQLAlchemyError as exc:
             raise SfuNodeRepositoryError("sfu_node_store_unavailable") from exc
 
-    def get_node(
-        self, *, tenant_id: str, cluster_id: str, node_id: str
-    ) -> SfuNodeRecord | None:
+    def get_node(self, *, tenant_id: str, cluster_id: str, node_id: str) -> SfuNodeRecord | None:
         _validate_scope(tenant_id, cluster_id, node_id)
         try:
             with Session(self._engine) as db:
@@ -789,9 +784,7 @@ def _record_from_snapshot(snapshot: dict, *, now: float) -> SfuNodeRecord:
     )
 
 
-def _mutation_from_row(
-    row: SfuNodeDB, *, event_type: str, occurred_at: float
-) -> SfuNodeMutationDB:
+def _mutation_from_row(row: SfuNodeDB, *, event_type: str, occurred_at: float) -> SfuNodeMutationDB:
     return SfuNodeMutationDB(
         tenant_id=row.tenant_id,
         cluster_id=row.cluster_id,

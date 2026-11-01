@@ -182,7 +182,11 @@ class BlenderHubClient:
     def submit_goal(self, *, goal: str, context: dict[str, Any], capability_id: str) -> dict[str, Any]:
         return self._transport(
             "submit_goal",
-            {"goal": str(goal or "").strip(), "context": dict(context or {}), "capability_id": str(capability_id or "").strip()},
+            {
+                "goal": str(goal or "").strip(),
+                "context": dict(context or {}),
+                "capability_id": str(capability_id or "").strip(),
+            },
         )
 
     def list_tasks(self) -> dict[str, Any]:
@@ -201,10 +205,15 @@ class BlenderHubClient:
         return self._transport("list_approvals", {})
 
     def submit_approval_decision(self, *, approval_id: str, decision: str) -> dict[str, Any]:
-        return self._transport("approval_decision", {"approval_id": str(approval_id or "").strip(), "decision": str(decision or "").strip()})
+        return self._transport(
+            "approval_decision",
+            {"approval_id": str(approval_id or "").strip(), "decision": str(decision or "").strip()},
+        )
 
     def request_export_plan(self, *, fmt: str, target_path: str, selection_only: bool = False) -> dict[str, Any]:
-        return self._transport("export_plan", {"format": fmt, "target_path": target_path, "selection_only": bool(selection_only)})
+        return self._transport(
+            "export_plan", {"format": fmt, "target_path": target_path, "selection_only": bool(selection_only)}
+        )
 
     def request_render_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._transport("render_plan", dict(payload or {}))
@@ -238,7 +247,12 @@ class BlenderHubClient:
             goal = str(payload.get("goal") or "").strip()
             if not goal:
                 return {"status": "degraded", "reason": "goal_missing"}
-            return {"status": "accepted", "goal": goal, "capability_id": payload.get("capability_id"), "task_id": "blend-task-1"}
+            return {
+                "status": "accepted",
+                "goal": goal,
+                "capability_id": payload.get("capability_id"),
+                "task_id": "blend-task-1",
+            }
         if action == "approval_decision":
             approval_id = str(payload.get("approval_id") or "").strip()
             decision = str(payload.get("decision") or "").strip().lower()
@@ -248,7 +262,10 @@ class BlenderHubClient:
         if action in {"list_tasks", "list_artifacts", "list_approvals"}:
             return {"status": "ok", "items": []}
         if action == "export_plan":
-            return {"status": "accepted", "plan": {"format": str(payload.get("format") or "GLTF").upper(), "execution_mode": "plan_only"}}
+            return {
+                "status": "accepted",
+                "plan": {"format": str(payload.get("format") or "GLTF").upper(), "execution_mode": "plan_only"},
+            }
         if action in {"render_plan", "mutation_plan"}:
             return {"status": "accepted", "plan": dict(payload or {}), "execution_mode": "plan_only"}
         if action == "execute_action":

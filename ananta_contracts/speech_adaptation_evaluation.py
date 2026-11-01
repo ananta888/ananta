@@ -122,9 +122,7 @@ def validate_evaluation_report(report: Mapping[str, Any], *, expected_job: Speec
                         f"metric {name} must compare all four variants",
                     )
                 if any(
-                    isinstance(value, bool)
-                    or not isinstance(value, (int, float))
-                    or not math.isfinite(float(value))
+                    isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value))
                     for value in values.values()
                 ):
                     raise SpeechEvaluationError("speech_evaluation_non_finite", f"metric {name} is not finite")
@@ -139,8 +137,10 @@ def validate_evaluation_report(report: Mapping[str, Any], *, expected_job: Speec
                 raise SpeechEvaluationError("speech_evaluation_samples_invalid", f"{group_name} {name} is incomplete")
             computed_pass = computed_pass and bool(raw["passed"])
     limitations = report.get("limitations")
-    if not isinstance(limitations, list) or not limitations or any(
-        not isinstance(item, str) or not item.strip() or len(item) > 512 for item in limitations
+    if (
+        not isinstance(limitations, list)
+        or not limitations
+        or any(not isinstance(item, str) or not item.strip() or len(item) > 512 for item in limitations)
     ):
         raise SpeechEvaluationError("speech_evaluation_limitations_missing", "evaluation limitations are required")
     if bool(report["passed"]) != computed_pass:

@@ -51,11 +51,18 @@ def publish_base(tmp_path, files):
     new = manifest(files)
     SnapshotManifestStore(tmp_path).put(new)
     changes = diff_snapshots({"snapshot_revision": "0" * 64, "files": []}, new).file_changes
-    layer = ChunkLayerBuilder().build(changes=changes, content=files, prior_ids_by_path={}, parent_layer_id=None,
-                                      snapshot_revision=new["snapshot_revision"], changeset_id="base")
+    layer = ChunkLayerBuilder().build(
+        changes=changes,
+        content=files,
+        prior_ids_by_path={},
+        parent_layer_id=None,
+        snapshot_revision=new["snapshot_revision"],
+        changeset_id="base",
+    )
     layer_id, _ = ArtifactLayerStore(tmp_path).store_layer(layer)
-    LayerHeadRegistry(tmp_path).create_head(PROFILE, layer_id=layer_id, layer_set={"chunks": layer_id},
-                                            snapshot_revision=new["snapshot_revision"])
+    LayerHeadRegistry(tmp_path).create_head(
+        PROFILE, layer_id=layer_id, layer_set={"chunks": layer_id}, snapshot_revision=new["snapshot_revision"]
+    )
     return layer_id, layer
 
 
@@ -92,16 +99,20 @@ def test_dispatch_repository_round_trips_and_rejects_path_like_ids(tmp_path):
 # --- policy and plans -------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("has_head, changes, depth, compatible, expected", [
-    (True, 0, 0, True, "noop"),
-    (False, 0, 0, True, "base_build"),
-    (True, 3, 0, False, "base_build"),
-    (True, 3, 64, True, "base_build"),
-    (True, 3, 5, True, "delta_build"),
-])
+@pytest.mark.parametrize(
+    "has_head, changes, depth, compatible, expected",
+    [
+        (True, 0, 0, True, "noop"),
+        (False, 0, 0, True, "base_build"),
+        (True, 3, 0, False, "base_build"),
+        (True, 3, 64, True, "base_build"),
+        (True, 3, 5, True, "delta_build"),
+    ],
+)
 def test_chunk_policy(has_head, changes, depth, compatible, expected):
-    decision, _reason = ChunkPlanPolicy().decide(has_head=has_head, changes=changes, delta_depth=depth,
-                                                 compatible=compatible)
+    decision, _reason = ChunkPlanPolicy().decide(
+        has_head=has_head, changes=changes, delta_depth=depth, compatible=compatible
+    )
     assert decision == expected
 
 
@@ -137,16 +148,19 @@ def test_the_same_snapshot_again_is_a_noop(backend, tmp_path):
 
 def test_a_file_no_longer_indexed_is_removed_like_a_deletion(backend, tmp_path):
     publish_base(tmp_path, A)
-    plan = backend.plan_update(profile_id=PROFILE, new_manifest=manifest({"a.py": A["a.py"], "c.txt": "keep\n"},
-                                                                         excluded=("b.md",)))
+    plan = backend.plan_update(
+        profile_id=PROFILE, new_manifest=manifest({"a.py": A["a.py"], "c.txt": "keep\n"}, excluded=("b.md",))
+    )
     assert [(item["path"], item["operation"]) for item in plan["changeset"]["file_changes"]] == [("b.md", "delete")]
 
 
 def test_a_too_deep_chain_starts_a_new_full_base(tmp_path):
     publish_base(tmp_path, A)
     backend = CodeCompassLayerQueryBackend(
-        layers=ArtifactLayerStore(tmp_path), heads=LayerHeadRegistry(tmp_path),
-        snapshots=SnapshotManifestStore(tmp_path), policy=ChunkPlanPolicy(max_delta_depth=0),
+        layers=ArtifactLayerStore(tmp_path),
+        heads=LayerHeadRegistry(tmp_path),
+        snapshots=SnapshotManifestStore(tmp_path),
+        policy=ChunkPlanPolicy(max_delta_depth=0),
     )
     plan = backend.plan_update(profile_id=PROFILE, new_manifest=manifest(B))
     assert plan["decision"]["decision_type"] == "base_build" and plan["parent_layer_id"] is None
@@ -212,14 +226,14 @@ def test_enabled_layers_answer_reads_and_gate_writes(tmp_path):
     hub = app()
     environ = {"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1"}
     queue = _Queue()
-    status = initialize_codecompass_layers(hub, environ=environ, data_dir=tmp_path, task_queue=queue,
-                                           evidence=_Evidence())
+    status = initialize_codecompass_layers(
+        hub, environ=environ, data_dir=tmp_path, task_queue=queue, evidence=_Evidence()
+    )
     assert status.enabled and status.root == str(tmp_path / "codecompass_layers")
     service = hub.extensions["codecompass_layer_service"]
     assert service.list_profiles() == []
     plan = service.plan_update(profile_id=PROFILE, new_manifest=manifest(A))
-    apply = {"plan": plan, "profile_ref": {}, "profile_id": PROFILE, "expected_generation": 0,
-             "idempotency_key": "k"}
+    apply = {"plan": plan, "profile_ref": {}, "profile_id": PROFILE, "expected_generation": 0, "idempotency_key": "k"}
     with pytest.raises(RuntimeError, match="codecompass_layer_writes_disabled"):
         service.apply_update(**apply)
     assert queue.tasks == []

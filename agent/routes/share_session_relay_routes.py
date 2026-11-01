@@ -8,6 +8,13 @@ from flask import Blueprint, jsonify, request
 
 from agent.auth import check_user_auth
 from agent.models.semantic_relay_errors import SemanticRelayRepositoryError
+from agent.routes.share_session_route_support import (
+    _current_tenant_id,
+    _current_user_id,
+    _is_active_participant,
+    _is_session_active,
+    _strict_e2ee_enabled,
+)
 from agent.services.semantic_relay_authorization import (
     SemanticRelayAuthorizationError,
 )
@@ -18,13 +25,6 @@ from agent.services.semantic_relay_service import SemanticRelayServiceError
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
 from ananta_contracts.webrtc_datachannel import DataChannelContractError
-from agent.routes.share_session_route_support import (
-    _current_tenant_id,
-    _current_user_id,
-    _is_active_participant,
-    _is_session_active,
-    _strict_e2ee_enabled,
-)
 
 
 def _semantic_relay_error(exc: Exception):

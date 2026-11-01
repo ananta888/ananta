@@ -9,6 +9,7 @@ verification command and never produced `last_exit_code` / `proposal.command`.
 The fallback proposes the verification command the Hub itself declared in the task
 description, reusing the prompt markers of the workspace context writer.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -26,9 +27,7 @@ def _task(description: str) -> SimpleNamespace:
 
 def test_fallback_returns_the_declared_command_after_the_run_exactly_marker():
     description = (
-        "Task requirements ...\n"
-        f"Run exactly: {MARKER_COMMAND}\n"
-        "Use test.run and finish only after exit code 0."
+        f"Task requirements ...\nRun exactly: {MARKER_COMMAND}\nUse test.run and finish only after exit code 0."
     )
     assert mod._verification_command_from_task_description(_task(description)) == MARKER_COMMAND
 
@@ -173,9 +172,7 @@ def test_fallback_reads_the_description_of_a_mapping_task():
 
 
 def test_task_description_handles_object_and_missing_shapes():
-    assert mod._task_description(_task(f"Run exactly: {MARKER_COMMAND}")) == (
-        f"Run exactly: {MARKER_COMMAND}"
-    )
+    assert mod._task_description(_task(f"Run exactly: {MARKER_COMMAND}")) == (f"Run exactly: {MARKER_COMMAND}")
     assert mod._task_description({}) == ""
     assert mod._task_description(None) == ""
 

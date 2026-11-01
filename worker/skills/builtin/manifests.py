@@ -3,6 +3,7 @@
 Read-only and proposal-only by default.
 No baseline skill requires shell_execute or patch_apply.
 """
+
 from __future__ import annotations
 
 from worker.skills.skill_manifest import SkillManifest

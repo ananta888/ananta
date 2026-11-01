@@ -39,10 +39,7 @@ def _organization_research_hub_execution_guard(
         TaskScopedRouteResponse,
     )
 
-    if (
-        str(settings.role or "").strip().lower() != "hub"
-        or not organization_research_requires_secure_delegation(task)
-    ):
+    if str(settings.role or "").strip().lower() != "hub" or not organization_research_requires_secure_delegation(task):
         return None
     reason_code = "organization_research_secure_delegation_required"
     return TaskScopedRouteResponse(

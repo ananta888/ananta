@@ -1,4 +1,5 @@
 """HDE-009: audit events, redaction and event order for hub-direct calls."""
+
 import pytest
 
 from agent.common import audit as audit_module

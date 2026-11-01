@@ -3,11 +3,10 @@
 Safe read-only filesystem access for the operator TUI chat surface.
 All reads are policy-checked via SnakeChatSecurityPolicy.
 """
+
 from __future__ import annotations
 
-import os
-import stat
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -94,45 +93,46 @@ class FilesystemReadTool:
                 except OSError:
                     size = 0
                 ext = entry.suffix.lower() if entry.is_file() else ""
-                entries.append(DirEntry(
-                    name=entry.name,
-                    path=rel,
-                    is_dir=entry.is_dir(),
-                    size_bytes=size,
-                    extension=ext,
-                ).as_dict())
+                entries.append(
+                    DirEntry(
+                        name=entry.name,
+                        path=rel,
+                        is_dir=entry.is_dir(),
+                        size_bytes=size,
+                        extension=ext,
+                    ).as_dict()
+                )
         except PermissionError as exc:
             return FilesystemReadResult(ok=False, error=f"permission_denied:{exc}")
 
-        return FilesystemReadResult(ok=True, data={
-            "path": str(relative_path or "."),
-            "entries": entries,
-            "count": len(entries),
-        })
+        return FilesystemReadResult(
+            ok=True,
+            data={
+                "path": str(relative_path or "."),
+                "entries": entries,
+                "count": len(entries),
+            },
+        )
 
     def list_root_files(self, pattern: str = "**/*.py") -> FilesystemReadResult:
         """
         Glob from workspace_root. Returns at most 200 matched relative paths.
         """
         try:
-            matched = sorted(
-                str(p.relative_to(self._root))
-                for p in self._root.glob(pattern)
-                if p.is_file()
-            )[:200]
+            matched = sorted(str(p.relative_to(self._root)) for p in self._root.glob(pattern) if p.is_file())[:200]
         except Exception as exc:
             return FilesystemReadResult(ok=False, error=f"glob_error:{exc}")
 
         # Filter by policy
-        allowed_paths = [
-            p for p in matched
-            if check_path_allowed(p, policy=self._policy)[0]
-        ]
-        return FilesystemReadResult(ok=True, data={
-            "pattern": pattern,
-            "paths": allowed_paths,
-            "count": len(allowed_paths),
-        })
+        allowed_paths = [p for p in matched if check_path_allowed(p, policy=self._policy)[0]]
+        return FilesystemReadResult(
+            ok=True,
+            data={
+                "pattern": pattern,
+                "paths": allowed_paths,
+                "count": len(allowed_paths),
+            },
+        )
 
     def read_file(self, relative_path: str) -> FilesystemReadResult:
         """
@@ -170,10 +170,13 @@ class FilesystemReadTool:
         if truncated:
             content += f"\n\n[truncated — showing first {max_bytes // 1024} KB]"
 
-        return FilesystemReadResult(ok=True, data={
-            "path": relative_path,
-            "content": content,
-            "byte_count": len(raw),
-            "line_count": content.count("\n") + (1 if content else 0),
-            "truncated": truncated,
-        })
+        return FilesystemReadResult(
+            ok=True,
+            data={
+                "path": relative_path,
+                "content": content,
+                "byte_count": len(raw),
+                "line_count": content.count("\n") + (1 if content else 0),
+                "truncated": truncated,
+            },
+        )

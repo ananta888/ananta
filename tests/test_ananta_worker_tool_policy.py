@@ -1,4 +1,5 @@
 """AWTCL-018: policy gate and registry tests for the worker tool loop."""
+
 from agent.services.ananta_tool_policy_service import (
     DECISION_ALLOW,
     DECISION_APPROVAL_REQUIRED,
@@ -72,7 +73,14 @@ def test_opencode_mutation_blocked_propose_allowed():
 
 
 def test_blocked_tools_never_run_via_worker_loop():
-    for tool in ["shell.run_unrestricted", "network.fetch_arbitrary", "service.restart", "secret.read", "git.push", "git.commit"]:
+    for tool in [
+        "shell.run_unrestricted",
+        "network.fetch_arbitrary",
+        "service.restart",
+        "secret.read",
+        "git.push",
+        "git.commit",
+    ]:
         decision = _evaluate(tool)
         assert decision.decision == DECISION_POLICY_BLOCKED, tool
         assert decision.reason == "blocked_without_separate_approval"
@@ -99,9 +107,7 @@ def test_apply_patch_only_in_strict_patch_request():
 def test_approval_required_write_tool_without_grant():
     decision = _evaluate("git.add_selected", mutation_mode="controlled_workspace")
     assert decision.decision == DECISION_APPROVAL_REQUIRED
-    granted = _evaluate(
-        "git.add_selected", mutation_mode="controlled_workspace", approvals=["git.add_selected"]
-    )
+    granted = _evaluate("git.add_selected", mutation_mode="controlled_workspace", approvals=["git.add_selected"])
     assert granted.decision == DECISION_ALLOW
 
 

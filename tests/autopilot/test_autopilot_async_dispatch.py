@@ -1,4 +1,5 @@
 """Non-blocking dispatch state: submit without waiting, reap finished results."""
+
 import time
 
 from agent.routes.tasks.autopilot_async_dispatch import AsyncDispatchState, async_dispatch_enabled
@@ -14,10 +15,10 @@ def test_async_dispatch_enabled_reads_autopilot_config():
 def test_submit_tracks_inflight_and_reap_collects():
     state = AsyncDispatchState(max_workers=2)
     try:
-        state.submit(lambda: 'done', task_id='t1')
+        state.submit(lambda: "done", task_id="t1")
         assert state.inflight() == 1
         results = _reap_until(state, 1)
-        assert results == [('t1', 'done')]
+        assert results == [("t1", "done")]
         assert state.inflight() == 0
     finally:
         state.shutdown()
@@ -26,12 +27,13 @@ def test_submit_tracks_inflight_and_reap_collects():
 def test_reap_reports_exceptions():
     state = AsyncDispatchState(max_workers=1)
     try:
-        def boom():
-            raise RuntimeError('nope')
 
-        state.submit(boom, task_id='t2')
+        def boom():
+            raise RuntimeError("nope")
+
+        state.submit(boom, task_id="t2")
         results = _reap_until(state, 1)
-        assert results[0][0] == 't2'
+        assert results[0][0] == "t2"
         assert isinstance(results[0][1], RuntimeError)
     finally:
         state.shutdown()

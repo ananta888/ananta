@@ -41,7 +41,9 @@ def _component_status(statuses: list[str]) -> str:
     return "unknown"
 
 
-def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_providers: bool = True) -> dict[str, Any]:
+def build_system_health_payload(
+    app: Flask, *, basic_mode: bool = False, probe_providers: bool = True
+) -> dict[str, Any]:
     checks: dict[str, Any] = {}
     agent_name = app.config.get("AGENT_NAME")
     role = str(settings.role or "worker").strip().lower()
@@ -53,34 +55,20 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_p
     except Exception as exc:
         checks["shell"] = {"status": "error", "message": str(exc)}
 
-    raw_unsloth = app.extensions.get(
-        "unsloth_worker_runtime"
-    )
+    raw_unsloth = app.extensions.get("unsloth_worker_runtime")
     unsloth_status: str | None = None
     unsloth_component_status: str | None = None
     if isinstance(raw_unsloth, dict):
-        unsloth_status = str(
-            raw_unsloth.get("status") or "error"
-        )
+        unsloth_status = str(raw_unsloth.get("status") or "error")
         unsloth_component_status = (
-            "ok"
-            if unsloth_status == "ready"
-            else (
-                None
-                if unsloth_status == "disabled"
-                else unsloth_status
-            )
+            "ok" if unsloth_status == "ready" else (None if unsloth_status == "disabled" else unsloth_status)
         )
         checks["unsloth_worker"] = dict(raw_unsloth)
 
     if basic_mode:
-        component_statuses = [
-            checks["shell"].get("status")
-        ]
+        component_statuses = [checks["shell"].get("status")]
         if unsloth_component_status is not None:
-            component_statuses.append(
-                unsloth_component_status
-            )
+            component_statuses.append(unsloth_component_status)
         return {
             "status": _component_status(component_statuses),
             "agent": agent_name,
@@ -157,7 +145,9 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_p
         "online": len([item for item in agents if str(item.status or "").strip().lower() == "online"]),
         "offline": len([item for item in agents if str(item.status or "").strip().lower() == "offline"]),
     }
-    checks["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
+    checks["worker_execution_reconciliation"] = (
+        get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
+    )
     runtime_profile = resolve_runtime_profile(app.config.get("AGENT_CONFIG", {}) or {})
     checks["runtime_profile"] = {
         "status": "ok" if runtime_profile.get("valid") else "error",
@@ -171,8 +161,10 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_p
         registration = get_registration_state()
         registration_status = "disabled"
         if registration.get("enabled"):
-            registration_status = "ok" if registration.get("last_success_at") else (
-                "degraded" if registration.get("running") or registration.get("attempts") else "error"
+            registration_status = (
+                "ok"
+                if registration.get("last_success_at")
+                else ("degraded" if registration.get("running") or registration.get("attempts") else "error")
             )
         checks["registration"] = {"status": registration_status, **registration}
     except Exception as exc:
@@ -181,11 +173,7 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_p
     top_level_status = _component_status(
         [
             checks.get("shell", {}).get("status"),
-            *(
-                [unsloth_component_status]
-                if unsloth_component_status is not None
-                else []
-            ),
+            *([unsloth_component_status] if unsloth_component_status is not None else []),
             *(llm_checks.values() if llm_checks else []),
             checks["registration"].get("status"),
             checks["worker_execution_reconciliation"].get("status"),

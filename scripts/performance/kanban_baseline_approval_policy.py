@@ -21,25 +21,10 @@ POLICY_SCHEMA = "ananta.kanban-model-dashboard.baseline-approval-policy.v1"
 BASELINE_SCHEMA = "ananta.kanban-model-dashboard.performance-baseline.v1"
 PROFILE_SCHEMA = "ananta.kanban-model-dashboard.performance-profile.v1"
 APPROVAL_METHOD = "hub_policy"
-DEFAULT_POLICY = (
-    ROOT
-    / "config/test-profiles/kanban-model-dashboard/"
-    "baseline-approval-policy.v1.json"
-)
-DEFAULT_PROFILE = (
-    ROOT
-    / "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json"
-)
-DEFAULT_CANDIDATE = (
-    ROOT
-    / "artifacts/test-gates/"
-    "kanban-model-dashboard-performance-baseline-candidate.v1.json"
-)
-DEFAULT_OUTPUT = (
-    ROOT
-    / "config/test-profiles/kanban-model-dashboard/baselines/"
-    "formal-performance-approved.v1.json"
-)
+DEFAULT_POLICY = ROOT / "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json"
+DEFAULT_PROFILE = ROOT / "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json"
+DEFAULT_CANDIDATE = ROOT / "artifacts/test-gates/kanban-model-dashboard-performance-baseline-candidate.v1.json"
+DEFAULT_OUTPUT = ROOT / "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json"
 MAX_JSON_BYTES = 4 * 1024 * 1024
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
@@ -64,9 +49,7 @@ def _sha256(payload: bytes) -> str:
 
 
 def _canonical_sha256(value: Mapping[str, Any]) -> str:
-    return _sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    )
+    return _sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8"))
 
 
 def _safe_relative(root: Path, path: Path) -> str:
@@ -171,9 +154,7 @@ def protected_candidate_sha256(candidate: Mapping[str, Any]) -> str:
     return _canonical_sha256(_protected_candidate(candidate))
 
 
-def _validate_source_artifacts(
-    *, root: Path, candidate: Mapping[str, Any], required: Sequence[str]
-) -> None:
+def _validate_source_artifacts(*, root: Path, candidate: Mapping[str, Any], required: Sequence[str]) -> None:
     sources = candidate.get("source_artifacts")
     if not isinstance(sources, Mapping) or set(sources) != set(required):
         raise BaselineApprovalError("candidate_source_artifacts_invalid")
@@ -244,9 +225,10 @@ def _validate_candidate(
     if not isinstance(absolute, Mapping) or absolute.get("within_budget") is not True:
         raise BaselineApprovalError("candidate_absolute_budget_failed")
     checks = absolute.get("checks")
-    if not isinstance(checks, Mapping) or not checks or any(
-        not isinstance(check, Mapping) or check.get("passed") is not True
-        for check in checks.values()
+    if (
+        not isinstance(checks, Mapping)
+        or not checks
+        or any(not isinstance(check, Mapping) or check.get("passed") is not True for check in checks.values())
     ):
         raise BaselineApprovalError("candidate_absolute_checks_invalid")
     compatibility = candidate.get("environment")
@@ -255,8 +237,7 @@ def _validate_candidate(
         or not isinstance(compatibility.get("compatibility"), Mapping)
         or not isinstance(compatibility.get("compatibility_sha256"), str)
         or HEX_64.fullmatch(compatibility["compatibility_sha256"]) is None
-        or _canonical_sha256(compatibility["compatibility"])
-        != compatibility["compatibility_sha256"]
+        or _canonical_sha256(compatibility["compatibility"]) != compatibility["compatibility_sha256"]
     ):
         raise BaselineApprovalError("candidate_environment_invalid")
     _validate_source_artifacts(
@@ -290,8 +271,7 @@ def validate_policy_approval(
         and approval.get("policy_id") == policy.get("policy_id")
         and approval.get("policy_version") == policy.get("policy_version")
         and approval.get("policy_sha256") == policy_sha256
-        and approval.get("candidate_commit_sha")
-        == (baseline.get("commit") or {}).get("sha")
+        and approval.get("candidate_commit_sha") == (baseline.get("commit") or {}).get("sha")
         and approval.get("protected_payload_sha256") == protected_sha
         and isinstance(approval.get("candidate_sha256"), str)
         and HEX_64.fullmatch(approval["candidate_sha256"]) is not None
@@ -359,9 +339,7 @@ def promote_candidate(
 
 def write_json_atomic(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
-    )
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)

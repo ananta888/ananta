@@ -370,13 +370,9 @@ class ApprovalRequestService:
             if tool_name:
                 statement = statement.where(ApprovalRequestDB.tool_name == tool_name)
             if tenant_id:
-                statement = statement.where(
-                    ApprovalRequestDB.tenant_id == str(tenant_id)
-                )
+                statement = statement.where(ApprovalRequestDB.tenant_id == str(tenant_id))
             if project_id:
-                statement = statement.where(
-                    ApprovalRequestDB.project_id == str(project_id)
-                )
+                statement = statement.where(ApprovalRequestDB.project_id == str(project_id))
             if organization_id:
                 statement = statement.where(ApprovalRequestDB.organization_id == str(organization_id))
             if organization_ids is not None:
@@ -389,12 +385,8 @@ class ApprovalRequestService:
                     tenant_id=str(tenant_id or "").strip(),
                     project_id=str(project_id or "").strip(),
                 )
-                organization_visible = ApprovalRequestDB.organization_id.in_(
-                    allowed_organizations
-                )
-                statement = statement.where(
-                    or_(organization_visible, unscoped_visible)
-                )
+                organization_visible = ApprovalRequestDB.organization_id.in_(allowed_organizations)
+                statement = statement.where(or_(organization_visible, unscoped_visible))
             if before_created_at is not None:
                 if not before_id:
                     raise ValueError("approval_cursor_binding_invalid")
@@ -407,11 +399,7 @@ class ApprovalRequestService:
                         ),
                     )
                 )
-            return list(
-                session.exec(
-                    statement.limit(max(1, min(int(limit), 1000)))
-                ).all()
-            )
+            return list(session.exec(statement.limit(max(1, min(int(limit), 1000)))).all())
 
     @staticmethod
     def _unscoped_visibility_clause(
@@ -423,15 +411,9 @@ class ApprovalRequestService:
     ):
         organization_unset = ApprovalRequestDB.organization_id.is_(None)
         tenant_boundary = (
-            ApprovalRequestDB.tenant_id == tenant_id
-            if tenant_id
-            else ApprovalRequestDB.tenant_id.is_(None)
+            ApprovalRequestDB.tenant_id == tenant_id if tenant_id else ApprovalRequestDB.tenant_id.is_(None)
         )
-        project_boundary = (
-            ApprovalRequestDB.project_id == project_id
-            if project_id
-            else True
-        )
+        project_boundary = ApprovalRequestDB.project_id == project_id if project_id else True
         if is_admin:
             return and_(organization_unset, tenant_boundary, project_boundary)
         if not tenant_id:
@@ -816,10 +798,7 @@ class ApprovalRequestService:
             ttl_seconds=ttl_seconds,
         )
 
-    _validate_passive_request_binding = staticmethod(
-        ApprovalPassiveGrantStore.validate_passive_request_binding
-    )
-
+    _validate_passive_request_binding = staticmethod(ApprovalPassiveGrantStore.validate_passive_request_binding)
 
     def expire_old_requests(self) -> int:
         now = time.time()

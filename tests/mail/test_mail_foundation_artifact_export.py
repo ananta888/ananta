@@ -26,18 +26,20 @@ def _fixture():
     mail_ref_id = stable_mail_ref_id(account_id="a", protocol="jmap", stable_identity="email-1")
     ref = MailMessageRefV2(mail_ref_id, "a", "jmap", {"email_id": "email-1"}, 1)
     artifact_ref = mail_artifact_ref(mail_ref_id, "body_excerpt")
-    access = MailContentAccessVerifier(
-        policy=_Allow(), now=lambda: datetime(2029, 1, 1, tzinfo=UTC)
-    ).verify(
-        MailContentAccessRequest(
-            account_id="a",
-            workspace_id="w",
-            artifact_ref=artifact_ref,
-            mail_ref_id=mail_ref_id,
-            grant_ref="grant",
-            release_scope="body_excerpt",
+    access = (
+        MailContentAccessVerifier(policy=_Allow(), now=lambda: datetime(2029, 1, 1, tzinfo=UTC))
+        .verify(
+            MailContentAccessRequest(
+                account_id="a",
+                workspace_id="w",
+                artifact_ref=artifact_ref,
+                mail_ref_id=mail_ref_id,
+                grant_ref="grant",
+                release_scope="body_excerpt",
+            )
         )
-    ).value
+        .value
+    )
     return ref, access
 
 

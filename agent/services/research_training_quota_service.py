@@ -182,9 +182,7 @@ class ResearchTrainingQuotaService:
 
     @staticmethod
     def _expire(connection: sqlite3.Connection, now: float) -> None:
-        connection.execute(
-            "DELETE FROM research_quota_reservations WHERE state='reserved' AND expires_at<=?", (now,)
-        )
+        connection.execute("DELETE FROM research_quota_reservations WHERE state='reserved' AND expires_at<=?", (now,))
 
     @staticmethod
     def _projection(

@@ -69,9 +69,7 @@ def template_editor_viewport_metrics(tui: InteractiveOperatorTui) -> tuple[int, 
     return visible_rows, visible_cols
 
 
-def template_editor_ensure_cursor_visible(
-    tui: InteractiveOperatorTui, editor: dict[str, Any]
-) -> dict[str, Any]:
+def template_editor_ensure_cursor_visible(tui: InteractiveOperatorTui, editor: dict[str, Any]) -> dict[str, Any]:
     source = str(editor.get("text") or "")
     cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
     before = source[:cursor]
@@ -375,6 +373,8 @@ def template_editor_save(tui: InteractiveOperatorTui) -> None:
         tui.state.with_updates(
             header_logo_game=game,
             section_payloads=section_payloads,
-            status_message=("blueprint gespeichert" if editor_kind == "blueprint" else f"template gespeichert{warnings}"),
+            status_message=(
+                "blueprint gespeichert" if editor_kind == "blueprint" else f"template gespeichert{warnings}"
+            ),
         )
     )

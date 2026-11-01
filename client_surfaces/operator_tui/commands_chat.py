@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from client_surfaces.operator_tui.ai_snake_config_view import chat_model_option_label, refresh_chat_backend_models
-from client_surfaces.operator_tui.ai_snake_context import get_ai_context, set_ai_context, release_notes_context
+from client_surfaces.operator_tui.ai_snake_context import get_ai_context, release_notes_context, set_ai_context
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState
 from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
 
@@ -15,7 +15,13 @@ def handle_chat_command(args: list[str], state: OperatorState) -> CommandResult:
             handled=False,
         )
     game = dict(state.header_logo_game or {})
-    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel, add_direct_channel
+    from client_surfaces.operator_tui.chat_state import (
+        add_direct_channel,
+        get_chat_state,
+        set_chat_state,
+        switch_channel,
+    )
+
     chat = get_chat_state(game)
 
     if sub == "backend":
@@ -60,7 +66,9 @@ def handle_chat_command(args: list[str], state: OperatorState) -> CommandResult:
             )
             message = f"chat backend aktiv: {chosen}"
             return CommandResult(
-                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=message),
+                state.with_updates(
+                    header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=message
+                ),
                 f"chat backend {chosen}",
             )
         return CommandResult(state, "chat backend: list | use <id> | status", handled=False)
@@ -114,21 +122,30 @@ def handle_chat_command(args: list[str], state: OperatorState) -> CommandResult:
         game["chat_retry_requested"] = True
         set_chat_state(game, chat)
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: retry fehlgeschlagene Nachrichten"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="chat: retry fehlgeschlagene Nachrichten",
+            ),
             "chat retry",
         )
     if sub == "room":
         switch_channel(chat, "room:main")
         set_chat_state(game, chat)
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: #room"),
+            state.with_updates(
+                header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: #room"
+            ),
             "chat room",
         )
     if sub == "ai":
         switch_channel(chat, "ai:tutor")
         set_chat_state(game, chat)
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: AI tutor-ai"),
+            state.with_updates(
+                header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: AI tutor-ai"
+            ),
             "chat ai",
         )
     if sub.startswith("@"):
@@ -138,30 +155,41 @@ def handle_chat_command(args: list[str], state: OperatorState) -> CommandResult:
         snakes_raw = game.get("snakes") or {}
         snap = snakes_raw.get(snake_id) if isinstance(snakes_raw, dict) else None
         if snap is None:
-            return CommandResult(state.with_updates(status_message=f"chat: Snake '{snake_id}' nicht gefunden"), f"chat: unknown snake {snake_id}", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=f"chat: Snake '{snake_id}' nicht gefunden"),
+                f"chat: unknown snake {snake_id}",
+                handled=False,
+            )
         display = str(snap.get("pseudonym") or snake_id) if isinstance(snap, dict) else snake_id
         ch_id = add_direct_channel(chat, snake_id, display)
         switch_channel(chat, ch_id)
         set_chat_state(game, chat)
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"chat: @{display}"),
+            state.with_updates(
+                header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"chat: @{display}"
+            ),
             f"chat direct {snake_id}",
         )
     return CommandResult(state, f"chat: unbekannte Option '{sub}'", handled=False)
-
 
 
 def handle_notes_command(args: list[str], state: OperatorState) -> CommandResult:
     sub = args[0].lower() if args else ""
     game = dict(state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+
     chat = get_chat_state(game)
 
     if not sub or sub == "open":
         switch_channel(chat, "notes:self")
         set_chat_state(game, chat)
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="notes: NOTES local-only"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="notes: NOTES local-only",
+            ),
             "notes open",
         )
     if sub == "find":
@@ -170,37 +198,57 @@ def handle_notes_command(args: list[str], state: OperatorState) -> CommandResult
         switch_channel(chat, "notes:self")
         set_chat_state(game, chat)
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: suche '{query}'"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"notes: suche '{query}'",
+            ),
             f"notes find {query}",
         )
     if sub == "pin" and len(args) > 1:
         note_id = args[1].strip()
         game["notes_pin_id"] = note_id
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: pin {note_id[:12]}"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"notes: pin {note_id[:12]}",
+            ),
             f"notes pin {note_id}",
         )
     if sub == "unpin" and len(args) > 1:
         note_id = args[1].strip()
         game["notes_unpin_id"] = note_id
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: unpin {note_id[:12]}"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"notes: unpin {note_id[:12]}",
+            ),
             f"notes unpin {note_id}",
         )
     if sub == "delete" and len(args) > 1:
         note_id = args[1].strip()
         game["notes_delete_id"] = note_id
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: delete {note_id[:12]}"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"notes: delete {note_id[:12]}",
+            ),
             f"notes delete {note_id}",
         )
     return CommandResult(state, "notes: open | find <text> | pin <id> | unpin <id> | delete <id>", handled=False)
 
 
-
 def handle_channels_command(args: list[str], state: OperatorState) -> CommandResult:
     game = state.header_logo_game or {}
     from client_surfaces.operator_tui.chat_state import get_chat_state
+
     chat = get_chat_state(game)
     channels = chat.get("channels") or {}
     parts = []
@@ -213,13 +261,12 @@ def handle_channels_command(args: list[str], state: OperatorState) -> CommandRes
     return CommandResult(state.with_updates(status_message=msg), "channels listed")
 
 
-
 def handle_ai_context_command(args: list[str], state: OperatorState) -> CommandResult:
     sub = args[1].lower() if len(args) > 1 else ""
     opt = args[2].lower() if len(args) > 2 else ""
     game = dict(state.header_logo_game or {})
-    from client_surfaces.operator_tui.ai_snake_context import get_ai_context, set_ai_context, release_notes_context
-    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, make_message, append_message
+    from client_surfaces.operator_tui.chat_state import append_message, get_chat_state, make_message, set_chat_state
+
     ctx = get_ai_context(game)
     chat = get_chat_state(game)
 
@@ -232,16 +279,24 @@ def handle_ai_context_command(args: list[str], state: OperatorState) -> CommandR
         # log to AI channel
         sys_text = f"* [system] Notes-Kontext {'freigegeben' if released else 'gesperrt'}"
         sys_msg = make_message(
-            channel_id="ai:tutor", channel_type="ai",
-            sender_id="system", sender_kind="system",
-            text=sys_text, visibility="ai_context",
+            channel_id="ai:tutor",
+            channel_type="ai",
+            sender_id="system",
+            sender_kind="system",
+            text=sys_text,
+            visibility="ai_context",
             delivery_state="received",
         )
         append_message(chat, sys_msg)
         set_chat_state(game, chat)
         label = "on" if released else "off"
         return CommandResult(
-            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"ai context notes {label}"),
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"ai context notes {label}",
+            ),
             f"ai context notes {label}",
         )
     return CommandResult(state, "ai context notes on|off", handled=False)

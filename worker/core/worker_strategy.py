@@ -1,20 +1,20 @@
 """WorkerStrategy — AFR-T006: real worker delegation or safe decline. No dummy output."""
+
 from __future__ import annotations
 
 from typing import Any, List
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
-
 from agent.services.worker_runtime_selection_service import (
-    WorkerRuntimeSelectionService,
     WorkerRuntimeSelectionRequest,
+    WorkerRuntimeSelectionService,
 )
+from worker.core.propose import ProposeStrategyResult
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.runtime_target import (
-    WorkerSelectionPolicy,
-    WorkerSelectionMode,
     SelectionDecisionStatus,
+    WorkerSelectionMode,
+    WorkerSelectionPolicy,
 )
 
 
@@ -53,7 +53,8 @@ class WorkerStrategy(ProposeStrategy):
                 return ProposeStrategyResult.declined(
                     "worker_strategy",
                     reason=str(decision.reason) if hasattr(decision, "reason") else "no_worker_selected",
-                    reason_codes=["no_worker_selected"] + self._normalize_reason_codes(getattr(decision, "reason_codes", None)),
+                    reason_codes=["no_worker_selected"]
+                    + self._normalize_reason_codes(getattr(decision, "reason_codes", None)),
                 )
 
             # If a worker adapter already produced structured proposal output, normalize it.

@@ -1,4 +1,5 @@
 """Outbound email port and SMTP adapter for Hub account verification."""
+
 from __future__ import annotations
 
 import smtplib

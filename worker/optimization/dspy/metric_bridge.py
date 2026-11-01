@@ -121,8 +121,7 @@ class DspySemanticJudgeMetricBridge:
                 {
                     "role": "system",
                     "content": (
-                        "Score semantic quality from 0 to 1. "
-                        "Return strict JSON with fields score and reason_codes."
+                        "Score semantic quality from 0 to 1. Return strict JSON with fields score and reason_codes."
                     ),
                 },
                 {

@@ -15,4 +15,3 @@ def build_dependency_plan(
     graph = build_step_graph(steps=steps)
     assert_acyclic(graph)
     return build_plan_artifact(task_id=task_id, profile=profile, steps=[graph[key] for key in sorted(graph)])
-

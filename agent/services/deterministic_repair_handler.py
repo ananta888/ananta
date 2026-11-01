@@ -2,12 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services.deterministic_repair_path_service import (
-    execute_repair_procedure,
-    match_failure_signatures,
-    run_diagnosis_playbook,
-    select_repair_procedure_from_catalog,
-)
 from agent.services.task_handler_registry import TaskHandler
 
 
@@ -86,9 +80,7 @@ class DeterministicRepairHandler(TaskHandler):
                 },
                 "preview": {
                     "step_count": len(steps),
-                    "mutation_step_ids": [
-                        s.get("step_id") for s in steps if s.get("mutation_candidate")
-                    ],
+                    "mutation_step_ids": [s.get("step_id") for s in steps if s.get("mutation_candidate")],
                     "dry_run_default": preview.get("dry_run_default", True),
                 },
             },

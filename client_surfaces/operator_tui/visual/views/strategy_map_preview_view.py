@@ -25,11 +25,11 @@ class StrategyMapPreviewView:
 
     def render(self, context: ViewContext) -> RenderScene:
         territories_raw = context.state.get("territories")
-        territories = [
-            dict(item)
-            for item in territories_raw
-            if isinstance(item, dict)
-        ] if isinstance(territories_raw, list) else []
+        territories = (
+            [dict(item) for item in territories_raw if isinstance(item, dict)]
+            if isinstance(territories_raw, list)
+            else []
+        )
         selected = str(context.state.get("selected_territory") or "").strip()
         zoom = float(context.state.get("zoom") or 1.0)
         nodes: list[dict[str, object]] = [
@@ -56,4 +56,3 @@ class StrategyMapPreviewView:
             nodes=nodes,
             metadata={"animated": False, "cache_hint": "state_versioned"},
         )
-

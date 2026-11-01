@@ -43,12 +43,21 @@ print(json.dumps({{'workspace_write': Path('allowed.txt').read_text() == 'worksp
     outcome = execute_command_plan(
         repository_root=workspace,
         command_plan_artifact={"command": shlex.join([sys.executable, "-c", code])},
-        task_id=task_id, capability_id="shell_execute", context_hash="synthetic-isolation-fixture",
-        shell_policy={"allowlist": [sys.executable]}, hub_policy_decision="allow", timeout_seconds=5,
+        task_id=task_id,
+        capability_id="shell_execute",
+        context_hash="synthetic-isolation-fixture",
+        shell_policy={"allowlist": [sys.executable]},
+        hub_policy_decision="allow",
+        timeout_seconds=5,
     )
     assert outcome.success, "isolated_tool_failed"
     observation = json.loads(outcome.stdout)
     assert observation == {"workspace_write": True, "private_operations_denied": [True] * 4}, "tool_isolation_failed"
     assert private.stat().st_mode & 0o777 == 0o600, "private_store_permissions_changed"
-    return {"passed": True, "workspace_write": True, "same_uid_private_read_write_truncate_chmod_denied": True,
-            "uid": os.geteuid(), "fixture": "Static adversarial command through production run_shell port"}
+    return {
+        "passed": True,
+        "workspace_write": True,
+        "same_uid_private_read_write_truncate_chmod_denied": True,
+        "uid": os.geteuid(),
+        "fixture": "Static adversarial command through production run_shell port",
+    }

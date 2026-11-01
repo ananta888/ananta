@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import re
 import time
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
-from firefox_automation._config import FILE_PATH_PATTERN, HUB_BASE, LOGIN_PASS
-from firefox_automation._browser_utils import current_route_and_title, list_visible_errors, settle, step_nav
-from firefox_automation._reporting import gate_visible_errors, record_step
+from firefox_automation._browser_utils import current_route_and_title, step_nav
+from firefox_automation._config import FILE_PATH_PATTERN, LOGIN_PASS
 from firefox_automation._webdriver import (
-    element_clear,
-    element_click,
-    element_send_keys,
-    find_element,
     js,
     js_async,
-    set_input_value_via_js,
     wait_for,
-    wd,
 )
 
 
-def browser_api_json(session_id: str, method: str, path: str, body: Optional[dict] = None, timeout_seconds: int = 90) -> dict:
+def browser_api_json(
+    session_id: str, method: str, path: str, body: Optional[dict] = None, timeout_seconds: int = 90
+) -> dict:
     try:
         start_res = (
             js(
@@ -283,17 +278,24 @@ def _select_preferred_team(
     online_worker_urls = {
         str(agent.get("url") or "").strip()
         for agent in agents
-        if str(agent.get("role") or "").strip().lower() == "worker" and str(agent.get("status") or "").strip().lower() == "online"
+        if str(agent.get("role") or "").strip().lower() == "worker"
+        and str(agent.get("status") or "").strip().lower() == "online"
     }
 
     def _matches_preferred(team: Dict[str, Any]) -> bool:
         team_id = str(team.get("id") or "").strip()
         team_name = str(team.get("name") or "").strip().lower()
-        return (preferred_team_id and team_id == preferred_team_id) or (preferred_team_name and team_name == preferred_team_name)
+        return (preferred_team_id and team_id == preferred_team_id) or (
+            preferred_team_name and team_name == preferred_team_name
+        )
 
     def _has_online_worker_member(team: Dict[str, Any]) -> bool:
         members = team.get("members") if isinstance(team.get("members"), list) else []
-        return any(str(member.get("agent_url") or "").strip() in online_worker_urls for member in members if isinstance(member, dict))
+        return any(
+            str(member.get("agent_url") or "").strip() in online_worker_urls
+            for member in members
+            if isinstance(member, dict)
+        )
 
     preferred = next((team for team in teams if _matches_preferred(team)), None)
     selected = (
@@ -387,7 +389,9 @@ def _extract_task_terminal_forward_param(task: Any) -> str:
     live_terminal = routing.get("live_terminal") if isinstance(routing.get("live_terminal"), dict) else {}
     verification = task.get("verification_status") if isinstance(task.get("verification_status"), dict) else {}
     opencode_live_terminal = (
-        verification.get("opencode_live_terminal") if isinstance(verification.get("opencode_live_terminal"), dict) else {}
+        verification.get("opencode_live_terminal")
+        if isinstance(verification.get("opencode_live_terminal"), dict)
+        else {}
     )
     cli_session = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
     for candidate in (live_terminal, opencode_live_terminal, cli_session):
@@ -405,7 +409,9 @@ def _extract_task_terminal_agent_url(task: Any) -> str:
     live_terminal = routing.get("live_terminal") if isinstance(routing.get("live_terminal"), dict) else {}
     verification = task.get("verification_status") if isinstance(task.get("verification_status"), dict) else {}
     opencode_live_terminal = (
-        verification.get("opencode_live_terminal") if isinstance(verification.get("opencode_live_terminal"), dict) else {}
+        verification.get("opencode_live_terminal")
+        if isinstance(verification.get("opencode_live_terminal"), dict)
+        else {}
     )
     cli_session = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
     for candidate in (live_terminal, opencode_live_terminal, cli_session):
@@ -441,7 +447,9 @@ def _task_terminal_runtime(task: Any) -> Dict[str, Any]:
     routing = routing.get("routing") if isinstance(routing.get("routing"), dict) else {}
     candidate_sources = [
         routing.get("live_terminal") if isinstance(routing.get("live_terminal"), dict) else {},
-        verification.get("opencode_live_terminal") if isinstance(verification.get("opencode_live_terminal"), dict) else {},
+        verification.get("opencode_live_terminal")
+        if isinstance(verification.get("opencode_live_terminal"), dict)
+        else {},
         verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {},
     ]
     runtime: Dict[str, Any] = {
@@ -707,5 +715,3 @@ def _open_operations_console_artifact_flow(session_id: str) -> Dict[str, Any]:
         "page_excerpt": str(snapshot.get("page_excerpt") or "")[:600],
         **state,
     }
-
-

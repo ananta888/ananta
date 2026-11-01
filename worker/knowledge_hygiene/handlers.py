@@ -19,7 +19,6 @@ from worker.knowledge_hygiene.contracts import (
     KnowledgeHygieneWorkerError,
 )
 
-
 CLAIM_EXTRACTION_PROMPT_VERSION = "knowledge_claim_extraction.v1"
 WIKI_SYNTHESIS_PROMPT_VERSION = "curated_wiki_synthesis.v1"
 CORRECTION_PROMPT_VERSION = "knowledge_correction_proposal.v1"
@@ -80,8 +79,7 @@ class ClaimExtractionHandler:
                         "effective_to": raw.get("effective_to"),
                         "confidence": float(raw.get("confidence", 1.0)),
                         "supersedes_claim_refs": [
-                            [str(item[0]), int(item[1])]
-                            for item in raw.get("supersedes_claim_refs") or ()
+                            [str(item[0]), int(item[1])] for item in raw.get("supersedes_claim_refs") or ()
                         ],
                         "source_id": source_id,
                         "source_revision": source_revision,
@@ -156,9 +154,7 @@ class WikiSynthesisHandler:
             raise KnowledgeHygieneWorkerError("cross_project_claim_rejected")
         claim_ids = {item.claim_id for item in claims}
         relevant = sorted(
-            item.conflict_id
-            for item in conflicts
-            if {item.left_claim_id, item.right_claim_id} & claim_ids
+            item.conflict_id for item in conflicts if {item.left_claim_id, item.right_claim_id} & claim_ids
         )
         return {
             "schema": "curated_wiki_page.v1",

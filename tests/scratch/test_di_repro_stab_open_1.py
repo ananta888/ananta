@@ -35,6 +35,7 @@ separate pytest tests, run in the order that triggers the flake:
 TDD discipline: this is a baseline measurement, NOT a fix. Do not
 silence the failure when the refactor is incomplete.
 """
+
 from __future__ import annotations
 
 
@@ -78,9 +79,7 @@ def test_awf_style_patches_di_layer(db_session, monkeypatch):
 
     svc = ResultMemoryService()
     # Sanity: the service must resolve to our fake via the property.
-    assert svc._memory_entry_repo is fake, (
-        f"DI-layer not wired: service resolved to {svc._memory_entry_repo!r}"
-    )
+    assert svc._memory_entry_repo is fake, f"DI-layer not wired: service resolved to {svc._memory_entry_repo!r}"
 
     result = svc.record_worker_result_memory(
         task_id="t-1",
@@ -132,6 +131,4 @@ def test_optional_fields_passes_after_awf(db_session, monkeypatch):
     assert entry is not None
     # Round-trip via the fake's get_by_id.
     saved = fake.get_by_id(entry.id)
-    assert saved is not None, (
-        f"STAB-OPEN-1 still active: fake.get_by_id({entry.id!r}) returned None"
-    )
+    assert saved is not None, f"STAB-OPEN-1 still active: fake.get_by_id({entry.id!r}) returned None"

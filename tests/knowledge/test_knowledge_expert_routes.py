@@ -24,6 +24,4 @@ def test_knowledge_expert_decision_ignores_client_authority(client, admin_auth_h
     )
 
     assert response.status_code == 422
-    assert response.get_json()["data"]["reason_code"] == (
-        "knowledge_augmentation_client_authority_denied"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("knowledge_augmentation_client_authority_denied")

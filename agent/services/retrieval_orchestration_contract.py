@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 ORCHESTRATION_CONTRACT_VERSION = "retrieval-orchestration-v1"
 
 

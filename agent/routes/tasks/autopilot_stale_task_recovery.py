@@ -45,10 +45,7 @@ _INACTIVE_APPROVAL_STATUSES = {"expired", "denied", "superseded", "consumed"}
 def is_hub_managed_model_recovery_task(task: Any) -> bool:
     """Keep generic Autopilot repair loops out of the Hub Recovery saga."""
 
-    if (
-        str(getattr(task, "derivation_reason", "") or "").strip()
-        == "goal_task_recovery"
-    ):
+    if str(getattr(task, "derivation_reason", "") or "").strip() == "goal_task_recovery":
         return True
     for attribute in ("status_reason_details", "verification_status"):
         payload = getattr(task, attribute, None)
@@ -166,9 +163,7 @@ class StaleTaskRecovery:
                 # A dead in-flight propose leaves its dispatch lease open: without
                 # revoking it here the requeued task sits undispatchable behind its
                 # own lease (observed queue starvation after restarts).
-                get_recovery_dispatch_gate_service().revoke_dispatch_lease(
-                    task.id, reason_code="stale_proposing_reset"
-                )
+                get_recovery_dispatch_gate_service().revoke_dispatch_lease(task.id, reason_code="stale_proposing_reset")
             except Exception:  # pragma: no cover - requeue must not fail on lease bookkeeping
                 import logging
 

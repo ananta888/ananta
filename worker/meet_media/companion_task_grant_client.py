@@ -32,8 +32,15 @@ class AssignedCompanionGrantClient:
         if self.assignment.get("companion_execution") is not True:
             raise ValueError("meet_companion_assignment_profile_invalid")
         parsed = urlsplit(endpoint)
-        if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password
-                or parsed.path != "/api/meet/v1/internal/companion/task-grant" or parsed.query or parsed.fragment):
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.path != "/api/meet/v1/internal/companion/task-grant"
+            or parsed.query
+            or parsed.fragment
+        ):
             raise ValueError("meet_companion_task_endpoint_invalid")
         if not isinstance(key, bytes) or not 32 <= len(key) <= 256:
             raise ValueError("meet_companion_task_key_invalid")
@@ -47,19 +54,30 @@ class AssignedCompanionGrantClient:
         if started >= deadline:
             raise ValueError("meet_companion_assignment_expired")
         payload = {key: deepcopy(self.assignment[key]) for key in ASSIGNMENT_FIELDS}
-        raw = encode({"schema": REQUEST_SCHEMA, "nonce": secrets.token_hex(16),
-                      "sent_at": int(self.clock()), "assignment": payload})
+        raw = encode(
+            {
+                "schema": REQUEST_SCHEMA,
+                "nonce": secrets.token_hex(16),
+                "sent_at": int(self.clock()),
+                "assignment": payload,
+            }
+        )
         if len(raw) > MAX_REQUEST_BYTES:
             raise ValueError("meet_companion_task_request_oversize")
-        request = urllib.request.Request(self.endpoint, raw, headers={
-            "Content-Type": "application/json", SIGNATURE_HEADER: request_signature(self.key, raw)})
+        request = urllib.request.Request(
+            self.endpoint,
+            raw,
+            headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(self.key, raw)},
+        )
         try:
             with self.opener.open(request, timeout=deadline - started) as response:
                 body = read_bounded(response, maximum=MAX_RESPONSE_BYTES, deadline=deadline)
                 supplied = response.headers.get(SIGNATURE_HEADER, "")
-            if (not re.fullmatch(r"[a-f0-9]{64}", supplied)
-                    or not hmac.compare_digest(supplied, response_signature(self.key, raw, body))
-                    or self.monotonic() >= deadline):
+            if (
+                not re.fullmatch(r"[a-f0-9]{64}", supplied)
+                or not hmac.compare_digest(supplied, response_signature(self.key, raw, body))
+                or self.monotonic() >= deadline
+            ):
                 raise ValueError()
             result = validate_response(parse(body), self.assignment, self.clock())
             return result

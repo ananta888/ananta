@@ -98,9 +98,7 @@ class InMemorySfuAtomicGroupProjectionRepository:
             if outcome is not None:
                 return outcome
             assert saved is not None
-            parent = self._store.audiences.get(
-                _key(saved.scope, mutation.audience_projection_id)
-            )
+            parent = self._store.audiences.get(_key(saved.scope, mutation.audience_projection_id))
             parent_error = _validate_atomic_group_parent(
                 mutation,
                 parent=parent,
@@ -168,8 +166,7 @@ class _InMemoryProjectionRepository(Generic[ProjectionT]):
             current = items.get(key)
             if (
                 isinstance(mutation.value, SfuBroadcastAudience)
-                and _audience_tombstone_id(scope, mutation.value.id)
-                in self._store.audience_tombstones
+                and _audience_tombstone_id(scope, mutation.value.id) in self._store.audience_tombstones
             ):
                 return _result("conflict", reason="audience_snapshot_tombstoned")
             outcome, saved = _prepare_mutation(
@@ -289,11 +286,7 @@ class _InMemoryProjectionRepository(Generic[ProjectionT]):
             values = _filter_page(values, mode=mode, threshold=threshold)
             ordered = sorted(values, key=lambda value: _page_key(value, mode, self._sort_attribute))
             if after is not None:
-                ordered = [
-                    value
-                    for value in ordered
-                    if _page_key(value, mode, self._sort_attribute) > after
-                ]
+                ordered = [value for value in ordered if _page_key(value, mode, self._sort_attribute) > after]
             selected = ordered[: page_size + 1]
             items = tuple(selected[:page_size])
             next_cursor = (
@@ -361,9 +354,7 @@ class _InMemoryProjectionRepository(Generic[ProjectionT]):
         return None
 
 
-class InMemorySfuBroadcastAudienceRepository(
-    _InMemoryProjectionRepository[SfuBroadcastAudience]
-):
+class InMemorySfuBroadcastAudienceRepository(_InMemoryProjectionRepository[SfuBroadcastAudience]):
     def __init__(
         self,
         *,
@@ -389,9 +380,7 @@ class InMemorySfuBroadcastAudienceRepository(
         page_size: int,
         cursor: str | None = None,
     ) -> SfuProjectionPage[SfuBroadcastAudience]:
-        return self._page_retention_due(
-            scope, now=now, page_size=page_size, cursor=cursor
-        )
+        return self._page_retention_due(scope, now=now, page_size=page_size, cursor=cursor)
 
 
 class InMemorySfuReceiverGroupRepository(_InMemoryProjectionRepository[SfuReceiverGroup]):
@@ -557,8 +546,10 @@ class InMemorySfuAudienceSnapshotRetentionRepository:
             self._claim_fence(fence, now)
             rows = sorted(
                 (
-                    value for value in self._store.audiences.values()
-                    if value.status == "tombstoned" and value.retention_status == "purge_pending"
+                    value
+                    for value in self._store.audiences.values()
+                    if value.status == "tombstoned"
+                    and value.retention_status == "purge_pending"
                     and value.retain_until <= now
                     and (after is None or (value.retain_until, value.id) > after)
                 ),
@@ -578,8 +569,7 @@ class InMemorySfuAudienceSnapshotRetentionRepository:
                     self._store.routes.pop(route_key, None)
                 for group_id in group_ids:
                     still_referenced = any(
-                        route.receiver_group_projection_id == group_id
-                        for route in self._store.routes.values()
+                        route.receiver_group_projection_id == group_id for route in self._store.routes.values()
                     )
                     if not still_referenced:
                         self._store.groups.pop(_key(audience.scope, group_id), None)
@@ -594,15 +584,14 @@ class InMemorySfuAudienceSnapshotRetentionRepository:
                 purged += 1
             next_cursor = (
                 _encode_retention_cursor((selected[-1].retain_until, selected[-1].id))
-                if len(rows) > page_size and selected else None
+                if len(rows) > page_size and selected
+                else None
             )
             return SfuAudienceRetentionPurgePage(purged, next_cursor)
 
     def _live_route_exists(self, audience_id: str, now: float) -> bool:
         return any(
-            route.audience_projection_id == audience_id
-            and route.status in _LIVE_STATUSES
-            and route.expires_at > now
+            route.audience_projection_id == audience_id and route.status in _LIVE_STATUSES and route.expires_at > now
             for route in self._store.routes.values()
         )
 

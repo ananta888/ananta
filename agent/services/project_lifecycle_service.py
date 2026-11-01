@@ -105,15 +105,9 @@ def _membership_read(membership: ProjectMembershipDB) -> ProjectMembershipRead:
 _OPERATION_SCOPE_CAPABILITIES: dict[ProjectCapability, frozenset[ProjectCapability]] = {
     ProjectCapability.READ: frozenset(ProjectCapability),
     ProjectCapability.MANAGE: frozenset({ProjectCapability.MANAGE}),
-    ProjectCapability.MANAGE_MEMBERS: frozenset(
-        {ProjectCapability.MANAGE, ProjectCapability.MANAGE_MEMBERS}
-    ),
-    ProjectCapability.ARCHIVE: frozenset(
-        {ProjectCapability.MANAGE, ProjectCapability.ARCHIVE}
-    ),
-    ProjectCapability.WRITE: frozenset(
-        {ProjectCapability.WRITE, ProjectCapability.MANAGE}
-    ),
+    ProjectCapability.MANAGE_MEMBERS: frozenset({ProjectCapability.MANAGE, ProjectCapability.MANAGE_MEMBERS}),
+    ProjectCapability.ARCHIVE: frozenset({ProjectCapability.MANAGE, ProjectCapability.ARCHIVE}),
+    ProjectCapability.WRITE: frozenset({ProjectCapability.WRITE, ProjectCapability.MANAGE}),
 }
 
 
@@ -281,9 +275,7 @@ class ProjectLifecycleService:
                 max_length=255,
             )
         if "description" in fields_set:
-            values["description"] = (
-                command.description.strip() if command.description else None
-            )
+            values["description"] = command.description.strip() if command.description else None
 
         with self._session_factory() as session:
             repository = ProjectRepository(session)
@@ -433,7 +425,8 @@ class ProjectLifecycleService:
                 and repository.count_active_owners(
                     scope.tenant_id,
                     scope.project_id,
-                ) <= 1
+                )
+                <= 1
             ):
                 raise ProjectConflictError("project_requires_owner")
             expected = command.expected_lock_version or existing.lock_version
@@ -498,7 +491,8 @@ class ProjectLifecycleService:
                 and repository.count_active_owners(
                     scope.tenant_id,
                     scope.project_id,
-                ) <= 1
+                )
+                <= 1
             ):
                 raise ProjectConflictError("project_requires_owner")
             expected = expected_lock_version or membership.lock_version

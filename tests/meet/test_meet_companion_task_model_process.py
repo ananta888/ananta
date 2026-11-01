@@ -29,8 +29,13 @@ def test_actual_owned_helper_reserves_and_finishes_under_cooperative_owner(http)
         helper = process(http, endpoint)
         reserved = helper({"action": "reserve", "payload": value()}, cooperate=lambda: ticks.append(True))
         assert state(http, reserved["run"]["run_id"])["state"] == "reserved"
-        completed = helper({"action": "finish", "payload": {"run": reserved["run"],
-            "input_source": reserved["input_source"], "result": generated()}}, cooperate=lambda: ticks.append(True))
+        completed = helper(
+            {
+                "action": "finish",
+                "payload": {"run": reserved["run"], "input_source": reserved["input_source"], "result": generated()},
+            },
+            cooperate=lambda: ticks.append(True),
+        )
         assert completed["run"] == reserved["run"] and len(ticks) >= 4
 
 

@@ -35,14 +35,8 @@ def public_projection(value: object) -> Any:
         return public_projection(model_dump(mode="json"))
     values = getattr(value, "__dict__", None)
     if isinstance(values, Mapping):
-        return {
-            str(key): public_projection(item)
-            for key, item in values.items()
-            if not str(key).startswith("_")
-        }
-    raise SourceControlProductionAdapterError(
-        "source_operation_result_invalid", status_code=502
-    )
+        return {str(key): public_projection(item) for key, item in values.items() if not str(key).startswith("_")}
+    raise SourceControlProductionAdapterError("source_operation_result_invalid", status_code=502)
 
 
 class SingleIndexRepository:

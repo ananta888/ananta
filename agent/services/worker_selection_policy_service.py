@@ -4,6 +4,7 @@ DRR-T046: Structured worker selection policy for deterministic repair.
 The authoritative contract lives in ``worker.core.runtime_target``. This service
 keeps convenient preset factories and legacy helpers used by Hub/API/UI code.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,11 +23,13 @@ KNOWN_SELECTION_MODES: frozenset[str] = frozenset(mode.value for mode in WorkerS
 KNOWN_FALLBACK_POLICIES: frozenset[str] = frozenset(policy.value for policy in FallbackPolicy)
 KNOWN_RISK_PROFILES: frozenset[str] = frozenset({"low", "balanced", "high", "strict", "bounded"})
 
-EXTERNAL_WORKER_KINDS: frozenset[str] = frozenset({
-    WorkerKind.hermes.value,
-    WorkerKind.remote_worker.value,
-    WorkerKind.custom_worker.value,
-})
+EXTERNAL_WORKER_KINDS: frozenset[str] = frozenset(
+    {
+        WorkerKind.hermes.value,
+        WorkerKind.remote_worker.value,
+        WorkerKind.custom_worker.value,
+    }
+)
 # Cloud is modeled at the runtime-target layer. Worker kinds themselves only
 # encode whether they are external/non-local enough to need explicit allowance.
 CLOUD_WORKER_KINDS: frozenset[str] = frozenset()
@@ -99,6 +102,7 @@ class WorkerSelectionPolicyService:
 
 # ── Preset factories ────────────────────────────────────────────────────────────
 
+
 def strict_local_policy() -> WorkerSelectionPolicy:
     """Allow only native_ananta_worker on local/private runtimes. No cloud/external."""
     return WorkerSelectionPolicy(
@@ -155,6 +159,7 @@ def cloud_allowed_with_approval_policy() -> WorkerSelectionPolicy:
 
 # ── Compatibility helpers ──────────────────────────────────────────────────────
 
+
 def validate_worker_kind(kind: str) -> tuple[bool, str]:
     if not kind or not isinstance(kind, str):
         return False, "unknown_worker_kind"
@@ -164,7 +169,11 @@ def validate_worker_kind(kind: str) -> tuple[bool, str]:
 
 
 def normalize_worker_selection_policy(raw: Any) -> WorkerSelectionPolicy:
-    return WorkerSelectionPolicyService().from_config(raw if isinstance(raw, dict) else None) if not isinstance(raw, WorkerSelectionPolicy) else raw
+    return (
+        WorkerSelectionPolicyService().from_config(raw if isinstance(raw, dict) else None)
+        if not isinstance(raw, WorkerSelectionPolicy)
+        else raw
+    )
 
 
 def is_cloud_worker_kind(kind: str) -> bool:

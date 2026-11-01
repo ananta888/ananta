@@ -8,9 +8,7 @@ from agent.services.cognitive_style_service import (
 
 
 def test_role_overlay_changes_instruction_style_but_never_permissions():
-    overlay = CognitiveStyleOverlayService(
-        CognitiveStyleService(InMemoryCognitiveStyleStateRepository())
-    ).apply(
+    overlay = CognitiveStyleOverlayService(CognitiveStyleService(InMemoryCognitiveStyleStateRepository())).apply(
         task={"task_kind": "review"},
         system_prompt="Prüfe den Patch.",
     )
@@ -23,10 +21,9 @@ def test_role_overlay_changes_instruction_style_but_never_permissions():
 
 
 def test_implementation_alias_uses_checklist_overlay_without_hidden_side_effect():
-    overlay = CognitiveStyleOverlayService(
-        CognitiveStyleService(InMemoryCognitiveStyleStateRepository())
-    ).apply(
-        task={"role_id": "coder"}, system_prompt=None,
+    overlay = CognitiveStyleOverlayService(CognitiveStyleService(InMemoryCognitiveStyleStateRepository())).apply(
+        task={"role_id": "coder"},
+        system_prompt=None,
     )
 
     assert overlay.role_id == "implementer"

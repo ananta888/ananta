@@ -17,8 +17,7 @@ class MailSecretResolutionError(RuntimeError):
 
 
 class MailSecretResolver(Protocol):
-    def resolve(self, reference: str) -> str:
-        ...
+    def resolve(self, reference: str) -> str: ...
 
 
 class StoreMailSecretResolver:
@@ -38,7 +37,9 @@ class StoreMailSecretResolver:
         except Exception as exc:
             raise MailSecretResolutionError("mail_secret_store_unavailable") from exc
         if not isinstance(result, Mapping) or not bool(result.get("ok")):
-            raise MailSecretResolutionError(str(getattr(result, "get", lambda *_: "")("reason_code") or "mail_secret_not_found"))
+            raise MailSecretResolutionError(
+                str(getattr(result, "get", lambda *_: "")("reason_code") or "mail_secret_not_found")
+            )
         warning = str(result.get("warning_reason_code") or "")
         if warning == "insecure_fallback_storage" and not self._allow_insecure_legacy_store:
             raise MailSecretResolutionError("mail_insecure_secret_store_forbidden")

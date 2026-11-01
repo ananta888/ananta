@@ -21,7 +21,6 @@ from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.common.utils.structured_action_utils import (
     extract_structured_action_fields,
     locally_repair_structured_action_output,
-    parse_structured_action_payload,
 )
 from agent.llm_integration import build_llm_call_profile_entry
 from agent.pipeline_trace import append_stage
@@ -72,7 +71,9 @@ def repair_task_proposal(
         repair_backend = "opencode"
     repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
     normalized_temperature = normalize_temperature(primary_temperature)
-    timeout_like_failure = validation_error == "empty_or_failed_cli_response" and "timeout" in str(bad_output or "").lower()
+    timeout_like_failure = (
+        validation_error == "empty_or_failed_cli_response" and "timeout" in str(bad_output or "").lower()
+    )
     candidates: list[tuple[str, str | None, float | None]] = []
     if not timeout_like_failure or repair_backend == first_backend:
         candidates.append((first_backend, first_model, normalized_temperature))
@@ -268,7 +269,9 @@ def attempt_repaired_execute_after_meta_block(
     coalesce_cli_output: Callable,
 ) -> dict | None:
     proposal_meta = dict(task.get("last_proposal") or {})
-    research_context = proposal_meta.get("research_context") if isinstance(proposal_meta.get("research_context"), dict) else None
+    research_context = (
+        proposal_meta.get("research_context") if isinstance(proposal_meta.get("research_context"), dict) else None
+    )
     prompt, _ = build_task_propose_prompt(
         tid=tid,
         task=task,
@@ -278,12 +281,16 @@ def attempt_repaired_execute_after_meta_block(
     )
     timeout = resolve_task_propose_timeout(agent_cfg, task_kind)
     routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
-    primary_backend = str(
-        proposal_meta.get("backend")
-        or ((proposal_meta.get("routing") or {}).get("execution_backend"))
-        or ((proposal_meta.get("routing") or {}).get("effective_backend"))
-        or "opencode"
-    ).strip().lower()
+    primary_backend = (
+        str(
+            proposal_meta.get("backend")
+            or ((proposal_meta.get("routing") or {}).get("execution_backend"))
+            or ((proposal_meta.get("routing") or {}).get("effective_backend"))
+            or "opencode"
+        )
+        .strip()
+        .lower()
+    )
     primary_model = resolve_requested_model(
         agent_cfg=agent_cfg,
         requested_model=str(proposal_meta.get("model") or "").strip() or None,

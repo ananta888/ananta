@@ -93,9 +93,7 @@ def _crash_with_open_transaction(database_path: str) -> None:
 
 
 def test_metadata_and_checkpoint_commit_in_one_transaction(tmp_path: Path) -> None:
-    state = build_transactional_mail_runtime_state(
-        database_path=tmp_path / "runtime.sqlite3"
-    )
+    state = build_transactional_mail_runtime_state(database_path=tmp_path / "runtime.sqlite3")
 
     assert state.sync_state_store.apply_and_commit(
         expected_revision=0,
@@ -138,12 +136,15 @@ def test_failure_after_metadata_rolls_back_metadata_and_checkpoint(
         )
 
     assert state.metadata_store.get_by_mail_ref_id("mail-ref-1") is None
-    assert state.sync_state_store.load(
-        account_id="account-1",
-        provider_account_id="provider-1",
-        scope="default",
-        query_fingerprint="query-fingerprint-1",
-    ) is None
+    assert (
+        state.sync_state_store.load(
+            account_id="account-1",
+            provider_account_id="provider-1",
+            scope="default",
+            query_fingerprint="query-fingerprint-1",
+        )
+        is None
+    )
 
 
 def test_process_loss_before_commit_leaves_no_partial_sync_state(
@@ -161,18 +162,19 @@ def test_process_loss_before_commit_leaves_no_partial_sync_state(
     assert process.exitcode == 17
     state = build_transactional_mail_runtime_state(database_path=database_path)
     assert state.metadata_store.get_by_mail_ref_id("mail-ref-1") is None
-    assert state.sync_state_store.load(
-        account_id="account-1",
-        provider_account_id="provider-1",
-        scope="default",
-        query_fingerprint="query-fingerprint-1",
-    ) is None
+    assert (
+        state.sync_state_store.load(
+            account_id="account-1",
+            provider_account_id="provider-1",
+            scope="default",
+            query_fingerprint="query-fingerprint-1",
+        )
+        is None
+    )
 
 
 def test_scope_replacement_and_revision_cas_are_atomic(tmp_path: Path) -> None:
-    state = build_transactional_mail_runtime_state(
-        database_path=tmp_path / "runtime.sqlite3"
-    )
+    state = build_transactional_mail_runtime_state(database_path=tmp_path / "runtime.sqlite3")
     assert state.sync_state_store.apply_and_commit(
         expected_revision=0,
         checkpoint=_checkpoint(),
@@ -220,8 +222,6 @@ def test_production_default_handler_uses_transactional_sqlite_state(
     assert not (data_root / "sync-state-v1.json").exists()
     assert not (data_root / "metadata-v2.json").exists()
     assert isinstance(
-        SqliteMailMetadataStore(
-            database_path=data_root / "runtime-state-v1.sqlite3"
-        ),
+        SqliteMailMetadataStore(database_path=data_root / "runtime-state-v1.sqlite3"),
         SqliteMailMetadataStore,
     )

@@ -54,16 +54,17 @@ def test_disabled_ornith_request_cannot_override_hub_routing() -> None:
         routing_rules=RoutingRules(),
     )
 
-    result = resolver.resolve(RoutingContext(
-        request_profile_id="local_ollama_ornith_1_5_9b_evaluation",
-        requires_tools=False,
-    ))
+    result = resolver.resolve(
+        RoutingContext(
+            request_profile_id="local_ollama_ornith_1_5_9b_evaluation",
+            requires_tools=False,
+        )
+    )
 
     assert result.profile is not None
     assert result.profile.profile_id != "local_ollama_ornith_1_5_9b_evaluation"
     assert any(
-        profile_id == "local_ollama_ornith_1_5_9b_evaluation"
-        and reason == "profile_disabled"
+        profile_id == "local_ollama_ornith_1_5_9b_evaluation" and reason == "profile_disabled"
         for profile_id, reason in result.blocked_candidates
     )
 

@@ -9,6 +9,7 @@ agent.common.sgpt_X) are gone because the legacy shim layer was
 removed in Welle 4 of the SGDEC migration. agent.common.sgpt_*.py
 no longer exists; agent.cli_backends.* is the source of truth.
 """
+
 from __future__ import annotations
 
 
@@ -118,8 +119,6 @@ def test_agent_common_sgpt_namespace_removed() -> None:
     for mod_name in legacy_modules:
         try:
             importlib.import_module(mod_name)
-            raise AssertionError(
-                f"{mod_name} still exists; it should have been deleted in Welle 4"
-            )
+            raise AssertionError(f"{mod_name} still exists; it should have been deleted in Welle 4")
         except ModuleNotFoundError:
             pass  # expected

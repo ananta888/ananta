@@ -27,8 +27,11 @@ def _from_request() -> dict[str, Any]:
     principal = get_current_principal()
     if not principal.subject_id:
         return {}
-    return {"requested_by_subject": principal.subject_id, "requested_by_tenant": principal.tenant_id,
-            "requested_roles": sorted(principal.roles)}
+    return {
+        "requested_by_subject": principal.subject_id,
+        "requested_by_tenant": principal.tenant_id,
+        "requested_roles": sorted(principal.roles),
+    }
 
 
 def requester_fields(fields: Mapping[str, Any]) -> dict[str, Any]:

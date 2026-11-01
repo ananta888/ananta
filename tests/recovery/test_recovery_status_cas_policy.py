@@ -22,11 +22,11 @@ from agent.repositories.tasks import (
 from agent.services.recovery_dispatch_gate_service import (
     RecoveryDispatchGateService,
 )
-from agent.services.task_runtime_service import (
-    compare_and_set_local_task_status,
-)
 from agent.services.task_recovery_planning_service import (
     TaskRecoveryPlanningService,
+)
+from agent.services.task_runtime_service import (
+    compare_and_set_local_task_status,
 )
 from agent.services.voice_task_terminal_service import (
     VoiceTaskTerminalService,
@@ -73,9 +73,7 @@ def _persist_recovery_pair(
                 status_reason_details={
                     "model_recovery": {
                         "plan_id": plan_id,
-                        "status": (
-                            "materialized_waiting_for_children"
-                        ),
+                        "status": ("materialized_waiting_for_children"),
                     }
                 },
             )
@@ -124,9 +122,7 @@ def test_generic_cas_cannot_terminalize_recovery_source_or_child(
     tmp_path,
 ) -> None:
     engine = _engine(tmp_path, "terminal-denied.db")
-    source_id, child_id, _goal_id, _plan_id = (
-        _persist_recovery_pair(engine, suffix="terminal")
-    )
+    source_id, child_id, _goal_id, _plan_id = _persist_recovery_pair(engine, suffix="terminal")
     monkeypatch.setattr(
         "agent.repositories.tasks._engine",
         lambda: engine,
@@ -146,9 +142,7 @@ def test_generic_cas_cannot_terminalize_recovery_source_or_child(
         force=True,
     )
     with Session(engine) as session:
-        assert session.get(TaskDB, source_id).status == (
-            "blocked_by_dependency"
-        )
+        assert session.get(TaskDB, source_id).status == ("blocked_by_dependency")
         assert session.get(TaskDB, child_id).status == "todo"
 
 
@@ -179,9 +173,7 @@ def test_generic_cas_denies_verification_only_recovery_roles(
                 status="todo",
                 verification_status={
                     "model_recovery_release": {
-                        "source_task_id": (
-                            "verification-only-source"
-                        ),
+                        "source_task_id": ("verification-only-source"),
                         "plan_id": "verification-only-plan",
                     }
                 },
@@ -206,14 +198,20 @@ def test_generic_cas_denies_verification_only_recovery_roles(
         force=True,
     )
     with Session(engine) as session:
-        assert session.get(
-            TaskDB,
-            "verification-only-source",
-        ).status == "blocked_by_dependency"
-        assert session.get(
-            TaskDB,
-            "verification-only-child",
-        ).status == "todo"
+        assert (
+            session.get(
+                TaskDB,
+                "verification-only-source",
+            ).status
+            == "blocked_by_dependency"
+        )
+        assert (
+            session.get(
+                TaskDB,
+                "verification-only-child",
+            ).status
+            == "todo"
+        )
 
 
 def test_generic_cas_cannot_mutate_recovery_lease_or_result_payload(
@@ -221,9 +219,7 @@ def test_generic_cas_cannot_mutate_recovery_lease_or_result_payload(
     tmp_path,
 ) -> None:
     engine = _engine(tmp_path, "payload-denied.db")
-    source_id, child_id, _goal_id, plan_id = (
-        _persist_recovery_pair(engine, suffix="payload")
-    )
+    source_id, child_id, _goal_id, plan_id = _persist_recovery_pair(engine, suffix="payload")
     lease = _active_lease(
         child_id=child_id,
         source_id=source_id,
@@ -284,13 +280,9 @@ def test_generic_cas_cannot_mutate_recovery_lease_or_result_payload(
     with Session(engine) as session:
         child = session.get(TaskDB, child_id)
         source = session.get(TaskDB, source_id)
-        assert child.status_reason_details[
-            "recovery_dispatch_lease"
-        ]["state"] == "active"
+        assert child.status_reason_details["recovery_dispatch_lease"]["state"] == "active"
         assert not child.last_output
-        assert "model_recovery_result" not in dict(
-            source.verification_status or {}
-        )
+        assert "model_recovery_result" not in dict(source.verification_status or {})
 
 
 def test_dispatch_gate_child_cancellation_requires_exact_authority(
@@ -298,28 +290,20 @@ def test_dispatch_gate_child_cancellation_requires_exact_authority(
     tmp_path,
 ) -> None:
     engine = _engine(tmp_path, "child-cancel.db")
-    source_id, child_id, goal_id, plan_id = (
-        _persist_recovery_pair(engine, suffix="cancel")
-    )
+    source_id, child_id, goal_id, plan_id = _persist_recovery_pair(engine, suffix="cancel")
     monkeypatch.setattr(
         "agent.repositories.tasks._engine",
         lambda: engine,
     )
     repository = TaskRepository()
-    gate = RecoveryDispatchGateService(
-        repository_provider=lambda: SimpleNamespace(
-            task_repo=repository
-        )
-    )
+    gate = RecoveryDispatchGateService(repository_provider=lambda: SimpleNamespace(task_repo=repository))
 
     assert gate.invalidate_task(
         child_id,
         reason_code="recovery_parent_terminal",
     )
     cancelled = repository.get_by_id(child_id)
-    marker = cancelled.status_reason_details[
-        "recovery_child_cancellation"
-    ]
+    marker = cancelled.status_reason_details["recovery_child_cancellation"]
     assert cancelled.status == "cancelled"
     assert marker["task_id"] == child_id
     assert marker["source_task_id"] == source_id
@@ -386,11 +370,9 @@ def test_exact_child_cancellation_authority_rejects_smuggled_delta(
         tmp_path,
         f"child-cancel-smuggle-{smuggle_case}.db",
     )
-    source_id, child_id, goal_id, plan_id = (
-        _persist_recovery_pair(
-            engine,
-            suffix=f"smuggle-{smuggle_case}",
-        )
+    source_id, child_id, goal_id, plan_id = _persist_recovery_pair(
+        engine,
+        suffix=f"smuggle-{smuggle_case}",
     )
     monkeypatch.setattr(
         "agent.repositories.tasks._engine",
@@ -430,9 +412,7 @@ def test_exact_child_cancellation_authority_rejects_smuggled_delta(
             }
         ]
     else:
-        details["unrelated_metadata"] = {
-            "attacker_controlled": True
-        }
+        details["unrelated_metadata"] = {"attacker_controlled": True}
 
     with authorize_recovery_child_cancellation_write(
         task_id=child_id,
@@ -444,9 +424,7 @@ def test_exact_child_cancellation_authority_rejects_smuggled_delta(
             expected_statuses={"todo"},
             event_type="recovery_dispatch_gate_invalidated",
             event_actor="hub_dispatch_gate",
-            event_details={
-                "reason_code": "recovery_parent_terminal"
-            },
+            event_details={"reason_code": "recovery_parent_terminal"},
             force=True,
             **values,
         )
@@ -455,12 +433,8 @@ def test_exact_child_cancellation_authority_rejects_smuggled_delta(
     assert persisted.status == "todo"
     assert persisted.assigned_agent_url is None
     assert persisted.manual_override_until is None
-    assert "recovery_child_cancellation" not in dict(
-        persisted.status_reason_details or {}
-    )
-    assert "unrelated_metadata" not in dict(
-        persisted.status_reason_details or {}
-    )
+    assert "recovery_child_cancellation" not in dict(persisted.status_reason_details or {})
+    assert "unrelated_metadata" not in dict(persisted.status_reason_details or {})
 
 
 def test_repository_status_cas_has_exactly_one_concurrent_winner(
@@ -506,9 +480,7 @@ def test_repository_status_cas_has_exactly_one_concurrent_winner(
         False,
         True,
     ]
-    winner = next(
-        worker for worker, changed in outcomes if changed
-    )
+    winner = next(worker for worker, changed in outcomes if changed)
     with Session(engine) as session:
         persisted = session.get(TaskDB, "ordinary-cas-race")
         assert persisted.status == "assigned"
@@ -525,9 +497,7 @@ def test_repository_status_cas_preserves_legacy_nullable_list_fields(
     )
     authoritative.depends_on = None
     candidate = _detached_task_row_copy(authoritative)
-    assert candidate._sa_instance_state is not (
-        authoritative._sa_instance_state
-    )
+    assert candidate._sa_instance_state is not (authoritative._sa_instance_state)
     del authoritative
     gc.collect()
     candidate.status = "assigned"
@@ -595,9 +565,7 @@ def test_source_approval_rebind_is_exact_task_bound_and_closed(
 
     def _persist_source(suffix: str) -> tuple[str, dict]:
         task_id = f"approval-rebind-{suffix}"
-        current = _state(
-            approval_id=f"old-approval-{suffix}"
-        )
+        current = _state(approval_id=f"old-approval-{suffix}")
         with Session(engine) as session:
             session.add(
                 TaskDB(
@@ -605,9 +573,7 @@ def test_source_approval_rebind_is_exact_task_bound_and_closed(
                     goal_id="rebind-goal",
                     goal_trace_id="rebind-trace",
                     status="waiting_for_review",
-                    status_reason_code=(
-                        "model_recovery_plan_pending_approval"
-                    ),
+                    status_reason_code=("model_recovery_plan_pending_approval"),
                     status_reason_details={
                         "preserved": {"value": suffix},
                         "model_recovery": current,
@@ -630,18 +596,12 @@ def test_source_approval_rebind_is_exact_task_bound_and_closed(
         current_task = repository.get_by_id(task_id)
         values = {
             "verification_status": {
-                **dict(
-                    current_task.verification_status or {}
-                ),
+                **dict(current_task.verification_status or {}),
                 "model_recovery": proposed,
             },
-            "status_reason_code": (
-                "model_recovery_plan_pending_approval"
-            ),
+            "status_reason_code": ("model_recovery_plan_pending_approval"),
             "status_reason_details": {
-                **dict(
-                    current_task.status_reason_details or {}
-                ),
+                **dict(current_task.status_reason_details or {}),
                 "model_recovery": proposed,
             },
         }
@@ -651,23 +611,17 @@ def test_source_approval_rebind_is_exact_task_bound_and_closed(
             task_id,
             "waiting_for_review",
             expected_statuses={"waiting_for_review"},
-            event_type=(
-                "task_recovery_plan_pending_approval"
-            ),
+            event_type=("task_recovery_plan_pending_approval"),
             event_actor="hub_recovery_planner",
             event_details={
                 "plan_id": proposed["plan_id"],
-                "approval_request_id": (
-                    proposed["approval_request_id"]
-                ),
+                "approval_request_id": (proposed["approval_request_id"]),
             },
             **values,
         )
 
     task_id, current = _persist_source("positive")
-    service = TaskRecoveryPlanningService(
-        role_provider=lambda: "hub"
-    )
+    service = TaskRecoveryPlanningService(role_provider=lambda: "hub")
     assert service._mark_source_waiting_for_approval(
         source_task=repository.get_by_id(task_id),
         plan_id=current["plan_id"],
@@ -677,21 +631,11 @@ def test_source_approval_rebind_is_exact_task_bound_and_closed(
         team_id=current["team_id"],
     )
     rebound = repository.get_by_id(task_id)
-    rebound_state = rebound.status_reason_details[
-        "model_recovery"
-    ]
-    assert rebound_state["approval_request_id"] == (
-        "new-approval-positive"
-    )
-    assert rebound.verification_status["model_recovery"] == (
-        rebound_state
-    )
-    assert rebound.status_reason_details["preserved"] == {
-        "value": "positive"
-    }
-    assert rebound.history[-1]["event_type"] == (
-        "task_recovery_plan_pending_approval"
-    )
+    rebound_state = rebound.status_reason_details["model_recovery"]
+    assert rebound_state["approval_request_id"] == ("new-approval-positive")
+    assert rebound.verification_status["model_recovery"] == (rebound_state)
+    assert rebound.status_reason_details["preserved"] == {"value": "positive"}
+    assert rebound.history[-1]["event_type"] == ("task_recovery_plan_pending_approval")
 
     for case in (
         "detached",
@@ -740,18 +684,12 @@ def test_source_approval_rebind_is_exact_task_bound_and_closed(
                 changed = _attempt(
                     task_id=case_task_id,
                     proposed=candidate,
-                    assigned_agent_url=(
-                        smuggled_assignment
-                    ),
+                    assigned_agent_url=(smuggled_assignment),
                 )
         assert not changed, case
         unchanged = repository.get_by_id(case_task_id)
-        assert unchanged.status_reason_details[
-            "model_recovery"
-        ] == case_current
-        assert unchanged.verification_status[
-            "model_recovery"
-        ] == case_current
+        assert unchanged.status_reason_details["model_recovery"] == case_current
+        assert unchanged.verification_status["model_recovery"] == case_current
         assert unchanged.assigned_agent_url is None
 
 
@@ -831,10 +769,7 @@ def test_voice_terminal_cas_stays_positive_for_owned_non_recovery_task(
         return compare_and_set_local_task_status(*args, **kwargs)
 
     monkeypatch.setattr(
-        (
-            "agent.services.task_runtime_service."
-            "compare_and_set_local_task_status"
-        ),
+        ("agent.services.task_runtime_service.compare_and_set_local_task_status"),
         _change_kind_before_cas,
     )
     assert not service.update_existing(

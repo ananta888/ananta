@@ -1,4 +1,5 @@
 """ananta llm — LLM backend and log commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -85,8 +86,10 @@ def register(subparsers: Any) -> None:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _cmd_not_implemented(name: str) -> int:
     import sys
+
     print(f"Error: '{name}' is not yet implemented.", file=sys.stderr)
     print(f"       See 'ananta {name.split()[0]} --help' for available commands.", file=sys.stderr)
     return 1
@@ -94,6 +97,7 @@ def _cmd_not_implemented(name: str) -> int:
 
 def _cmd_list(parsed) -> int:
     import os
+
     providers = []
     lmstudio_url = os.environ.get("LMSTUDIO_URL", "http://192.168.178.100:1234/v1")
     ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
@@ -101,6 +105,7 @@ def _cmd_list(parsed) -> int:
     def _probe(name: str, url: str) -> dict:
         try:
             import requests
+
             r = requests.get(url, timeout=4)
             ok = r.status_code < 500
         except Exception:
@@ -127,12 +132,14 @@ def _cmd_log(parsed) -> int:
     if log_cmd == "tail" or log_cmd is None:
         return _cmd_log_tail(parsed)
     import sys
+
     print("Use: ananta llm log tail [options]", file=sys.stderr)
     return 2
 
 
 def _cmd_log_tail(parsed) -> int:
     from agent.cli.prompt_inspect import run_llm_log_command
+
     parsed.llm_log_cmd = "tail"
     return run_llm_log_command(parsed)
 
@@ -141,6 +148,7 @@ def _cmd_log_tail(parsed) -> int:
 def dispatch_llm_log(argv: Sequence[str]) -> int:
     """Dispatch the legacy 'ananta llm-log' flat command."""
     import argparse as _ap
+
     sub_parser = _ap.ArgumentParser(prog="ananta llm-log")
     log_sub = sub_parser.add_subparsers(dest="llm_log_cmd")
     tail_p = log_sub.add_parser("tail", help="Show recent LLM requests")
@@ -158,4 +166,5 @@ def dispatch_llm_log(argv: Sequence[str]) -> int:
     except SystemExit as exc:
         return int(exc.code) if exc.code is not None else 2
     from agent.cli.prompt_inspect import run_llm_log_command
+
     return run_llm_log_command(parsed)

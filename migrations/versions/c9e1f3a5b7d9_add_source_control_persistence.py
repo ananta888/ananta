@@ -254,9 +254,7 @@ def upgrade() -> None:
             sa.Column(
                 "knowledge_index_id",
                 sa.String(128),
-                sa.ForeignKey(
-                    "knowledge_index_source_bindings.knowledge_index_id"
-                ),
+                sa.ForeignKey("knowledge_index_source_bindings.knowledge_index_id"),
                 nullable=False,
             ),
             sa.Column("tenant_id", sa.String(128), nullable=False),
@@ -328,9 +326,7 @@ def upgrade() -> None:
             sa.Column(
                 "knowledge_index_id",
                 sa.String(128),
-                sa.ForeignKey(
-                    "knowledge_index_source_bindings.knowledge_index_id"
-                ),
+                sa.ForeignKey("knowledge_index_source_bindings.knowledge_index_id"),
                 nullable=False,
             ),
             sa.Column(

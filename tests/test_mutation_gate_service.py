@@ -7,7 +7,9 @@ from agent.services.execution_risk_policy_service import ExecutionRiskDecision
 from agent.services.mutation_gate_service import get_mutation_gate_service
 
 
-def _approval(*, classification: str = "allow", reason_code: str = "ok", operation_class: str = "mutation") -> ApprovalDecision:
+def _approval(
+    *, classification: str = "allow", reason_code: str = "ok", operation_class: str = "mutation"
+) -> ApprovalDecision:
     return ApprovalDecision(
         classification=classification,
         reason_code=reason_code,
@@ -82,7 +84,9 @@ def test_mutation_gate_requires_confirmation_without_scoped_approval() -> None:
         tool_calls=None,
         task={"id": "task-4", "approval_confirmed": False},
         agent_cfg={},
-        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        approval_decision=_approval(
+            classification="confirm_required", reason_code="approval_confirmation_required:mutation"
+        ),
         risk_decision=_risk(),
         trace_id="trace-3",
     )
@@ -107,7 +111,9 @@ def test_mutation_gate_allows_scoped_approval_binding() -> None:
         tool_calls=None,
         task=task,
         agent_cfg={},
-        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        approval_decision=_approval(
+            classification="confirm_required", reason_code="approval_confirmation_required:mutation"
+        ),
         risk_decision=_risk(),
         trace_id="trace-5",
     )
@@ -132,7 +138,9 @@ def test_mutation_gate_fails_closed_for_expired_scoped_approval() -> None:
         tool_calls=None,
         task=task,
         agent_cfg={},
-        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        approval_decision=_approval(
+            classification="confirm_required", reason_code="approval_confirmation_required:mutation"
+        ),
         risk_decision=_risk(),
         trace_id="trace-6",
     )
@@ -173,7 +181,9 @@ def test_mutation_gate_blocks_when_scoped_target_mismatches() -> None:
         tool_calls=None,
         task=task,
         agent_cfg={},
-        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        approval_decision=_approval(
+            classification="confirm_required", reason_code="approval_confirmation_required:mutation"
+        ),
         risk_decision=_risk(),
         trace_id="trace-8",
     )
@@ -199,7 +209,9 @@ def test_mutation_gate_blocks_when_scoped_class_mismatches() -> None:
         tool_calls=None,
         task=task,
         agent_cfg={},
-        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        approval_decision=_approval(
+            classification="confirm_required", reason_code="approval_confirmation_required:mutation"
+        ),
         risk_decision=_risk(),
         trace_id="trace-9",
     )

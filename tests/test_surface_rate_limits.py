@@ -38,11 +38,7 @@ class _DeterministicLimiter:
     def clear_namespace(self, namespace: str) -> None:
         self.counts = defaultdict(
             int,
-            {
-                key: count
-                for key, count in self.counts.items()
-                if key[0] != namespace
-            },
+            {key: count for key, count in self.counts.items() if key[0] != namespace},
         )
 
     def clear_all(self) -> None:
@@ -119,11 +115,7 @@ def _enable_kanban(app) -> None:
 def test_policy_is_per_identity_and_namespace() -> None:
     limiter = _DeterministicLimiter()
     policy = SurfaceRateLimitPolicy(limiter)
-    config = {
-        "SURFACE_RATE_LIMITS": {
-            KANBAN_WRITE: {"limit": 1, "window_seconds": 37}
-        }
-    }
+    config = {"SURFACE_RATE_LIMITS": {KANBAN_WRITE: {"limit": 1, "window_seconds": 37}}}
 
     first = policy.consume(
         config=config,
@@ -161,12 +153,8 @@ def test_policy_is_per_identity_and_namespace() -> None:
 
 
 def test_identity_key_is_tenant_aware_and_does_not_expose_claims() -> None:
-    first = rate_limit_subject(
-        auth_payload={"sub": "alice@example.test", "tenant_id": "tenant-a"}
-    )
-    second = rate_limit_subject(
-        auth_payload={"sub": "alice@example.test", "tenant_id": "tenant-b"}
-    )
+    first = rate_limit_subject(auth_payload={"sub": "alice@example.test", "tenant_id": "tenant-a"})
+    second = rate_limit_subject(auth_payload={"sub": "alice@example.test", "tenant_id": "tenant-b"})
 
     assert first != second
     assert "alice" not in first
@@ -182,11 +170,7 @@ def test_invalid_policy_values_fall_back_to_positive_defaults(
         raising=False,
     )
     resolved = resolve_surface_rate_limit(
-        {
-            "SURFACE_RATE_LIMITS": {
-                KANBAN_WRITE: {"limit": 0, "window_seconds": -1}
-            }
-        },
+        {"SURFACE_RATE_LIMITS": {KANBAN_WRITE: {"limit": 0, "window_seconds": -1}}},
         KANBAN_WRITE,
     )
 
@@ -290,9 +274,7 @@ def test_all_kanban_writes_share_stable_rate_limit(
     deterministic_surface_limiter,
 ) -> None:
     _enable_kanban(app)
-    app.config["SURFACE_RATE_LIMITS"] = {
-        KANBAN_WRITE: {"limit": 1, "window_seconds": 47}
-    }
+    app.config["SURFACE_RATE_LIMITS"] = {KANBAN_WRITE: {"limit": 1, "window_seconds": 47}}
     monkeypatch.setattr(
         kanban_routes,
         "KanbanProjectionService",

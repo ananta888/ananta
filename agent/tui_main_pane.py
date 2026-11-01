@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
-from agent.tui_contract import ShellMode, TuiPaneState
+from agent.tui_contract import ShellMode
 from agent.tui_shell_runtime import TuiShellRuntime, get_tui_shell_runtime
 
 if TYPE_CHECKING:
@@ -52,6 +52,7 @@ class TuiMainPaneController:
         if self._embedded_service is not None:
             return self._embedded_service
         from agent.services.embedded_tool_session_service import get_embedded_tool_session_service
+
         return get_embedded_tool_session_service()
 
     # ── open_file ──────────────────────────────────────────────────────────────

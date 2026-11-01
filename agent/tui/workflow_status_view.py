@@ -95,9 +95,7 @@ def _status_marker(*, is_blocker: bool, gate: bool, gate_decision: str) -> str:
     return "[ ]"
 
 
-def render_workflow_status(
-    payload: dict[str, Any], *, colour: bool = False, max_width: int = 80
-) -> WorkflowStatusView:
+def render_workflow_status(payload: dict[str, Any], *, colour: bool = False, max_width: int = 80) -> WorkflowStatusView:
     """Render the ``workflow_status.v1`` payload as TUI text.
 
     Parameters
@@ -125,32 +123,26 @@ def render_workflow_status(
     steps = list(payload.get("steps") or [])
     handoffs = list(payload.get("handoff_events") or [])
     blocking = [s for s in steps if s.get("is_blocker")]
-    header = _colourize(
-        f"Workflow for goal {goal_id}", _BOLD, enabled=colour
-    )
+    header = _colourize(f"Workflow for goal {goal_id}", _BOLD, enabled=colour)
     lines: list[str] = [header]
     if plan_id:
         lines.append(f"  plan: {plan_id}")
     if blueprint_id:
-        lines.append(
-            f"  blueprint: {blueprint_id}@v{payload.get('blueprint_version', '')}"
-        )
+        lines.append(f"  blueprint: {blueprint_id}@v{payload.get('blueprint_version', '')}")
     lines.append(f"  steps: {len(steps)} ({len(blocking)} blocking)")
     if not steps:
         lines.append(_colourize("  (no workflow steps)", _DIM, enabled=colour))
     if steps:
         # Header row
         lines.append("")
-        lines.append(_colourize("  STATUS  STEP                    ROLE                TASK   REASON", _DIM, enabled=colour))
+        lines.append(
+            _colourize("  STATUS  STEP                    ROLE                TASK   REASON", _DIM, enabled=colour)
+        )
         for step in steps:
             step_id = str(step.get("step_id") or "?")
             role = str(step.get("role") or "?")
             task_id = str(step.get("task_id") or "-")
-            reason = (
-                step.get("task_blocker_reason")
-                or ",".join(step.get("blocked_reasons") or [])
-                or "-"
-            )
+            reason = step.get("task_blocker_reason") or ",".join(step.get("blocked_reasons") or []) or "-"
             gate = bool(step.get("gate", False))
             gate_decision = str(step.get("gate_decision") or "")
             marker = _status_marker(
@@ -158,9 +150,7 @@ def render_workflow_status(
                 gate=gate,
                 gate_decision=gate_decision,
             )
-            colour_code = _RED if step.get("is_blocker") else (
-                _MAGENTA if gate else _CYAN
-            )
+            colour_code = _RED if step.get("is_blocker") else (_MAGENTA if gate else _CYAN)
             lines.append(
                 "  "
                 + _colourize(marker, colour_code, enabled=colour)
@@ -168,7 +158,8 @@ def render_workflow_status(
                 + _truncate(step_id, 24).ljust(24)
                 + _truncate(role, 20).ljust(20)
                 + _truncate(task_id, 8).ljust(8)
-                + " " + _truncate(reason, max_width - 64)
+                + " "
+                + _truncate(reason, max_width - 64)
             )
     if handoffs:
         lines.append("")
@@ -177,9 +168,7 @@ def render_workflow_status(
             from_step = str(ev.get("from_step") or "-")
             to_step = str(ev.get("to_step") or "-")
             status = str(ev.get("status") or "-")
-            lines.append(
-                f"    {from_step} -> {to_step}  ({status})"
-            )
+            lines.append(f"    {from_step} -> {to_step}  ({status})")
         if len(handoffs) > 10:
             lines.append(f"    ... and {len(handoffs) - 10} more")
     text = "\n".join(lines)
@@ -203,10 +192,8 @@ def render_workflow_status(
     )
 
 
-def render_workflow_status_text(
-    payload: dict[str, Any], *, max_width: int = 80
-) -> str:
+def render_workflow_status_text(payload: dict[str, Any], *, max_width: int = 80) -> str:
     """Plain-text variant for tests, logs, and the TUI's
     ``:workflow status <goal_id>`` text-mode output.
-    No ANSI codes. """
+    No ANSI codes."""
     return render_workflow_status(payload, colour=False, max_width=max_width).text

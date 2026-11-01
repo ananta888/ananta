@@ -28,7 +28,6 @@ from agent.services.source_control_grant_admin import (
 )
 from ananta_contracts.source_control import DestinationDescriptor
 
-
 _NOW = 1_800_000_000.0
 _TENANT = "tenant-example"
 _PROJECT = "project-example"
@@ -104,14 +103,8 @@ class _Policies:
         )
 
     def active(self, *, actor, policy_id: str) -> ContextPolicyVersion:
-        self.calls.append(
-            ("active", actor.tenant_id, actor.project_id)
-        )
-        if (
-            actor.tenant_id != _TENANT
-            or actor.project_id != _PROJECT
-            or policy_id != self.policy.policy_id
-        ):
+        self.calls.append(("active", actor.tenant_id, actor.project_id))
+        if actor.tenant_id != _TENANT or actor.project_id != _PROJECT or policy_id != self.policy.policy_id:
             raise AssertionError("unscoped policy lookup")
         return self.policy
 
@@ -126,9 +119,7 @@ class _Policies:
         operation,
         transformation,
     ) -> ContextPolicyPreview:
-        self.calls.append(
-            ("preview", actor.tenant_id, actor.project_id)
-        )
+        self.calls.append(("preview", actor.tenant_id, actor.project_id))
         assert policy_id == self.policy.policy_id
         assert version == self.policy.version
         assert source_revision_id == _SOURCE_REVISION_ID
@@ -153,9 +144,7 @@ def _seed(engine) -> None:
                 project_id=_PROJECT,
                 owner_id="source-owner",
                 connector_type="git",
-                connection_identity_digest=hashlib.sha256(
-                    b"identity"
-                ).hexdigest(),
+                connection_identity_digest=hashlib.sha256(b"identity").hexdigest(),
                 display_name="Example",
                 sensitivity="internal",
                 state="active",
@@ -175,11 +164,8 @@ def _seed(engine) -> None:
                 sensitivity="internal",
                 revision_token="main",
                 revision_digest=hashlib.sha256(b"content").hexdigest(),
-                content_manifest_id="manifest_"
-                + hashlib.sha256(b"manifest").hexdigest(),
-                content_manifest_digest=hashlib.sha256(
-                    b"manifest-content"
-                ).hexdigest(),
+                content_manifest_id="manifest_" + hashlib.sha256(b"manifest").hexdigest(),
+                content_manifest_digest=hashlib.sha256(b"manifest-content").hexdigest(),
                 admission_state="admitted",
                 captured_at_epoch=_NOW - 50,
             )
@@ -262,23 +248,15 @@ def test_create_resolves_scope_policy_and_replays_atomically() -> None:
     assert created.operation == "index"
     assert created.transformation == "redacted"
     assert created.policy_version.startswith("cpv_")
-    assert destinations.calls == [
-        (_TENANT, _PROJECT, _destination().destination_id)
-    ]
+    assert destinations.calls == [(_TENANT, _PROJECT, _destination().destination_id)]
     assert policies.calls == [
         ("active", _TENANT, _PROJECT),
         ("preview", _TENANT, _PROJECT),
     ]
     with Session(engine) as db:
         assert len(list(db.exec(select(SourceAccessGrantDB)).all())) == 1
-        assert (
-            len(list(db.exec(select(SourceAccessGrantAuditDB)).all()))
-            == 1
-        )
-        assert (
-            len(list(db.exec(select(SourceControlOperationDB)).all()))
-            == 1
-        )
+        assert len(list(db.exec(select(SourceAccessGrantAuditDB)).all())) == 1
+        assert len(list(db.exec(select(SourceControlOperationDB)).all())) == 1
 
 
 def test_create_accepts_policy_decision_matching_preset_transformation() -> None:
@@ -298,9 +276,7 @@ def test_create_accepts_policy_decision_matching_preset_transformation() -> None
 
 def test_create_rejects_security_coordinates_stale_policy_and_denial() -> None:
     _, _, policies, service = _service()
-    with pytest.raises(
-        SourceControlGrantAdminError, match="grant_admin_required"
-    ):
+    with pytest.raises(SourceControlGrantAdminError, match="grant_admin_required"):
         service.create_grant(
             actor=GrantAdminActor(
                 subject_id="viewer",
@@ -338,9 +314,7 @@ def test_create_rejects_security_coordinates_stale_policy_and_denial() -> None:
             idempotency_key="stale-policy",
         )
     policies.decision = "deny"
-    with pytest.raises(
-        SourceControlGrantAdminError, match="grant_policy_denied"
-    ):
+    with pytest.raises(SourceControlGrantAdminError, match="grant_policy_denied"):
         service.create_grant(
             actor=_actor(),
             request=_request(),
@@ -367,8 +341,7 @@ def test_list_is_scope_bound_and_cursor_is_opaque() -> None:
         db.add(
             SourceAccessGrantDB(
                 grant_id="grant_" + hashlib.sha256(b"foreign").hexdigest(),
-                grant_family_id="grfam_"
-                + hashlib.sha256(b"foreign-family").hexdigest(),
+                grant_family_id="grfam_" + hashlib.sha256(b"foreign-family").hexdigest(),
                 grant_version=1,
                 tenant_id="other-tenant",
                 project_id=_PROJECT,
@@ -378,8 +351,7 @@ def test_list_is_scope_bound_and_cursor_is_opaque() -> None:
                 operation="index",
                 transformation="redacted",
                 purpose="knowledge-index",
-                policy_version="cpv_"
-                + hashlib.sha256(b"foreign-policy").hexdigest(),
+                policy_version="cpv_" + hashlib.sha256(b"foreign-policy").hexdigest(),
                 state="active",
                 issued_at_epoch=_NOW,
                 expires_at_epoch=_NOW + 3_600,
@@ -390,9 +362,7 @@ def test_list_is_scope_bound_and_cursor_is_opaque() -> None:
         db.commit()
 
     page_one = service.list_grants(actor=_actor(), limit=1)
-    page_two = service.list_grants(
-        actor=_actor(), limit=1, cursor=page_one.next_cursor
-    )
+    page_two = service.list_grants(actor=_actor(), limit=1, cursor=page_one.next_cursor)
 
     assert page_one.next_cursor is not None
     assert page_two.next_cursor is None
@@ -433,23 +403,16 @@ def test_revoke_is_cas_protected_audited_and_idempotent() -> None:
     assert revoked == replay
     assert revoked.state == "revoked"
     assert revoked.etag != created.etag
-    with pytest.raises(
-        SourceControlGrantAdminError, match="grant_not_active"
-    ):
+    with pytest.raises(SourceControlGrantAdminError, match="grant_not_active"):
         service.revoke_grant(
             actor=_actor(),
             grant_id=created.grant_id,
-            request=GrantRevokeRequest(
-                reason_code="second_revoke_attempt"
-            ),
+            request=GrantRevokeRequest(reason_code="second_revoke_attempt"),
             if_match=created.etag,
             idempotency_key="different-revoke",
         )
     with Session(engine) as db:
-        actions = {
-            row.action
-            for row in db.exec(select(SourceAccessGrantAuditDB)).all()
-        }
+        actions = {row.action for row in db.exec(select(SourceAccessGrantAuditDB)).all()}
     assert actions == {"create", "revoke"}
 
 

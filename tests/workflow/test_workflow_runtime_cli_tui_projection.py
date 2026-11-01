@@ -55,9 +55,7 @@ def test_cli_run_reads_same_hub_projection_detail(capsys) -> None:
         result = runtime.dispatch(["run", "run/a"])
 
     assert result == 0
-    assert factory.return_value.get.call_args.args == (
-        "/api/workflow-runtime/operations/runs/run%2Fa",
-    )
+    assert factory.return_value.get.call_args.args == ("/api/workflow-runtime/operations/runs/run%2Fa",)
     assert "Status:    unverified" in capsys.readouterr().out
 
 

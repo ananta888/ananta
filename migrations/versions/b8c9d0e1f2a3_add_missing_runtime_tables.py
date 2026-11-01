@@ -93,7 +93,9 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
         )
     _create_index_if_missing("extracted_documents", "ix_extracted_documents_artifact_id", ["artifact_id"])
-    _create_index_if_missing("extracted_documents", "ix_extracted_documents_artifact_version_id", ["artifact_version_id"])
+    _create_index_if_missing(
+        "extracted_documents", "ix_extracted_documents_artifact_version_id", ["artifact_version_id"]
+    )
 
     if not _table_exists("knowledge_collections"):
         op.create_table(

@@ -43,10 +43,9 @@ def snapshot_operation_key(
     idempotency_key: str,
 ) -> str:
     digest = hashlib.sha256(
-        (
-            f"workspace-snapshot-v1\0{scope.tenant_id}\0"
-            f"{scope.project_id}\0{scope.owner_id}\0{idempotency_key}"
-        ).encode("utf-8")
+        (f"workspace-snapshot-v1\0{scope.tenant_id}\0{scope.project_id}\0{scope.owner_id}\0{idempotency_key}").encode(
+            "utf-8"
+        )
     ).hexdigest()
     return f"workspace-snapshot:{digest}"
 

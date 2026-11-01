@@ -16,7 +16,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
 
 
 def _asciinema_v2_lines(
@@ -159,12 +158,21 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "1.2")
     env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "18.0")
     env.setdefault("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.30")
-    env.setdefault("ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct"))
-    env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
+    env.setdefault(
+        "ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct")
+    )
+    env.setdefault(
+        "ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1")
+    )
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_TOKEN", str(env.get("ANANTA_TUI_LLM_API_TOKEN") or ""))
     env.setdefault("ANANTA_TUI_CHAT_BACKEND", "ananta-worker")
-    env.setdefault("ANANTA_TUI_CHAT_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or env.get("ANANTA_TUI_SNAKE_AI_MODEL") or ""))
-    env.setdefault("ANANTA_TUI_CHAT_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or env.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL") or ""))
+    env.setdefault(
+        "ANANTA_TUI_CHAT_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or env.get("ANANTA_TUI_SNAKE_AI_MODEL") or "")
+    )
+    env.setdefault(
+        "ANANTA_TUI_CHAT_API_BASE_URL",
+        str(env.get("ANANTA_TUI_LLM_API_BASE") or env.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL") or ""),
+    )
     env.setdefault("ANANTA_TUI_CHAT_ASK_TIMEOUT", "75")
     env.setdefault("ANANTA_TUI_CHAT_RAG_TOP_K", "16")
     env.setdefault("ANANTA_TUI_CHAT_MAX_TOKENS", "96")
@@ -329,11 +337,7 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     ):
         completion_tokens.append("[openai-compatible-> online]")
     if completion_tokens:
-        summary = (
-            "\x1b[2J\x1b[H"
-            "snake-mode-live-e2e summary\n"
-            f"markers: {' '.join(completion_tokens)}\n"
-        )
+        summary = f"\x1b[2J\x1b[Hsnake-mode-live-e2e summary\nmarkers: {' '.join(completion_tokens)}\n"
         normalized.append((normalized[-1][0] + 0.35, summary))
     return _asciinema_v2_lines(
         title=f"Ananta Operator TUI – Snake Mode Live E2E ({run_id})",

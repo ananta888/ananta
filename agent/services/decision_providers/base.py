@@ -27,6 +27,7 @@ class DecisionProvider(Protocol):
         ...
 
 
-async def adecide(provider: DecisionProvider, request: DecisionRequest, *,
-                  timeout_seconds: float | None = None) -> DecisionResult:
+async def adecide(
+    provider: DecisionProvider, request: DecisionRequest, *, timeout_seconds: float | None = None
+) -> DecisionResult:
     return await asyncio.to_thread(provider.decide, request, timeout_seconds=timeout_seconds)

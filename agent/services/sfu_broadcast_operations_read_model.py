@@ -85,9 +85,7 @@ class InMemorySfuBroadcastOperationsSnapshotPort:
             raise SfuBroadcastOperationsError("sfu_operations_cursor_stale", 409)
         records = self._snapshot.records
         if scope is not None:
-            records = tuple(
-                record for record in records if _record_in_source_scope(record, scope)
-            )
+            records = tuple(record for record in records if _record_in_source_scope(record, scope))
         return SfuBroadcastOperationsSnapshot(
             self._snapshot.version,
             records[:max_records],
@@ -105,7 +103,9 @@ class SfuBroadcastOperationsReadModel:
     _DROP = frozenset({"none", "quota_exceeded", "expired", "stale_epoch", "policy_denied", "backpressure", "unknown"})
     _REKEY = frozenset({"idle", "pending", "converged", "failed", "unknown"})
     _FAILOVER = frozenset({"none", "fenced", "recovering", "recovered", "failed", "unknown"})
-    _CAPACITY = frozenset({"legacy_8", "broadcast_10", "broadcast_25", "broadcast_50", "broadcast_100", "broadcast_250", "unknown"})
+    _CAPACITY = frozenset(
+        {"legacy_8", "broadcast_10", "broadcast_25", "broadcast_50", "broadcast_100", "broadcast_250", "unknown"}
+    )
     _GATES = frozenset({"go", "no_go", "observe_only", "blocked", "unknown"})
 
     def __init__(
@@ -376,7 +376,11 @@ class SfuBroadcastOperationsReadModel:
 
     @staticmethod
     def _safe_ref(value: object) -> bool:
-        return isinstance(value, str) and 0 < len(value.encode("utf-8")) <= 256 and not any(ord(char) < 32 for char in value)
+        return (
+            isinstance(value, str)
+            and 0 < len(value.encode("utf-8")) <= 256
+            and not any(ord(char) < 32 for char in value)
+        )
 
     @staticmethod
     def _scope_contains(scopes: Sequence[str], value: str) -> bool:
@@ -397,7 +401,14 @@ class SfuBroadcastOperationsReadModel:
     @staticmethod
     def _rate_bucket(value: object) -> str:
         number = value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
-        for upper, label in ((0, "0"), (128_000, "le_128k"), (512_000, "le_512k"), (1_000_000, "le_1m"), (5_000_000, "le_5m"), (25_000_000, "le_25m")):
+        for upper, label in (
+            (0, "0"),
+            (128_000, "le_128k"),
+            (512_000, "le_512k"),
+            (1_000_000, "le_1m"),
+            (5_000_000, "le_5m"),
+            (25_000_000, "le_25m"),
+        ):
             if number <= upper:
                 return label
         return "gt_25m"

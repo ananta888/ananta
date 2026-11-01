@@ -30,14 +30,10 @@ def _closed_text(
     field: str,
 ) -> str:
     if set(payload) != fields:
-        raise SourceControlWorkspaceContractError(
-            "workspace_registration_payload_fields_invalid"
-        )
+        raise SourceControlWorkspaceContractError("workspace_registration_payload_fields_invalid")
     value = payload.get(field)
     if not isinstance(value, str) or not value.strip():
-        raise SourceControlWorkspaceContractError(
-            "workspace_registration_payload_invalid"
-        )
+        raise SourceControlWorkspaceContractError("workspace_registration_payload_invalid")
     return value.strip()
 
 
@@ -62,15 +58,10 @@ class WorkspaceFolderSnapshot:
             or _DIGEST.fullmatch(self.manifest_digest) is None
             or self.item_count < 0
         ):
-            raise SourceControlWorkspaceContractError(
-                "workspace_folder_snapshot_invalid"
-            )
+            raise SourceControlWorkspaceContractError("workspace_folder_snapshot_invalid")
 
     def __repr__(self) -> str:
-        return (
-            "WorkspaceFolderSnapshot("
-            f"folder_handle={self.folder_handle!r}, root=<redacted>)"
-        )
+        return f"WorkspaceFolderSnapshot(folder_handle={self.folder_handle!r}, root=<redacted>)"
 
 
 @dataclass(frozen=True)
@@ -88,9 +79,7 @@ class WorkspaceFolderSelection:
             field="folder_handle",
         )
         if _FOLDER_HANDLE.fullmatch(handle) is None:
-            raise SourceControlWorkspaceContractError(
-                "workspace_folder_handle_invalid"
-            )
+            raise SourceControlWorkspaceContractError("workspace_folder_handle_invalid")
         return cls(folder_handle=handle)
 
 
@@ -109,16 +98,12 @@ class WorkspaceCreateSelection:
             field="validation_handle",
         )
         if _VALIDATION_HANDLE.fullmatch(handle) is None:
-            raise SourceControlWorkspaceContractError(
-                "workspace_validation_handle_invalid"
-            )
+            raise SourceControlWorkspaceContractError("workspace_validation_handle_invalid")
         return cls(validation_handle=handle)
 
     @property
     def handle_digest(self) -> str:
-        return hashlib.sha256(
-            self.validation_handle.encode("ascii")
-        ).hexdigest()
+        return hashlib.sha256(self.validation_handle.encode("ascii")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -134,9 +119,7 @@ class WorkspaceValidationBinding:
             or _DIGEST.fullmatch(self.root_fingerprint) is None
             or _DIGEST.fullmatch(self.manifest_digest) is None
         ):
-            raise SourceControlWorkspaceContractError(
-                "workspace_validation_binding_invalid"
-            )
+            raise SourceControlWorkspaceContractError("workspace_validation_binding_invalid")
 
 
 @dataclass(frozen=True)
@@ -156,9 +139,7 @@ class WorkspaceRegistrationRecord:
             or self.read_only is not True
             or self.lock_version < 1
         ):
-            raise SourceControlWorkspaceContractError(
-                "workspace_registration_record_invalid"
-            )
+            raise SourceControlWorkspaceContractError("workspace_registration_record_invalid")
 
     @property
     def etag(self) -> str:

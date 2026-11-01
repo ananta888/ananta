@@ -75,9 +75,7 @@ def _matches_forbidden_glob(path: str) -> bool:
         if fnmatch.fnmatch(path, pattern) or fnmatch.fnmatch(path, norm):
             return True
         # Also match when the pattern is meant to match the basename anywhere.
-        if "/" not in pattern.rstrip("*") and fnmatch.fnmatch(
-            path.rsplit("/", 1)[-1], pattern
-        ):
+        if "/" not in pattern.rstrip("*") and fnmatch.fnmatch(path.rsplit("/", 1)[-1], pattern):
             return True
     return False
 

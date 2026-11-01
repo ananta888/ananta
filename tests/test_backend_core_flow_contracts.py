@@ -1,5 +1,6 @@
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from agent.db_models import AgentInfoDB, GoalDB, TaskDB
 from agent.repository import agent_repo, goal_repo, policy_decision_repo, task_repo, verification_record_repo
@@ -44,7 +45,12 @@ def test_goal_task_delegation_completion_backend_flow_stays_consistent(client, a
     claim = client.post(
         "/tasks/orchestration/claim",
         headers=admin_auth_header,
-        json={"task_id": task_id, "agent_url": "http://alpha:5001", "lease_seconds": 60, "idempotency_key": "core-flow"},
+        json={
+            "task_id": task_id,
+            "agent_url": "http://alpha:5001",
+            "lease_seconds": 60,
+            "idempotency_key": "core-flow",
+        },
     )
     assert claim.status_code == 200
     assert claim.get_json()["data"]["claimed"] is True
@@ -80,7 +86,16 @@ def test_goal_task_delegation_completion_backend_flow_stays_consistent(client, a
 
 def test_verification_failed_flow_records_retry_history_and_governance_summary(client, admin_auth_header):
     goal = goal_repo.save(GoalDB(goal="Fail closed", summary="Fail closed", status="planned"))
-    task_repo.save(TaskDB(id="flow-fail-1", title="Fail verification", status="assigned", goal_id=goal.id, goal_trace_id=goal.trace_id, task_kind="coding"))
+    task_repo.save(
+        TaskDB(
+            id="flow-fail-1",
+            title="Fail verification",
+            status="assigned",
+            goal_id=goal.id,
+            goal_trace_id=goal.trace_id,
+            task_kind="coding",
+        )
+    )
 
     response = client.post(
         "/tasks/orchestration/complete",
@@ -137,7 +152,9 @@ def test_policy_and_exposure_boundaries_are_enforced_through_real_api_paths(clie
 
 
 def test_read_model_contracts_expose_stable_backend_shapes(client, admin_auth_header):
-    task_repo.save(TaskDB(id="contract-task-1", title="Contract task", description="shape", status="todo", task_kind="analysis"))
+    task_repo.save(
+        TaskDB(id="contract-task-1", title="Contract task", description="shape", status="todo", task_kind="analysis")
+    )
 
     assistant = client.get("/assistant/read-model", headers=admin_auth_header)
     dashboard = client.get("/dashboard/read-model?include_task_snapshot=1", headers=admin_auth_header)
@@ -154,7 +171,7 @@ def test_read_model_contracts_expose_stable_backend_shapes(client, admin_auth_he
     assert "governance" in ((assistant_data.get("settings") or {}).get("summary") or {})
     assert {"system_health", "tasks", "llm_configuration", "contracts"}.issubset(dashboard_data)
     assert "runtime_profile" in (dashboard_data.get("llm_configuration") or {})
-    assert "operations" in (((dashboard_data.get("llm_configuration") or {}).get("runtime_telemetry") or {}))
+    assert "operations" in ((dashboard_data.get("llm_configuration") or {}).get("runtime_telemetry") or {})
     assert (dashboard_data.get("tasks") or {}).get("included") is True
     assert {"queue", "recent_tasks", "artifact_flow", "worker_execution_reconciliation"}.issubset(orchestration_data)
     assert any(item.get("id") == "contract-task-1" for item in orchestration_data["recent_tasks"])

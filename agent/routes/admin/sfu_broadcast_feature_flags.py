@@ -32,9 +32,7 @@ _MUTATION_FIELDS = frozenset(
 _SCOPE_OVERRIDE_FIELDS = frozenset({"tenant_id", "region", "room_cohort", "room_id"})
 
 
-@sfu_broadcast_feature_flags_bp.put(
-    "/api/admin/sfu-broadcast-feature-flags/<flag>"
-)
+@sfu_broadcast_feature_flags_bp.put("/api/admin/sfu-broadcast-feature-flags/<flag>")
 @admin_required
 def mutate_sfu_broadcast_feature_flag(flag: str):
     try:
@@ -76,9 +74,7 @@ def mutate_sfu_broadcast_feature_flag(flag: str):
         return _error(exc)
 
 
-@sfu_broadcast_feature_flags_bp.get(
-    "/api/sfu-broadcast-feature-flags/effective"
-)
+@sfu_broadcast_feature_flags_bp.get("/api/sfu-broadcast-feature-flags/effective")
 @check_auth
 def get_effective_sfu_broadcast_feature_flags():
     if any(field in request.args for field in _SCOPE_OVERRIDE_FIELDS):
@@ -91,9 +87,7 @@ def get_effective_sfu_broadcast_feature_flags():
     identity = _authenticated_identity()
     tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or "").strip()
     if not tenant_id:
-        projection = SfuBroadcastFeatureProjection.unavailable(
-            "sfu_broadcast.authenticated_scope_missing"
-        )
+        projection = SfuBroadcastFeatureProjection.unavailable("sfu_broadcast.authenticated_scope_missing")
     else:
         try:
             projection = _policy().effective(
@@ -102,9 +96,7 @@ def get_effective_sfu_broadcast_feature_flags():
                 room_cohort=str(identity.get("room_cohort") or "*").strip(),
             )
         except SfuBroadcastFeaturePolicyError:
-            projection = SfuBroadcastFeatureProjection.unavailable(
-                "sfu_broadcast.authenticated_scope_invalid"
-            )
+            projection = SfuBroadcastFeatureProjection.unavailable("sfu_broadcast.authenticated_scope_invalid")
     return api_response(data={"projection": projection.payload()})
 
 

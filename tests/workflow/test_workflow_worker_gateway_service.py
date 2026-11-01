@@ -93,9 +93,7 @@ class _HubToolDescriptors:
 def fixture(
     *,
     provider_attempts: int | None = None,
-    provider_attempt_plan: tuple[
-        ProviderProfileAttemptPlanEntry, ...
-    ] = (),
+    provider_attempt_plan: tuple[ProviderProfileAttemptPlanEntry, ...] = (),
     budget_overrides: dict[str, int] | None = None,
     hub_task_id: str = "hub-task-1",
     allowed_artifacts: tuple[str, ...] = (),
@@ -130,10 +128,7 @@ def fixture(
         policy_version="policy-v1",
         allowed_tools=("apply_patch",),
         allowed_artifacts=allowed_artifacts,
-        allowed_provider_bindings=tuple(
-            item.binding_authorization
-            for item in provider_attempt_plan
-        ),
+        allowed_provider_bindings=tuple(item.binding_authorization for item in provider_attempt_plan),
         provider_attempt_plan=provider_attempt_plan,
         budgets=budgets,
         now=now,
@@ -220,9 +215,7 @@ def _provider_profile_plan(
                 model_id=model_id,
                 source="hub_model_profile_routing",
                 reason_code="hub_provider_profile_selected",
-                endpoint_identity=(
-                    "http://ollama:11434/v1/chat/completions"
-                ),
+                endpoint_identity=("http://ollama:11434/v1/chat/completions"),
             ),
         )
         for profile_id, model_id in (
@@ -341,9 +334,7 @@ def test_authenticated_worker_identity_must_own_the_exact_active_lease() -> None
             authenticated_worker_url="http://worker-2:5000",
         )
     assert foreign.value.status_code == 403
-    assert foreign.value.reason_code == (
-        "workflow_worker_authenticated_owner_mismatch"
-    )
+    assert foreign.value.reason_code == ("workflow_worker_authenticated_owner_mismatch")
 
     with pytest.raises(WorkflowWorkerGatewayError) as incomplete:
         service.execute(
@@ -351,9 +342,7 @@ def test_authenticated_worker_identity_must_own_the_exact_active_lease() -> None
             authenticated_worker_id="worker-1",
         )
     assert incomplete.value.status_code == 403
-    assert incomplete.value.reason_code == (
-        "workflow_worker_authenticated_identity_invalid"
-    )
+    assert incomplete.value.reason_code == ("workflow_worker_authenticated_identity_invalid")
 
 
 def test_write_tool_approval_is_digest_and_task_bound_before_ledger_claim() -> None:
@@ -493,10 +482,7 @@ def test_provider_budget_reservation_and_reconciliation_are_hub_owned() -> None:
     assert reserved["attempts"] == 1
     assert reconciled["tokens"] == 25
     assert reconciled["reconciled"] is True
-    assert {
-        event.event_type
-        for event in events.list_events(tenant_id="tenant-1", run_id="run-1")
-    } >= {
+    assert {event.event_type for event in events.list_events(tenant_id="tenant-1", run_id="run-1")} >= {
         "workflow.budget.provider_reserved",
         "workflow.budget.provider_reconciled",
     }
@@ -594,16 +580,8 @@ def test_provider_node_cap_is_cumulative_replay_safe_and_atomic() -> None:
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(reserve, range(2)))
 
-    successes = [
-        (index, value)
-        for index, value in results
-        if isinstance(value, dict)
-    ]
-    failures = [
-        value
-        for _index, value in results
-        if isinstance(value, WorkflowWorkerGatewayError)
-    ]
+    successes = [(index, value) for index, value in results if isinstance(value, dict)]
+    failures = [value for _index, value in results if isinstance(value, WorkflowWorkerGatewayError)]
     assert len(successes) == 1
     assert len(failures) == 1
     assert failures[0].reason_code == "provider_token_budget_exceeded"
@@ -660,9 +638,7 @@ def test_provider_node_actual_overrun_is_visible_in_receipt_and_event() -> None:
     assert receipt["tokens"] == 50
     assert receipt["scoped_tokens"] == 50
     assert receipt["scoped_budget_overrun"] is True
-    assert receipt["reason_code"] == (
-        "provider_scoped_budget_overrun_recorded"
-    )
+    assert receipt["reason_code"] == ("provider_scoped_budget_overrun_recorded")
     reconciled_event = next(
         event
         for event in events.list_events(
@@ -672,9 +648,7 @@ def test_provider_node_actual_overrun_is_visible_in_receipt_and_event() -> None:
         if event.event_type == "workflow.budget.provider_reconciled"
     )
     assert reconciled_event.payload["scoped_budget_overrun"] is True
-    assert reconciled_event.payload["reason_code"] == (
-        "provider_scoped_budget_overrun_recorded"
-    )
+    assert reconciled_event.payload["reason_code"] == ("provider_scoped_budget_overrun_recorded")
 
 
 def test_failed_aggregate_reservation_does_not_burn_profile_or_unlock_fallback() -> None:
@@ -770,11 +744,7 @@ def test_concurrent_profile_reservations_consume_one_atomic_slot() -> None:
         results = list(executor.map(reserve, commands))
 
     receipts = [item for item in results if isinstance(item, dict)]
-    errors = [
-        item
-        for item in results
-        if isinstance(item, WorkflowWorkerGatewayError)
-    ]
+    errors = [item for item in results if isinstance(item, WorkflowWorkerGatewayError)]
     assert len(receipts) == 1
     assert len(errors) == 1
     assert errors[0].reason_code == "provider_retry_budget_exceeded"
@@ -794,9 +764,7 @@ def test_concurrent_profile_reservations_consume_one_atomic_slot() -> None:
 
 
 def test_profile_route_has_separate_five_call_budget_and_rejects_sixth_or_inflation() -> None:
-    service, base, _events, _ledger, _approvals = fixture(
-        provider_attempts=5
-    )
+    service, base, _events, _ledger, _approvals = fixture(provider_attempts=5)
     for attempt in range(5):
         reserved = service.execute(
             {
@@ -831,9 +799,7 @@ def test_profile_route_has_separate_five_call_budget_and_rejects_sixth_or_inflat
             }
         )
 
-    fresh, fresh_base, _events, _ledger, _approvals = fixture(
-        provider_attempts=5
-    )
+    fresh, fresh_base, _events, _ledger, _approvals = fixture(provider_attempts=5)
     with pytest.raises(
         WorkflowWorkerGatewayError,
         match="authorization_budget_exceeded",
@@ -1004,11 +970,7 @@ def test_signed_provider_binding_rejects_model_provider_and_recomputed_id() -> N
     tampered_values = (
         {"model_id": "attacker-model:latest"},
         {"provider_id": "openai"},
-        {
-            "provider_endpoint_identity": (
-                "http://ollama:11435/v1/chat/completions"
-            )
-        },
+        {"provider_endpoint_identity": ("http://ollama:11435/v1/chat/completions")},
         {
             "binding_id": recomputed.binding_id,
             "provider_id": recomputed.provider_id,
@@ -1037,9 +999,7 @@ def test_profile_attempts_are_step_scoped_while_tokens_remain_run_aggregate() ->
     )
     ownership = InMemoryExecutionOwnershipStore()
     provider_budgets = InMemoryProviderBudgetStore()
-    grants = InMemoryWorkflowAuthorizationGrantService(
-        clock=lambda: now + 1
-    )
+    grants = InMemoryWorkflowAuthorizationGrantService(clock=lambda: now + 1)
     service = WorkflowWorkerGatewayService(
         authorization=AuthorizationVerifier(key_ring),
         ownership=ownership,
@@ -1062,15 +1022,11 @@ def test_profile_attempts_are_step_scoped_while_tokens_remain_run_aggregate() ->
             step_id=step_id,
             plan_hash=PLAN_HASH,
             policy_version="policy-v1",
-            allowed_provider_bindings=tuple(
-                item.binding_authorization for item in plan
-            ),
+            allowed_provider_bindings=tuple(item.binding_authorization for item in plan),
             provider_attempt_plan=plan,
             budgets={
                 "attempts": 1,
-                "provider_attempts": sum(
-                    item.maximum_attempts for item in plan
-                ),
+                "provider_attempts": sum(item.maximum_attempts for item in plan),
                 "tokens": 100,
                 "cost_micros": 1_000,
             },
@@ -1123,9 +1079,7 @@ def test_profile_attempts_are_step_scoped_while_tokens_remain_run_aggregate() ->
                     _profile_provider_reserve(
                         base,
                         entry,
-                        reservation_id=(
-                            f"{step_id}-{entry.profile_id}-{attempt}"
-                        ),
+                        reservation_id=(f"{step_id}-{entry.profile_id}-{attempt}"),
                         maximum_attempts=maximum,
                     )
                 )
@@ -1202,8 +1156,7 @@ def test_parallel_duplicate_delivery_has_one_exactly_once_decision() -> None:
 
     assert sum(1 for _reason, acquired in decisions if acquired) == 1
     assert all(
-        acquired
-        or reason in {"already_claimed", "side_effect_compare_and_set_failed"}
+        acquired or reason in {"already_claimed", "side_effect_compare_and_set_failed"}
         for reason, acquired in decisions
     )
 
@@ -1222,9 +1175,7 @@ def test_native_worker_advances_only_the_pre_authorized_hub_operation() -> None:
         record.operation_id,
         expected_revision=record.revision,
         fencing_token=base["fencing_token"],
-        authorization_envelope_id=base["binding"]["authorization_envelope"][
-            "envelope_id"
-        ],
+        authorization_envelope_id=base["binding"]["authorization_envelope"]["envelope_id"],
     )
     claim_command = {
         **base,
@@ -1234,9 +1185,7 @@ def test_native_worker_advances_only_the_pre_authorized_hub_operation() -> None:
     }
 
     claimed = service.execute(claim_command)
-    duplicate = service.execute(
-        {**claim_command, "expected_revision": claimed["record"]["revision"]}
-    )
+    duplicate = service.execute({**claim_command, "expected_revision": claimed["record"]["revision"]})
     completed = service.execute(
         {
             **base,
@@ -1251,10 +1200,10 @@ def test_native_worker_advances_only_the_pre_authorized_hub_operation() -> None:
     assert duplicate["acquired"] is False
     assert duplicate["reason"] == "already_claimed"
     assert completed["record"]["status"] == "completed"
-    assert {
-        event.event_type
-        for event in events.list_events(tenant_id="tenant-1", run_id="run-1")
-    } >= {"workflow.side_effect.started", "workflow.side_effect.completed"}
+    assert {event.event_type for event in events.list_events(tenant_id="tenant-1", run_id="run-1")} >= {
+        "workflow.side_effect.started",
+        "workflow.side_effect.completed",
+    }
 
 
 def test_native_worker_cannot_plan_or_rebind_a_side_effect() -> None:
@@ -1289,9 +1238,7 @@ def test_native_worker_cannot_plan_or_rebind_a_side_effect() -> None:
         fencing_token=base["fencing_token"],
         authorization_envelope_id="different-envelope",
     )
-    with pytest.raises(
-        WorkflowWorkerGatewayError, match="side_effect_operation_binding_mismatch"
-    ):
+    with pytest.raises(WorkflowWorkerGatewayError, match="side_effect_operation_binding_mismatch"):
         service.execute(
             {
                 **base,

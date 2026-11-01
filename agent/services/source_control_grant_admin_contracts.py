@@ -51,9 +51,7 @@ class GrantCreateRequest:
     duration_seconds: int
 
     @classmethod
-    def from_mapping(
-        cls, payload: Mapping[str, object]
-    ) -> "GrantCreateRequest":
+    def from_mapping(cls, payload: Mapping[str, object]) -> "GrantCreateRequest":
         expected = {
             "source_revision_id",
             "destination_id",
@@ -62,14 +60,10 @@ class GrantCreateRequest:
             "duration_seconds",
         }
         if set(payload) != expected:
-            raise SourceControlGrantAdminError(
-                "grant_create_fields_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_create_fields_invalid", status_code=400)
         duration = payload["duration_seconds"]
         if isinstance(duration, bool) or not isinstance(duration, int):
-            raise SourceControlGrantAdminError(
-                "grant_duration_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_duration_invalid", status_code=400)
         return cls(
             source_revision_id=str(payload["source_revision_id"]),
             destination_id=str(payload["destination_id"]),
@@ -84,13 +78,9 @@ class GrantRevokeRequest:
     reason_code: str
 
     @classmethod
-    def from_mapping(
-        cls, payload: Mapping[str, object]
-    ) -> "GrantRevokeRequest":
+    def from_mapping(cls, payload: Mapping[str, object]) -> "GrantRevokeRequest":
         if set(payload) != {"reason_code"}:
-            raise SourceControlGrantAdminError(
-                "grant_revoke_fields_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_revoke_fields_invalid", status_code=400)
         return cls(reason_code=str(payload["reason_code"]))
 
 
@@ -159,9 +149,7 @@ class GrantView:
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> "GrantView":
         if payload.get("schema") != SCHEMA_GRANT:
-            raise SourceControlGrantAdminError(
-                "grant_idempotency_result_invalid", status_code=500
-            )
+            raise SourceControlGrantAdminError("grant_idempotency_result_invalid", status_code=500)
         try:
             return cls(
                 grant_id=str(payload["grant_id"]),
@@ -169,11 +157,7 @@ class GrantView:
                 version=int(payload["version"]),
                 source_revision_id=str(payload["source_revision_id"]),
                 destination_id=str(payload["destination_id"]),
-                preset_id=(
-                    str(payload["preset_id"])
-                    if payload.get("preset_id") is not None
-                    else None
-                ),
+                preset_id=(str(payload["preset_id"]) if payload.get("preset_id") is not None else None),
                 operation=str(payload["operation"]),
                 transformation=str(payload["transformation"]),
                 purpose=str(payload["purpose"]),
@@ -185,9 +169,7 @@ class GrantView:
                 etag=str(payload["etag"]),
             )
         except (KeyError, TypeError, ValueError) as exc:
-            raise SourceControlGrantAdminError(
-                "grant_idempotency_result_invalid", status_code=500
-            ) from exc
+            raise SourceControlGrantAdminError("grant_idempotency_result_invalid", status_code=500) from exc
 
 
 @dataclass(frozen=True)
@@ -218,9 +200,7 @@ class ScopedDestinationCatalogPort(Protocol):
 class ActiveContextPolicyPort(Protocol):
     """Subset implemented by the persistent Context Policy lifecycle."""
 
-    def active(
-        self, *, actor: ContextPolicyActor, policy_id: str
-    ) -> ContextPolicyVersion: ...
+    def active(self, *, actor: ContextPolicyActor, policy_id: str) -> ContextPolicyVersion: ...
 
     def preview(
         self,

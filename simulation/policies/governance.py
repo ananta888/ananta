@@ -1,4 +1,5 @@
 """Voting/Governance system (SIM-010)."""
+
 from __future__ import annotations
 
 import uuid
@@ -6,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from simulation.models.world_state import LawState, SimEvent, WorldState
-
 
 VoteChoice = Literal["yes", "no", "abstain"]
 ProposalStatus = Literal["open", "passed", "rejected", "expired"]
@@ -34,12 +34,16 @@ class GovernanceProposal:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "proposer_id": self.proposer_id,
-            "tick_created": self.tick_created, "description": self.description,
-            "kind": self.kind, "payload": self.payload,
-            "votes": [{"agent_id": v.agent_id, "choice": v.choice, "reason": v.reason}
-                       for v in self.votes],
-            "status": self.status, "tick_decided": self.tick_decided, "ttl": self.ttl,
+            "id": self.id,
+            "proposer_id": self.proposer_id,
+            "tick_created": self.tick_created,
+            "description": self.description,
+            "kind": self.kind,
+            "payload": self.payload,
+            "votes": [{"agent_id": v.agent_id, "choice": v.choice, "reason": v.reason} for v in self.votes],
+            "status": self.status,
+            "tick_decided": self.tick_decided,
+            "ttl": self.ttl,
         }
 
 
@@ -52,36 +56,48 @@ class GovernanceSystem:
 
     # ── proposal lifecycle ────────────────────────────────────────────────────
 
-    def submit_proposal(self, state: WorldState, proposer_id: str,
-                         kind: str, description: str,
-                         payload: dict[str, Any] | None = None) -> GovernanceProposal:
+    def submit_proposal(
+        self, state: WorldState, proposer_id: str, kind: str, description: str, payload: dict[str, Any] | None = None
+    ) -> GovernanceProposal:
         pid = f"prop-{uuid.uuid4().hex[:8]}"
         prop = GovernanceProposal(
-            id=pid, proposer_id=proposer_id, tick_created=state.tick,
-            description=description, kind=kind,  # type: ignore[arg-type]
+            id=pid,
+            proposer_id=proposer_id,
+            tick_created=state.tick,
+            description=description,
+            kind=kind,  # type: ignore[arg-type]
             payload=payload or {},
         )
         self._proposals[pid] = prop
-        state.apply_event(SimEvent(
-            tick=state.tick, kind="governance", actor_id=proposer_id,
-            description=f"proposal submitted: {description}",
-            data={"proposal_id": pid, "kind": kind},
-        ))
+        state.apply_event(
+            SimEvent(
+                tick=state.tick,
+                kind="governance",
+                actor_id=proposer_id,
+                description=f"proposal submitted: {description}",
+                data={"proposal_id": pid, "kind": kind},
+            )
+        )
         return prop
 
-    def cast_vote(self, state: WorldState, proposal_id: str,
-                   agent_id: str, choice: VoteChoice, reason: str = "") -> None:
+    def cast_vote(
+        self, state: WorldState, proposal_id: str, agent_id: str, choice: VoteChoice, reason: str = ""
+    ) -> None:
         prop = self._proposals.get(proposal_id)
         if not prop or prop.status != "open":
             return
         # Replace existing vote if any
         prop.votes = [v for v in prop.votes if v.agent_id != agent_id]
         prop.votes.append(VoteRecord(agent_id=agent_id, choice=choice, reason=reason))
-        state.apply_event(SimEvent(
-            tick=state.tick, kind="governance", actor_id=agent_id,
-            description=f"{agent_id} voted {choice} on {proposal_id}",
-            data={"proposal_id": proposal_id, "choice": choice},
-        ))
+        state.apply_event(
+            SimEvent(
+                tick=state.tick,
+                kind="governance",
+                actor_id=agent_id,
+                description=f"{agent_id} voted {choice} on {proposal_id}",
+                data={"proposal_id": proposal_id, "choice": choice},
+            )
+        )
 
     def tick(self, state: WorldState) -> list[SimEvent]:
         """Resolve mature proposals; expire old ones."""
@@ -119,7 +135,9 @@ class GovernanceSystem:
 
     def _make_event(self, state: WorldState, prop: GovernanceProposal, outcome: str) -> SimEvent:
         return SimEvent(
-            tick=state.tick, kind="governance", actor_id=prop.proposer_id,
+            tick=state.tick,
+            kind="governance",
+            actor_id=prop.proposer_id,
             description=f"proposal {prop.id} {outcome}: {prop.description}",
             data={"proposal_id": prop.id, "outcome": outcome, **prop.as_dict()},
         )

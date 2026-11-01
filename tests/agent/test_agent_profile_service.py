@@ -1,4 +1,5 @@
 """APRL-017 + APRL-021: Unit tests for AgentProfileService and profile validation script."""
+
 from __future__ import annotations
 
 import json
@@ -6,12 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_service(tmp_path: Path, *, profile_map: dict | None = None, root_agents: str | None = None):
     from agent.services.agent_profile_service import AgentProfileService
@@ -66,6 +65,7 @@ def _make_service(tmp_path: Path, *, profile_map: dict | None = None, root_agent
 # APRL-017 T1: new_software_project template_id -> correct agents_file
 # ---------------------------------------------------------------------------
 
+
 class TestNewSoftwareProjectActivation:
     def test_template_id_loads_new_software_project_profile(self, tmp_path):
         svc = _make_service(tmp_path)
@@ -90,6 +90,7 @@ class TestNewSoftwareProjectActivation:
 # APRL-017 T2: ai_snake_chat -> client_surfaces/operator_tui/AGENTS.md
 # ---------------------------------------------------------------------------
 
+
 class TestAiSnakeChatActivation:
     def test_explicit_profile_id_ai_snake_chat(self, tmp_path):
         svc = _make_service(tmp_path)
@@ -111,6 +112,7 @@ class TestAiSnakeChatActivation:
 # ---------------------------------------------------------------------------
 # APRL-017 T3: unknown path falls back deterministically to root_only
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownPathFallback:
     def test_no_task_kind_falls_back_to_root_only(self, tmp_path):
@@ -136,6 +138,7 @@ class TestUnknownPathFallback:
 # ---------------------------------------------------------------------------
 # APRL-017 T4: Path traversal / external paths rejected
 # ---------------------------------------------------------------------------
+
 
 class TestPathTraversal:
     def test_path_traversal_is_rejected(self, tmp_path):
@@ -172,6 +175,7 @@ class TestPathTraversal:
         (pm_dir / "profile-map.json").write_text(json.dumps(pm), encoding="utf-8")
         (tmp_path / "AGENTS.md").write_text("# Root\n", encoding="utf-8")
         from agent.services.agent_profile_service import AgentProfileService
+
         svc = AgentProfileService(repo_root=tmp_path)
         result = svc.resolve_by_profile_id("evil2")
         assert result.is_fallback
@@ -181,6 +185,7 @@ class TestPathTraversal:
 # ---------------------------------------------------------------------------
 # APRL-017 T5: Diagnostics contain activation_source and checksums
 # ---------------------------------------------------------------------------
+
 
 class TestDiagnostics:
     def test_to_metadata_excludes_full_text(self, tmp_path):
@@ -203,6 +208,7 @@ class TestDiagnostics:
 # APRL-017 T6: Ambiguous activation generates warning, deterministic winner
 # ---------------------------------------------------------------------------
 
+
 class TestAmbiguousActivation:
     def test_keyword_fallback_with_multiple_matches_produces_warning(self, tmp_path):
         # Both bug_fix and refactor activate on "cleanup" and "bug" might be in title
@@ -220,6 +226,7 @@ class TestAmbiguousActivation:
 # ---------------------------------------------------------------------------
 # APRL-017 T7: bug_fix and code_fix not confused
 # ---------------------------------------------------------------------------
+
 
 class TestBugFixCodeFixSeparation:
     def test_bug_fix_task_kind_resolves_bug_fix_with_diagnostics_and_root_first(self, tmp_path):
@@ -265,6 +272,7 @@ class TestBugFixCodeFixSeparation:
 # APRL-017 T8: Composition — profile appended after root, root stays dominant
 # ---------------------------------------------------------------------------
 
+
 class TestProfileComposition:
     def test_conflict_detection_generates_warning(self, tmp_path):
         # Write a profile file with a conflict pattern
@@ -284,10 +292,9 @@ class TestProfileComposition:
         (tmp_path / "AGENTS.md").write_text("# Root\n", encoding="utf-8")
         bad_dir = tmp_path / "docs" / "agent-profiles" / "bad_profile"
         bad_dir.mkdir(parents=True, exist_ok=True)
-        (bad_dir / "AGENTS.md").write_text(
-            "Workers may orchestrate other workers directly.\n", encoding="utf-8"
-        )
+        (bad_dir / "AGENTS.md").write_text("Workers may orchestrate other workers directly.\n", encoding="utf-8")
         from agent.services.agent_profile_service import AgentProfileService
+
         svc = AgentProfileService(repo_root=tmp_path)
         result = svc.resolve_by_profile_id("bad_profile")
         assert any("profile_conflicts_with_root" in w for w in result.warnings)
@@ -307,9 +314,7 @@ class TestValidateAgentProfilesScript:
             capture_output=True,
             text=True,
         )
-        assert result.returncode == 0, (
-            f"validate_agent_profiles.py failed on current repo:\n{result.stderr}"
-        )
+        assert result.returncode == 0, f"validate_agent_profiles.py failed on current repo:\n{result.stderr}"
 
     def test_script_detects_missing_agents_file(self, tmp_path):
         """main() returns 1 when an agents_file entry is missing from disk."""
@@ -335,9 +340,11 @@ class TestValidateAgentProfilesScript:
         spec = importlib.util.spec_from_file_location("validate_agent_profiles", str(VALIDATE_SCRIPT))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        with mock.patch.object(mod, "REPO_ROOT", tmp_path), \
-             mock.patch.object(mod, "PROFILE_MAP_PATH", tmp_path / "docs" / "agent-profiles" / "profile-map.json"), \
-             mock.patch.object(mod, "PROFILE_DIR", tmp_path / "docs" / "agent-profiles"):
+        with (
+            mock.patch.object(mod, "REPO_ROOT", tmp_path),
+            mock.patch.object(mod, "PROFILE_MAP_PATH", tmp_path / "docs" / "agent-profiles" / "profile-map.json"),
+            mock.patch.object(mod, "PROFILE_DIR", tmp_path / "docs" / "agent-profiles"),
+        ):
             exit_code = mod.main()
         assert exit_code == 1, "Script must exit 1 when agents_file is missing"
 
@@ -354,8 +361,10 @@ class TestValidateAgentProfilesScript:
         spec = importlib.util.spec_from_file_location("validate_agent_profiles2", str(VALIDATE_SCRIPT))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        with mock.patch.object(mod, "REPO_ROOT", tmp_path), \
-             mock.patch.object(mod, "PROFILE_MAP_PATH", tmp_path / "docs" / "agent-profiles" / "profile-map.json"), \
-             mock.patch.object(mod, "PROFILE_DIR", tmp_path / "docs" / "agent-profiles"):
+        with (
+            mock.patch.object(mod, "REPO_ROOT", tmp_path),
+            mock.patch.object(mod, "PROFILE_MAP_PATH", tmp_path / "docs" / "agent-profiles" / "profile-map.json"),
+            mock.patch.object(mod, "PROFILE_DIR", tmp_path / "docs" / "agent-profiles"),
+        ):
             exit_code = mod.main()
         assert exit_code == 1, "Script must exit 1 for JSON syntax error"

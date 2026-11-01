@@ -14,16 +14,9 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-
-RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA = (
-    "ananta.recovery_hub_tool_run_record.v1"
-)
-RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA = (
-    "ananta.recovery_hub_run_evidence_catalog.v1"
-)
-_RESULT_BINDING_SCHEMA = (
-    "ananta.recovery_hub_tool_run_result_binding.v1"
-)
+RECOVERY_HUB_TOOL_RUN_RECORD_SCHEMA = "ananta.recovery_hub_tool_run_record.v1"
+RECOVERY_HUB_RUN_EVIDENCE_CATALOG_SCHEMA = "ananta.recovery_hub_run_evidence_catalog.v1"
+_RESULT_BINDING_SCHEMA = "ananta.recovery_hub_tool_run_result_binding.v1"
 _RUN_SOURCE_ID = "RUN_0001"
 _RECORD_FIELDS = frozenset(
     {
@@ -107,17 +100,11 @@ def _canonical(value: Any) -> bytes:
             allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
-        raise RecoveryHubRunEvidenceError(
-            "recovery_hub_run_evidence_not_json"
-        ) from exc
+        raise RecoveryHubRunEvidenceError("recovery_hub_run_evidence_not_json") from exc
 
 
 def _digest(value: Mapping[str, Any], *, field: str) -> str:
-    payload = {
-        key: copy.deepcopy(item)
-        for key, item in value.items()
-        if key != field
-    }
+    payload = {key: copy.deepcopy(item) for key, item in value.items() if key != field}
     return hashlib.sha256(_canonical(payload)).hexdigest()
 
 
@@ -129,20 +116,12 @@ def _lease_binding(lease: Mapping[str, Any]) -> dict[str, Any]:
     try:
         revision = int(lease.get("revision") or 0)
     except (TypeError, ValueError) as exc:
-        raise RecoveryHubRunEvidenceError(
-            "recovery_hub_run_lease_binding_invalid"
-        ) from exc
+        raise RecoveryHubRunEvidenceError("recovery_hub_run_lease_binding_invalid") from exc
     binding = {
         "revision": revision,
-        "token_digest": str(
-            lease.get("token_digest") or ""
-        ),
-        "request_fingerprint": str(
-            lease.get("request_fingerprint") or ""
-        ),
-        "worker_url": str(
-            lease.get("worker_url") or ""
-        ).strip().rstrip("/"),
+        "token_digest": str(lease.get("token_digest") or ""),
+        "request_fingerprint": str(lease.get("request_fingerprint") or ""),
+        "worker_url": str(lease.get("worker_url") or "").strip().rstrip("/"),
     }
     if (
         revision < 1
@@ -150,19 +129,13 @@ def _lease_binding(lease: Mapping[str, Any]) -> dict[str, Any]:
         or len(binding["request_fingerprint"]) != 64
         or not binding["worker_url"]
     ):
-        raise RecoveryHubRunEvidenceError(
-            "recovery_hub_run_lease_binding_invalid"
-        )
+        raise RecoveryHubRunEvidenceError("recovery_hub_run_lease_binding_invalid")
     return binding
 
 
 def _latest_execution_event(task: Any) -> dict[str, Any]:
     for value in reversed(list(_value(task, "history") or [])):
-        if (
-            isinstance(value, Mapping)
-            and str(value.get("event_type") or "")
-            == "execution_result"
-        ):
+        if isinstance(value, Mapping) and str(value.get("event_type") or "") == "execution_result":
             return dict(value)
     return {}
 

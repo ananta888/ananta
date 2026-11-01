@@ -16,8 +16,11 @@ class TaskExecutionScratch:
 
     @property
     def environment(self):
-        return {"CUDA_CACHE_PATH": self._directory.name, "CUDA_CACHE_MAXSIZE": "33554432",
-                "TMPDIR": str(self._temporary)}
+        return {
+            "CUDA_CACHE_PATH": self._directory.name,
+            "CUDA_CACHE_MAXSIZE": "33554432",
+            "TMPDIR": str(self._temporary),
+        }
 
     def close(self):
         self._directory.cleanup()

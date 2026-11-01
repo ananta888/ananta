@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 INTEGRATION_GUIDELINES_VERSION = "v1"
 
 INTEGRATION_REQUIREMENTS: list[dict[str, Any]] = [

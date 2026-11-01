@@ -4,11 +4,17 @@ Manages trigger configurations and converts external signals into neutral
 TriggerEvents. No direct worker actions are taken here; the Hub maps
 TriggerEvents to Blueprints/Experts according to policy.
 """
+
 from __future__ import annotations
-import hashlib, hmac, time, uuid
+
+import hashlib
+import hmac
+import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
 
 class TriggerKind(str, Enum):
     SCHEDULE = "schedule"
@@ -18,10 +24,12 @@ class TriggerKind(str, Enum):
     PR_EVENT = "pr_event"
     PIPELINE_EVENT = "pipeline_event"
 
+
 class TriggerStatus(str, Enum):
     ACTIVE = "active"
     PAUSED = "paused"
     DISABLED = "disabled"
+
 
 class TriggerEventStatus(str, Enum):
     PENDING = "pending"
@@ -29,7 +37,9 @@ class TriggerEventStatus(str, Enum):
     REJECTED = "rejected"
     RATE_LIMITED = "rate_limited"
 
+
 ALWAYS_BLOCKED_TRIGGER_KINDS = frozenset()  # none blocked by default
+
 
 @dataclass
 class TriggerConfig:
@@ -37,13 +47,14 @@ class TriggerConfig:
     name: str
     kind: TriggerKind
     status: TriggerStatus
-    scope: str          # "project" | "repo" | "global"
+    scope: str  # "project" | "repo" | "global"
     project_id: str | None
-    blueprint_id: str   # what blueprint to map to
+    blueprint_id: str  # what blueprint to map to
     rate_limit_per_hour: int
-    webhook_secret: str | None   # HMAC-SHA256 secret (None=no external webhooks)
+    webhook_secret: str | None  # HMAC-SHA256 secret (None=no external webhooks)
     allowed_sources: list[str]  # empty=all internal sources allowed
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class TriggerEvent:
@@ -54,7 +65,7 @@ class TriggerEvent:
     project_id: str | None
     correlation_id: str
     source: str
-    payload_hash: str   # SHA-256 of sanitised payload (no secrets stored)
+    payload_hash: str  # SHA-256 of sanitised payload (no secrets stored)
     status: TriggerEventStatus
     blueprint_id: str | None
     created_at: float
@@ -75,11 +86,14 @@ class TriggerEvent:
             "created_at": self.created_at,
         }
 
+
 class TriggerValidationError(ValueError):
     pass
 
+
 class WebhookSignatureError(ValueError):
     pass
+
 
 class TriggerService:
     """
@@ -121,11 +135,16 @@ class TriggerService:
         t.status = TriggerStatus.ACTIVE
         return t
 
-    def fire(self, trigger_id: str, *, source: str = "internal",
-             payload: dict[str, Any] | None = None,
-             correlation_id: str | None = None,
-             webhook_signature: str | None = None,
-             webhook_body: bytes | None = None) -> TriggerEvent:
+    def fire(
+        self,
+        trigger_id: str,
+        *,
+        source: str = "internal",
+        payload: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+        webhook_signature: str | None = None,
+        webhook_body: bytes | None = None,
+    ) -> TriggerEvent:
         """
         Fire a trigger. Returns a TriggerEvent (neutral — no worker action yet).
 
@@ -155,13 +174,15 @@ class TriggerService:
 
         # Rate limit check
         if self._is_rate_limited(trigger_id, t.rate_limit_per_hour):
-            return self._make_event(t, source, corr, payload, TriggerEventStatus.RATE_LIMITED, None,
-                                    "rate_limit_exceeded")
+            return self._make_event(
+                t, source, corr, payload, TriggerEventStatus.RATE_LIMITED, None, "rate_limit_exceeded"
+            )
 
         # Map to blueprint
         self._record_fire(trigger_id)
-        return self._make_event(t, source, corr, payload, TriggerEventStatus.MAPPED, t.blueprint_id,
-                                f"mapped_to_blueprint:{t.blueprint_id}")
+        return self._make_event(
+            t, source, corr, payload, TriggerEventStatus.MAPPED, t.blueprint_id, f"mapped_to_blueprint:{t.blueprint_id}"
+        )
 
     def get_event(self, event_id: str) -> TriggerEvent | None:
         return self._events.get(event_id)
@@ -208,8 +229,16 @@ class TriggerService:
     def _record_fire(self, trigger_id: str) -> None:
         self._rate_counters.setdefault(trigger_id, []).append(time.time())
 
-    def _make_event(self, t: TriggerConfig, source: str, corr: str, payload: dict,
-                    status: TriggerEventStatus, blueprint_id: str | None, note: str) -> TriggerEvent:
+    def _make_event(
+        self,
+        t: TriggerConfig,
+        source: str,
+        corr: str,
+        payload: dict,
+        status: TriggerEventStatus,
+        blueprint_id: str | None,
+        note: str,
+    ) -> TriggerEvent:
         ev = TriggerEvent(
             event_id=str(uuid.uuid4()),
             trigger_id=t.trigger_id,
@@ -227,19 +256,30 @@ class TriggerService:
         self._events[ev.event_id] = ev
         return ev
 
-    def _rejected_event(self, t: TriggerConfig, source: str, corr: str,
-                        payload: dict, reason: str) -> TriggerEvent:
+    def _rejected_event(self, t: TriggerConfig, source: str, corr: str, payload: dict, reason: str) -> TriggerEvent:
         return self._make_event(t, source, corr, payload, TriggerEventStatus.REJECTED, None, reason)
 
 
-def make_trigger(*, name: str, kind: TriggerKind = TriggerKind.MANUAL,
-                 blueprint_id: str = "default", scope: str = "project",
-                 project_id: str | None = None, rate_limit_per_hour: int = 60,
-                 webhook_secret: str | None = None,
-                 allowed_sources: list[str] | None = None) -> TriggerConfig:
+def make_trigger(
+    *,
+    name: str,
+    kind: TriggerKind = TriggerKind.MANUAL,
+    blueprint_id: str = "default",
+    scope: str = "project",
+    project_id: str | None = None,
+    rate_limit_per_hour: int = 60,
+    webhook_secret: str | None = None,
+    allowed_sources: list[str] | None = None,
+) -> TriggerConfig:
     return TriggerConfig(
-        trigger_id=str(uuid.uuid4()), name=name, kind=kind,
-        status=TriggerStatus.ACTIVE, scope=scope, project_id=project_id,
-        blueprint_id=blueprint_id, rate_limit_per_hour=rate_limit_per_hour,
-        webhook_secret=webhook_secret, allowed_sources=list(allowed_sources or []),
+        trigger_id=str(uuid.uuid4()),
+        name=name,
+        kind=kind,
+        status=TriggerStatus.ACTIVE,
+        scope=scope,
+        project_id=project_id,
+        blueprint_id=blueprint_id,
+        rate_limit_per_hour=rate_limit_per_hour,
+        webhook_secret=webhook_secret,
+        allowed_sources=list(allowed_sources or []),
     )

@@ -20,15 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_PROFILE = (
-    ROOT
-    / "config"
-    / "test-profiles"
-    / "kanban-model-dashboard"
-    / "local-performance.v1.json"
-)
+DEFAULT_PROFILE = ROOT / "config" / "test-profiles" / "kanban-model-dashboard" / "local-performance.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts" / "kanban-local-performance-diagnostic.json"
 LOCAL_SCOPE = "local_diagnostic_not_release_evidence"
 
@@ -57,11 +50,7 @@ class LocalProjection:
         return columns
 
     def filter_equivalent(self, view_group: str) -> list[str]:
-        return sorted(
-            task.task_id
-            for task in self._tasks.values()
-            if task.view_group == view_group
-        )
+        return sorted(task.task_id for task in self._tasks.values() if task.view_group == view_group)
 
     def move(self, task_id: str, status: str, command_id: str) -> bool:
         if command_id in self._seen_commands:
@@ -89,11 +78,7 @@ def resident_set_mb() -> float:
         return resident_pages * os.sysconf("SC_PAGE_SIZE") / 1048576.0
     except (FileNotFoundError, IndexError, OSError, ValueError):
         peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        return (
-            peak_rss / 1048576.0
-            if sys.platform == "darwin"
-            else peak_rss / 1024.0
-        )
+        return peak_rss / 1048576.0 if sys.platform == "darwin" else peak_rss / 1024.0
 
 
 def validate_profile(profile: dict[str, Any]) -> None:
@@ -156,9 +141,7 @@ def exercise_events(
         "events_projected": len(projected),
         "lost_events": len(expected - projected),
         "deduped_events": len(events) - len(projected),
-        "event_rate_per_second": (
-            len(events) * max(1, repetitions) / elapsed
-        ),
+        "event_rate_per_second": (len(events) * max(1, repetitions) / elapsed),
     }
 
 
@@ -176,9 +159,7 @@ def measure(profile: dict[str, Any]) -> dict[str, float | int]:
         repeat = max(1, int(operations.get("snapshot", 1)))
         for _ in range(repeat):
             projection.snapshot()
-        snapshot_ms.append(
-            (time.perf_counter() - started) * 1000.0 / repeat
-        )
+        snapshot_ms.append((time.perf_counter() - started) * 1000.0 / repeat)
     rss_samples.append(resident_set_mb())
 
     filter_ms: list[float] = []
@@ -186,12 +167,8 @@ def measure(profile: dict[str, Any]) -> dict[str, float | int]:
         started = time.perf_counter()
         repeat = max(1, int(operations.get("filter_equivalent", 1)))
         for offset in range(repeat):
-            projection.filter_equivalent(
-                views[(index + offset) % len(views)]
-            )
-        filter_ms.append(
-            (time.perf_counter() - started) * 1000.0 / repeat
-        )
+            projection.filter_equivalent(views[(index + offset) % len(views)])
+        filter_ms.append((time.perf_counter() - started) * 1000.0 / repeat)
     rss_samples.append(resident_set_mb())
 
     move_ms: list[float] = []
@@ -205,9 +182,7 @@ def measure(profile: dict[str, Any]) -> dict[str, float | int]:
                 statuses[(operation + 1) % len(statuses)],
                 f"move-command-{operation:08d}",
             )
-        move_ms.append(
-            (time.perf_counter() - started) * 1000.0 / repeat
-        )
+        move_ms.append((time.perf_counter() - started) * 1000.0 / repeat)
     rss_samples.append(resident_set_mb())
 
     event_metrics = exercise_events(
@@ -236,15 +211,12 @@ def evaluate_absolute(
     budgets: dict[str, float | int],
 ) -> dict[str, Any]:
     checks = {
-        "snapshot_p95_ms": measurements["snapshot_p95_ms"]
-        <= budgets["snapshot_p95_ms"],
+        "snapshot_p95_ms": measurements["snapshot_p95_ms"] <= budgets["snapshot_p95_ms"],
         "move_p95_ms": measurements["move_p95_ms"] <= budgets["move_p95_ms"],
-        "filter_equivalent_p95_ms": measurements["filter_equivalent_p95_ms"]
-        <= budgets["filter_equivalent_p95_ms"],
+        "filter_equivalent_p95_ms": measurements["filter_equivalent_p95_ms"] <= budgets["filter_equivalent_p95_ms"],
         "peak_rss_mb": measurements["peak_rss_mb"] <= budgets["peak_rss_mb"],
         "lost_events": measurements["lost_events"] <= budgets["lost_events_max"],
-        "event_rate_per_second": measurements["event_rate_per_second"]
-        >= budgets["event_rate_min_per_second"],
+        "event_rate_per_second": measurements["event_rate_per_second"] >= budgets["event_rate_min_per_second"],
     }
     return {"within_budget": all(checks.values()), "checks": checks}
 
@@ -265,16 +237,11 @@ def evaluate_baseline(
         "filter_equivalent_p95_ms",
         "peak_rss_mb",
     )
-    checks = {
-        key: float(measurements[key]) <= float(prior[key]) * upper_factor
-        for key in lower_is_better
-    }
+    checks = {key: float(measurements[key]) <= float(prior[key]) * upper_factor for key in lower_is_better}
     checks["event_rate_per_second"] = float(measurements["event_rate_per_second"]) >= (
         float(prior["event_rate_per_second"]) * lower_factor
     )
-    checks["lost_events"] = int(measurements["lost_events"]) <= int(
-        prior["lost_events"]
-    )
+    checks["lost_events"] = int(measurements["lost_events"]) <= int(prior["lost_events"])
     return {
         "evaluated": True,
         "max_regression_percent": regression_percent,
@@ -297,8 +264,7 @@ def build_report(
         float(profile["max_baseline_regression_percent"]),
     )
     locally_within = absolute["within_budget"] and (
-        not baseline_evaluation["evaluated"]
-        or baseline_evaluation["within_regression_limit"]
+        not baseline_evaluation["evaluated"] or baseline_evaluation["within_regression_limit"]
     )
     return {
         "schema": "ananta.kanban-local-performance-diagnostic.v1",
@@ -311,9 +277,7 @@ def build_report(
             "latencies": "batched_operation_time_per_operation",
         },
         "diagnostic_status": (
-            "within_local_budgets_without_surface_evidence"
-            if locally_within
-            else "outside_local_budgets"
+            "within_local_budgets_without_surface_evidence" if locally_within else "outside_local_budgets"
         ),
         "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
         "measurements": measurements,
@@ -324,9 +288,7 @@ def build_report(
 
 def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
-    )
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
@@ -366,10 +328,7 @@ def main() -> int:
     return (
         0
         if report["absolute_evaluation"]["within_budget"]
-        and (
-            not report["baseline_evaluation"]["evaluated"]
-            or report["baseline_evaluation"]["within_regression_limit"]
-        )
+        and (not report["baseline_evaluation"]["evaluated"] or report["baseline_evaluation"]["within_regression_limit"])
         else 1
     )
 

@@ -146,7 +146,9 @@ def test_mock_imap_integration_reports_timeout_login_and_tls_required_errors() -
     login_service = ImapConnectorService(client_factory=_Factory(_RecordingImapClient(fail_on_connect="login")))
     timeout = timeout_service.connect_account(account=_account(), credential="token", username="alice")
     login = login_service.connect_account(account=_account(), credential="token", username="alice")
-    tls_required = login_service.connect_account(account=_account(tls_mode="none"), credential="token", username="alice")
+    tls_required = login_service.connect_account(
+        account=_account(tls_mode="none"), credential="token", username="alice"
+    )
     assert timeout["ok"] is False
     assert timeout["reason_code"] == "imap_connect_timeout"
     assert login["ok"] is False

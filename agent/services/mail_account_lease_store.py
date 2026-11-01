@@ -108,11 +108,7 @@ class InMemoryMailAccountLeaseStore:
         del now
         with self._lock:
             current = next(
-                (
-                    lease
-                    for lease in self._by_account.values()
-                    if lease.job_id == job_id
-                ),
+                (lease for lease in self._by_account.values() if lease.job_id == job_id),
                 None,
             )
             if current is None or current.fencing_token != int(fencing_token):
@@ -136,12 +132,7 @@ class DatabaseMailAccountLeaseStore:
 
     @staticmethod
     def _lease(task: Any) -> dict[str, Any]:
-        return dict(
-            DatabaseMailAccountLeaseStore._context(task)
-            .get("mail_task_control", {})
-            .get("lease", {})
-            or {}
-        )
+        return dict(DatabaseMailAccountLeaseStore._context(task).get("mail_task_control", {}).get("lease", {}) or {})
 
     @staticmethod
     def _locked_rows(session):

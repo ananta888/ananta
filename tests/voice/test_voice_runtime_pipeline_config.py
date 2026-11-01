@@ -137,11 +137,13 @@ def test_app_composition_injects_the_configured_resource_ceiling():
 
 
 def test_app_composition_uses_separate_total_stream_timeout():
-    app = create_app(VoiceRuntimeConfig(
-        enable_streaming=True,
-        stream_timeout_sec=245,
-        backend_fallback_order=("mock",),
-    ))
+    app = create_app(
+        VoiceRuntimeConfig(
+            enable_streaming=True,
+            stream_timeout_sec=245,
+            backend_fallback_order=("mock",),
+        )
+    )
 
     manager = app.config["voice_runtime_stream_manager"]
 

@@ -177,9 +177,7 @@ class MlInternTrainingReadModelService:
 
     @staticmethod
     def event(event: MlInternTrainingEventDB) -> dict[str, Any]:
-        payload = MlInternTrainingReadModelService._safe_event_payload(
-            dict(event.payload or {})
-        )
+        payload = MlInternTrainingReadModelService._safe_event_payload(dict(event.payload or {}))
         metric = {
             "step": payload.get("current_step"),
             "max_steps": payload.get("max_steps"),
@@ -218,12 +216,8 @@ class MlInternTrainingReadModelService:
                 return child if math.isfinite(child) else None
             if isinstance(child, str):
                 candidate = child.strip()
-                if (
-                    candidate.startswith(("/", "file://", "\\\\"))
-                    or (
-                        len(candidate) >= 3
-                        and candidate[1:3] in {":\\", ":/"}
-                    )
+                if candidate.startswith(("/", "file://", "\\\\")) or (
+                    len(candidate) >= 3 and candidate[1:3] in {":\\", ":/"}
                 ):
                     return None
                 return child[:512]

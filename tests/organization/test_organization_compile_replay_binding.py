@@ -35,12 +35,15 @@ def _bound_plan(service: OrganizationCompileApplicationService) -> tuple[dict, d
         "title": "Organization One",
     }
     client_plan = {
-        **{key: bound[key] for key in (
-            "organization_id",
-            "definition_revision",
-            "plan_digest",
-            "admin_policy_hash",
-        )},
+        **{
+            key: bound[key]
+            for key in (
+                "organization_id",
+                "definition_revision",
+                "plan_digest",
+                "admin_policy_hash",
+            )
+        },
         "compile_token": service._signer.dumps(bound),
     }
     return bound, client_plan
@@ -60,12 +63,15 @@ def test_replay_binding_keeps_signature_and_scope_checks_but_ignores_only_ttl() 
         )
 
     assert exc.value.reason_code == "organization_compile_plan_expired"
-    assert service.verify_replay_binding(
-        tenant_id="tenant-1",
-        project_id="project-1",
-        principal_id="operator-1",
-        client_plan=client_plan,
-    ) == bound
+    assert (
+        service.verify_replay_binding(
+            tenant_id="tenant-1",
+            project_id="project-1",
+            principal_id="operator-1",
+            client_plan=client_plan,
+        )
+        == bound
+    )
 
 
 @pytest.mark.parametrize(

@@ -5,6 +5,7 @@ Audio -> ``AudioDecisionProvider.decide`` -> ``DecisionOutcome`` -> ``gate_audio
 environment; with ``VOICE_AUDIO_DECISION_ENABLED`` off nothing else is read and the service is
 never contacted. Audit projections carry no audio, transcript, label or key.
 """
+
 from __future__ import annotations
 
 import os

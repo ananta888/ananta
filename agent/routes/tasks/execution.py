@@ -6,6 +6,7 @@ from agent.auth import check_auth
 from agent.cli_backends.sgpt import run_llm_cli_command
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.context_profile import assigned_window_scope
 from agent.llm_integration import _call_llm
 from agent.metrics import TASK_COMPLETED, TASK_FAILED
 from agent.models import TaskStepExecuteRequest, TaskStepProposeRequest
@@ -18,7 +19,6 @@ from agent.services.knowledge_index_dispatch_request_auth_policy import (
 from agent.services.service_registry import get_core_services
 from agent.tools import registry as tool_registry
 from agent.utils import validate_request
-from agent.context_profile import assigned_window_scope
 
 execution_bp = Blueprint("tasks_execution", __name__)
 
@@ -50,8 +50,11 @@ def _accepted_codecompass_capability(data: TaskStepProposeRequest | TaskStepExec
     """A step's CodeCompass capability: accepted on a worker from the Hub only (WCRB-009)."""
     from agent.config import settings
 
-    return accepted_capability(getattr(data, "codecompass_capability", None), role=settings.role,
-                               service_authenticated=bool(getattr(g, "auth_payload", None)))
+    return accepted_capability(
+        getattr(data, "codecompass_capability", None),
+        role=settings.role,
+        service_authenticated=bool(getattr(g, "auth_payload", None)),
+    )
 
 
 def _knowledge_index_dispatch_auth_error(
@@ -76,12 +79,7 @@ def _knowledge_index_dispatch_auth_error(
             "task_id": str(task_id or ""),
             "phase": str(phase or ""),
             "reason_code": reason_code,
-            "auth_mode": str(
-                dict(getattr(g, "auth_payload", {}) or {}).get(
-                    "auth_mode"
-                )
-                or "user_jwt"
-            ),
+            "auth_mode": str(dict(getattr(g, "auth_payload", {}) or {}).get("auth_mode") or "user_jwt"),
         },
     )
     return api_response(
@@ -90,7 +88,6 @@ def _knowledge_index_dispatch_auth_error(
         data={"reason_code": reason_code},
         code=403,
     )
-
 
 
 @execution_bp.route("/step/propose", methods=["POST"])
@@ -167,8 +164,11 @@ def task_propose(tid):
         phase="propose",
     ):
         return error
-    with task_capability_scope(_accepted_codecompass_capability(data), task_id=tid), \
-            assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
+    with (
+        task_capability_scope(_accepted_codecompass_capability(data), task_id=tid),
+        assigned_window_scope(getattr(data, "context_window", None)),
+        _task_request_context(tid),
+    ):
         try:
             outcome = run_wall_bounded(
                 lambda: _services().task_scoped_execution_service.propose_task_step(
@@ -216,8 +216,11 @@ def task_execute(tid):
         phase="execute",
     ):
         return error
-    with task_capability_scope(_accepted_codecompass_capability(data), task_id=tid), \
-            assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
+    with (
+        task_capability_scope(_accepted_codecompass_capability(data), task_id=tid),
+        assigned_window_scope(getattr(data, "context_window", None)),
+        _task_request_context(tid),
+    ):
         try:
             outcome = run_wall_bounded(
                 lambda: _services().task_scoped_execution_service.execute_task_step(

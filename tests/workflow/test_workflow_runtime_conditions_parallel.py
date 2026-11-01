@@ -96,8 +96,7 @@ def test_condition_depth_and_node_limits_fail_closed_without_recursion_error() -
 def test_condition_fuzz_corpus_never_executes_or_raises() -> None:
     evaluator = DeclarativeConditionEvaluator(maximum_depth=8, maximum_nodes=32)
     corpus = [None, []] + [
-        {"op": value, "field": value, "value": value}
-        for value in ("", "python", "${7*7}", "__class__", "a" * 10_000)
+        {"op": value, "field": value, "value": value} for value in ("", "python", "${7*7}", "__class__", "a" * 10_000)
     ]
     for candidate in corpus:
         result = evaluator.evaluate(candidate, {"safe": True})  # type: ignore[arg-type]
@@ -168,9 +167,7 @@ def test_merge_policy_is_validated_before_branch_status_is_interpreted() -> None
 def test_plan_limit_and_running_group_capacity_are_both_enforced() -> None:
     scheduler = BoundedFanOutScheduler()
     value = plan()
-    limited = ExecutionPlan.from_mapping(
-        {**value.to_dict(include_hash=False), "metadata": {"parallel_limit": 1}}
-    )
+    limited = ExecutionPlan.from_mapping({**value.to_dict(include_hash=False), "metadata": {"parallel_limit": 1}})
     group_raw = value.to_dict(include_hash=False)
     group_raw["nodes"][0]["metadata"]["parallel_limit"] = 1
     group_raw["nodes"][1]["metadata"]["parallel_limit"] = 1

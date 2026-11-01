@@ -52,4 +52,3 @@ def create_enrollment_request(
     canonical = json.dumps(proof_fields, sort_keys=True, separators=(",", ":")).encode("ascii")
     signature = private_key.sign(b"ananta.turn-observer-proof.v1\x00" + canonical)
     return {**proof_fields, "proof_signature": base64.b64encode(signature).decode("ascii")}
-

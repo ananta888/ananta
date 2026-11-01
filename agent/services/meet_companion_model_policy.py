@@ -38,25 +38,36 @@ class HubCompanionModelPolicy:
 
     def authorize(self, scope, backend, model):
         profile = self.app.config.get("MEET_COMPANION_ASSIGNED_MODEL_PROFILE")
-        if (not isinstance(profile, dict)
-                or set(profile) != {"backend", "model", "environment_digest", "auto_execute"}
-                or profile["auto_execute"] is not True or not isinstance(backend, str)
-                or backend not in {"ollama", "openai"}
-                or backend != profile["backend"] or model != profile["model"]
-                or not isinstance(model, str) or not 1 <= len(model) <= 160
-                or not isinstance(profile["environment_digest"], str)
-                or not re.fullmatch(r"[a-f0-9]{64}", profile["environment_digest"])):
+        if (
+            not isinstance(profile, dict)
+            or set(profile) != {"backend", "model", "environment_digest", "auto_execute"}
+            or profile["auto_execute"] is not True
+            or not isinstance(backend, str)
+            or backend not in {"ollama", "openai"}
+            or backend != profile["backend"]
+            or model != profile["model"]
+            or not isinstance(model, str)
+            or not 1 <= len(model) <= 160
+            or not isinstance(profile["environment_digest"], str)
+            or not re.fullmatch(r"[a-f0-9]{64}", profile["environment_digest"])
+        ):
             raise MeetError("meet_companion_model_profile_denied", 403)
         try:
-            principal = HubSourcePrincipal(scope.machine_subject, scope.tenant_id,
-                                           scope.project_id, frozenset({"agent"}))
-            capability = verify_retrieval_capability(resolve_request_capability(
-                application=self.app, principal=principal, requested_scope={}))
+            principal = HubSourcePrincipal(
+                scope.machine_subject, scope.tenant_id, scope.project_id, frozenset({"agent"})
+            )
+            capability = verify_retrieval_capability(
+                resolve_request_capability(application=self.app, principal=principal, requested_scope={})
+            )
             if not re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", capability["revision"]):
                 raise ValueError()
         except (TypeError, ValueError):
             raise MeetError("meet_companion_model_scope_denied", 403) from None
-        stable = {key: value for key, value in capability.items()
-                  if key not in {"issued_at_epoch", "expires_at_epoch", "capability_digest"}}
-        return CompanionModelPermit(digest({"profile": profile, "scope": stable}), capability["revision"],
-                                     profile["environment_digest"])
+        stable = {
+            key: value
+            for key, value in capability.items()
+            if key not in {"issued_at_epoch", "expires_at_epoch", "capability_digest"}
+        }
+        return CompanionModelPermit(
+            digest({"profile": profile, "scope": stable}), capability["revision"], profile["environment_digest"]
+        )

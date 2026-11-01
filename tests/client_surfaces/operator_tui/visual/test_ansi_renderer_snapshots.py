@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from client_surfaces.operator_tui.visual.renderers.ansi_renderer import AnsiBlocksRenderer
 from client_surfaces.operator_tui.visual.renderers.base_renderer import RenderContext
+from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
 from client_surfaces.operator_tui.visual.views.base_view import ViewContext
 from client_surfaces.operator_tui.visual.views.logo_animation_view import LogoAnimationView
 from client_surfaces.operator_tui.visual.views.renderer_diagnostics_view import RendererDiagnosticsView
 from client_surfaces.operator_tui.visual.views.snake_debug_view import SnakeDebugView
-from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
 
 
 def _region() -> ViewportRegion:
@@ -47,7 +47,12 @@ def test_ansi_snapshot_snake_debug_view() -> None:
         },
     )
 
-    assert payload[:4] == ["heuristic=follow_mouse  ", "confidence=0.77         ", "                        ", "◎ target                "]
+    assert payload[:4] == [
+        "heuristic=follow_mouse  ",
+        "confidence=0.77         ",
+        "                        ",
+        "◎ target                ",
+    ]
     assert all("\x1b_G" not in line and "\x1bPq" not in line for line in payload)
 
 
@@ -67,6 +72,7 @@ def test_ansi_snapshot_renderer_diagnostics_view() -> None:
     )
 
     import re
+
     stripped = [re.sub(r"\x1b\[[0-9;]*m", "", l).strip() for l in payload]
     # Diagnostics view now shows structured sections
     assert any("Renderer" in l or "renderer" in l.lower() for l in stripped)

@@ -30,12 +30,7 @@ def run_payload_digest(run_request: Mapping[str, Any]) -> str:
 
 
 def contract_schema_digest() -> str:
-    path = (
-        Path(__file__).resolve().parents[3]
-        / "schemas"
-        / "hrm-experiments"
-        / "contracts.v1.json"
-    )
+    path = Path(__file__).resolve().parents[3] / "schemas" / "hrm-experiments" / "contracts.v1.json"
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 

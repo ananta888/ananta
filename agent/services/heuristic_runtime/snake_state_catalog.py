@@ -3,6 +3,7 @@
 SnakeState enumerates all valid operational states of the TUI AI snake.
 Invalid transitions are prevented via VALID_TRANSITIONS.
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -62,9 +63,7 @@ class SnakeState(str, Enum):
             return cls(value)
         except ValueError:
             valid = ", ".join(s.value for s in cls)
-            raise ValueError(
-                f"Unknown snake_state {value!r}. Valid values: {valid}"
-            ) from None
+            raise ValueError(f"Unknown snake_state {value!r}. Valid values: {valid}") from None
 
 
 # Allowed transitions: source → set of reachable states
@@ -72,36 +71,57 @@ class SnakeState(str, Enum):
 _T = SnakeState
 
 VALID_TRANSITIONS: dict[SnakeState, frozenset[SnakeState]] = {
-    _T.DISABLED:              frozenset({_T.FOLLOW_USER, _T.OBSERVE_ONLY, _T.PAUSED}),
-    _T.PAUSED:                frozenset({_T.FOLLOW_USER, _T.OBSERVE_ONLY, _T.HEURISTIC_FALLBACK,
-                                          _T.CANDIDATE_SHADOW_TEST, _T.CANDIDATE_AUTO_ACTIVE,
-                                          _T.DISABLED}),
-    _T.OBSERVE_ONLY:          frozenset({_T.FOLLOW_USER, _T.PAUSED, _T.DISABLED}),
-    _T.FOLLOW_USER:           frozenset({_T.PAUSED, _T.MOVE_TO_ARTIFACT, _T.HEURISTIC_FALLBACK,
-                                          _T.WAITING_FOR_AI, _T.CANDIDATE_SHADOW_TEST,
-                                          _T.CANDIDATE_AUTO_ACTIVE, _T.DISABLED, _T.QUARANTINED}),
-    _T.INSPECT_ARTIFACT:      frozenset({_T.FOLLOW_USER, _T.EXPLAIN_ARTIFACT, _T.CHAT_WITH_USER,
-                                          _T.PAUSED, _T.DISABLED}),
-    _T.MOVE_TO_ARTIFACT:      frozenset({_T.EXPLAIN_ARTIFACT, _T.FOLLOW_USER, _T.PAUSED,
-                                          _T.DISABLED, _T.QUARANTINED}),
-    _T.EXPLAIN_ARTIFACT:      frozenset({_T.CHAT_WITH_USER, _T.FOLLOW_USER, _T.PAUSED, _T.DISABLED}),
-    _T.CHAT_WITH_USER:        frozenset({_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK, _T.PAUSED,
-                                          _T.DISABLED}),
-    _T.WAITING_FOR_AI:        frozenset({_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK, _T.PAUSED,
-                                          _T.DISABLED, _T.ERROR}),
-    _T.HEURISTIC_FALLBACK:    frozenset({_T.FOLLOW_USER, _T.WAITING_FOR_AI, _T.PAUSED,
-                                          _T.CANDIDATE_SHADOW_TEST, _T.CANDIDATE_AUTO_ACTIVE,
-                                          _T.QUARANTINED, _T.DISABLED}),
-    _T.CANDIDATE_SHADOW_TEST: frozenset({_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK,
-                                          _T.CANDIDATE_ROLLOUT, _T.QUARANTINED,
-                                          _T.PAUSED, _T.DISABLED}),
-    _T.CANDIDATE_ROLLOUT:     frozenset({_T.CANDIDATE_AUTO_ACTIVE, _T.HEURISTIC_FALLBACK,
-                                          _T.QUARANTINED, _T.PAUSED, _T.DISABLED}),
-    _T.CANDIDATE_AUTO_ACTIVE: frozenset({_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK,
-                                          _T.QUARANTINED, _T.PAUSED, _T.DISABLED}),
-    _T.QUARANTINED:           frozenset({_T.HEURISTIC_FALLBACK, _T.FOLLOW_USER,
-                                          _T.DISABLED, _T.PAUSED}),
-    _T.ERROR:                 frozenset({_T.DISABLED, _T.PAUSED}),
+    _T.DISABLED: frozenset({_T.FOLLOW_USER, _T.OBSERVE_ONLY, _T.PAUSED}),
+    _T.PAUSED: frozenset(
+        {
+            _T.FOLLOW_USER,
+            _T.OBSERVE_ONLY,
+            _T.HEURISTIC_FALLBACK,
+            _T.CANDIDATE_SHADOW_TEST,
+            _T.CANDIDATE_AUTO_ACTIVE,
+            _T.DISABLED,
+        }
+    ),
+    _T.OBSERVE_ONLY: frozenset({_T.FOLLOW_USER, _T.PAUSED, _T.DISABLED}),
+    _T.FOLLOW_USER: frozenset(
+        {
+            _T.PAUSED,
+            _T.MOVE_TO_ARTIFACT,
+            _T.HEURISTIC_FALLBACK,
+            _T.WAITING_FOR_AI,
+            _T.CANDIDATE_SHADOW_TEST,
+            _T.CANDIDATE_AUTO_ACTIVE,
+            _T.DISABLED,
+            _T.QUARANTINED,
+        }
+    ),
+    _T.INSPECT_ARTIFACT: frozenset({_T.FOLLOW_USER, _T.EXPLAIN_ARTIFACT, _T.CHAT_WITH_USER, _T.PAUSED, _T.DISABLED}),
+    _T.MOVE_TO_ARTIFACT: frozenset({_T.EXPLAIN_ARTIFACT, _T.FOLLOW_USER, _T.PAUSED, _T.DISABLED, _T.QUARANTINED}),
+    _T.EXPLAIN_ARTIFACT: frozenset({_T.CHAT_WITH_USER, _T.FOLLOW_USER, _T.PAUSED, _T.DISABLED}),
+    _T.CHAT_WITH_USER: frozenset({_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK, _T.PAUSED, _T.DISABLED}),
+    _T.WAITING_FOR_AI: frozenset({_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK, _T.PAUSED, _T.DISABLED, _T.ERROR}),
+    _T.HEURISTIC_FALLBACK: frozenset(
+        {
+            _T.FOLLOW_USER,
+            _T.WAITING_FOR_AI,
+            _T.PAUSED,
+            _T.CANDIDATE_SHADOW_TEST,
+            _T.CANDIDATE_AUTO_ACTIVE,
+            _T.QUARANTINED,
+            _T.DISABLED,
+        }
+    ),
+    _T.CANDIDATE_SHADOW_TEST: frozenset(
+        {_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK, _T.CANDIDATE_ROLLOUT, _T.QUARANTINED, _T.PAUSED, _T.DISABLED}
+    ),
+    _T.CANDIDATE_ROLLOUT: frozenset(
+        {_T.CANDIDATE_AUTO_ACTIVE, _T.HEURISTIC_FALLBACK, _T.QUARANTINED, _T.PAUSED, _T.DISABLED}
+    ),
+    _T.CANDIDATE_AUTO_ACTIVE: frozenset(
+        {_T.FOLLOW_USER, _T.HEURISTIC_FALLBACK, _T.QUARANTINED, _T.PAUSED, _T.DISABLED}
+    ),
+    _T.QUARANTINED: frozenset({_T.HEURISTIC_FALLBACK, _T.FOLLOW_USER, _T.DISABLED, _T.PAUSED}),
+    _T.ERROR: frozenset({_T.DISABLED, _T.PAUSED}),
 }
 
 # Every state can also transition to ERROR

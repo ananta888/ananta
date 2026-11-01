@@ -14,9 +14,7 @@ from typing import Final
 DOMAIN_SUPPLEMENT_OUTPUT_ROLE: Final = "graph_domain_supplement"
 DOMAIN_SUPPLEMENT_FILENAME: Final = "cc_graph_domains.sqlite3"
 DOMAIN_SUPPLEMENT_SCHEMA: Final = "codecompass_graph_domain_supplement.v1"
-DOMAIN_SUPPLEMENT_MEDIA_TYPE: Final = (
-    "application/vnd.ananta.codecompass-domain-supplement+sqlite3"
-)
+DOMAIN_SUPPLEMENT_MEDIA_TYPE: Final = "application/vnd.ananta.codecompass-domain-supplement+sqlite3"
 DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID: Final = 0x414E4343  # ANCC
 DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION: Final = 1
 DOMAIN_SUPPLEMENT_PAYLOAD_KINDS: Final = (
@@ -36,9 +34,7 @@ DOMAIN_SUPPLEMENT_DOMAIN_LOGICAL_FIELDS: Final = (
     "semantic_edge_bytes",
     "declaration_edge_bytes",
 )
-DOMAIN_SUPPLEMENT_LOGICAL_HASH_PREFIX: Final = (
-    b"codecompass_graph_domain_supplement.logical.v1\n"
-)
+DOMAIN_SUPPLEMENT_LOGICAL_HASH_PREFIX: Final = b"codecompass_graph_domain_supplement.logical.v1\n"
 
 
 def codecompass_domain_supplement_canonical_json_bytes(value: object) -> bytes:
@@ -68,10 +64,7 @@ def codecompass_domain_supplement_logical_domain(
 ) -> dict[str, object]:
     """Project exactly the stable domain fields covered by the logical hash."""
 
-    return {
-        field: values[field]
-        for field in DOMAIN_SUPPLEMENT_DOMAIN_LOGICAL_FIELDS
-    }
+    return {field: values[field] for field in DOMAIN_SUPPLEMENT_DOMAIN_LOGICAL_FIELDS}
 
 
 def codecompass_domain_supplement_logical_chunk_header(

@@ -1,7 +1,8 @@
 """Core Metrics Engine (SIM-025)."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from simulation.models.world_state import WorldState

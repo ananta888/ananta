@@ -9,7 +9,9 @@ from agent.services.planning_learning_loop_service import start_planning_learnin
 def _planning_learning_enabled(app) -> bool:
     agent_cfg = app.config.get("AGENT_CONFIG") or {}
     planning_policy = agent_cfg.get("planning_policy") if isinstance(agent_cfg.get("planning_policy"), dict) else {}
-    learning_loop = planning_policy.get("learning_loop") if isinstance(planning_policy.get("learning_loop"), dict) else {}
+    learning_loop = (
+        planning_policy.get("learning_loop") if isinstance(planning_policy.get("learning_loop"), dict) else {}
+    )
     return bool(learning_loop.get("enabled", False))
 
 

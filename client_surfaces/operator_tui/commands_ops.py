@@ -10,12 +10,12 @@ from client_surfaces.common.workflow_runtime_projection import (
     require_operations_list,
 )
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
-from client_surfaces.operator_tui.ops_api_client import OpsApiClient
 from client_surfaces.operator_tui.operation_policy_inventory import (
     filter_operation_policy_inventory,
     normalize_operation_policy_inventory,
     render_operation_policy_rows,
 )
+from client_surfaces.operator_tui.ops_api_client import OpsApiClient
 
 
 def handle_ops_command(args: list[str], state: OperatorState) -> CommandResult:
@@ -92,12 +92,7 @@ def _token_from_state(state: OperatorState) -> str:
     if token:
         return token
     header = dict(state.header_logo_game or {})
-    return str(
-        header.get("token")
-        or header.get("auth_token")
-        or os.environ.get("ANANTA_AUTH_TOKEN")
-        or ""
-    )
+    return str(header.get("token") or header.get("auth_token") or os.environ.get("ANANTA_AUTH_TOKEN") or "")
 
 
 def _handle_runtime_ops(args: list[str], state: OperatorState, client: OpsApiClient) -> CommandResult:

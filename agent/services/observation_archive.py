@@ -31,8 +31,12 @@ class ObservationScope:
     run_id: str
 
     def assert_valid(self) -> None:
-        for name, value in (("tenant_id", self.tenant_id), ("project_id", self.project_id),
-                            ("task_id", self.task_id), ("run_id", self.run_id)):
+        for name, value in (
+            ("tenant_id", self.tenant_id),
+            ("project_id", self.project_id),
+            ("task_id", self.task_id),
+            ("run_id", self.run_id),
+        ):
             if not isinstance(value, str) or not value or len(value) > 200:
                 raise ValueError(f"observation_scope_{name}_invalid")
 
@@ -52,8 +56,14 @@ class ObservationHandle:
     preview: str
 
     def to_mapping(self) -> dict:
-        return {"handle_id": self.handle_id, "digest": self.digest, "byte_size": self.byte_size,
-                "token_estimate": self.token_estimate, "media_type": self.media_type, "preview": self.preview}
+        return {
+            "handle_id": self.handle_id,
+            "digest": self.digest,
+            "byte_size": self.byte_size,
+            "token_estimate": self.token_estimate,
+            "media_type": self.media_type,
+            "preview": self.preview,
+        }
 
 
 @dataclass
@@ -65,8 +75,9 @@ class ObservationArchive:
     preview_chars: int = DEFAULT_PREVIEW_CHARS
     clock: Callable[[], float] | None = None
 
-    def store_observation(self, scope: ObservationScope, content: str, *, media_type: str = "text/plain",
-                          preview_chars: int | None = None) -> ObservationHandle:
+    def store_observation(
+        self, scope: ObservationScope, content: str, *, media_type: str = "text/plain", preview_chars: int | None = None
+    ) -> ObservationHandle:
         scope.assert_valid()
         if not isinstance(content, str):
             raise ValueError("observation_content_invalid")
@@ -80,9 +91,15 @@ class ObservationArchive:
         width = preview_chars if preview_chars is not None else self.preview_chars
         if type(width) is not int or not 0 <= width <= 4000:
             raise ValueError("observation_preview_width_invalid")
-        return ObservationHandle(handle_id=handle_id, scope_key=scope_key, digest=digest,
-                                 byte_size=len(content.encode("utf-8")), token_estimate=_token_estimate(content),
-                                 media_type=media_type, preview=content[:width])
+        return ObservationHandle(
+            handle_id=handle_id,
+            scope_key=scope_key,
+            digest=digest,
+            byte_size=len(content.encode("utf-8")),
+            token_estimate=_token_estimate(content),
+            media_type=media_type,
+            preview=content[:width],
+        )
 
     def recall(self, scope: ObservationScope, handle_id: str) -> str:
         scope.assert_valid()

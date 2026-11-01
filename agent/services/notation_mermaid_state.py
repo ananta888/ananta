@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from agent.services.notation_renderer_common import (
-    NotationRenderError,
     _PSEUDOSTATE,
+    NotationRenderError,
     _as_dict_entries,
     _as_list,
     _as_str,
@@ -16,9 +16,7 @@ def _render_mermaid_state(params: dict[str, Any]) -> tuple[str, str]:
     diagram_title = _as_str(params.get("diagram_title", "") or "", field="diagram_title")
     direction = _as_str(params.get("direction", "TB"), field="direction")
     if direction not in {"TB", "BT", "LR", "RL"}:
-        raise NotationRenderError(
-            f"direction must be one of TB/BT/LR/RL, got {direction!r}"
-        )
+        raise NotationRenderError(f"direction must be one of TB/BT/LR/RL, got {direction!r}")
     states_raw = _as_list(params.get("states"), field="states")
     if not states_raw:
         raise NotationRenderError("states must be a non-empty list")
@@ -40,18 +38,13 @@ def _render_mermaid_state(params: dict[str, Any]) -> tuple[str, str]:
         if nested:
             for nid in nested:
                 if not isinstance(nid, str):
-                    raise NotationRenderError(
-                        f"states[{sid!r}].nested entries must be strings"
-                    )
+                    raise NotationRenderError(f"states[{sid!r}].nested entries must be strings")
             composite[sid] = list(nested)
 
     for sid, children in composite.items():
         for cid in children:
             if cid not in seen_ids:
-                raise NotationRenderError(
-                    f"composite state {sid!r} references unknown nested "
-                    f"state {cid!r}"
-                )
+                raise NotationRenderError(f"composite state {sid!r} references unknown nested state {cid!r}")
 
     seen_transitions: set[tuple[str, str]] = set()
     for t in transitions:
@@ -60,20 +53,14 @@ def _render_mermaid_state(params: dict[str, Any]) -> tuple[str, str]:
         if frm != _PSEUDOSTATE:
             _check_identifier(frm, field="transitions[].from")
             if frm not in seen_ids:
-                raise NotationRenderError(
-                    f"transition from {frm!r} references unknown state"
-                )
+                raise NotationRenderError(f"transition from {frm!r} references unknown state")
         if to != _PSEUDOSTATE:
             _check_identifier(to, field="transitions[].to")
             if to not in seen_ids:
-                raise NotationRenderError(
-                    f"transition to {to!r} references unknown state"
-                )
+                raise NotationRenderError(f"transition to {to!r} references unknown state")
         key = (frm, to)
         if key in seen_transitions:
-            raise NotationRenderError(
-                f"duplicate transition {frm!r} -> {to!r}"
-            )
+            raise NotationRenderError(f"duplicate transition {frm!r} -> {to!r}")
         seen_transitions.add(key)
 
     lines: list[str] = ["stateDiagram-v2"]

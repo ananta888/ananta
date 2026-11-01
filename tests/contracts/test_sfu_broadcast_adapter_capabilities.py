@@ -5,9 +5,9 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from agent.services.sfu_broadcast_capability_port import (
-    AdapterPathRequirement,
     BASE006_ARTIFACT_PATH,
     BASE006_GATE_ID,
+    AdapterPathRequirement,
     Base006BroadcastCapabilityAdapter,
     CapabilityKind,
     CapabilityReasonCode,
@@ -151,9 +151,7 @@ def test_adapter_paths_fail_closed_and_media_path_cannot_drop_e2ee() -> None:
             carries_media=True,
         )
     )
-    queue = gate.adapter_path_decision(
-        AdapterPathRequirement("runtime-queue", (CapabilityKind.QUEUE_HOOK,))
-    )
+    queue = gate.adapter_path_decision(AdapterPathRequirement("runtime-queue", (CapabilityKind.QUEUE_HOOK,)))
     unbounded = gate.adapter_path_decision(AdapterPathRequirement("unknown", ()))
 
     assert not media.adapter_allowed

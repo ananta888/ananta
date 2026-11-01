@@ -11,6 +11,7 @@ This module is *the* import-edge invariant. It is small, capability-based
 and intentionally framework-free so it can be unit-tested in isolation
 and called from CLI, worker, or Hub policy layer.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,8 @@ if TYPE_CHECKING:
 
 try:
     import jsonschema
-    from referencing import Registry as _Registry, Resource
+    from referencing import Registry as _Registry
+    from referencing import Resource
 except ImportError:  # pragma: no cover -- keep import light
     jsonschema = None  # type: ignore[assignment]
     _Registry = None  # type: ignore[assignment]
@@ -57,6 +59,7 @@ _SECRET_PATTERNS = (
 @dataclass(frozen=True)
 class ValidationFailure:
     """A single fail-closed validation error."""
+
     path: str
     reason: str
     detail: str | None = None
@@ -117,8 +120,11 @@ def _get_registry() -> Registry | None:
 
 def _validate_against_schema(payload: dict[str, Any], schema: dict[str, Any]) -> list[ValidationFailure]:
     if jsonschema is None:
-        return [ValidationFailure(path="", reason="jsonschema_unavailable",
-                                  detail="jsonschema not importable; cannot enforce schema")]
+        return [
+            ValidationFailure(
+                path="", reason="jsonschema_unavailable", detail="jsonschema not importable; cannot enforce schema"
+            )
+        ]
     registry = _get_registry()
     if registry is not None:
         validator = jsonschema.Draft202012Validator(schema, registry=registry)
@@ -127,8 +133,7 @@ def _validate_against_schema(payload: dict[str, Any], schema: dict[str, Any]) ->
     failures: list[ValidationFailure] = []
     for err in sorted(validator.iter_errors(payload), key=lambda e: list(e.absolute_path)):
         path = "/" + "/".join(str(p) for p in err.absolute_path)
-        failures.append(ValidationFailure(path=path, reason=err.validator or "schema_violation",
-                                          detail=err.message))
+        failures.append(ValidationFailure(path=path, reason=err.validator or "schema_violation", detail=err.message))
     return failures
 
 
@@ -143,8 +148,11 @@ def validate_graph_evidence(evidence: dict[str, Any]) -> ValidationResult:
 
     if not isinstance(evidence, dict):
         return ValidationResult(
-            failures=(ValidationFailure(path="", reason="not_an_object",
-                                        detail=f"expected object, got {type(evidence).__name__}"),),
+            failures=(
+                ValidationFailure(
+                    path="", reason="not_an_object", detail=f"expected object, got {type(evidence).__name__}"
+                ),
+            ),
             diagnostics=diagnostics,
         )
 
@@ -154,11 +162,13 @@ def validate_graph_evidence(evidence: dict[str, Any]) -> ValidationResult:
     trust = evidence.get("trust_level")
     verification = evidence.get("verification_status")
     if trust in POLICY_ALLOWED_TRUST and verification == "failed":
-        failures.append(ValidationFailure(
-            path="/verification_status",
-            reason="trust_level_mismatch",
-            detail=f"trust_level={trust} requires verification_status != failed",
-        ))
+        failures.append(
+            ValidationFailure(
+                path="/verification_status",
+                reason="trust_level_mismatch",
+                detail=f"trust_level={trust} requires verification_status != failed",
+            )
+        )
 
     diagnostics["trust_level"] = trust
     diagnostics["verification_status"] = verification
@@ -172,8 +182,11 @@ def validate_repository_intelligence_snapshot(snapshot: dict[str, Any]) -> Valid
 
     if not isinstance(snapshot, dict):
         return ValidationResult(
-            failures=(ValidationFailure(path="", reason="not_an_object",
-                                        detail=f"expected object, got {type(snapshot).__name__}"),),
+            failures=(
+                ValidationFailure(
+                    path="", reason="not_an_object", detail=f"expected object, got {type(snapshot).__name__}"
+                ),
+            ),
             diagnostics=diagnostics,
         )
 
@@ -187,56 +200,68 @@ def validate_repository_intelligence_snapshot(snapshot: dict[str, Any]) -> Valid
     entities = snapshot.get("entities") or {}
     for kind, items in entities.items():
         if not isinstance(items, list):
-            failures.append(ValidationFailure(
-                path=f"/entities/{kind}",
-                reason="not_an_array",
-                detail=f"expected list, got {type(items).__name__}",
-            ))
+            failures.append(
+                ValidationFailure(
+                    path=f"/entities/{kind}",
+                    reason="not_an_array",
+                    detail=f"expected list, got {type(items).__name__}",
+                )
+            )
             continue
         if len(items) > MAX_RIG_ENTITIES_PER_KIND:
-            failures.append(ValidationFailure(
-                path=f"/entities/{kind}",
-                reason="payload_too_large",
-                detail=f"{kind} has {len(items)} entries (max {MAX_RIG_ENTITIES_PER_KIND})",
-            ))
+            failures.append(
+                ValidationFailure(
+                    path=f"/entities/{kind}",
+                    reason="payload_too_large",
+                    detail=f"{kind} has {len(items)} entries (max {MAX_RIG_ENTITIES_PER_KIND})",
+                )
+            )
 
     edges = snapshot.get("edges") or []
     if isinstance(edges, list) and len(edges) > MAX_RIG_ENTITIES_PER_KIND:
-        failures.append(ValidationFailure(
-            path="/edges",
-            reason="payload_too_large",
-            detail=f"edges has {len(edges)} entries (max {MAX_RIG_ENTITIES_PER_KIND})",
-        ))
+        failures.append(
+            ValidationFailure(
+                path="/edges",
+                reason="payload_too_large",
+                detail=f"edges has {len(edges)} entries (max {MAX_RIG_ENTITIES_PER_KIND})",
+            )
+        )
 
     if isinstance(edges, list):
         graph_evidence_schema = _load_schema(GRAPH_EVIDENCE_SCHEMA_PATH)
         for edge_idx, edge in enumerate(edges):
             if not isinstance(edge, dict):
-                failures.append(ValidationFailure(
-                    path=f"/edges/{edge_idx}",
-                    reason="not_an_object",
-                    detail=f"expected object, got {type(edge).__name__}",
-                ))
+                failures.append(
+                    ValidationFailure(
+                        path=f"/edges/{edge_idx}",
+                        reason="not_an_object",
+                        detail=f"expected object, got {type(edge).__name__}",
+                    )
+                )
                 continue
             # Validate edge.trust against the graph-evidence schema in full
             # (this is the trust/verification/policy object).
             trust = edge.get("trust")
             if trust is not None:
                 if not isinstance(trust, dict):
-                    failures.append(ValidationFailure(
-                        path=f"/edges/{edge_idx}/trust",
-                        reason="not_an_object",
-                        detail=f"expected object, got {type(trust).__name__}",
-                    ))
-                else:
-                    failures.extend([
+                    failures.append(
                         ValidationFailure(
-                            path=f"/edges/{edge_idx}/trust{f.path}",
-                            reason=f.reason,
-                            detail=f.detail,
+                            path=f"/edges/{edge_idx}/trust",
+                            reason="not_an_object",
+                            detail=f"expected object, got {type(trust).__name__}",
                         )
-                        for f in _validate_against_schema(trust, graph_evidence_schema)
-                    ])
+                    )
+                else:
+                    failures.extend(
+                        [
+                            ValidationFailure(
+                                path=f"/edges/{edge_idx}/trust{f.path}",
+                                reason=f.reason,
+                                detail=f.detail,
+                            )
+                            for f in _validate_against_schema(trust, graph_evidence_schema)
+                        ]
+                    )
             # edge.evidence is a minimal record pointer (source_file +
             # source_kind + source_record_id/source_run_id). It is *not* a
             # full graph-evidence-policy object. We only enforce the
@@ -247,12 +272,16 @@ def validate_repository_intelligence_snapshot(snapshot: dict[str, Any]) -> Valid
                 allowed_reasons = {"manual_fixture", "aggregated_from_children"}
                 has_acceptable_reason = ev.get("reason") in allowed_reasons
                 if not has_id and not has_acceptable_reason:
-                    failures.append(ValidationFailure(
-                        path=f"/edges/{edge_idx}/evidence",
-                        reason="missing_source_id",
-                        detail=("evidence must include source_record_id or source_run_id, "
-                                "or reason in {manual_fixture, aggregated_from_children}"),
-                    ))
+                    failures.append(
+                        ValidationFailure(
+                            path=f"/edges/{edge_idx}/evidence",
+                            reason="missing_source_id",
+                            detail=(
+                                "evidence must include source_record_id or source_run_id, "
+                                "or reason in {manual_fixture, aggregated_from_children}"
+                            ),
+                        )
+                    )
 
     return ValidationResult(failures=tuple(failures), diagnostics=diagnostics)
 
@@ -289,22 +318,26 @@ def enforce_import_invariants(
     failures: list[ValidationFailure] = []
 
     if raw_bytes is not None and len(raw_bytes) > MAX_RIG_SNAPSHOT_BYTES:
-        failures.append(ValidationFailure(
-            path="",
-            reason="payload_too_large",
-            detail=f"snapshot is {len(raw_bytes)} bytes (max {MAX_RIG_SNAPSHOT_BYTES})",
-        ))
+        failures.append(
+            ValidationFailure(
+                path="",
+                reason="payload_too_large",
+                detail=f"snapshot is {len(raw_bytes)} bytes (max {MAX_RIG_SNAPSHOT_BYTES})",
+            )
+        )
 
     failures.extend(validate_repository_intelligence_snapshot(snapshot).failures)
 
     repo = snapshot.get("repository") or {}
     ws_field = repo.get("workspace_dir")
     if ws_field and not _path_within_workspace(ws_field, workspace_dir):
-        failures.append(ValidationFailure(
-            path="/repository/workspace_dir",
-            reason="path_outside_workspace",
-            detail=f"{ws_field!r} not within {str(workspace_dir)!r}",
-        ))
+        failures.append(
+            ValidationFailure(
+                path="/repository/workspace_dir",
+                reason="path_outside_workspace",
+                detail=f"{ws_field!r} not within {str(workspace_dir)!r}",
+            )
+        )
 
     # Source-file evidence must also live within workspace_dir
     for edge_idx, edge in enumerate(snapshot.get("edges") or []):
@@ -315,19 +348,23 @@ def enforce_import_invariants(
             continue
         sf = ev.get("source_file")
         if sf and not _path_within_workspace(sf, workspace_dir):
-            failures.append(ValidationFailure(
-                path=f"/edges/{edge_idx}/evidence/source_file",
-                reason="path_outside_workspace",
-                detail=str(sf),
-            ))
+            failures.append(
+                ValidationFailure(
+                    path=f"/edges/{edge_idx}/evidence/source_file",
+                    reason="path_outside_workspace",
+                    detail=str(sf),
+                )
+            )
         for forbidden in ("source_record_id", "source_run_id"):
             value = ev.get(forbidden)
             if isinstance(value, str) and _contains_secret(value):
-                failures.append(ValidationFailure(
-                    path=f"/edges/{edge_idx}/evidence/{forbidden}",
-                    reason="secret_like_value",
-                    detail="evidence field looks like a credential",
-                ))
+                failures.append(
+                    ValidationFailure(
+                        path=f"/edges/{edge_idx}/evidence/{forbidden}",
+                        reason="secret_like_value",
+                        detail="evidence field looks like a credential",
+                    )
+                )
 
     return ValidationResult(failures=tuple(failures), diagnostics=diagnostics)
 

@@ -468,9 +468,12 @@ def test_materialize_rejects_revoked_current_organization_grant(
         session.add(grant)
         session.commit()
 
-    with Session(database) as session, pytest.raises(
-        OrganizationSourceCatalogContextError,
-        match="category_research_source_catalog_authority_forbidden",
+    with (
+        Session(database) as session,
+        pytest.raises(
+            OrganizationSourceCatalogContextError,
+            match="category_research_source_catalog_authority_forbidden",
+        ),
     ):
         OrganizationSourceCatalogContextService().materialize(
             session,
@@ -495,9 +498,12 @@ def test_materialize_rejects_tampered_record_and_stale_active_index(
         "end_line": 4,
     }
     (output / "index.jsonl").write_text(json.dumps(tampered) + "\n", encoding="utf-8")
-    with Session(database) as session, pytest.raises(
-        OrganizationSourceCatalogContextError,
-        match="knowledge_index_bound_record_content_mismatch",
+    with (
+        Session(database) as session,
+        pytest.raises(
+            OrganizationSourceCatalogContextError,
+            match="knowledge_index_bound_record_content_mismatch",
+        ),
     ):
         OrganizationSourceCatalogContextService().materialize(
             session,
@@ -513,9 +519,12 @@ def test_materialize_rejects_tampered_record_and_stale_active_index(
         active.knowledge_index_id = "index-new"
         session.add(active)
         session.commit()
-    with Session(database) as session, pytest.raises(
-        OrganizationSourceCatalogContextError,
-        match="organization_source_catalog_active_index_changed",
+    with (
+        Session(database) as session,
+        pytest.raises(
+            OrganizationSourceCatalogContextError,
+            match="organization_source_catalog_active_index_changed",
+        ),
     ):
         OrganizationSourceCatalogContextService().materialize(
             session,

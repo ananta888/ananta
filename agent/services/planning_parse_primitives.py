@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}
 SUSPICIOUS_TASK_PATTERNS = [

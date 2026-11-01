@@ -107,7 +107,7 @@ class TestAutoPlannerParsing:
         assert _parse_subtasks_from_llm_response("   ") == []
 
     def test_parse_followup_analysis_rejects_invalid_json(self):
-        analysis = _parse_followup_analysis('not json at all')
+        analysis = _parse_followup_analysis("not json at all")
         assert analysis["parse_error"] is True
         assert analysis["error_classification"] == "missing_json"
 
@@ -171,7 +171,9 @@ class TestAutoPlanner:
             start=MagicMock(),
             wake=MagicMock(),
         )
-        monkeypatch.setitem(sys.modules, "agent.routes.tasks.autopilot", types.SimpleNamespace(autonomous_loop=fake_loop))
+        monkeypatch.setitem(
+            sys.modules, "agent.routes.tasks.autopilot", types.SimpleNamespace(autonomous_loop=fake_loop)
+        )
 
         class _Task:
             status = "todo"
@@ -267,7 +269,9 @@ class TestAutoPlanner:
         planner.configure(auto_start_autopilot=False)
 
         with app.app_context():
-            result = planner.plan_goal("API refactor milestone", create_tasks=True, use_template=False, use_repo_context=False)
+            result = planner.plan_goal(
+                "API refactor milestone", create_tasks=True, use_template=False, use_repo_context=False
+            )
 
         assert len(result["created_task_ids"]) == 2
         assert result.get("error") is None
@@ -276,7 +280,12 @@ class TestAutoPlanner:
         mock_response = json.dumps(
             [
                 {"title": "Implement helper", "description": "Implement Python helper function", "priority": "High"},
-                {"title": "Write tests", "description": "Add pytest regression tests", "priority": "Medium", "depends_on": ["1"]},
+                {
+                    "title": "Write tests",
+                    "description": "Add pytest regression tests",
+                    "priority": "Medium",
+                    "depends_on": ["1"],
+                },
             ]
         )
         monkeypatch.setattr(
@@ -289,7 +298,9 @@ class TestAutoPlanner:
         planner.configure(auto_start_autopilot=False)
 
         with app.app_context():
-            result = planner.plan_goal("Implement helper milestone", create_tasks=True, use_template=False, use_repo_context=False)
+            result = planner.plan_goal(
+                "Implement helper milestone", create_tasks=True, use_template=False, use_repo_context=False
+            )
             from agent.repository import task_repo
 
             first = task_repo.get_by_id(result["created_task_ids"][0])
@@ -310,7 +321,9 @@ class TestAutoPlanner:
     def test_plan_goal_marks_unstructured_llm_response(self, app, monkeypatch):
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.generate_text",
-            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: "assistant: sure, do things",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: (
+                "assistant: sure, do things"
+            ),
         )
         monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
 
@@ -351,8 +364,18 @@ class TestAutoPlanner:
                 json.dumps(
                     [
                         {"title": "Analyse", "description": "Goal analysieren", "priority": "High"},
-                        {"title": "Implementieren", "description": "Loesung umsetzen", "priority": "High", "depends_on": ["1"]},
-                        {"title": "Validieren", "description": "Ergebnis pruefen", "priority": "Medium", "depends_on": ["2"]},
+                        {
+                            "title": "Implementieren",
+                            "description": "Loesung umsetzen",
+                            "priority": "High",
+                            "depends_on": ["1"],
+                        },
+                        {
+                            "title": "Validieren",
+                            "description": "Ergebnis pruefen",
+                            "priority": "Medium",
+                            "depends_on": ["2"],
+                        },
                     ]
                 ),
             ]
@@ -402,7 +425,9 @@ class TestAutoPlanner:
         planner.configure(auto_start_autopilot=False)
 
         with app.app_context():
-            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+            result = planner.plan_goal(
+                "General engineering goal", create_tasks=False, use_template=False, use_repo_context=False
+            )
 
         assert result.get("error") is None
         assert result.get("template_used") is False
@@ -444,7 +469,9 @@ class TestAutoPlanner:
         planner.configure(auto_start_autopilot=False)
 
         with app.app_context():
-            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+            result = planner.plan_goal(
+                "General engineering goal", create_tasks=False, use_template=False, use_repo_context=False
+            )
 
         assert result.get("error") is None
         assert len(result.get("subtasks") or []) == 1
@@ -468,7 +495,9 @@ class TestAutoPlanner:
 
         with app.app_context():
             app.config.setdefault("AGENT_CONFIG", {})["goal_plan_limits"] = {"max_plan_nodes": 2, "max_plan_depth": 8}
-            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+            result = planner.plan_goal(
+                "General engineering goal", create_tasks=False, use_template=False, use_repo_context=False
+            )
 
         assert result.get("error") is None
         assert result.get("limit_exceeded_reason") is None
@@ -525,7 +554,9 @@ class TestAutoPlanner:
 
         with app.app_context():
             app.config.setdefault("AGENT_CONFIG", {})["goal_plan_limits"] = {"max_plan_nodes": 10, "max_plan_depth": 2}
-            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+            result = planner.plan_goal(
+                "General engineering goal", create_tasks=False, use_template=False, use_repo_context=False
+            )
 
         assert result.get("error") == "limit_exceeded:max_plan_depth"
         assert result.get("error_classification") == "limit_exceeded"

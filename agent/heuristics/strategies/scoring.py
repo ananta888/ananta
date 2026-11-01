@@ -2,9 +2,8 @@
 
 All utilities are deterministic and run without any AI/LLM call.
 """
-from __future__ import annotations
 
-from typing import Any
+from __future__ import annotations
 
 
 def clamp_score(score: float) -> float:
@@ -32,7 +31,7 @@ def is_below_threshold(score: float, threshold: float = 0.5) -> bool:
 
 
 def top_n(items: list[str], n: int) -> list[str]:
-    return items[:max(0, int(n))]
+    return items[: max(0, int(n))]
 
 
 def keyword_score(text: str, keywords: list[str]) -> float:

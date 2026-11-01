@@ -30,7 +30,15 @@ def test_verification_reports_passed_for_successful_test_result() -> None:
 def test_verification_reports_failed_for_failing_test_result() -> None:
     artifact = build_verification_artifact(
         task_id="AW-T23",
-        test_results=[{"command": "pytest -q", "exit_code": 1, "status": "failed", "stdout_ref": "out.log", "stderr_ref": "err.log"}],
+        test_results=[
+            {
+                "command": "pytest -q",
+                "exit_code": 1,
+                "status": "failed",
+                "stdout_ref": "out.log",
+                "stderr_ref": "err.log",
+            }
+        ],
     )
     assert artifact["status"] == "failed"
     assert artifact["checks"][0]["status"] == "failed"
@@ -91,7 +99,11 @@ def test_schema_validation_passes_for_valid_worker_todo_contract() -> None:
                 ],
             },
             "execution": {"mode": "assistant_execute", "runner_prompt": "Run worker todo contract"},
-            "control_manifest": {"trace_id": "tr-1", "capability_id": "worker.command.execute", "context_hash": "ctx-1"},
+            "control_manifest": {
+                "trace_id": "tr-1",
+                "capability_id": "worker.command.execute",
+                "context_hash": "ctx-1",
+            },
             "expected_result_schema": "worker_todo_result.v1",
         },
     )

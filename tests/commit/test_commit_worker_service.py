@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from agent.services.commit_worker_service import CommitWorkerService
 
@@ -92,18 +92,14 @@ def test_git_commit_not_called_when_validation_fails():
             make_task(commit_type="feat", subject_hint="wip"),
             "/repo",
         )
-        commit_calls = [
-            c for c in mock_run.call_args_list if "commit" in c.args[0]
-        ]
+        commit_calls = [c for c in mock_run.call_args_list if "commit" in c.args[0]]
         assert len(commit_calls) == 0
 
 
 def test_subprocess_nonzero_exit_returns_failure():
     files = ["agent/llm_integration.py"]
     with patch("agent.services.commit_worker_service.subprocess.run") as mock_run:
-        mock_run.side_effect = _mock_run(
-            staged_files=files, commit_rc=1, commit_stderr="pre-commit hook failed"
-        )
+        mock_run.side_effect = _mock_run(staged_files=files, commit_rc=1, commit_stderr="pre-commit hook failed")
         result = CommitWorkerService().execute(make_task(subject_hint="fix llm usage"), "/repo")
     assert result.success is False
     assert "pre-commit hook failed" in result.errors[0]

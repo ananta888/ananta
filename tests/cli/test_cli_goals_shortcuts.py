@@ -7,9 +7,17 @@ import agent.cli_goals as cli
 
 
 def test_cli_shortcuts_cover_product_entry_commands():
-    assert {"ask", "plan", "analyze", "review", "diagnose", "patch", "new-project", "evolve-project", "repair-admin"}.issubset(
-        cli.SHORTCUT_GOALS
-    )
+    assert {
+        "ask",
+        "plan",
+        "analyze",
+        "review",
+        "diagnose",
+        "patch",
+        "new-project",
+        "evolve-project",
+        "repair-admin",
+    }.issubset(cli.SHORTCUT_GOALS)
     assert cli.SHORTCUT_GOALS["review"]["mode"] == "code_review"
     assert cli.SHORTCUT_GOALS["diagnose"]["mode"] == "docker_compose_repair"
     assert cli.SHORTCUT_GOALS["new-project"]["mode"] == "new_software_project"

@@ -720,7 +720,9 @@ class Settings(
 
         val = normalize_profile(v) if str(v or "").strip() else DEFAULT_PROFILE
         if val is None:
-            raise ValueError(f"ANANTA_CONTEXT_PROFILE muss einer der folgenden Werte sein: {sorted(PROFILES)} oder custom")
+            raise ValueError(
+                f"ANANTA_CONTEXT_PROFILE muss einer der folgenden Werte sein: {sorted(PROFILES)} oder custom"
+            )
         return val
 
     @field_validator("worker_default_execution_profile")
@@ -772,9 +774,13 @@ class Settings(
         return self
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore",
-        populate_by_name=True, secrets_dir="secrets",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+        secrets_dir="secrets",
     )
+
     @classmethod
     def settings_customise_sources(
         cls,

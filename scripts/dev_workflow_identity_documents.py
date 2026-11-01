@@ -37,9 +37,7 @@ WORKER_CAPABILITIES = [
 ]
 # Capabilities a keyring written before they existed may lack; such keyrings
 # are upgraded in place (same credentials) by the bootstrap.
-ADDED_WORKER_CAPABILITIES = frozenset(
-    {"local_runtime_capability_discovery", "codecompass_layer_build", "codecompass"}
-)
+ADDED_WORKER_CAPABILITIES = frozenset({"local_runtime_capability_discovery", "codecompass_layer_build", "codecompass"})
 LEGACY_WORKER_CAPABILITIES = [
     capability
     for capability in WORKER_CAPABILITIES
@@ -86,14 +84,8 @@ def registration_document(
 ) -> dict[str, Any]:
     """Build the exact Hub registration keyring for both local Workers."""
 
-    allowed_capabilities = list(
-        WORKER_CAPABILITIES
-        if capabilities is None
-        else capabilities
-    )
-    specs_by_name = {
-        spec.logical_name: spec for spec in worker_specs
-    }
+    allowed_capabilities = list(WORKER_CAPABILITIES if capabilities is None else capabilities)
+    specs_by_name = {spec.logical_name: spec for spec in worker_specs}
     alpha = specs_by_name["alpha"]
     beta = specs_by_name["beta"]
     return {
@@ -101,28 +93,16 @@ def registration_document(
         "workers": {
             alpha.worker_id: {
                 "worker_url": alpha.worker_url,
-                "registration_token": values[
-                    "alpha_registration_token"
-                ],
-                "service_token_sha256": _sha256_text(
-                    values["alpha_service_token"]
-                ),
-                "session_signing_key_sha256": _sha256_text(
-                    values["alpha_session_key"]
-                ),
+                "registration_token": values["alpha_registration_token"],
+                "service_token_sha256": _sha256_text(values["alpha_service_token"]),
+                "session_signing_key_sha256": _sha256_text(values["alpha_session_key"]),
                 "allowed_capabilities": allowed_capabilities,
             },
             beta.worker_id: {
                 "worker_url": beta.worker_url,
-                "registration_token": values[
-                    "beta_registration_token"
-                ],
-                "service_token_sha256": _sha256_text(
-                    values["beta_service_token"]
-                ),
-                "session_signing_key_sha256": _sha256_text(
-                    values["beta_session_key"]
-                ),
+                "registration_token": values["beta_registration_token"],
+                "service_token_sha256": _sha256_text(values["beta_service_token"]),
+                "session_signing_key_sha256": _sha256_text(values["beta_session_key"]),
                 "allowed_capabilities": list(allowed_capabilities),
             },
         },

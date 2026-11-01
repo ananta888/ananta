@@ -81,10 +81,7 @@ class TaskReadAccessService:
         if principal.project_id and principal.project_id != project_id:
             self._hide()
 
-        if not principal.is_admin and (
-            principal.tenant_id != tenant_id
-            or principal.project_id != project_id
-        ):
+        if not principal.is_admin and (principal.tenant_id != tenant_id or principal.project_id != project_id):
             self._hide()
         if project_access is None:
             raise TaskReadAccessError(
@@ -155,8 +152,7 @@ class TaskReadAccessService:
         events = [
             event
             for event in list(task.get("history") or [])
-            if isinstance(event, Mapping)
-            and str(event.get("event_type") or "") == "task_ingested"
+            if isinstance(event, Mapping) and str(event.get("event_type") or "") == "task_ingested"
         ]
         if len(events) != 1:
             return ""

@@ -119,8 +119,7 @@ def voice_idempotency_audio_binding(
     scope_key = hmac.new(
         _voice_privacy_hmac_key(),
         (
-            f"voice-idempotency-audio-v1\0{principal.tenant_id}\0{principal.subject}"
-            f"\0{operation}\0{normalized_key}"
+            f"voice-idempotency-audio-v1\0{principal.tenant_id}\0{principal.subject}\0{operation}\0{normalized_key}"
         ).encode("utf-8"),
         hashlib.sha256,
     ).digest()
@@ -145,8 +144,7 @@ def voice_idempotency_storage_key(
     return hmac.new(
         _voice_privacy_hmac_key(),
         (
-            f"voice-idempotency-storage-v1\0{principal.tenant_id}\0{principal.subject}"
-            f"\0{operation}\0{normalized_key}"
+            f"voice-idempotency-storage-v1\0{principal.tenant_id}\0{principal.subject}\0{operation}\0{normalized_key}"
         ).encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()

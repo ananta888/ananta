@@ -2,6 +2,7 @@
 
 Ermöglicht deterministische Hashing und semantische Analyse des TUI-Screens.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -11,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-_ANSI_STRIP = re.compile(r'\x1b(?:[@-Z\\-_]|\[[0-9;]*[ -/]*[@-~])')
+_ANSI_STRIP = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-9;]*[ -/]*[@-~])")
 
 
 @dataclass
@@ -52,7 +53,8 @@ class CellGrid:
     def _compute_hash(self) -> str:
         canonical = json.dumps(
             [[c.to_dict() for c in row] for row in self.cells],
-            sort_keys=True, separators=(",", ":"),
+            sort_keys=True,
+            separators=(",", ":"),
         )
         return hashlib.sha256(canonical.encode()).hexdigest()[:32]
 

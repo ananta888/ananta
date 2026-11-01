@@ -535,9 +535,7 @@ def _issue_separation_of_duties(draft: TopologyPatchDraft, *, path, slot, agent_
 def _check_topology_cycles(draft: TopologyPatchDraft) -> None:
     if has_parent_cycle(draft.units):
         draft.issue("$.operations", "ORGANIZATION_HIERARCHY_CYCLE", "Patch would introduce a hierarchy cycle.")
-    dependency_relations = [
-        row for row in draft.relations.values() if row["dependency_policy"] in {"declared", "gate"}
-    ]
+    dependency_relations = [row for row in draft.relations.values() if row["dependency_policy"] in {"declared", "gate"}]
     if has_relation_cycle(dependency_relations):
         draft.issue("$.operations", "ORGANIZATION_DEPENDENCY_CYCLE", "Patch would introduce a dependency cycle.")
 

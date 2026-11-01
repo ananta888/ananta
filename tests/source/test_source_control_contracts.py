@@ -29,9 +29,7 @@ SCHEMA_PATHS = {
     "source_ref_mapping": SCHEMA_ROOT / "source_ref_mapping.v1.json",
     "destination_descriptor": SCHEMA_ROOT / "destination_descriptor.v1.json",
     "source_access_grant": SCHEMA_ROOT / "source_access_grant.v1.json",
-    "delegated_source_manifest_ref": (
-        SCHEMA_ROOT / "delegated_source_manifest_ref.v1.json"
-    ),
+    "delegated_source_manifest_ref": (SCHEMA_ROOT / "delegated_source_manifest_ref.v1.json"),
 }
 
 
@@ -47,29 +45,28 @@ def _schema(kind: str) -> dict:
 
 def test_positive_golden_fixture_roundtrips_every_contract() -> None:
     fixture = _json(VALID_FIXTURE)
-    assert fixture["fixture_version"] == (
-        "ananta.source-control.contracts.valid.v1"
-    )
+    assert fixture["fixture_version"] == ("ananta.source-control.contracts.valid.v1")
     assert fixture["_meta"]["deterministic"] is True
 
     parsed = {}
     for kind, payload in fixture["contracts"].items():
-        assert list(
-            Draft202012Validator(_schema(kind)).iter_errors(payload)
-        ) == []
+        assert list(Draft202012Validator(_schema(kind)).iter_errors(payload)) == []
         parsed[kind] = parse_source_control_contract(kind, payload)
         assert parsed[kind].to_wire() == payload
 
     connection = parsed["source_connection"]
     revision = parsed["source_revision"]
     source_ref = parsed["source_ref_mapping"]
-    assert len(
-        {
-            connection.connection_id,
-            revision.source_revision_id,
-            source_ref.source_ref_id,
-        }
-    ) == 3
+    assert (
+        len(
+            {
+                connection.connection_id,
+                revision.source_revision_id,
+                source_ref.source_ref_id,
+            }
+        )
+        == 3
+    )
     assert source_ref.connection_id == connection.connection_id
     assert source_ref.source_revision_id == revision.source_revision_id
 
@@ -82,11 +79,7 @@ def test_negative_fixture_is_fail_closed_in_schema_and_python() -> None:
     for case in fixture["cases"]:
         payload = dict(valid[case["contract"]])
         payload.update(case["set"])
-        errors = list(
-            Draft202012Validator(_schema(case["contract"])).iter_errors(
-                payload
-            )
-        )
+        errors = list(Draft202012Validator(_schema(case["contract"])).iter_errors(payload))
         assert bool(errors) is case["schema_rejects"], case["name"]
         with pytest.raises(SourceControlContractError):
             parse_source_control_contract(case["contract"], payload)
@@ -114,10 +107,7 @@ def test_provider_or_model_change_produces_a_new_destination_identity() -> None:
 
     assert derive_destination_id(**provider_changed) != original.destination_id
     assert derive_destination_id(**model_changed) != original.destination_id
-    assert (
-        derive_destination_id(**provider_changed)
-        != derive_destination_id(**model_changed)
-    )
+    assert derive_destination_id(**provider_changed) != derive_destination_id(**model_changed)
 
 
 def test_destination_descriptor_accepts_namespaced_model_identifier() -> None:
@@ -166,9 +156,7 @@ def test_source_revision_contract_is_immutable() -> None:
 
 
 def test_worker_contract_contains_only_hub_issued_ids_and_digests() -> None:
-    payload = _json(VALID_FIXTURE)["contracts"][
-        "delegated_source_manifest_ref"
-    ]
+    payload = _json(VALID_FIXTURE)["contracts"]["delegated_source_manifest_ref"]
     assert set(payload) == {
         "schema",
         "authority",
@@ -192,16 +180,9 @@ def test_worker_contract_contains_only_hub_issued_ids_and_digests() -> None:
 
 def test_contract_layer_has_no_hub_route_persistence_or_worker_dependency() -> None:
     tree = ast.parse(CONTRACT_MODULE.read_text(encoding="utf-8"))
-    imported_modules = {
-        node.module or ""
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
-    }
+    imported_modules = {node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
     imported_modules.update(
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Import)
-        for alias in node.names
+        alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
     )
     forbidden_prefixes = (
         "agent.",
@@ -217,8 +198,5 @@ def test_contract_layer_has_no_hub_route_persistence_or_worker_dependency() -> N
 
 
 def test_fixtures_do_not_invent_grounded_source_or_run_ids() -> None:
-    fixture_text = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (VALID_FIXTURE, INVALID_FIXTURE)
-    )
+    fixture_text = "\n".join(path.read_text(encoding="utf-8") for path in (VALID_FIXTURE, INVALID_FIXTURE))
     assert re.search(r"\b(?:SRC|RUN)_[A-Za-z0-9_-]+\b", fixture_text) is None

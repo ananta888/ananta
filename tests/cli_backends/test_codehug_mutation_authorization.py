@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 
 from agent.services.codehug_mutation_authorization import (
-    CodeHugToolAuthorization,
     CodeHugMutationAuthorizationError,
     CodeHugMutationAuthorizationService,
     CodeHugMutationCommand,
+    CodeHugToolAuthorization,
 )
 from agent.services.effective_source_access_service import (
     EffectiveSourceAccessDecision,

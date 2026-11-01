@@ -61,12 +61,14 @@ Configure local providers in `worker/core/provider_registry.py` or via Hub confi
 from worker.core.provider_registry import WorkerProviderRegistry, ProviderEntry, ProviderKind
 
 registry = WorkerProviderRegistry()
-registry.register(ProviderEntry(
-    provider_id="my-ollama",
-    kind=ProviderKind.local,
-    base_url="http://localhost:11434",
-    priority=10,
-))
+registry.register(
+    ProviderEntry(
+        provider_id="my-ollama",
+        kind=ProviderKind.local,
+        base_url="http://localhost:11434",
+        priority=10,
+    )
+)
 ```
 
 Default providers (registered automatically):
@@ -86,10 +88,12 @@ Feature flags are Hub-controlled. Apply them via `FeatureFlagRegistry.apply_hub_
 from worker.core.feature_flags import build_default_registry
 
 flags = build_default_registry()
-flags.apply_hub_config({
-    "enable_scheduled_jobs": True,    # enable scheduled job processing
-    "strict_tool_policy": True,       # enforce ToolPolicy.allowed_tool_ids strictly
-})
+flags.apply_hub_config(
+    {
+        "enable_scheduled_jobs": True,  # enable scheduled job processing
+        "strict_tool_policy": True,  # enforce ToolPolicy.allowed_tool_ids strictly
+    }
+)
 ```
 
 Security flags are **on by default** and should never be disabled in production:

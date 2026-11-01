@@ -28,15 +28,9 @@ def registration_lineage(
             SpeechLineageNode("adapter", record.artifact_sha256),
         ),
         (
-            SpeechLineageEdge(
-                "manifest", record.dataset_digest, "split", record.split_digest, "split_into"
-            ),
-            SpeechLineageEdge(
-                "split", record.split_digest, "adapter", record.artifact_sha256, "trained_into"
-            ),
-            SpeechLineageEdge(
-                "model", record.base_model_digest, "adapter", record.artifact_sha256, "base_for"
-            ),
+            SpeechLineageEdge("manifest", record.dataset_digest, "split", record.split_digest, "split_into"),
+            SpeechLineageEdge("split", record.split_digest, "adapter", record.artifact_sha256, "trained_into"),
+            SpeechLineageEdge("model", record.base_model_digest, "adapter", record.artifact_sha256, "base_for"),
             SpeechLineageEdge(
                 "evaluation",
                 record.evaluation_report_digest,

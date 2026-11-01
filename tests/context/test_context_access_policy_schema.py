@@ -1,17 +1,19 @@
 import unittest
+
+from agent.services.context_access_policy_service import ContextAccessPolicyService
 from worker.core.context_access_policy import (
-    Sensitivity,
-    ModelScope,
-    SourceType,
+    ContextAccessPolicy,
+    ContextAccessRule,
+    ContextBlockAccessDecision,
     Decision,
+    DestinationContext,
+    ModelScope,
     ReasonCode,
     RequestedOperation,
-    DestinationContext,
-    ContextBlockAccessDecision,
-    ContextAccessRule,
-    ContextAccessPolicy
+    Sensitivity,
+    SourceType,
 )
-from agent.services.context_access_policy_service import ContextAccessPolicyService
+
 
 class TestContextAccessPolicy(unittest.TestCase):
     def test_minimal_policy(self):
@@ -27,9 +29,9 @@ class TestContextAccessPolicy(unittest.TestCase):
                     sensitivity=Sensitivity.public,
                     allowed_model_scopes=[ModelScope.local_model],
                     read_allowed=True,
-                    send_allowed=True
+                    send_allowed=True,
                 )
-            ]
+            ],
         )
         service = ContextAccessPolicyService()
         errors = service.validate_policy(policy)
@@ -48,9 +50,9 @@ class TestContextAccessPolicy(unittest.TestCase):
                     sensitivity=Sensitivity.secret,
                     allowed_model_scopes=[ModelScope.public_cloud],
                     send_allowed=True,
-                    cloud_allowed=True
+                    cloud_allowed=True,
                 )
-            ]
+            ],
         )
         service = ContextAccessPolicyService()
         errors = service.validate_policy(policy)
@@ -62,13 +64,7 @@ class TestContextAccessPolicy(unittest.TestCase):
             policy_id="p3",
             version=1,
             scope="project",
-            rules=[
-                ContextAccessRule(
-                    id="r3",
-                    description="unrestricted write",
-                    write_allowed=True
-                )
-            ]
+            rules=[ContextAccessRule(id="r3", description="unrestricted write", write_allowed=True)],
         )
         service = ContextAccessPolicyService()
         errors = service.validate_policy(policy)
@@ -82,7 +78,7 @@ class TestContextAccessPolicy(unittest.TestCase):
             matched_rule_ids=["r1"],
             decision=Decision.allow,
             reason_code=ReasonCode.approval_required,
-            policy_version=1
+            policy_version=1,
         )
         # Just check if it can be represented
         self.assertEqual(decision.block_id, "b1")
@@ -101,16 +97,20 @@ class TestContextAccessPolicy(unittest.TestCase):
             cloud_effective=False,
             external_effective=False,
             local_effective=True,
-            requested_operation=RequestedOperation.send_to_llm
+            requested_operation=RequestedOperation.send_to_llm,
         )
         self.assertTrue(dest.local_effective)
         self.assertEqual(dest.model_scope, ModelScope.local_model)
 
     def test_policy_merge(self):
         p1 = ContextAccessPolicy(policy_id="sys", version=1, scope="system_default", precedence=0)
-        p2 = ContextAccessPolicy(policy_id="proj", version=1, scope="project", precedence=10, rules=[
-            ContextAccessRule(id="r_proj", description="proj rule")
-        ])
+        p2 = ContextAccessPolicy(
+            policy_id="proj",
+            version=1,
+            scope="project",
+            precedence=10,
+            rules=[ContextAccessRule(id="r_proj", description="proj rule")],
+        )
 
         service = ContextAccessPolicyService()
         merged = service.merge_policies([p1, p2])
@@ -122,29 +122,21 @@ class TestContextAccessPolicy(unittest.TestCase):
     def test_source_matching(self):
         service = ContextAccessPolicyService()
         rule = ContextAccessRule(
-            id="r1",
-            description="match python files",
-            source_match="*.py",
-            source_types=[SourceType.local_file]
+            id="r1", description="match python files", source_match="*.py", source_types=[SourceType.local_file]
         )
 
         # Positive match
-        self.assertTrue(service.match_source(rule, {
-            "source_type": SourceType.local_file.value,
-            "source_ref": "src/main.py"
-        }))
+        self.assertTrue(
+            service.match_source(rule, {"source_type": SourceType.local_file.value, "source_ref": "src/main.py"})
+        )
 
         # Negative match (wrong extension)
-        self.assertFalse(service.match_source(rule, {
-            "source_type": SourceType.local_file.value,
-            "source_ref": "README.md"
-        }))
+        self.assertFalse(
+            service.match_source(rule, {"source_type": SourceType.local_file.value, "source_ref": "README.md"})
+        )
 
         # Negative match (wrong source type)
-        self.assertFalse(service.match_source(rule, {
-            "source_type": SourceType.memory.value,
-            "source_ref": "main.py"
-        }))
+        self.assertFalse(service.match_source(rule, {"source_type": SourceType.memory.value, "source_ref": "main.py"}))
 
     def test_secret_detection(self):
         service = ContextAccessPolicyService()
@@ -152,20 +144,14 @@ class TestContextAccessPolicy(unittest.TestCase):
         # Detect in content
         self.assertEqual(
             service.detect_sensitivity("my api_key = 'sk-1234567890abcdef1234567890abcdef'", "config.py"),
-            Sensitivity.secret
+            Sensitivity.secret,
         )
 
         # Detect in filename
-        self.assertEqual(
-            service.detect_sensitivity("random content", ".env"),
-            Sensitivity.secret
-        )
+        self.assertEqual(service.detect_sensitivity("random content", ".env"), Sensitivity.secret)
 
         # Normal content
-        self.assertEqual(
-            service.detect_sensitivity("print('hello')", "main.py"),
-            Sensitivity.unknown
-        )
+        self.assertEqual(service.detect_sensitivity("print('hello')", "main.py"), Sensitivity.unknown)
 
     def test_decision_engine(self):
         service = ContextAccessPolicyService()
@@ -179,32 +165,39 @@ class TestContextAccessPolicy(unittest.TestCase):
                     description="deny cloud for confidential",
                     sensitivity=Sensitivity.customer_confidential,
                     cloud_allowed=False,
-                    send_allowed=True
+                    send_allowed=True,
                 ),
                 ContextAccessRule(
                     id="r2",
                     description="allow public everywhere",
                     sensitivity=Sensitivity.public,
                     cloud_allowed=True,
-                    send_allowed=True
-                )
-            ]
+                    send_allowed=True,
+                ),
+            ],
         )
 
         # Test Case 1: Confidential to Cloud (should be denied)
         dest_cloud = DestinationContext(
-            worker_id="w1", worker_kind="native", runtime_target_id="rt1", runtime_kind="local",
-            provider_id="openai", provider_location="us", model_id="gpt-4",
-            model_scope=ModelScope.public_cloud, cloud_effective=True,
-            external_effective=True, local_effective=False,
-            requested_operation=RequestedOperation.send_to_llm
+            worker_id="w1",
+            worker_kind="native",
+            runtime_target_id="rt1",
+            runtime_kind="local",
+            provider_id="openai",
+            provider_location="us",
+            model_id="gpt-4",
+            model_scope=ModelScope.public_cloud,
+            cloud_effective=True,
+            external_effective=True,
+            local_effective=False,
+            requested_operation=RequestedOperation.send_to_llm,
         )
 
         block_confidential = {
             "block_id": "b1",
             "source_ref": "contract.pdf",
             "sensitivity": Sensitivity.customer_confidential,
-            "content_hash": "abc"
+            "content_hash": "abc",
         }
 
         decision1 = service.get_decision(policy, block_confidential, dest_cloud)
@@ -216,7 +209,7 @@ class TestContextAccessPolicy(unittest.TestCase):
             "block_id": "b2",
             "source_ref": "readme.md",
             "sensitivity": Sensitivity.public,
-            "content_hash": "def"
+            "content_hash": "def",
         }
 
         decision2 = service.get_decision(policy, block_public, dest_cloud)
@@ -239,21 +232,33 @@ class TestContextAccessPolicy(unittest.TestCase):
 
         # Test Policy Decision with Redaction
         policy = ContextAccessPolicy(
-            policy_id="p1", version=1, scope="project",
+            policy_id="p1",
+            version=1,
+            scope="project",
             rules=[
                 ContextAccessRule(
-                    id="r1", description="redact for cloud",
-                    source_match="*.log", redaction_required=True,
-                    send_allowed=True, cloud_allowed=True
+                    id="r1",
+                    description="redact for cloud",
+                    source_match="*.log",
+                    redaction_required=True,
+                    send_allowed=True,
+                    cloud_allowed=True,
                 )
-            ]
+            ],
         )
         dest_cloud = DestinationContext(
-            worker_id="w1", worker_kind="native", runtime_target_id="rt1", runtime_kind="local",
-            provider_id="openai", provider_location="us", model_id="gpt-4",
-            model_scope=ModelScope.public_cloud, cloud_effective=True,
-            external_effective=True, local_effective=False,
-            requested_operation=RequestedOperation.send_to_llm
+            worker_id="w1",
+            worker_kind="native",
+            runtime_target_id="rt1",
+            runtime_kind="local",
+            provider_id="openai",
+            provider_location="us",
+            model_id="gpt-4",
+            model_scope=ModelScope.public_cloud,
+            cloud_effective=True,
+            external_effective=True,
+            local_effective=False,
+            requested_operation=RequestedOperation.send_to_llm,
         )
         block = {"block_id": "b1", "source_ref": "app.log", "content_hash": "123"}
 
@@ -263,12 +268,12 @@ class TestContextAccessPolicy(unittest.TestCase):
     def test_audit_and_persistence(self):
         service = ContextAccessPolicyService()
         policy = ContextAccessPolicy(
-            policy_id="p-persist", version=1, scope="project",
-            rules=[ContextAccessRule(id="r1", description="desc")]
+            policy_id="p-persist", version=1, scope="project", rules=[ContextAccessRule(id="r1", description="desc")]
         )
 
         # Test Persistence
         import os
+
         path = "test_policy.json"
         try:
             service.save_policy(policy, path)
@@ -282,8 +287,11 @@ class TestContextAccessPolicy(unittest.TestCase):
 
         # Test Audit (should just not crash)
         decision = ContextBlockAccessDecision(
-            block_id="b1", source_ref="ref", matched_rule_ids=[],
-            decision=Decision.deny, reason_code=ReasonCode.cloud_blocked
+            block_id="b1",
+            source_ref="ref",
+            matched_rule_ids=[],
+            decision=Decision.deny,
+            reason_code=ReasonCode.cloud_blocked,
         )
         service.audit_decision(decision, "task-123")
 
@@ -322,13 +330,15 @@ class TestContextAccessPolicy(unittest.TestCase):
             local_effective=False,
             requested_operation=RequestedOperation.send_to_llm,
         )
-        blocks = [{
-            "block_id": "b-secret",
-            "source_type": SourceType.secret_file.value,
-            "source_ref": ".env",
-            "sensitivity": Sensitivity.secret,
-            "content_hash": "h1",
-            "content": "api_key=secret",
-        }]
+        blocks = [
+            {
+                "block_id": "b-secret",
+                "source_type": SourceType.secret_file.value,
+                "source_ref": ".env",
+                "sensitivity": Sensitivity.secret,
+                "content_hash": "h1",
+                "content": "api_key=secret",
+            }
+        ]
         filtered = service.filter_blocks(None, blocks, dest)
         self.assertEqual(filtered, [])

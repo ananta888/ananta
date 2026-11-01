@@ -63,9 +63,7 @@ def build_knowledge_index_preview(
     if not output_dir.exists():
         return None
     manifest_path = (
-        Path(knowledge_index.manifest_path)
-        if knowledge_index.manifest_path
-        else output_dir / "manifest.json"
+        Path(knowledge_index.manifest_path) if knowledge_index.manifest_path else output_dir / "manifest.json"
     )
     manifest = load_index_manifest(manifest_path)
     partitioned_outputs = manifest.get("partitioned_outputs") or {}

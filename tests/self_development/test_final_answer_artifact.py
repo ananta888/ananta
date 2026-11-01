@@ -5,12 +5,11 @@
 path did not write it at all — these tests pin the shared builder, the strict
 verdict extraction and both proposal hooks.
 """
+
 from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-
-import pytest
 
 from agent.services.self_development.final_answer_artifact import (
     build_final_answer_artifact,
@@ -18,10 +17,7 @@ from agent.services.self_development.final_answer_artifact import (
     write_final_answer,
 )
 
-VERDICT = (
-    '{"approved": true, "criteria_passed": [true, true], '
-    '"findings": []}'
-)
+VERDICT = '{"approved": true, "criteria_passed": [true, true], "findings": []}'
 
 
 def test_builder_shapes_the_artifact_the_review_parses():

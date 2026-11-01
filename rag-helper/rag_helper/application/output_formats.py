@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 _CONTEXT_DROP_KEYS = {
     "embedding_text",
     "code_snippet",
@@ -50,17 +49,19 @@ _GRAPH_EXCLUDED_NODE_KINDS = {
 def build_embedding_records(index_records: list[dict]) -> list[dict]:
     embedding_records: list[dict] = []
     for record in index_records:
-        embedding_records.append({
-            "id": record.get("id"),
-            "kind": record.get("kind"),
-            "file": record.get("file"),
-            "embedding_text": record.get("embedding_text", ""),
-            "summary": record.get("summary"),
-            "role_labels": record.get("role_labels"),
-            "importance_score": record.get("importance_score"),
-            "generated_code": record.get("generated_code", False),
-            "generated_code_reasons": record.get("generated_code_reasons", []),
-        })
+        embedding_records.append(
+            {
+                "id": record.get("id"),
+                "kind": record.get("kind"),
+                "file": record.get("file"),
+                "embedding_text": record.get("embedding_text", ""),
+                "summary": record.get("summary"),
+                "role_labels": record.get("role_labels"),
+                "importance_score": record.get("importance_score"),
+                "generated_code": record.get("generated_code", False),
+                "generated_code_reasons": record.get("generated_code_reasons", []),
+            }
+        )
     return embedding_records
 
 
@@ -84,7 +85,7 @@ def _compact_context_record(record: dict) -> dict:
         if value is None:
             continue
         if key in _CONTEXT_TRUNCATE_KEYS and isinstance(value, str):
-            payload[key] = value[:_CONTEXT_TRUNCATE_KEYS[key]]
+            payload[key] = value[: _CONTEXT_TRUNCATE_KEYS[key]]
             continue
         if key in _CONTEXT_LIST_LIMIT_KEYS and isinstance(value, list):
             payload[key] = _compact_list(value, _CONTEXT_LIST_LIMIT_KEYS[key])
@@ -130,29 +131,29 @@ def build_graph_nodes(
     seen_ids: set[str] = set()
     for record in [*index_records, *detail_records]:
         node_id = record.get("id")
-        if (
-            not node_id
-            or node_id in seen_ids
-            or record.get("kind") in _GRAPH_EXCLUDED_NODE_KINDS
-        ):
+        if not node_id or node_id in seen_ids or record.get("kind") in _GRAPH_EXCLUDED_NODE_KINDS:
             continue
         seen_ids.add(node_id)
         if mode == "neo4j":
-            nodes.append({
-                "id": node_id,
-                "labels": [record.get("kind", "Record")],
-                "properties": _graph_node_properties(record),
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "labels": [record.get("kind", "Record")],
+                    "properties": _graph_node_properties(record),
+                }
+            )
             continue
-        nodes.append({
-            "id": node_id,
-            "kind": record.get("kind"),
-            "file": record.get("file"),
-            "parent_id": record.get("parent_id"),
-            "role_labels": record.get("role_labels"),
-            "importance_score": record.get("importance_score"),
-            "generated_code": record.get("generated_code", False),
-        })
+        nodes.append(
+            {
+                "id": node_id,
+                "kind": record.get("kind"),
+                "file": record.get("file"),
+                "parent_id": record.get("parent_id"),
+                "role_labels": record.get("role_labels"),
+                "importance_score": record.get("importance_score"),
+                "generated_code": record.get("generated_code", False),
+            }
+        )
     return nodes
 
 
@@ -184,9 +185,7 @@ def _build_graph_resolution_maps(
         if kind in {"java_type", "csharp_type"}:
             simple_candidates.setdefault(str(name), []).append(record_id)
     by_simple_name = {
-        name: candidates[0]
-        for name, candidates in simple_candidates.items()
-        if len(set(candidates)) == 1
+        name: candidates[0] for name, candidates in simple_candidates.items() if len(set(candidates)) == 1
     }
     endpoint_paths: dict[str, str] = {}
     for record in relation_records:
@@ -251,19 +250,23 @@ def build_graph_edges(
         if not record.get("id") or not record.get("parent_id"):
             continue
         if mode == "neo4j":
-            edges.append({
+            edges.append(
+                {
+                    "source": record.get("parent_id"),
+                    "target": record.get("id"),
+                    "type": "HAS_CHILD",
+                    "properties": {"kind": "parent_child"},
+                }
+            )
+            continue
+        edges.append(
+            {
                 "source": record.get("parent_id"),
                 "target": record.get("id"),
-                "type": "HAS_CHILD",
-                "properties": {"kind": "parent_child"},
-            })
-            continue
-        edges.append({
-            "source": record.get("parent_id"),
-            "target": record.get("id"),
-            "type": "parent_child",
-            "kind": "parent_child",
-        })
+                "type": "parent_child",
+                "kind": "parent_child",
+            }
+        )
 
     node_ids, by_fqn, by_simple_name, endpoint_paths = _build_graph_resolution_maps(
         index_records, detail_records, relation_records
@@ -274,12 +277,14 @@ def build_graph_edges(
         target_id = record.get("to")
         if source_id and target_id:
             if mode == "neo4j":
-                edges.append({
-                    "source": source_id,
-                    "target": target_id,
-                    "type": str(record.get("type", "RELATED_TO")).upper(),
-                    "properties": _graph_edge_properties(record),
-                })
+                edges.append(
+                    {
+                        "source": source_id,
+                        "target": target_id,
+                        "type": str(record.get("type", "RELATED_TO")).upper(),
+                        "properties": _graph_edge_properties(record),
+                    }
+                )
                 continue
             _append_jsonl_edge(str(source_id), str(target_id), str(record.get("type") or "related"), record)
             continue
@@ -302,28 +307,22 @@ def build_graph_edges(
         if resolved_target is None or resolved_target == resolved_source:
             continue
         if mode == "neo4j":
-            edges.append({
-                "source": resolved_source,
-                "target": resolved_target,
-                "type": relation_type.upper(),
-                "properties": _graph_edge_properties(record),
-            })
+            edges.append(
+                {
+                    "source": resolved_source,
+                    "target": resolved_target,
+                    "type": relation_type.upper(),
+                    "properties": _graph_edge_properties(record),
+                }
+            )
             continue
         _append_jsonl_edge(resolved_source, resolved_target, relation_type, record)
     return edges
 
 
 def _graph_node_properties(record: dict) -> dict:
-    return {
-        key: value
-        for key, value in record.items()
-        if key not in {"id", "kind"} and value is not None
-    }
+    return {key: value for key, value in record.items() if key not in {"id", "kind"} and value is not None}
 
 
 def _graph_edge_properties(record: dict) -> dict:
-    return {
-        key: value
-        for key, value in record.items()
-        if key not in {"from", "to", "type"} and value is not None
-    }
+    return {key: value for key, value in record.items() if key not in {"from", "to", "type"} and value is not None}

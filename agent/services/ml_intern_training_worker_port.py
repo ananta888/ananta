@@ -330,11 +330,14 @@ class HttpMlInternTrainingWorkerPort:
         if "_hub_evidence_assignment" in spec:
             try:
                 common["hub_evidence_assignment"] = lora_evidence_assignment(
-                    spec["_hub_evidence_assignment"], attempt_id=attempt_id,
+                    spec["_hub_evidence_assignment"],
+                    attempt_id=attempt_id,
                 )
             except (HubEvidenceAssignmentError, TypeError, ValueError) as exc:
                 raise MlInternTrainingWorkerTransportError(
-                    "hub_evidence_assignment_invalid", str(exc), retryable=False,
+                    "hub_evidence_assignment_invalid",
+                    str(exc),
+                    retryable=False,
                 ) from exc
         governance = _spreadsheet_governance(spec)
         if governance is not None:
@@ -646,12 +649,16 @@ class HttpMlInternTrainingWorkerPort:
                 "error_message": str(error["message"])[:512],
                 "retryable": bool(error.get("retryable", False)),
             }
-        if (job_type == "evaluate_lora"
-                and str(spec.get("scorer_name") or "").strip().lower() == "specialist_decision"
-                and not any(isinstance(item, Mapping) and item.get("name") == "specialist_predictions.jsonl"
-                            for item in artifacts)):
+        if (
+            job_type == "evaluate_lora"
+            and str(spec.get("scorer_name") or "").strip().lower() == "specialist_decision"
+            and not any(
+                isinstance(item, Mapping) and item.get("name") == "specialist_predictions.jsonl" for item in artifacts
+            )
+        ):
             raise MlInternTrainingWorkerTransportError(
-                "worker_artifact_incomplete", "specialist evaluation is missing its complete prediction artifact",
+                "worker_artifact_incomplete",
+                "specialist evaluation is missing its complete prediction artifact",
                 retryable=False,
             )
         admitted = self._download_artifacts(

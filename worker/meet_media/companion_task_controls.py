@@ -59,9 +59,14 @@ class CompanionTaskControls:
                     raise ValueError()
                 for source in current.keys() - {"revision"}:
                     before, after = previous[source], current[source]
-                    if (after["revision"] < before["revision"] or after["since"] < before["since"]
-                            or after["revision"] == before["revision"] and after != before
-                            or current["revision"] == previous["revision"] and after != before):
+                    if (
+                        after["revision"] < before["revision"]
+                        or after["since"] < before["since"]
+                        or after["revision"] == before["revision"]
+                        and after != before
+                        or current["revision"] == previous["revision"]
+                        and after != before
+                    ):
                         raise ValueError()
             self.state = deepcopy(observed)
             self.fresh_until = fresh_until
@@ -84,8 +89,13 @@ class CompanionTaskControls:
             raise CompanionSourceInterrupted("meet_companion_source_changed")
 
     def _current(self, source):
-        if (self.closed or self.state is None or self.clock() >= min(self.fresh_until, self.client.deadline)
-                or source not in {"chat", "speech", "avatar"} or source not in self.state["controls"]):
+        if (
+            self.closed
+            or self.state is None
+            or self.clock() >= min(self.fresh_until, self.client.deadline)
+            or source not in {"chat", "speech", "avatar"}
+            or source not in self.state["controls"]
+        ):
             raise CompanionControlLost("meet_companion_source_unavailable")
         return self.state["controls"][source]
 

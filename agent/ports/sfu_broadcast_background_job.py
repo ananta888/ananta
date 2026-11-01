@@ -15,9 +15,7 @@ class SfuBroadcastBackgroundJobPort(Protocol):
         self, spec: SfuBroadcastBackgroundJobSpec, *, owner_id: str, now: float
     ) -> SfuBroadcastBackgroundJobLease | None: ...
 
-    def lease_valid(
-        self, lease: SfuBroadcastBackgroundJobLease, *, now: float
-    ) -> bool: ...
+    def lease_valid(self, lease: SfuBroadcastBackgroundJobLease, *, now: float) -> bool: ...
 
     def finish(
         self,

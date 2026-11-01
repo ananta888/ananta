@@ -50,9 +50,7 @@ class TypeScriptFrameworkAnnotator:
     ) -> dict[str, object]:
         has_angular_import = any(module.startswith("@angular/") for module in imports)
         has_react_import = any(
-            module in {"react", "react-dom", "react/jsx-runtime"}
-            or module.startswith("react/")
-            for module in imports
+            module in {"react", "react-dom", "react/jsx-runtime"} or module.startswith("react/") for module in imports
         )
         has_jsx = rel_path.endswith(".tsx") or bool(JSX_TAG_PATTERN.search(text))
         hook_calls = sorted({match.group(1) for match in REACT_HOOK_CALL_PATTERN.finditer(text)})
@@ -105,8 +103,7 @@ class TypeScriptFrameworkAnnotator:
         component_count = sum(
             1
             for record in top_level_symbols
-            if record.get("framework_role")
-            in {"angular_component", "react_component"}
+            if record.get("framework_role") in {"angular_component", "react_component"}
         )
         hook_count = sum(1 for record in top_level_symbols if record.get("framework_role") == "react_hook")
         return {
@@ -161,8 +158,7 @@ class TypeScriptFrameworkAnnotator:
                     return "angular", framework_role
 
         if kind == "typescript_class" and (
-            "React.Component" in extends_value
-            or extends_value in {"Component", "PureComponent"}
+            "React.Component" in extends_value or extends_value in {"Component", "PureComponent"}
         ):
             return "react", "react_component"
 
@@ -201,9 +197,5 @@ class TypeScriptFrameworkAnnotator:
             if standalone_match:
                 metadata["standalone"] = standalone_match.group(1) == "true"
             if imports_match:
-                metadata["imports"] = [
-                    item.strip()
-                    for item in imports_match.group(1).split(",")
-                    if item.strip()
-                ][:20]
+                metadata["imports"] = [item.strip() for item in imports_match.group(1).split(",") if item.strip()][:20]
         return metadata

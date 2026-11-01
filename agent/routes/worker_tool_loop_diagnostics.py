@@ -7,6 +7,7 @@ policy decisions, ToolResults, mutation modes, diffs and blocked changes
 per worker run. Workspace paths are resolved strictly inside the
 configured workspace root.
 """
+
 from __future__ import annotations
 
 import json

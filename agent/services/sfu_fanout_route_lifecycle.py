@@ -55,13 +55,9 @@ class FanoutRouteReason(str, Enum):
     ROUTE_EXPIRED = "route_expired"
 
 
-TERMINAL_ROUTE_STATES = frozenset(
-    {FanoutRouteState.REVOKE, FanoutRouteState.EXPIRE, FanoutRouteState.FAILED}
-)
+TERMINAL_ROUTE_STATES = frozenset({FanoutRouteState.REVOKE, FanoutRouteState.EXPIRE, FanoutRouteState.FAILED})
 
-TRANSITION_TABLE: dict[
-    tuple[FanoutRouteState, FanoutRouteEvent], FanoutRouteState
-] = {
+TRANSITION_TABLE: dict[tuple[FanoutRouteState, FanoutRouteEvent], FanoutRouteState] = {
     (FanoutRouteState.INTENT, FanoutRouteEvent.DISPATCH): FanoutRouteState.DISPATCH,
     (FanoutRouteState.DISPATCH, FanoutRouteEvent.ACK): FanoutRouteState.ACK,
     (FanoutRouteState.ACK, FanoutRouteEvent.ACTIVATE): FanoutRouteState.ACTIVE,
@@ -237,9 +233,7 @@ class SfuFanoutRouteLifecycle:
                 audit,
             )
         if record.state in TERMINAL_ROUTE_STATES:
-            return FanoutRouteTransitionResult(
-                record, False, False, FanoutRouteReason.TERMINAL, audit
-            )
+            return FanoutRouteTransitionResult(record, False, False, FanoutRouteReason.TERMINAL, audit)
         if now_ms >= record.expires_at_ms:
             return self._accepted(
                 replace(record, state=FanoutRouteState.EXPIRE),
@@ -249,9 +243,7 @@ class SfuFanoutRouteLifecycle:
                 audit,
             )
         if event is FanoutRouteEvent.TIMEOUT:
-            return self._timeout(
-                record, operation_id, request_digest, now_ms, audit
-            )
+            return self._timeout(record, operation_id, request_digest, now_ms, audit)
         if event is FanoutRouteEvent.RETRY:
             return self._retry(record, operation_id, request_digest, now_ms, audit)
         target = TRANSITION_TABLE.get((record.state, event))
@@ -286,9 +278,7 @@ class SfuFanoutRouteLifecycle:
         elif event is FanoutRouteEvent.ACK:
             reason = self._evidence_reason(record, evidence, operation_id, now_ms)
             if reason is not None:
-                return FanoutRouteTransitionResult(
-                    record, False, False, reason, audit
-                )
+                return FanoutRouteTransitionResult(record, False, False, reason, audit)
             assert evidence is not None
             next_record = replace(
                 next_record,
@@ -299,9 +289,7 @@ class SfuFanoutRouteLifecycle:
         elif event is FanoutRouteEvent.ACTIVATE:
             reason = self._activation_reason(record, guards)
             if reason is not None:
-                return FanoutRouteTransitionResult(
-                    record, False, False, reason, audit
-                )
+                return FanoutRouteTransitionResult(record, False, False, reason, audit)
             next_record = replace(
                 next_record,
                 deadline_at_ms=None,
@@ -363,11 +351,7 @@ class SfuFanoutRouteLifecycle:
         if not bindings_match:
             return FanoutRouteReason.APPLY_EVIDENCE_BINDING_INVALID
         if record.runtime_control_mode is RuntimeControlModeV1.LIVEKIT_CONTROL_API:
-            if not (
-                evidence.tls_bound
-                and evidence.api_credential_bound
-                and evidence.reconciliation_confirmed
-            ):
+            if not (evidence.tls_bound and evidence.api_credential_bound and evidence.reconciliation_confirmed):
                 return FanoutRouteReason.LIVEKIT_API_PROOF_INVALID
         elif not (evidence.mtls_bound or evidence.signature_verified):
             return FanoutRouteReason.RUNTIME_ACK_INVALID
@@ -435,9 +419,7 @@ class SfuFanoutRouteLifecycle:
                 audit,
             )
         if record.cooldown_until_ms is None or now_ms < record.cooldown_until_ms:
-            return FanoutRouteTransitionResult(
-                record, False, False, FanoutRouteReason.RETRY_COOLDOWN, audit
-            )
+            return FanoutRouteTransitionResult(record, False, False, FanoutRouteReason.RETRY_COOLDOWN, audit)
         deadline = (
             self._config.dispatch_deadline_ms
             if record.state is FanoutRouteState.DISPATCH
@@ -464,9 +446,7 @@ class SfuFanoutRouteLifecycle:
         audit: str,
     ) -> FanoutRouteTransitionResult:
         receipts = (*record.receipts, (operation_id, request_digest))
-        updated = replace(
-            record, receipts=receipts[-self._config.receipt_history_max :]
-        )
+        updated = replace(record, receipts=receipts[-self._config.receipt_history_max :])
         return FanoutRouteTransitionResult(updated, True, False, reason, audit)
 
     @staticmethod
@@ -491,9 +471,7 @@ class SfuFanoutRouteLifecycle:
 
 
 def _canonical_digest(value: object) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode()
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 

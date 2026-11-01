@@ -127,10 +127,13 @@ def test_auto_provision_creates_explicit_subject_binding(service):
     )
 
     assert user.username == "new@example.test"
-    assert service.resolve(
-        issuer="https://issuer",
-        subject="new-subject",
-    ).username == "new@example.test"
+    assert (
+        service.resolve(
+            issuer="https://issuer",
+            subject="new-subject",
+        ).username
+        == "new@example.test"
+    )
 
 
 def test_auto_provision_never_claims_an_existing_unlinked_username(service):

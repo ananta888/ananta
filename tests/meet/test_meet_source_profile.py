@@ -10,9 +10,9 @@ import pytest
 from agent.services.meet_contract import MeetError
 from ananta_contracts.meet_dialog import validate_assignment
 from ananta_contracts.meet_source_profile import CAPABILITIES, SOURCE_CLASSES, dialog_source_profile
-from tests.test_meet_dialog_authority import fixture
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_dialog_transport import assignment
+from tests.test_meet_dialog_authority import fixture
 from worker.meet_media import dialog_runtime
 
 pytestmark = pytest.mark.timeout(45)

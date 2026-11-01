@@ -92,9 +92,7 @@ class DashboardHubAdapter:
         if not self._board_id:
             raise ValueError("dashboard_board_id_required")
         self._timeout_seconds = max(0.25, min(30.0, float(timeout_seconds)))
-        self._idempotency_key_factory = idempotency_key_factory or (
-            lambda: f"tui-{uuid.uuid4().hex}"
-        )
+        self._idempotency_key_factory = idempotency_key_factory or (lambda: f"tui-{uuid.uuid4().hex}")
         self._model_revision = ""
         self._model_providers: dict[str, tuple[str, ...]] = {}
 
@@ -147,11 +145,7 @@ class DashboardHubAdapter:
                 if exc.status_code == 409:
                     details = exc.payload.get("error")
                     details = details.get("details") if isinstance(details, dict) else {}
-                    current_revision = (
-                        details.get("current_revision")
-                        if isinstance(details, dict)
-                        else None
-                    )
+                    current_revision = details.get("current_revision") if isinstance(details, dict) else None
                     raise RevisionConflict(
                         exc.code,
                         current_revision=current_revision,
@@ -185,9 +179,7 @@ class DashboardHubAdapter:
         return response["data"]
 
     async def _require_feature(self, feature: str) -> None:
-        local_enabled = (
-            self._local_flags.kanban if feature == "tui_kanban" else self._local_flags.models
-        )
+        local_enabled = self._local_flags.kanban if feature == "tui_kanban" else self._local_flags.models
         if not local_enabled:
             raise DashboardHttpError(
                 f"{feature}_disabled_local",
@@ -272,10 +264,7 @@ class DashboardHubAdapter:
         ]
         by_id = {column["id"]: column for column in columns}
         for card in raw_cards:
-            if (
-                not isinstance(card, Mapping)
-                or str(card.get("board_id") or "") != board_id
-            ):
+            if not isinstance(card, Mapping) or str(card.get("board_id") or "") != board_id:
                 raise DashboardHttpError(
                     "kanban_snapshot_card_contract_invalid",
                     status_code=502,
@@ -287,11 +276,7 @@ class DashboardHubAdapter:
                     status_code=502,
                 )
             assignee = card.get("assignee")
-            assignee_id = (
-                str(assignee.get("id") or "")
-                if isinstance(assignee, Mapping)
-                else ""
-            )
+            assignee_id = str(assignee.get("id") or "") if isinstance(assignee, Mapping) else ""
             column["tasks"].append(
                 {
                     "id": str(card.get("id") or ""),
@@ -351,8 +336,7 @@ class DashboardHubAdapter:
                 self._data(
                     await self._request(
                         "GET",
-                        f"{_KANBAN_ROOT}/boards/{encoded_board}/cards?"
-                        + urllib.parse.urlencode(query),
+                        f"{_KANBAN_ROOT}/boards/{encoded_board}/cards?" + urllib.parse.urlencode(query),
                     )
                 ),
                 code="kanban_card_page_contract_invalid",
@@ -382,11 +366,7 @@ class DashboardHubAdapter:
                         status_code=502,
                     )
                 assignee = card.get("assignee")
-                assignee_id = (
-                    str(assignee.get("id") or "")
-                    if isinstance(assignee, Mapping)
-                    else ""
-                )
+                assignee_id = str(assignee.get("id") or "") if isinstance(assignee, Mapping) else ""
                 column["tasks"].append(
                     {
                         "id": str(card.get("id") or ""),
@@ -595,8 +575,7 @@ class DashboardHubAdapter:
         )
         self._model_revision = revision
         self._model_providers = {
-            model_id: tuple(sorted(set(provider_ids)))
-            for model_id, provider_ids in providers.items()
+            model_id: tuple(sorted(set(provider_ids))) for model_id, provider_ids in providers.items()
         }
         return {
             "revision": revision,
@@ -629,8 +608,7 @@ class DashboardHubAdapter:
             capability_sources = [
                 f"{str(item.get('fact_id') or '')}:{str(item.get('value') or '')}"
                 for item in (facts or ())
-                if isinstance(item, Mapping)
-                and str(item.get("fact_id") or "").startswith("capability.")
+                if isinstance(item, Mapping) and str(item.get("fact_id") or "").startswith("capability.")
             ]
             models.append(
                 {
@@ -660,8 +638,7 @@ class DashboardHubAdapter:
         ]
         self._model_revision = revision
         self._model_providers = {
-            model_id: tuple(sorted(set(provider_ids)))
-            for model_id, provider_ids in providers.items()
+            model_id: tuple(sorted(set(provider_ids))) for model_id, provider_ids in providers.items()
         }
         return {"revision": revision, "models": models, "provider_errors": provider_errors}
 

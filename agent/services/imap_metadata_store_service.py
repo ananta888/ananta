@@ -57,7 +57,9 @@ class ImapMetadataStore:
                 # Preserve existing explicit body unless overwritten later.
                 row["body"] = str(existing.get("body") or "")
                 row["body_scope"] = str(existing.get("body_scope") or "metadata_only")
-                row["attachments"] = [dict(item) for item in list(existing.get("attachments") or []) if isinstance(item, dict)]
+                row["attachments"] = [
+                    dict(item) for item in list(existing.get("attachments") or []) if isinstance(item, dict)
+                ]
                 rows[idx] = row
                 replaced = True
                 break

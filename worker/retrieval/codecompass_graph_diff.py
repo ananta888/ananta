@@ -7,16 +7,15 @@ Parser-Version are kept in ``state/provenance`` for replay.
 Works against the neutral CodeCompass graph contract — no CRG
 installation required.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
-
 
 GRAPH_DIFF_VERSION = "graph_diff.v1"
 
@@ -59,8 +58,7 @@ def _snapshot_id(graph_store: CodeCompassGraphStore) -> str:
 
 
 def _compute_payload_hash(payload: dict[str, Any]) -> str:
-    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False,
-                      separators=(",", ":"))
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
@@ -96,16 +94,16 @@ def diff_snapshots(
     removed_e = sorted(base_edge_set - target_edge_set)
     changed_e: list[dict[str, Any]] = []
     # "changed" edges = same endpoints/kind but different confidence / attrs
-    base_by_key = {(e["source_id"], e["target_id"], e["edge_type"]): e
-                   for e in base_edges}
-    target_by_key = {(e["source_id"], e["target_id"], e["edge_type"]): e
-                     for e in target_edges}
+    base_by_key = {(e["source_id"], e["target_id"], e["edge_type"]): e for e in base_edges}
+    target_by_key = {(e["source_id"], e["target_id"], e["edge_type"]): e for e in target_edges}
     for key in set(base_by_key) & set(target_by_key):
         if _edge_signature(base_by_key[key]) != _edge_signature(target_by_key[key]):
-            changed_e.append({
-                "before": base_by_key[key],
-                "after": target_by_key[key],
-            })
+            changed_e.append(
+                {
+                    "before": base_by_key[key],
+                    "after": target_by_key[key],
+                }
+            )
 
     added_edges_full = [target_by_key[k] for k in added_e]
     removed_edges_full = [base_by_key[k] for k in removed_e]
@@ -148,8 +146,7 @@ def _normalise_edges(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]],
         kind = str(e.get("edge_type") or "").strip()
         if not (sid and tid and kind):
             continue
-        out.append({"source_id": sid, "target_id": tid,
-                    "edge_type": kind, **e})
+        out.append({"source_id": sid, "target_id": tid, "edge_type": kind, **e})
         keys.add((sid, tid, kind))
     return out, keys
 

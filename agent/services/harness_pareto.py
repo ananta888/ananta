@@ -30,8 +30,12 @@ class Candidate:
             object.__setattr__(self, "objectives", freeze_metrics(self.objectives))
         except ValueError:
             raise ValueError("candidate_objectives_invalid") from None
-        if (not finite_number(self.confidence) or not 0.0 <= self.confidence <= 1.0
-                or not finite_number(self.variance) or self.variance < 0.0):
+        if (
+            not finite_number(self.confidence)
+            or not 0.0 <= self.confidence <= 1.0
+            or not finite_number(self.variance)
+            or self.variance < 0.0
+        ):
             raise ValueError("candidate_confidence_invalid")
 
 
@@ -71,8 +75,10 @@ class ParetoSelector:
                 raise ValueError(f"pareto_metric_missing:{sorted(missing)[0]}")
         front: list[Candidate] = []
         for candidate in candidates:
-            if not any(other.candidate_id != candidate.candidate_id and self.dominates(other, candidate)
-                       for other in candidates):
+            if not any(
+                other.candidate_id != candidate.candidate_id and self.dominates(other, candidate)
+                for other in candidates
+            ):
                 front.append(candidate)
         return front
 

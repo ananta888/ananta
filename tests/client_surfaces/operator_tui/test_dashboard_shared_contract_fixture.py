@@ -19,13 +19,7 @@ from client_surfaces.operator_tui.dashboard_surfaces import (
     RevisionConflict,
 )
 
-
-FIXTURE_PATH = (
-    Path(__file__).parents[2]
-    / "fixtures"
-    / "kanban_model_dashboard"
-    / "kanban-model-dashboard.v1.json"
-)
+FIXTURE_PATH = Path(__file__).parents[2] / "fixtures" / "kanban_model_dashboard" / "kanban-model-dashboard.v1.json"
 
 
 def _fixture() -> dict:
@@ -57,9 +51,7 @@ def test_shared_fixture_drives_real_flask_tui_conflict_and_snapshot_reload(
     fixture_card = fixture["card"]
     fixture_error = fixture["error"]
     _enable_tui_kanban(app)
-    timestamp = datetime.fromisoformat(
-        fixture_card["updated_at"].replace("Z", "+00:00")
-    ).timestamp()
+    timestamp = datetime.fromisoformat(fixture_card["updated_at"].replace("Z", "+00:00")).timestamp()
     db_session.add(
         TaskDB(
             id=fixture_card["id"],
@@ -99,9 +91,7 @@ def test_shared_fixture_drives_real_flask_tui_conflict_and_snapshot_reload(
 
         persisted = db_session.get(TaskDB, fixture_card["id"])
         assert persisted is not None
-        persisted.kanban_revision = fixture_error["body"]["error"]["details"][
-            "current_revision"
-        ]
+        persisted.kanban_revision = fixture_error["body"]["error"]["details"]["current_revision"]
         persisted.updated_at = timestamp + 1
         db_session.add(persisted)
         db_session.commit()
@@ -117,18 +107,14 @@ def test_shared_fixture_drives_real_flask_tui_conflict_and_snapshot_reload(
             )
         assert fixture_error["http_status"] == 409
         assert str(conflict.value) == fixture_error["body"]["error"]["code"]
-        assert conflict.value.current_revision == fixture_error["body"]["error"][
-            "details"
-        ]["current_revision"]
+        assert conflict.value.current_revision == fixture_error["body"]["error"]["details"]["current_revision"]
 
         controller.select("kanban", 0)
         reloaded = asyncio.run(controller.move_selected("completed"))
         current = reloaded.payload["items"][0]
         assert reloaded.payload["revision_conflict"] is True
         assert current["id"] == fixture_card["id"]
-        assert current["revision"] == fixture_error["body"]["error"]["details"][
-            "current_revision"
-        ]
+        assert current["revision"] == fixture_error["body"]["error"]["details"]["current_revision"]
     finally:
         server.shutdown()
         server.server_close()

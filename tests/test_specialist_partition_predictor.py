@@ -41,12 +41,15 @@ def test_factory_uses_real_partition_datasets_and_requires_full_predictions(app,
             return SpecialistEvaluationResult(
                 SpecialistPredictionOutputs(base=outputs, adapter=outputs),
                 SpecialistEvaluationReceipt(
-                    job_id=f"synthetic-evaluation-{len(commands)}", job_version=1,
-                    attempt_id=f"synthetic-attempt-{len(commands)}", dataset_id=dataset.id,
+                    job_id=f"synthetic-evaluation-{len(commands)}",
+                    job_version=1,
+                    attempt_id=f"synthetic-attempt-{len(commands)}",
+                    dataset_id=dataset.id,
                     dataset_version=dataset.version + (1 if receipt_mismatch else 0),
                     adapter_id=command.request_spec["adapter_id"],
                     adapter_sha256=command.request_spec["expected_adapter_sha256"],
-                    base_model_sha256=command.request_spec["expected_base_model_sha256"], request_digest="a" * 64,
+                    base_model_sha256=command.request_spec["expected_base_model_sha256"],
+                    request_digest="a" * 64,
                 ),
             )
 
@@ -58,15 +61,20 @@ def test_factory_uses_real_partition_datasets_and_requires_full_predictions(app,
         strategy=SpecialistTrainingTaskFamilyStrategy(GATE), datasets=admission, evaluation=SyntheticEvaluation()
     )
     factory = SpecialistModelFactory(
-        GATE, trainer=SyntheticTrainer(), partition_predictor=predictor,
-        registry=MlInternAdapterRegistryService(tmp_path / "registry.json"), policy=POLICY,
-        benchmark_version="code-risk-bench-v1", dataset_admission=admission,
+        GATE,
+        trainer=SyntheticTrainer(),
+        partition_predictor=predictor,
+        registry=MlInternAdapterRegistryService(tmp_path / "registry.json"),
+        policy=POLICY,
+        benchmark_version="code-risk-bench-v1",
+        dataset_admission=admission,
         candidate_registration=SyntheticRegistration(),
     )
     examples = gate_examples(45)
     if truncate or receipt_mismatch:
         reason = (
-            "specialist_predictor_output_count_mismatch" if truncate
+            "specialist_predictor_output_count_mismatch"
+            if truncate
             else "specialist_partition_evaluation_receipt_mismatch"
         )
         with pytest.raises(ValueError, match=reason):
@@ -85,10 +93,11 @@ def test_factory_uses_real_partition_datasets_and_requires_full_predictions(app,
     for index, outcome in enumerate(cycle.candidates):
         assert [role for role, _receipt in outcome.evaluations] == ["validation", "holdout"]
         assert [receipt.job_id for _role, receipt in outcome.evaluations] == [
-            f"synthetic-evaluation-{2 * index + 1}", f"synthetic-evaluation-{2 * index + 2}"
+            f"synthetic-evaluation-{2 * index + 1}",
+            f"synthetic-evaluation-{2 * index + 2}",
         ]
         assert exported[outcome.candidate_id]["holdout"]["job_id"] == f"synthetic-evaluation-{2 * index + 2}"
-        for command in commands[2 * index:2 * index + 2]:
+        for command in commands[2 * index : 2 * index + 2]:
             assert command.request_spec["adapter_id"] == outcome.outcome.adapter_id
             assert command.request_spec["expected_adapter_sha256"] == outcome.outcome.adapter_digest
             assert command.request_spec["expected_base_model_sha256"] == outcome.outcome.base_model_digest

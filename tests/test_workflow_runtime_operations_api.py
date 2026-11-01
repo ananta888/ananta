@@ -598,10 +598,7 @@ def test_runtime_operations_idempotency_conflict_is_409_without_second_hub_side_
 
     assert accepted.status_code == 202
     assert replayed.status_code == 202
-    assert (
-        accepted.get_json()["command"]["command_id"]
-        == replayed.get_json()["command"]["command_id"]
-    )
+    assert accepted.get_json()["command"]["command_id"] == replayed.get_json()["command"]["command_id"]
     assert conflict.status_code == 409
     assert conflict.get_json()["reason_code"] == "runtime_command_idempotency_conflict"
     assert interventions == [("task-run-idempotency-conflict", "pause", "operator-a")]
@@ -750,18 +747,12 @@ def test_runtime_operation_route_preserves_hub_policy_409(
             }
 
     monkeypatch.setattr(
-        (
-            "agent.routes.workflow_runtime_operations."
-            "get_workflow_runtime_command_service"
-        ),
+        ("agent.routes.workflow_runtime_operations.get_workflow_runtime_command_service"),
         lambda: RejectedCommandService(),
     )
 
     response = client.post(
-        (
-            "/api/workflow-runtime/operations/runs/"
-            "run-recovery-source/commands"
-        ),
+        ("/api/workflow-runtime/operations/runs/run-recovery-source/commands"),
         headers={
             **_headers(tenant_id="tenant-a"),
             "Idempotency-Key": "source-cancel-command-001",
@@ -775,7 +766,5 @@ def test_runtime_operation_route_preserves_hub_policy_409(
 
     assert response.status_code == 409
     payload = response.get_json()
-    assert payload["reason_code"] == (
-        "runtime_command_rejected_by_hub_policy"
-    )
+    assert payload["reason_code"] == ("runtime_command_rejected_by_hub_policy")
     assert payload["command"]["result"]["reason_code"] == reason

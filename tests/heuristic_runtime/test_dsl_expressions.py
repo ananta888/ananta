@@ -1,10 +1,9 @@
 """Tests für DSL v2 Expression Engine."""
-import pytest
 
-from agent.services.heuristic_runtime.dsl.expression import evaluate, _resolve_path
-
+from agent.services.heuristic_runtime.dsl.expression import _resolve_path, evaluate
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def ctx(**kwargs):
     """Erstellt einfachen Dict-Kontext."""
@@ -25,6 +24,7 @@ def nested_ctx():
 
 
 # ── all / any / not ───────────────────────────────────────────────────────────
+
 
 def test_all_true():
     result = evaluate({"all": [{"eq": [1, 1]}, {"eq": [2, 2]}]}, {})
@@ -74,6 +74,7 @@ def test_not_none_propagates():
 
 # ── eq / gt / lt ──────────────────────────────────────────────────────────────
 
+
 def test_eq_literals():
     assert evaluate({"eq": [42, 42]}, {}) is True
     assert evaluate({"eq": [42, 43]}, {}) is False
@@ -120,6 +121,7 @@ def test_lt_with_path():
 
 # ── contains ──────────────────────────────────────────────────────────────────
 
+
 def test_contains_string():
     c = {"message": "hello world"}
     assert evaluate({"contains": ["message", "hello"]}, c) is True
@@ -138,6 +140,7 @@ def test_contains_missing_path():
 
 
 # ── regex_safe ────────────────────────────────────────────────────────────────
+
 
 def test_regex_safe_match():
     c = {"text": "hello world 123"}
@@ -171,12 +174,11 @@ def test_regex_safe_missing_target():
 
 # ── distance ──────────────────────────────────────────────────────────────────
 
+
 def test_distance_manhattan():
     c = {"snake": {"x": 0, "y": 0}, "target": {"x": 3, "y": 4}}
     # Pfadauflösung für verschachtelten Context
-    result = evaluate({
-        "distance": {"ax": "snake.x", "ay": "snake.y", "bx": "target.x", "by": "target.y"}
-    }, c)
+    result = evaluate({"distance": {"ax": "snake.x", "ay": "snake.y", "bx": "target.x", "by": "target.y"}}, c)
     assert result == 7.0  # |3-0| + |4-0|
 
 
@@ -193,6 +195,7 @@ def test_distance_missing_returns_none():
 
 
 # ── intersects ────────────────────────────────────────────────────────────────
+
 
 def test_intersects_overlapping():
     expr = {
@@ -232,6 +235,7 @@ def test_intersects_missing_bbox():
 
 # ── changed_recently ──────────────────────────────────────────────────────────
 
+
 def test_changed_recently_missing_returns_false():
     """Fehlender _changed_at Wert → False."""
     result = evaluate({"changed_recently": {"path": "tui.snapshot.screen_hash", "within_seconds": 5.0}}, {})
@@ -240,6 +244,7 @@ def test_changed_recently_missing_returns_false():
 
 # ── direction_towards ─────────────────────────────────────────────────────────
 
+
 def test_direction_towards_returns_none():
     """direction_towards kann ohne Live-Game-State nicht ausgewertet werden → None."""
     result = evaluate({"direction_towards": {}}, {})
@@ -247,6 +252,7 @@ def test_direction_towards_returns_none():
 
 
 # ── Fehlende / unbekannte Operatoren ─────────────────────────────────────────
+
 
 def test_unknown_operator_returns_none():
     """Unbekannter Operator → None (kein Crash)."""
@@ -262,6 +268,7 @@ def test_nested_exception_handled():
 
 
 # ── Pfad-Auflösung ────────────────────────────────────────────────────────────
+
 
 def test_resolve_path_dict():
     c = {"a": {"b": {"c": 42}}}
@@ -296,15 +303,18 @@ def test_resolve_path_none_node_returns_none():
 
 # ── Komplexe Ausdrücke ────────────────────────────────────────────────────────
 
+
 def test_complex_all_any_expression():
     c = nested_ctx()
     expr = {
         "all": [
             {"eq": ["tui.focus", "BODY"]},
-            {"any": [
-                {"gt": ["tui.semantic.entity_count", 3]},
-                {"lt": ["tui.delta.changed_cell_count", 1]},
-            ]},
+            {
+                "any": [
+                    {"gt": ["tui.semantic.entity_count", 3]},
+                    {"lt": ["tui.delta.changed_cell_count", 1]},
+                ]
+            },
         ]
     }
     result = evaluate(expr, c)

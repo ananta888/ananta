@@ -15,7 +15,6 @@ from agent.services.sfu_member_digest_key_contract import (
 )
 from agent.services.turn_pool_contract import TurnPoolObservationDocument
 
-
 NOW = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)
 
 
@@ -56,9 +55,7 @@ def test_blind_index_is_stable_when_only_wrapping_key_id_rotates() -> None:
     right = second.blind_index(purpose="membership", scope="tenant:room", value="actor")
 
     assert left == right
-    assert left in second.blind_candidates(
-        purpose="membership", scope="tenant:room", value="actor"
-    )
+    assert left in second.blind_candidates(purpose="membership", scope="tenant:room", value="actor")
 
 
 def test_turn_observation_contract_normalizes_fail_closed_capacity() -> None:
@@ -86,14 +83,10 @@ def test_compromised_kms_rotation_commits_pending_and_cleanup_is_idempotent() ->
     crypto = _ToggleDestroyCrypto()
     current = repository.stage(_staged("key-a", 1, scope))
     crypto.provision("key-a", b"a" * 32)
-    current = repository.activate(
-        current.key_id, expected_version=current.version, transitioned_at=NOW
-    )
+    current = repository.activate(current.key_id, expected_version=current.version, transitioned_at=NOW)
     successor = repository.stage(_staged("key-b", 2, scope))
     crypto.provision("key-b", b"b" * 32)
-    service = SfuMemberDigestKeyContractService(
-        reader=repository, writer=repository, crypto=crypto, clock=_Clock()
-    )
+    service = SfuMemberDigestKeyContractService(reader=repository, writer=repository, crypto=crypto, clock=_Clock())
 
     previous, active = service.rotate(
         scope=scope,
@@ -112,6 +105,7 @@ def test_compromised_kms_rotation_commits_pending_and_cleanup_is_idempotent() ->
         scope=scope, key_id=previous.key_id, expected_version=previous.version
     )
     assert destroyed.state is DigestKeyLifecycleState.DESTROYED
-    assert service.complete_pending_destruction(
-        scope=scope, key_id=destroyed.key_id, expected_version=destroyed.version
-    ) == destroyed
+    assert (
+        service.complete_pending_destruction(scope=scope, key_id=destroyed.key_id, expected_version=destroyed.version)
+        == destroyed
+    )

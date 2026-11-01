@@ -42,4 +42,3 @@ def test_plain_http_is_rejected_before_transport_resolution():
 
     assert response.status_code == 403
     assert response.get_json()["reason_code"] == "turn_observation_tls_required"
-

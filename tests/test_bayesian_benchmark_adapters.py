@@ -7,21 +7,22 @@ benchmark systems' sample shapes are handled correctly.
 
 Covers BAYES-009 and the adapter portion of BAYES-015.
 """
-import pytest
 
 from agent.services.bayesian_benchmark_adapters import (
-    extract_hub_evidence,
-    extract_ollama_evidence,
-    extract_llm_benchmark_evidence,
     enrich_hub_score_with_bayes,
-    enrich_ollama_score_with_bayes,
     enrich_llm_benchmark_score_with_bayes,
+    enrich_ollama_score_with_bayes,
+    extract_hub_evidence,
+    extract_llm_benchmark_evidence,
+    extract_ollama_evidence,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
-def _hub_sample(success: bool = True, quality_passed: bool = True, role: str = "planner", task: str = "planning") -> dict:
+
+def _hub_sample(
+    success: bool = True, quality_passed: bool = True, role: str = "planner", task: str = "planning"
+) -> dict:
     return {
         "ts": 1700000000,
         "role_name": role,
@@ -51,7 +52,9 @@ def _ollama_sample(success: bool = True, quality_passed: bool = True, params: di
     return s
 
 
-def _llm_sample(success: bool = True, quality_passed: bool = True, role: str = "researcher", template: str = "default") -> dict:
+def _llm_sample(
+    success: bool = True, quality_passed: bool = True, role: str = "researcher", template: str = "default"
+) -> dict:
     return {
         "ts": 1700000000,
         "success": success,
@@ -69,6 +72,7 @@ def _hub_bucket(samples: list[dict]) -> dict:
 
 # ── extract_hub_evidence ───────────────────────────────────────────────────────
 
+
 class TestExtractHubEvidence:
     def test_basic_extraction(self):
         bucket = _hub_bucket([_hub_sample(), _hub_sample(success=False, quality_passed=False)])
@@ -83,19 +87,23 @@ class TestExtractHubEvidence:
         assert ev[0]["model"] == "llama3"
 
     def test_role_filter_reduces_count(self):
-        bucket = _hub_bucket([
-            _hub_sample(role="planner"),
-            _hub_sample(role="coder"),
-            _hub_sample(role="planner"),
-        ])
+        bucket = _hub_bucket(
+            [
+                _hub_sample(role="planner"),
+                _hub_sample(role="coder"),
+                _hub_sample(role="planner"),
+            ]
+        )
         ev = extract_hub_evidence(bucket, role_name_filter="planner")
         assert len(ev) == 2
 
     def test_task_kind_filter(self):
-        bucket = _hub_bucket([
-            _hub_sample(task="planning"),
-            _hub_sample(task="coding"),
-        ])
+        bucket = _hub_bucket(
+            [
+                _hub_sample(task="planning"),
+                _hub_sample(task="coding"),
+            ]
+        )
         ev = extract_hub_evidence(bucket, task_kind_filter="planning")
         assert len(ev) == 1
 
@@ -133,6 +141,7 @@ class TestExtractHubEvidence:
 
 
 # ── extract_ollama_evidence ───────────────────────────────────────────────────
+
 
 class TestExtractOllamaEvidence:
     def test_basic_extraction(self):
@@ -184,6 +193,7 @@ class TestExtractOllamaEvidence:
 
 # ── extract_llm_benchmark_evidence ────────────────────────────────────────────
 
+
 class TestExtractLlmBenchmarkEvidence:
     def test_basic_extraction(self):
         bucket = _hub_bucket([_llm_sample(), _llm_sample(success=False, quality_passed=False)])
@@ -227,6 +237,7 @@ class TestExtractLlmBenchmarkEvidence:
 
 
 # ── enrich_*_score_with_bayes ────────────────────────────────────────────────
+
 
 class TestEnrichScoreWithBayes:
     def _score(self) -> dict:

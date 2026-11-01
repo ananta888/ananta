@@ -1,7 +1,8 @@
 import os
 import time
-import requests
+
 import pytest
+import requests
 
 # URLs are configurable, defaults point to the names in docker-compose.test.yml
 # In the compose environment, these hostnames are resolvable.
@@ -11,18 +12,16 @@ BETA_URL = os.environ.get("E2E_BETA_URL", "http://ai-agent-beta:5000")
 ADMIN_USER = os.environ.get("E2E_ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("E2E_ADMIN_PASSWORD", "admin")
 
+
 def get_auth_header(base_url):
     try:
-        resp = requests.post(
-            f"{base_url}/login",
-            json={"username": ADMIN_USER, "password": ADMIN_PASS},
-            timeout=10
-        )
+        resp = requests.post(f"{base_url}/login", json={"username": ADMIN_USER, "password": ADMIN_PASS}, timeout=10)
         resp.raise_for_status()
         token = resp.json()["data"]["access_token"]
         return {"Authorization": f"Bearer {token}"}
     except Exception as e:
         pytest.fail(f"Failed to login to {base_url}: {e}")
+
 
 @pytest.mark.skipif(not os.environ.get("RUN_COMPOSE_TESTS"), reason="Set RUN_COMPOSE_TESTS=1 to run this E2E test")
 def test_hub_worker_registration_e2e():
@@ -57,13 +56,16 @@ def test_hub_worker_registration_e2e():
             if found_alpha and found_beta:
                 return
 
-            print(f"Waiting for agents... Found: {agent_names} (Alpha online: {found_alpha}, Beta online: {found_beta})")
+            print(
+                f"Waiting for agents... Found: {agent_names} (Alpha online: {found_alpha}, Beta online: {found_beta})"
+            )
         except Exception as e:
-            print(f"Attempt {i+1} failed to reach Hub: {e}")
+            print(f"Attempt {i + 1} failed to reach Hub: {e}")
 
         time.sleep(10)
 
     pytest.fail(f"Workers did not register as online with the hub in time. Alpha: {found_alpha}, Beta: {found_beta}")
+
 
 @pytest.mark.skipif(not os.environ.get("RUN_COMPOSE_TESTS"), reason="Set RUN_COMPOSE_TESTS=1 to run this E2E test")
 def test_cross_container_communication_e2e():
@@ -74,6 +76,7 @@ def test_cross_container_communication_e2e():
         resp = requests.get(f"{url}/health", timeout=5)
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
+
 
 @pytest.mark.skipif(not os.environ.get("RUN_COMPOSE_TESTS"), reason="Set RUN_COMPOSE_TESTS=1 to run this E2E test")
 def test_hub_can_proxy_to_worker_e2e():

@@ -65,24 +65,17 @@ def _stage_active(
     )
 
 
-def _reference_digest(
-    *, secret: bytes, key_id: str, generation: int, scope: str, member: str
-) -> str:
+def _reference_digest(*, secret: bytes, key_id: str, generation: int, scope: str, member: str) -> str:
     def frame(value: bytes) -> bytes:
         return len(value).to_bytes(4, "big") + value
 
     domain = b"ananta:sfu-member-digest:v1"
     salt = hashlib.sha256(
-        domain
-        + frame(b"HMAC-SHA256")
-        + frame(key_id.encode("ascii"))
-        + frame(str(generation).encode("ascii"))
+        domain + frame(b"HMAC-SHA256") + frame(key_id.encode("ascii")) + frame(str(generation).encode("ascii"))
     ).digest()
     pseudorandom_key = hmac.new(salt, secret, hashlib.sha256).digest()
     info = domain + frame(scope.encode("ascii"))
-    derived = hmac.new(
-        pseudorandom_key, info + b"\x01", hashlib.sha256
-    ).digest()
+    derived = hmac.new(pseudorandom_key, info + b"\x01", hashlib.sha256).digest()
     message = domain + frame(scope.encode("ascii")) + frame(member.encode("utf-8"))
     result = hmac.new(derived, message, hashlib.sha256).digest()
     return base64.urlsafe_b64encode(result).rstrip(b"=").decode("ascii")
@@ -112,9 +105,7 @@ def test_digest_is_deterministic_scoped_and_carries_algorithm_and_key_id() -> No
             member="member-42",
         ),
     )
-    assert provider.verify_digest(
-        member_identifier="member-42", expected_scope=scope, candidate=first
-    )
+    assert provider.verify_digest(member_identifier="member-42", expected_scope=scope, candidate=first)
     assert secret.hex() not in repr(first)
 
 
@@ -126,12 +117,8 @@ def test_hkdf_separates_scope_key_id_and_generation() -> None:
     _stage_active(store_a, now, key_id="key-a", generation=1, scope="t/r/a", secret=secret)
     _stage_active(store_b, now, key_id="key-b", generation=2, scope="t/r/b", secret=secret)
 
-    digest_a = _provider(store_a, FixedClock(now)).create_digest(
-        member_identifier="same-member", scope="t/r/a"
-    )
-    digest_b = _provider(store_b, FixedClock(now)).create_digest(
-        member_identifier="same-member", scope="t/r/b"
-    )
+    digest_a = _provider(store_a, FixedClock(now)).create_digest(member_identifier="same-member", scope="t/r/a")
+    digest_b = _provider(store_b, FixedClock(now)).create_digest(member_identifier="same-member", scope="t/r/b")
 
     assert digest_a.digest != digest_b.digest
     assert not _provider(store_a, FixedClock(now)).verify_digest(
@@ -165,9 +152,7 @@ def test_generation_and_expired_active_windows_fail_closed() -> None:
 
     with pytest.raises(SfuMemberDigestUnavailable):
         provider.create_digest(member_identifier="m", scope="t/r/member")
-    assert not provider.verify_digest(
-        member_identifier="m", expected_scope="t/r/member", candidate=candidate
-    )
+    assert not provider.verify_digest(member_identifier="m", expected_scope="t/r/member", candidate=candidate)
 
 
 def test_rotation_is_active_then_bounded_dual_read_then_retired_and_destroyed() -> None:
@@ -186,29 +171,21 @@ def test_rotation_is_active_then_bounded_dual_read_then_retired_and_destroyed() 
     )
     with pytest.raises(SfuMemberDigestUnavailable):
         provider.create_digest(member_identifier="member", scope=scope)
-    assert provider.verify_digest(
-        member_identifier="member", expected_scope=scope, candidate=old_digest
-    )
+    assert provider.verify_digest(member_identifier="member", expected_scope=scope, candidate=old_digest)
 
     _stage_active(store, now, key_id="new", generation=2, scope=scope, secret=b"n" * 32)
     new_digest = provider.create_digest(member_identifier="member", scope=scope)
     assert new_digest.key_id == "new"
-    assert provider.verify_digest(
-        member_identifier="member", expected_scope=scope, candidate=old_digest
-    )
+    assert provider.verify_digest(member_identifier="member", expected_scope=scope, candidate=old_digest)
 
     store.retire(key_id="old")
-    assert not provider.verify_digest(
-        member_identifier="member", expected_scope=scope, candidate=old_digest
-    )
+    assert not provider.verify_digest(member_identifier="member", expected_scope=scope, candidate=old_digest)
     store.destroy(key_id="old")
     tombstone = store.get("old")
     assert tombstone is not None
     assert tombstone.state is DigestKeyState.DESTROYED
     assert tombstone.secret is None
-    assert not provider.verify_digest(
-        member_identifier="member", expected_scope=scope, candidate=old_digest
-    )
+    assert not provider.verify_digest(member_identifier="member", expected_scope=scope, candidate=old_digest)
 
 
 def test_tampering_unknown_keys_and_metadata_mismatch_deny() -> None:
@@ -227,12 +204,8 @@ def test_tampering_unknown_keys_and_metadata_mismatch_deny() -> None:
         replace(candidate, digest=candidate.digest + "="),
     )
     for variant in variants:
-        assert not provider.verify_digest(
-            member_identifier="member", expected_scope=scope, candidate=variant
-        )
-    assert not provider.verify_digest(
-        member_identifier="other-member", expected_scope=scope, candidate=candidate
-    )
+        assert not provider.verify_digest(member_identifier="member", expected_scope=scope, candidate=variant)
+    assert not provider.verify_digest(member_identifier="other-member", expected_scope=scope, candidate=candidate)
 
 
 def test_ambiguous_active_keys_unsupported_algorithm_and_weak_secret_fail_closed() -> None:
@@ -278,9 +251,7 @@ def test_ambiguous_active_keys_unsupported_algorithm_and_weak_secret_fail_closed
     )
     for corrupt_store in corrupt_stores:
         with pytest.raises(SfuMemberDigestUnavailable):
-            _provider(corrupt_store, FixedClock(now)).create_digest(
-                member_identifier="member", scope=scope
-            )
+            _provider(corrupt_store, FixedClock(now)).create_digest(member_identifier="member", scope=scope)
 
 
 def test_policy_rejects_downgrades_unbounded_windows_and_media_sized_input() -> None:

@@ -15,18 +15,21 @@ class HubResultMaintenanceScopePreparer:
         self._clock, self._offline_timeout = clock, offline_timeout
 
     def prepare(self, *, command):
-        _, owner = maintenance_input(command.input_data.get('workflow_input'))
+        _, owner = maintenance_input(command.input_data.get("workflow_input"))
         task = get_repository_registry().task_repo.get_by_id(command.control_task_id)
         with task_repository_session(_engine()) as session:
             scope = NativeProjectTaskScopePreparation(
-                tasks=_LoadedControlTask(task), projects=ProjectRepository(session),
+                tasks=_LoadedControlTask(task),
+                projects=ProjectRepository(session),
                 task_kinds=frozenset({MAINTENANCE_TASK_KIND}),
-                reason_prefix='native_result_maintenance_scope').prepare(command=command)
+                reason_prefix="native_result_maintenance_scope",
+            ).prepare(command=command)
         if owner is not None:
-            worker = get_repository_registry().agent_repo.get_by_url(owner['worker_url'])
+            worker = get_repository_registry().agent_repo.get_by_url(owner["worker_url"])
             require_registered_result_store_owner(
-                worker, owner, now=self._clock(), offline_timeout=self._offline_timeout)
-            scope['assigned_agent_url'] = owner['worker_url']
+                worker, owner, now=self._clock(), offline_timeout=self._offline_timeout
+            )
+            scope["assigned_agent_url"] = owner["worker_url"]
         return scope
 
 

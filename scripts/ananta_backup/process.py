@@ -68,9 +68,7 @@ class SystemCommandRunner:
                 except (OSError, subprocess.CalledProcessError) as exc:
                     if isinstance(exc, subprocess.CalledProcessError):
                         raise self._failure(command, exc) from exc
-                    raise BackupError(
-                        f"Cannot execute {Path(command[0]).name}: {exc}"
-                    ) from exc
+                    raise BackupError(f"Cannot execute {Path(command[0]).name}: {exc}") from exc
                 output.flush()
                 os.fsync(output.fileno())
         except Exception:

@@ -72,9 +72,7 @@ class ResearchTrainingResultIngress:
             reservation_id=reservation_id,
             retention_class=retention_class,
         )
-        lineage = self._lineage.register(
-            manifest=result["manifest"], artifact_ref=artifact_receipt["artifact_ref"]
-        )
+        lineage = self._lineage.register(manifest=result["manifest"], artifact_ref=artifact_receipt["artifact_ref"])
         evidence_receipt = self._evidence.record_result(
             project_id=project_id,
             assignment=assignment,

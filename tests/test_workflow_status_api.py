@@ -12,6 +12,7 @@ def test_workflow_status_endpoint_registered():
     """The route must be on the goals_bp blueprint with GET method
     and the path /goals/<goal_id>/workflow-status."""
     from agent.routes.tasks import goals
+
     # Flask routes are stored on the blueprint's deferred_functions;
     # the simplest way to assert the route exists is to import the
     # view function (we did that in the import test) and verify
@@ -28,6 +29,7 @@ def test_workflow_status_returns_404_for_missing_goal():
     # branch is reachable. The unit-level coverage of the
     # underlying service is in test_workflow_status_service.py.
     from agent.routes.tasks import goals
+
     # Importing succeeded, which is enough to confirm the
     # endpoint is wired into the blueprint.
     assert goals.goal_workflow_status.__name__ == "goal_workflow_status"

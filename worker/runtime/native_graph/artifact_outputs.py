@@ -31,13 +31,16 @@ class NativeOutputFileMaterializer:
             return command, {}
         files = command.node.metadata.get("native_output_files")
         if (
-            not isinstance(files, dict) or set(files) != set(command.node.output_artifacts)
+            not isinstance(files, dict)
+            or set(files) != set(command.node.output_artifacts)
             or len(files) > MAX_ARTIFACT_COUNT
         ):
             raise ValueError("native_output_files_required")
         try:
             validate_native_artifact_files(
-                command.node.metadata, inputs=command.node.input_artifacts, outputs=command.node.output_artifacts,
+                command.node.metadata,
+                inputs=command.node.input_artifacts,
+                outputs=command.node.output_artifacts,
             )
         except ValueError as exc:
             if str(exc) == "native_artifact_workspace_path_invalid":
@@ -56,13 +59,19 @@ class NativeOutputFileMaterializer:
                 if total > MAX_TOTAL_BYTES:
                     raise ValueError("native_output_total_size_exceeded")
                 binding = {
-                    "hub_task_id": task["id"], "tenant_id": command.tenant_id, "project_id": task.get("project_id"),
-                    "command_digest": native_context_digest(command.to_dict()), "attempt_id": command.attempt_id,
-                    "fencing_token": command.fencing_token, "output_name": name,
+                    "hub_task_id": task["id"],
+                    "tenant_id": command.tenant_id,
+                    "project_id": task.get("project_id"),
+                    "command_digest": native_context_digest(command.to_dict()),
+                    "attempt_id": command.attempt_id,
+                    "fencing_token": command.fencing_token,
+                    "output_name": name,
                 }
                 candidates.append((name, path.name, descriptor["media_type"], content, binding))
             # Snapshot all files before producing local SQL/storage side effects.
-            return {name: self._writer.store(filename=filename, media_type=media, content=content, binding=binding)
-                    for name, filename, media, content, binding in candidates}
+            return {
+                name: self._writer.store(filename=filename, media_type=media, content=content, binding=binding)
+                for name, filename, media, content, binding in candidates
+            }
         except (OSError, ValueError, SQLAlchemyError) as exc:
             raise NativeOutputMaterializationError("native_output_materialization_failed") from exc

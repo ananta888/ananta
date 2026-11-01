@@ -1,4 +1,5 @@
 """ananta project — project context management."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,12 +15,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="ananta project",
         description="Initialize and scan project context for Ananta goals.",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog=(
-            "Examples:\n"
-            "  ananta project init\n"
-            "  ananta project scan\n"
-            "  ananta project context\n"
-        ),
+        epilog=("Examples:\n  ananta project init\n  ananta project scan\n  ananta project context\n"),
     )
     _configure_subparsers(p)
     return p

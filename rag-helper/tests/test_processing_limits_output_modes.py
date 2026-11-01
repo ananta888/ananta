@@ -34,18 +34,27 @@ class _StubJavaExtractor:
         return {"file": rel_path, "package": None, "imports": [], "type_names": []}
 
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [{
-            "kind": "java_file",
-            "file": rel_path,
-            "id": "java_file:1",
-            "embedding_text": "java file",
-        }], [{
-            "kind": "java_method_detail",
-            "file": rel_path,
-            "id": "java_method_detail:1",
-            "embedding_text": "detail",
-            "code_snippet": "return 1;",
-        }], [], {"kind": "java", "file": rel_path}
+        return (
+            [
+                {
+                    "kind": "java_file",
+                    "file": rel_path,
+                    "id": "java_file:1",
+                    "embedding_text": "java file",
+                }
+            ],
+            [
+                {
+                    "kind": "java_method_detail",
+                    "file": rel_path,
+                    "id": "java_method_detail:1",
+                    "embedding_text": "detail",
+                    "code_snippet": "return 1;",
+                }
+            ],
+            [],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class _StubAdocExtractor:
@@ -61,10 +70,15 @@ class _StubXmlExtractor:
 
     def parse(self, rel_path: str, text: str):
         type(self).parse_calls += 1
-        return [{"kind": "xml_file", "file": rel_path}], [{"kind": "xml_detail"}], [{"kind": "relation"}], {
-            "kind": "xml",
-            "file": rel_path,
-        }
+        return (
+            [{"kind": "xml_file", "file": rel_path}],
+            [{"kind": "xml_detail"}],
+            [{"kind": "relation"}],
+            {
+                "kind": "xml",
+                "file": rel_path,
+            },
+        )
 
 
 class _StubXsdExtractor:
@@ -80,16 +94,57 @@ class _RichStubXsdExtractor:
         self.kwargs = kwargs
 
     def parse(self, rel_path: str, text: str):
-        return [
-            {"kind": "xsd_file", "file": rel_path, "id": "xsd_file:1", "embedding_text": "xsd file"},
-            {"kind": "xsd_complex_type", "file": rel_path, "id": "xsd_complex_type:1", "parent_id": "xsd_file:1", "name": "OrderType", "embedding_text": "complex"},
-            {"kind": "xsd_simple_type", "file": rel_path, "id": "xsd_simple_type:1", "parent_id": "xsd_file:1", "name": "OrderCode", "embedding_text": "simple"},
-            {"kind": "xsd_root_element", "file": rel_path, "id": "xsd_root_element:1", "parent_id": "xsd_file:1", "name": "order", "embedding_text": "root"},
-        ], [
-            {"kind": "xsd_complex_type_detail", "file": rel_path, "id": "xsd_complex_type_detail:1", "parent_id": "xsd_complex_type:1", "name": "OrderType"},
-        ], [
-            {"kind": "relation", "file": rel_path, "id": "relation:1", "source_id": "xsd_file:1", "source_kind": "xsd_file", "relation": "contains_complex_type", "target": "OrderType", "target_resolved": "xsd_complex_type:1"},
-        ], {"kind": "xsd", "file": rel_path}
+        return (
+            [
+                {"kind": "xsd_file", "file": rel_path, "id": "xsd_file:1", "embedding_text": "xsd file"},
+                {
+                    "kind": "xsd_complex_type",
+                    "file": rel_path,
+                    "id": "xsd_complex_type:1",
+                    "parent_id": "xsd_file:1",
+                    "name": "OrderType",
+                    "embedding_text": "complex",
+                },
+                {
+                    "kind": "xsd_simple_type",
+                    "file": rel_path,
+                    "id": "xsd_simple_type:1",
+                    "parent_id": "xsd_file:1",
+                    "name": "OrderCode",
+                    "embedding_text": "simple",
+                },
+                {
+                    "kind": "xsd_root_element",
+                    "file": rel_path,
+                    "id": "xsd_root_element:1",
+                    "parent_id": "xsd_file:1",
+                    "name": "order",
+                    "embedding_text": "root",
+                },
+            ],
+            [
+                {
+                    "kind": "xsd_complex_type_detail",
+                    "file": rel_path,
+                    "id": "xsd_complex_type_detail:1",
+                    "parent_id": "xsd_complex_type:1",
+                    "name": "OrderType",
+                },
+            ],
+            [
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": "relation:1",
+                    "source_id": "xsd_file:1",
+                    "source_kind": "xsd_file",
+                    "relation": "contains_complex_type",
+                    "target": "OrderType",
+                    "target_resolved": "xsd_complex_type:1",
+                },
+            ],
+            {"kind": "xsd", "file": rel_path},
+        )
 
 
 class _ParallelXmlExtractor:
@@ -101,20 +156,29 @@ class _ParallelXmlExtractor:
         self.kwargs = kwargs
 
     def parse(self, rel_path: str, text: str):
-        time.sleep({
-            "a.xml": 0.06,
-            "b.xml": 0.03,
-            "c.xml": 0.01,
-        }.get(rel_path, 0.0))
+        time.sleep(
+            {
+                "a.xml": 0.06,
+                "b.xml": 0.03,
+                "c.xml": 0.01,
+            }.get(rel_path, 0.0)
+        )
         with type(self).lock:
             type(self).parse_calls += 1
             type(self).thread_ids.add(threading.get_ident())
-        return [{
-            "kind": "xml_file",
-            "file": rel_path,
-            "id": f"xml_file:{rel_path}",
-            "embedding_text": rel_path,
-        }], [], [], {"kind": "xml", "file": rel_path}
+        return (
+            [
+                {
+                    "kind": "xml_file",
+                    "file": rel_path,
+                    "id": f"xml_file:{rel_path}",
+                    "embedding_text": rel_path,
+                }
+            ],
+            [],
+            [],
+            {"kind": "xml", "file": rel_path},
+        )
 
 
 class _FailingXmlExtractor:
@@ -144,15 +208,24 @@ class _HeavyRelationXmlExtractor:
 
     def parse(self, rel_path: str, text: str):
         relations = [
-            {"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": f"xml_tag:{index}", "type": "contains_child_tag"}
+            {
+                "kind": "relation",
+                "file": rel_path,
+                "from": "xml_file:1",
+                "to": f"xml_tag:{index}",
+                "type": "contains_child_tag",
+            }
             for index in range(10)
-        ] + [
-            {"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": "xml_tag:important", "type": "extends"}
-        ]
-        return [{"kind": "xml_file", "file": rel_path, "id": "xml_file:1", "embedding_text": rel_path}], [], relations, {
-            "kind": "xml",
-            "file": rel_path,
-        }
+        ] + [{"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": "xml_tag:important", "type": "extends"}]
+        return (
+            [{"kind": "xml_file", "file": rel_path, "id": "xml_file:1", "embedding_text": rel_path}],
+            [],
+            relations,
+            {
+                "kind": "xml",
+                "file": rel_path,
+            },
+        )
 
 
 class _OversizedXmlExtractor:
@@ -181,7 +254,15 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
                 "role_labels": ["service"],
                 "annotations": ["@Service"],
                 "imports": [f"demo.Type{i}" for i in range(20)],
-                "fields": [{"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"], "annotations": ["@A", "@B"]} for i in range(20)],
+                "fields": [
+                    {
+                        "name": f"field{i}",
+                        "type": "String",
+                        "resolved_types": ["java.lang.String"],
+                        "annotations": ["@A", "@B"],
+                    }
+                    for i in range(20)
+                ],
                 "methods": [f"m{i}()" for i in range(30)],
                 "constructors": [f"ctor{i}()" for i in range(10)],
                 "used_types": [f"demo.Type{i}" for i in range(20)],
@@ -199,12 +280,32 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
             },
         ]
         detail_records = [
-            {"kind": "jpa_entity_chunk", "id": "jpa_entity_chunk:1", "parent_id": "java_type:1", "file": "UserService.java", "attributes": {"a": "b" * 100}},
+            {
+                "kind": "jpa_entity_chunk",
+                "id": "jpa_entity_chunk:1",
+                "parent_id": "java_type:1",
+                "file": "UserService.java",
+                "attributes": {"a": "b" * 100},
+            },
             {"kind": "sql_statement", "id": "sql:1", "file": "schema.sql"},
         ]
         relation_records = [
-            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "extends", "target": "Base", "target_resolved": "java_type:base"},
-            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "field_type_uses", "target": "Helper", "target_resolved": "java_type:helper"},
+            {
+                "kind": "relation",
+                "file": "UserService.java",
+                "source_id": "java_type:1",
+                "relation": "extends",
+                "target": "Base",
+                "target_resolved": "java_type:base",
+            },
+            {
+                "kind": "relation",
+                "file": "UserService.java",
+                "source_id": "java_type:1",
+                "relation": "field_type_uses",
+                "target": "Helper",
+                "target_resolved": "java_type:helper",
+            },
         ]
 
         compact_index, compact_details, compact_relations = compact_output_records(
@@ -224,14 +325,52 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
     def test_ultra_output_compaction_preserves_xsd_records_fully(self) -> None:
         index_records = [
             {"kind": "xsd_file", "file": "schema.xsd", "id": "xsd_file:1", "embedding_text": "file"},
-            {"kind": "xsd_complex_type", "file": "schema.xsd", "id": "xsd_complex_type:1", "parent_id": "xsd_file:1", "name": "OrderType", "embedding_text": "complex"},
-            {"kind": "java_type", "file": "UserService.java", "id": "java_type:1", "name": "UserService", "role_labels": ["service"], "annotations": ["@Service"], "imports": [], "fields": [], "methods": [], "constructors": [], "used_types": [], "called_methods": [], "type_resolution_conflicts": [], "embedding_text": "java", "summary": "java"},
+            {
+                "kind": "xsd_complex_type",
+                "file": "schema.xsd",
+                "id": "xsd_complex_type:1",
+                "parent_id": "xsd_file:1",
+                "name": "OrderType",
+                "embedding_text": "complex",
+            },
+            {
+                "kind": "java_type",
+                "file": "UserService.java",
+                "id": "java_type:1",
+                "name": "UserService",
+                "role_labels": ["service"],
+                "annotations": ["@Service"],
+                "imports": [],
+                "fields": [],
+                "methods": [],
+                "constructors": [],
+                "used_types": [],
+                "called_methods": [],
+                "type_resolution_conflicts": [],
+                "embedding_text": "java",
+                "summary": "java",
+            },
         ]
         detail_records = [
-            {"kind": "xsd_complex_type_detail", "file": "schema.xsd", "id": "xsd_complex_type_detail:1", "parent_id": "xsd_complex_type:1", "name": "OrderType"},
+            {
+                "kind": "xsd_complex_type_detail",
+                "file": "schema.xsd",
+                "id": "xsd_complex_type_detail:1",
+                "parent_id": "xsd_complex_type:1",
+                "name": "OrderType",
+            },
         ]
         relation_records = [
-            {"kind": "relation", "file": "schema.xsd", "id": "relation:1", "source_id": "xsd_file:1", "source_kind": "xsd_file", "relation": "contains_complex_type", "target": "OrderType", "target_resolved": "xsd_complex_type:1"},
+            {
+                "kind": "relation",
+                "file": "schema.xsd",
+                "id": "relation:1",
+                "source_id": "xsd_file:1",
+                "source_kind": "xsd_file",
+                "relation": "contains_complex_type",
+                "target": "OrderType",
+                "target_resolved": "xsd_complex_type:1",
+            },
         ]
 
         compact_index, compact_details, compact_relations = compact_output_records(
@@ -257,7 +396,10 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
                 "role_labels": [],
                 "annotations": [],
                 "imports": [f"demo.Type{i}" for i in range(20)],
-                "fields": [{"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"], "annotations": []} for i in range(20)],
+                "fields": [
+                    {"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"], "annotations": []}
+                    for i in range(20)
+                ],
                 "methods": [f"m{i}()" for i in range(30)],
                 "constructors": [f"ctor{i}()" for i in range(10)],
                 "used_types": [f"demo.Type{i}" for i in range(20)],
@@ -285,12 +427,30 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
     def test_domain_rich_gem_partitions_include_generic_java_and_all_xsd(self) -> None:
         records = build_gem_partition_records(
             [
-                {"kind": "java_type", "id": "java_type:helper", "file": "Helper.java", "name": "Helper", "summary": "helper"},
-                {"kind": "xsd_attribute_group", "id": "xsd_attribute_group:1", "file": "schema.xsd", "name": "SharedAttrs"},
+                {
+                    "kind": "java_type",
+                    "id": "java_type:helper",
+                    "file": "Helper.java",
+                    "name": "Helper",
+                    "summary": "helper",
+                },
+                {
+                    "kind": "xsd_attribute_group",
+                    "id": "xsd_attribute_group:1",
+                    "file": "schema.xsd",
+                    "name": "SharedAttrs",
+                },
             ],
             [],
             [
-                {"kind": "relation", "id": "relation:1", "file": "schema.xsd", "source_kind": "xsd_attribute_group", "relation": "references_group", "target_resolved": "xsd_attribute_group:2"},
+                {
+                    "kind": "relation",
+                    "id": "relation:1",
+                    "file": "schema.xsd",
+                    "source_kind": "xsd_attribute_group",
+                    "relation": "references_group",
+                    "target_resolved": "xsd_attribute_group:2",
+                },
             ],
             mode="domain-rich",
         )
@@ -301,16 +461,26 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
         self.assertEqual(by_id["relation:1"]["domain"], "data-model")
 
     def test_build_xml_overview_records_compacts_xml_summaries(self) -> None:
-        records = build_xml_overview_records([{
-            "kind": "xml_tag_summary",
-            "file": "config.xml",
-            "id": "xml_tag_summary:1",
-            "tag_count": 12,
-            "tags": [
-                {"tag": "beans", "first_path": "/beans", "attribute_names": ["id"], "child_tags": ["bean"]},
-                {"tag": "bean", "first_path": "/beans/bean", "attribute_names": ["class"], "child_tags": ["property"]},
+        records = build_xml_overview_records(
+            [
+                {
+                    "kind": "xml_tag_summary",
+                    "file": "config.xml",
+                    "id": "xml_tag_summary:1",
+                    "tag_count": 12,
+                    "tags": [
+                        {"tag": "beans", "first_path": "/beans", "attribute_names": ["id"], "child_tags": ["bean"]},
+                        {
+                            "tag": "bean",
+                            "first_path": "/beans/bean",
+                            "attribute_names": ["class"],
+                            "child_tags": ["property"],
+                        },
+                    ],
+                }
             ],
-        }], mode="compact")
+            mode="compact",
+        )
 
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["kind"], "xml_overview")
@@ -498,7 +668,9 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
             root = Path(tmp_dir) / "project"
             out_dir = Path(tmp_dir) / "out"
             root.mkdir()
-            (root / "schema.xsd").write_text("<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' />", encoding="utf-8")
+            (root / "schema.xsd").write_text(
+                "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' />", encoding="utf-8"
+            )
 
             process_project(
                 root=root,
@@ -608,22 +780,28 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
             self.assertEqual(manifest["files"][0]["relation_compaction"]["kept_relation_count"], 3)
 
     def test_importance_score_prefers_service_and_architecture_records(self) -> None:
-        service_score = compute_importance_score({
-            "kind": "java_type",
-            "role_labels": ["service"],
-            "name": "UserService",
-        })
-        adoc_score = compute_importance_score({
-            "kind": "adoc_section",
-            "title": "Architecture Overview",
-            "section_path": ["Architecture", "Overview"],
-        })
-        generated_score = compute_importance_score({
-            "kind": "java_type",
-            "role_labels": ["service"],
-            "name": "GeneratedService",
-            "generated_code": True,
-        })
+        service_score = compute_importance_score(
+            {
+                "kind": "java_type",
+                "role_labels": ["service"],
+                "name": "UserService",
+            }
+        )
+        adoc_score = compute_importance_score(
+            {
+                "kind": "adoc_section",
+                "title": "Architecture Overview",
+                "section_path": ["Architecture", "Overview"],
+            }
+        )
+        generated_score = compute_importance_score(
+            {
+                "kind": "java_type",
+                "role_labels": ["service"],
+                "name": "GeneratedService",
+                "generated_code": True,
+            }
+        )
 
         self.assertGreater(service_score, 2.5)
         self.assertGreater(adoc_score, 3.0)
@@ -635,20 +813,26 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
             [{"kind": "java_method_detail"}],
             [{"kind": "relation"}, {"kind": "relation"}],
         )
-        skip_counts = collect_skip_reason_counts([
-            {"skipped": True, "skip_reason": "generated_code_excluded"},
-            {"skipped": True, "skip_reason": "generated_code_excluded"},
-            {"skipped": True, "skip_reason": "xml_mode_filtered"},
-        ])
-        errors = collect_error_entries([
-            {"file": "A.java", "ext": "java", "stage": "parse", "error": "boom"},
-            {"file": "B.xml", "ext": "xml"},
-        ])
-        extension_stats = collect_extension_stats([
-            {"ext": "java", "cache_hit": True},
-            {"ext": "java", "skipped": True},
-            {"ext": "xml", "error": "bad xml"},
-        ])
+        skip_counts = collect_skip_reason_counts(
+            [
+                {"skipped": True, "skip_reason": "generated_code_excluded"},
+                {"skipped": True, "skip_reason": "generated_code_excluded"},
+                {"skipped": True, "skip_reason": "xml_mode_filtered"},
+            ]
+        )
+        errors = collect_error_entries(
+            [
+                {"file": "A.java", "ext": "java", "stage": "parse", "error": "boom"},
+                {"file": "B.xml", "ext": "xml"},
+            ]
+        )
+        extension_stats = collect_extension_stats(
+            [
+                {"ext": "java", "cache_hit": True},
+                {"ext": "java", "skipped": True},
+                {"ext": "xml", "error": "bad xml"},
+            ]
+        )
 
         self.assertEqual(kind_counts["relation"], 2)
         self.assertEqual(skip_counts["generated_code_excluded"], 2)

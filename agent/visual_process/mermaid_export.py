@@ -3,12 +3,11 @@
 Converts a VisualProcessGraph to a Mermaid flowchart diagram string.
 Also provides a plain-text ASCII summary for the TUI.
 """
+
 from __future__ import annotations
 
-import textwrap
-
 from agent.visual_process.models import VisualProcessEdge, VisualProcessGraph, VisualProcessStep
-from agent.visual_process.policy_hints import HINT_REQUIRES_APPROVAL, HINT_HIGH_RISK, classify_step
+from agent.visual_process.policy_hints import HINT_HIGH_RISK, HINT_REQUIRES_APPROVAL, classify_step
 
 
 def to_mermaid(graph: VisualProcessGraph, *, direction: str = "LR") -> str:
@@ -79,12 +78,13 @@ def to_tui_text(graph: VisualProcessGraph) -> str:
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _shape(step: VisualProcessStep, hints: set[str]) -> tuple[str, str]:
     if step.gate or HINT_REQUIRES_APPROVAL in hints:
-        return "{", "}"        # hexagon — decision / gate
+        return "{", "}"  # hexagon — decision / gate
     if "read_only" in hints:
-        return "([", "])"      # stadium — read-only / query
-    return "[", "]"            # rectangle — default
+        return "([", "])"  # stadium — read-only / query
+    return "[", "]"  # rectangle — default
 
 
 def _arrow(edge: VisualProcessEdge) -> str:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from rag_helper.domain.java_records import (
     JavaConstructorDetailRecord,
@@ -93,15 +93,17 @@ def _build_typed_use_relations(
                     ctx.same_file_types,
                     wildcard_imports=ctx.wildcard_imports,
                 ):
-                    relations.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=source_id,
-                        source_kind=source_kind,
-                        source_name=source_name,
-                        relation=token_relation,
-                        target=raw_token,
-                        target_resolved=resolved,
-                    ))
+                    relations.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=source_id,
+                            source_kind=source_kind,
+                            source_name=source_name,
+                            relation=token_relation,
+                            target=raw_token,
+                            target_resolved=resolved,
+                        )
+                    )
     return relations
 
 
@@ -255,81 +257,95 @@ def extract_method(
             wildcard_imports=ctx.wildcard_imports,
         )
         for rt in resolved_targets:
-            relations.append(make_relation(
-                file=ctx.rel_path,
-                source_id=method_id,
-                source_kind="java_method",
-                source_name=f"{class_name}.{name}",
-                relation="uses_type",
-                target=raw_t,
-                target_resolved=rt,
-            ))
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=method_id,
+                    source_kind="java_method",
+                    source_name=f"{class_name}.{name}",
+                    relation="uses_type",
+                    target=raw_t,
+                    target_resolved=rt,
+                )
+            )
 
     if return_type:
         for rt in resolved_return_types or [return_type]:
-            relations.append(make_relation(
-                file=ctx.rel_path,
-                source_id=method_id,
-                source_kind="java_method",
-                source_name=f"{class_name}.{name}",
-                relation="returns",
-                target=return_type,
-                target_resolved=rt,
-            ))
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=method_id,
+                    source_kind="java_method",
+                    source_name=f"{class_name}.{name}",
+                    relation="returns",
+                    target=return_type,
+                    target_resolved=rt,
+                )
+            )
 
     # CCAQE-013: typed edges for params, return types and generic arguments so
     # dto-impact works beyond plain field usage.
-    relations.extend(_build_typed_use_relations(
-        ctx=ctx,
-        source_id=method_id,
-        source_kind="java_method",
-        source_name=f"{class_name}.{name}",
-        type_texts={"method_param_type_uses": list(parse_parameter_bindings(params).values())},
-    ))
-    if return_type:
-        relations.extend(_build_typed_use_relations(
+    relations.extend(
+        _build_typed_use_relations(
             ctx=ctx,
             source_id=method_id,
             source_kind="java_method",
             source_name=f"{class_name}.{name}",
-            type_texts={"method_return_type_uses": [return_type]},
-        ))
+            type_texts={"method_param_type_uses": list(parse_parameter_bindings(params).values())},
+        )
+    )
+    if return_type:
+        relations.extend(
+            _build_typed_use_relations(
+                ctx=ctx,
+                source_id=method_id,
+                source_kind="java_method",
+                source_name=f"{class_name}.{name}",
+                type_texts={"method_return_type_uses": [return_type]},
+            )
+        )
 
     if ctx.relation_mode != "compact":
         for call in calls:
-            relations.append(make_relation(
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=method_id,
+                    source_kind="java_method",
+                    source_name=f"{class_name}.{name}",
+                    relation="calls",
+                    target=call,
+                    target_resolved=None,
+                )
+            )
+    for call_target in resolved_call_targets:
+        relations.append(
+            make_relation(
                 file=ctx.rel_path,
                 source_id=method_id,
                 source_kind="java_method",
                 source_name=f"{class_name}.{name}",
-                relation="calls",
-                target=call,
-                target_resolved=None,
-            ))
-    for call_target in resolved_call_targets:
-        relations.append(make_relation(
-            file=ctx.rel_path,
-            source_id=method_id,
-            source_kind="java_method",
-            source_name=f"{class_name}.{name}",
-            relation="calls_probable_target",
-            target=call_target["call"],
-            target_resolved=call_target["target_resolved"],
-            extra={
-                "confidence": call_target["confidence"],
-                "heuristic": call_target["heuristic"],
-            },
-        ))
+                relation="calls_probable_target",
+                target=call_target["call"],
+                target_resolved=call_target["target_resolved"],
+                extra={
+                    "confidence": call_target["confidence"],
+                    "heuristic": call_target["heuristic"],
+                },
+            )
+        )
 
     if body is not None:
         from rag_helper.extractors.java_security_test_relations import build_test_endpoint_call_relations
 
-        relations.extend(build_test_endpoint_call_relations(
-            rel_path=ctx.rel_path,
-            method_id=method_id,
-            source_name=f"{class_name}.{name}",
-            body_text=node_text(ctx.src, body),
-        ))
+        relations.extend(
+            build_test_endpoint_call_relations(
+                rel_path=ctx.rel_path,
+                method_id=method_id,
+                source_name=f"{class_name}.{name}",
+                body_text=node_text(ctx.src, body),
+            )
+        )
 
     return idx, detail, relations, {"is_trivial": is_trivial}
 
@@ -453,40 +469,46 @@ def extract_constructor(
             wildcard_imports=ctx.wildcard_imports,
         )
         for rt in resolved_targets:
-            relations.append(make_relation(
-                file=ctx.rel_path,
-                source_id=ctor_id,
-                source_kind="java_constructor",
-                source_name=f"{class_name}.{name}",
-                relation="uses_type",
-                target=raw_t,
-                target_resolved=rt,
-            ))
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=ctor_id,
+                    source_kind="java_constructor",
+                    source_name=f"{class_name}.{name}",
+                    relation="uses_type",
+                    target=raw_t,
+                    target_resolved=rt,
+                )
+            )
     if ctx.relation_mode != "compact":
         for call in calls:
-            relations.append(make_relation(
+            relations.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=ctor_id,
+                    source_kind="java_constructor",
+                    source_name=f"{class_name}.{name}",
+                    relation="calls",
+                    target=call,
+                    target_resolved=None,
+                )
+            )
+    for call_target in resolved_call_targets:
+        relations.append(
+            make_relation(
                 file=ctx.rel_path,
                 source_id=ctor_id,
                 source_kind="java_constructor",
                 source_name=f"{class_name}.{name}",
-                relation="calls",
-                target=call,
-                target_resolved=None,
-            ))
-    for call_target in resolved_call_targets:
-        relations.append(make_relation(
-            file=ctx.rel_path,
-            source_id=ctor_id,
-            source_kind="java_constructor",
-            source_name=f"{class_name}.{name}",
-            relation="calls_probable_target",
-            target=call_target["call"],
-            target_resolved=call_target["target_resolved"],
-            extra={
-                "confidence": call_target["confidence"],
-                "heuristic": call_target["heuristic"],
-            },
-        ))
+                relation="calls_probable_target",
+                target=call_target["call"],
+                target_resolved=call_target["target_resolved"],
+                extra={
+                    "confidence": call_target["confidence"],
+                    "heuristic": call_target["heuristic"],
+                },
+            )
+        )
 
     return idx, detail, relations
 
@@ -536,7 +558,9 @@ def resolve_call_targets(
             candidates = [f"{parameter_bindings[qualifier]}.{method_name}"]
         elif qualifier and qualifier[:1].isupper():
             heuristic = "qualifier_class_name"
-            resolved_class = f"{package_name}.{qualifier}" if package_name and qualifier in same_file_types else qualifier
+            resolved_class = (
+                f"{package_name}.{qualifier}" if package_name and qualifier in same_file_types else qualifier
+            )
             candidates = [f"{resolved_class}.{method_name}"]
         elif not qualifier:
             resolved_class = f"{package_name}.{class_name}" if package_name else class_name
@@ -548,10 +572,12 @@ def resolve_call_targets(
             if key in seen:
                 continue
             seen.add(key)
-            targets.append({
-                "call": call,
-                "target_resolved": candidate,
-                "confidence": confidence,
-                "heuristic": heuristic,
-            })
+            targets.append(
+                {
+                    "call": call,
+                    "target_resolved": candidate,
+                    "confidence": confidence,
+                    "heuristic": heuristic,
+                }
+            )
     return targets

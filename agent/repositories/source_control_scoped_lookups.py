@@ -35,9 +35,7 @@ def require_scoped_revision(
         )
     ).first()
     if row is None:
-        raise SourceControlPersistenceError(
-            "source_control_revision_not_found"
-        )
+        raise SourceControlPersistenceError("source_control_revision_not_found")
     return row
 
 
@@ -58,9 +56,7 @@ def require_scoped_grant(
         )
     ).first()
     if row is None:
-        raise SourceControlPersistenceError(
-            "source_control_grant_not_found"
-        )
+        raise SourceControlPersistenceError("source_control_grant_not_found")
     return row
 
 
@@ -74,15 +70,12 @@ def require_scoped_index(
 ) -> KnowledgeIndexSourceBindingDB:
     row = db.exec(
         select(KnowledgeIndexSourceBindingDB).where(
-            KnowledgeIndexSourceBindingDB.knowledge_index_id
-            == knowledge_index_id,
+            KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id,
             KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
             KnowledgeIndexSourceBindingDB.project_id == project_id,
             KnowledgeIndexSourceBindingDB.owner_id == owner_id,
         )
     ).first()
     if row is None:
-        raise SourceControlPersistenceError(
-            "source_control_index_binding_not_found"
-        )
+        raise SourceControlPersistenceError("source_control_index_binding_not_found")
     return row

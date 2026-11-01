@@ -4,6 +4,7 @@ ContextChunk fixtures cover repo-relative, absolute and unclear sources
 plus agentic command output; strict and non-strict variants. No
 LlamaIndex/embedding dependency.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -82,19 +83,13 @@ def test_unclear_source_dropped_in_strict_mode(tmp_path: Path) -> None:
 
 def test_unclear_source_non_strict_dropped_with_warning(tmp_path: Path) -> None:
     chunks = [_chunk("semantic_search", "???:not a path")]
-    kept, stats = filter_chunks(
-        chunks, _scope(["rag-helper"], strict=False), repo_root=tmp_path
-    )
+    kept, stats = filter_chunks(chunks, _scope(["rag-helper"], strict=False), repo_root=tmp_path)
     assert kept == []
     assert stats.warnings
 
 
 def test_agentic_chunk_lines_filtered_to_scope(tmp_path: Path) -> None:
-    content = (
-        "rag-helper/rag_helper/cli.py:10:match in scope\n"
-        "agent/config.py:5:match outside\n"
-        "rag-helper/setup.py\n"
-    )
+    content = "rag-helper/rag_helper/cli.py:10:match in scope\nagent/config.py:5:match outside\nrag-helper/setup.py\n"
     chunks = [_chunk("agentic_search", "rg -n query .", content)]
     kept, stats = filter_chunks(chunks, _scope(["rag-helper"]), repo_root=tmp_path)
     assert len(kept) == 1

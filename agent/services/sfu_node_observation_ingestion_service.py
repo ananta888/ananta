@@ -6,7 +6,6 @@ import base64
 import hashlib
 import hmac
 import json
-import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -15,10 +14,9 @@ from typing import Mapping, Protocol
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519, ed448, padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
 
 from agent.repositories.sfu_node_observation_cursor_repository import (
-    SfuNodeObservationAcceptance,
     SfuNodeObservationCursorError,
     SfuNodeObservationCursorRepositoryPort,
 )
@@ -39,7 +37,6 @@ from agent.services.sfu_node_identity_service import (
     SFU_OBSERVER,
     SfuNodeIdentityError,
 )
-
 
 CONTRACT_ID = "ananta.sfu-node-health-capacity.v1"
 SIGNATURE_DOMAIN = b"ananta.sfu-node-health-capacity.v1"
@@ -459,9 +456,7 @@ def build_sfu_node_observation_signature_message(document: Mapping[str, object])
 
 
 def collector_token_digest(token: str) -> str:
-    return hashlib.sha256(
-        b"ananta.sfu-observation.collector-token.v1\x00" + token.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(b"ananta.sfu-observation.collector-token.v1\x00" + token.encode("utf-8")).hexdigest()
 
 
 def authenticate_collector_token(token: str, expected_digest: str | None) -> bool:
@@ -608,9 +603,7 @@ def _environment_integer(environ: Mapping[str, str], name: str, default: int) ->
         raise ValueError(f"{name.lower()}_invalid") from exc
 
 
-def _environment_number(
-    environ: Mapping[str, str], name: str, *, default: float
-) -> float:
+def _environment_number(environ: Mapping[str, str], name: str, *, default: float) -> float:
     raw = environ.get(name)
     if raw is None:
         return default
@@ -674,9 +667,7 @@ _OBSERVATION_SCHEMA: dict[str, object] = {
     ],
     "properties": {
         "schema_version": {"const": 1},
-        "producer_mode": {
-            "enum": [AUTHENTICATED_RUNTIME_EXTENSION, LIVEKIT_CONTROL_API]
-        },
+        "producer_mode": {"enum": [AUTHENTICATED_RUNTIME_EXTENSION, LIVEKIT_CONTROL_API]},
         "tenant_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "cluster_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "region": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -719,9 +710,7 @@ _OBSERVATION_SCHEMA: dict[str, object] = {
             "additionalProperties": False,
             "required": ["algorithm", "value"],
             "properties": {
-                "algorithm": {
-                    "enum": ["Ed25519", "Ed448", "ECDSA-SHA256", "RSA-PSS-SHA256"]
-                },
+                "algorithm": {"enum": ["Ed25519", "Ed448", "ECDSA-SHA256", "RSA-PSS-SHA256"]},
                 "value": {"type": "string", "minLength": 16, "maxLength": 2048},
             },
         },

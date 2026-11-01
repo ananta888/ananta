@@ -127,8 +127,11 @@ class TerminalPolicyService:
                 matched_rule_id=None,
                 permission=permission,
             )
-        if operation_key != "list" and bool(sandbox_terminal.get("enforce", True)) and target_key in set(
-            str(item or "").strip().lower() for item in list(sandbox_terminal.get("blocked_target_types") or [])
+        if (
+            operation_key != "list"
+            and bool(sandbox_terminal.get("enforce", True))
+            and target_key
+            in set(str(item or "").strip().lower() for item in list(sandbox_terminal.get("blocked_target_types") or []))
         ):
             return TerminalPolicyDecision(
                 allow=False,
@@ -139,7 +142,9 @@ class TerminalPolicyService:
                 permission=permission,
             )
         write_like = {"create", "attach", "write"}
-        admin_gate_targets = set(str(item or "").strip().lower() for item in list(sandbox_terminal.get("write_requires_admin_for") or []))
+        admin_gate_targets = set(
+            str(item or "").strip().lower() for item in list(sandbox_terminal.get("write_requires_admin_for") or [])
+        )
         role = str(user_ctx.get("role") or "").strip().lower()
         if action in write_like and target_key in admin_gate_targets and role != "admin":
             return TerminalPolicyDecision(

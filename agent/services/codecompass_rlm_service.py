@@ -91,7 +91,11 @@ class CodeCompassRlmService:
         )
         token_budgets = rlm_token_budgets(getattr(planner, "max_fanout", max_fanout))
         evidence_tokens = 0
-        handles = [str(item.get("handle") or "") for item in list((architecture_slice or {}).get("nodes") or []) if item.get("handle")]
+        handles = [
+            str(item.get("handle") or "")
+            for item in list((architecture_slice or {}).get("nodes") or [])
+            if item.get("handle")
+        ]
         plan = planner.create_plan(query, graph=dict(architecture_slice or {}), root_handles=handles)
         seen: set[str] = set()
         trace: list[dict[str, Any]] = []
@@ -139,12 +143,19 @@ class CodeCompassRlmService:
                     "schema": "codecompass.agentic-retrieval.v1",
                     "kind": "request",
                     "query": step.query,
-                    "mode": "hybrid" if step.channel == "hybrid" else step.channel if step.channel in {"exact", "graph", "vector"} else "auto",
+                    "mode": "hybrid"
+                    if step.channel == "hybrid"
+                    else step.channel
+                    if step.channel in {"exact", "graph", "vector"}
+                    else "auto",
                     "budget": {"max_tokens": token_budgets["child_tokens"]},
                 },
                 capability=capability,
             )
-            if result.get("status") == "error" and result.get("reason_code") in {"empty_scope", "scope_widening_denied"}:
+            if result.get("status") == "error" and result.get("reason_code") in {
+                "empty_scope",
+                "scope_widening_denied",
+            }:
                 return {
                     "schema": "codecompass.rlm-recursive-plan.v1",
                     "plan_id": plan.plan_id,
@@ -160,7 +171,12 @@ class CodeCompassRlmService:
             for item in list(result.get("evidence") or []):
                 key = str(item.get("id") or item.get("path") or "")
                 existing = next((row for row in evidence if str(row.get("id") or row.get("path")) == key), None)
-                if existing and existing.get("excerpt") and item.get("excerpt") and existing.get("excerpt") != item.get("excerpt"):
+                if (
+                    existing
+                    and existing.get("excerpt")
+                    and item.get("excerpt")
+                    and existing.get("excerpt") != item.get("excerpt")
+                ):
                     conflicts.append(key)
                     existing.setdefault("conflicts_with", []).append(item.get("excerpt"))
                 elif existing is None:
@@ -190,9 +206,14 @@ class CodeCompassRlmService:
         if dropped_evidence:
             from agent.context_window import record_truncation
 
-            record_truncation("rlm.evidence", "drop_items", before_tokens=evidence_tokens + 1,
-                              after_tokens=evidence_tokens, dropped_items=dropped_evidence,
-                              synthesis_tokens=token_budgets["synthesis_tokens"])
+            record_truncation(
+                "rlm.evidence",
+                "drop_items",
+                before_tokens=evidence_tokens + 1,
+                after_tokens=evidence_tokens,
+                dropped_items=dropped_evidence,
+                synthesis_tokens=token_budgets["synthesis_tokens"],
+            )
         return {
             "schema": "codecompass.rlm-recursive-plan.v1",
             "plan_id": plan.plan_id,
@@ -205,10 +226,15 @@ class CodeCompassRlmService:
                 "conflicts": conflicts,
                 "evidence_conflict": bool(conflicts),
             },
-            "warnings": (["evidence_conflict"] if conflicts else []) + (["evidence_budget_reached"]
-                                                                          if dropped_evidence else []),
-            "budgets": {**plan.to_dict()["budgets"], "max_steps": getattr(planner, "max_steps", max_steps), **token_budgets,
-                        "evidence_tokens": evidence_tokens, "dropped_evidence": dropped_evidence},
+            "warnings": (["evidence_conflict"] if conflicts else [])
+            + (["evidence_budget_reached"] if dropped_evidence else []),
+            "budgets": {
+                **plan.to_dict()["budgets"],
+                "max_steps": getattr(planner, "max_steps", max_steps),
+                **token_budgets,
+                "evidence_tokens": evidence_tokens,
+                "dropped_evidence": dropped_evidence,
+            },
             "trace": trace,
         }
 

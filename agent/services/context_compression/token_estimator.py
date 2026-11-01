@@ -4,6 +4,7 @@ HCCA-003 — Token Estimator
 Lightweight, dependency-free token estimation.
 Rule of thumb: ~4 characters per token (conservative; no tiktoken required).
 """
+
 from __future__ import annotations
 
 import json
@@ -16,10 +17,10 @@ log = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class TokenMetrics:
     char_count: int
-    estimated_tokens: int   # rough estimate: chars / 4
+    estimated_tokens: int  # rough estimate: chars / 4
     line_count: int
     word_count: int
-    json_key_count: int     # 0 if not JSON
+    json_key_count: int  # 0 if not JSON
     unique_line_ratio: float  # dedup indicator: unique_lines / total_lines
 
 

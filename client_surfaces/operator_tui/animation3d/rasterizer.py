@@ -22,15 +22,17 @@ class DepthGrid:
         self.width = width
         self.height = height
         self._grid: list[list[dict]] = [
-            [{"z": -1e9, "part": "", "angle": 0.0, "is_snake": False}
-             for _ in range(width)]
-            for _ in range(height)
+            [{"z": -1e9, "part": "", "angle": 0.0, "is_snake": False} for _ in range(width)] for _ in range(height)
         ]
 
     def draw_line(
         self,
-        sx: float, sy: float, sz: float,
-        ex: float, ey: float, ez: float,
+        sx: float,
+        sy: float,
+        sz: float,
+        ex: float,
+        ey: float,
+        ez: float,
         part_id: str,
         is_snake: bool = False,
     ) -> None:
@@ -67,8 +69,12 @@ class DepthGrid:
             s = vertices[edge.start]
             e = vertices[edge.end]
             self.draw_line(
-                s.x, s.y, s.z,
-                e.x, e.y, e.z,
+                s.x,
+                s.y,
+                s.z,
+                e.x,
+                e.y,
+                e.z,
                 edge.part_id,
                 is_snake=is_snake,
             )

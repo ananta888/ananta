@@ -1,12 +1,9 @@
 """Base types for LangChain/LangGraph workflow adapters (LCG-005, LCG-013)."""
+
 from __future__ import annotations
 
-import hashlib
-import json
-import time
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
-
 
 WorkflowAdapterKind = Literal["langchain", "langgraph", "n8n", "webhook", "mock", "unknown"]
 WorkflowAdapterStatus = Literal["ready", "degraded", "blocked", "disabled", "unavailable"]
@@ -41,6 +38,7 @@ class WorkflowAdapterDescriptor:
 @dataclass
 class DryRunResult:
     """Structured dry-run output — what would happen without executing."""
+
     adapter_id: str
     task_id: str
     task_type: str
@@ -79,9 +77,10 @@ class DryRunResult:
 @dataclass
 class WorkflowArtifactResult:
     """Artifact-first result contract (LCG-013)."""
+
     adapter_id: str
     task_id: str
-    status: str   # success | partial | failed | blocked
+    status: str  # success | partial | failed | blocked
     summary: str
     task_type: str = ""
     artifacts: list[dict[str, Any]] = field(default_factory=list)
@@ -120,8 +119,8 @@ class WorkflowAdapter(Protocol):
 
 class WorkerError(Exception):
     """Structured error from a workflow adapter."""
-    def __init__(self, reason_code: str, message: str,
-                  details: dict[str, Any] | None = None) -> None:
+
+    def __init__(self, reason_code: str, message: str, details: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.reason_code = reason_code
         self.details = details or {}

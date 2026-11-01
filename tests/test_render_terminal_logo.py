@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import pytest
-
 from scripts.render_terminal_logo import (
     ASCII_PALETTES,
     RenderConfig,
+    _compute_edge_map,
     pixel_density,
     render_ascii,
     render_ascii_color,
-    _compute_edge_map,
 )
 
 
 def _make_test_img(w: int, h: int, pixels: list[tuple[int, int, int, int]]):
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     img.putdata(pixels)
     return img
@@ -33,6 +32,7 @@ def _red_pixel():
 
 def _gradient_img(w: int, h: int):
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     px = []
     for y in range(h):
@@ -106,6 +106,7 @@ def test_dither_does_not_crash():
 
 # --- new tuning-parameter tests ---
 
+
 def test_render_config_defaults():
     cfg = RenderConfig()
     assert cfg.white_luma == 240
@@ -176,7 +177,9 @@ def test_white_luma_affects_visibility():
 
 def test_height_ratio_changes_line_count(tmp_path):
     from PIL import Image
+
     from scripts.render_terminal_logo import load_image
+
     png = Image.new("RGBA", (100, 200), (0, 0, 0, 255))
     path = str(tmp_path / "test.png")
     png.save(path)
@@ -189,7 +192,9 @@ def test_height_ratio_changes_line_count(tmp_path):
 
 def test_trim_reduces_borders():
     from PIL import Image
+
     from scripts.render_terminal_logo import _trim_image
+
     w, h = 20, 20
     px = []
     for y in range(h):
@@ -208,7 +213,9 @@ def test_trim_reduces_borders():
 
 def test_trim_with_padding():
     from PIL import Image
+
     from scripts.render_terminal_logo import _trim_image
+
     w, h = 20, 20
     px = []
     for y in range(h):
@@ -227,7 +234,9 @@ def test_trim_with_padding():
 
 def test_trim_no_visible_pixel_returns_original():
     from PIL import Image
+
     from scripts.render_terminal_logo import _trim_image
+
     w, h = 10, 10
     px = [(255, 255, 255, 255)] * (w * h)
     img = Image.new("RGBA", (w, h))
@@ -240,6 +249,7 @@ def test_trim_no_visible_pixel_returns_original():
 
 def test_contrast_gamma_produce_only_ascii():
     from PIL import Image
+
     w, h = 10, 10
     px = []
     for y in range(h):
@@ -262,6 +272,7 @@ def test_contrast_gamma_produce_only_ascii():
 
 def test_ascii_custom_chars_stays_ascii():
     from PIL import Image
+
     w, h = 10, 10
     px = [(64, 64, 64, 255)] * (w * h)
     img = Image.new("RGBA", (w, h))
@@ -275,9 +286,11 @@ def test_ascii_custom_chars_stays_ascii():
 
 # --- colored ASCII tests ---
 
+
 def _diagonal_edge_img(w: int, h: int):
     """Image with a diagonal black/white edge to trigger edge chars."""
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     px = []
     for y in range(h):
@@ -294,6 +307,7 @@ def test_ascii_color_emits_ansi_with_ascii_chars_and_no_blocks():
     w, h = 10, 10
     px = [(64, 64, 64, 255)] * (w * h)
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     img.putdata(px)
     result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
@@ -311,6 +325,7 @@ def test_ascii_color_foreground_mode_runs():
     w, h = 8, 8
     px = [(128, 64, 32, 255)] * (w * h)
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     img.putdata(px)
     result = render_ascii_color(img, ASCII_PALETTES["detailed"], cfg=RenderConfig(), color_mode="foreground")
@@ -321,6 +336,7 @@ def test_ascii_color_background_mode_runs():
     w, h = 8, 8
     px = [(128, 64, 32, 255)] * (w * h)
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     img.putdata(px)
     result = render_ascii_color(img, ASCII_PALETTES["detailed"], cfg=RenderConfig(), color_mode="background")
@@ -331,6 +347,7 @@ def test_ascii_color_both_mode_runs():
     w, h = 8, 8
     px = [(128, 64, 32, 255)] * (w * h)
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     img.putdata(px)
     result = render_ascii_color(img, ASCII_PALETTES["detailed"], cfg=RenderConfig(), color_mode="both")
@@ -341,6 +358,7 @@ def test_ascii_color_white_bg_is_space():
     w, h = 5, 5
     px = [(255, 255, 255, 255)] * (w * h)
     from PIL import Image
+
     img = Image.new("RGBA", (w, h))
     img.putdata(px)
     result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
@@ -352,7 +370,7 @@ def test_ascii_color_white_bg_is_space():
 def test_edge_map_contains_edge_chars():
     w, h = 20, 20
     img = _diagonal_edge_img(w, h)
-    from PIL import Image
+
     px = list(img.get_flattened_data())
     edge_map = _compute_edge_map(px, w, h, RenderConfig())
     edge_chars = {ech for row in edge_map for _, ech in row}
@@ -364,7 +382,8 @@ def test_ascii_color_edge_aware_uses_shape_chars():
     w, h = 20, 20
     img = _diagonal_edge_img(w, h)
     result = render_ascii_color(
-        img, ASCII_PALETTES["clean"],
+        img,
+        ASCII_PALETTES["clean"],
         cfg=RenderConfig(),
         edge_aware=True,
         shape_weight=0.5,
@@ -378,12 +397,13 @@ def test_ascii_edge_aware_uses_shape_chars_without_color():
     w, h = 20, 20
     img = _diagonal_edge_img(w, h)
     result = render_ascii(
-        img, ASCII_PALETTES["clean"],
+        img,
+        ASCII_PALETTES["clean"],
         cfg=RenderConfig(),
         edge_aware=True,
         shape_weight=0.5,
     )
     edge_chars = {"/", "\\", "|", "-"}
     found = {c for c in result if c in edge_chars}
-    assert found, f"No edge chars in output"
+    assert found, "No edge chars in output"
     assert "\x1b" not in result

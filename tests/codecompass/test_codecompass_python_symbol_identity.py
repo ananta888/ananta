@@ -58,10 +58,7 @@ def test_python_symbol_ids_are_file_scoped_and_path_canonical() -> None:
 
     assert first == canonical_first
     assert first != second
-    assert (
-        PYTHON_SYMBOL_IDENTITY_STRATEGY
-        == "repo_relative_file_provenance_symbol_sha256.v2"
-    )
+    assert PYTHON_SYMBOL_IDENTITY_STRATEGY == "repo_relative_file_provenance_symbol_sha256.v2"
     assert first.startswith("semantic:python:symbol:v2:function:main:")
     assert len(first.rsplit(":", 1)[-1]) == 64
 
@@ -285,11 +282,7 @@ class Service:
     assert [node["provenance"]["line_start"] for node in method_nodes] == [2, 6]
     assert len({node["id"] for node in type_nodes}) == 2
     assert len({node["id"] for node in method_nodes}) == 2
-    assert {
-        (edge["source"], edge["target"])
-        for edge in result["edges"]
-        if edge["edge_type"] == "declares"
-    } == {
+    assert {(edge["source"], edge["target"]) for edge in result["edges"] if edge["edge_type"] == "declares"} == {
         (type_nodes[0]["id"], method_nodes[0]["id"]),
         (type_nodes[1]["id"], method_nodes[1]["id"]),
     }
@@ -298,17 +291,10 @@ class Service:
 def test_same_line_python_fields_use_distinct_column_provenance() -> None:
     result = PythonSemanticAdapter().emit_graph_records(
         "package/values.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass\n"
-        "class Values:\n"
-        "    value: int; value: str\n",
+        "from dataclasses import dataclass\n@dataclass\nclass Values:\n    value: int; value: str\n",
     )
 
-    fields = [
-        node
-        for node in result["nodes"]
-        if node["symbol"] == "Values.value"
-    ]
+    fields = [node for node in result["nodes"] if node["symbol"] == "Values.value"]
     assert len(fields) == 2
     assert {node["attributes"]["column_start"] for node in fields} == {5, 17}
     assert len({node["id"] for node in fields}) == 2
@@ -336,21 +322,12 @@ class ProposalBase:
         output_dir=tmp_path,
     )
 
-    with sqlite3.connect(
-        tmp_path / DOMAIN_SUPPLEMENT_SOURCE_FILENAME
-    ) as connection:
+    with sqlite3.connect(tmp_path / DOMAIN_SUPPLEMENT_SOURCE_FILENAME) as connection:
         records = [
-            json.loads(row[0])
-            for row in connection.execute(
-                "SELECT record_json FROM semantic_nodes ORDER BY node_id"
-            )
+            json.loads(row[0]) for row in connection.execute("SELECT record_json FROM semantic_nodes ORDER BY node_id")
         ]
 
-    proposal_nodes = [
-        node
-        for node in records
-        if node["symbol"] in {"ProposalBase", "ProposalBase.to_dict"}
-    ]
+    proposal_nodes = [node for node in records if node["symbol"] in {"ProposalBase", "ProposalBase.to_dict"}]
     assert len(proposal_nodes) == 4
     assert len({node["id"] for node in proposal_nodes}) == 4
 
@@ -370,14 +347,9 @@ def test_legacy_python_identity_injection_is_scoped_by_occurrence() -> None:
         symbol_identity=LegacyIdentity(),
     ).emit_graph_records(
         "package/service.py",
-        "class Service:\n"
-        "    pass\n"
-        "class Service:\n"
-        "    pass\n",
+        "class Service:\n    pass\nclass Service:\n    pass\n",
     )
-    type_nodes = [
-        node for node in emitted["nodes"] if node["symbol"] == "Service"
-    ]
+    type_nodes = [node for node in emitted["nodes"] if node["symbol"] == "Service"]
 
     assert len(type_nodes) == 2
     assert len({node["id"] for node in type_nodes}) == 2

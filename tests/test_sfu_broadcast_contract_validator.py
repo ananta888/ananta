@@ -1,6 +1,6 @@
+import base64
 import copy
 import json
-import base64
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -17,8 +17,8 @@ from agent.services.sfu_broadcast_contract_validator import (
     CorpusVersion,
     ExpiryRule,
     LegacyReceiverGroupMemberDigestTestAdapter,
-    ReceiverGroupMemberDigestRule,
     ReceiverGroupMemberDigestPayloadBuilder,
+    ReceiverGroupMemberDigestRule,
     SfuBroadcastContractValidator,
     SfuBroadcastCorpusVerifier,
     StructuralLimits,
@@ -236,7 +236,9 @@ def test_depth_count_and_non_finite_tokens_fail_before_schema_or_trust():
     non_finite = _raw(_payload()).replace(b'"items":[1]', b'"items":[NaN]')
 
     assert validator.validate("test.sfu-boundary.v1", deep, _context()).reason_code == "contract_depth_exceeded"
-    assert validator.validate("test.sfu-boundary.v1", wide, _context()).reason_code == "contract_collection_count_exceeded"
+    assert (
+        validator.validate("test.sfu-boundary.v1", wide, _context()).reason_code == "contract_collection_count_exceeded"
+    )
     assert validator.validate("test.sfu-boundary.v1", non_finite, _context()).reason_code == "contract_json_invalid"
     assert trust.calls == []
 
@@ -260,9 +262,7 @@ def test_missing_schema_reference_fails_closed_without_resolution_or_network():
 def test_con002_rfc8785_jcs_hmac_positive_vectors_are_accepted(fixture_name: str):
     root = Path(__file__).resolve().parents[1]
     fixture_root = root / "tests/fixtures/webrtc/receiver_group_intent"
-    fixture = json.loads(
-        (fixture_root / "valid_group.v1.json").read_text(encoding="utf-8")
-    )
+    fixture = json.loads((fixture_root / "valid_group.v1.json").read_text(encoding="utf-8"))
     if fixture_name != "valid_group.v1.json":
         derived = json.loads((fixture_root / fixture_name).read_text(encoding="utf-8"))
         for mutation in derived["mutations"]:
@@ -287,9 +287,7 @@ def test_con002_rfc8785_jcs_hmac_positive_vectors_are_accepted(fixture_name: str
         schema,
         semantic_rules=(
             ReceiverGroupMemberDigestRule(
-                legacy_adapter=LegacyReceiverGroupMemberDigestTestAdapter(
-                    environment="test"
-                )
+                legacy_adapter=LegacyReceiverGroupMemberDigestTestAdapter(environment="test")
             ),
         ),
         signature_required=False,
@@ -315,10 +313,7 @@ def test_con002_rfc8785_jcs_hmac_positive_vectors_are_accepted(fixture_name: str
 def test_receiver_group_digest_uses_repository_and_kms_ports_in_production():
     root = Path(__file__).resolve().parents[1]
     fixture = json.loads(
-        (
-            root
-            / "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json"
-        ).read_text(encoding="utf-8")
+        (root / "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json").read_text(encoding="utf-8")
     )
     document = copy.deepcopy(fixture["instance"])
     audience = fixture["validation_context"]["resolved_audience"]

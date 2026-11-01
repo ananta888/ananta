@@ -12,6 +12,7 @@ Results carry stable IDs, scores, reasons, and evidence edges. The
 Graph Viewer can read them as ``metadata`` without renderer-specific
 logic (CCRIG-DD-006).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -53,15 +54,23 @@ class GraphMetricsResult:
         return {
             "schema_version": self.schema_version,
             "hub_nodes": [
-                {"node_id": h.node_id, "kind": h.kind, "score": h.score,
-                 "reasons": list(h.reasons),
-                 "evidence_edges": list(h.evidence_edges)}
+                {
+                    "node_id": h.node_id,
+                    "kind": h.kind,
+                    "score": h.score,
+                    "reasons": list(h.reasons),
+                    "evidence_edges": list(h.evidence_edges),
+                }
                 for h in self.hub_nodes
             ],
             "bridge_nodes": [
-                {"node_id": b.node_id, "kind": b.kind, "score": b.score,
-                 "reasons": list(b.reasons),
-                 "evidence_edges": list(b.evidence_edges)}
+                {
+                    "node_id": b.node_id,
+                    "kind": b.kind,
+                    "score": b.score,
+                    "reasons": list(b.reasons),
+                    "evidence_edges": list(b.evidence_edges),
+                }
                 for b in self.bridge_nodes
             ],
             "warnings": list(self.warnings),
@@ -119,12 +128,15 @@ def compute_graph_metrics(
     path_cap_reached = False
     top_hub_ids = [nid for nid, _ in top_hubs[: max(2, top_k // 2)]]
     for i, a in enumerate(top_hub_ids):
-        for b in top_hub_ids[i + 1:]:
+        for b in top_hub_ids[i + 1 :]:
             if a == b:
                 continue
             pairs_considered += 1
             summary = _bounded_shortest_paths_through(
-                a, b, outgoing, depth_cap=BETWEENNESS_DEPTH_CAP,
+                a,
+                b,
+                outgoing,
+                depth_cap=BETWEENNESS_DEPTH_CAP,
                 path_cap=BETWEENNESS_PATH_CAP,
             )
             if summary.truncated and not path_cap_reached:

@@ -51,8 +51,16 @@ def run_bounded(app: Any, work: Callable[[], _T], timeout: float) -> _T:
         raise GatewayTimeout() from None
 
 
-def audit_tool_call(event: str, name: str, *, outcome: str, trace_id: str | None, target_scope: dict[str, Any],
-                    actor_role: str, details: dict[str, Any]) -> None:
+def audit_tool_call(
+    event: str,
+    name: str,
+    *,
+    outcome: str,
+    trace_id: str | None,
+    target_scope: dict[str, Any],
+    actor_role: str,
+    details: dict[str, Any],
+) -> None:
     from agent.common.audit import log_audit
     from agent.services.execution_audit_service import get_execution_audit_service
 

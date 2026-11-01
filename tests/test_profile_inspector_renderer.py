@@ -15,6 +15,7 @@ We test:
   - _splice_inspector_into_chrome trims from the bottom when height is set
   - inspector line is visible even when body is long (scroll case)
 """
+
 from __future__ import annotations
 
 import os
@@ -90,7 +91,9 @@ class TestProfileInspectorLinesCompact:
 
     def test_compact_line_includes_summary(self, monkeypatch):
         monkeypatch.delenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", raising=False)
-        game = _make_game_with_trace(_make_trace(), summary="Kontext: 7 Treffer (repo:5, artifact:2) [ananta-codecompass]")
+        game = _make_game_with_trace(
+            _make_trace(), summary="Kontext: 7 Treffer (repo:5, artifact:2) [ananta-codecompass]"
+        )
         lines = _profile_inspector_lines(game, 200)
         assert "Kontext: 7 Treffer" in lines[0]
 
@@ -110,6 +113,7 @@ class TestProfileInspectorLinesCompact:
         # The clipped line must be no longer than the width.
         # (We strip ANSI for the length check.)
         import re
+
         ansi_re = re.compile(r"\x1b\[[0-9;]*m")
         visible = ansi_re.sub("", lines[0])
         assert len(visible) <= 5
@@ -144,9 +148,18 @@ class TestProfileInspectorLinesVerbose:
 
     def test_verbose_reasons_truncated_to_5(self, monkeypatch):
         monkeypatch.setenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", "1")
-        trace = _make_trace(reasons=[
-            "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8",
-        ])
+        trace = _make_trace(
+            reasons=[
+                "r1",
+                "r2",
+                "r3",
+                "r4",
+                "r5",
+                "r6",
+                "r7",
+                "r8",
+            ]
+        )
         lines = _profile_inspector_lines(_make_game_with_trace(trace), 200)
         # The reasons line must contain the first 5 reasons but not r6.
         reasons_line = next(ln for ln in lines if "reasons:" in ln)

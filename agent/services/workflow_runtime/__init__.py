@@ -144,6 +144,7 @@ def __getattr__(name: str):
     globals()[name] = value
     return value
 
+
 __all__ = [
     "AUTHORIZATION_ENVELOPE_SCHEMA",
     "ArtifactContract",

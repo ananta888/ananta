@@ -35,9 +35,7 @@ def test_knowledge_collection_create_list_and_detail(client, admin_auth_header):
     assert payload["knowledge_links"][0]["artifact_id"] == artifact_id
 
 
-def test_knowledge_collection_index_route_always_delegates_linked_artifacts(
-    client, admin_auth_header, monkeypatch
-):
+def test_knowledge_collection_index_route_always_delegates_linked_artifacts(client, admin_auth_header, monkeypatch):
     create_res = client.post(
         "/knowledge/collections",
         headers=admin_auth_header,
@@ -115,7 +113,9 @@ def test_knowledge_collection_search_route_returns_collection_chunks(client, adm
                 )
             ]
 
-    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_retrieval_service", lambda: StubKnowledgeRetrieval())
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_retrieval_service", lambda: StubKnowledgeRetrieval()
+    )
 
     response = client.post(
         f"/knowledge/collections/{collection_id}/search",
@@ -229,15 +229,11 @@ def test_expired_index_dispatch_reconcile_route_requires_occ_and_returns_etag(
                     KnowledgeIndexExecutionBindingError,
                 )
 
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_reconcile_conflict"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_reconcile_conflict")
             return {
                 "job_id": job_id,
                 "status": "failed",
-                "reason_code": (
-                    "knowledge_index_execution_dispatch_lease_expired"
-                ),
+                "reason_code": ("knowledge_index_execution_dispatch_lease_expired"),
                 "execution_state": "failed",
                 "execution_lock_version": 3,
                 "completed_at_epoch_ms": 2_000,
@@ -311,10 +307,7 @@ def test_completion_reconcile_route_is_admin_only_and_occ_guarded(
         "agent.routes.knowledge.get_knowledge_index_job_service",
         lambda: StubJobService(),
     )
-    path = (
-        "/knowledge/index-jobs/knowledge-index-job/"
-        "reconcile-completion"
-    )
+    path = "/knowledge/index-jobs/knowledge-index-job/reconcile-completion"
     status = client.get(
         "/knowledge/index-jobs/knowledge-index-job",
         headers=admin_auth_header,
@@ -340,16 +333,12 @@ def test_completion_reconcile_route_is_admin_only_and_occ_guarded(
     # without object access instead of disclosing it via a role-specific 403.
     assert status.status_code == 200
     assert status.headers["ETag"] == '"7"'
-    assert status.headers[
-        "X-Knowledge-Index-Completion-ETag"
-    ] == '"1"'
+    assert status.headers["X-Knowledge-Index-Completion-ETag"] == '"1"'
     assert non_admin.status_code == 404
     assert missing_occ.status_code == 428
     assert completed.status_code == 200
     assert completed.headers["ETag"] == '"2"'
-    assert completed.headers[
-        "X-Knowledge-Index-Completion-ETag"
-    ] == '"2"'
+    assert completed.headers["X-Knowledge-Index-Completion-ETag"] == '"2"'
     assert calls == [("knowledge-index-job", 1)]
 
 
@@ -404,9 +393,7 @@ def test_completion_reconcile_route_returns_hub_local_pending_after_task_cas_fai
 
         @staticmethod
         def reconcile_completion_projection(**_kwargs):
-            raise KnowledgeIndexCompletionProjectionPending(
-                RuntimeError("task database temporarily unavailable")
-            )
+            raise KnowledgeIndexCompletionProjectionPending(RuntimeError("task database temporarily unavailable"))
 
     service = StubJobService()
     monkeypatch.setattr(
@@ -415,19 +402,14 @@ def test_completion_reconcile_route_returns_hub_local_pending_after_task_cas_fai
     )
 
     response = client.post(
-        (
-            "/knowledge/index-jobs/knowledge-index-job/"
-            "reconcile-completion"
-        ),
+        ("/knowledge/index-jobs/knowledge-index-job/reconcile-completion"),
         headers={**admin_auth_header, "If-Match": '"2"'},
         json={},
     )
 
     assert response.status_code == 202
     assert response.headers["ETag"] == '"2"'
-    assert response.headers[
-        "X-Knowledge-Index-Completion-ETag"
-    ] == '"2"'
+    assert response.headers["X-Knowledge-Index-Completion-ETag"] == '"2"'
     assert response.get_json()["data"] == {
         "job": {
             "job_id": "knowledge-index-job",
@@ -467,7 +449,9 @@ def test_knowledge_collection_search_route_accepts_source_type_policy(client, ad
             assert source_scopes == {"artifact"}
             return []
 
-    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_retrieval_service", lambda: StubKnowledgeRetrieval())
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_retrieval_service", lambda: StubKnowledgeRetrieval()
+    )
 
     response = client.post(
         f"/knowledge/collections/{collection_id}/search",
@@ -502,7 +486,11 @@ def test_knowledge_retrieval_preflight_route_returns_source_diagnostics(client, 
         def get_source_preflight(self):
             return {
                 "status": "ok",
-                "source_policy": {"enabled": ["repo", "artifact", "task_memory"], "requested": [], "effective": ["repo", "artifact"]},
+                "source_policy": {
+                    "enabled": ["repo", "artifact", "task_memory"],
+                    "requested": [],
+                    "effective": ["repo", "artifact"],
+                },
                 "sources": {
                     "repo": {"enabled": True, "status": "ok", "issues": []},
                     "artifact": {"enabled": True, "status": "ok", "issues": []},
@@ -520,9 +508,7 @@ def test_knowledge_retrieval_preflight_route_returns_source_diagnostics(client, 
     assert payload["sources"]["artifact"]["status"] == "ok"
 
 
-def test_knowledge_source_records_index_route_always_delegates_wiki_records(
-    client, admin_auth_header, monkeypatch
-):
+def test_knowledge_source_records_index_route_always_delegates_wiki_records(client, admin_auth_header, monkeypatch):
     class StubSourceRegistry:
         def get_source(self, source_id):
             return {"source_id": source_id}
@@ -892,7 +878,9 @@ def test_knowledge_index_security_metadata_update_route_patches_metadata(client,
 
     captured_audit: list[tuple[str, dict]] = []
     monkeypatch.setattr("agent.routes.knowledge._knowledge_index_repo", lambda: StubRepo())
-    monkeypatch.setattr("agent.routes.knowledge.log_audit", lambda action, payload: captured_audit.append((action, payload)))
+    monkeypatch.setattr(
+        "agent.routes.knowledge.log_audit", lambda action, payload: captured_audit.append((action, payload))
+    )
 
     response = client.post(
         "/knowledge/indices/idx-1/metadata/security",
@@ -930,7 +918,9 @@ def test_knowledge_index_security_metadata_batch_route_supports_dry_run(client, 
 
     captured_audit: list[tuple[str, dict]] = []
     monkeypatch.setattr("agent.routes.knowledge._knowledge_index_repo", lambda: StubRepo())
-    monkeypatch.setattr("agent.routes.knowledge.log_audit", lambda action, payload: captured_audit.append((action, payload)))
+    monkeypatch.setattr(
+        "agent.routes.knowledge.log_audit", lambda action, payload: captured_audit.append((action, payload))
+    )
 
     response = client.post(
         "/knowledge/indices/metadata/security/batch",

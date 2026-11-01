@@ -29,9 +29,7 @@ from pydantic import (
 )
 
 MODEL_IDENTITY_SCHEMA = "ananta.model-intelligence.model-identity.v1"
-CAPABILITY_DESCRIPTOR_SCHEMA = (
-    "ananta.model-intelligence.capability-descriptor.v1"
-)
+CAPABILITY_DESCRIPTOR_SCHEMA = "ananta.model-intelligence.capability-descriptor.v1"
 ANALYSIS_JOB_SCHEMA = "ananta.model-intelligence.analysis-job.v1"
 ARTIFACT_REF_SCHEMA = "ananta.model-intelligence.artifact-ref.v1"
 ERROR_ENVELOPE_SCHEMA = "ananta.model-intelligence.error-envelope.v1"
@@ -42,16 +40,10 @@ _SOURCE_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 _COORDINATE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+@:/-]{0,511}$")
 _REVISION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+@:/-]{0,127}$")
-_KIND_RE = re.compile(
-    r"^[a-z][a-z0-9-]{0,31}(?:\.[a-z][a-z0-9-]{0,31}){1,7}$"
-)
+_KIND_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}(?:\.[a-z][a-z0-9-]{0,31}){1,7}$")
 _VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$")
-_MEDIA_TYPE_RE = re.compile(
-    r"^[a-z0-9][a-z0-9.+-]{0,63}/[a-z0-9][a-z0-9.+-]{0,63}$"
-)
-_EXTENSION_KEY_RE = re.compile(
-    r"^x-[a-z0-9]+(?:[._-][a-z0-9]+){0,7}$"
-)
+_MEDIA_TYPE_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,63}/[a-z0-9][a-z0-9.+-]{0,63}$")
+_EXTENSION_KEY_RE = re.compile(r"^x-[a-z0-9]+(?:[._-][a-z0-9]+){0,7}$")
 _SENSITIVE_VALUE_RE = re.compile(
     r"(?i)(bearer\s+|password\s*=|api[_-]?key\s*=|token\s*=|"
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----)"
@@ -175,10 +167,7 @@ def _extensions(value: Any) -> dict[str, JsonScalar]:
     normalized: dict[str, JsonScalar] = {}
     for raw_key, raw_value in value.items():
         key = str(raw_key).strip().lower()
-        if (
-            not _EXTENSION_KEY_RE.fullmatch(key)
-            or any(part in key for part in _SENSITIVE_KEY_PARTS)
-        ):
+        if not _EXTENSION_KEY_RE.fullmatch(key) or any(part in key for part in _SENSITIVE_KEY_PARTS):
             raise ValueError("model_intelligence_extension_key_invalid")
         normalized[key] = _bounded_scalar(raw_value)
     return dict(sorted(normalized.items()))
@@ -274,9 +263,7 @@ class _ClosedContract(BaseModel):
 
 
 class ModelIdentity(_ClosedContract):
-    schema_version: Literal[
-        "ananta.model-intelligence.model-identity.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.model-identity.v1"] = Field(
         default=MODEL_IDENTITY_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -365,9 +352,7 @@ class ModelIdentity(_ClosedContract):
 
 
 class CapabilityDescriptor(_ClosedContract):
-    schema_version: Literal[
-        "ananta.model-intelligence.capability-descriptor.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.capability-descriptor.v1"] = Field(
         default=CAPABILITY_DESCRIPTOR_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -424,9 +409,7 @@ class CapabilityDescriptor(_ClosedContract):
 class AnalysisJob(_ClosedContract):
     """Immutable work description created and queued by the Hub."""
 
-    schema_version: Literal[
-        "ananta.model-intelligence.analysis-job.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.analysis-job.v1"] = Field(
         default=ANALYSIS_JOB_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -489,11 +472,7 @@ class AnalysisJob(_ClosedContract):
         values: tuple[str, ...],
     ) -> tuple[str, ...]:
         normalized = tuple(sorted({str(value).strip().lower() for value in values}))
-        if (
-            not normalized
-            or len(normalized) > 16
-            or any(not _KIND_RE.fullmatch(value) for value in normalized)
-        ):
+        if not normalized or len(normalized) > 16 or any(not _KIND_RE.fullmatch(value) for value in normalized):
             raise ValueError("analysis_job_artifact_kinds_invalid")
         return normalized
 
@@ -501,9 +480,7 @@ class AnalysisJob(_ClosedContract):
 class ArtifactRef(_ClosedContract):
     """Content-addressed artifact identity without a shared-filesystem path."""
 
-    schema_version: Literal[
-        "ananta.model-intelligence.artifact-ref.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.artifact-ref.v1"] = Field(
         default=ARTIFACT_REF_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -577,9 +554,7 @@ def _strict_error_details(value: Any) -> dict[str, JsonScalar]:
 
 
 class ErrorEnvelope(_ClosedContract):
-    schema_version: Literal[
-        "ananta.model-intelligence.error-envelope.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-intelligence.error-envelope.v1"] = Field(
         default=ERROR_ENVELOPE_SCHEMA,
         validation_alias="schema",
         serialization_alias="schema",
@@ -619,11 +594,7 @@ def build_error_envelope(
 
 _CONTRACT_MODELS: dict[
     ContractKind,
-    type[ModelIdentity]
-    | type[CapabilityDescriptor]
-    | type[AnalysisJob]
-    | type[ArtifactRef]
-    | type[ErrorEnvelope],
+    type[ModelIdentity] | type[CapabilityDescriptor] | type[AnalysisJob] | type[ArtifactRef] | type[ErrorEnvelope],
 ] = {
     "model_identity": ModelIdentity,
     "capability_descriptor": CapabilityDescriptor,
@@ -641,15 +612,11 @@ def parse_model_intelligence_contract(
 
     model = _CONTRACT_MODELS.get(kind)
     if model is None or not isinstance(raw, Mapping):
-        raise ModelIntelligenceContractError(
-            ModelIntelligenceReasonCode.CONTRACT_INVALID
-        )
+        raise ModelIntelligenceContractError(ModelIntelligenceReasonCode.CONTRACT_INVALID)
     try:
         return model.model_validate(dict(raw))
     except (TypeError, ValueError, ValidationError) as exc:
-        raise ModelIntelligenceContractError(
-            ModelIntelligenceReasonCode.CONTRACT_INVALID
-        ) from exc
+        raise ModelIntelligenceContractError(ModelIntelligenceReasonCode.CONTRACT_INVALID) from exc
 
 
 __all__ = [

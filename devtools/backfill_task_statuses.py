@@ -4,7 +4,6 @@ from sqlalchemy import inspect, text
 
 from agent.database import engine
 
-
 STATUS_BACKFILL = {
     "done": "completed",
     "complete": "completed",
@@ -37,4 +36,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

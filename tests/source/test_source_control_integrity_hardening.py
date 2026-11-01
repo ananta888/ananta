@@ -105,9 +105,7 @@ class _CrashOnceIdempotentMutations:
     def execute(self, *, target: BulkTarget, idempotency_key: str, **_kwargs):
         if idempotency_key in self.results:
             return self.results[idempotency_key]
-        self.side_effects[idempotency_key] = (
-            self.side_effects.get(idempotency_key, 0) + 1
-        )
+        self.side_effects[idempotency_key] = self.side_effects.get(idempotency_key, 0) + 1
         result = {
             "resource_id": target.resource_id,
             "status": "completed",
@@ -191,9 +189,7 @@ def test_purge_approval_is_digest_bound_expiring_and_one_time() -> None:
         approval_id="approval-example",
     )
 
-    with pytest.raises(
-        SourceIndexLifecycleError, match="binding_mismatch"
-    ):
+    with pytest.raises(SourceIndexLifecycleError, match="binding_mismatch"):
         store.claim(
             approval_id=approval_id,
             tenant_id="tenant-example",
@@ -219,9 +215,7 @@ def test_purge_approval_is_digest_bound_expiring_and_one_time() -> None:
         request_digest=digest,
         claim_id="operation-example",
     )
-    with pytest.raises(
-        SourceIndexLifecycleError, match="already_consumed"
-    ):
+    with pytest.raises(SourceIndexLifecycleError, match="already_consumed"):
         store.claim(
             approval_id=approval_id,
             tenant_id="tenant-example",

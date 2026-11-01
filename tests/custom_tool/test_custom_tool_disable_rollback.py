@@ -1,4 +1,5 @@
 """HDE-019: disable, re-activation and rollback of custom tools."""
+
 import pytest
 
 from agent.services.dynamic_tool_registry_service import DynamicToolRegistryService
@@ -47,8 +48,8 @@ def test_disabled_tool_is_invisible_everywhere(tmp_path):
     assert registry.list_active_tools() == []
     assert registry.match_intent_alias("report") is None
 
-    from agent.services.custom_tool_executor import execute_custom_tool
     import agent.services.dynamic_tool_registry_service as registry_module
+    from agent.services.custom_tool_executor import execute_custom_tool
 
     original = registry_module.dynamic_tool_registry_service
     registry_module.dynamic_tool_registry_service = registry

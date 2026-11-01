@@ -73,19 +73,12 @@ def frontend_capabilities_dto(
 def frontend_job_dto(source: object) -> dict[str, object]:
     value = source if isinstance(source, dict) else {}
     extensions = value.get("extensions") if isinstance(value.get("extensions"), dict) else {}
-    identity = (
-        value.get("model_identity")
-        if isinstance(value.get("model_identity"), dict)
-        else {}
-    )
+    identity = value.get("model_identity") if isinstance(value.get("model_identity"), dict) else {}
     state = str(value.get("status") or value.get("state") or "unknown")
     status = _JOB_STATUS_ALIASES.get(state, "unknown")
     default_progress = _DEFAULT_PROGRESS[status]
     requested = (
-        value.get("requested_artifact_kinds")
-        or value.get("requested_artifacts")
-        or value.get("artifact_kinds")
-        or []
+        value.get("requested_artifact_kinds") or value.get("requested_artifacts") or value.get("artifact_kinds") or []
     )
     if not isinstance(requested, (list, tuple)):
         requested = []
@@ -184,11 +177,7 @@ def frontend_graph_dto(source: object) -> dict[str, object]:
             source_id = str(edge.get("source_node_id") or edge.get("source") or "")
             target_id = str(edge.get("target_node_id") or edge.get("target") or "")
             if source_id and target_id:
-                edge_id = str(
-                    edge.get("edge_id")
-                    or edge.get("id")
-                    or f"{source_id}:{target_id}:{len(edges)}"
-                )
+                edge_id = str(edge.get("edge_id") or edge.get("id") or f"{source_id}:{target_id}:{len(edges)}")
                 edges.append(
                     {
                         "edge_id": edge_id,

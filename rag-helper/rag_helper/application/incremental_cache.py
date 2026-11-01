@@ -66,11 +66,7 @@ def invalidate_incremental_cache_paths(
 
     cache = load_incremental_cache(path)
     files = cache.get("files") if isinstance(cache.get("files"), dict) else {}
-    requested = (
-        set(files)
-        if paths is None
-        else {str(value).replace("\\", "/") for value in paths}
-    )
+    requested = set(files) if paths is None else {str(value).replace("\\", "/") for value in paths}
     invalidated_extensions: set[str] = set()
     invalidated_paths: list[str] = []
     for relative_path in sorted(requested & set(files)):

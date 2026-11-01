@@ -75,4 +75,3 @@ def build_chunk_metadata(
         end_byte=int(end_byte),
         content_hash=content_hash,
     )
-

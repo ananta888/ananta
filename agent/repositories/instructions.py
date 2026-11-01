@@ -14,7 +14,9 @@ class UserInstructionProfileRepository:
 
     def list_by_owner(self, owner_username: str, *, include_inactive: bool = True) -> list[UserInstructionProfileDB]:
         with Session(engine) as session:
-            statement = select(UserInstructionProfileDB).where(UserInstructionProfileDB.owner_username == owner_username)
+            statement = select(UserInstructionProfileDB).where(
+                UserInstructionProfileDB.owner_username == owner_username
+            )
             if not include_inactive:
                 statement = statement.where(UserInstructionProfileDB.is_active.is_(True))
             statement = statement.order_by(UserInstructionProfileDB.updated_at.desc())
@@ -24,7 +26,10 @@ class UserInstructionProfileRepository:
         with Session(engine) as session:
             statement = (
                 select(UserInstructionProfileDB)
-                .where(UserInstructionProfileDB.owner_username == owner_username, UserInstructionProfileDB.is_active.is_(True))
+                .where(
+                    UserInstructionProfileDB.owner_username == owner_username,
+                    UserInstructionProfileDB.is_active.is_(True),
+                )
                 .order_by(UserInstructionProfileDB.is_default.desc(), UserInstructionProfileDB.updated_at.desc())
             )
             return session.exec(statement).first()

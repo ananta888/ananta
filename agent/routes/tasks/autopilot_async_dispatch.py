@@ -7,6 +7,7 @@ concurrency slots, returns immediately, and reaps finished dispatches on the
 next tick. Workers keep running in the background; their task status is updated
 by the dispatch call itself.
 """
+
 from __future__ import annotations
 
 import concurrent.futures

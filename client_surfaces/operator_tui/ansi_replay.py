@@ -3,6 +3,7 @@
 Verfolgt Cursor-Position und SGR-Attribute über einen rohen ANSI-Bytestream.
 Unbekannte Sequenzen werden ignoriert, damit der Tracker nie abstürzt.
 """
+
 from __future__ import annotations
 
 import re
@@ -13,8 +14,8 @@ from client_surfaces.operator_tui.snapshot import Cell, CellGrid
 # Matches ESC followed by:
 #   - CSI sequences: ESC [ params final
 #   - Other two-char ESC sequences
-_CSI_RE = re.compile(r'\x1b\[([0-9;]*)([A-Za-z])')
-_ESC_OTHER = re.compile(r'\x1b[^[]')
+_CSI_RE = re.compile(r"\x1b\[([0-9;]*)([A-Za-z])")
+_ESC_OTHER = re.compile(r"\x1b[^[]")
 
 
 class AnsiReplayState:
@@ -33,8 +34,7 @@ class AnsiReplayState:
         self._bg: tuple[int, int, int] | None = None
 
     def _blank_buf(self) -> list[list[list[Any]]]:
-        return [[[" ", None, None, False, False] for _ in range(self._width)]
-                for _ in range(self._height)]
+        return [[[" ", None, None, False, False] for _ in range(self._width)] for _ in range(self._height)]
 
     def _reset_attrs(self) -> None:
         self._bold = False
@@ -172,12 +172,12 @@ class AnsiReplayState:
 
 # Rudimentäre ANSI-Farbpalette (Indizes 0–7)
 _ANSI_COLORS: list[tuple[int, int, int]] = [
-    (0, 0, 0),        # 0 black
-    (170, 0, 0),      # 1 red
-    (0, 170, 0),      # 2 green
-    (170, 170, 0),    # 3 yellow
-    (0, 0, 170),      # 4 blue
-    (170, 0, 170),    # 5 magenta
-    (0, 170, 170),    # 6 cyan
+    (0, 0, 0),  # 0 black
+    (170, 0, 0),  # 1 red
+    (0, 170, 0),  # 2 green
+    (170, 170, 0),  # 3 yellow
+    (0, 0, 170),  # 4 blue
+    (170, 0, 170),  # 5 magenta
+    (0, 170, 170),  # 6 cyan
     (170, 170, 170),  # 7 white
 ]

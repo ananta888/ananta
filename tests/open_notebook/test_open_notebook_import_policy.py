@@ -24,9 +24,7 @@ def test_unknown_section_is_rejected():
 
 
 def test_record_with_secret_like_field_is_blocked():
-    decision = OpenNotebookImportPolicy().evaluate_record(
-        {"title": "ok", "api_key": "value"}, section="sources"
-    )
+    decision = OpenNotebookImportPolicy().evaluate_record({"title": "ok", "api_key": "value"}, section="sources")
     assert not decision.allowed
     assert decision.reason_code == "secret_like_field_blocked"
 

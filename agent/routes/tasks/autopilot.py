@@ -17,14 +17,14 @@ from agent.routes.tasks.autopilot_guardrails import (
     resolve_resilience_config,
     resolve_security_policy,
 )
+from agent.routes.tasks.autopilot_loop_dependencies import (
+    AUTOPILOT_LOOP_DEPENDENCIES,
+    AutopilotLoopDependencies,
+)
 from agent.routes.tasks.autopilot_tick_engine import execute_autopilot_tick
 from agent.routes.tasks.autopilot_worker_forwarding import (
     AutopilotWorkerForwarder,
     _ForwardTarget,
-)
-from agent.routes.tasks.autopilot_loop_dependencies import (
-    AUTOPILOT_LOOP_DEPENDENCIES,
-    AutopilotLoopDependencies,
 )
 from agent.routes.tasks.utils import _update_local_task_status
 from agent.services.provider_observer_service import get_provider_observer_service
@@ -70,7 +70,7 @@ def _task_dependencies(task: Any) -> list[str]:
 
 class AutonomousLoopManager:
     def __init__(self, *, worker_forwarder: AutopilotWorkerForwarder | None = None):
-        self._lock = threading.Lock()          # start/stop/persist lifecycle
+        self._lock = threading.Lock()  # start/stop/persist lifecycle
         # thr-016: per-goal tick tracking replaces _tick_lock. Different goals
         # can tick concurrently; same-goal concurrency is blocked. This prevents
         # goal-switch deadlocks where _tick_lock was held for up to 180s.
@@ -120,9 +120,7 @@ class AutonomousLoopManager:
             forward_to_worker=self._forward_through_loop_transport,
             record_worker_success=lambda worker_url: self._record_worker_success(worker_url),
             record_worker_failure=lambda *args, **kwargs: self._record_worker_failure(*args, **kwargs),
-            record_provider_backpressure=lambda provider, reason: self._record_provider_backpressure(
-                provider, reason
-            ),
+            record_provider_backpressure=lambda provider, reason: self._record_provider_backpressure(provider, reason),
             record_forward_http_error=lambda *args, **kwargs: self._record_forward_http_error(*args, **kwargs),
             append_trace_event=self._append_loop_trace_event,
         )
@@ -168,7 +166,7 @@ class AutonomousLoopManager:
         return {}
 
     def _agent_config(self) -> dict[str, Any]:
-        return (self._app_config().get("AGENT_CONFIG", {}) or {})
+        return self._app_config().get("AGENT_CONFIG", {}) or {}
 
     def _persist_state(self, enabled: bool):
         state = {
@@ -373,8 +371,8 @@ class AutonomousLoopManager:
         # network probe latency never blocks loop state reads/writes.
         try:
             app_cfg = self._app_config()
-            agent_cfg = (app_cfg.get("AGENT_CONFIG", {}) or {})
-            provider_urls = (app_cfg.get("PROVIDER_URLS", {}) or {})
+            agent_cfg = app_cfg.get("AGENT_CONFIG", {}) or {}
+            provider_urls = app_cfg.get("PROVIDER_URLS", {}) or {}
             timeout_cfg = agent_cfg.get("provider_observer_timeout_seconds", 3)
             try:
                 timeout_seconds = max(1.0, min(10.0, float(timeout_cfg)))
@@ -497,6 +495,7 @@ class AutonomousLoopManager:
         cannot receive the same worker slot.
         """
         from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
+
         with self._routing_lock:
             worker_policy_cfg = dict((self._agent_config() or {}).get("autopilot_worker_policy") or {})
             filtered_workers, rejected_workers = get_worker_policy_service().filter_candidates(
@@ -573,12 +572,7 @@ class AutonomousLoopManager:
         max_backoff = max(
             min_interval,
             min(
-                float(
-                    cfg.get(
-                        "autopilot_task_propose_max_backoff_seconds"
-                    )
-                    or 30.0
-                ),
+                float(cfg.get("autopilot_task_propose_max_backoff_seconds") or 30.0),
                 120.0,
             ),
         )
@@ -633,7 +627,6 @@ class AutonomousLoopManager:
 
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         return self._worker_forwarder.forward_with_retry(worker_url, endpoint, payload, token)
-
 
     def tick_once(self) -> dict:
         if not has_app_context() and self._app is not None:

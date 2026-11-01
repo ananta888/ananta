@@ -64,8 +64,10 @@ from agent.services.decision_providers.types import (  # noqa: E402
 from agent.services.decision_providers.typesafe import TypeSafeJevProvider, read_api_key  # noqa: E402
 
 BENCH = ROOT / "benchmarks/decision_providers"
-TOOL_CASES = (ROOT / "benchmarks/tiny_tool_router/decision_calibration.v1.json",
-              ROOT / "benchmarks/tiny_tool_router/decision_calibration_hard.v1.json")
+TOOL_CASES = (
+    ROOT / "benchmarks/tiny_tool_router/decision_calibration.v1.json",
+    ROOT / "benchmarks/tiny_tool_router/decision_calibration_hard.v1.json",
+)
 GROUPS = {
     "companion": ("companion_route", "companion_knowledge"),
     "retrieval": ("retrieval_intent", "rag_needed"),
@@ -74,8 +76,17 @@ GROUPS = {
     "injection": ("prompt_injection",),
 }
 PAIRS = (("local_decision", "jev"), ("local_decision", "llm"), ("jev", "llm"))
-CASCADES = (("jev", "rules"), ("jev", "llm"), ("jev", "chat"), ("jev", "local_decision"), ("local_decision", "rules"),
-            ("local_decision", "llm"), ("local_decision", "chat"), ("current", "chat"), ("llm", "rules"))
+CASCADES = (
+    ("jev", "rules"),
+    ("jev", "llm"),
+    ("jev", "chat"),
+    ("jev", "local_decision"),
+    ("local_decision", "rules"),
+    ("local_decision", "llm"),
+    ("local_decision", "chat"),
+    ("current", "chat"),
+    ("llm", "rules"),
+)
 
 
 @dataclass
@@ -136,8 +147,9 @@ def load_tool_routing() -> Area:
         split = "hard" if "hard" in path.name else "base"
         for row in json.loads(path.read_text(encoding="utf-8"))["cases"]:
             expected, also, terms = expectation(row)
-            cases.append(Case(row["id"], row["prompt"], row.get("lang", "?"), split, {TOOL_KEY: (expected, also)},
-                              tuple(terms)))
+            cases.append(
+                Case(row["id"], row["prompt"], row.get("lang", "?"), split, {TOOL_KEY: (expected, also)}, tuple(terms))
+            )
     area = Area("tool_routing", request.questions, cases, question_keys={"tool_routing": TOOL_KEY})
     area.tools = tools  # type: ignore[attr-defined]
     return area
@@ -152,6 +164,7 @@ def _companion_rules():
     def rules(state):
         decision = classify(state)
         return {"companion_route": decision.route, "needs_code_knowledge_lookup": _label(bool(decision.knowledge))}
+
     return rules
 
 
@@ -161,14 +174,22 @@ def _retrieval_rules():
     def rules(state):
         intent = classify_retrieval_intent(state, None)[1]
         return {"retrieval_intent": intent, "needs_project_retrieval": _label(intent != "generic_chat")}
+
     return rules
 
 
 def _hub_direct_rules():
     from agent.services.hub_direct_execution_router import HubDirectExecutionRouter
 
-    tools = ["repo.list_files", "repo.read_file_range", "repo.grep", "git.status", "git.diff_readonly",
-             "test.discover", "workspace.diff"]
+    tools = [
+        "repo.list_files",
+        "repo.read_file_range",
+        "repo.grep",
+        "git.status",
+        "git.diff_readonly",
+        "test.discover",
+        "workspace.diff",
+    ]
     registry = type("NoAliases", (), {"match_intent_alias": staticmethod(lambda *a, **k: None)})()
     router = HubDirectExecutionRouter(dynamic_registry=registry)
     cfg = {"hub_direct_execution": {"enabled": True, "confidence_threshold": 0.8, "allowed_tools": tools}}
@@ -176,6 +197,7 @@ def _hub_direct_rules():
     def rules(state):
         decision = router.classify(state, task=None, agent_cfg=cfg)
         return {"hub_direct_tool": decision.tool_name if decision.eligible else "not_eligible"}
+
     return rules
 
 
@@ -199,6 +221,7 @@ def _source_constant(path: str, name: str):
                 if isinstance(item, ast.Call) and getattr(item.func, "attr", "") == "compile":
                     return re.compile(ast.literal_eval(item.args[0]))
                 return ast.literal_eval(item)
+
             if isinstance(value, (ast.Tuple, ast.List)) and any(isinstance(e, ast.Call) for e in value.elts):
                 return [build(e) for e in value.elts]
             return build(value)
@@ -214,28 +237,57 @@ def _injection_rules():
 
     def rules(state):
         lower = state.lower()
-        hit = (any(p in lower for p in phrases) or any(p in lower for p in goal_phrases)
-               or bool(remote.search(state)) or any(p.search(state) for p in scanner))
+        hit = (
+            any(p in lower for p in phrases)
+            or any(p in lower for p in goal_phrases)
+            or bool(remote.search(state))
+            or any(p.search(state) for p in scanner)
+        )
         return {"intent": "instruction_override" if hit else "benign"}
+
     return rules
 
 
-RULES = {"injection": _injection_rules, "companion": _companion_rules, "retrieval": _retrieval_rules,
-         "hub_direct": _hub_direct_rules, "chat_intent": _chat_rules}
+RULES = {
+    "injection": _injection_rules,
+    "companion": _companion_rules,
+    "retrieval": _retrieval_rules,
+    "hub_direct": _hub_direct_rules,
+    "chat_intent": _chat_rules,
+}
 
 
 # --- running ---------------------------------------------------------------------------------------
 
 
-def _runs_from(case: Case, labels: dict[str, tuple[str | None, float]], latency_ms: float, tokens: tuple[int, int],
-               cost: float, error: str | None, argument: str | None = None,
-               argument_confidence: float | None = None) -> dict[str, Run]:
+def _runs_from(
+    case: Case,
+    labels: dict[str, tuple[str | None, float]],
+    latency_ms: float,
+    tokens: tuple[int, int],
+    cost: float,
+    error: str | None,
+    argument: str | None = None,
+    argument_confidence: float | None = None,
+) -> dict[str, Run]:
     runs = {}
     share = max(1, len(case.expected))
     for key, (expected, also) in case.expected.items():
         predicted, confidence = labels.get(key, (None, 0.0))
-        runs[key] = Run(case.case_id, expected, predicted, confidence, also, latency_ms,
-                        tokens[0] // share, tokens[1] // share, cost / share, error, argument, argument_confidence)
+        runs[key] = Run(
+            case.case_id,
+            expected,
+            predicted,
+            confidence,
+            also,
+            latency_ms,
+            tokens[0] // share,
+            tokens[1] // share,
+            cost / share,
+            error,
+            argument,
+            argument_confidence,
+        )
     return runs
 
 
@@ -257,8 +309,14 @@ def run_typed(provider, area: Area, case: Case) -> dict[str, Run]:
         result = provider.decide(request)
     except DecisionProviderError as error:
         return _runs_from(case, {}, (time.monotonic() - started) * 1000, (0, 0), 0.0, error.reason_code)
-    return _runs_from(case, typed_labels(result, area.questions), result.latency_ms,
-                      (result.usage.input_tokens, result.usage.output_tokens), result.usage.cost_usd, None)
+    return _runs_from(
+        case,
+        typed_labels(result, area.questions),
+        result.latency_ms,
+        (result.usage.input_tokens, result.usage.output_tokens),
+        result.usage.cost_usd,
+        None,
+    )
 
 
 def run_rules(area: Area, case: Case) -> dict[str, Run]:
@@ -282,9 +340,15 @@ def run_current_tool_decision(url: str, area: Area, case: Case) -> dict[str, Run
     label = decision.tool or "none"
     usage = response.get("usage") or {}
     text = next(iter(decision.arguments.values()), None) if decision.arguments else None
-    return _runs_from(case, {TOOL_KEY: (label, decision.confidence)}, seconds * 1000,
-                      (int(usage.get("prompt_tokens") or 0) + int(usage.get("context_tokens") or 0), 0), 0.0, None,
-                      text if isinstance(text, str) else None)
+    return _runs_from(
+        case,
+        {TOOL_KEY: (label, decision.confidence)},
+        seconds * 1000,
+        (int(usage.get("prompt_tokens") or 0) + int(usage.get("context_tokens") or 0), 0),
+        0.0,
+        None,
+        text if isinstance(text, str) else None,
+    )
 
 
 _CANDIDATES = None
@@ -305,8 +369,11 @@ def candidate_source():
         files = []
         for path in ROOT.rglob("*"):
             rel = str(path.relative_to(ROOT))
-            if rel.startswith(skip) or "/node_modules/" in rel or path.suffix not in (".py", ".ts", ".js", ".java",
-                                                                                      ".go", ".rs"):
+            if (
+                rel.startswith(skip)
+                or "/node_modules/" in rel
+                or path.suffix not in (".py", ".ts", ".js", ".java", ".go", ".rs")
+            ):
                 continue
             if path.is_file() and path.stat().st_size < 400_000:
                 files.append((rel, path.read_text(encoding="utf-8", errors="ignore")))
@@ -328,12 +395,20 @@ def run_tool_choice(provider, area: Area, case: Case) -> dict[str, Run]:
     answer = result.answer(TOOL_KEY)
     decision = read_tool_choice(schema, result, values, case.state, min_confidence=0.0)
     text = next((v for v in decision.arguments.values() if isinstance(v, str)), None)
-    text_key = next((k for k, (item, _labels) in values.items()
-                     if k.startswith("text_") and item.tool == answer.choice), None)
+    text_key = next(
+        (k for k, (item, _labels) in values.items() if k.startswith("text_") and item.tool == answer.choice), None
+    )
     text_confidence = result.answer(text_key).confidence if text_key else None
-    return _runs_from(case, {TOOL_KEY: (answer.choice, answer.confidence)}, result.latency_ms,
-                      (result.usage.input_tokens, result.usage.output_tokens), result.usage.cost_usd, None, text,
-                      text_confidence)
+    return _runs_from(
+        case,
+        {TOOL_KEY: (answer.choice, answer.confidence)},
+        result.latency_ms,
+        (result.usage.input_tokens, result.usage.output_tokens),
+        result.usage.cost_usd,
+        None,
+        text,
+        text_confidence,
+    )
 
 
 def run_chat(url: str, model: str, area: Area, case: Case) -> dict[str, Run]:
@@ -354,8 +429,9 @@ def _cache_file(area: str, name: str) -> Path | None:
     return None if CACHE is None else CACHE / f"{area}.{name}.json"
 
 
-def run_provider(name: str, fn: Callable[[Case], dict[str, Run]], cases: list[Case], workers: int,
-                 progress: bool, area: str = "") -> dict[str, dict[str, Run]]:
+def run_provider(
+    name: str, fn: Callable[[Case], dict[str, Run]], cases: list[Case], workers: int, progress: bool, area: str = ""
+) -> dict[str, dict[str, Run]]:
     """case id -> question key -> run; a finished (area, provider) is cached and reused."""
     cache = _cache_file(area, name) if area else None
     if cache is not None and cache.exists():
@@ -363,8 +439,10 @@ def run_provider(name: str, fn: Callable[[Case], dict[str, Run]], cases: list[Ca
         if set(stored) == {case.case_id for case in cases}:
             if progress:
                 print(f"  {name}: cached", file=sys.stderr, flush=True)
-            return {cid: {key: Run(**{**row, "acceptable": tuple(row["acceptable"])}) for key, row in runs.items()}
-                    for cid, runs in stored.items()}
+            return {
+                cid: {key: Run(**{**row, "acceptable": tuple(row["acceptable"])}) for key, row in runs.items()}
+                for cid, runs in stored.items()
+            }
     results: dict[str, dict[str, Run]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(fn, case): case for case in cases}
@@ -374,8 +452,10 @@ def run_provider(name: str, fn: Callable[[Case], dict[str, Run]], cases: list[Ca
                 print(f"  {name}: {done}/{len(cases)}", file=sys.stderr, flush=True)
     if cache is not None:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps({cid: {key: run.__dict__ for key, run in runs.items()}
-                                     for cid, runs in results.items()}), encoding="utf-8")
+        cache.write_text(
+            json.dumps({cid: {key: run.__dict__ for key, run in runs.items()} for cid, runs in results.items()}),
+            encoding="utf-8",
+        )
     return results
 
 
@@ -414,8 +494,9 @@ def area_report(area: Area, outputs: dict[str, dict[str, dict[str, Run]]]) -> di
     return report
 
 
-def argument_report(area: Area, outputs: dict[str, dict[str, dict[str, Run]]], ids: list[str],
-                    key: str) -> dict[str, Any]:
+def argument_report(
+    area: Area, outputs: dict[str, dict[str, dict[str, Run]]], ids: list[str], key: str
+) -> dict[str, Any]:
     """Text-argument quality where the right tool was chosen and the case names expected terms.
 
     ``hit``: the argument contains an expected term; ``precise``: a hit that is also short (not the whole
@@ -423,8 +504,11 @@ def argument_report(area: Area, outputs: dict[str, dict[str, dict[str, Run]]], i
     by_id = {c.case_id: c for c in area.cases}
     report = {}
     for name, runs in outputs.items():
-        rows = [(by_id[i], runs[i][key]) for i in ids if i in runs and by_id[i].terms and runs[i][key].correct
-                and runs[i][key].predicted not in ("none", None)]
+        rows = [
+            (by_id[i], runs[i][key])
+            for i in ids
+            if i in runs and by_id[i].terms and runs[i][key].correct and runs[i][key].predicted not in ("none", None)
+        ]
         if not rows:
             continue
         hits = precise = 0
@@ -448,10 +532,13 @@ def _detection(flags: dict[str, bool], truth: dict[str, bool]) -> dict[str, Any]
     caught = sum(flags[i] for i in attacks)
     false_alarms = sum(flags[i] for i in benign)
     flagged = caught + false_alarms
-    return {"recall": round(caught / len(attacks), 4) if attacks else None,
-            "false_positive_rate": round(false_alarms / len(benign), 4) if benign else None,
-            "precision": round(caught / flagged, 4) if flagged else None,
-            "missed": [i for i in attacks if not flags[i]], "false_alarms": [i for i in benign if flags[i]]}
+    return {
+        "recall": round(caught / len(attacks), 4) if attacks else None,
+        "false_positive_rate": round(false_alarms / len(benign), 4) if benign else None,
+        "precision": round(caught / flagged, 4) if flagged else None,
+        "missed": [i for i in attacks if not flags[i]],
+        "false_alarms": [i for i in benign if flags[i]],
+    }
 
 
 def detection_report(outputs: dict[str, dict[str, dict[str, Run]]], ids: list[str], key: str) -> dict[str, Any]:
@@ -460,38 +547,50 @@ def detection_report(outputs: dict[str, dict[str, dict[str, Run]]], ids: list[st
     report: dict[str, Any] = {"providers": {}, "agreement_screen": {}, "agreement_routing": {}}
     for name, runs in outputs.items():
         thresholds = (0.0,) if name == "rules" else THRESHOLDS
-        report["providers"][name] = {str(t): _detection({i: _flag(runs[i][key], t) for i in ids}, truth)
-                                     for t in thresholds}
+        report["providers"][name] = {
+            str(t): _detection({i: _flag(runs[i][key], t) for i in ids}, truth) for t in thresholds
+        }
     for first, second in PAIRS:
         if first in outputs and second in outputs:
             a, b = outputs[first], outputs[second]
             label = f"{first}+{second}"
             report["agreement_screen"][label] = {
                 str(t): _detection({i: _flag(a[i][key], t) or _flag(b[i][key], t) for i in ids}, truth)
-                for t in THRESHOLDS}
+                for t in THRESHOLDS
+            }
             rows = {}
             for t in THRESHOLDS:
-                accepted = [i for i in ids if a[i][key].predicted is not None
-                            and a[i][key].predicted == b[i][key].predicted
-                            and min(a[i][key].confidence, b[i][key].confidence) >= t]
+                accepted = [
+                    i
+                    for i in ids
+                    if a[i][key].predicted is not None
+                    and a[i][key].predicted == b[i][key].predicted
+                    and min(a[i][key].confidence, b[i][key].confidence) >= t
+                ]
                 correct = sum(a[i][key].correct for i in accepted)
-                rows[str(t)] = {"coverage": round(len(accepted) / len(ids), 4),
-                                "precision": round(correct / len(accepted), 4) if accepted else None,
-                                "wrong": [i for i in accepted if not a[i][key].correct]}
+                rows[str(t)] = {
+                    "coverage": round(len(accepted) / len(ids), 4),
+                    "precision": round(correct / len(accepted), 4) if accepted else None,
+                    "wrong": [i for i in accepted if not a[i][key].correct],
+                }
             report["agreement_routing"][label] = rows
     return report
 
 
 def summary_lines(report: dict[str, Any]) -> list[str]:
-    lines = ["| Bereich | Set | Provider | n | Acc | F1 | ECE | Fehler>=0.9 | p50 ms | $/1k |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+    lines = [
+        "| Bereich | Set | Provider | n | Acc | F1 | ECE | Fehler>=0.9 | p50 ms | $/1k |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
     for area, datasets in report["areas"].items():
         for dataset, splits in datasets.items():
             for split, data in splits.items():
                 for provider, row in data["providers"].items():
-                    lines.append(f"| {dataset} | {split} | {provider} | {row['cases']} | {row['accuracy']:.3f} | "
-                                 f"{row['macro_f1']:.3f} | {row['ece']:.3f} | {row['confident_mistakes']['count']} | "
-                                 f"{row['latency_ms']['p50']:.0f} | {row['cost_usd']['per_1000_decisions']:.4f} |")
+                    lines.append(
+                        f"| {dataset} | {split} | {provider} | {row['cases']} | {row['accuracy']:.3f} | "
+                        f"{row['macro_f1']:.3f} | {row['ece']:.3f} | {row['confident_mistakes']['count']} | "
+                        f"{row['latency_ms']['p50']:.0f} | {row['cost_usd']['per_1000_decisions']:.4f} |"
+                    )
     return lines
 
 
@@ -509,8 +608,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=0, help="at most N cases per area (smoke)")
     parser.add_argument("--out", type=Path, default=ROOT / "data/decision-benchmarks/report.json")
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("--cache", type=Path, default=ROOT / "data/decision-benchmarks/cache",
-                        help="per (area, provider) results; a rerun only runs what is missing ('' = off)")
+    parser.add_argument(
+        "--cache",
+        type=Path,
+        default=ROOT / "data/decision-benchmarks/cache",
+        help="per (area, provider) results; a rerun only runs what is missing ('' = off)",
+    )
     args = parser.parse_args(argv)
     wanted = [p.strip() for p in args.providers.split(",") if p.strip()]
     global CACHE
@@ -524,8 +627,7 @@ def main(argv: list[str] | None = None) -> int:
         areas.append(area)
 
     skipped: dict[str, str] = {}
-    jev = (TypeSafeJevProvider(model=args.jev_model, timeout_seconds=15.0)
-           if {"jev", "jev_cand"} & set(wanted) else None)
+    jev = TypeSafeJevProvider(model=args.jev_model, timeout_seconds=15.0) if {"jev", "jev_cand"} & set(wanted) else None
     if jev is not None and not read_api_key():
         skipped["jev"] = "api_key_missing (TYPESAFE_API_KEY / TYPESAFE_API_KEY_FILE)"
         jev = None
@@ -542,13 +644,19 @@ def main(argv: list[str] | None = None) -> int:
             model = (post(args.local_url, "/v1/models", {}, 10)[0].get("data") or [{}])[0].get("id", "")
         except Exception:  # noqa: BLE001
             model = ""
-    llm = LLMDecisionProvider(OpenAICompatibleCompletion(base_url=args.local_url + "/v1", model=model),
-                              model=model, timeout_seconds=90.0)
+    llm = LLMDecisionProvider(
+        OpenAICompatibleCompletion(base_url=args.local_url + "/v1", model=model), model=model, timeout_seconds=90.0
+    )
 
-    report: dict[str, Any] = {"schema": "ananta.decision_provider_benchmark.v1", "started_at": time.time(),
-                              "thresholds": list(THRESHOLDS), "skipped": skipped, "areas": {},
-                              "evidence": "synthetic evaluation labels; never release evidence",
-                              "models": {"jev": args.jev_model, "local": model}}
+    report: dict[str, Any] = {
+        "schema": "ananta.decision_provider_benchmark.v1",
+        "started_at": time.time(),
+        "thresholds": list(THRESHOLDS),
+        "skipped": skipped,
+        "areas": {},
+        "evidence": "synthetic evaluation labels; never release evidence",
+        "models": {"jev": args.jev_model, "local": model},
+    }
     for area in areas:
         if not args.quiet:
             print(f"== {area.name}: {len(area.cases)} cases", file=sys.stderr, flush=True)
@@ -568,16 +676,32 @@ def main(argv: list[str] | None = None) -> int:
         if local_ok and "llm" in wanted:
             local_jobs.append(("llm", lambda c, a=area: run_typed(llm, a, c), 1))
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            jev_future = pool.submit(run_provider, "jev", lambda c, a=area: run_typed(jev, a, c), area.cases,
-                                     args.jev_workers, not args.quiet, area.name) \
-                if jev is not None and "jev" in wanted else None
+            jev_future = (
+                pool.submit(
+                    run_provider,
+                    "jev",
+                    lambda c, a=area: run_typed(jev, a, c),
+                    area.cases,
+                    args.jev_workers,
+                    not args.quiet,
+                    area.name,
+                )
+                if jev is not None and "jev" in wanted
+                else None
+            )
             for name, fn, workers in local_jobs:  # one at a time: they share the GPU
                 outputs[name] = run_provider(name, fn, area.cases, workers, not args.quiet, area.name)
             if jev_future is not None:
                 outputs["jev"] = jev_future.result()
             if jev is not None and area.name == "tool_routing" and "jev_cand" in wanted:
-                outputs["jev_cand"] = run_provider("jev_cand", lambda c, a=area: run_tool_choice(jev, a, c),
-                                                   area.cases, args.jev_workers, not args.quiet, area.name)
+                outputs["jev_cand"] = run_provider(
+                    "jev_cand",
+                    lambda c, a=area: run_tool_choice(jev, a, c),
+                    area.cases,
+                    args.jev_workers,
+                    not args.quiet,
+                    area.name,
+                )
         report["areas"][area.name] = area_report(area, outputs)
     report["finished_at"] = time.time()
     args.out.parent.mkdir(parents=True, exist_ok=True)

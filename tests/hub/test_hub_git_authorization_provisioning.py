@@ -18,7 +18,6 @@ from agent.routes.source_control_git_authorizations import (
     GIT_AUTHORIZATION_ROUTE_MATRIX,
     create_source_control_git_authorizations_blueprint,
 )
-from tests.project_access_fakes import AllowProjectAccess
 from agent.services.hub_git_authorization_provisioning import (
     GitAuthorizationProviderHealth,
     HubGitAuthorizationProvisioningError,
@@ -29,6 +28,7 @@ from agent.services.hub_git_authorization_provisioning import (
 from agent.services.source_control_api_runtime import (
     SQLSourceControlOperationStore,
 )
+from tests.project_access_fakes import AllowProjectAccess
 
 
 class _Provider:
@@ -50,9 +50,7 @@ class _Provider:
             credential_username="x-access-token",
             authorization_state="active",
             granted_scopes=frozenset(
-                {"contents:read"}
-                if selection.authorization_kind.startswith("github_")
-                else {"repository:read"}
+                {"contents:read"} if selection.authorization_kind.startswith("github_") else {"repository:read"}
             ),
             repository=selection.repository,
         )
@@ -80,9 +78,7 @@ def _service(provider=None):
     SQLModel.metadata.create_all(engine)
     selected_provider = provider or _Provider()
     service = HubGitAuthorizationProvisioningService(
-        repository=SQLHubGitAuthorizationRepository(
-            session_factory=lambda: Session(engine)
-        ),
+        repository=SQLHubGitAuthorizationRepository(session_factory=lambda: Session(engine)),
         provider=selected_provider,
         remote_policy=_Policy(),
         idempotency=SQLSourceControlOperationStore(engine),
@@ -192,13 +188,16 @@ def test_list_detail_revoke_and_scope_are_owner_scoped_and_cas_guarded():
         authorization_kind=None,
         authorization_state=None,
     )["items"] == [created]
-    assert service.list_authorizations(
-        principal=_principal(project="project-foreign"),
-        cursor=None,
-        limit=50,
-        authorization_kind=None,
-        authorization_state=None,
-    )["items"] == []
+    assert (
+        service.list_authorizations(
+            principal=_principal(project="project-foreign"),
+            cursor=None,
+            limit=50,
+            authorization_kind=None,
+            authorization_state=None,
+        )["items"]
+        == []
+    )
     revoked = service.revoke(
         principal=_principal(),
         authorization_ref="github-installation:42",
@@ -233,21 +232,12 @@ def test_http_matrix_is_authenticated_and_role_guarded(monkeypatch):
     )
     service, _ = _service()
     app = Flask(__name__)
-    app.extensions["project_access_authority"] = AllowProjectAccess(
-        role="viewer"
-    )
-    app.register_blueprint(
-        create_source_control_git_authorizations_blueprint(service)
-    )
+    app.extensions["project_access_authority"] = AllowProjectAccess(role="viewer")
+    app.register_blueprint(create_source_control_git_authorizations_blueprint(service))
     client = app.test_client()
 
     for entry in GIT_AUTHORIZATION_ROUTE_MATRIX:
-        path = (
-            "/api/source-control/v1"
-            + entry.rule.replace(
-                "<authorization_ref>", "github-installation:42"
-            )
-        )
+        path = "/api/source-control/v1" + entry.rule.replace("<authorization_ref>", "github-installation:42")
         response = client.open(path, method=entry.methods[0])
         assert response.status_code == 401
 
@@ -257,9 +247,7 @@ def test_http_matrix_is_authenticated_and_role_guarded(monkeypatch):
         headers=_headers(roles=("user",)),
     )
     assert denied.status_code == 403
-    assert denied.get_json()["data"]["reason_code"] == (
-        "source_control_mutation_role_required"
-    )
+    assert denied.get_json()["data"]["reason_code"] == ("source_control_mutation_role_required")
 
 
 def test_http_provision_detail_and_revoke_never_expose_secret_metadata(
@@ -273,9 +261,7 @@ def test_http_provision_detail_and_revoke_never_expose_secret_metadata(
     service, _ = _service()
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(
-        create_source_control_git_authorizations_blueprint(service)
-    )
+    app.register_blueprint(create_source_control_git_authorizations_blueprint(service))
     client = app.test_client()
 
     created = client.post(
@@ -286,13 +272,11 @@ def test_http_provision_detail_and_revoke_never_expose_secret_metadata(
     assert created.status_code == 200
     etag = created.headers["ETag"]
     detail = client.get(
-        "/api/source-control/v1/git-authorizations/"
-        "github-installation:42?repository=owner/repository",
+        "/api/source-control/v1/git-authorizations/github-installation:42?repository=owner/repository",
         headers=_headers(),
     )
     revoked = client.post(
-        "/api/source-control/v1/git-authorizations/"
-        "github-installation:42/actions/revoke",
+        "/api/source-control/v1/git-authorizations/github-installation:42/actions/revoke",
         json={"repository": "owner/repository"},
         headers={
             **_headers(),

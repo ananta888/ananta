@@ -116,10 +116,18 @@ def _build_zim(
 
     # ----- Assemble -----
     header = _HEADER.pack(
-        _ZIM_MAGIC, 5, 0, bytes(16),
-        n_entries, 1,
-        url_ptr_pos, title_ptr_pos, cluster_ptr_pos, mime_list_pos,
-        0xFFFFFFFF, 0xFFFFFFFF,
+        _ZIM_MAGIC,
+        5,
+        0,
+        bytes(16),
+        n_entries,
+        1,
+        url_ptr_pos,
+        title_ptr_pos,
+        cluster_ptr_pos,
+        mime_list_pos,
+        0xFFFFFFFF,
+        0xFFFFFFFF,
         checksum_pos,
     )
 
@@ -158,10 +166,12 @@ def test_strip_html_collapses_whitespace():
 
 
 def test_zim_parser_parses_two_articles(tmp_path: Path):
-    zim_bytes = _build_zim([
-        ("A", "Python", "<html><body><p>Python is a programming language.</p></body></html>"),
-        ("A", "Java", "<html><body><p>Java is another language.</p></body></html>"),
-    ])
+    zim_bytes = _build_zim(
+        [
+            ("A", "Python", "<html><body><p>Python is a programming language.</p></body></html>"),
+            ("A", "Java", "<html><body><p>Java is another language.</p></body></html>"),
+        ]
+    )
     zim_file = tmp_path / "test.zim"
     zim_file.write_bytes(zim_bytes)
 
@@ -182,9 +192,13 @@ def test_zim_parser_parses_two_articles(tmp_path: Path):
 
 def test_zim_parser_strips_html(tmp_path: Path):
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim([
-        ("A", "Article", "<h1>Title</h1><p>Body &amp; more.</p>"),
-    ]))
+    zim_file.write_bytes(
+        _build_zim(
+            [
+                ("A", "Article", "<h1>Title</h1><p>Body &amp; more.</p>"),
+            ]
+        )
+    )
 
     items = list(ZimParser().iter_items(corpus_path=zim_file))
 
@@ -194,10 +208,12 @@ def test_zim_parser_strips_html(tmp_path: Path):
 
 def test_zim_parser_handles_redirect(tmp_path: Path):
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim(
-        articles=[("A", "Python", "<p>Python language</p>")],
-        redirects=[("A", "Py", 0)],  # redirects to article index 0
-    ))
+    zim_file.write_bytes(
+        _build_zim(
+            articles=[("A", "Python", "<p>Python language</p>")],
+            redirects=[("A", "Py", 0)],  # redirects to article index 0
+        )
+    )
 
     parser = ZimParser()
     items = list(parser.iter_items(corpus_path=zim_file))
@@ -214,10 +230,12 @@ def test_zim_parser_handles_redirect(tmp_path: Path):
 
 def test_zim_parser_skips_deleted_entries(tmp_path: Path):
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim(
-        articles=[("A", "Python", "<p>Python language</p>")],
-        deleted=[("A", "OldArticle")],
-    ))
+    zim_file.write_bytes(
+        _build_zim(
+            articles=[("A", "Python", "<p>Python language</p>")],
+            deleted=[("A", "OldArticle")],
+        )
+    )
 
     items = list(ZimParser().iter_items(corpus_path=zim_file))
 
@@ -227,10 +245,15 @@ def test_zim_parser_skips_deleted_entries(tmp_path: Path):
 
 def test_zim_parser_non_article_namespace_yields_minus_one(tmp_path: Path):
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim([
-        ("I", "logo.png", "fake image data"),
-        ("A", "RealArticle", "<p>Content</p>"),
-    ], mime_type="text/plain"))
+    zim_file.write_bytes(
+        _build_zim(
+            [
+                ("I", "logo.png", "fake image data"),
+                ("A", "RealArticle", "<p>Content</p>"),
+            ],
+            mime_type="text/plain",
+        )
+    )
 
     items = list(ZimParser().iter_items(corpus_path=zim_file))
 
@@ -241,10 +264,12 @@ def test_zim_parser_non_article_namespace_yields_minus_one(tmp_path: Path):
 
 def test_zim_parser_reports_lz4_as_issue(tmp_path: Path):
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim(
-        articles=[("A", "Article", "<p>text</p>")],
-        cluster_compress=5,  # LZ4
-    ))
+    zim_file.write_bytes(
+        _build_zim(
+            articles=[("A", "Article", "<p>text</p>")],
+            cluster_compress=5,  # LZ4
+        )
+    )
 
     parser = ZimParser()
     items = list(parser.iter_items(corpus_path=zim_file))
@@ -255,10 +280,12 @@ def test_zim_parser_reports_lz4_as_issue(tmp_path: Path):
 
 def test_zim_parser_reports_unknown_compression(tmp_path: Path):
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim(
-        articles=[("A", "Article", "<p>text</p>")],
-        cluster_compress=9,
-    ))
+    zim_file.write_bytes(
+        _build_zim(
+            articles=[("A", "Article", "<p>text</p>")],
+            cluster_compress=9,
+        )
+    )
 
     parser = ZimParser()
     items = list(parser.iter_items(corpus_path=zim_file))
@@ -298,10 +325,14 @@ def test_zim_parser_compatible_with_wiki_normalizer(tmp_path: Path):
     from agent.services.wiki_normalizer import WikiRecordNormalizer
 
     zim_file = tmp_path / "test.zim"
-    zim_file.write_bytes(_build_zim([
-        ("A", "Ananta", "<p>Ananta is a multi-agent task orchestration system built for developers.</p>"),
-        ("A", "Redirect_target", ""),  # empty content → filtered by normalizer
-    ]))
+    zim_file.write_bytes(
+        _build_zim(
+            [
+                ("A", "Ananta", "<p>Ananta is a multi-agent task orchestration system built for developers.</p>"),
+                ("A", "Redirect_target", ""),  # empty content → filtered by normalizer
+            ]
+        )
+    )
 
     parser = ZimParser()
     normalizer = WikiRecordNormalizer()

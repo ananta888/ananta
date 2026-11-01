@@ -132,12 +132,8 @@ class ManagedLiveTerminalSession:
         with self._condition:
             self._chunks.append(chunk)
             self._chunks_char_count += len(chunk)
-            while (
-                len(self._chunks) > 1
-                and (
-                    self._chunks_char_count > _TERMINAL_OUTPUT_MAX_CHARS
-                    or len(self._chunks) > _TERMINAL_OUTPUT_MAX_CHUNKS
-                )
+            while len(self._chunks) > 1 and (
+                self._chunks_char_count > _TERMINAL_OUTPUT_MAX_CHARS or len(self._chunks) > _TERMINAL_OUTPUT_MAX_CHUNKS
             ):
                 dropped = self._chunks.pop(0)
                 self._chunks_base_offset += 1
@@ -286,9 +282,7 @@ class ManagedLiveTerminalSession:
             deadline = time.time() + max(1, int(timeout or 60))
             cursor = capture_from
             collected: list[str] = []
-            echo_suppressed = bool(
-                suppress_input_echo and getattr(self.bridge, "is_pty", False) and os.name != "nt"
-            )
+            echo_suppressed = bool(suppress_input_echo and getattr(self.bridge, "is_pty", False) and os.name != "nt")
             try:
                 if echo_suppressed:
                     self.bridge.set_echo(False)
@@ -489,8 +483,7 @@ class LiveTerminalSessionService:
             return None
         metadata = cli_session.get("metadata") if isinstance(cli_session.get("metadata"), dict) else {}
         mode = _normalize_terminal_execution_mode(
-            execution_mode
-            or (metadata.get("opencode_execution_mode") if isinstance(metadata, dict) else None)
+            execution_mode or (metadata.get("opencode_execution_mode") if isinstance(metadata, dict) else None)
         )
         launch_mode = _normalize_interactive_launch_mode(
             metadata.get("opencode_interactive_launch_mode") if isinstance(metadata, dict) else None

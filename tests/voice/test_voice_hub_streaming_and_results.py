@@ -137,14 +137,10 @@ def test_transcription_recovers_artifact_after_crash_before_task_completion(
 
         with Session(engine) as session:
             claim = session.exec(
-                select(VoiceGovernanceIdempotencyDB).where(
-                    VoiceGovernanceIdempotencyDB.operation == "voice.transcribe"
-                )
+                select(VoiceGovernanceIdempotencyDB).where(VoiceGovernanceIdempotencyDB.operation == "voice.transcribe")
             ).one()
             envelope = session.exec(
-                select(VoiceResultArtifactDB).where(
-                    VoiceResultArtifactDB.artifact_kind == "result_envelope"
-                )
+                select(VoiceResultArtifactDB).where(VoiceResultArtifactDB.artifact_kind == "result_envelope")
             ).one()
             task = session.exec(select(TaskDB)).one()
             assert claim.state == "pending"
@@ -317,9 +313,7 @@ def test_hub_streaming_is_principal_bound_and_finalizes_to_result_artifact(clien
         task_id = created_stream["task_id"]
         with Session(engine) as db:
             provisional_cleanup = db.exec(
-                select(VoiceRuntimeCleanupDB).where(
-                    VoiceRuntimeCleanupDB.source_session_id == session_id
-                )
+                select(VoiceRuntimeCleanupDB).where(VoiceRuntimeCleanupDB.source_session_id == session_id)
             ).one()
         assert provisional_cleanup.state == "provisional"
         with client.application.app_context():
@@ -356,11 +350,7 @@ def test_hub_streaming_is_principal_bound_and_finalizes_to_result_artifact(clien
     assert deleted.get_json()["data"]["deleted"] is True
     with Session(engine) as db:
         assert (
-            db.exec(
-                select(VoiceRuntimeCleanupDB).where(
-                    VoiceRuntimeCleanupDB.source_session_id == session_id
-                )
-            ).first()
+            db.exec(select(VoiceRuntimeCleanupDB).where(VoiceRuntimeCleanupDB.source_session_id == session_id)).first()
             is None
         )
     with client.application.app_context():
@@ -630,8 +620,9 @@ def test_hub_stream_creation_failure_durably_deletes_runtime_orphan(client, admi
 
     assert response.status_code == 429
     runtime_delete.assert_called_once()
-    assert runtime_delete.call_args.args[0] == (
-        provider_factory.return_value.create_stream.call_args.kwargs["requested_session_id"]
+    assert (
+        runtime_delete.call_args.args[0]
+        == (provider_factory.return_value.create_stream.call_args.kwargs["requested_session_id"])
     )
     assert get_voice_runtime_cleanup_service().retry_all_pending() == 0
 
@@ -658,8 +649,9 @@ def test_expired_hub_stream_deletes_runtime_and_terminalizes_task(client, admin_
     assert expired.get_json()["data"]["error"]["code"] == "voice_stream.deadline_exceeded"
     assert missing.status_code == 404
     runtime_delete.assert_called_once()
-    assert runtime_delete.call_args.args[0] == (
-        provider_factory.return_value.create_stream.call_args.kwargs["requested_session_id"]
+    assert (
+        runtime_delete.call_args.args[0]
+        == (provider_factory.return_value.create_stream.call_args.kwargs["requested_session_id"])
     )
     with Session(engine) as db:
         task = db.get(TaskDB, stream["task_id"])

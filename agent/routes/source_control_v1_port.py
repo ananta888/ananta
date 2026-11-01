@@ -1,5 +1,4 @@
-"""Runtime port consumed by the Source Control v1 routes.
-"""
+"""Runtime port consumed by the Source Control v1 routes."""
 
 from __future__ import annotations
 
@@ -12,13 +11,9 @@ from agent.services.source_control_artifact_download import (
 
 
 class SourceControlV1Port(Protocol):
-    def binding(
-        self, *, resource_kind: str, resource_id: str
-    ) -> Mapping[str, object] | None: ...
+    def binding(self, *, resource_kind: str, resource_id: str) -> Mapping[str, object] | None: ...
 
-    def validate_connection(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]: ...
+    def validate_connection(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]: ...
 
     def create_connection(
         self,
@@ -120,9 +115,7 @@ class SourceControlV1Port(Protocol):
         filters: Mapping[str, str],
     ) -> Mapping[str, object]: ...
 
-    def get_connection(
-        self, *, principal: object, connection_id: str
-    ) -> tuple[Mapping[str, object], str]: ...
+    def get_connection(self, *, principal: object, connection_id: str) -> tuple[Mapping[str, object], str]: ...
 
     def run_history(
         self,
@@ -204,9 +197,7 @@ class SourceControlV1Port(Protocol):
         idempotency_key: str,
     ) -> Mapping[str, object]: ...
 
-    def bulk_plan(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]: ...
+    def bulk_plan(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]: ...
 
     def bulk_execute(
         self,
@@ -224,17 +215,11 @@ class SourceControlV1Port(Protocol):
         limit: int,
     ) -> Mapping[str, object]: ...
 
-    def access_preview(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]: ...
+    def access_preview(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]: ...
 
-    def access_matrix(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]: ...
+    def access_matrix(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]: ...
 
-    def context_policy_list(
-        self, *, principal: object, cursor: str | None, limit: int
-    ) -> Mapping[str, object]: ...
+    def context_policy_list(self, *, principal: object, cursor: str | None, limit: int) -> Mapping[str, object]: ...
 
     def context_policy_versions(
         self,
@@ -249,9 +234,7 @@ class SourceControlV1Port(Protocol):
         self, *, principal: object, policy_id: str, version: int
     ) -> tuple[Mapping[str, object], str]: ...
 
-    def context_policy_active(
-        self, *, principal: object, policy_id: str
-    ) -> tuple[Mapping[str, object], str]: ...
+    def context_policy_active(self, *, principal: object, policy_id: str) -> tuple[Mapping[str, object], str]: ...
 
     def context_policy_draft(
         self,
@@ -262,9 +245,7 @@ class SourceControlV1Port(Protocol):
         idempotency_key: str,
     ) -> Mapping[str, object]: ...
 
-    def context_policy_lint(
-        self, *, principal: object, policy_id: str, version: int
-    ) -> Mapping[str, object]: ...
+    def context_policy_lint(self, *, principal: object, policy_id: str, version: int) -> Mapping[str, object]: ...
 
     def context_policy_preview(
         self,

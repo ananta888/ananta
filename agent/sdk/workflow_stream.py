@@ -166,20 +166,10 @@ class WorkflowStreamClient:
     ) -> dict[str, Any]:
         """Read the same runtime-neutral Hub projection used by Angular."""
 
-        required = tuple(
-            sorted(
-                {
-                    str(value).strip()
-                    for value in required_capabilities
-                    if str(value).strip()
-                }
-            )
-        )
+        required = tuple(sorted({str(value).strip() for value in required_capabilities if str(value).strip()}))
         if len(required) > 64 or any(len(value) > 128 for value in required):
             raise WorkflowStreamClientError("runtime_capability_query_invalid")
-        query = urllib.parse.urlencode(
-            [("required_capability", value) for value in required]
-        )
+        query = urllib.parse.urlencode([("required_capability", value) for value in required])
         url = f"{self._hub_url}/api/workflow-runtime/capabilities"
         if query:
             url = f"{url}?{query}"
@@ -264,8 +254,7 @@ class WorkflowStreamClient:
             allow_nan=False,
         ).encode("utf-8")
         response = self._transport.post(
-            f"{self._hub_url}/api/visual-process/workflow/"
-            f"{urllib.parse.quote(str(workflow_id), safe='')}/cancel",
+            f"{self._hub_url}/api/visual-process/workflow/{urllib.parse.quote(str(workflow_id), safe='')}/cancel",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {self._token}",

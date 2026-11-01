@@ -3,6 +3,7 @@
 These tests prove the artifact-first model is robust when execution or verification
 fails, and that unsafe paths are not accepted as valid completion evidence.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,7 +16,6 @@ from agent.services.task_completion_policy_service import get_task_completion_po
 from agent.services.task_execution_service import TaskExecutionService
 from agent.services.worker_output_collector_service import get_worker_output_collector_service
 from agent.services.workspace_diff_service import WorkspaceDiffService
-
 
 TASK_ID = "task-failure-modes-001"
 GOAL_ID = "goal-failure-modes-001"
@@ -137,8 +137,20 @@ def test_failed_verification_does_not_complete(workspace):
         "errors": [],
         "warnings": [],
         "artifacts": [
-            {"artifact_id": "a1", "relative_path": "app.py", "_exists": True, "required": True, "verification_status": "unverified"},
-            {"artifact_id": "a2", "relative_path": "tests/test_app.py", "_exists": True, "required": True, "verification_status": "unverified"},
+            {
+                "artifact_id": "a1",
+                "relative_path": "app.py",
+                "_exists": True,
+                "required": True,
+                "verification_status": "unverified",
+            },
+            {
+                "artifact_id": "a2",
+                "relative_path": "tests/test_app.py",
+                "_exists": True,
+                "required": True,
+                "verification_status": "unverified",
+            },
         ],
     }
 

@@ -10,9 +10,7 @@ from sqlmodel import create_engine
 
 
 def test_capability_grant_migration_is_restart_safe_and_reversible(monkeypatch) -> None:
-    migration = importlib.import_module(
-        "migrations.versions.eb1c2d3e4f5a_add_semantic_media_capability_grants"
-    )
+    migration = importlib.import_module("migrations.versions.eb1c2d3e4f5a_add_semantic_media_capability_grants")
     database = create_engine("sqlite://")
     with database.begin() as connection:
         connection.execute(sa.text("CREATE TABLE legacy_semantic_state (id VARCHAR PRIMARY KEY)"))
@@ -21,9 +19,7 @@ def test_capability_grant_migration_is_restart_safe_and_reversible(monkeypatch) 
         migration.upgrade()
         migration.upgrade()
         inspector = inspect(connection)
-        assert {"legacy_semantic_state", "semantic_media_capability_grants"} <= set(
-            inspector.get_table_names()
-        )
+        assert {"legacy_semantic_state", "semantic_media_capability_grants"} <= set(inspector.get_table_names())
         assert {
             "id",
             "version",
@@ -47,10 +43,7 @@ def test_capability_grant_migration_is_restart_safe_and_reversible(monkeypatch) 
             "revocation_version",
             "created_at",
             "updated_at",
-        } == {
-            column["name"]
-            for column in inspector.get_columns("semantic_media_capability_grants")
-        }
+        } == {column["name"] for column in inspector.get_columns("semantic_media_capability_grants")}
 
         migration.downgrade()
         assert set(inspect(connection).get_table_names()) == {"legacy_semantic_state"}

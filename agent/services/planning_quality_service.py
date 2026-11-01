@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _GENERIC_TITLE_MARKERS = {
     "vorbereitung",
     "preparation",
@@ -130,7 +129,9 @@ class PlanningQualityService:
         if title in _GENERIC_TITLE_MARKERS:
             return True
         # No concrete output hint and no executable intent
-        concrete = any(k in desc for k in ["file", "command", "endpoint", "test", "artifact", "run", "implement", "code"])
+        concrete = any(
+            k in desc for k in ["file", "command", "endpoint", "test", "artifact", "run", "implement", "code"]
+        )
         return not concrete
 
     def evaluate(
@@ -161,7 +162,9 @@ class PlanningQualityService:
             profile = {**profile, **dict(team_overrides.get(str(team_id)) or {})}
 
         min_total = max(1, int(profile.get("min_total_tasks") or 1))
-        req_categories = profile.get("required_categories") if isinstance(profile.get("required_categories"), dict) else {}
+        req_categories = (
+            profile.get("required_categories") if isinstance(profile.get("required_categories"), dict) else {}
+        )
         max_generic_raw = profile.get("max_generic_tasks")
         max_generic: int | None = None if max_generic_raw is None else max(0, int(max_generic_raw))
 
@@ -194,7 +197,13 @@ class PlanningQualityService:
             reason="ok" if ok else "|".join(reasons),
             missing_categories=missing,
             generic_task_indices=generic_idxs,
-            details={"counts": counts, "min_total": min_total, "required_categories": req_categories, "max_generic_tasks": max_generic, "validation_disabled": has_explicit_vp and not profile},
+            details={
+                "counts": counts,
+                "min_total": min_total,
+                "required_categories": req_categories,
+                "max_generic_tasks": max_generic,
+                "validation_disabled": has_explicit_vp and not profile,
+            },
         )
 
 

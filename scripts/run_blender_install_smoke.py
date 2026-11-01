@@ -33,9 +33,18 @@ def run_install_smoke(*, package_path: Path = DEFAULT_OUT, require_blender: bool
     if blender_binary:
         cmd = [blender_binary, "--background", "--python-expr", "import sys; print('ananta-blender-smoke')"]
         result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=60)
-        checks.append({"check_id": "blender_background_available", "ok": result.returncode == 0, "returncode": result.returncode})
+        checks.append(
+            {"check_id": "blender_background_available", "ok": result.returncode == 0, "returncode": result.returncode}
+        )
     else:
-        checks.append({"check_id": "blender_background_available", "ok": not require_blender, "skipped": True, "reason": "blender_binary_missing"})
+        checks.append(
+            {
+                "check_id": "blender_background_available",
+                "ok": not require_blender,
+                "skipped": True,
+                "reason": "blender_binary_missing",
+            }
+        )
     return {
         "schema": "blender_install_smoke_report_v1",
         "ok": all(bool(item.get("ok")) for item in checks),

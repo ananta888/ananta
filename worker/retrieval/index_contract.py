@@ -61,4 +61,3 @@ def validate_index_entries(entries: list[dict[str, Any]]) -> None:
         if chunk_id in seen:
             raise ValueError(f"retrieval_index_duplicate_chunk:{chunk_id}")
         seen.add(chunk_id)
-

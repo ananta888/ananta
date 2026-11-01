@@ -68,15 +68,11 @@ class SourceControlAuditEvent:
         ):
             value = getattr(self, name)
             if not isinstance(value, str) or not _IDENTIFIER_PATTERN.fullmatch(value):
-                raise SourceControlObservabilityError(
-                    f"{name} must be a bounded opaque identifier"
-                )
+                raise SourceControlObservabilityError(f"{name} must be a bounded opaque identifier")
         for name in ("revision_digest", "manifest_digest", "policy_digest"):
             value = getattr(self, name)
             if value is not None and not _DIGEST_PATTERN.fullmatch(value):
-                raise SourceControlObservabilityError(
-                    f"{name} must be a lowercase SHA-256 digest"
-                )
+                raise SourceControlObservabilityError(f"{name} must be a lowercase SHA-256 digest")
 
     def to_payload(self) -> dict[str, str]:
         payload = {
@@ -155,16 +151,12 @@ _ALLOWED_METRIC_LABELS = frozenset(
 def bounded_metric_labels(**labels: str) -> dict[str, str]:
     unknown = set(labels) - _ALLOWED_METRIC_LABELS
     if unknown:
-        raise SourceControlObservabilityError(
-            f"unbounded metric labels are forbidden: {sorted(unknown)}"
-        )
+        raise SourceControlObservabilityError(f"unbounded metric labels are forbidden: {sorted(unknown)}")
     normalized: dict[str, str] = {}
     for key, value in labels.items():
         text = str(value)
         if not text or len(text) > 64 or not re.fullmatch(r"[a-z0-9_.:-]+", text):
-            raise SourceControlObservabilityError(
-                f"metric label {key} is not bounded"
-            )
+            raise SourceControlObservabilityError(f"metric label {key} is not bounded")
         normalized[key] = text
     return normalized
 
@@ -195,9 +187,7 @@ class SourceControlHealth:
             hash_drift_events,
         )
         if any(not isinstance(value, int) or value < 0 for value in counters):
-            raise SourceControlObservabilityError(
-                "health counters must be non-negative integers"
-            )
+            raise SourceControlObservabilityError("health counters must be non-negative integers")
         degraded = storage_pressure or any(counters)
         return cls(
             status="degraded" if degraded else "healthy",
@@ -246,9 +236,7 @@ class SourceControlHealthMetricsPublisher:
                     1.0 if report.health.status == status else 0.0,
                     bounded_metric_labels(status=status),
                 )
-            for reason_code in sorted(
-                active_alarms | self._active_alarms
-            ):
+            for reason_code in sorted(active_alarms | self._active_alarms):
                 active = reason_code in active_alarms
                 self._metrics.set_gauge(
                     "source_control_alert_state",
@@ -289,9 +277,7 @@ class SourceControlHealthMonitor:
         authorization_alarm_threshold: int = 5,
     ) -> None:
         if stale_alarm_threshold < 1 or authorization_alarm_threshold < 1:
-            raise SourceControlObservabilityError(
-                "health alarm thresholds must be positive"
-            )
+            raise SourceControlObservabilityError("health alarm thresholds must be positive")
         self._stale_alarm_threshold = stale_alarm_threshold
         self._authorization_alarm_threshold = authorization_alarm_threshold
         self._lock = threading.RLock()
@@ -312,27 +298,19 @@ class SourceControlHealthMonitor:
             if operation == "list_connections":
                 mapping = _result_mapping(result)
                 items = mapping.get("items", ())
-                if isinstance(items, Sequence) and not isinstance(
-                    items, (str, bytes)
-                ):
+                if isinstance(items, Sequence) and not isinstance(items, (str, bytes)):
                     self._stale_sources = sum(
-                        1
-                        for item in items
-                        if isinstance(item, Mapping)
-                        and item.get("stale") is True
+                        1 for item in items if isinstance(item, Mapping) and item.get("stale") is True
                     )
             if operation == "poll_events":
                 mapping = _result_mapping(result)
                 items = mapping.get("items", mapping.get("events", ()))
-                if isinstance(items, Sequence) and not isinstance(
-                    items, (str, bytes)
-                ):
+                if isinstance(items, Sequence) and not isinstance(items, (str, bytes)):
                     self._blocked_jobs = sum(
                         1
                         for item in items
                         if isinstance(item, Mapping)
-                        and str(item.get("status") or "").lower()
-                        in {"blocked", "expired", "stalled"}
+                        and str(item.get("status") or "").lower() in {"blocked", "expired", "stalled"}
                     )
 
     def record_failure(self, reason_code: str) -> None:
@@ -349,9 +327,7 @@ class SourceControlHealthMonitor:
 
     def set_operational_alarm(self, reason_code: str, active: bool = True) -> None:
         if not re.fullmatch(r"[a-z0-9_.:-]{1,64}", str(reason_code or "")):
-            raise SourceControlObservabilityError(
-                "operational alarm reason must be bounded"
-            )
+            raise SourceControlObservabilityError("operational alarm reason must be bounded")
         with self._lock:
             if active:
                 self._operational_alarms.add(reason_code)
@@ -370,10 +346,7 @@ class SourceControlHealthMonitor:
             alarms = set(self._operational_alarms)
             if self._stale_sources >= self._stale_alarm_threshold:
                 alarms.add("stale_source_threshold")
-            if (
-                self._authorization_failures
-                >= self._authorization_alarm_threshold
-            ):
+            if self._authorization_failures >= self._authorization_alarm_threshold:
                 alarms.add("authorization_failure_threshold")
             if self._blocked_jobs:
                 alarms.add("blocked_jobs")

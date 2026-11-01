@@ -5,9 +5,9 @@ configurable two-layer memory model:
   - recent_turns: last N user/assistant messages, bounded by turns and chars
   - rolling_summary: compact summary of older turns, updated after each answer
 """
+
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -17,7 +17,7 @@ _SUMMARY_TURN_COUNT_KEY = "chat_memory_summary_turn_count"
 
 @dataclass
 class MemoryTurn:
-    role: str       # "user" | "assistant"
+    role: str  # "user" | "assistant"
     content: str
 
 
@@ -69,6 +69,7 @@ def extract_memory_context(
     """Build ChatMemoryContext from current game/chat state."""
     try:
         from client_surfaces.operator_tui.chat_state import get_chat_state
+
         chat = get_chat_state(game)
         ai_ch = (chat.get("channels") or {}).get("ai:tutor") or {}
         all_msgs = [m for m in (ai_ch.get("messages") or []) if isinstance(m, dict)]
@@ -89,7 +90,9 @@ def extract_memory_context(
 
         # Apply turn limit; max_turns=0 means disabled → empty
         if max_turns <= 0:
-            return ChatMemoryContext(recent_turns=[], metadata={"turns_available": len(turns), "turns_kept": 0, "chars_used": 0})
+            return ChatMemoryContext(
+                recent_turns=[], metadata={"turns_available": len(turns), "turns_kept": 0, "chars_used": 0}
+            )
         recent = turns[-max_turns:]
 
         # Apply char budget: trim from oldest until within budget
@@ -168,7 +171,11 @@ def build_runtime_status(game: dict[str, Any], *, max_chars: int = 300) -> str:
     active_view = str(game.get("visual_viewport_active_view") or "").strip()
     if active_view:
         parts.append(f"view={active_view}")
-    snake_mode = bool(game.get("header_logo_game_snake_mode_active") if isinstance(game.get("header_logo_game_snake_mode_active"), bool) else False)
+    snake_mode = bool(
+        game.get("header_logo_game_snake_mode_active")
+        if isinstance(game.get("header_logo_game_snake_mode_active"), bool)
+        else False
+    )
     if snake_mode:
         parts.append("mode=snake")
     overlay = bool(game.get("visual_view_switcher_overlay_visible"))
@@ -179,6 +186,7 @@ def build_runtime_status(game: dict[str, Any], *, max_chars: int = 300) -> str:
 
 def resolve_memory_settings(game: dict[str, Any]) -> dict[str, Any]:
     """Extract all memory-related settings from game state with defaults."""
+
     def _bool(key: str, default: bool) -> bool:
         v = game.get(key)
         if isinstance(v, bool):

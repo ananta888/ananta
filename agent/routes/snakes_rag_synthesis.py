@@ -30,6 +30,5 @@ def build_synthesis_prompt(
     if research_hint.strip():
         prompt += f"\n\nVorlaeufiger LFM-Recherchehinweis:\n{research_hint[:hint_budget].strip()}"
     return prompt + (
-        "\n\nAntworte auf Deutsch mit hoechstens 700 Woertern. "
-        "Nenne nur Beziehungen, die in der Evidenz belegt sind."
+        "\n\nAntworte auf Deutsch mit hoechstens 700 Woertern. Nenne nur Beziehungen, die in der Evidenz belegt sind."
     )

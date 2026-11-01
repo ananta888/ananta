@@ -121,15 +121,17 @@ class TextFileExtractor:
                 continue
             section_id = f"md_section:{safe_id(rel_path)}:{index}"
             headings.append(heading)
-            detail_records.append({
-                "kind": "md_section",
-                "file": rel_path,
-                "id": section_id,
-                "parent_id": current_parent_id,
-                "heading": heading,
-                "level": level,
-                "line": index,
-            })
+            detail_records.append(
+                {
+                    "kind": "md_section",
+                    "file": rel_path,
+                    "id": section_id,
+                    "parent_id": current_parent_id,
+                    "heading": heading,
+                    "level": level,
+                    "line": index,
+                }
+            )
             relation_records.append({"from": current_parent_id, "to": section_id, "type": "contains_section"})
             current_parent_id = section_id
 
@@ -145,11 +147,16 @@ class TextFileExtractor:
             ),
             "summary": {"heading_count": len(headings)},
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": "md",
-            "file": rel_path,
-            "heading_count": len(headings),
-        }
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": "md",
+                "file": rel_path,
+                "heading_count": len(headings),
+            },
+        )
 
     def _parse_keyed_file(self, rel_path: str, text: str, kind_prefix: str, separator: str):
         file_id = f"{kind_prefix}_file:{safe_id(rel_path)}"
@@ -167,14 +174,16 @@ class TextFileExtractor:
                 continue
             detail_id = f"{kind_prefix}_entry:{safe_id(rel_path)}:{index}"
             keys.append(key)
-            detail_records.append({
-                "kind": f"{kind_prefix}_entry",
-                "file": rel_path,
-                "id": detail_id,
-                "parent_id": file_id,
-                "key": key,
-                "line": index,
-            })
+            detail_records.append(
+                {
+                    "kind": f"{kind_prefix}_entry",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    "key": key,
+                    "line": index,
+                }
+            )
             relation_records.append({"from": file_id, "to": detail_id, "type": "contains_entry"})
 
         index_record = {
@@ -189,11 +198,16 @@ class TextFileExtractor:
             ),
             "summary": {"entry_count": len(keys)},
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": kind_prefix,
-            "file": rel_path,
-            "entry_count": len(keys),
-        }
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": kind_prefix,
+                "file": rel_path,
+                "entry_count": len(keys),
+            },
+        )
 
     def _parse_sql(self, rel_path: str, text: str):
         file_id = f"sql_file:{safe_id(rel_path)}"
@@ -205,14 +219,16 @@ class TextFileExtractor:
             title = self._sql_statement_title(statement)
             titles.append(title)
             detail_id = f"sql_statement:{safe_id(rel_path)}:{index}"
-            detail_records.append({
-                "kind": "sql_statement",
-                "file": rel_path,
-                "id": detail_id,
-                "parent_id": file_id,
-                "title": title,
-                "statement": statement[:400],
-            })
+            detail_records.append(
+                {
+                    "kind": "sql_statement",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    "title": title,
+                    "statement": statement[:400],
+                }
+            )
             relation_records.append({"from": file_id, "to": detail_id, "type": "contains_statement"})
 
         index_record = {
@@ -227,11 +243,16 @@ class TextFileExtractor:
             ),
             "summary": {"statement_count": len(statements)},
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": "sql",
-            "file": rel_path,
-            "statement_count": len(statements),
-        }
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": "sql",
+                "file": rel_path,
+                "statement_count": len(statements),
+            },
+        )
 
     def _parse_gradle(self, rel_path: str, text: str):
         file_id = f"gradle_file:{safe_id(rel_path)}"
@@ -263,14 +284,16 @@ class TextFileExtractor:
             )
             if any(token in stripped for token in structural_tokens):
                 detail_id = f"gradle_entry:{safe_id(rel_path)}:{index}"
-                detail_records.append({
-                    "kind": "gradle_entry",
-                    "file": rel_path,
-                    "id": detail_id,
-                    "parent_id": file_id,
-                    "line": index,
-                    "content": stripped[:240],
-                })
+                detail_records.append(
+                    {
+                        "kind": "gradle_entry",
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": file_id,
+                        "line": index,
+                        "content": stripped[:240],
+                    }
+                )
                 relation_records.append({"from": file_id, "to": detail_id, "type": "contains_entry"})
 
         index_record = {
@@ -300,13 +323,18 @@ class TextFileExtractor:
                 "declaration_count": len(declarations),
             },
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": "gradle",
-            "file": rel_path,
-            "include_count": len(include_entries),
-            "plugin_count": len(plugins),
-            "declaration_count": len(declarations),
-        }
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": "gradle",
+                "file": rel_path,
+                "include_count": len(include_entries),
+                "plugin_count": len(plugins),
+                "declaration_count": len(declarations),
+            },
+        )
 
     def _parse_code_outline(self, rel_path: str, text: str, language: str):
         if language == "python":

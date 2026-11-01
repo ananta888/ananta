@@ -1,4 +1,5 @@
 """Obsidian Vault Scanner & Manifest management (OBS-002)."""
+
 from __future__ import annotations
 
 import fnmatch
@@ -55,10 +56,7 @@ def scan(vault_profile) -> list[VaultFile]:
 
     for dirpath, dirnames, filenames in os.walk(str(vault_root)):
         # Prune excluded dirs in-place
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in exclude_dirs and not d.startswith(".")
-        ]
+        dirnames[:] = [d for d in dirnames if d not in exclude_dirs and not d.startswith(".")]
         for fname in filenames:
             ext = os.path.splitext(fname)[1].lower()
             if ext not in SUPPORTED_EXTENSIONS:
@@ -78,14 +76,16 @@ def scan(vault_profile) -> list[VaultFile]:
                 continue
 
             sha256 = _sha256_file(abs_path)
-            files.append(VaultFile(
-                rel_path=rel_path,
-                abs_path=abs_path,
-                ext=ext.lstrip("."),
-                mtime=stat.st_mtime,
-                size_bytes=stat.st_size,
-                sha256=sha256,
-            ))
+            files.append(
+                VaultFile(
+                    rel_path=rel_path,
+                    abs_path=abs_path,
+                    ext=ext.lstrip("."),
+                    mtime=stat.st_mtime,
+                    size_bytes=stat.st_size,
+                    sha256=sha256,
+                )
+            )
 
     return sorted(files, key=lambda f: f.rel_path)
 

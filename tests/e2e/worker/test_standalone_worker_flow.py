@@ -20,7 +20,11 @@ def test_standalone_worker_flow_emits_machine_readable_manifest(tmp_path: Path) 
                 "worker_profile": "balanced",
                 "files": ["README.md"],
                 "diffs": [],
-                "control_manifest": {"trace_id": "tr-37", "capability_id": "worker.command.execute", "context_hash": "ctx-37"},
+                "control_manifest": {
+                    "trace_id": "tr-37",
+                    "capability_id": "worker.command.execute",
+                    "context_hash": "ctx-37",
+                },
             }
         ),
         encoding="utf-8",

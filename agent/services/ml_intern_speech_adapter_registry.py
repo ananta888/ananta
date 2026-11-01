@@ -625,10 +625,7 @@ class MlInternSpeechAdapterRegistry:
         if not raw_bytes:
             return
         records = [_record(raw) for raw in raw_records]
-        events = [
-            self._prepare_authority(record, "legacy_imported", "legacy_registry_imported")
-            for record in records
-        ]
+        events = [self._prepare_authority(record, "legacy_imported", "legacy_registry_imported") for record in records]
         try:
             self._repository.import_legacy_once(
                 source_digest=hashlib.sha256(raw_bytes).hexdigest(),
@@ -662,9 +659,7 @@ class MlInternSpeechAdapterRegistry:
             return None
         try:
             return self._authority_audit.prepare_transition(
-                idempotency_key=(
-                    f"speech-adapter:{transition}:{record.adapter_id}:{record.registry_version}"
-                ),
+                idempotency_key=(f"speech-adapter:{transition}:{record.adapter_id}:{record.registry_version}"),
                 tenant_id=record.tenant_id,
                 scope=f"semantic-media-session:{record.pair_id}",
                 event_type="speech_adapter",

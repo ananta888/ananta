@@ -6,6 +6,7 @@ The hooks live in:
     blocked path (ALWA-015)
   • mutation_gate_service.evaluate block path (ALWA-015)
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,13 +14,15 @@ from typing import Any
 
 import pytest
 
-from agent.services.worker_workspace_service import get_worker_workspace_service
-from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.approval_policy_service import ApprovalDecision
 from agent.services.execution_risk_policy_service import ExecutionRiskDecision
+from agent.services.mutation_gate_service import get_mutation_gate_service
+from agent.services.worker_workspace_service import get_worker_workspace_service
 
 
-def _approval(*, classification: str = "allow", reason_code: str = "ok", operation_class: str = "mutation") -> ApprovalDecision:
+def _approval(
+    *, classification: str = "allow", reason_code: str = "ok", operation_class: str = "mutation"
+) -> ApprovalDecision:
     return ApprovalDecision(
         classification=classification,
         reason_code=reason_code,
@@ -59,9 +62,7 @@ def test_refresh_mutation_baseline_emits_workspace_baseline_created(
     (ws / "b.py").write_text("y")
 
     ws_svc = get_worker_workspace_service()
-    meta = ws_svc.refresh_mutation_baseline(
-        workspace_dir=ws, mutation_mode="controlled_workspace"
-    )
+    meta = ws_svc.refresh_mutation_baseline(workspace_dir=ws, mutation_mode="controlled_workspace")
 
     # Baseline was created.
     assert meta.get("baseline_dir")
@@ -82,9 +83,7 @@ def test_refresh_mutation_baseline_emits_workspace_baseline_created(
     assert "policy_decision" not in payload
 
 
-def test_refresh_mutation_baseline_read_only_emits_no_event(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_refresh_mutation_baseline_read_only_emits_no_event(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
         "agent.common.audit.audit_workspace_mutation_event",
@@ -95,9 +94,7 @@ def test_refresh_mutation_baseline_read_only_emits_no_event(
     ws.mkdir()
     (ws / "a.py").write_text("x")
 
-    meta = get_worker_workspace_service().refresh_mutation_baseline(
-        workspace_dir=ws, mutation_mode="read_only"
-    )
+    meta = get_worker_workspace_service().refresh_mutation_baseline(workspace_dir=ws, mutation_mode="read_only")
     assert meta["skipped"] == "read_only_mode"
     # read_only is explicitly excluded from the mutating-baseline audit.
     assert captured == []
@@ -111,10 +108,11 @@ def test_sgpt_workspace_mutation_uses_workspace_event_constants() -> None:
     The test inspects the new cli_backends.workspace_mutation package
     (which re-exports the orchestrator from the legacy source).
     """
-    from agent.cli_backends import workspace_mutation as mod
     import inspect
 
-    src = inspect.getsource(mod)
+    from agent.cli_backends import workspace_mutation as mod
+
+    inspect.getsource(mod)
 
 
 def test_mutation_gate_block_emits_workspace_mutation_blocked(
@@ -184,7 +182,9 @@ def test_mutation_gate_scoped_mismatch_block_emits_event(
         tool_calls=None,
         task=task,
         agent_cfg={},
-        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        approval_decision=_approval(
+            classification="confirm_required", reason_code="approval_confirmation_required:mutation"
+        ),
         risk_decision=_risk(),
         trace_id="trace-block-2",
         actor="operator",

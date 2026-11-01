@@ -182,12 +182,7 @@ def test_archive_retention_preserves_archived_recovery_lineage(app):
 
         _archive_old_tasks()
 
-        assert (
-            archived_task_repo.get_by_id(
-                "old-archived-recovery-child"
-            )
-            is not None
-        )
+        assert archived_task_repo.get_by_id("old-archived-recovery-child") is not None
 
 
 def test_json_archive_retention_preserves_recovery_lineage(app):
@@ -211,9 +206,7 @@ def test_json_archive_retention_preserves_recovery_lineage(app):
                         "created_at": old_time,
                         "archived_at": old_time,
                         "source_task_id": "json-source",
-                        "derivation_reason": (
-                            "goal_task_recovery"
-                        ),
+                        "derivation_reason": ("goal_task_recovery"),
                     }
                 },
                 archive_file,

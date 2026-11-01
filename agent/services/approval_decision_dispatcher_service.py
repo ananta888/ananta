@@ -24,9 +24,7 @@ class ApprovalDecisionDispatcherService:
         if str(getattr(approval, "tool_name", "") or "") != RECOVERY_MATERIALIZE_TOOL:
             return {"status": "ignored", "reason_code": "approval_tool_not_handled"}
         try:
-            return get_task_recovery_planning_service().handle_approval_decision(
-                approval
-            )
+            return get_task_recovery_planning_service().handle_approval_decision(approval)
         except Exception as exc:
             log.exception(
                 "approval decision handler failed for request %s",

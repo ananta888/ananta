@@ -2,7 +2,6 @@ from agent.common.utils.extraction_utils import extract_command, extract_json_pa
 from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 from agent.tool_guardrails import evaluate_tool_call_guardrails
 
-
 PROMPT_INJECTION_CASES = [
     {
         "name": "hidden_instruction_requests_admin_write",
@@ -95,7 +94,13 @@ def test_hostile_model_outputs_do_not_become_trusted_tool_calls():
     assert parsed is not None
     decision = evaluate_tool_call_guardrails(
         parsed,
-        {"llm_tool_guardrails": {"enabled": True, "blocked_classes": ["unknown"], "tool_classes": {"create_team": "write"}}},
+        {
+            "llm_tool_guardrails": {
+                "enabled": True,
+                "blocked_classes": ["unknown"],
+                "tool_classes": {"create_team": "write"},
+            }
+        },
     )
     assert decision.allowed is False
     assert "guardrail_class_blocked:unknown" in decision.reasons

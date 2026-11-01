@@ -28,10 +28,7 @@ def test_kanban_api_commands(client, admin_auth_header, app) -> None:
         headers=admin_auth_header,
     )
     assert replay.status_code == 200
-    assert any(
-        event["task_id"] == card["id"]
-        for event in replay.get_json()["data"]["events"]
-    )
+    assert any(event["task_id"] == card["id"] for event in replay.get_json()["data"]["events"])
     listed = client.get("/api/v1/kanban/boards/hub/cards", headers=admin_auth_header)
     assert listed.status_code == 200
     assert listed.get_json()["data"]["items"][0]["id"] == card["id"]

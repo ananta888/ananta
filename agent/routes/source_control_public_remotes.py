@@ -125,9 +125,7 @@ def _project_principal():
             "query_fields_forbidden",
             status_code=400,
         )
-    return bind_source_control_project_selector(
-        str(request.args.get("project_id") or "")
-    )
+    return bind_source_control_project_selector(str(request.args.get("project_id") or ""))
 
 
 def _scoped_principal():
@@ -143,9 +141,7 @@ def _scoped_principal():
 def _json_object() -> Mapping[str, object]:
     payload = request.get_json(silent=True)
     if not isinstance(payload, Mapping):
-        raise SourceControlPublicRemoteError(
-            "public_remote_payload_invalid"
-        )
+        raise SourceControlPublicRemoteError("public_remote_payload_invalid")
     return dict(payload)
 
 

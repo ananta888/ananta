@@ -6,7 +6,6 @@ from typing import Any
 
 import yaml
 
-
 DEFAULT_THREE_WORKER_RUN_CONFIG_PATH = "config/runs/three-worker-local-planning.yaml"
 
 
@@ -26,7 +25,9 @@ class ThreeWorkerRunConfigService:
         self.repo_root = Path(repo_root or Path.cwd()).resolve()
 
     def load(self, path: str | Path | None = None) -> dict[str, Any]:
-        cfg_path = self._resolve_path(path or os.getenv("ANANTA_THREE_WORKER_RUN_CONFIG") or DEFAULT_THREE_WORKER_RUN_CONFIG_PATH)
+        cfg_path = self._resolve_path(
+            path or os.getenv("ANANTA_THREE_WORKER_RUN_CONFIG") or DEFAULT_THREE_WORKER_RUN_CONFIG_PATH
+        )
         if not cfg_path.exists():
             raise ThreeWorkerRunConfigError(f"three_worker_run_config_missing:{cfg_path}")
         with cfg_path.open("r", encoding="utf-8") as fh:
@@ -45,13 +46,19 @@ class ThreeWorkerRunConfigService:
         planning = cfg.get("planning") if isinstance(cfg.get("planning"), dict) else {}
         if not bool(planning.get("force_local")):
             raise ThreeWorkerRunConfigError("planning_must_force_local")
-        provider = str((planning.get("resolved") or {}).get("provider") or planning.get("default_provider") or "").strip().lower()
+        provider = (
+            str((planning.get("resolved") or {}).get("provider") or planning.get("default_provider") or "")
+            .strip()
+            .lower()
+        )
         if provider not in {"lmstudio", "ollama"}:
             raise ThreeWorkerRunConfigError(f"planning_provider_must_be_local:{provider or '<empty>'}")
 
         expectations = cfg.get("routing_expectations") if isinstance(cfg.get("routing_expectations"), dict) else {}
         planning_expectations = expectations.get("planning") if isinstance(expectations.get("planning"), dict) else {}
-        forbidden = {str(item).strip().lower() for item in planning_expectations.get("must_not_use", []) if str(item).strip()}
+        forbidden = {
+            str(item).strip().lower() for item in planning_expectations.get("must_not_use", []) if str(item).strip()
+        }
         if provider in forbidden:
             raise ThreeWorkerRunConfigError(f"planning_provider_forbidden:{provider}")
 

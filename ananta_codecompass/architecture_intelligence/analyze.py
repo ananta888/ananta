@@ -24,7 +24,10 @@ def analyze_architecture(
     centrality = compute_centrality(projection, communities)
     smells = detect_smells(projection, centrality)
     fingerprint = hashlib.sha256(
-        json.dumps({"alg": ALGORITHM, "nodes": [item["id"] for item in projection["nodes"]], "edges": projection["edges"]}, sort_keys=True).encode()
+        json.dumps(
+            {"alg": ALGORITHM, "nodes": [item["id"] for item in projection["nodes"]], "edges": projection["edges"]},
+            sort_keys=True,
+        ).encode()
     ).hexdigest()[:16]
     return {
         "schema": "codecompass.architecture-intelligence.v1",

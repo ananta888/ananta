@@ -7,6 +7,7 @@ False-Positive- und False-Negative-Schranken sowie Cross-Sprache-Isolation.
 
 Upstream- oder Profilaenderungen erfordern explizites Snapshot-Review.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,8 +19,8 @@ import pytest
 from agent.services.text_quality.deterministic_scanner import DeterministicTextQualityScanner
 from agent.services.text_quality.evaluator_service import TextQualityEvaluatorService
 from agent.services.text_quality.models import (
-    ContentKind,
     KNOWN_REASON_CODES,
+    ContentKind,
     TextQualityEvaluationRequest,
 )
 from agent.services.text_quality.score_fusion_policy import ScoreFusionPolicy
@@ -85,9 +86,7 @@ def test_german_slop_examples_hit_minimum_score_and_required_reason_codes():
         text = str(example["text"])
         assert len(text.split()) >= 10, f"fixture_too_short:{example['id']}"
         result = service.evaluate(_build_request(text, "de", "freeform_prose"))
-        assert result.slop_score >= min_score, (
-            f"{example['id']}: slop {result.slop_score} < {min_score}"
-        )
+        assert result.slop_score >= min_score, f"{example['id']}: slop {result.slop_score} < {min_score}"
         for code in list(example.get("reason_codes_min") or []):
             assert code in result.reason_codes, (
                 f"{example['id']}: expected reason {code} missing (got {result.reason_codes})"
@@ -99,17 +98,11 @@ def test_german_concrete_examples_remain_below_false_positive_ceiling():
     max_score = float(payload["thresholds"]["max_slop_score"])
     for example in payload["examples"]:
         kind = str(example.get("content_kind") or "technical_documentation")
-        result = DeterministicTextQualityScanner().analyze(
-            _build_request(str(example["text"]), "de", kind)
-        )
+        result = DeterministicTextQualityScanner().analyze(_build_request(str(example["text"]), "de", kind))
         normalized = result.normalized_signal_score
-        assert normalized <= max_score, (
-            f"{example['id']}: false_positive {normalized} > {max_score}"
-        )
+        assert normalized <= max_score, f"{example['id']}: false_positive {normalized} > {max_score}"
         for code in list(example.get("forbidden_reason_codes") or []):
-            assert code not in result.reason_codes, (
-                f"{example['id']}: forbidden reason {code} present"
-            )
+            assert code not in result.reason_codes, f"{example['id']}: forbidden reason {code} present"
 
 
 def test_english_slop_examples_hit_required_reason_codes():
@@ -117,16 +110,12 @@ def test_english_slop_examples_hit_required_reason_codes():
     min_score = float(payload["thresholds"]["min_slop_score"])
     for example in payload["examples"]:
         text = str(example["text"])
-        result = DeterministicTextQualityScanner().analyze(
-            _build_request(text, "en", "freeform_prose")
-        )
+        result = DeterministicTextQualityScanner().analyze(_build_request(text, "en", "freeform_prose"))
         assert result.normalized_signal_score >= min_score, (
             f"{example['id']}: slop {result.normalized_signal_score} < {min_score}"
         )
         for code in list(example.get("reason_codes_min") or []):
-            assert code in result.reason_codes, (
-                f"{example['id']}: expected reason {code} missing"
-            )
+            assert code in result.reason_codes, f"{example['id']}: expected reason {code} missing"
 
 
 def test_english_concrete_examples_remain_below_false_positive_ceiling():
@@ -140,9 +129,7 @@ def test_english_concrete_examples_remain_below_false_positive_ceiling():
             f"{example['id']}: false_positive {result.normalized_signal_score} > {max_score}"
         )
         for code in list(example.get("forbidden_reason_codes") or []):
-            assert code not in result.reason_codes, (
-                f"{example['id']}: forbidden reason {code} present"
-            )
+            assert code not in result.reason_codes, f"{example['id']}: forbidden reason {code} present"
 
 
 def test_english_profile_phrases_have_zero_weight_in_german_profile():
@@ -155,13 +142,13 @@ def test_english_profile_phrases_have_zero_weight_in_german_profile():
         text = str(example["text"])
         scanner_signal = _scanner_signal(_build_request(text, "de", "freeform_prose"))
         english_only_findings = [
-            finding for finding in scanner_signal.findings
+            finding
+            for finding in scanner_signal.findings
             if any(phrase in text.lower() for phrase in ENGLISH_PROFILE_PHRASES)
             and finding.reason_code in {"generic_phrase", "overused_transition"}
         ]
         assert not english_only_findings, (
-            f"{example['id']}: english-only findings leaked into de profile: "
-            f"{english_only_findings}"
+            f"{example['id']}: english-only findings leaked into de profile: {english_only_findings}"
         )
 
 
@@ -181,28 +168,32 @@ def test_score_fusion_weight_sum_after_provider_degradation_remains_stable():
         status=EvaluationStatus.COMPLETED,
     )
     score_a, _, _ = fusion.fuse([completed])
-    score_b, _, _ = fusion.fuse([
-        completed,
-        DetectorSignal(
-            provider_name="avoid_ai_writing",
-            provider_version="test",
-            confidence=0.0,
-            normalized_signal_score=0.0,
-            status=EvaluationStatus.DEGRADED,
-            degraded_reason="provider_unavailable",
-        ),
-    ])
+    score_b, _, _ = fusion.fuse(
+        [
+            completed,
+            DetectorSignal(
+                provider_name="avoid_ai_writing",
+                provider_version="test",
+                confidence=0.0,
+                normalized_signal_score=0.0,
+                status=EvaluationStatus.DEGRADED,
+                degraded_reason="provider_unavailable",
+            ),
+        ]
+    )
     assert score_a == pytest.approx(score_b, abs=1e-6)
-    score_c, _, _ = fusion.fuse([
-        completed,
-        DetectorSignal(
-            provider_name="avoid_ai_writing",
-            provider_version="test",
-            confidence=0.5,
-            normalized_signal_score=0.4,
-            status=EvaluationStatus.UNSCORABLE,
-        ),
-    ])
+    score_c, _, _ = fusion.fuse(
+        [
+            completed,
+            DetectorSignal(
+                provider_name="avoid_ai_writing",
+                provider_version="test",
+                confidence=0.5,
+                normalized_signal_score=0.4,
+                status=EvaluationStatus.UNSCORABLE,
+            ),
+        ]
+    )
     assert score_c == pytest.approx(score_a, abs=1e-6)
 
 

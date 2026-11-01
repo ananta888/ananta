@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # The required-docs list lives in tests/test_documentation_contracts.py; this module checks the track inventory.
-
 import json
 import re
 from pathlib import Path

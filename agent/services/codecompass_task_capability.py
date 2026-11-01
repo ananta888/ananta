@@ -47,13 +47,15 @@ def uses_delegation(tool_loop_config: Mapping[str, Any] | None) -> bool:
     """Whether any tool runs delegated, so the step needs a capability."""
     cfg = tool_loop_config or {}
     overrides = cfg.get("codecompass_access_overrides")
-    modes = {access_mode(cfg)} | {_mode(value) for value in dict(overrides).values()} if isinstance(
-        overrides, Mapping) else {access_mode(cfg)}
+    modes = (
+        {access_mode(cfg)} | {_mode(value) for value in dict(overrides).values()}
+        if isinstance(overrides, Mapping)
+        else {access_mode(cfg)}
+    )
     return "delegated" in modes
 
 
-def effective_access_mode(tool_loop_config: Mapping[str, Any] | None, tool_name: str, *,
-                          has_capability: bool) -> str:
+def effective_access_mode(tool_loop_config: Mapping[str, Any] | None, tool_name: str, *, has_capability: bool) -> str:
     """The path of one call: delegated without a capability falls back to the Hub only when configured."""
     mode = access_mode(tool_loop_config, tool_name)
     fallback = _mode((tool_loop_config or {}).get("codecompass_access_fallback"))
@@ -111,8 +113,9 @@ def _as_task(task: Any) -> Any:
     return SimpleNamespace(**task) if isinstance(task, Mapping) else task
 
 
-def issue_task_capability(task: Any, *, audience: str, get_task: Any = None, role_grants: Any = None
-                          ) -> dict[str, Any] | None:
+def issue_task_capability(
+    task: Any, *, audience: str, get_task: Any = None, role_grants: Any = None
+) -> dict[str, Any] | None:
     """A signed capability for ``task``'s requester (or unrestricted system work), or ``None`` (fail closed)."""
     from agent.services.codecompass_capability_issuer import CapabilityError, issue_capability
     from agent.services.task_requester import requester_grants, resolve_requester
@@ -130,11 +133,11 @@ def issue_task_capability(task: Any, *, audience: str, get_task: Any = None, rol
     requester = resolve_requester(task, get_task)
     subject = str(getattr(requester, "requested_by_subject", "") or "") or f"system:{task_id or 'task'}"
     tenant = (getattr(requester, "requested_by_tenant", None) if requester is not None else None) or getattr(
-        task, "tenant_id", None)
+        task, "tenant_id", None
+    )
     grants = requester_grants(requester, role_grants) if requester is not None else None
     try:
-        return issue_capability(subject_id=subject, tenant_id=tenant, task_id=task_id, audience=audience,
-                                grants=grants)
+        return issue_capability(subject_id=subject, tenant_id=tenant, task_id=task_id, audience=audience, grants=grants)
     except CapabilityError as error:
         _log.warning("codecompass capability not issued for task %s: %s", task_id, error)
         return None

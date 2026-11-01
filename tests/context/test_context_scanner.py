@@ -1,14 +1,15 @@
 """Tests for worker/core/context_scanner.py (EW-T031)."""
-import pytest
 
-from worker.core.context_resolver import ContextBlock, ContextSensitivity
-from worker.core.context_scanner import ContextScanner, ContextScanResult
+from worker.core.context_resolver import ContextBlock
+from worker.core.context_scanner import ContextScanner
 
 
 def _block(content: str, origin: str = "test-origin") -> ContextBlock:
     return ContextBlock(
-        source_type="file_content", origin_id=origin,
-        provenance="hub", content=content,
+        source_type="file_content",
+        origin_id=origin,
+        provenance="hub",
+        content=content,
     )
 
 

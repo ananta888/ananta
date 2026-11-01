@@ -9,7 +9,6 @@ from agent.services.turn_pool_directory import (
     TurnPoolSelectionQuery,
 )
 
-
 NOW = datetime(2026, 7, 22, tzinfo=UTC)
 
 
@@ -78,9 +77,7 @@ def test_failover_requires_exact_bounded_exclusion_state():
         now=lambda: NOW,
     )
     first = service.select(query())
-    second = service.select(
-        query(excluded_instance_ids=(first.instance_id,), retry_index=1)
-    )
+    second = service.select(query(excluded_instance_ids=(first.instance_id,), retry_index=1))
 
     assert second.instance_id != first.instance_id
     with pytest.raises(TurnPoolDirectoryError, match="turn_pool_failover_state_invalid"):

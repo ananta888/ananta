@@ -31,4 +31,3 @@ def specialist_evaluation_projection(winner: CandidateOutcome, decision: Promoti
         "evaluations": {role: asdict(receipt) for role, receipt in winner.evaluations},
         "split_manifest_digest": winner.split_manifest_digest,
     }
-

@@ -25,9 +25,7 @@ def _evaluation(service, pack_digest, *, canary=0):
 def _registry(tmp_path, policy=None):
     policy = policy or DendriticMemoryPolicy()
     attestations = DendriticMemoryEvaluationAttestation(b"e" * 32)
-    runtime_gate = DendriticMemoryRuntimeGate(
-        policy=policy, evaluations=attestations, signing_key=b"r" * 32
-    )
+    runtime_gate = DendriticMemoryRuntimeGate(policy=policy, evaluations=attestations, signing_key=b"r" * 32)
     registry = DendriticMemoryRegistryService(
         tmp_path / "registry.sqlite3",
         policy=policy,
@@ -78,9 +76,7 @@ def test_continual_report_requires_disabled_single_multiple_and_unchanged_base()
 def test_registry_requires_attested_pack_bound_evaluation(tmp_path) -> None:
     registry, attestations, _runtime_gate = _registry(tmp_path)
     manifest, _files = pack()
-    registry.quarantine(
-        manifest=manifest.to_dict(), artifact_ref="artifact:one", idempotency_key="quarantine-0001"
-    )
+    registry.quarantine(manifest=manifest.to_dict(), artifact_ref="artifact:one", idempotency_key="quarantine-0001")
     evaluation = _evaluation(DendriticMemoryEvaluationService(attestations), manifest.digest)
     approved = registry.approve_evaluated(
         tenant_id="tenant-1",
@@ -137,9 +133,7 @@ def test_all_green_runtime_path_activates_deactivates_and_revokes_automatically(
     )
     registry, attestations, runtime_gate = _registry(tmp_path, policy)
     manifest, _files = pack()
-    registry.quarantine(
-        manifest=manifest.to_dict(), artifact_ref="artifact:one", idempotency_key="quarantine-0001"
-    )
+    registry.quarantine(manifest=manifest.to_dict(), artifact_ref="artifact:one", idempotency_key="quarantine-0001")
     evaluation = _evaluation(DendriticMemoryEvaluationService(attestations), manifest.digest)
     registry.approve_evaluated(
         tenant_id="tenant-1",

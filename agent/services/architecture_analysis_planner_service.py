@@ -5,7 +5,6 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-
 _ROLE_ORDER = {
     "entrypoint": 0,
     "route": 0,
@@ -84,13 +83,15 @@ class ArchitectureAnalysisPlanner:
 
         batches: list[dict[str, Any]] = []
         for idx in range(0, len(planned_refs), budget.files_per_batch):
-            batch_refs = planned_refs[idx: idx + budget.files_per_batch]
+            batch_refs = planned_refs[idx : idx + budget.files_per_batch]
             batch_id = self._stable_id("batch", batch_refs)
-            batches.append({
-                "batch_id": batch_id,
-                "index": len(batches) + 1,
-                "refs": batch_refs,
-            })
+            batches.append(
+                {
+                    "batch_id": batch_id,
+                    "index": len(batches) + 1,
+                    "refs": batch_refs,
+                }
+            )
 
         plan_core = {
             "query": query,
@@ -123,7 +124,9 @@ class ArchitectureAnalysisPlanner:
         }
 
     def _collect_refs(self, ctx: dict[str, Any], profile: dict[str, Any]) -> list[dict[str, Any]]:
-        full_scan = str(profile.get("analysis_mode") or ctx.get("analysis_mode") or "").strip() == "architecture_full_scan"
+        full_scan = (
+            str(profile.get("analysis_mode") or ctx.get("analysis_mode") or "").strip() == "architecture_full_scan"
+        )
         architecture_scope = dict(ctx.get("architecture_scope") or {})
         arch_refs = [dict(ref or {}) for ref in list(architecture_scope.get("refs") or []) if ref]
         if full_scan and arch_refs:
@@ -148,8 +151,12 @@ class ArchitectureAnalysisPlanner:
             end_line = self._to_int(ref.get("end_line") or ref.get("line_end") or ref.get("to_line"))
             if start_line is not None and end_line is not None and end_line < start_line:
                 start_line = end_line = None
-            source_kind = "line_range" if rel_path and start_line is not None and end_line is not None else ("chunk" if chunks else ("file_excerpt" if rel_path else "codecompass_snippet"))
-            content_hint = str(ref.get("snippet") or ref.get("content") or "")[:budget.max_ref_chars]
+            source_kind = (
+                "line_range"
+                if rel_path and start_line is not None and end_line is not None
+                else ("chunk" if chunks else ("file_excerpt" if rel_path else "codecompass_snippet"))
+            )
+            content_hint = str(ref.get("snippet") or ref.get("content") or "")[: budget.max_ref_chars]
             dedupe = self._dedupe_key(rel_path, start_line, end_line, chunks, content_hint)
             if dedupe in seen:
                 excluded.append({"ref": ref, "reason": "duplicate"})

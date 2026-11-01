@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from agent.services.pattern_gate_service import PatternGateService, get_pattern_gate_service
 
 
@@ -20,18 +18,20 @@ def _write(tmp_path: Path, rel: str, content: str) -> str:
 # Python Strategy gate
 # ---------------------------------------------------------------------------
 
+
 class TestStrategyGatePython:
     def test_complete_python_strategy_passes(self, tmp_path: Path):
-        protocol = _write(tmp_path, "strategy_protocol.py",
-            "from typing import Protocol\nclass OrderStrategy(Protocol):\n    def execute(self, p: dict) -> dict: ...")
-        context = _write(tmp_path, "strategy_context.py",
-            "class OrderContext:\n    def __init__(self, s): self._s = s")
-        primary = _write(tmp_path, "strategy_primary.py",
-            "class PrimaryStrategy:\n    def execute(self, p): return p")
-        secondary = _write(tmp_path, "strategy_secondary.py",
-            "class SecondaryStrategy:\n    def execute(self, p): return p")
-        test = _write(tmp_path, "test_strategy.py",
-            "def test_order(): pass")
+        protocol = _write(
+            tmp_path,
+            "strategy_protocol.py",
+            "from typing import Protocol\nclass OrderStrategy(Protocol):\n    def execute(self, p: dict) -> dict: ...",
+        )
+        context = _write(tmp_path, "strategy_context.py", "class OrderContext:\n    def __init__(self, s): self._s = s")
+        primary = _write(tmp_path, "strategy_primary.py", "class PrimaryStrategy:\n    def execute(self, p): return p")
+        secondary = _write(
+            tmp_path, "strategy_secondary.py", "class SecondaryStrategy:\n    def execute(self, p): return p"
+        )
+        test = _write(tmp_path, "test_strategy.py", "def test_order(): pass")
 
         svc = PatternGateService()
         result = svc.check(
@@ -56,8 +56,11 @@ class TestStrategyGatePython:
         assert "has_protocol_or_abc" in result.failed_checks
 
     def test_missing_test_fails_when_required(self, tmp_path: Path):
-        protocol = _write(tmp_path, "proto.py",
-            "from typing import Protocol\nclass OrderStrategy(Protocol):\n    def execute(self, p): ...")
+        protocol = _write(
+            tmp_path,
+            "proto.py",
+            "from typing import Protocol\nclass OrderStrategy(Protocol):\n    def execute(self, p): ...",
+        )
         ctx = _write(tmp_path, "ctx.py", "class OrderContext: pass")
         primary = _write(tmp_path, "p1.py", "class PrimaryStrategy:\n    def execute(self, p): return p")
         secondary = _write(tmp_path, "p2.py", "class SecondaryStrategy:\n    def execute(self, p): return p")
@@ -72,8 +75,9 @@ class TestStrategyGatePython:
         assert "has_test_file" in result.failed_checks
 
     def test_test_optional_when_not_required(self, tmp_path: Path):
-        protocol = _write(tmp_path, "proto.py",
-            "from typing import Protocol\nclass S(Protocol):\n    def execute(self, p): ...")
+        protocol = _write(
+            tmp_path, "proto.py", "from typing import Protocol\nclass S(Protocol):\n    def execute(self, p): ..."
+        )
         ctx = _write(tmp_path, "ctx.py", "class OrderContext: pass")
         p1 = _write(tmp_path, "p1.py", "class A:\n    def execute(self, p): return p")
         p2 = _write(tmp_path, "p2.py", "class B:\n    def execute(self, p): return p")
@@ -92,18 +96,22 @@ class TestStrategyGatePython:
 # Java Strategy gate
 # ---------------------------------------------------------------------------
 
+
 class TestStrategyGateJava:
     def test_java_strategy_passes(self, tmp_path: Path):
-        iface = _write(tmp_path, "OrderStrategy.java",
-            "public interface OrderStrategy { void execute(); }")
-        ctx = _write(tmp_path, "OrderContext.java",
-            "public class OrderContext { private OrderStrategy s; }")
-        primary = _write(tmp_path, "PrimaryStrategy.java",
-            "public class PrimaryStrategy implements OrderStrategy { public void execute() {} }")
-        secondary = _write(tmp_path, "SecondaryStrategy.java",
-            "public class SecondaryStrategy implements OrderStrategy { public void execute() {} }")
-        test = _write(tmp_path, "OrderStrategyTest.java",
-            "@Test public void test() {}")
+        iface = _write(tmp_path, "OrderStrategy.java", "public interface OrderStrategy { void execute(); }")
+        ctx = _write(tmp_path, "OrderContext.java", "public class OrderContext { private OrderStrategy s; }")
+        primary = _write(
+            tmp_path,
+            "PrimaryStrategy.java",
+            "public class PrimaryStrategy implements OrderStrategy { public void execute() {} }",
+        )
+        secondary = _write(
+            tmp_path,
+            "SecondaryStrategy.java",
+            "public class SecondaryStrategy implements OrderStrategy { public void execute() {} }",
+        )
+        test = _write(tmp_path, "OrderStrategyTest.java", "@Test public void test() {}")
 
         svc = PatternGateService()
         result = svc.check(
@@ -119,16 +127,21 @@ class TestStrategyGateJava:
 # TypeScript Strategy gate
 # ---------------------------------------------------------------------------
 
+
 class TestStrategyGateTypeScript:
     def test_ts_strategy_passes(self, tmp_path: Path):
-        types = _write(tmp_path, "strategy.types.ts",
-            "export interface OrderStrategy { execute(p: object): object; }")
-        ctx = _write(tmp_path, "context.ts",
-            "import { OrderStrategy } from './strategy.types';\nexport class OrderContext { constructor(private s: OrderStrategy) {} }")
-        primary = _write(tmp_path, "primary.strategy.ts",
-            "export class PrimaryStrategy implements OrderStrategy { execute(p: object) { return p; } }")
-        test = _write(tmp_path, "context.test.ts",
-            "test('strategy', () => { expect(true).toBe(true); });")
+        types = _write(tmp_path, "strategy.types.ts", "export interface OrderStrategy { execute(p: object): object; }")
+        ctx = _write(
+            tmp_path,
+            "context.ts",
+            "import { OrderStrategy } from './strategy.types';\nexport class OrderContext { constructor(private s: OrderStrategy) {} }",
+        )
+        primary = _write(
+            tmp_path,
+            "primary.strategy.ts",
+            "export class PrimaryStrategy implements OrderStrategy { execute(p: object) { return p; } }",
+        )
+        test = _write(tmp_path, "context.test.ts", "test('strategy', () => { expect(true).toBe(true); });")
 
         svc = PatternGateService()
         result = svc.check(
@@ -143,6 +156,7 @@ class TestStrategyGateTypeScript:
 # ---------------------------------------------------------------------------
 # Generic / unknown pattern fallback
 # ---------------------------------------------------------------------------
+
 
 class TestGenericGate:
     def test_unknown_pattern_checks_files_exist(self, tmp_path: Path):
@@ -184,6 +198,7 @@ class TestGenericGate:
 # ---------------------------------------------------------------------------
 # Singleton
 # ---------------------------------------------------------------------------
+
 
 def test_get_pattern_gate_service_singleton():
     s1 = get_pattern_gate_service()

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from agent.job_module.blueprints import job_blueprint_graphs
 from agent.services.alias_catalog import (
     AGENT_ROLE_ALIASES,
     VISUAL_PROCESS_PRESET_ALIASES,
@@ -24,7 +25,6 @@ from agent.services.alias_registry import (
     AliasRegistry,
 )
 from agent.services.workflow_transition_outbox import TRANSITION_RUNTIMES
-from agent.job_module.blueprints import job_blueprint_graphs
 from agent.visual_process.presets import list_presets
 
 _PRESET = ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET

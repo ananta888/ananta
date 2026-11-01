@@ -143,9 +143,7 @@ class UnslothExportExecutor:
                 "Tenant, job, attempt, and destination are required.",
             )
         for value in (request.dataset_hash, request.base_model_hash):
-            if len(value) != 64 or any(
-                character not in "0123456789abcdef" for character in value
-            ):
+            if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
                 raise ExportError(
                     "export_provenance_hash_invalid",
                     "Dataset and base-model hashes must be lowercase SHA-256.",
@@ -230,9 +228,7 @@ class UnslothExportExecutor:
             shutil.rmtree(gguf_staging)
 
         gguf_files = [
-            candidate
-            for candidate in staging.rglob("*")
-            if candidate.is_file() and candidate.suffix.lower() == ".gguf"
+            candidate for candidate in staging.rglob("*") if candidate.is_file() and candidate.suffix.lower() == ".gguf"
         ]
         if not gguf_files:
             raise ExportError("export_gguf_missing", "Unsloth did not produce a GGUF model file.")

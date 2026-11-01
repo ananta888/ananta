@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from agent.services.pr_review_publisher import PRReviewPublishRequest, PRReviewPublisher
+from agent.services.pr_review_publisher import PRReviewPublisher, PRReviewPublishRequest
 
 
 def test_pr_review_publisher_blocks_outbound_when_policy_denies() -> None:
@@ -63,4 +63,3 @@ def test_pr_review_publisher_posts_sanitized_comment_with_mocked_provider_client
     assert "logs:" not in body.lower()
     assert "token=***" in body
     assert "Keep unit coverage." in body
-

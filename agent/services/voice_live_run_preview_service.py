@@ -76,9 +76,7 @@ class VoiceLiveRunPreviewService:
         if run_missing != sequence_missing:
             raise VoiceGovernanceError(
                 code="voice_stream.live_preview_binding_incomplete",
-                message=(
-                    "live_run_id and live_run_segment_sequence must be provided together"
-                ),
+                message=("live_run_id and live_run_segment_sequence must be provided together"),
                 status_code=422,
             )
 

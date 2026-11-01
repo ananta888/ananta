@@ -1,4 +1,5 @@
 """ananta worker — worker registration and status commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -18,10 +19,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description="List and manage Ananta worker agents.",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=(
-            "Examples:\n"
-            "  ananta worker list\n"
-            "  ananta worker list --json\n"
-            "  ananta worker status --worker-id <id>\n"
+            "Examples:\n  ananta worker list\n  ananta worker list --json\n  ananta worker status --worker-id <id>\n"
         ),
     )
     _configure_subparsers(p)
@@ -80,25 +78,25 @@ def register(subparsers: Any) -> None:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _cmd_not_implemented(name: str) -> int:
     import sys
+
     print(f"Error: 'ananta {name}' is not yet implemented.", file=sys.stderr)
     return 1
 
 
 def _base_url(parsed) -> str:
-    return (
-        getattr(parsed, "base_url", None)
-        or os.environ.get("ANANTA_BASE_URL", "")
-        or _DEFAULT_BASE_URL
-    )
+    return getattr(parsed, "base_url", None) or os.environ.get("ANANTA_BASE_URL", "") or _DEFAULT_BASE_URL
 
 
 def _cmd_list(parsed) -> int:
     import sys
+
     base = _base_url(parsed)
     try:
         import requests
+
         r = requests.get(f"{base}/agents", timeout=10)
         if not r.ok:
             print(f"Error: {r.status_code}", file=sys.stderr)
@@ -115,11 +113,7 @@ def _cmd_list(parsed) -> int:
         print(f"{'WORKER ID':<38} {'NAME':<25} STATUS")
         print("-" * 72)
         for a in agents:
-            print(
-                f"{a.get('id', ''):<38} "
-                f"{a.get('name', ''):<25} "
-                f"{a.get('status', '')}"
-            )
+            print(f"{a.get('id', ''):<38} {a.get('name', ''):<25} {a.get('status', '')}")
         if not agents:
             print("(no workers registered)")
     return 0
@@ -127,6 +121,7 @@ def _cmd_list(parsed) -> int:
 
 def _cmd_status(parsed) -> int:
     import sys
+
     base = _base_url(parsed)
     wid = getattr(parsed, "worker_id", "")
     if not wid:
@@ -134,6 +129,7 @@ def _cmd_status(parsed) -> int:
         return 2
     try:
         import requests
+
         r = requests.get(f"{base}/agents/{wid}", timeout=10)
         if not r.ok:
             print(f"Error: {r.status_code}", file=sys.stderr)

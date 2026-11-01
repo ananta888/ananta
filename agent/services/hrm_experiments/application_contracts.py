@@ -44,9 +44,7 @@ class HrmTaskQueuePort(Protocol):
 
 
 class HrmExecutionBindingPort(Protocol):
-    def resolve(
-        self, *, task_id: str, worker_job_id: str, worker_url: str
-    ) -> HrmExecutionBinding: ...
+    def resolve(self, *, task_id: str, worker_job_id: str, worker_url: str) -> HrmExecutionBinding: ...
 
 
 __all__ = [

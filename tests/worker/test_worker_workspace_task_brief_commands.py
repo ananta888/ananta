@@ -44,10 +44,13 @@ def test_a_command_with_the_wrong_flags_is_repaired_to_the_allowlisted_entry():
 
 
 def test_a_declared_command_that_is_already_allowlisted_is_kept():
-    aligned = _align_declared_test_command(DECLARED, [
-        "python -m pytest -q -o addopts= tests/research_training/test_growth_corpus.py "
-        "tests/research_training/test_growth_corpus_boundaries.py",
-    ])
+    aligned = _align_declared_test_command(
+        DECLARED,
+        [
+            "python -m pytest -q -o addopts= tests/research_training/test_growth_corpus.py "
+            "tests/research_training/test_growth_corpus_boundaries.py",
+        ],
+    )
     assert aligned == DECLARED
 
 
@@ -77,23 +80,29 @@ def test_the_allowlist_is_read_from_the_persisted_block_without_an_app_context(m
     """
     import json as _json
 
-    monkeypatch.setattr('agent.cli_backends.helpers._get_agent_config', lambda: {})
+    monkeypatch.setattr("agent.cli_backends.helpers._get_agent_config", lambda: {})
 
     class _ConfigRepo:
         def get_by_key(self, key):
-            assert key == 'ananta_worker_workspace_mutation'
-            return type('R', (), {'value_json': _json.dumps(
-                {'allowlisted_test_commands': ['python -m pytest -q -o addopts= tests/research_training']})})()
+            assert key == "ananta_worker_workspace_mutation"
+            return type(
+                "R",
+                (),
+                {
+                    "value_json": _json.dumps(
+                        {"allowlisted_test_commands": ["python -m pytest -q -o addopts= tests/research_training"]}
+                    )
+                },
+            )()
 
     class _Registry:
         config_repo = _ConfigRepo()
 
-    monkeypatch.setattr('agent.services.repository_registry.get_repository_registry',
-                        lambda: _Registry())
+    monkeypatch.setattr("agent.services.repository_registry.get_repository_registry", lambda: _Registry())
 
     from agent.services._worker_workspace_context_writer import _allowlisted_test_commands
 
-    assert _allowlisted_test_commands() == ['python -m pytest -q -o addopts= tests/research_training']
+    assert _allowlisted_test_commands() == ["python -m pytest -q -o addopts= tests/research_training"]
 
 
 ENTRY = "python -m pytest -q -o addopts= tests/research_training"
@@ -104,8 +113,7 @@ def test_the_resolver_accepts_an_exact_and_a_narrowed_command():
 
     assert resolve_allowlisted_test_command(ENTRY, [ENTRY]) == ENTRY
     narrowed = (
-        "python -m pytest -q -o addopts= tests/research_training/test_growth_corpus.py "
-        "tests/research_training/other.py"
+        "python -m pytest -q -o addopts= tests/research_training/test_growth_corpus.py tests/research_training/other.py"
     )
     assert resolve_allowlisted_test_command(narrowed, [ENTRY]) == ENTRY
     assert resolve_allowlisted_test_command(f"{ENTRY}/test_a.py", [ENTRY]) == ENTRY

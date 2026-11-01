@@ -10,31 +10,31 @@ MEDIUM   : policy changes, profile reassignment
 HIGH     : blocking or removing active nodes, path rule changes
 CRITICAL : removing instruction layers, changing root config
 """
+
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.config_graph_builder_service import (
     ALL_EDGE_TYPES,
     ALL_NODE_TYPES,
-    ConfigGraph,
-    ConfigGraphEdge,
     EDGE_ASSIGNED_TO,
     EDGE_BLOCKED_BY_POLICY,
     EDGE_CONTAINS,
     EDGE_MAY_CALL_TOOL,
     EDGE_REQUIRES_APPROVAL,
     EDGE_USES_PROFILE,
+    NODE_AGENT_PROFILE,
     NODE_INSTRUCTION_LAYER,
     NODE_PATH_RULE,
     NODE_POLICY,
-    NODE_AGENT_PROFILE,
     NODE_ROLE,
     NODE_SURFACE,
     NODE_TOOL,
     NODE_TOOL_GROUP,
+    ConfigGraph,
+    ConfigGraphEdge,
 )
 
 # Risk tiers
@@ -196,9 +196,7 @@ class ConfigGraphPatchService:
         graph.snapshot_id = result.new_snapshot_id
         return result
 
-    def apply_approved(
-        self, graph: ConfigGraph, ops: list[PatchOp], approval_token: str
-    ) -> ApplyResult:
+    def apply_approved(self, graph: ConfigGraph, ops: list[PatchOp], approval_token: str) -> ApplyResult:
         """Apply high/critical ops with an approval token (VACGE-007)."""
         val = self.validate(graph, ops)
         if not val.valid:
@@ -237,9 +235,7 @@ class ConfigGraphPatchService:
             return r
         return fn(graph, op, idx)
 
-    def _validate_set_data(
-        self, graph: ConfigGraph, op: PatchOp, idx: int
-    ) -> ValidationResult:
+    def _validate_set_data(self, graph: ConfigGraph, op: PatchOp, idx: int) -> ValidationResult:
         r = ValidationResult()
         node = graph.nodes.get(op.target)
         if node is None:
@@ -255,9 +251,7 @@ class ConfigGraphPatchService:
             r.risk_tier = RISK_MEDIUM
         return r
 
-    def _validate_add_edge(
-        self, graph: ConfigGraph, op: PatchOp, idx: int
-    ) -> ValidationResult:
+    def _validate_add_edge(self, graph: ConfigGraph, op: PatchOp, idx: int) -> ValidationResult:
         r = ValidationResult()
         src = op.data.get("source") or ""
         tgt = op.data.get("target") or ""
@@ -287,25 +281,18 @@ class ConfigGraphPatchService:
         r.risk_tier = RISK_MEDIUM
         return r
 
-    def _validate_remove_edge(
-        self, graph: ConfigGraph, op: PatchOp, idx: int
-    ) -> ValidationResult:
+    def _validate_remove_edge(self, graph: ConfigGraph, op: PatchOp, idx: int) -> ValidationResult:
         r = ValidationResult()
         src = op.data.get("source") or ""
         tgt = op.data.get("target") or ""
         etype = op.data.get("edge_type") or ""
-        found = any(
-            e.source == src and e.target == tgt and e.edge_type == etype
-            for e in graph.edges
-        )
+        found = any(e.source == src and e.target == tgt and e.edge_type == etype for e in graph.edges)
         if not found:
             r.warnings.append(f"op[{idx}] remove_edge: edge not found (no-op)")
         r.risk_tier = RISK_MEDIUM
         return r
 
-    def _validate_remove_node(
-        self, graph: ConfigGraph, op: PatchOp, idx: int
-    ) -> ValidationResult:
+    def _validate_remove_node(self, graph: ConfigGraph, op: PatchOp, idx: int) -> ValidationResult:
         r = ValidationResult()
         node = graph.nodes.get(op.target)
         if node is None:
@@ -322,9 +309,7 @@ class ConfigGraphPatchService:
             r.risk_tier = RISK_HIGH
         return r
 
-    def _validate_add_node(
-        self, graph: ConfigGraph, op: PatchOp, idx: int
-    ) -> ValidationResult:
+    def _validate_add_node(self, graph: ConfigGraph, op: PatchOp, idx: int) -> ValidationResult:
         r = ValidationResult()
         nid = str(op.data.get("id") or op.target or "")
         ntype = str(op.data.get("node_type") or "")
@@ -349,30 +334,27 @@ class ConfigGraphPatchService:
             node = graph.nodes[op.target]
             node.data.update(op.data)
         elif op.op == "add_edge":
-            graph.add_edge(ConfigGraphEdge(
-                source=str(op.data["source"]),
-                target=str(op.data["target"]),
-                edge_type=str(op.data["edge_type"]),
-                priority=int(op.data.get("priority") or 0),
-                condition=op.data.get("condition"),
-                policy_effect=op.data.get("policy_effect"),
-            ))
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source=str(op.data["source"]),
+                    target=str(op.data["target"]),
+                    edge_type=str(op.data["edge_type"]),
+                    priority=int(op.data.get("priority") or 0),
+                    condition=op.data.get("condition"),
+                    policy_effect=op.data.get("policy_effect"),
+                )
+            )
         elif op.op == "remove_edge":
             src = op.data.get("source")
             tgt = op.data.get("target")
             etype = op.data.get("edge_type")
-            graph.edges = [
-                e for e in graph.edges
-                if not (e.source == src and e.target == tgt and e.edge_type == etype)
-            ]
+            graph.edges = [e for e in graph.edges if not (e.source == src and e.target == tgt and e.edge_type == etype)]
         elif op.op == "remove_node":
             graph.nodes.pop(op.target, None)
-            graph.edges = [
-                e for e in graph.edges
-                if e.source != op.target and e.target != op.target
-            ]
+            graph.edges = [e for e in graph.edges if e.source != op.target and e.target != op.target]
         elif op.op == "add_node":
             from agent.services.config_graph_builder_service import ConfigGraphNode
+
             node = ConfigGraphNode(
                 id=str(op.data.get("id") or op.target),
                 node_type=str(op.data.get("node_type") or ""),
@@ -421,8 +403,5 @@ class ConfigGraphPatchService:
         if allowed_pairs is None:
             return None
         if (source_type, target_type) not in allowed_pairs:
-            return (
-                f"edge_type '{edge_type}' is not allowed from "
-                f"{source_type} to {target_type}"
-            )
+            return f"edge_type '{edge_type}' is not allowed from {source_type} to {target_type}"
         return None

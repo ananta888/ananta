@@ -77,15 +77,8 @@ def _resolve_registered_worker(worker: Any) -> Any:
 
     worker_url = str(_value(worker, "url") or "").strip()
     selected_name = str(_value(worker, "name") or "").strip()
-    registered = (
-        get_repository_registry().agent_repo.get_by_url(worker_url)
-        if worker_url
-        else None
-    )
-    if registered is None or (
-        selected_name
-        and selected_name != str(getattr(registered, "name", "") or "").strip()
-    ):
+    registered = get_repository_registry().agent_repo.get_by_url(worker_url) if worker_url else None
+    if registered is None or (selected_name and selected_name != str(getattr(registered, "name", "") or "").strip()):
         from agent.services.workflow_worker_assignment_service import (
             WorkflowWorkerAssignmentError,
         )

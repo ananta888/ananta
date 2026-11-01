@@ -57,10 +57,7 @@ def test_changed_content_creates_new_indexed_snapshot(tmp_path):
     new_snapshots = env.snapshots.list_snapshots(source_id=second["registry_source_id"])
     assert len(new_snapshots) == 2
     assert new_snapshots[0]["status"] == "indexed"
-    assert (
-        new_snapshots[0]["extensions"]["content_hash"]
-        != new_snapshots[1]["extensions"]["content_hash"]
-    )
+    assert new_snapshots[0]["extensions"]["content_hash"] != new_snapshots[1]["extensions"]["content_hash"]
 
 
 def test_snapshot_ids_are_stable_snapshot_store_format(tmp_path):

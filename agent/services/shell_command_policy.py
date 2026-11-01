@@ -1,4 +1,5 @@
 """SCG-001/SCG-002: ShellCommandPolicy datamodel and ShellCommandAnalyzer."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from client_surfaces.operator_tui.models import PanelState, Theme
 
-
 DEFAULT_THEME = Theme(
     name="operator-dense-dark",
     selected_prefix=">",

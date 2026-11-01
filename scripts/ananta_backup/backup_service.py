@@ -18,10 +18,10 @@ from .filesystem import (
     ensure_disjoint,
     fsync_directory,
     private_umask,
-    rename_directory_no_replace,
     remove_private_tree,
-    require_private_wsl_directory,
+    rename_directory_no_replace,
     require_absolute_directory,
+    require_private_wsl_directory,
     sha256_file,
     write_json_exclusive,
 )
@@ -77,18 +77,14 @@ class BackupService:
             request.wsl_target,
             "WSL target",
         )
-        windows_target = require_absolute_directory(
-            request.windows_target, "Windows target"
-        )
+        windows_target = require_absolute_directory(request.windows_target, "Windows target")
         self.windows_policy.validate(windows_target)
         if wsl_target == windows_target:
             raise BackupError("WSL and Windows targets must be different directories")
 
         backup_name = request.backup_name or self._default_name()
         if not _BACKUP_NAME.fullmatch(backup_name):
-            raise BackupError(
-                "Backup name must start with 'ananta-backup-' and contain safe characters"
-            )
+            raise BackupError("Backup name must start with 'ananta-backup-' and contain safe characters")
         wsl_package = wsl_target / backup_name
         windows_package = windows_target / backup_name
         if wsl_package.exists() or windows_package.exists():
@@ -101,9 +97,7 @@ class BackupService:
         self.compose.preflight(layout)
         # Secrets are always inventoried, even for dry-runs. This is the
         # fail-closed readability gate and cannot be disabled.
-        self._capture_external_sources(
-            layout, include_ollama_models=request.include_ollama_models
-        )
+        self._capture_external_sources(layout, include_ollama_models=request.include_ollama_models)
 
         if request.dry_run:
             return BackupResult(
@@ -118,12 +112,8 @@ class BackupService:
         work_directory: Path | None = None
         delivery_directory: Path | None = None
         try:
-            work_directory = Path(
-                tempfile.mkdtemp(prefix=f".{backup_name}.work-", dir=wsl_target)
-            )
-            delivery_directory = Path(
-                tempfile.mkdtemp(prefix=f".{backup_name}.delivery-", dir=wsl_target)
-            )
+            work_directory = Path(tempfile.mkdtemp(prefix=f".{backup_name}.work-", dir=wsl_target))
+            delivery_directory = Path(tempfile.mkdtemp(prefix=f".{backup_name}.delivery-", dir=wsl_target))
             os.chmod(work_directory, 0o700)
             os.chmod(delivery_directory, 0o700)
             archive_name = f"{backup_name}.tar.zst.gpg"
@@ -142,12 +132,8 @@ class BackupService:
                     backup_name,
                     include_ollama_models=request.include_ollama_models,
                 )
-                payload_plan = TreePlan.capture(
-                    "generated backup payload", work_directory, None
-                )
-                self.archive.encrypt_trees(
-                    [payload_plan, *source_plans], recipient, encrypted_path
-                )
+                payload_plan = TreePlan.capture("generated backup payload", work_directory, None)
+                self.archive.encrypt_trees([payload_plan, *source_plans], recipient, encrypted_path)
 
             digest, size = sha256_file(encrypted_path)
             checksum = self._checksum_manifest(backup_name, archive_name, digest, size)
@@ -172,10 +158,7 @@ class BackupService:
                     remove_private_tree(wsl_package)
                     fsync_directory(wsl_target)
                 except OSError as cleanup_exc:
-                    exc.add_note(
-                        "The failed two-target publication could not remove "
-                        f"its WSL package: {cleanup_exc}"
-                    )
+                    exc.add_note(f"The failed two-target publication could not remove its WSL package: {cleanup_exc}")
                 raise
             return BackupResult(
                 backup_name,
@@ -205,9 +188,7 @@ class BackupService:
                 ("WSL target", label),
             )
 
-    def _capture_external_sources(
-        self, layout: ComposeLayout, *, include_ollama_models: bool
-    ) -> list[TreePlan]:
+    def _capture_external_sources(self, layout: ComposeLayout, *, include_ollama_models: bool) -> list[TreePlan]:
         # The strict secret plan opens every regular file and rejects links. A
         # missing/unreadable credential therefore aborts before any snapshot.
         plans = [
@@ -247,17 +228,13 @@ class BackupService:
         volume_directory = work_directory / "volumes"
         postgres_directory.mkdir(mode=0o700)
         volume_directory.mkdir(mode=0o700)
-        configuration = self.compose.capture_reproducibility(
-            layout, work_directory / "configuration"
-        )
+        configuration = self.compose.capture_reproducibility(layout, work_directory / "configuration")
         database_dump = postgres_directory / "ananta.dump"
-        catalog = self.compose.dump_postgres(layout, database_dump)
+        self.compose.dump_postgres(layout, database_dump)
 
         volume_files: dict[str, str] = {}
         for logical_name in ("hub-data", "alpha-data", "beta-data"):
-            exported = self.compose.export_volume(
-                layout, logical_name, volume_directory
-            )
+            exported = self.compose.export_volume(layout, logical_name, volume_directory)
             if logical_name in {"alpha-data", "beta-data"}:
                 self.compose.verify_worker_sqlite_archive(
                     exported,
@@ -265,11 +242,7 @@ class BackupService:
                 )
             volume_files[logical_name] = f"volumes/{exported.name}"
 
-        generated_files = [
-            path
-            for path in work_directory.rglob("*")
-            if path.is_file() and not path.is_symlink()
-        ]
+        generated_files = [path for path in work_directory.rglob("*") if path.is_file() and not path.is_symlink()]
         generated_integrity: dict[str, dict[str, object]] = {}
         for path in generated_files:
             digest, size = sha256_file(path)
@@ -317,9 +290,7 @@ class BackupService:
         expected_digest: str,
         expected_size: int,
     ) -> None:
-        temporary = Path(
-            tempfile.mkdtemp(prefix=f".{windows_package.name}.delivery-", dir=windows_target)
-        )
+        temporary = Path(tempfile.mkdtemp(prefix=f".{windows_package.name}.delivery-", dir=windows_target))
         published = False
         try:
             os.chmod(temporary, 0o700)
@@ -341,19 +312,11 @@ class BackupService:
                 remove_private_tree(cleanup_target)
                 fsync_directory(windows_target)
             except OSError as cleanup_error:
-                exc.add_note(
-                    "Windows publication cleanup also failed: "
-                    f"{cleanup_error}"
-                )
+                exc.add_note(f"Windows publication cleanup also failed: {cleanup_error}")
             raise
 
     def _default_name(self) -> str:
-        timestamp = (
-            self.clock()
-            .astimezone(timezone.utc)
-            .replace(microsecond=0)
-            .strftime("%Y%m%dT%H%M%SZ")
-        )
+        timestamp = self.clock().astimezone(timezone.utc).replace(microsecond=0).strftime("%Y%m%dT%H%M%SZ")
         return f"ananta-backup-{timestamp}"
 
     @classmethod

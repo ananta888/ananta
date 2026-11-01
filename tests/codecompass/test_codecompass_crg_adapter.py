@@ -21,11 +21,11 @@ CRG-012 (security sub-block for CRG adapter):
 * the adapter never builds shell commands from input
 * schema-version-pin: a different reviewer_graph_revision is rejected
 """
+
 from __future__ import annotations
 
 import json
 import sqlite3
-import sys
 from pathlib import Path
 
 import pytest
@@ -40,7 +40,6 @@ from worker.retrieval.codecompass_crg_adapter import (
 from worker.retrieval.codecompass_import_provider import (
     CodeCompassGraphImportProvider,
 )
-
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "codecompass" / "crg"
 
@@ -60,6 +59,7 @@ def _read_fixture() -> dict:
 # CRG-002 structural conformance
 # ---------------------------------------------------------------------------
 
+
 def test_json_adapter_implements_port():
     p = CrgJsonAdapter(workspace_dir=Path("/tmp"))
     assert isinstance(p, CodeCompassGraphImportProvider)
@@ -73,6 +73,7 @@ def test_sqlite_adapter_implements_port():
 # ---------------------------------------------------------------------------
 # CRG-003 JSON adapter happy path
 # ---------------------------------------------------------------------------
+
 
 def test_json_adapter_probe_unavailable_when_no_export(tmp_path):
     p = CrgJsonAdapter(workspace_dir=tmp_path)
@@ -124,6 +125,7 @@ def test_json_adapter_strict_pinning_cannot_be_relaxed(tmp_path, monkeypatch):
 # CRG-004 confidence model
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("kind,expected", list(CONFIDENCE_KIND_TO_NUMERIC.items()))
 def test_confidence_kind_to_numeric_mapping(kind, expected):
     assert CONFIDENCE_KIND_TO_NUMERIC[kind] == expected
@@ -136,8 +138,7 @@ def test_inferred_edges_are_not_policy_allowed(tmp_path):
     _install_export(tmp_path, payload)
     p = CrgJsonAdapter(workspace_dir=tmp_path)
     snap = p.import_snapshot()
-    inferred = [e for e in snap.graph_edges
-                if e["trust"]["confidence_kind"] == "INFERRED"]
+    inferred = [e for e in snap.graph_edges if e["trust"]["confidence_kind"] == "INFERRED"]
     assert inferred
     for e in inferred:
         assert e["trust"]["trust_level"] == "inferred"
@@ -149,10 +150,10 @@ def test_ambiguous_edges_excluded_from_policy_allowed(tmp_path):
     _install_export(tmp_path, payload)
     p = CrgJsonAdapter(workspace_dir=tmp_path)
     snap = p.import_snapshot()
-    ambig = [e for e in snap.graph_edges
-             if e["trust"]["confidence_kind"] == "AMBIGUOUS"]
+    ambig = [e for e in snap.graph_edges if e["trust"]["confidence_kind"] == "AMBIGUOUS"]
     assert ambig
     from agent.services.tools.graph_evidence import POLICY_ALLOWED_TRUST
+
     for e in ambig:
         assert e["trust"]["trust_level"] not in POLICY_ALLOWED_TRUST
 
@@ -160,6 +161,7 @@ def test_ambiguous_edges_excluded_from_policy_allowed(tmp_path):
 # ---------------------------------------------------------------------------
 # CRG-012: per-adapter security sub-block
 # ---------------------------------------------------------------------------
+
 
 def test_path_traversal_in_export_path_rejected(tmp_path):
     """The adapter must reject any workspace_dir that contains symlinks
@@ -204,6 +206,7 @@ def test_no_shell_construction(monkeypatch):
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: calls.append(("run", a, kw)))
 
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         ws = Path(td)
         _install_export(ws, _read_fixture())
@@ -217,8 +220,7 @@ def test_schema_version_pin_with_sqlite(tmp_path, monkeypatch):
     db_path.parent.mkdir(parents=True)
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
-        conn.execute("INSERT INTO meta VALUES('reviewer_graph_revision', ?)",
-                     ("deadbeef" * 5,))
+        conn.execute("INSERT INTO meta VALUES('reviewer_graph_revision', ?)", ("deadbeef" * 5,))
         conn.execute("CREATE TABLE nodes(id TEXT, kind TEXT, file TEXT, name TEXT, confidence TEXT)")
         conn.execute("CREATE TABLE edges(source_id TEXT, target_id TEXT, kind TEXT, confidence TEXT)")
         conn.commit()
@@ -241,8 +243,7 @@ def test_sqlite_adapter_happy_path(tmp_path, monkeypatch):
     db_path.parent.mkdir(parents=True)
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
-        conn.execute("INSERT INTO meta VALUES('reviewer_graph_revision', ?)",
-                     (CRG_REVIEWED_REVISION,))
+        conn.execute("INSERT INTO meta VALUES('reviewer_graph_revision', ?)", (CRG_REVIEWED_REVISION,))
         conn.execute("CREATE TABLE nodes(id TEXT, kind TEXT, file TEXT, name TEXT, confidence TEXT)")
         conn.execute("INSERT INTO nodes VALUES('file:a.py','file','a.py',NULL,'EXTRACTED')")
         conn.execute("CREATE TABLE edges(source_id TEXT, target_id TEXT, kind TEXT, confidence TEXT)")

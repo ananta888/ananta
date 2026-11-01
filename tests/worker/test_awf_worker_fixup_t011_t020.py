@@ -1,26 +1,20 @@
 """AWF-T011 – AWF-T020: resource limits, provider registry/selection/health/provenance,
 code-context gate, ContextEnvelope adapter, context budget, context sensitivity filter.
 """
+
 from __future__ import annotations
-
-import time
-from pathlib import Path
-from typing import Any
-
-import pytest
 
 from worker.core.context_bundle_adapter import ContextEnvelopeAdapter, ContextEnvelopeRef
 from worker.core.context_resolver import (
     ContextBlock,
     ContextBudgetGate,
-    ContextSensitivityFilter,
     ContextSensitivity,
+    ContextSensitivityFilter,
     TokenBudget,
 )
 from worker.core.provider_registry import (
     CredentialIsolationProof,
     ModelPolicy,
-    ProviderDiagnostic,
     ProviderEntry,
     ProviderHealthGate,
     ProviderKind,
@@ -30,12 +24,18 @@ from worker.core.provider_registry import (
     WorkerProviderRegistry,
     build_default_provider_registry,
 )
-from worker.core.tool_registry import ResourceLimitEnforcer, ResourceLimits, WorkerToolEntry, WorkerToolRegistry, build_default_registry
-
+from worker.core.tool_registry import (
+    ResourceLimitEnforcer,
+    ResourceLimits,
+    WorkerToolEntry,
+    WorkerToolRegistry,
+    build_default_registry,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T011: Resource limits per tool call
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT011ResourceLimits:
     def test_enforcer_reads_registry_limits_and_defaults_for_unknown_tool(self):
@@ -50,11 +50,15 @@ class TestT011ResourceLimits:
 
     def test_bound_output_truncates(self):
         registry = WorkerToolRegistry()
-        registry.register(WorkerToolEntry(
-            id="run_shell", kind="shell",
-            capability_classes=("shell_execute",), risk_class="high",
-            resource_limits=ResourceLimits(max_output_chars=20),
-        ))
+        registry.register(
+            WorkerToolEntry(
+                id="run_shell",
+                kind="shell",
+                capability_classes=("shell_execute",),
+                risk_class="high",
+                resource_limits=ResourceLimits(max_output_chars=20),
+            )
+        )
         enforcer = ResourceLimitEnforcer(registry)
         out, truncated = enforcer.bound_output("a" * 100, "run_shell")
         assert truncated
@@ -68,11 +72,15 @@ class TestT011ResourceLimits:
 
     def test_effective_timeout_respects_registry(self):
         registry = WorkerToolRegistry()
-        registry.register(WorkerToolEntry(
-            id="run_shell", kind="shell",
-            capability_classes=("shell_execute",), risk_class="high",
-            resource_limits=ResourceLimits(timeout_seconds=10.0),
-        ))
+        registry.register(
+            WorkerToolEntry(
+                id="run_shell",
+                kind="shell",
+                capability_classes=("shell_execute",),
+                risk_class="high",
+                resource_limits=ResourceLimits(timeout_seconds=10.0),
+            )
+        )
         enforcer = ResourceLimitEnforcer(registry)
         assert enforcer.effective_timeout("run_shell", 999.0) == 10.0
 
@@ -82,18 +90,26 @@ class TestT011ResourceLimits:
 
     def test_native_service_uses_registry_limits(self, tmp_path):
         from agent.services.native_worker_runtime_service import _RESOURCE_ENFORCER
+
         limits = _RESOURCE_ENFORCER.limits_for("run_shell")
         assert limits.timeout_seconds > 0
 
     def test_native_service_output_bounded(self, tmp_path):
         from agent.services.native_worker_runtime_service import NativeWorkerRuntimeService
+
         svc = NativeWorkerRuntimeService()
         cfg = {"worker_runtime": {"native_worker_runtime": {"enabled": True}}}
         result = svc.execute_and_verify_command(
-            tid="t-1", task={}, command="echo hello", trace_id="tr-1",
-            worker_profile="balanced", profile_source="agent_default",
-            timeout_seconds=30, workspace_dir=tmp_path,
-            native_runtime_payload=None, agent_cfg=cfg,
+            tid="t-1",
+            task={},
+            command="echo hello",
+            trace_id="tr-1",
+            worker_profile="balanced",
+            profile_source="agent_default",
+            timeout_seconds=30,
+            workspace_dir=tmp_path,
+            native_runtime_payload=None,
+            agent_cfg=cfg,
         )
         assert result["status"] in {"completed", "failed"}
         # stdout/stderr in execution_result are bounded
@@ -125,6 +141,7 @@ class TestT011ResourceLimits:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T012 + AWF-T013: Provider selection via registry + policy
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT012T013ProviderSelection:
     def _make_registry(self) -> WorkerProviderRegistry:
@@ -210,6 +227,7 @@ class TestT012T013ProviderSelection:
 # AWF-T014: Credential isolation
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT014CredentialIsolation:
     def test_proof_isolated_with_clean_env(self):
         env = {"PATH": "/usr/bin", "LANG": "C.UTF-8"}
@@ -238,17 +256,25 @@ class TestT014CredentialIsolation:
 
     def test_command_executor_env_has_no_credential_vars(self, tmp_path):
         from worker.shell.command_executor import execute_command_plan
+
         plan = {
             "schema": "command_plan_artifact.v1",
-            "task_id": "t-1", "capability_id": "shell_execute",
-            "command": "env", "command_hash": "abc",
-            "explanation": "test", "risk_classification": "low",
-            "required_approval": False, "working_directory": ".",
+            "task_id": "t-1",
+            "capability_id": "shell_execute",
+            "command": "env",
+            "command_hash": "abc",
+            "explanation": "test",
+            "risk_classification": "low",
+            "required_approval": False,
+            "working_directory": ".",
             "expected_effects": [],
         }
         result = execute_command_plan(
-            repository_root=tmp_path, command_plan_artifact=plan,
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
+            repository_root=tmp_path,
+            command_plan_artifact=plan,
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
             shell_policy={"allowlist": ["env"], "approval_required_commands": [], "denylist_tokens": []},
             hub_policy_decision="allow",
         )
@@ -261,6 +287,7 @@ class TestT014CredentialIsolation:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T015: Provider health gate
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT015ProviderHealthGate:
     def test_healthy_provider_passes(self):
@@ -302,7 +329,7 @@ class TestT015ProviderHealthGate:
     def test_diagnostic_recorded_in_registry(self):
         registry = build_default_provider_registry()
         gate = ProviderHealthGate()
-        diag = gate.record_failure("ollama", registry, error_detail="port closed")
+        gate.record_failure("ollama", registry, error_detail="port closed")
         diags = registry.diagnostics()
         assert any(d["provider_id"] == "ollama" for d in diags)
 
@@ -317,6 +344,7 @@ class TestT015ProviderHealthGate:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T016: Provider provenance in artifacts
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT016ProviderProvenance:
     def test_native_worker_provenance(self):
@@ -347,13 +375,20 @@ class TestT016ProviderProvenance:
 
     def test_native_service_has_provenance_in_model_metadata(self, tmp_path):
         from agent.services.native_worker_runtime_service import NativeWorkerRuntimeService
+
         svc = NativeWorkerRuntimeService()
         cfg = {"worker_runtime": {"native_worker_runtime": {"enabled": True}}}
         result = svc.execute_and_verify_command(
-            tid="t-1", task={}, command="echo hi", trace_id="tr-1",
-            worker_profile="balanced", profile_source="agent_default",
-            timeout_seconds=30, workspace_dir=tmp_path,
-            native_runtime_payload=None, agent_cfg=cfg,
+            tid="t-1",
+            task={},
+            command="echo hi",
+            trace_id="tr-1",
+            worker_profile="balanced",
+            profile_source="agent_default",
+            timeout_seconds=30,
+            workspace_dir=tmp_path,
+            native_runtime_payload=None,
+            agent_cfg=cfg,
         )
         exec_r = result.get("native_runtime", {}).get("execution_result") or {}
         if exec_r:
@@ -366,13 +401,17 @@ class TestT016ProviderProvenance:
 # AWF-T017: CodeCompass/RAG context mandatory for code-aware modes
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT017CodeContextRequired:
     def _make_runtime(self, **kwargs):
         from tests.worker.test_awf_worker_fixup_t001_t010 import (
-            _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort,
+            _AllowPolicyPort,
+            _ListTracePort,
+            _ManifestArtifactPort,
         )
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         tp = _ListTracePort()
         ap = _ManifestArtifactPort()
         rt = StandaloneRuntime(
@@ -386,6 +425,7 @@ class TestT017CodeContextRequired:
 
     def _code_todo_contract(self, *, with_context: bool) -> dict:
         from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
+
         contract = _todo_contract()
         if with_context:
             contract["control_manifest"]["context_ref"] = "ctx-bundle-123"
@@ -411,26 +451,33 @@ class TestT017CodeContextRequired:
 
     def test_non_code_mode_no_context_required(self):
         from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
+
         rt, _, _ = self._make_runtime()
         contract = _todo_contract()  # assistant_execute mode — not code-aware
         result = rt.run(task_contract=contract, workspace_dir="/tmp")
         assert result.get("reason") != "code_context_required"
 
     def test_is_code_aware_mode_patch_apply(self):
-        from worker.runtime.standalone_runtime import _is_code_aware_mode
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+        from worker.runtime.standalone_runtime import _is_code_aware_mode
+
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", context_envelope_ref="ctx",
+            task_id="t-1",
+            actor_ref="hub",
+            context_envelope_ref="ctx",
             audit_correlation_id="audit",
             capability_grant=CapabilityGrant(capabilities=["patch_apply"]),
         )
         assert _is_code_aware_mode(env)
 
     def test_is_code_aware_mode_shell_execute_not_code_aware(self):
-        from worker.runtime.standalone_runtime import _is_code_aware_mode
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+        from worker.runtime.standalone_runtime import _is_code_aware_mode
+
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", context_envelope_ref="ctx",
+            task_id="t-1",
+            actor_ref="hub",
+            context_envelope_ref="ctx",
             audit_correlation_id="audit",
             capability_grant=CapabilityGrant(capabilities=["shell_execute", "shell_plan"]),
         )
@@ -441,6 +488,7 @@ class TestT017CodeContextRequired:
 # AWF-T018: ContextEnvelope compatibility layer
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT018ContextEnvelopeAdapter:
     def test_from_raw_string(self):
         ref = ContextEnvelopeRef.from_raw("ctx-bundle-123")
@@ -448,11 +496,13 @@ class TestT018ContextEnvelopeAdapter:
         assert ref.context_hash == ""
 
     def test_from_raw_dict(self):
-        ref = ContextEnvelopeRef.from_raw({
-            "context_bundle_id": "bundle-1",
-            "context_hash": "abc123",
-            "retrieval_refs": [{"source_type": "task_description"}],
-        })
+        ref = ContextEnvelopeRef.from_raw(
+            {
+                "context_bundle_id": "bundle-1",
+                "context_hash": "abc123",
+                "retrieval_refs": [{"source_type": "task_description"}],
+            }
+        )
         assert ref.bundle_id == "bundle-1"
         assert ref.context_hash == "abc123"
         assert len(ref.retrieval_refs) == 1
@@ -514,10 +564,12 @@ class TestT018ContextEnvelopeAdapter:
 # AWF-T019: Context budget enforcement
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT019ContextBudget:
     def _block(self, tokens: int, priority: int = 50, p0: bool = False) -> ContextBlock:
         return ContextBlock(
-            source_type="test", origin_id=f"b{tokens}",
+            source_type="test",
+            origin_id=f"b{tokens}",
             provenance="test",
             token_estimate=tokens,
             priority=0 if p0 else priority,
@@ -540,7 +592,7 @@ class TestT019ContextBudget:
     def test_budget_gate_never_drops_p0(self):
         budget = TokenBudget(global_limit=100)
         gate = ContextBudgetGate(budget, output_reserve_tokens=0)
-        p0 = self._block(200, p0=True)   # P0, exceeds budget
+        p0 = self._block(200, p0=True)  # P0, exceeds budget
         low = self._block(50, priority=90)
         kept, warnings = gate.check([p0, low])
         assert any(b.is_p0 for b in kept)
@@ -571,11 +623,14 @@ class TestT019ContextBudget:
 # AWF-T020: Context sensitivity filter
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT020ContextSensitivity:
     def _block(self, sensitivity: ContextSensitivity) -> ContextBlock:
         return ContextBlock(
-            source_type="file", origin_id=f"f-{sensitivity.value}",
-            provenance="test", sensitivity=sensitivity,
+            source_type="file",
+            origin_id=f"f-{sensitivity.value}",
+            provenance="test",
+            sensitivity=sensitivity,
         )
 
     def test_cloud_filter_removes_confidential(self):

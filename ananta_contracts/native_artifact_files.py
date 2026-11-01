@@ -11,8 +11,12 @@ NATIVE_ARTIFACT_FILE_KEYS = ("native_input_files", "native_output_files")
 
 def native_workspace_path(value):
     if (
-        not isinstance(value, str) or not value or len(value) > 1024 or "\\" in value
-        or any(ord(c) < 32 or ord(c) == 127 for c in value) or PurePosixPath(value).is_absolute()
+        not isinstance(value, str)
+        or not value
+        or len(value) > 1024
+        or "\\" in value
+        or any(ord(c) < 32 or ord(c) == 127 for c in value)
+        or PurePosixPath(value).is_absolute()
         or any(part in {"", ".", ".."} for part in value.split("/"))
     ):
         raise ValueError("native_artifact_workspace_path_invalid")
@@ -37,7 +41,8 @@ def validate_native_artifact_files(metadata, *, inputs, outputs, require_files=F
                     raise ValueError("native_artifact_file_descriptor_invalid")
                 media = descriptor["media_type"]
                 if (
-                    not isinstance(media, str) or len(media) > 127
+                    not isinstance(media, str)
+                    or len(media) > 127
                     or re.fullmatch(r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+", media) is None
                 ):
                     raise ValueError("native_artifact_file_media_type_invalid")

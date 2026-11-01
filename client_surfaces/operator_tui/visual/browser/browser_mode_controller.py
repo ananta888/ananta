@@ -80,9 +80,7 @@ class BrowserModeController:
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def enter_browser_mode(
-        self, snapshot: CenterContentSnapshot, cols: int, rows: int
-    ) -> None:
+    def enter_browser_mode(self, snapshot: CenterContentSnapshot, cols: int, rows: int) -> None:
         """Convert snapshot to HTML and start Carbonyl.
 
         On failure, controller returns to INACTIVE with error_message set.
@@ -244,8 +242,7 @@ class BrowserModeController:
             runner.start(target, cols=cols, rows=rows, extra_args=extra_args)
         except CarbonylNotAvailableError as exc:
             raise RuntimeError(
-                f"Carbonyl unavailable — browser mode requires carbonyl to be installed. "
-                f"Details: {exc}"
+                f"Carbonyl unavailable — browser mode requires carbonyl to be installed. Details: {exc}"
             ) from exc
 
         self._runner = runner
@@ -283,17 +280,11 @@ def build_webrtc_app_html(config: dict[str, object]) -> str:
     safe_config = _non_secret_config(config)
     index = (_WEBRTC_APP_DIR / "index.html").read_text(encoding="utf-8")
     base_href = _WEBRTC_APP_DIR.as_uri() + "/"
-    config_script = (
-        "<script>"
-        "window.ANANTA_CONFIG = "
-        + json.dumps(safe_config, sort_keys=True)
-        + ";"
-        "</script>"
-    )
-    index = index.replace("<head>", f"<head>\n  <base href=\"{base_href}\" />", 1)
+    config_script = "<script>window.ANANTA_CONFIG = " + json.dumps(safe_config, sort_keys=True) + ";</script>"
+    index = index.replace("<head>", f'<head>\n  <base href="{base_href}" />', 1)
     return index.replace(
-        "  <script type=\"module\" src=\"app.js\"></script>",
-        f"  {config_script}\n  <script type=\"module\" src=\"app.js\"></script>",
+        '  <script type="module" src="app.js"></script>',
+        f'  {config_script}\n  <script type="module" src="app.js"></script>',
         1,
     )
 

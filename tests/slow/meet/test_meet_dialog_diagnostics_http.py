@@ -31,10 +31,15 @@ def test_actual_worker_http_records_terminal_sql_observation_and_owner_reads_it(
             identifiers = {key: f.payload[key] for key in ("task_id", "lease_id", "runtime_id")}
             assert report_terminal(
                 f"http://127.0.0.1:{server.server_port}/api/meet/v1/internal/dialog",
-                web.extensions["meet_media_worker_key"], identifiers, observation(), time.monotonic() + 60,
+                web.extensions["meet_media_worker_key"],
+                identifiers,
+                observation(),
+                time.monotonic() + 60,
             )
-            result = client.get(f"/api/meet/v1/projects/project/dialogs/{f.task_id}/diagnostics",
-                                headers={"Authorization": "Bearer synthetic-user"})
+            result = client.get(
+                f"/api/meet/v1/projects/project/dialogs/{f.task_id}/diagnostics",
+                headers={"Authorization": "Bearer synthetic-user"},
+            )
             assert result.status_code == 200
             assert result.json["observation"] == observation()
             assert result.json["classification"] == "unverified_worker_observation"

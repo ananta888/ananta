@@ -30,14 +30,21 @@ class WorkerArtifacts:
         from worker.runtime.native_graph.artifact_writer import LocalNativeArtifactWriter
 
         self.storage = ArtifactStore("/tmp/worker-artifacts")
-        self.writer = LocalNativeArtifactWriter(engine=engine, artifact_model=ArtifactDB,
-                                                version_model=ArtifactVersionDB, storage=self.storage)
+        self.writer = LocalNativeArtifactWriter(
+            engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB, storage=self.storage
+        )
         rows = LocalArtifactRows(engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB)
-        transport = NativeArtifactHttpTransport(hub_url=HUB_URL, bearer_token=os.environ["BPMN_WORKER_TOKEN"],
-                                                worker_id=WORKER_ID, worker_url=WORKER_URL, timeout_seconds=5)
+        transport = NativeArtifactHttpTransport(
+            hub_url=HUB_URL,
+            bearer_token=os.environ["BPMN_WORKER_TOKEN"],
+            worker_id=WORKER_ID,
+            worker_url=WORKER_URL,
+            timeout_seconds=5,
+        )
         self.publication = NativeNodeArtifactPublication(
-            reader=LocalNativeArtifactReader(storage_root=self.storage.base_dir, load_artifact=rows.load_artifact,
-                                            load_version=rows.load_version),
+            reader=LocalNativeArtifactReader(
+                storage_root=self.storage.base_dir, load_artifact=rows.load_artifact, load_version=rows.load_version
+            ),
             publisher=NativeArtifactPublisher(transport=transport),
         )
         self.downloader = NativeArtifactInputDownloader(transport=transport)
@@ -45,19 +52,31 @@ class WorkerArtifacts:
     def produce(self, command, task):
         from ananta_contracts.native_context_bundle import native_context_digest
 
-        binding = {"hub_task_id": task["id"], "tenant_id": command.tenant_id, "project_id": task.get("project_id"),
-                   "command_digest": native_context_digest(command.to_dict()), "attempt_id": command.attempt_id,
-                   "fencing_token": command.fencing_token, "output_name": "report"}
-        local = self.writer.store(filename="synthetic-result.json", media_type="application/json",
-                                  content=CONTENT, binding=binding)
+        binding = {
+            "hub_task_id": task["id"],
+            "tenant_id": command.tenant_id,
+            "project_id": task.get("project_id"),
+            "command_digest": native_context_digest(command.to_dict()),
+            "attempt_id": command.attempt_id,
+            "fencing_token": command.fencing_token,
+            "output_name": "report",
+        }
+        local = self.writer.store(
+            filename="synthetic-result.json", media_type="application/json", content=CONTENT, binding=binding
+        )
         refs = self.publication.publish(command=command, task=task, references={"report": local})
         assert refs["report"] != local
-        return refs, {"worker_artifact_ref": local, "sha256": hashlib.sha256(CONTENT).hexdigest(),
-                      "size_bytes": len(CONTENT), "worker_bytes_verified": True}
+        return refs, {
+            "worker_artifact_ref": local,
+            "sha256": hashlib.sha256(CONTENT).hexdigest(),
+            "size_bytes": len(CONTENT),
+            "worker_bytes_verified": True,
+        }
 
     def consume(self, command, task):
-        item = self.downloader.download(command=command, hub_task_id=task["id"],
-                                        project_id=task.get("project_id"), input_name="report")
+        item = self.downloader.download(
+            command=command, hub_task_id=task["id"], project_id=task.get("project_id"), input_name="report"
+        )
         assert item.content == CONTENT
         return {"consumer_bytes_verified": True, "sha256": item.sha256, "size_bytes": len(item.content)}
 
@@ -118,15 +137,21 @@ def artifact_transfer_case(hub):
     assert reference != observations[0]["result"]["worker_artifact_ref"]
     with Session(hub.engine) as session:
         artifact = session.get(ArtifactDB, reference.removeprefix("artifact://"))
-        version = session.exec(select(ArtifactVersionDB).where(
-            ArtifactVersionDB.id == artifact.latest_version_id)).one()
+        version = session.exec(
+            select(ArtifactVersionDB).where(ArtifactVersionDB.id == artifact.latest_version_id)
+        ).one()
         assert Path(version.storage_path).read_bytes() == CONTENT
         assert version.sha256 == hashlib.sha256(CONTENT).hexdigest()
         assert artifact.created_by == "hub_native_artifact_ingress"
-    return {"status": "completed", "positive_artifact_transfer_verified": True,
-            "producer_receipt_classification": receipt["classification"], "tasks": observations,
-            "events": event_summary(hub, request), "hub_bytes_verified": True,
-            "production_release_evidence": False}
+    return {
+        "status": "completed",
+        "positive_artifact_transfer_verified": True,
+        "producer_receipt_classification": receipt["classification"],
+        "tasks": observations,
+        "events": event_summary(hub, request),
+        "hub_bytes_verified": True,
+        "production_release_evidence": False,
+    }
 
 
 def artifact_case(hub):
@@ -172,10 +197,14 @@ def artifact_case(hub):
         except ValueError as exc:
             rejection = str(exc)
         time.sleep(0.025)
-    task, = hub.tasks_for(request.run_id)
+    (task,) = hub.tasks_for(request.run_id)
     assert injected and rejection == "native_artifact_hub_receipt_required" and not hub.pending, rejection
     assert task.status == "in_progress" and not task.verification_status.get("native_result_receipt")
     owner = hub.ownership.get(tenant_id=request.plan.tenant_id, run_id=request.run_id, step_id="artifact_work")
     assert not owner.result_ack_key
-    return {"status": "rejected_before_task_result_persistence", "reason_code": rejection,
-            "canonical_step_completed": False, "ownership_acknowledged": False}
+    return {
+        "status": "rejected_before_task_result_persistence",
+        "reason_code": rejection,
+        "canonical_step_completed": False,
+        "ownership_acknowledged": False,
+    }

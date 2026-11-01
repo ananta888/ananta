@@ -28,9 +28,7 @@ _PRIVATE_KEY = re.compile(
 )
 
 
-def redact_sensitive_values(
-    content: str, *, language: str | None = None
-) -> tuple[str, bool]:
+def redact_sensitive_values(content: str, *, language: str | None = None) -> tuple[str, bool]:
     redaction_count = 0
 
     def redact_assignment(match: re.Match[str]) -> str:

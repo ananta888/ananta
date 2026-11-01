@@ -5,6 +5,7 @@ for the network transport between them: an artifact server exposing the
 artifacts blueprint and a downloader that reads the Worker-published versions
 from the isolated artifact store with digest verification.
 """
+
 from __future__ import annotations
 
 import hashlib

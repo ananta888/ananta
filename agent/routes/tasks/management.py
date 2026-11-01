@@ -50,33 +50,19 @@ from agent.utils import rate_limit, validate_request
 
 management_bp = Blueprint("tasks_management", __name__)
 _archive_admin_routes.register_archive_admin_routes(management_bp)
-_vector_admission_route.register_vector_index_dispatch_admission_route(
-    management_bp
-)
+_vector_admission_route.register_vector_index_dispatch_admission_route(management_bp)
 
 # Preserve names exported by the original monolithic route module.
 list_archived_tasks = _archive_admin_routes.list_archived_tasks
 archive_task_route = _archive_admin_routes.archive_task_route
-archive_tasks_batch_route = (
-    _archive_admin_routes.archive_tasks_batch_route
-)
+archive_tasks_batch_route = _archive_admin_routes.archive_tasks_batch_route
 restore_task_route = _archive_admin_routes.restore_task_route
-delete_archived_task_route = (
-    _archive_admin_routes.delete_archived_task_route
-)
-restore_tasks_batch_route = (
-    _archive_admin_routes.restore_tasks_batch_route
-)
-cleanup_archived_tasks_route = (
-    _archive_admin_routes.cleanup_archived_tasks_route
-)
-archive_retention_apply_route = (
-    _archive_admin_routes.archive_retention_apply_route
-)
+delete_archived_task_route = _archive_admin_routes.delete_archived_task_route
+restore_tasks_batch_route = _archive_admin_routes.restore_tasks_batch_route
+cleanup_archived_tasks_route = _archive_admin_routes.cleanup_archived_tasks_route
+archive_retention_apply_route = _archive_admin_routes.archive_retention_apply_route
 cleanup_tasks_route = _archive_admin_routes.cleanup_tasks_route
-vector_index_dispatch_admission = (
-    _vector_admission_route.vector_index_dispatch_admission
-)
+vector_index_dispatch_admission = _vector_admission_route.vector_index_dispatch_admission
 task_repo = get_repository_registry().task_repo
 
 
@@ -298,13 +284,9 @@ def create_task():
             data=result["data"],
             code=result["code"],
         )
-    reserved_scope_marker = (
-        find_reserved_retrieval_vector_scope_marker(payload)
-    )
+    reserved_scope_marker = find_reserved_retrieval_vector_scope_marker(payload)
     if reserved_scope_marker:
-        result = reserved_retrieval_vector_scope_ingress_error(
-            reserved_scope_marker
-        )
+        result = reserved_retrieval_vector_scope_ingress_error(reserved_scope_marker)
         return api_response(
             status="error",
             message=result["error"],
@@ -328,13 +310,15 @@ def create_task():
     source = "api"
     created_by = _actor_username()
     if data.commit_metadata is None and str(data.task_kind or "").strip().lower() in ("coding", "ops", ""):
-        data = data.model_copy(update={
-            "commit_metadata": get_commit_metadata_inferrer().infer(
-                description=str(data.description or ""),
-                task_kind=data.task_kind,
-                title=str(data.title or ""),
-            )
-        })
+        data = data.model_copy(
+            update={
+                "commit_metadata": get_commit_metadata_inferrer().infer(
+                    description=str(data.description or ""),
+                    task_kind=data.task_kind,
+                    title=str(data.title or ""),
+                )
+            }
+        )
     result = get_core_services().task_management_service.create_task(data=data, source=source, created_by=created_by)
     if result.get("error"):
         return api_response(
@@ -370,9 +354,7 @@ def get_task(tid):
     if access_error is not None:
         return access_error
     assert task is not None
-    instruction_layers = get_instruction_layer_service().task_selection_summary(
-        task
-    )
+    instruction_layers = get_instruction_layer_service().task_selection_summary(task)
     return api_response(
         data=get_task_read_projection_service().detail(
             task,
@@ -434,13 +416,9 @@ def patch_task(tid):
             data=result["data"],
             code=result["code"],
         )
-    reserved_scope_marker = (
-        find_reserved_retrieval_vector_scope_marker(payload)
-    )
+    reserved_scope_marker = find_reserved_retrieval_vector_scope_marker(payload)
     if reserved_scope_marker:
-        result = reserved_retrieval_vector_scope_ingress_error(
-            reserved_scope_marker
-        )
+        result = reserved_retrieval_vector_scope_ingress_error(reserved_scope_marker)
         return api_response(
             status="error",
             message=result["error"],
@@ -601,11 +579,7 @@ def unassign_task(tid):
 def pause_task(tid):
     ok, msg, data = _intervene_task(tid, "pause")
     if not ok:
-        code = (
-            404
-            if msg == "not_found"
-            else int((data or {}).get("http_status") or 400)
-        )
+        code = 404 if msg == "not_found" else int((data or {}).get("http_status") or 400)
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -615,11 +589,7 @@ def pause_task(tid):
 def resume_task(tid):
     ok, msg, data = _intervene_task(tid, "resume")
     if not ok:
-        code = (
-            404
-            if msg == "not_found"
-            else int((data or {}).get("http_status") or 400)
-        )
+        code = 404 if msg == "not_found" else int((data or {}).get("http_status") or 400)
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -629,11 +599,7 @@ def resume_task(tid):
 def cancel_task(tid):
     ok, msg, data = _intervene_task(tid, "cancel")
     if not ok:
-        code = (
-            404
-            if msg == "not_found"
-            else int((data or {}).get("http_status") or 400)
-        )
+        code = 404 if msg == "not_found" else int((data or {}).get("http_status") or 400)
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -643,11 +609,7 @@ def cancel_task(tid):
 def retry_task(tid):
     ok, msg, data = _intervene_task(tid, "retry")
     if not ok:
-        code = (
-            404
-            if msg == "not_found"
-            else int((data or {}).get("http_status") or 400)
-        )
+        code = 404 if msg == "not_found" else int((data or {}).get("http_status") or 400)
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -701,37 +663,20 @@ def recovery_dispatch_admission(tid):
         get_recovery_dispatch_gate_service,
     )
 
-    token = str(
-        request.headers.get(
-            "X-Ananta-Recovery-Dispatch-Lease"
-        )
-        or ""
-    ).strip()
-    auth_header = str(
-        request.headers.get("Authorization") or ""
-    ).strip()
-    worker_token = (
-        auth_header.removeprefix("Bearer ").strip()
-        if auth_header.startswith("Bearer ")
-        else ""
-    )
-    worker_url = str(
-        request.headers.get("X-Ananta-Worker-Url") or ""
-    ).strip()
+    token = str(request.headers.get("X-Ananta-Recovery-Dispatch-Lease") or "").strip()
+    auth_header = str(request.headers.get("Authorization") or "").strip()
+    worker_token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
+    worker_url = str(request.headers.get("X-Ananta-Worker-Url") or "").strip()
     payload = request.get_json(silent=True) or {}
     phase = str(payload.get("phase") or "").strip().lower()
-    request_fingerprint = str(
-        payload.get("request_fingerprint") or ""
-    ).strip()
-    decision = (
-        get_recovery_dispatch_gate_service().admit_dispatch_lease(
-            str(tid or ""),
-            token=token,
-            phase=phase,
-            worker_url=worker_url,
-            worker_token=worker_token,
-            request_fingerprint=request_fingerprint,
-        )
+    request_fingerprint = str(payload.get("request_fingerprint") or "").strip()
+    decision = get_recovery_dispatch_gate_service().admit_dispatch_lease(
+        str(tid or ""),
+        token=token,
+        phase=phase,
+        worker_url=worker_url,
+        worker_token=worker_token,
+        request_fingerprint=request_fingerprint,
     )
     data = {
         "allowed": bool(decision.allowed),
@@ -779,12 +724,10 @@ def subtask_callback(tid):
             )
 
             try:
-                category_result = (
-                    OrganizationCategoryResearchCallbackAdapter().accept_if_applicable(
-                        source_task_id=tid,
-                        payload=payload,
-                        capability_claims=capability,
-                    )
+                category_result = OrganizationCategoryResearchCallbackAdapter().accept_if_applicable(
+                    source_task_id=tid,
+                    payload=payload,
+                    capability_claims=capability,
                 )
             except OrganizationCategoryResearchCallbackError as exc:
                 return api_response(

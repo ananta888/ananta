@@ -1,4 +1,5 @@
 """EclipseCompareStrategy — snake_eclipse_compare_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, UiMotionPort

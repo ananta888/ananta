@@ -78,7 +78,7 @@ class AnantaHubTaskQueueAdapter:
         maintenance_scope = None
         if command.node.task_kind == MAINTENANCE_TASK_KIND:
             if self._maintenance_scope_preparer is None:
-                raise ValueError('native_result_maintenance_scope_unavailable')
+                raise ValueError("native_result_maintenance_scope_unavailable")
             maintenance_scope = self._maintenance_scope_preparer.prepare(command=command)
         # Fenced duplicate admission belongs inside the recipient transaction.
         existing = self._repository.get_by_id(hub_task_id) if lease is None else None
@@ -96,7 +96,7 @@ class AnantaHubTaskQueueAdapter:
                 for key, value in maintenance_scope.items():
                     present = existing.get(key) if isinstance(existing, Mapping) else getattr(existing, key, None)
                     if native_context_digest(present) != native_context_digest(value):
-                        raise ValueError('native_result_maintenance_scope_changed_before_ingestion')
+                        raise ValueError("native_result_maintenance_scope_changed_before_ingestion")
             return HubTaskReceipt(
                 hub_task_id=hub_task_id,
                 command_id=command.command_id,
@@ -106,7 +106,7 @@ class AnantaHubTaskQueueAdapter:
         extra_fields = self._submission_fields(command, hub_task_id)
         if maintenance_scope is not None:
             if any(key in extra_fields and extra_fields[key] != value for key, value in maintenance_scope.items()):
-                raise ValueError('native_result_maintenance_scope_changed_before_ingestion')
+                raise ValueError("native_result_maintenance_scope_changed_before_ingestion")
             extra_fields.update(maintenance_scope)
         if command.node.task_kind == "pi_coding_agent" and self._pi_scope_preparer is not None:
             scope = self._pi_scope_preparer.prepare(command=command)
@@ -264,8 +264,13 @@ class AnantaHubTaskQueueAdapter:
 
         for task_id in sorted(set(hub_task_ids)):
             cancel_native_task_fenced(
-                repository=self._repository, runtime=self._runtime, task_id=task_id, lease=lease,
-                tenant_id=tenant_id, run_id=run_id, reason=reason,
+                repository=self._repository,
+                runtime=self._runtime,
+                task_id=task_id,
+                lease=lease,
+                tenant_id=tenant_id,
+                run_id=run_id,
+                reason=reason,
             )
 
 

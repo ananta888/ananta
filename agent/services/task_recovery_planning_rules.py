@@ -62,8 +62,13 @@ def _record_recovery_cut(site: str, text: str, limit: int) -> str:
     if len(text) > limit:
         from agent.context_window import estimate_tokens, record_truncation
 
-        record_truncation(site, "char_cut", before_tokens=estimate_tokens(text),
-                          after_tokens=estimate_tokens(text[:limit]), limit_chars=limit)
+        record_truncation(
+            site,
+            "char_cut",
+            before_tokens=estimate_tokens(text),
+            after_tokens=estimate_tokens(text[:limit]),
+            limit_chars=limit,
+        )
     return text
 
 
@@ -79,10 +84,8 @@ def team_binding_matches(
 ) -> bool:
     normalized_expected = str(expected_team_id or "").strip()
     return (
-        str(getattr(source_task, "team_id", "") or "").strip()
-        == normalized_expected
-        and str(getattr(goal, "team_id", "") or "").strip()
-        == normalized_expected
+        str(getattr(source_task, "team_id", "") or "").strip() == normalized_expected
+        and str(getattr(goal, "team_id", "") or "").strip() == normalized_expected
     )
 
 
@@ -91,11 +94,7 @@ def stored_team_binding_matches(
     expected_team_id: str,
 ) -> bool:
     """Require an explicit persisted binding, including unscoped goals."""
-    return (
-        "team_id" in stored
-        and str(stored.get("team_id") or "").strip()
-        == str(expected_team_id or "").strip()
-    )
+    return "team_id" in stored and str(stored.get("team_id") or "").strip() == str(expected_team_id or "").strip()
 
 
 def plan_digest(plan: Any, nodes: list[Any]) -> str:
@@ -103,11 +102,7 @@ def plan_digest(plan: Any, nodes: list[Any]) -> str:
 
 
 def plan_action_configured(actions: list[str]) -> bool:
-    return bool(
-        {"segment_planning", "propose_task_plan"}.intersection(
-            actions
-        )
-    )
+    return bool({"segment_planning", "propose_task_plan"}.intersection(actions))
 
 
 def task_recovery_depth(task: Any) -> int:

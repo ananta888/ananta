@@ -756,9 +756,7 @@ def execute(output: Path) -> tuple[dict[str, Any], list[str]]:
                 env["SECRET_KEY"],
                 env["AGENT_TOKEN"],
             )
-            known_secret_matches = sum(
-                log_text.count(value) for value in (*secrets_to_scan, *ephemeral_user_tokens)
-            )
+            known_secret_matches = sum(log_text.count(value) for value in (*secrets_to_scan, *ephemeral_user_tokens))
             compose_removed = remove_owned_project(compose, env, project)
     ephemeral_hub_state_removed = bool(descriptor_path is not None and not descriptor_path.exists())
     if not raw_report:

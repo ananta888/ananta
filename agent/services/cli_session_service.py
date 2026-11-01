@@ -41,7 +41,9 @@ class CliSessionService:
             self._sessions[session_id] = payload
         return deepcopy(payload)
 
-    def list_sessions(self, *, backend: str | None = None, include_history: bool = False, limit: int = 100) -> list[dict]:
+    def list_sessions(
+        self, *, backend: str | None = None, include_history: bool = False, limit: int = 100
+    ) -> list[dict]:
         backend_filter = str(backend or "").strip().lower() or None
         max_items = max(1, min(int(limit or 100), 1000))
         with self._lock:
@@ -207,7 +209,9 @@ class CliSessionService:
     def prune_sessions(self, *, max_sessions: int = 200) -> dict:
         limit = max(1, min(int(max_sessions or 200), 5000))
         with self._lock:
-            items = sorted(self._sessions.items(), key=lambda kv: float((kv[1] or {}).get("updated_at") or 0), reverse=True)
+            items = sorted(
+                self._sessions.items(), key=lambda kv: float((kv[1] or {}).get("updated_at") or 0), reverse=True
+            )
             keep_ids = {sid for sid, _payload in items[:limit]}
             removed = 0
             for sid in list(self._sessions.keys()):

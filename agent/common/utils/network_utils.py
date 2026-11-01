@@ -1,8 +1,5 @@
-import logging
 import os
 from typing import Optional
-
-from agent.config import settings
 
 
 def get_host_gateway_ip() -> Optional[str]:

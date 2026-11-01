@@ -10,7 +10,6 @@ from agent.services.sfu_broadcast_contract_materialization import (
     SfuBroadcastContractMaterializer,
 )
 
-
 DESCRIPTOR = ContractVersionDescriptor(
     contract_id="test.contract.v1",
     schema_version="1",
@@ -75,10 +74,7 @@ def test_unknown_schema_and_materialization_versions_fail_closed() -> None:
             ContractVersionDescriptor("test.contract.v1", "2", 1),
             COMPATIBILITY,
         )
-    assert (
-        schema_error.value.reason_code
-        is ContractMaterializationReason.SCHEMA_VERSION_UNSUPPORTED
-    )
+    assert schema_error.value.reason_code is ContractMaterializationReason.SCHEMA_VERSION_UNSUPPORTED
 
     with pytest.raises(ContractMaterializationError) as runtime_error:
         materializer.materialize(
@@ -86,10 +82,7 @@ def test_unknown_schema_and_materialization_versions_fail_closed() -> None:
             ContractVersionDescriptor("test.contract.v1", "1", 2),
             COMPATIBILITY,
         )
-    assert (
-        runtime_error.value.reason_code
-        is ContractMaterializationReason.MATERIALIZATION_VERSION_UNSUPPORTED
-    )
+    assert runtime_error.value.reason_code is ContractMaterializationReason.MATERIALIZATION_VERSION_UNSUPPORTED
 
 
 @pytest.mark.parametrize(
@@ -107,7 +100,4 @@ def test_duplicate_json_keys_are_rejected_before_materialization(raw: str) -> No
             DESCRIPTOR,
             COMPATIBILITY,
         )
-    assert (
-        captured.value.reason_code
-        is ContractMaterializationReason.DUPLICATE_PROPERTY
-    )
+    assert captured.value.reason_code is ContractMaterializationReason.DUPLICATE_PROPERTY

@@ -1,7 +1,6 @@
 """Tests für DSL v2 Action-Modell in DecisionResult.from_dsl_action()."""
-import pytest
 
-from agent.services.heuristic_runtime.decision_result import DecisionResult, SuggestedMotion
+from agent.services.heuristic_runtime.decision_result import DecisionResult
 
 
 def test_from_dsl_action_suggest_target():
@@ -111,6 +110,14 @@ def test_from_dsl_action_strategy_id_propagated():
 
 def test_from_dsl_action_is_heuristic():
     """Alle DSL-Actions haben source='heuristic'."""
-    for kind in ["suggest_target", "follow_artifact", "lurk_near", "smooth_follow", "fast_target", "explain_target", "no_action"]:
+    for kind in [
+        "suggest_target",
+        "follow_artifact",
+        "lurk_near",
+        "smooth_follow",
+        "fast_target",
+        "explain_target",
+        "no_action",
+    ]:
         result = DecisionResult.from_dsl_action({"kind": kind})
         assert result.source == "heuristic", f"Expected heuristic source for kind={kind}"

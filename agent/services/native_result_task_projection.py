@@ -20,7 +20,8 @@ def native_task_command(task):
             or context.get("runtime_path") != "native_graph_node"
             or task.task_kind != command.node.task_kind
             or task.derivation_reason != "native_graph_hub_delegation"
-            or task.tenant_id != command.tenant_id or not task.id
+            or task.tenant_id != command.tenant_id
+            or not task.id
             or native_context_digest(raw) != native_context_digest(command.to_dict())
         ):
             raise ValueError("binding")
@@ -36,15 +37,19 @@ def native_task_result(task, command):
     if not isinstance(outer, dict) or not isinstance(raw, dict):
         raise ValueError("native_result_required")
     result = NativeNodeResult.from_mapping(raw)
-    if (
-        type(raw.get("fencing_token")) is not int
-        or native_context_digest(raw) != native_context_digest(result.to_dict())
+    if type(raw.get("fencing_token")) is not int or native_context_digest(raw) != native_context_digest(
+        result.to_dict()
     ):
         raise ValueError("native_result_contract_invalid")
     expected = {
-        "command_id": command.command_id, "hub_task_id": task.id, "tenant_id": command.tenant_id,
-        "workflow_id": command.workflow_id, "run_id": command.run_id, "node_id": command.node.node_id,
-        "attempt_id": command.attempt_id, "fencing_token": command.fencing_token,
+        "command_id": command.command_id,
+        "hub_task_id": task.id,
+        "tenant_id": command.tenant_id,
+        "workflow_id": command.workflow_id,
+        "run_id": command.run_id,
+        "node_id": command.node.node_id,
+        "attempt_id": command.attempt_id,
+        "fencing_token": command.fencing_token,
     }
     if any(getattr(result, field) != value for field, value in expected.items()) or result.status != task.status:
         raise ValueError("native_node_result_binding_mismatch")
@@ -57,11 +62,13 @@ def native_task_result(task, command):
         or native_context_digest(witness.get("native_node_result")) != native_context_digest(raw)
         or native_context_digest({k: v for k, v in nested.items() if k != "verification"}) != native_context_digest(raw)
         or native_context_digest(parsed.to_dict()) != native_context_digest(outer)
-        or parsed.hub_task_id != task.id or parsed.adapter_kind != "native"
+        or parsed.hub_task_id != task.id
+        or parsed.adapter_kind != "native"
         or parsed.status != {"completed": "success", "cancelled": "cancelled"}.get(result.status, "failed")
         or parsed.reason_code != result.reason_code
         or task.last_output != (parsed.summary or parsed.reason_code)
-        or type(task.last_exit_code) is not int or task.last_exit_code != (0 if result.status == "completed" else 1)
+        or type(task.last_exit_code) is not int
+        or task.last_exit_code != (0 if result.status == "completed" else 1)
     ):
         raise ValueError("native_result_envelope_invalid")
     if result.status == "completed":
@@ -71,20 +78,33 @@ def native_task_result(task, command):
 
 
 def native_result_digest(task):
-    return native_context_digest({
-        "status": task.status, "output": task.last_output, "exit_code": task.last_exit_code,
-        "verification": {k: v for k, v in (task.verification_status or {}).items() if k in {
-            "native_node_result", "workflow_adapter_task_result", "execution_artifacts",
-        }},
-    })
+    return native_context_digest(
+        {
+            "status": task.status,
+            "output": task.last_output,
+            "exit_code": task.last_exit_code,
+            "verification": {
+                k: v
+                for k, v in (task.verification_status or {}).items()
+                if k
+                in {
+                    "native_node_result",
+                    "workflow_adapter_task_result",
+                    "execution_artifacts",
+                }
+            },
+        }
+    )
 
 
 def require_native_result_receipt(task, command):
     receipt = (task.verification_status or {}).get(NATIVE_RESULT_RECEIPT)
     if (
-        not isinstance(receipt, dict) or receipt.get("schema") != "ananta.native-result-receipt.v1"
+        not isinstance(receipt, dict)
+        or receipt.get("schema") != "ananta.native-result-receipt.v1"
         or receipt.get("classification") != "technical_observation"
-        or receipt.get("hub_task_id") != task.id or receipt.get("tenant_id") != task.tenant_id
+        or receipt.get("hub_task_id") != task.id
+        or receipt.get("tenant_id") != task.tenant_id
         or receipt.get("project_id") != task.project_id
         or receipt.get("command_digest") != native_context_digest(command.to_dict())
         or receipt.get("result_digest") != native_result_digest(task)

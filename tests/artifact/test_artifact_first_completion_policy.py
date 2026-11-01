@@ -1,18 +1,14 @@
 """AFH-T009/T014: ArtifactCompletionPolicy and TaskCompletionPolicyService tests."""
+
 from __future__ import annotations
-
-import uuid
-from pathlib import Path
-
-import pytest
 
 from agent.services.task_completion_policy_service import get_task_completion_policy_service
 from worker.core.artifact_completion_policy import (
-    ArtifactCompletionPolicy,
     DECISION_COMPLETED,
+    DECISION_FAILED,
     DECISION_NEEDS_REVIEW,
     DECISION_RETRYABLE_FAILED,
-    DECISION_FAILED,
+    ArtifactCompletionPolicy,
 )
 
 
@@ -88,7 +84,12 @@ class TestArtifactCompletionPolicyDirect:
     def test_advisory_parse_failed_ignored_when_artifacts_pass(self) -> None:
         """Advisory parse failure must be ignored when artifacts are valid."""
         policy = ArtifactCompletionPolicy.for_task(task_id="t1")
-        advisory = {"parse_error": True, "error_classification": "invalid_json", "task_complete": None, "advisory": True}
+        advisory = {
+            "parse_error": True,
+            "error_classification": "invalid_json",
+            "task_complete": None,
+            "advisory": True,
+        }
         decision = policy.evaluate(
             validation_result=_make_valid_collection(),
             advisory_parse_result=advisory,
@@ -144,6 +145,7 @@ class TestTaskCompletionPolicyService:
     def test_service_to_status_mapping(self) -> None:
         svc = get_task_completion_policy_service()
         from worker.core.artifact_completion_policy import CompletionDecision
+
         assert svc.to_status(CompletionDecision(DECISION_COMPLETED)) == "completed"
         assert svc.to_status(CompletionDecision(DECISION_NEEDS_REVIEW)) == "needs_review"
         assert svc.to_status(CompletionDecision(DECISION_RETRYABLE_FAILED)) == "queued"
@@ -151,7 +153,12 @@ class TestTaskCompletionPolicyService:
 
     def test_advisory_parse_failure_logged_but_not_authoritative(self) -> None:
         svc = get_task_completion_policy_service()
-        advisory = {"parse_error": True, "error_classification": "missing_json", "task_complete": None, "advisory": True}
+        advisory = {
+            "parse_error": True,
+            "error_classification": "missing_json",
+            "task_complete": None,
+            "advisory": True,
+        }
         decision = svc.evaluate(
             task_id="t1",
             collection_result=_make_valid_collection(),

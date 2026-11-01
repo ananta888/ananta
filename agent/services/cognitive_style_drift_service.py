@@ -23,10 +23,7 @@ class CognitiveStyleDriftService:
         stale_after_days: int = 90,
     ) -> StyleProfileDriftReport:
         known = tuple(profiles)
-        entries = tuple(
-            self._entry(known, context, stale_after_days=max(1, stale_after_days))
-            for context in contexts
-        )
+        entries = tuple(self._entry(known, context, stale_after_days=max(1, stale_after_days)) for context in contexts)
         return StyleProfileDriftReport(
             benchmark_revision=CognitiveStyleBenchmarkSuite.REVISION,
             entries=entries,
@@ -40,10 +37,7 @@ class CognitiveStyleDriftService:
         *,
         stale_after_days: int,
     ) -> StyleProfileDriftEntry:
-        candidates = tuple(
-            item for item in profiles
-            if item.model_profile_id == context.model_profile_id
-        )
+        candidates = tuple(item for item in profiles if item.model_profile_id == context.model_profile_id)
         profile = max(candidates, key=lambda item: item.measured_at, default=None)
         if profile is None:
             return StyleProfileDriftEntry(
@@ -59,7 +53,9 @@ class CognitiveStyleDriftService:
         }
         if profile.model_revision != context.model_revision:
             return StyleProfileDriftEntry(
-                **common, status="model_revision_drift", rebenchmark_due=True,
+                **common,
+                status="model_revision_drift",
+                rebenchmark_due=True,
                 reason_codes=("style_model_revision_changed",),
             )
         context_pairs = (
@@ -73,12 +69,16 @@ class CognitiveStyleDriftService:
         )
         if any(current != measured for current, measured in context_pairs):
             return StyleProfileDriftEntry(
-                **common, status="measurement_context_drift", rebenchmark_due=True,
+                **common,
+                status="measurement_context_drift",
+                rebenchmark_due=True,
                 reason_codes=("style_measurement_context_changed",),
             )
         if profile.benchmark_revision != CognitiveStyleBenchmarkSuite.REVISION:
             return StyleProfileDriftEntry(
-                **common, status="benchmark_revision_drift", rebenchmark_due=True,
+                **common,
+                status="benchmark_revision_drift",
+                rebenchmark_due=True,
                 reason_codes=("style_benchmark_revision_changed",),
             )
         now = datetime.now(timezone.utc)
@@ -94,16 +94,22 @@ class CognitiveStyleDriftService:
                 expires = now
             if expires <= now:
                 return StyleProfileDriftEntry(
-                    **common, status="expired", rebenchmark_due=True,
+                    **common,
+                    status="expired",
+                    rebenchmark_due=True,
                     reason_codes=("style_profile_expired",),
                 )
         if age_days >= stale_after_days:
             return StyleProfileDriftEntry(
-                **common, status="stale", rebenchmark_due=True,
+                **common,
+                status="stale",
+                rebenchmark_due=True,
                 reason_codes=("style_profile_stale",),
             )
         return StyleProfileDriftEntry(
-            **common, status="current", rebenchmark_due=False,
+            **common,
+            status="current",
+            rebenchmark_due=False,
         )
 
 

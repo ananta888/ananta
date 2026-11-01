@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from client_surfaces.operator_tui.ai_snake_follow import apply_worker_follow_update, make_follow_state, step_follow_state
+from client_surfaces.operator_tui.ai_snake_follow import (
+    apply_worker_follow_update,
+    make_follow_state,
+    step_follow_state,
+)
 
 
 def test_follow_state_switches_lurk_to_follow_and_moves() -> None:
@@ -18,8 +22,12 @@ def test_follow_state_lingers_when_close() -> None:
 
 def test_worker_follow_update_applies_only_allowed_modes() -> None:
     state = make_follow_state(mode="follow")
-    changed = apply_worker_follow_update(state, follow_mode_update="point_to_target", prediction_target="section:tasks", confidence=0.8)
+    changed = apply_worker_follow_update(
+        state, follow_mode_update="point_to_target", prediction_target="section:tasks", confidence=0.8
+    )
     assert changed["mode"] == "point_to_target"
     assert changed["prediction_target"] == "section:tasks"
-    unchanged = apply_worker_follow_update(changed, follow_mode_update="dangerous_custom_mode", prediction_target="", confidence=0.1)
+    unchanged = apply_worker_follow_update(
+        changed, follow_mode_update="dangerous_custom_mode", prediction_target="", confidence=0.1
+    )
     assert unchanged["mode"] == "point_to_target"

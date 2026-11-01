@@ -84,11 +84,7 @@ class OpsApiClient:
         normalized_path = str(path or "").strip()
         if normalized_method not in {"GET", "POST"}:
             raise ValueError("hub_http_method_not_allowed")
-        if (
-            not normalized_path.startswith("/")
-            or normalized_path.startswith("//")
-            or "://" in normalized_path
-        ):
+        if not normalized_path.startswith("/") or normalized_path.startswith("//") or "://" in normalized_path:
             raise ValueError("hub_http_path_must_be_relative")
         url = f"{self._hub_url}{normalized_path}"
         request_headers = {"Accept": "application/json"}
@@ -160,10 +156,7 @@ class OpsApiClient:
         nested = payload.get("error")
         nested = nested if isinstance(nested, dict) else {}
         code = str(
-            nested.get("code")
-            or payload.get("reason_code")
-            or payload.get("message")
-            or f"hub_http_{status_code}"
+            nested.get("code") or payload.get("reason_code") or payload.get("message") or f"hub_http_{status_code}"
         )
         message = str(nested.get("message") or payload.get("message") or code)
         return code, message

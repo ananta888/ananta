@@ -32,20 +32,12 @@ def planning_transaction_lock(session: Session, scope_key: str) -> None:
     key stays clear of unrelated advisory-lock key spaces.
     """
 
-    dialect = str(
-        getattr(getattr(session.get_bind(), "dialect", None), "name", "")
-    )
+    dialect = str(getattr(getattr(session.get_bind(), "dialect", None), "name", ""))
     if dialect != "postgresql":
         return
-    digest = hashlib.sha256(
-        f"ananta:planning-transaction:v1:{scope_key}".encode("utf-8")
-    ).digest()
+    digest = hashlib.sha256(f"ananta:planning-transaction:v1:{scope_key}".encode("utf-8")).digest()
     lock_key = int.from_bytes(digest[:8], "big") & ((1 << 60) - 1)
-    session.exec(
-        text("SELECT pg_advisory_xact_lock(:lock_key)").bindparams(
-            lock_key=lock_key
-        )
-    )
+    session.exec(text("SELECT pg_advisory_xact_lock(:lock_key)").bindparams(lock_key=lock_key))
 
 
 class PlanningControlUnitOfWork:

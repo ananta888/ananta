@@ -33,7 +33,9 @@ class _FakeRunner:
 def test_goal_scoped_mode_does_not_patch_config(monkeypatch, tmp_path):
     mod = _load_runner_module()
     monkeypatch.setattr(mod, "AcceptanceRunner", _FakeRunner)
-    monkeypatch.setattr(mod, "run_once", lambda *args, **kwargs: mod.RunReport(run_index=1, final_goal_status="completed"))
+    monkeypatch.setattr(
+        mod, "run_once", lambda *args, **kwargs: mod.RunReport(run_index=1, final_goal_status="completed")
+    )
     monkeypatch.setattr(mod, "aggregate", lambda reports: {"repeatability_pass": True})
 
     out = tmp_path / "report.json"
@@ -59,7 +61,9 @@ def test_legacy_mode_applies_config_patch(monkeypatch, tmp_path):
     mod = _load_runner_module()
     _FakeRunner.instances.clear()
     monkeypatch.setattr(mod, "AcceptanceRunner", _FakeRunner)
-    monkeypatch.setattr(mod, "run_once", lambda *args, **kwargs: mod.RunReport(run_index=1, final_goal_status="completed"))
+    monkeypatch.setattr(
+        mod, "run_once", lambda *args, **kwargs: mod.RunReport(run_index=1, final_goal_status="completed")
+    )
     monkeypatch.setattr(mod, "aggregate", lambda reports: {"repeatability_pass": True})
 
     import sys

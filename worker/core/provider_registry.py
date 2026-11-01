@@ -12,6 +12,7 @@ AWF-T014: CredentialIsolationProof — verifies subprocess env is credential-cle
 AWF-T015: ProviderHealthGate — health check before dispatch.
 AWF-T016: ProviderProvenanceRef — tracks provider in all model-generated artifacts.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -23,6 +24,7 @@ from enum import Enum
 from typing import Any
 
 # ── Provider types ────────────────────────────────────────────────────────────
+
 
 class ProviderKind(str, Enum):
     local = "local"
@@ -40,17 +42,33 @@ class ProviderStatus(str, Enum):
     unknown = "unknown"
 
 
-CLOUD_PROVIDERS = frozenset({
-    "openai", "anthropic", "gemini", "groq", "openrouter", "bedrock", "azure",
-})
+CLOUD_PROVIDERS = frozenset(
+    {
+        "openai",
+        "anthropic",
+        "gemini",
+        "groq",
+        "openrouter",
+        "bedrock",
+        "azure",
+    }
+)
 
-LOCAL_PROVIDERS = frozenset({
-    "ollama", "lmstudio", "llamacpp", "textgen_webui", "koboldcpp",
-    "openai_compatible", "local_mock",
-})
+LOCAL_PROVIDERS = frozenset(
+    {
+        "ollama",
+        "lmstudio",
+        "llamacpp",
+        "textgen_webui",
+        "koboldcpp",
+        "openai_compatible",
+        "local_mock",
+    }
+)
 
 
 # ── AuxiliaryTaskKind ─────────────────────────────────────────────────────────
+
 
 class AuxiliaryTaskKind(str, Enum):
     compression = "compression"
@@ -62,6 +80,7 @@ class AuxiliaryTaskKind(str, Enum):
 
 
 # ── Credential store ──────────────────────────────────────────────────────────
+
 
 class CredentialStore:
     """Scopes API keys to (provider_id, base_url). EW-T023.
@@ -117,11 +136,20 @@ def _provider_env_var(provider_id: str) -> str:
     return mapping.get(provider_id.lower(), "")
 
 
-_ALL_PROVIDER_KEY_VARS = frozenset({
-    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY",
-    "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AZURE_OPENAI_API_KEY",
-    "GOOGLE_API_KEY", "HF_TOKEN", "GITHUB_TOKEN",
-})
+_ALL_PROVIDER_KEY_VARS = frozenset(
+    {
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GROQ_API_KEY",
+        "OPENROUTER_API_KEY",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AZURE_OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "HF_TOKEN",
+        "GITHUB_TOKEN",
+    }
+)
 
 
 def _is_provider_key_var(name: str) -> bool:
@@ -129,6 +157,7 @@ def _is_provider_key_var(name: str) -> bool:
 
 
 # ── ProviderEntry ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ProviderEntry:
@@ -139,7 +168,7 @@ class ProviderEntry:
     supports_streaming: bool = False
     default_model: str | None = None
     credential_source: str = ""  # e.g. "env:OPENAI_API_KEY", "keychain:provider_id"
-    priority: int = 100          # lower = higher priority; local providers get lower numbers
+    priority: int = 100  # lower = higher priority; local providers get lower numbers
 
     def safe_info(self) -> dict[str, Any]:
         """Safe representation — never includes credentials or raw secrets. EW-T025."""
@@ -175,9 +204,11 @@ def _safe_credential_reference(value: str) -> str:
 
 # ── AuxiliaryPolicy ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class AuxiliaryPolicy:
     """Per-task-kind policy for auxiliary (non-primary) model calls. EW-T024."""
+
     auxiliary_allowed_providers: list[str] = field(default_factory=list)
     cloud_allowed_for_auxiliary: bool = False
 
@@ -209,6 +240,7 @@ class AuxiliaryPolicy:
 
 # ── ProviderDiagnostics ───────────────────────────────────────────────────────
 
+
 @dataclass
 class ProviderDiagnostic:
     provider_id: str
@@ -233,6 +265,7 @@ class ProviderDiagnostic:
 
 
 # ── WorkerProviderRegistry ────────────────────────────────────────────────────
+
 
 class WorkerProviderRegistry:
     """Registry of all model providers available to this worker.
@@ -317,9 +350,7 @@ class WorkerProviderRegistry:
         """Scoped subprocess env for this provider. EW-T023."""
         entry = self._providers.get(provider_id.lower())
         base_url = entry.base_url if entry else ""
-        return self._credentials.env_for_subprocess(
-            provider_id, base_url, inherit_env=inherit_env
-        )
+        return self._credentials.env_for_subprocess(provider_id, base_url, inherit_env=inherit_env)
 
     # ── Diagnostics ──────────────────────────────────────────────────────────
 
@@ -337,17 +368,16 @@ class WorkerProviderRegistry:
     def capability_info(self) -> list[dict[str, Any]]:
         """Container-safe descriptors consumed by the Hub capability adapter."""
 
-        return [
-            provider.capability_info()
-            for provider in sorted(self._providers.values(), key=lambda entry: entry.id)
-        ]
+        return [provider.capability_info() for provider in sorted(self._providers.values(), key=lambda entry: entry.id)]
 
 
 # ── ProviderSelectionGate (AWF-T012, AWF-T013) ───────────────────────────────
 
+
 @dataclass(frozen=True)
 class ModelPolicy:
     """Portable model policy — mirrors ExecutionEnvelope.ModelPolicy for standalone use."""
+
     cloud_allowed: bool = False
     allowed_providers: list[str] = field(default_factory=list)
     preferred_model: str | None = None
@@ -381,9 +411,7 @@ class AiSnakeProviderConfig:
             budgets=dict(budgets),
             cloud_allowed=bool(source.get("cloud_allowed", False)),
             allowed_providers=[
-                str(item).strip()
-                for item in list(source.get("allowed_providers") or [])
-                if str(item).strip()
+                str(item).strip() for item in list(source.get("allowed_providers") or []) if str(item).strip()
             ],
         )
 
@@ -461,16 +489,27 @@ class ProviderSelectionGate:
 
 # ── CredentialIsolationProof (AWF-T014) ───────────────────────────────────────
 
-_KNOWN_CREDENTIAL_ENV_VARS: frozenset[str] = frozenset({
-    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY",
-    "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AZURE_OPENAI_API_KEY",
-    "GOOGLE_API_KEY", "HF_TOKEN", "GITHUB_TOKEN", "COHERE_API_KEY",
-})
+_KNOWN_CREDENTIAL_ENV_VARS: frozenset[str] = frozenset(
+    {
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GROQ_API_KEY",
+        "OPENROUTER_API_KEY",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AZURE_OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "HF_TOKEN",
+        "GITHUB_TOKEN",
+        "COHERE_API_KEY",
+    }
+)
 
 
 @dataclass(frozen=True)
 class CredentialIsolationProof:
     """Attestation that a subprocess env contains no leaked credentials. AWF-T014."""
+
     provider_id: str
     credential_vars_present: frozenset[str]
     credential_vars_leaked: frozenset[str]
@@ -491,6 +530,7 @@ class CredentialIsolationProof:
 
 
 # ── ProviderHealthGate (AWF-T015) ─────────────────────────────────────────────
+
 
 class ProviderHealthGate:
     """Lightweight availability check before provider dispatch. AWF-T015.
@@ -569,6 +609,7 @@ class ProviderHealthGate:
 
 # ── ProviderProvenanceRef (AWF-T016) ─────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ProviderProvenanceRef:
     """Attestation of which provider produced a model-generated artifact. AWF-T016.
@@ -576,10 +617,11 @@ class ProviderProvenanceRef:
     Included in all artifacts produced by model/provider calls so the Hub
     can audit the chain: task → envelope → provider → artifact.
     """
+
     provider_id: str
     model_id: str
     base_url: str = ""
-    entry_hash: str = ""        # sha256 of safe_info() at time of call
+    entry_hash: str = ""  # sha256 of safe_info() at time of call
 
     @classmethod
     def from_entry(cls, entry: ProviderEntry, *, model_id: str) -> "ProviderProvenanceRef":
@@ -613,42 +655,53 @@ class ProviderProvenanceRef:
 
 # ── Default registry ──────────────────────────────────────────────────────────
 
+
 def build_default_provider_registry() -> WorkerProviderRegistry:
     registry = WorkerProviderRegistry()
-    registry.register(ProviderEntry(
-        id="ollama",
-        kind=ProviderKind.local,
-        base_url="http://localhost:11434",
-        supports_streaming=True,
-        priority=10,
-    ))
-    registry.register(ProviderEntry(
-        id="lmstudio",
-        kind=ProviderKind.local,
-        base_url="http://localhost:1234/v1",
-        supports_tools=True,
-        supports_streaming=True,
-        priority=20,
-    ))
-    registry.register(ProviderEntry(
-        id="openai_compatible",
-        kind=ProviderKind.local,
-        base_url="http://localhost:8080/v1",
-        supports_tools=True,
-        priority=30,
-    ))
-    registry.register(ProviderEntry(
-        id="local_mock",
-        kind=ProviderKind.local_mock,
-        priority=99,
-        supports_tools=True,
-    ))
-    for cloud_id in ["openai", "anthropic", "gemini", "groq", "openrouter"]:
-        registry.register(ProviderEntry(
-            id=cloud_id,
-            kind=ProviderKind.cloud,
+    registry.register(
+        ProviderEntry(
+            id="ollama",
+            kind=ProviderKind.local,
+            base_url="http://localhost:11434",
+            supports_streaming=True,
+            priority=10,
+        )
+    )
+    registry.register(
+        ProviderEntry(
+            id="lmstudio",
+            kind=ProviderKind.local,
+            base_url="http://localhost:1234/v1",
             supports_tools=True,
             supports_streaming=True,
-            priority=200,
-        ))
+            priority=20,
+        )
+    )
+    registry.register(
+        ProviderEntry(
+            id="openai_compatible",
+            kind=ProviderKind.local,
+            base_url="http://localhost:8080/v1",
+            supports_tools=True,
+            priority=30,
+        )
+    )
+    registry.register(
+        ProviderEntry(
+            id="local_mock",
+            kind=ProviderKind.local_mock,
+            priority=99,
+            supports_tools=True,
+        )
+    )
+    for cloud_id in ["openai", "anthropic", "gemini", "groq", "openrouter"]:
+        registry.register(
+            ProviderEntry(
+                id=cloud_id,
+                kind=ProviderKind.cloud,
+                supports_tools=True,
+                supports_streaming=True,
+                priority=200,
+            )
+        )
     return registry

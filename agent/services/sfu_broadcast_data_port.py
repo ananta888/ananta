@@ -65,12 +65,15 @@ class AuthorizedSfuDataAudienceV1:
         )
         if any(not _identifier(value) for value in identifiers):
             raise ValueError("sfu_data_audience_identifier_invalid")
-        if any(type(value) is not int or value < 1 for value in (
-            self.membership_epoch,
-            self.route_epoch,
-            self.key_epoch,
-            self.expires_at_ms,
-        )):
+        if any(
+            type(value) is not int or value < 1
+            for value in (
+                self.membership_epoch,
+                self.route_epoch,
+                self.key_epoch,
+                self.expires_at_ms,
+            )
+        ):
             raise ValueError("sfu_data_audience_epoch_invalid")
         if not self.destination_handles or tuple(sorted(set(self.destination_handles))) != self.destination_handles:
             raise ValueError("sfu_data_audience_not_canonical")

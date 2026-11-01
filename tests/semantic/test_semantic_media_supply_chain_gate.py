@@ -43,19 +43,26 @@ def _reports(*, critical: int = 0, high: int = 0, exception: bool = False):
                 "findings": (
                     [
                         {
-                            "finding_id": f"CVE-critical-{index}", "severity": "critical",
-                            "package": "package-hub", "version": "1.0.0", "fix_state": "fixed",
+                            "finding_id": f"CVE-critical-{index}",
+                            "severity": "critical",
+                            "package": "package-hub",
+                            "version": "1.0.0",
+                            "fix_state": "fixed",
                         }
                         for index in range(critical)
                     ]
                     + [
                         {
-                            "finding_id": f"CVE-high-{index}", "severity": "high",
-                            "package": "package-hub", "version": "1.0.0", "fix_state": "fixed",
+                            "finding_id": f"CVE-high-{index}",
+                            "severity": "high",
+                            "package": "package-hub",
+                            "version": "1.0.0",
+                            "fix_state": "fixed",
                         }
                         for index in range(high)
                     ]
-                    if name == "hub" else []
+                    if name == "hub"
+                    else []
                 ),
                 "exceptions": (
                     [

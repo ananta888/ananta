@@ -9,9 +9,7 @@ def test_aider_routing_dimensions_report_client_independent_inference_target() -
         agent_cfg={
             "default_provider": "openai",
             "aider_cli": {"target_provider": "local_coder", "model": "qwen3-coder"},
-            "local_openai_backends": [
-                {"id": "local_coder", "base_url": "http://127.0.0.1:9000/v1"}
-            ],
+            "local_openai_backends": [{"id": "local_coder", "base_url": "http://127.0.0.1:9000/v1"}],
         },
     )
 

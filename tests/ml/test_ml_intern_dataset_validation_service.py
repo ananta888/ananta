@@ -1,7 +1,6 @@
 """Tests fuer ml_intern_dataset_validation_service (MLLORA-008/009)."""
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -28,10 +27,18 @@ def tmp(tmp_path):
 
 def test_valid_instruction_dataset(svc, tmp):
     p = tmp / "train.jsonl"
-    _write_jsonl(p, [
-        {"instruction": "Was ist 2+2?", "output": "4", "source_ref": "synthetic", "privacy_class": "public"},
-        {"instruction": "Beschreibe Python.", "output": "Python ist eine Programmiersprache.", "source_ref": "synthetic", "privacy_class": "public"},
-    ])
+    _write_jsonl(
+        p,
+        [
+            {"instruction": "Was ist 2+2?", "output": "4", "source_ref": "synthetic", "privacy_class": "public"},
+            {
+                "instruction": "Beschreibe Python.",
+                "output": "Python ist eine Programmiersprache.",
+                "source_ref": "synthetic",
+                "privacy_class": "public",
+            },
+        ],
+    )
     report = svc.validate(p, require_secret_scan=True)
     assert report.ok is True
     assert report.accepted_record_count == 2
@@ -115,8 +122,11 @@ def test_fake_private_key_detected(svc, tmp):
 def test_secret_override_documented(svc, tmp):
     p = tmp / "override.jsonl"
     _write_jsonl(p, [{"instruction": "x", "output": "api_key: sk-abcdefghijklmnop12345678901234567890"}])
-    report = svc.validate(p, require_secret_scan=True,
-        explicit_override={"reason": "synthetic test data, not real secrets", "overrides": {}})
+    report = svc.validate(
+        p,
+        require_secret_scan=True,
+        explicit_override={"reason": "synthetic test data, not real secrets", "overrides": {}},
+    )
     assert report.secret_scan_passed is True
     assert any("override" in w.error_type for w in report.warnings)
 
@@ -135,13 +145,18 @@ def test_require_secret_scan_false_not_default(svc, tmp):
 
 def test_chat_format_valid(svc, tmp):
     p = tmp / "chat.jsonl"
-    _write_jsonl(p, [{
-        "messages": [
-            {"role": "user", "content": "Hallo"},
-            {"role": "assistant", "content": "Hallo! Wie kann ich helfen?"}
+    _write_jsonl(
+        p,
+        [
+            {
+                "messages": [
+                    {"role": "user", "content": "Hallo"},
+                    {"role": "assistant", "content": "Hallo! Wie kann ich helfen?"},
+                ],
+                "privacy_class": "public",
+            }
         ],
-        "privacy_class": "public"
-    }])
+    )
     report = svc.validate(p, require_secret_scan=False)
     assert report.ok is True
     assert report.format_type == "chat"
@@ -149,12 +164,7 @@ def test_chat_format_valid(svc, tmp):
 
 def test_chat_format_empty_assistant_rejected(svc, tmp):
     p = tmp / "chat_bad.jsonl"
-    _write_jsonl(p, [{
-        "messages": [
-            {"role": "user", "content": "Hallo"},
-            {"role": "assistant", "content": ""}
-        ]
-    }])
+    _write_jsonl(p, [{"messages": [{"role": "user", "content": "Hallo"}, {"role": "assistant", "content": ""}]}])
     report = svc.validate(p, require_secret_scan=False)
     assert report.ok is False
 

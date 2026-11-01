@@ -31,46 +31,75 @@ from ananta_contracts.specialist_decision import SpecialistDecisionContract
 
 
 def build_hub_specialist_factory(
-    *, principal: MlInternTrainingPrincipal, contract: SpecialistDecisionContract,
-    control: SpecialistTrainingControlPort, repository: MlInternTrainingRepository,
-    catalog: MlInternDatasetCatalogService, bridge: MlInternDatasetRepositoryBridgeService,
-    registry: MlInternAdapterRegistryService, artifact_root: Path, dataset_root: Path,
-    model_catalog: Mapping[str, Mapping[str, Any]], policy: SpecialistPromotionPolicy,
-    benchmark_version: str, backend: str, mode: str, timeout_seconds: float = 3600,
+    *,
+    principal: MlInternTrainingPrincipal,
+    contract: SpecialistDecisionContract,
+    control: SpecialistTrainingControlPort,
+    repository: MlInternTrainingRepository,
+    catalog: MlInternDatasetCatalogService,
+    bridge: MlInternDatasetRepositoryBridgeService,
+    registry: MlInternAdapterRegistryService,
+    artifact_root: Path,
+    dataset_root: Path,
+    model_catalog: Mapping[str, Mapping[str, Any]],
+    policy: SpecialistPromotionPolicy,
+    benchmark_version: str,
+    backend: str,
+    mode: str,
+    timeout_seconds: float = 3600,
 ) -> SpecialistModelFactory:
     """Wire existing Hub-owned services; productive promotion remains Evidence-gated."""
     storage = ConfinedSpecialistPredictionStorage(artifact_root=artifact_root, dataset_root=dataset_root)
     outcomes = SpecialistTrainingOutcomeService(
-        repository=repository, registry=registry, artifact_root=artifact_root,
-        model_catalog=model_catalog, open_artifact=storage.open_artifact,
+        repository=repository,
+        registry=registry,
+        artifact_root=artifact_root,
+        model_catalog=model_catalog,
+        open_artifact=storage.open_artifact,
     )
     datasets = HubSpecialistDatasetAdmission(catalog=catalog, bridge=bridge, principal=principal)
     training = HubSpecialistTrainer(
-        principal=principal, repository=repository, outcomes=outcomes,
+        principal=principal,
+        repository=repository,
+        outcomes=outcomes,
         submission=HubSpecialistJobSubmission(control=control, principal=principal, timeout_seconds=timeout_seconds),
     )
     predictions = SpecialistJobPredictionService(repository=repository, storage=storage)
     evaluation = HubSpecialistEvaluation(
-        principal=principal, repository=repository,
+        principal=principal,
+        repository=repository,
         submission=HubSpecialistJobSubmission(
-            control=control, principal=principal, job_type="evaluate_lora", timeout_seconds=timeout_seconds,
+            control=control,
+            principal=principal,
+            job_type="evaluate_lora",
+            timeout_seconds=timeout_seconds,
         ),
         predictions=predictions,
     )
     registration = HubSpecialistCandidateRegistration(
-        principal=principal, registry=registry,
+        principal=principal,
+        registry=registry,
         reports=SpecialistBenchmarkProjectionStore(artifact_root=artifact_root),
         candidates=SpecialistRuntimeCandidateService(
-            registry=registry, outcomes=outcomes,
+            registry=registry,
+            outcomes=outcomes,
             evaluation_receipts=SpecialistEvaluationReceiptReader(repository=repository, predictions=predictions),
         ),
     )
     return SpecialistModelFactory(
-        contract, trainer=training,
+        contract,
+        trainer=training,
         partition_predictor=HubSpecialistPartitionPredictor(
-            strategy=SpecialistTrainingTaskFamilyStrategy(contract), datasets=datasets, evaluation=evaluation,
+            strategy=SpecialistTrainingTaskFamilyStrategy(contract),
+            datasets=datasets,
+            evaluation=evaluation,
         ),
-        registry=registry, policy=policy, benchmark_version=benchmark_version, backend=backend, mode=mode,
-        dataset_admission=datasets, candidate_registration=registration,
+        registry=registry,
+        policy=policy,
+        benchmark_version=benchmark_version,
+        backend=backend,
+        mode=mode,
+        dataset_admission=datasets,
+        candidate_registration=registration,
         lifecycle=HubSpecialistLifecycle(principal=principal, registry=registry),
     )

@@ -3,6 +3,7 @@
 Re-runs a simulation from a checkpoint using the same random seed and
 a scripted (recorded) adapter so results are reproducible.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,9 +13,8 @@ from typing import Any, Iterator
 from simulation.adapters.dummy import ScriptedAdapter
 from simulation.adapters.model_strategy import ModelStrategyResolver
 from simulation.engine.budget_guard import BudgetGuard
-from simulation.engine.checkpoint import CheckpointManager
 from simulation.engine.tick_runner import TickResult, TickRunner
-from simulation.models.scenario import BudgetConfig, ScenarioConfig
+from simulation.models.scenario import ScenarioConfig
 from simulation.models.world_state import WorldState
 
 
@@ -25,13 +25,14 @@ class ReplayTrace:
         self._ticks: list[dict[str, Any]] = []
 
     def record(self, result: TickResult) -> None:
-        self._ticks.append({
-            "tick": result.tick,
-            "decisions": {
-                aid: d.get("proposal", {}).get("action_type", "noop")
-                for aid, d in result.agent_decisions.items()
-            },
-        })
+        self._ticks.append(
+            {
+                "tick": result.tick,
+                "decisions": {
+                    aid: d.get("proposal", {}).get("action_type", "noop") for aid, d in result.agent_decisions.items()
+                },
+            }
+        )
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(self._ticks, indent=2), encoding="utf-8")
@@ -49,8 +50,7 @@ class ReplayTrace:
 class ReplayRunner:
     """Runs a simulation replay from a checkpoint + trace."""
 
-    def __init__(self, checkpoint: WorldState, trace: ReplayTrace,
-                  scenario: ScenarioConfig) -> None:
+    def __init__(self, checkpoint: WorldState, trace: ReplayTrace, scenario: ScenarioConfig) -> None:
         self._initial_state = checkpoint.snapshot()
         self._trace = trace
         self._scenario = scenario
@@ -65,7 +65,7 @@ class ReplayRunner:
             def build(self, entry: ModelStrategyEntry):  # type: ignore[override]
                 return ScriptedAdapter(["noop"])  # placeholder; per-agent set below
 
-        resolver = ModelStrategyResolver(self._scenario)
+        ModelStrategyResolver(self._scenario)
 
         # Override per agent
         agent_adapters = {}

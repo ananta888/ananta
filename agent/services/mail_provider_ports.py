@@ -192,8 +192,7 @@ class VerifiedMailContentAccess:
 
 
 class MailContentAccessPolicy(Protocol):
-    def authorize(self, request: MailContentAccessRequest) -> MailProviderResult[MailContentAccessDecision]:
-        ...
+    def authorize(self, request: MailContentAccessRequest) -> MailProviderResult[MailContentAccessDecision]: ...
 
 
 class MailContentAccessVerifier:
@@ -226,7 +225,9 @@ class MailContentAccessVerifier:
         decision = decision_result.value
         if not decision_result.ok or decision is None or not decision.allowed:
             return MailProviderResult.failure(
-                decision.reason_code if decision is not None else decision_result.reason_code or "mail_content_access_denied"
+                decision.reason_code
+                if decision is not None
+                else decision_result.reason_code or "mail_content_access_denied"
             )
         if not all((decision.policy_decision_ref, decision.expires_at, decision.nonce)):
             return MailProviderResult.failure("mail_content_access_decision_incomplete")
@@ -318,34 +319,26 @@ class MailSyncDelta:
 
 
 class MailLifecyclePort(Protocol):
-    def connect(
-        self, account: MailAccountV2, auth: MailAuthMaterial
-    ) -> MailProviderResult[MailProviderSession]:
-        ...
+    def connect(self, account: MailAccountV2, auth: MailAuthMaterial) -> MailProviderResult[MailProviderSession]: ...
 
-    def disconnect(self, session: MailProviderSession) -> MailProviderResult[None]:
-        ...
+    def disconnect(self, session: MailProviderSession) -> MailProviderResult[None]: ...
 
 
 class MailCapabilitiesPort(Protocol):
-    def capabilities(self, session: MailProviderSession) -> MailProviderResult[MailProviderCapabilities]:
-        ...
+    def capabilities(self, session: MailProviderSession) -> MailProviderResult[MailProviderCapabilities]: ...
 
 
 class MailReadPort(Protocol):
-    def list_mailboxes(self, session: MailProviderSession) -> MailProviderResult[tuple[MailMailbox, ...]]:
-        ...
+    def list_mailboxes(self, session: MailProviderSession) -> MailProviderResult[tuple[MailMailbox, ...]]: ...
 
-    def query_messages(self, session: MailProviderSession, query: MailQuery) -> MailProviderResult[MailQueryPage]:
-        ...
+    def query_messages(self, session: MailProviderSession, query: MailQuery) -> MailProviderResult[MailQueryPage]: ...
 
     def get_messages(
         self,
         session: MailProviderSession,
         ids: Sequence[str],
         properties: Sequence[str] = (),
-    ) -> MailProviderResult[tuple[MailMessage, ...]]:
-        ...
+    ) -> MailProviderResult[tuple[MailMessage, ...]]: ...
 
 
 class MailBodyPort(Protocol):
@@ -355,8 +348,7 @@ class MailBodyPort(Protocol):
         message_ref: MailMessageRefV2,
         *,
         access: VerifiedMailContentAccess,
-    ) -> MailProviderResult[MailBody]:
-        ...
+    ) -> MailProviderResult[MailBody]: ...
 
     def get_attachments(
         self,
@@ -364,8 +356,7 @@ class MailBodyPort(Protocol):
         message_ref: MailMessageRefV2,
         *,
         access: VerifiedMailContentAccess,
-    ) -> MailProviderResult[tuple[MailAttachment, ...]]:
-        ...
+    ) -> MailProviderResult[tuple[MailAttachment, ...]]: ...
 
 
 class MailMutationPort(Protocol):
@@ -375,8 +366,7 @@ class MailMutationPort(Protocol):
         changes: Sequence[MailKeywordChange],
         *,
         if_in_state: str | None = None,
-    ) -> MailProviderResult[MailMutationReport]:
-        ...
+    ) -> MailProviderResult[MailMutationReport]: ...
 
     def move_messages(
         self,
@@ -384,8 +374,7 @@ class MailMutationPort(Protocol):
         moves: Sequence[MailMoveRequest],
         *,
         if_in_state: str | None = None,
-    ) -> MailProviderResult[MailMutationReport]:
-        ...
+    ) -> MailProviderResult[MailMutationReport]: ...
 
     def delete_messages(
         self,
@@ -393,8 +382,7 @@ class MailMutationPort(Protocol):
         deletes: Sequence[MailDeleteRequest],
         *,
         if_in_state: str | None = None,
-    ) -> MailProviderResult[MailMutationReport]:
-        ...
+    ) -> MailProviderResult[MailMutationReport]: ...
 
 
 class MailSyncPort(Protocol):
@@ -403,8 +391,7 @@ class MailSyncPort(Protocol):
         session: MailProviderSession,
         cursor: MailSyncCursor | None,
         policy: str,
-    ) -> MailProviderResult[MailSyncDelta]:
-        ...
+    ) -> MailProviderResult[MailSyncDelta]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -419,5 +406,4 @@ class MailProviderBinding:
 
 
 class MailProviderFactory(Protocol):
-    def create(self, account: MailAccountV2) -> MailProviderResult[MailProviderBinding]:
-        ...
+    def create(self, account: MailAccountV2) -> MailProviderResult[MailProviderBinding]: ...

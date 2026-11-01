@@ -37,4 +37,3 @@ def test_hash_provider_remains_backward_compatible():
     assert len(vectors) == 2
     assert len(vectors[0]) == 4
     assert vectors[0] != vectors[1]
-

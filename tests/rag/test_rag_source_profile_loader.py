@@ -86,4 +86,3 @@ def test_rag_source_profile_loader_rejects_missing_indexing_config(tmp_path: Pat
 
     with pytest.raises(ValueError, match="indexing_config_ref|indexing config"):
         loader.load_from_descriptors(descriptors)
-

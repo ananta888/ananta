@@ -1,10 +1,10 @@
 """Prompt Injection Protection (SIM-035)."""
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from typing import Any
-
 
 # Patterns that suggest injection in LLM-generated text
 _INJECTION_PATTERNS = [

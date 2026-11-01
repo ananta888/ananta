@@ -242,8 +242,7 @@ class SeedBlueprintCatalog:
         default_failure_policy = str(raw.get("default_failure_policy") or "block")
         if default_failure_policy not in {"block", "skip", "manual"}:
             raise ValueError(
-                f"seed blueprint {blueprint_name} workflow.default_failure_policy invalid: "
-                f"{default_failure_policy}"
+                f"seed blueprint {blueprint_name} workflow.default_failure_policy invalid: {default_failure_policy}"
             )
 
         raw_steps = list(raw.get("steps") or [])
@@ -253,25 +252,17 @@ class SeedBlueprintCatalog:
 
         for index, step in enumerate(raw_steps, start=1):
             if not isinstance(step, dict):
-                raise ValueError(
-                    f"seed blueprint {blueprint_name} workflow.steps[{index}] must be an object"
-                )
+                raise ValueError(f"seed blueprint {blueprint_name} workflow.steps[{index}] must be an object")
             step_id = str(step.get("id") or "").strip()
             if not step_id:
-                raise ValueError(
-                    f"seed blueprint {blueprint_name} workflow.steps[{index}] missing id"
-                )
+                raise ValueError(f"seed blueprint {blueprint_name} workflow.steps[{index}] missing id")
             if step_id in seen_step_ids:
-                raise ValueError(
-                    f"seed blueprint {blueprint_name} has duplicate workflow step id: {step_id}"
-                )
+                raise ValueError(f"seed blueprint {blueprint_name} has duplicate workflow step id: {step_id}")
             seen_step_ids.add(step_id)
 
             role_name = str(step.get("role") or "").strip()
             if not role_name:
-                raise ValueError(
-                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}] missing role"
-                )
+                raise ValueError(f"seed blueprint {blueprint_name} workflow.steps[{step_id}] missing role")
             if role_name.lower() not in role_names:
                 raise ValueError(
                     f"seed blueprint {blueprint_name} workflow.steps[{step_id}].role "
@@ -287,10 +278,7 @@ class SeedBlueprintCatalog:
                     f"requires a non-empty 'checks' object"
                 )
             if checks is not None and not isinstance(checks, dict):
-                raise ValueError(
-                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}].checks "
-                    f"must be an object"
-                )
+                raise ValueError(f"seed blueprint {blueprint_name} workflow.steps[{step_id}].checks must be an object")
 
             failure_policy = step.get("failure_policy")
             if failure_policy is not None and failure_policy not in {"block", "skip", "manual"}:
@@ -300,9 +288,11 @@ class SeedBlueprintCatalog:
                 )
 
             raw_hints = step.get("pattern_hints")
-            pattern_hints = _normalize_pattern_hints(
-                raw_hints, blueprint_name=blueprint_name, step_id=step_id
-            ) if raw_hints is not None else None
+            pattern_hints = (
+                _normalize_pattern_hints(raw_hints, blueprint_name=blueprint_name, step_id=step_id)
+                if raw_hints is not None
+                else None
+            )
 
             normalized = {
                 "id": step_id,
@@ -350,9 +340,7 @@ class SeedBlueprintCatalog:
                         ready.append(step["id"])
             ready.sort(key=lambda s: (by_id[s]["sort_order"], s))
         if len(topo) != len(by_id):
-            raise ValueError(
-                f"seed blueprint {blueprint_name} workflow.steps contain a cycle"
-            )
+            raise ValueError(f"seed blueprint {blueprint_name} workflow.steps contain a cycle")
 
         return {
             "mode": mode,
@@ -383,10 +371,7 @@ def _normalize_pattern_hints(
     a preferred ID is not also in allowed_patterns (would silently ignore it).
     """
     if not isinstance(raw, dict):
-        raise ValueError(
-            f"seed blueprint {blueprint_name} workflow.steps[{step_id}].pattern_hints "
-            "must be an object"
-        )
+        raise ValueError(f"seed blueprint {blueprint_name} workflow.steps[{step_id}].pattern_hints must be an object")
 
     def _ids(key: str) -> list[str]:
         items = list(raw.get(key) or [])
@@ -407,9 +392,7 @@ def _normalize_pattern_hints(
     preferred = _ids("preferred_patterns")
     forbidden = _ids("forbid_patterns")
     language_targets = [
-        str(x or "").strip().lower()
-        for x in list(raw.get("language_targets") or [])
-        if str(x or "").strip()
+        str(x or "").strip().lower() for x in list(raw.get("language_targets") or []) if str(x or "").strip()
     ]
     require_tests = bool(raw.get("require_tests", True))
 

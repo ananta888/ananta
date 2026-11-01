@@ -50,9 +50,11 @@ _ERROR_HOOKS = """() => {
   });
 }"""
 _FAILURE_PROBES = {
-    "join": ("() => ({ error: window.__joinError, now: Date.now(),"
-             " e2ee: window.__diag && window.__diag.cfg && window.__diag.cfg.mediaE2ee,"
-             " session: window.__diag && window.__diag.session })"),
+    "join": (
+        "() => ({ error: window.__joinError, now: Date.now(),"
+        " e2ee: window.__diag && window.__diag.cfg && window.__diag.cfg.mediaE2ee,"
+        " session: window.__diag && window.__diag.session })"
+    ),
     "publish": "() => ({ error: window.__publishError, status: window.anantaMachine.status() })",
     "crypto": "() => window.__diag && window.__diag.crypto",
 }

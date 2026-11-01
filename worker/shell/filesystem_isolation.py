@@ -40,14 +40,31 @@ def isolated_command(argv, *, workspace, environment, readonly_paths=(), allowed
     private = Path(configured)
     root = Path(workspace).resolve(strict=True)
     implementation = Path(__file__).resolve().parent
-    if (not private.is_absolute() or private.is_symlink()
-            or private.parent.resolve(strict=True) != private.parent
-            or _overlaps(root, private.parent) or root == implementation or root in implementation.parents):
+    if (
+        not private.is_absolute()
+        or private.is_symlink()
+        or private.parent.resolve(strict=True) != private.parent
+        or _overlaps(root, private.parent)
+        or root == implementation
+        or root in implementation.parents
+    ):
         raise PermissionError("native_tool_filesystem_binding_denied")
-    candidates = ["/usr", "/bin", "/lib", "/lib64", sys.prefix,
-                  "/etc/ld.so.cache", "/etc/localtime", "/etc/passwd", "/etc/group",
-                  "/etc/nsswitch.conf", "/etc/ssl/certs", "/etc/ssl/openssl.cnf",
-                  "/dev/null", "/dev/urandom"]
+    candidates = [
+        "/usr",
+        "/bin",
+        "/lib",
+        "/lib64",
+        sys.prefix,
+        "/etc/ld.so.cache",
+        "/etc/localtime",
+        "/etc/passwd",
+        "/etc/group",
+        "/etc/nsswitch.conf",
+        "/etc/ssl/certs",
+        "/etc/ssl/openssl.cnf",
+        "/dev/null",
+        "/dev/urandom",
+    ]
     if len(readonly_paths) > 16 or len(allowed_environment_keys) > 16:
         raise PermissionError("native_tool_filesystem_profile_invalid")
     candidates.extend(str(Path(path).resolve(strict=True)) for path in readonly_paths)
@@ -57,8 +74,16 @@ def isolated_command(argv, *, workspace, environment, readonly_paths=(), allowed
     # Python isolated mode ignores PYTHONPATH/site configuration. The launcher
     # receives no dynamic-loader, provider, service-token or result-store env.
     allowed = {"PATH", "LANG", "LC_ALL"} | set(allowed_environment_keys)
-    if allowed & {"LD_PRELOAD", "LD_LIBRARY_PATH", "PYTHONPATH", "PYTHONHOME", "NODE_OPTIONS",
-                  "AGENT_TOKEN", "SECRET_KEY", "ANANTA_NATIVE_RESULT_STORE_PATH"}:
+    if allowed & {
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "NODE_OPTIONS",
+        "AGENT_TOKEN",
+        "SECRET_KEY",
+        "ANANTA_NATIVE_RESULT_STORE_PATH",
+    }:
         raise PermissionError("native_tool_filesystem_profile_invalid")
     bounded = {key: value for key, value in environment.items() if key in allowed}
     bounded.update(HOME=str(root), TMPDIR=str(root))
@@ -67,8 +92,9 @@ def isolated_command(argv, *, workspace, environment, readonly_paths=(), allowed
     try:
         if os.readlink(f"/proc/self/fd/{descriptor}") != str(root):
             raise PermissionError("native_tool_filesystem_binding_denied")
-        policy = json.dumps({"readonly": readonly, "workspace": str(root), "workspace_fd": descriptor},
-                            separators=(",", ":"))
+        policy = json.dumps(
+            {"readonly": readonly, "workspace": str(root), "workspace_fd": descriptor}, separators=(",", ":")
+        )
         yield [sys.executable, "-I", str(launcher), policy, *argv], bounded, (descriptor,)
     finally:
         os.close(descriptor)

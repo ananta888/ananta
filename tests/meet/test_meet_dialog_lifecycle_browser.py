@@ -8,8 +8,8 @@ from sqlmodel import Session, select
 
 from agent.db_models import TaskDB
 from agent.services.meet_dialog_lifecycle import organization_tuple
-from tests.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.meet_lifecycle_revocation import revoke_fixture_lifecycle
+from tests.meet_dialog_lifecycle_fixture import seed_parent
 
 
 class LifecycleScenario:

@@ -50,23 +50,15 @@ def authenticate_vector_index_worker(
     encoded = token.encode("utf-8")
     worker_id = str(claimed_worker_id or "").strip()
     try:
-        worker_url = canonicalize_vector_index_worker_audience(
-            claimed_worker_url
-        )
+        worker_url = canonicalize_vector_index_worker_audience(claimed_worker_url)
     except ValueError as exc:
-        raise VectorIndexWorkerIdentityError(
-            "vector_index_worker_identity_invalid"
-        ) from exc
+        raise VectorIndexWorkerIdentityError("vector_index_worker_identity_invalid") from exc
     if (
         not worker_id
         or len(worker_id.encode("utf-8")) > 256
-        or not _MIN_TOKEN_BYTES
-        <= len(encoded)
-        <= _MAX_TOKEN_BYTES
+        or not _MIN_TOKEN_BYTES <= len(encoded) <= _MAX_TOKEN_BYTES
     ):
-        raise VectorIndexWorkerIdentityError(
-            "vector_index_worker_identity_invalid"
-        )
+        raise VectorIndexWorkerIdentityError("vector_index_worker_identity_invalid")
     for forbidden in forbidden_tokens:
         candidate = str(forbidden or "")
         if candidate and secrets.compare_digest(token, candidate):
@@ -76,9 +68,7 @@ def authenticate_vector_index_worker(
             )
 
     agents = tuple(registered_agents)
-    forbidden = tuple(
-        str(value or "") for value in forbidden_tokens
-    )
+    forbidden = tuple(str(value or "") for value in forbidden_tokens)
     from agent.services.workflow_worker_service_auth import (
         VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE,
         WorkflowWorkerAuthConfigurationError,
@@ -89,18 +79,12 @@ def authenticate_vector_index_worker(
     try:
         identity = authenticate_registered_workflow_worker(
             token,
-            required_scope=(
-                VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE
-            ),
+            required_scope=(VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE),
             claimed_worker_id=worker_id,
             claimed_worker_url=worker_url,
             registered_agents=agents,
-            hub_service_token=(
-                forbidden[0] if forbidden else None
-            ),
-            user_session_secret=(
-                forbidden[1] if len(forbidden) > 1 else None
-            ),
+            hub_service_token=(forbidden[0] if forbidden else None),
+            user_session_secret=(forbidden[1] if len(forbidden) > 1 else None),
             config=config,
         )
     except WorkflowWorkerAuthConfigurationError as exc:
@@ -119,21 +103,11 @@ def authenticate_vector_index_worker(
         ) from exc
 
     worker = next(
-        (
-            value
-            for value in agents
-            if str(getattr(value, "name", "") or "").strip()
-            == identity.worker_id
-        ),
+        (value for value in agents if str(getattr(value, "name", "") or "").strip() == identity.worker_id),
         None,
     )
     advertised_capabilities = {
-        str(value).strip().lower()
-        for value in (
-            getattr(worker, "capabilities", None)
-            or ()
-        )
-        if str(value).strip()
+        str(value).strip().lower() for value in (getattr(worker, "capabilities", None) or ()) if str(value).strip()
     }
     required_capabilities = {
         "retrieval",
@@ -142,12 +116,8 @@ def authenticate_vector_index_worker(
     }
     if (
         worker is None
-        or not required_capabilities.issubset(
-            advertised_capabilities
-        )
-        or not required_capabilities.issubset(
-            set(identity.capabilities)
-        )
+        or not required_capabilities.issubset(advertised_capabilities)
+        or not required_capabilities.issubset(set(identity.capabilities))
     ):
         raise VectorIndexWorkerIdentityError(
             "vector_index_worker_identity_forbidden",
@@ -155,9 +125,7 @@ def authenticate_vector_index_worker(
         )
     return VectorIndexWorkerIdentity(
         worker_id=identity.worker_id,
-        worker_url=canonicalize_vector_index_worker_audience(
-            identity.worker_url
-        ),
+        worker_url=canonicalize_vector_index_worker_audience(identity.worker_url),
     )
 
 

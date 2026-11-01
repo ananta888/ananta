@@ -19,7 +19,6 @@ from ananta_contracts.knowledge_hygiene import (
     canonical_digest,
 )
 
-
 ANALYSIS_VERSION = "knowledge_hygiene_analysis.v1"
 _SPACE = re.compile(r"\s+")
 _NEGATED = frozenset({"false", "no", "not", "never", "disabled", "inactive", "absent"})
@@ -162,7 +161,9 @@ def semantic_duplicate_candidates(
 def _buckets(claims: Sequence[KnowledgeClaim]) -> dict[tuple[str, str, str, str], list[KnowledgeClaim]]:
     buckets: dict[tuple[str, str, str, str], list[KnowledgeClaim]] = defaultdict(list)
     for claim in claims:
-        buckets[(claim.project_id, claim.scope, normalize_text(claim.subject), normalize_text(claim.predicate))].append(claim)
+        buckets[(claim.project_id, claim.scope, normalize_text(claim.subject), normalize_text(claim.predicate))].append(
+            claim
+        )
     for values in buckets.values():
         values.sort(key=lambda item: (item.claim_id, item.revision))
     return buckets

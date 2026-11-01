@@ -26,10 +26,7 @@ def assert_safe_plan_edit(
     replacement: ExecutionPlan,
     status: Mapping[str, Any],
 ) -> None:
-    if (
-        replacement.tenant_id != current.tenant_id
-        or replacement.workflow_id != current.workflow_id
-    ):
+    if replacement.tenant_id != current.tenant_id or replacement.workflow_id != current.workflow_id:
         raise ValueError("langgraph_plan_edit_binding_mismatch")
     if replacement.policy_version != current.policy_version:
         raise ValueError("langgraph_plan_edit_policy_change_denied")
@@ -57,10 +54,7 @@ def replace_status_plan(
     current: ExecutionPlan,
     replacement: ExecutionPlan,
 ) -> None:
-    previous_steps = {
-        str(step.get("step_id") or ""): deepcopy(step)
-        for step in status.get("steps") or ()
-    }
+    previous_steps = {str(step.get("step_id") or ""): deepcopy(step) for step in status.get("steps") or ()}
     current_nodes = {node.node_id: node for node in current.nodes}
     rebuilt: list[dict[str, Any]] = []
     for node in replacement.nodes:

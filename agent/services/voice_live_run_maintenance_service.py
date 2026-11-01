@@ -59,10 +59,7 @@ class VoiceLiveRunMaintenanceService:
                             reason_code="voice_live_run_expired",
                         )
                         cancelled_segments += 1
-                    if (
-                        segment.correction_failure_code == "run_expired"
-                        and segment.correction_task_id
-                    ):
+                    if segment.correction_failure_code == "run_expired" and segment.correction_task_id:
                         self._tasks.cancel_child(
                             segment.correction_task_id,
                             reason_code="voice_live_run_expired",

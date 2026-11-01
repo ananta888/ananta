@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -7,7 +8,6 @@ import re
 import stat
 import tempfile
 import threading
-import fcntl
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
@@ -79,9 +79,7 @@ def _registry_locked(method):
     @wraps(method)
     def locked(self, *args, **kwargs):
         with self._lock:
-            with self._registry_file_lock(
-                create_storage=method.__name__ in _REGISTRY_MUTATIONS
-            ):
+            with self._registry_file_lock(create_storage=method.__name__ in _REGISTRY_MUTATIONS):
                 return method(self, *args, **kwargs)
 
     return locked
@@ -214,9 +212,7 @@ class SourceRegistry:
                 raise ValueError("registry_symlink_not_allowed")
 
         try:
-            candidate_path.resolve(strict=False).relative_to(
-                root_path.resolve(strict=False)
-            )
+            candidate_path.resolve(strict=False).relative_to(root_path.resolve(strict=False))
         except ValueError as exc:
             raise ValueError("registry_path_outside_root") from exc
         return candidate_path
@@ -307,12 +303,7 @@ class SourceRegistry:
             raise ValueError("registry_lock_symlink_not_allowed")
         descriptor = os.open(
             lock_path,
-            (
-                os.O_RDWR
-                | os.O_CREAT
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NOFOLLOW", 0)
-            ),
+            (os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)),
             0o600,
         )
         try:
@@ -321,8 +312,7 @@ class SourceRegistry:
             if (
                 not stat.S_ISREG(opened.st_mode)
                 or opened.st_nlink != 1
-                or (opened.st_dev, opened.st_ino)
-                != (linked.st_dev, linked.st_ino)
+                or (opened.st_dev, opened.st_ino) != (linked.st_dev, linked.st_ino)
             ):
                 raise ValueError("registry_lock_file_invalid")
             fcntl.flock(descriptor, fcntl.LOCK_EX)
@@ -650,19 +640,13 @@ class SourceRegistry:
                 base += 200
             if is_eclipse_question and str(row.get("source_id") or "").startswith("eclipse-"):
                 base += 120
-            if (
-                str(row.get("source_id") or "")
-                == "wikimedia-wikipedia-initial-dump"
-                and (is_keycloak_question or is_eclipse_question)
+            if str(row.get("source_id") or "") == "wikimedia-wikipedia-initial-dump" and (
+                is_keycloak_question or is_eclipse_question
             ):
                 base -= 120
             return base
 
-        candidates = {
-            str(item).strip()
-            for item in list(source_ids or [])
-            if str(item).strip()
-        }
+        candidates = {str(item).strip() for item in list(source_ids or []) if str(item).strip()}
         ranked = sorted(
             candidates,
             key=lambda sid: (-_score(sid), sid),

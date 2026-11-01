@@ -62,24 +62,36 @@ class TaskVectorAdminMixin:
                 return None
         except PermissionError as exc:
             reason = str(exc)
-            return False, reason, {
-                "reason_code": reason,
-                "http_status": 403,
-            }
+            return (
+                False,
+                reason,
+                {
+                    "reason_code": reason,
+                    "http_status": 403,
+                },
+            )
         except ValueError as exc:
             reason = str(exc)
-            return False, reason, {
-                "reason_code": reason,
-                "http_status": 409,
-            }
+            return (
+                False,
+                reason,
+                {
+                    "reason_code": reason,
+                    "http_status": 409,
+                },
+            )
 
         if action not in {"cancel", "retry"}:
             reason = "vector_index_task_intervention_forbidden"
-            return False, reason, {
-                "reason_code": reason,
-                "action": action,
-                "http_status": 409,
-            }
+            return (
+                False,
+                reason,
+                {
+                    "reason_code": reason,
+                    "action": action,
+                    "http_status": 409,
+                },
+            )
 
         from agent.services.vector_index_task_service import (
             get_vector_index_task_service,
@@ -95,20 +107,24 @@ class TaskVectorAdminMixin:
             )
         except ValueError as exc:
             reason = str(exc)
-            return False, reason, {
-                "reason_code": reason,
-                "http_status": (
-                    404
-                    if reason == "vector_index_task_not_found"
-                    else 400
-                ),
-            }
+            return (
+                False,
+                reason,
+                {
+                    "reason_code": reason,
+                    "http_status": (404 if reason == "vector_index_task_not_found" else 400),
+                },
+            )
         except RuntimeError as exc:
             reason = str(exc)
-            return False, reason, {
-                "reason_code": reason,
-                "http_status": 409,
-            }
+            return (
+                False,
+                reason,
+                {
+                    "reason_code": reason,
+                    "http_status": 409,
+                },
+            )
 
         worker_cancel_forward = None
         if action == "cancel":
@@ -116,23 +132,20 @@ class TaskVectorAdminMixin:
                 get_request_cancellation_service,
             )
 
-            worker_cancel_forward = (
-                get_request_cancellation_service()
-                .cancel_task_requests(
-                    task_id=task_id,
-                    include_workers=True,
-                )
+            worker_cancel_forward = get_request_cancellation_service().cancel_task_requests(
+                task_id=task_id,
+                include_workers=True,
             )
-        return True, "ok", {
-            "id": task_id,
-            "action": action,
-            "status": str(result.get("status") or ""),
-            **(
-                {"worker_cancel_forward": worker_cancel_forward}
-                if isinstance(worker_cancel_forward, dict)
-                else {}
-            ),
-        }
+        return (
+            True,
+            "ok",
+            {
+                "id": task_id,
+                "action": action,
+                "status": str(result.get("status") or ""),
+                **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
+            },
+        )
 
 
 __all__ = ["TaskVectorAdminMixin"]

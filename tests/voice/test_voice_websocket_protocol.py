@@ -91,9 +91,7 @@ def test_voice_websocket_start_partial_replay_and_final_are_monotone() -> None:
 def test_voice_websocket_rejects_version_sequence_and_replay_conflicts() -> None:
     hub = _HubClient()
     session = VoiceWebSocketSession(hub)
-    unsupported = json.dumps(
-        {"schema_version": "future", "sequence": 0, "type": "start", "payload": {}}
-    )
+    unsupported = json.dumps({"schema_version": "future", "sequence": 0, "type": "start", "payload": {}})
     assert session.receive(unsupported)["payload"]["error"]["code"] == "voice_stream.unsupported_version"
 
     gap = session.receive(_message(1, "start", {"idempotency_key": "gap"}))
@@ -113,20 +111,26 @@ def test_voice_websocket_bounds_message_count_and_replay_history() -> None:
         replay_window_messages=1,
     )
     assert session.receive(_message(0, "start", {"idempotency_key": "bounded"}))["type"] == "ack"
-    assert session.receive(
-        _message(
-            1,
-            "audio_chunk",
-            {"chunk_sequence": 0, "data_base64": base64.b64encode(b"a").decode()},
-        )
-    )["type"] == "partial"
-    assert session.receive(
-        _message(
-            2,
-            "audio_chunk",
-            {"chunk_sequence": 1, "data_base64": base64.b64encode(b"b").decode()},
-        )
-    )["type"] == "partial"
+    assert (
+        session.receive(
+            _message(
+                1,
+                "audio_chunk",
+                {"chunk_sequence": 0, "data_base64": base64.b64encode(b"a").decode()},
+            )
+        )["type"]
+        == "partial"
+    )
+    assert (
+        session.receive(
+            _message(
+                2,
+                "audio_chunk",
+                {"chunk_sequence": 1, "data_base64": base64.b64encode(b"b").decode()},
+            )
+        )["type"]
+        == "partial"
+    )
 
     expired = session.receive(
         _message(

@@ -9,6 +9,7 @@ Covers:
 - The compiler emits a ``codecompass_runtime`` entry in ``applied_layers`` and
   audit-logs ``codecompass_runtime_override_rejected`` for near-miss payloads.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -247,6 +248,7 @@ def test_build_iteration_prompt_runtime_rule_appears_only_once_in_synthesis():
 def _build_minimal_compose_args():
     """Return a tiny stub AgentProfileResult for compose_content."""
     from agent.services.agent_profile_service import AgentProfileResult
+
     return AgentProfileResult(
         profile_id="test",
         agents_file="test.md",
@@ -265,6 +267,7 @@ def _build_minimal_compose_args():
 
 def test_compose_content_appends_runtime_paragraph_for_opencode():
     from agent.services.agent_profile_service import get_agent_profile_service
+
     svc = get_agent_profile_service()
     result = _build_minimal_compose_args()
     runtime = "\n".join(
@@ -283,6 +286,7 @@ def test_compose_content_appends_runtime_paragraph_for_opencode():
 
 def test_compose_content_without_runtime_constraints_still_renders():
     from agent.services.agent_profile_service import get_agent_profile_service
+
     svc = get_agent_profile_service()
     result = _build_minimal_compose_args()
     out = svc.compose_content(result)

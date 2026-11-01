@@ -61,10 +61,7 @@ class MailPollingSchedulerConfig:
     def __post_init__(self) -> None:
         if self.interval_seconds < 30 or self.interval_seconds > 86400:
             raise ValueError("mail_polling_interval_invalid")
-        if (
-            self.lease_ttl_seconds < self.interval_seconds
-            or self.lease_ttl_seconds > 172800
-        ):
+        if self.lease_ttl_seconds < self.interval_seconds or self.lease_ttl_seconds > 172800:
             raise ValueError("mail_polling_lease_ttl_invalid")
         if self.max_accounts_per_tick < 1 or self.max_accounts_per_tick > 100:
             raise ValueError("mail_polling_batch_invalid")
@@ -84,9 +81,7 @@ class MailPollingSchedulerConfig:
             except ValueError as exc:
                 raise ValueError(f"{name.lower()}_invalid") from exc
 
-        enabled = str(
-            values.get("ANANTA_MAIL_POLLING_ENABLED") or ""
-        ).strip().lower() in {"1", "true", "yes", "on"}
+        enabled = str(values.get("ANANTA_MAIL_POLLING_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
         interval = integer("ANANTA_MAIL_POLLING_INTERVAL_SECONDS", 300)
         return cls(
             enabled=enabled,
@@ -99,12 +94,9 @@ class MailPollingSchedulerConfig:
                 "ANANTA_MAIL_POLLING_MAX_ACCOUNTS",
                 20,
             ),
-            workspace_id=str(
-                values.get("ANANTA_MAIL_POLLING_WORKSPACE_ID") or "repo"
-            ).strip(),
+            workspace_id=str(values.get("ANANTA_MAIL_POLLING_WORKSPACE_ID") or "repo").strip(),
             sync_policy_ref=str(
-                values.get("ANANTA_MAIL_POLLING_POLICY_REF")
-                or "policy:mail:scheduled-sync:v1"
+                values.get("ANANTA_MAIL_POLLING_POLICY_REF") or "policy:mail:scheduled-sync:v1"
             ).strip(),
         )
 
@@ -134,19 +126,13 @@ class PersistentMailPollingLease:
         with self._locked():
             payload = self._load()
             lease = dict(payload.get("lease") or {})
-            if (
-                float(lease.get("expires_at") or 0.0) > now
-                and str(lease.get("owner_id") or "") != owner_id
-            ):
+            if float(lease.get("expires_at") or 0.0) > now and str(lease.get("owner_id") or "") != owner_id:
                 return False
             payload["lease"] = {
                 "owner_id": owner_id,
                 "expires_at": now + int(ttl_seconds),
-                "fencing_token": int(lease.get("fencing_token") or 0) + (
-                    0
-                    if str(lease.get("owner_id") or "") == owner_id
-                    else 1
-                ),
+                "fencing_token": int(lease.get("fencing_token") or 0)
+                + (0 if str(lease.get("owner_id") or "") == owner_id else 1),
             }
             self._save(payload)
             return True
@@ -166,9 +152,7 @@ class PersistentMailPollingLease:
             payload["last_run"] = {
                 "at": float(now),
                 "result": {
-                    str(key): value
-                    for key, value in result.items()
-                    if isinstance(value, (bool, int, float, str))
+                    str(key): value for key, value in result.items() if isinstance(value, (bool, int, float, str))
                 },
             }
             self._save(payload)
@@ -361,18 +345,13 @@ class MailPollingScheduler:
                 )
                 self._circuit.close_account(account.account_id)
                 continue
-            if (
-                account.sync_policy == "manual"
-                or account.effective_protocol not in {"jmap", "imap"}
-            ):
+            if account.sync_policy == "manual" or account.effective_protocol not in {"jmap", "imap"}:
                 continue
             eligible.append(account_ref)
         started = time.monotonic()
         queued = self._tasks.poll_accounts(
             account_refs=eligible,
-            workspace_scope=MailWorkspaceScope(
-                workspace_id=self._config.workspace_id
-            ),
+            workspace_scope=MailWorkspaceScope(workspace_id=self._config.workspace_id),
             sync_policy_ref=self._config.sync_policy_ref,
             actor="mail-polling-scheduler",
             interval_seconds=self._config.interval_seconds,

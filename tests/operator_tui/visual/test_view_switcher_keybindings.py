@@ -51,10 +51,17 @@ def test_ctrl_3_is_default_switch_center_to_doc_view_key():
 
 def test_ctrl_m_detected_as_unsafe_when_configured(tmp_path):
     import json
+
     kb = {
         "schema_version": "test",
         "bindings": [
-            {"action": "toggle_visual_view_switcher_overlay", "key": "c-m", "display": "Ctrl+M", "label": "View-Leiste", "areas": []},
+            {
+                "action": "toggle_visual_view_switcher_overlay",
+                "key": "c-m",
+                "display": "Ctrl+M",
+                "label": "View-Leiste",
+                "areas": [],
+            },
             {"action": "focus_left", "key": "f7", "display": "F7", "label": "Fokus links", "areas": []},
         ],
     }
@@ -62,6 +69,7 @@ def test_ctrl_m_detected_as_unsafe_when_configured(tmp_path):
     f.write_text(json.dumps(kb))
     with patch("client_surfaces.operator_tui.keybindings_config._resolve_config_file", return_value=f):
         from client_surfaces.operator_tui.keybindings_config import _load_bindings
+
         _load_bindings.cache_clear()
         try:
             assert ctrl_m_is_unsafe() is True
@@ -74,6 +82,7 @@ def test_ctrl_m_detected_as_unsafe_when_configured(tmp_path):
 
 def test_duplicate_key_detected_as_conflict(tmp_path):
     import json
+
     kb = {
         "schema_version": "test",
         "bindings": [
@@ -85,6 +94,7 @@ def test_duplicate_key_detected_as_conflict(tmp_path):
     f.write_text(json.dumps(kb))
     with patch("client_surfaces.operator_tui.keybindings_config._resolve_config_file", return_value=f):
         from client_surfaces.operator_tui.keybindings_config import _load_bindings
+
         _load_bindings.cache_clear()
         try:
             conflicts = keybinding_conflicts()

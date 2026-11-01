@@ -29,16 +29,23 @@ class _Invoker:
 
 def test_benchmark_uses_variants_repeats_seeds_temperatures_and_server_scoring():
     context = StyleMeasurementContext(
-        model_profile_id="local-chat", model_revision="r1", quantization="q8",
-        runtime="llamacpp", backend_id="lmstudio",
-        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
-        tool_mode="prompt_json", sampling_digest="sha256:sampling",
+        model_profile_id="local-chat",
+        model_revision="r1",
+        quantization="q8",
+        runtime="llamacpp",
+        backend_id="lmstudio",
+        system_prompt_digest="sha256:system",
+        role_prompt_digest="sha256:role",
+        tool_mode="prompt_json",
+        sampling_digest="sha256:sampling",
     )
     plan = CognitiveStyleBenchmarkSuite.plan(context)
     invoker = _Invoker()
     result = CognitiveStyleBenchmarkService(invoker).run(
         profile=ModelProfile(
-            profile_id="local-chat", provider_id="lmstudio", model="lfm",
+            profile_id="local-chat",
+            provider_id="lmstudio",
+            model="lfm",
         ),
         plan=plan,
     )
@@ -57,10 +64,15 @@ def test_safety_refusal_is_not_scored_as_zero_initiative():
             return "Ich darf nicht ausführen; ich benenne das Risiko und bitte um Freigabe."
 
     context = StyleMeasurementContext(
-        model_profile_id="local-chat", model_revision="r1", quantization="q8",
-        runtime="llamacpp", backend_id="lmstudio",
-        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
-        tool_mode="none", sampling_digest="sha256:sampling",
+        model_profile_id="local-chat",
+        model_revision="r1",
+        quantization="q8",
+        runtime="llamacpp",
+        backend_id="lmstudio",
+        system_prompt_digest="sha256:system",
+        role_prompt_digest="sha256:role",
+        tool_mode="none",
+        sampling_digest="sha256:sampling",
     )
     result = CognitiveStyleBenchmarkService(_Refusal()).run(
         profile=ModelProfile(profile_id="local-chat", provider_id="lmstudio", model="lfm"),
@@ -68,7 +80,7 @@ def test_safety_refusal_is_not_scored_as_zero_initiative():
     )
     initiative = [item for item in result.observations if item.dimension == "initiative_assertiveness"]
     assert initiative
-    assert all(item.score == .5 and item.refused_for_safety for item in initiative)
+    assert all(item.score == 0.5 and item.refused_for_safety for item in initiative)
 
 
 def test_hub_invoker_normalizes_local_openai_endpoint_and_resolves_profile_key(
@@ -95,14 +107,12 @@ def test_hub_invoker_normalizes_local_openai_endpoint_and_resolves_profile_key(
         ),
         prompt="benchmark prompt",
         seed=17,
-        temperature=.4,
+        temperature=0.4,
     )
 
     assert output == "measured output"
     assert captured["provider"] == "llamacpp"
-    assert captured["base_url"] == (
-        "http://host.docker.internal:8081/v1/chat/completions"
-    )
+    assert captured["base_url"] == ("http://host.docker.internal:8081/v1/chat/completions")
     assert captured["api_key"] == "local-benchmark-token"
     assert captured["max_output_tokens"] == 1024
     assert captured["max_retries"] == 0
@@ -122,8 +132,10 @@ def test_hub_invoker_omits_unsupported_per_request_seed(monkeypatch):
     )
     HubStyleBenchmarkInvoker().generate(
         profile=ModelProfile(
-            profile_id="local-kat", provider_id="openai_compatible",
-            model="kat", base_url="http://runtime:8082/v1",
+            profile_id="local-kat",
+            provider_id="openai_compatible",
+            model="kat",
+            base_url="http://runtime:8082/v1",
             supports_seed=False,
         ),
         prompt="benchmark prompt",
@@ -136,15 +148,22 @@ def test_hub_invoker_omits_unsupported_per_request_seed(monkeypatch):
 
 def test_observations_disclose_when_runtime_cannot_apply_seed():
     context = StyleMeasurementContext(
-        model_profile_id="local-chat", model_revision="r1", quantization="q8",
-        runtime="colibri", backend_id="openai_compatible",
-        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
-        tool_mode="prompt_json", sampling_digest="sha256:sampling",
+        model_profile_id="local-chat",
+        model_revision="r1",
+        quantization="q8",
+        runtime="colibri",
+        backend_id="openai_compatible",
+        system_prompt_digest="sha256:system",
+        role_prompt_digest="sha256:role",
+        tool_mode="prompt_json",
+        sampling_digest="sha256:sampling",
     )
     result = CognitiveStyleBenchmarkService(_Invoker()).run(
         profile=ModelProfile(
-            profile_id="local-chat", provider_id="openai_compatible",
-            model="kat", supports_seed=False,
+            profile_id="local-chat",
+            provider_id="openai_compatible",
+            model="kat",
+            supports_seed=False,
         ),
         plan=CognitiveStyleBenchmarkSuite.plan(context),
     )
@@ -158,18 +177,23 @@ def test_benchmark_fails_instead_of_persisting_transport_wide_empty_scores():
             return ""
 
     context = StyleMeasurementContext(
-        model_profile_id="local-chat", model_revision="r1", quantization="q8",
-        runtime="llamacpp", backend_id="lmstudio",
-        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
-        tool_mode="none", sampling_digest="sha256:sampling",
+        model_profile_id="local-chat",
+        model_revision="r1",
+        quantization="q8",
+        runtime="llamacpp",
+        backend_id="lmstudio",
+        system_prompt_digest="sha256:system",
+        role_prompt_digest="sha256:role",
+        tool_mode="none",
+        sampling_digest="sha256:sampling",
     )
 
-    with pytest.raises(
-        RuntimeError, match="style_benchmark_insufficient_output_coverage"
-    ):
+    with pytest.raises(RuntimeError, match="style_benchmark_insufficient_output_coverage"):
         CognitiveStyleBenchmarkService(_Empty()).run(
             profile=ModelProfile(
-                profile_id="local-chat", provider_id="lmstudio", model="lfm",
+                profile_id="local-chat",
+                provider_id="lmstudio",
+                model="lfm",
             ),
             plan=CognitiveStyleBenchmarkSuite.plan(context),
         )
@@ -185,18 +209,23 @@ def test_benchmark_rejects_mostly_empty_final_outputs():
             return '{"status":"ok","checks":["a","b","c"]}' if self.calls <= 8 else ""
 
     context = StyleMeasurementContext(
-        model_profile_id="local-chat", model_revision="r1", quantization="q8",
-        runtime="llamacpp", backend_id="lmstudio",
-        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
-        tool_mode="none", sampling_digest="sha256:sampling",
+        model_profile_id="local-chat",
+        model_revision="r1",
+        quantization="q8",
+        runtime="llamacpp",
+        backend_id="lmstudio",
+        system_prompt_digest="sha256:system",
+        role_prompt_digest="sha256:role",
+        tool_mode="none",
+        sampling_digest="sha256:sampling",
     )
 
-    with pytest.raises(
-        RuntimeError, match="style_benchmark_insufficient_output_coverage"
-    ):
+    with pytest.raises(RuntimeError, match="style_benchmark_insufficient_output_coverage"):
         CognitiveStyleBenchmarkService(_Sparse()).run(
             profile=ModelProfile(
-                profile_id="local-chat", provider_id="lmstudio", model="lfm",
+                profile_id="local-chat",
+                provider_id="lmstudio",
+                model="lfm",
             ),
             plan=CognitiveStyleBenchmarkSuite.plan(context),
         )

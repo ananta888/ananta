@@ -1,4 +1,5 @@
 """RIG-012: import CLI / script tests."""
+
 from __future__ import annotations
 
 import json
@@ -9,8 +10,9 @@ import pytest
 
 from worker.retrieval import codecompass_rig_importer as cli
 
-
-FIXTURE_PATH = Path(__file__).resolve().parents[0] / "fixtures" / "codecompass" / "rig" / "cmake" / "snapshot_minimal.json"
+FIXTURE_PATH = (
+    Path(__file__).resolve().parents[0] / "fixtures" / "codecompass" / "rig" / "cmake" / "snapshot_minimal.json"
+)
 
 
 @pytest.fixture
@@ -33,8 +35,7 @@ def fixture_workspace(tmp_path):
 
 def test_import_default_is_validate_only(fixture_workspace):
     ws, snap = fixture_workspace
-    res = cli.import_snapshot_file(snap, workspace_dir=ws,
-                                   write_index=False, index_path=None)
+    res = cli.import_snapshot_file(snap, workspace_dir=ws, write_index=False, index_path=None)
     assert res.ok, res.failures
     assert res.snapshot_id == "snap_fixture0001"
     # 1 pm + 1 external_package + 1 bc + 1 runner + 1 test = 5 nodes
@@ -45,8 +46,7 @@ def test_import_default_is_validate_only(fixture_workspace):
 def test_import_persists_index_when_write_index(fixture_workspace, tmp_path):
     ws, snap = fixture_workspace
     index = tmp_path / "rig_index.json"
-    res = cli.import_snapshot_file(snap, workspace_dir=ws,
-                                   write_index=True, index_path=index)
+    res = cli.import_snapshot_file(snap, workspace_dir=ws, write_index=True, index_path=index)
     assert res.ok, res.failures
     assert index.exists()
     payload = json.loads(index.read_text())
@@ -57,8 +57,7 @@ def test_import_persists_index_when_write_index(fixture_workspace, tmp_path):
 
 def test_import_requires_index_path_when_writing(fixture_workspace):
     ws, snap = fixture_workspace
-    res = cli.import_snapshot_file(snap, workspace_dir=ws,
-                                   write_index=True, index_path=None)
+    res = cli.import_snapshot_file(snap, workspace_dir=ws, write_index=True, index_path=None)
     assert not res.ok
     assert any(f["reason"] == "missing_index_path" for f in res.failures)
 
@@ -66,8 +65,7 @@ def test_import_requires_index_path_when_writing(fixture_workspace):
 def test_import_rejects_unsupported_schema_version(tmp_path):
     snap = tmp_path / "snap.json"
     snap.write_text(json.dumps({"schema_version": "v999"}))
-    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path,
-                                   write_index=False, index_path=None)
+    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path, write_index=False, index_path=None)
     assert not res.ok
     assert any(f["reason"] == "schema_version_unsupported" for f in res.failures)
 
@@ -75,8 +73,7 @@ def test_import_rejects_unsupported_schema_version(tmp_path):
 def test_import_rejects_invalid_json(tmp_path):
     snap = tmp_path / "broken.json"
     snap.write_text("{not valid json")
-    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path,
-                                   write_index=False, index_path=None)
+    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path, write_index=False, index_path=None)
     assert not res.ok
     assert any(f["reason"] == "invalid_json" for f in res.failures)
 
@@ -91,8 +88,7 @@ def test_import_rejects_path_outside_workspace(tmp_path):
             edge["trust"]["evidence"]["source_file"] = "/etc/passwd"
     snap = tmp_path / "snap.json"
     snap.write_text(json.dumps(src))
-    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path,
-                                   write_index=False, index_path=None)
+    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path, write_index=False, index_path=None)
     assert not res.ok
     assert any(f["reason"] == "path_outside_workspace" for f in res.failures)
 
@@ -108,8 +104,7 @@ def test_import_rejects_missing_source_ids(tmp_path):
     }
     snap = tmp_path / "snap.json"
     snap.write_text(json.dumps(src))
-    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path,
-                                   write_index=False, index_path=None)
+    res = cli.import_snapshot_file(snap, workspace_dir=tmp_path, write_index=False, index_path=None)
     assert not res.ok
     synthetic = [f for f in res.failures if "synth" in (f.get("detail") or "").lower()]
     assert synthetic == []
@@ -117,8 +112,7 @@ def test_import_rejects_missing_source_ids(tmp_path):
 
 def test_cli_entrypoint_returns_0_on_ok(fixture_workspace, capsys, monkeypatch):
     ws, snap = fixture_workspace
-    monkeypatch.setattr(sys, "argv", ["import_repository_intelligence_graph",
-                                       str(snap), "--workspace-dir", str(ws)])
+    monkeypatch.setattr(sys, "argv", ["import_repository_intelligence_graph", str(snap), "--workspace-dir", str(ws)])
     code = cli.main()
     assert code == 0
     out = capsys.readouterr().out
@@ -136,7 +130,6 @@ def test_cli_entrypoint_returns_1_on_validation_failure(tmp_path, capsys, monkey
 
 
 def test_cli_entrypoint_returns_2_on_missing_file(capsys, monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["import_repository_intelligence_graph",
-                                       "/nope/does/not/exist.json"])
+    monkeypatch.setattr(sys, "argv", ["import_repository_intelligence_graph", "/nope/does/not/exist.json"])
     code = cli.main()
     assert code == 2

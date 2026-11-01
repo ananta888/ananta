@@ -73,4 +73,3 @@ class MCPReadonlyAdapter:
             "registry": registry_health,
             "mode": "read_only",
         }
-

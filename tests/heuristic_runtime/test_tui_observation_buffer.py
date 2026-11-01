@@ -1,11 +1,9 @@
 """Tests für TuiObservationBuffer — Ringbuffer-Verhalten."""
-import time
-import pytest
 
 from agent.services.heuristic_runtime.tui_observation_buffer import (
-    TuiObservationBuffer,
-    SnapshotRef,
     DeltaRef,
+    SnapshotRef,
+    TuiObservationBuffer,
 )
 
 
@@ -135,7 +133,7 @@ def test_llm_observation_pack_structure():
     for i in range(10):
         buf.push_snapshot(_make_snapshot(f"f{i}", f"h{i}", ts=float(i)))
         if i > 0:
-            buf.push_delta(_make_delta(f"h{i-1}", f"h{i}", count=i * 2, ts=float(i)))
+            buf.push_delta(_make_delta(f"h{i - 1}", f"h{i}", count=i * 2, ts=float(i)))
     pack = buf.llm_observation_pack(n_snapshots=3)
     assert pack["snapshot_count"] == 10
     assert pack["delta_count"] == 9
@@ -151,10 +149,11 @@ def test_llm_observation_pack_structure():
 def test_llm_observation_pack_no_huge_payload():
     """llm_observation_pack überschreitet nicht 10KB für normale Daten."""
     import json
+
     buf = TuiObservationBuffer(max_snapshots=20, max_deltas=100)
     for i in range(20):
         buf.push_snapshot(_make_snapshot(f"frame_{i:04d}", f"hash_{i:04x}", ts=float(i)))
-        buf.push_delta(_make_delta(f"hash_{i:04x}", f"hash_{(i+1):04x}", count=i, ts=float(i)))
+        buf.push_delta(_make_delta(f"hash_{i:04x}", f"hash_{(i + 1):04x}", count=i, ts=float(i)))
     pack = buf.llm_observation_pack(n_snapshots=3)
     payload = json.dumps(pack)
     assert len(payload) < 10_000, f"Payload zu groß: {len(payload)} bytes"
@@ -174,6 +173,6 @@ def test_delta_ringbuffer():
     """Delta-Ringbuffer hält nur max_deltas Einträge."""
     buf = TuiObservationBuffer(max_deltas=3)
     for i in range(5):
-        buf.push_delta(_make_delta(f"h{i}", f"h{i+1}"))
+        buf.push_delta(_make_delta(f"h{i}", f"h{i + 1}"))
     pack = buf.llm_observation_pack()
     assert pack["delta_count"] == 3

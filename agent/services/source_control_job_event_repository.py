@@ -1,5 +1,4 @@
-"""SQL outbox repository for Source Control job events.
-"""
+"""SQL outbox repository for Source Control job events."""
 
 from __future__ import annotations
 
@@ -37,29 +36,28 @@ class SQLSourceControlJobEventRepository:
                     .where(
                         SourceControlJobEventOutboxDB.tenant_id == tenant_id,
                         SourceControlJobEventOutboxDB.project_id == project_id,
-                        SourceControlJobEventOutboxDB.sequence
-                        > after_sequence,
+                        SourceControlJobEventOutboxDB.sequence > after_sequence,
                     )
                     .order_by(SourceControlJobEventOutboxDB.sequence)
                     .limit(limit)
                 ).all()
             )
         return tuple(
-                SourceControlJobEvent(
-                    event_id=row.event_id,
-                    sequence=int(row.sequence or 0),
-                    tenant_id=row.tenant_id,
-                    project_id=row.project_id,
-                    resource_id=row.resource_id,
-                    job_id=row.job_id,
-                    event_type=row.event_type,
-                    status=row.status,
-                    reason_code=row.reason_code,
-                    trace_id=row.trace_id,
-                    occurred_at=iso_timestamp(row.occurred_at_epoch) or "",
-                )
-                for row in rows
+            SourceControlJobEvent(
+                event_id=row.event_id,
+                sequence=int(row.sequence or 0),
+                tenant_id=row.tenant_id,
+                project_id=row.project_id,
+                resource_id=row.resource_id,
+                job_id=row.job_id,
+                event_type=row.event_type,
+                status=row.status,
+                reason_code=row.reason_code,
+                trace_id=row.trace_id,
+                occurred_at=iso_timestamp(row.occurred_at_epoch) or "",
             )
+            for row in rows
+        )
 
     def append(
         self,
@@ -96,9 +94,7 @@ class SQLSourceControlJobEventRepository:
             except IntegrityError:
                 db.rollback()
                 row = db.exec(
-                    select(SourceControlJobEventOutboxDB).where(
-                        SourceControlJobEventOutboxDB.event_id == event_id
-                    )
+                    select(SourceControlJobEventOutboxDB).where(SourceControlJobEventOutboxDB.event_id == event_id)
                 ).first()
                 if row is None or (
                     row.tenant_id,
@@ -119,9 +115,7 @@ class SQLSourceControlJobEventRepository:
                     reason_code,
                     trace_id,
                 ):
-                    raise SourceControlApiRuntimeError(
-                        "job_event_id_conflict", status_code=409
-                    ) from None
+                    raise SourceControlApiRuntimeError("job_event_id_conflict", status_code=409) from None
             return SourceControlJobEvent(
                 event_id=row.event_id,
                 sequence=int(row.sequence or 0),

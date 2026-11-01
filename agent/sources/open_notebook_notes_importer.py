@@ -6,7 +6,7 @@ from typing import Any
 
 from agent.services.wiki_chunking_policy import split_wiki_content
 from agent.sources.open_notebook_import_policy import OpenNotebookImportPolicy
-from agent.sources.open_notebook_mapper import SOURCE_SYSTEM, slugify
+from agent.sources.open_notebook_mapper import slugify
 
 NOTE_SOURCE_SYSTEM = "open_notebook_note"
 _VALID_NOTE_TYPES = {"human", "ai", "unknown"}
@@ -21,7 +21,9 @@ class OpenNotebookNotesImporter:
     through this path.
     """
 
-    def __init__(self, *, ingestion_service, artifact_repository, policy: OpenNotebookImportPolicy | None = None) -> None:
+    def __init__(
+        self, *, ingestion_service, artifact_repository, policy: OpenNotebookImportPolicy | None = None
+    ) -> None:
         self._ingestion_service = ingestion_service
         self._artifact_repo = artifact_repository
         self._policy = policy or OpenNotebookImportPolicy()

@@ -2,30 +2,17 @@ import threading
 import time
 from typing import Any
 
-from flask import current_app, g, request
+from flask import current_app, g
 
 from agent.auth import check_auth, get_authenticated_source_control_principal
-from agent.services.project_access_authority import (
-    ProjectAccessError,
-    ProjectCapability,
-)
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalProvisionRequest
-from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
-from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS, get_goal_config_resolver_service
-from agent.services.config_profile_service import get_config_profile_service
-from agent.services.planning_quality_service import get_planning_quality_service
-from agent.services.planning_contract import resolve_planning_contract
-from agent.services.planning_validation_service import get_planning_validation_service
-from agent.services.product_event_service import record_product_event
-from agent.services.instruction_layer_service import get_instruction_layer_service
-from agent.services.repository_registry import get_repository_registry
-from agent.services.service_registry import get_core_services
-from agent.utils import validate_request
-
+from agent.routes.tasks.goals_blueprint import (  # noqa: E402
+    goals_bp,
+)
 from agent.routes.tasks.goals_helpers import (
     _cancel_stale_planning_goals,
     _current_username,
@@ -34,15 +21,24 @@ from agent.routes.tasks.goals_helpers import (
     _repos,
     _services,
 )
-
-from agent.routes.tasks.goals_blueprint import (  # noqa: E402
-    goals_bp,
-    _PLANNING_SLOTS_LOCK,
-    _PLANNING_SLOTS,
-    _PLANNING_SLOTS_CAPACITY,
+from agent.services.config_profile_service import get_config_profile_service
+from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS, get_goal_config_resolver_service
+from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
+from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.planning_contract import resolve_planning_contract
+from agent.services.planning_quality_service import get_planning_quality_service
+from agent.services.planning_validation_service import get_planning_validation_service
+from agent.services.product_event_service import record_product_event
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectCapability,
 )
+from agent.utils import validate_request
 
-def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_policy: dict[str, Any], team_id: str | None) -> tuple[bool, str]:
+
+def _plan_quality_from_task_ids(
+    *, task_ids: list[str], mode: str, planning_policy: dict[str, Any], team_id: str | None
+) -> tuple[bool, str]:
     if not task_ids:
         return False, "no_tasks"
     subtasks: list[dict[str, Any]] = []
@@ -54,11 +50,7 @@ def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_poli
             {
                 "title": str(getattr(task, "title", "") or ""),
                 "description": str(getattr(task, "description", "") or ""),
-                "task_kind": str(
-                    getattr(task, "task_kind", None)
-                    or getattr(task, "task_type", None)
-                    or ""
-                ),
+                "task_kind": str(getattr(task, "task_kind", None) or getattr(task, "task_type", None) or ""),
             }
         )
     if not subtasks:
@@ -78,15 +70,11 @@ def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_poli
         return quality.ok, quality.reason
     contract_reason = "|".join(list(contract_validation.error_codes) or ["planning_contract_failed"])
     if contract_validation.missing_task_kinds:
-        contract_reason = (
-            f"{contract_reason}|missing_task_kinds:{','.join(contract_validation.missing_task_kinds)}"
-        )
+        contract_reason = f"{contract_reason}|missing_task_kinds:{','.join(contract_validation.missing_task_kinds)}"
     return False, contract_reason
 
 
 # Import sub-modules so their route decorators register on goals_bp
-import agent.routes.tasks.goals_query_routes  # noqa: E402
-import agent.routes.tasks.goals_planning_routes  # noqa: E402
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
@@ -189,7 +177,11 @@ def create_goal():
         record_product_event(
             "goal_blocked",
             actor=_current_username(),
-            details={"reason": "goal_required", "source": str(payload.source or "ui"), "mode": str(payload.mode or "generic")},
+            details={
+                "reason": "goal_required",
+                "source": str(payload.source or "ui"),
+                "mode": str(payload.mode or "generic"),
+            },
         )
         return api_response(status="error", message="goal_required", code=400)
 
@@ -312,10 +304,7 @@ def create_goal():
                 message=exc.reason_code,
                 code=exc.public_status,
             )
-        if (
-            payload.team_id
-            and payload.team_id != project_scope.team_id
-        ):
+        if payload.team_id and payload.team_id != project_scope.team_id:
             return api_response(
                 status="error",
                 message="project_team_mismatch",
@@ -328,15 +317,9 @@ def create_goal():
         status="planning",
         source=str(payload.source or "ui"),
         requested_by=_current_username(),
-        team_id=(
-            project_scope.team_id if project_scope is not None else payload.team_id
-        ),
-        tenant_id=(
-            project_scope.tenant_id if project_scope is not None else None
-        ),
-        project_id=(
-            project_scope.project_id if project_scope is not None else None
-        ),
+        team_id=(project_scope.team_id if project_scope is not None else payload.team_id),
+        tenant_id=(project_scope.tenant_id if project_scope is not None else None),
+        project_id=(project_scope.project_id if project_scope is not None else None),
         context=mode_context,
         constraints=[*mode_constraints, *list(payload.constraints or [])],
         acceptance_criteria=[*mode_acceptance, *list(payload.acceptance_criteria or [])],
@@ -353,7 +336,9 @@ def create_goal():
     goal_record = _repos().goal_repo.save(goal_record)
     if profile_id or overlay_id:
         goal_record.execution_preferences = dict(goal_record.execution_preferences or {})
-        goal_record.execution_preferences["instruction_layers"] = get_instruction_layer_service().goal_selection_summary(goal_record)
+        goal_record.execution_preferences["instruction_layers"] = (
+            get_instruction_layer_service().goal_selection_summary(goal_record)
+        )
         goal_record = _repos().goal_repo.save(goal_record)
     reference_summary = _goal_service().build_goal_reference_summary(goal_record)
     if reference_summary:
@@ -408,11 +393,16 @@ def create_goal():
     plan_id: str | None = None
     if current_app.testing:
         from agent.routes.tasks.goals_planning_routes import _run_goal_planning_background_impl
+
         _run_goal_planning_background_impl(goal_id=goal_record.id, context=planning_context)
         refreshed_goal = _repos().goal_repo.get_by_id(goal_record.id)
         if refreshed_goal is not None:
             goal_record = refreshed_goal
-        created_task_ids = [str(task.id) for task in (_repos().task_repo.get_by_goal_id(goal_record.id) or []) if str(task.id or "").strip()]
+        created_task_ids = [
+            str(task.id)
+            for task in (_repos().task_repo.get_by_goal_id(goal_record.id) or [])
+            if str(task.id or "").strip()
+        ]
         plans = _repos().plan_repo.get_by_goal_id(goal_record.id) or []
         if plans:
             plan_id = str(plans[0].id or "") or None
@@ -445,28 +435,6 @@ def create_goal():
 
 # ── Re-exports for test compatibility ──────────────────────────────
 
-from agent.routes.tasks.goals_helpers import (  # noqa: E402
-    _can_access_goal,
-    _GOAL_ACTIVE_PLANNING_IDS,
-    _GOAL_ACTIVE_PLANNING_LOCK,
-    _is_soft_planning_quality_failure,
-    _looks_like_software_goal,
-    _mark_started_planning_runs_failed,
-    _maybe_recover_stalled_planning_goal,
-    _team_scope_allows,
-)
 from agent.routes.tasks.goals_planning_routes import (  # noqa: E402
-    _acquire_planning_slot,
-    _clear_planning_lease,
-    _normalize_planning_slot_capacity,
-    _planning_slot_capacity_from_config,
-    _release_planning_slot,
     _run_goal_planning_background,
-    _run_goal_planning_background_impl,
-    _set_planning_lease,
-    _start_planning_heartbeat,
-)
-from agent.routes.tasks.goals_query_routes import (  # noqa: E402
-    goal_gate_human_decision,
-    goal_workflow_status,
 )

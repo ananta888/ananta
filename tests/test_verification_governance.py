@@ -4,7 +4,16 @@ import jwt
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB
-from agent.repository import audit_repo, goal_repo, plan_node_repo, plan_repo, policy_decision_repo, task_repo, team_repo, verification_record_repo
+from agent.repository import (
+    audit_repo,
+    goal_repo,
+    plan_node_repo,
+    plan_repo,
+    policy_decision_repo,
+    task_repo,
+    team_repo,
+    verification_record_repo,
+)
 from agent.services.verification_service import get_verification_service
 
 
@@ -35,11 +44,21 @@ class TestVerificationGovernance:
         assert decisions[0].status == "blocked"
 
     def test_task_complete_creates_verification_record(self, client, admin_auth_header):
-        task_repo.save(TaskDB(id="vg-task-1", title="Implement API", description="write code", status="assigned", task_kind="coding"))
+        task_repo.save(
+            TaskDB(
+                id="vg-task-1", title="Implement API", description="write code", status="assigned", task_kind="coding"
+            )
+        )
         res = client.post(
             "/tasks/orchestration/complete",
             headers=admin_auth_header,
-            json={"task_id": "vg-task-1", "actor": "http://coder:5000", "gate_results": {"passed": True}, "output": "pytest passed", "trace_id": "tr-vg-1"},
+            json={
+                "task_id": "vg-task-1",
+                "actor": "http://coder:5000",
+                "gate_results": {"passed": True},
+                "output": "pytest passed",
+                "trace_id": "tr-vg-1",
+            },
         )
         assert res.status_code == 200
         payload = res.get_json()["data"]
@@ -50,12 +69,22 @@ class TestVerificationGovernance:
         assert records[0].status == "passed"
 
     def test_failed_verification_retries_then_escalates(self, client, admin_auth_header):
-        task_repo.save(TaskDB(id="vg-task-2", title="Implement API", description="write code", status="assigned", task_kind="coding"))
+        task_repo.save(
+            TaskDB(
+                id="vg-task-2", title="Implement API", description="write code", status="assigned", task_kind="coding"
+            )
+        )
         for _ in range(3):
             client.post(
                 "/tasks/orchestration/complete",
                 headers=admin_auth_header,
-                json={"task_id": "vg-task-2", "actor": "http://coder:5000", "gate_results": {"passed": False}, "output": "no evidence", "trace_id": "tr-vg-2"},
+                json={
+                    "task_id": "vg-task-2",
+                    "actor": "http://coder:5000",
+                    "gate_results": {"passed": False},
+                    "output": "no evidence",
+                    "trace_id": "tr-vg-2",
+                },
             )
 
         records = verification_record_repo.get_by_task_id("vg-task-2")
@@ -66,7 +95,11 @@ class TestVerificationGovernance:
         assert records[0].results.get("repair_workflow", {}).get("next_action") == "escalate_to_human"
 
     def test_verification_failure_classification_external_gate(self):
-        task_repo.save(TaskDB(id="vg-task-2b", title="Implement API", description="write code", status="assigned", task_kind="coding"))
+        task_repo.save(
+            TaskDB(
+                id="vg-task-2b", title="Implement API", description="write code", status="assigned", task_kind="coding"
+            )
+        )
         record = get_verification_service().create_or_update_record(
             "vg-task-2b",
             trace_id="tr-vg-2b",
@@ -92,11 +125,26 @@ class TestVerificationGovernance:
 
     def test_goal_governance_summary_aggregates_policy_and_verification(self, client, admin_auth_header):
         goal = goal_repo.save(GoalDB(goal="Ship feature", summary="Ship feature", status="planned"))
-        task_repo.save(TaskDB(id="vg-goal-task", title="Task", status="assigned", goal_id=goal.id, goal_trace_id=goal.trace_id, task_kind="coding"))
+        task_repo.save(
+            TaskDB(
+                id="vg-goal-task",
+                title="Task",
+                status="assigned",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+                task_kind="coding",
+            )
+        )
         client.post(
             "/tasks/orchestration/complete",
             headers=admin_auth_header,
-            json={"task_id": "vg-goal-task", "actor": "http://coder:5000", "gate_results": {"passed": True}, "output": "pytest passed", "trace_id": goal.trace_id},
+            json={
+                "task_id": "vg-goal-task",
+                "actor": "http://coder:5000",
+                "gate_results": {"passed": True},
+                "output": "pytest passed",
+                "trace_id": goal.trace_id,
+            },
         )
         policy_decisions = policy_decision_repo.get_by_task_id("vg-goal-task")
         if not policy_decisions:
@@ -125,7 +173,9 @@ class TestVerificationGovernance:
         assert payload["policy"]["latest_events"][0]["channel"] == "governance"
 
     def test_verification_and_governance_include_execution_costs(self, client, admin_auth_header):
-        goal = goal_repo.save(GoalDB(goal="Cost aware verification", summary="Cost aware verification", status="planned"))
+        goal = goal_repo.save(
+            GoalDB(goal="Cost aware verification", summary="Cost aware verification", status="planned")
+        )
         task_repo.save(
             TaskDB(
                 id="vg-cost-task",
@@ -169,12 +219,29 @@ class TestVerificationGovernance:
 
     def test_non_admin_governance_summary_is_sanitized(self, client, admin_auth_header):
         team_repo.save(TeamDB(id="team-a", name="Governance fixture team", is_active=True))
-        goal = goal_repo.save(GoalDB(goal="Review secure flow", summary="Review secure flow", status="planned", team_id="team-a"))
-        task_repo.save(TaskDB(id="vg-goal-task-2", title="Task", status="assigned", goal_id=goal.id, goal_trace_id=goal.trace_id, task_kind="coding"))
+        goal = goal_repo.save(
+            GoalDB(goal="Review secure flow", summary="Review secure flow", status="planned", team_id="team-a")
+        )
+        task_repo.save(
+            TaskDB(
+                id="vg-goal-task-2",
+                title="Task",
+                status="assigned",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+                task_kind="coding",
+            )
+        )
         client.post(
             "/tasks/orchestration/complete",
             headers=admin_auth_header,
-            json={"task_id": "vg-goal-task-2", "actor": "http://coder:5000", "gate_results": {"passed": True}, "output": "ok", "trace_id": goal.trace_id},
+            json={
+                "task_id": "vg-goal-task-2",
+                "actor": "http://coder:5000",
+                "gate_results": {"passed": True},
+                "output": "ok",
+                "trace_id": goal.trace_id,
+            },
         )
         token = jwt.encode(
             {
@@ -196,7 +263,9 @@ class TestVerificationGovernance:
     def test_audit_log_records_hash_chain_for_goal_workflow(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.generate_text",
-            lambda **kwargs: '[{"title":"Audit secure release","description":"Prepare release audit","priority":"High"}]',
+            lambda **kwargs: (
+                '[{"title":"Audit secure release","description":"Prepare release audit","priority":"High"}]'
+            ),
         )
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Audit secure release"})
         payload = create_res.get_json()["data"]
@@ -248,7 +317,16 @@ class TestVerificationGovernance:
 
     def test_policy_decision_inherits_goal_trace_when_not_explicitly_passed(self):
         goal = goal_repo.save(GoalDB(goal="Trace linkage", summary="Trace linkage", status="planned"))
-        task_repo.save(TaskDB(id="vg-goal-task-3", title="Task", status="todo", goal_id=goal.id, goal_trace_id=goal.trace_id, task_kind="coding"))
+        task_repo.save(
+            TaskDB(
+                id="vg-goal-task-3",
+                title="Task",
+                status="todo",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+                task_kind="coding",
+            )
+        )
 
         from agent.routes.tasks.orchestration_policy import persist_policy_decision
 

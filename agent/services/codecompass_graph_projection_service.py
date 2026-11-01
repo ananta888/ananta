@@ -3,6 +3,7 @@
 The Hub owns validation and API shaping only.  Metric algorithms deliberately
 remain outside this module so HTTP requests cannot trigger graph analysis.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -37,112 +38,117 @@ class CodeCompassPreparedEdgePopulation:
     def size(self) -> int:
         return len(self.edge_ids)
 
-KNOWN_NODE_KINDS = frozenset({
-    "aggregator",
-    "business_dataset",
-    "business_execution",
-    "business_explanation",
-    "business_finding",
-    "buildable_component",
-    "config",
-    "directory",
-    "external_package",
-    "java_constructor",
-    "java_constructor_detail",
-    "java_file",
-    "java_method",
-    "java_method_detail",
-    "java_module_summary",
-    "java_type",
-    "md_file",
-    "md_section",
-    "package_manager",
-    "properties_entry",
-    "properties_file",
-    "python_class",
-    "python_file",
-    "python_function",
-    "python_import",
-    "python_method",
-    "python_module_summary",
-    "repository",
-    "runner",
-    "source_file",
-    "test",
-    "typescript_class",
-    "typescript_const",
-    "typescript_constructor",
-    "typescript_enum",
-    "typescript_file",
-    "typescript_folder_summary",
-    "typescript_function",
-    "typescript_import",
-    "typescript_interface",
-    "typescript_method",
-    "typescript_type",
-    "wiki_article",
-    "wiki_chunk",
-    "wiki_section",
-    "xml_file",
-    "xml_node_detail",
-    "xml_tag",
-    "yaml_entry",
-    "yaml_file",
-    *SEMANTIC_TRANSLATION_NODE_KINDS,
-})
+
+KNOWN_NODE_KINDS = frozenset(
+    {
+        "aggregator",
+        "business_dataset",
+        "business_execution",
+        "business_explanation",
+        "business_finding",
+        "buildable_component",
+        "config",
+        "directory",
+        "external_package",
+        "java_constructor",
+        "java_constructor_detail",
+        "java_file",
+        "java_method",
+        "java_method_detail",
+        "java_module_summary",
+        "java_type",
+        "md_file",
+        "md_section",
+        "package_manager",
+        "properties_entry",
+        "properties_file",
+        "python_class",
+        "python_file",
+        "python_function",
+        "python_import",
+        "python_method",
+        "python_module_summary",
+        "repository",
+        "runner",
+        "source_file",
+        "test",
+        "typescript_class",
+        "typescript_const",
+        "typescript_constructor",
+        "typescript_enum",
+        "typescript_file",
+        "typescript_folder_summary",
+        "typescript_function",
+        "typescript_import",
+        "typescript_interface",
+        "typescript_method",
+        "typescript_type",
+        "wiki_article",
+        "wiki_chunk",
+        "wiki_section",
+        "xml_file",
+        "xml_node_detail",
+        "xml_tag",
+        "yaml_entry",
+        "yaml_file",
+        *SEMANTIC_TRANSLATION_NODE_KINDS,
+    }
+)
 
 NODE_KIND_ALIASES = {"ts_file": "typescript_file"}
 
-KNOWN_EDGE_RELATIONS = frozenset({
-    "aggregates",
-    "bean_factory_method",
-    "built_by",
-    "explained_by",
-    "calls_probable_target",
-    "child_of_file",
-    "child_of_type",
-    "contains_entry",
-    "contains_directory",
-    "contains_file",
-    "contains_method",
-    "contains_section",
-    "contains_symbol",
-    "contains_type",
-    "controller_endpoint_declares",
-    "covers",
-    "declares_bean",
-    "declares_constructor",
-    "declares_method",
-    "depends_on",
-    "extends",
-    "field_type_uses",
-    "frontend_guard_refs_field",
-    "generic_type_uses",
-    "implements",
-    "imports_module",
-    "imports_symbol",
-    "input_to",
-    "injects_dependency",
-    "jpa_relation",
-    "mapper_maps_type",
-    "method_param_type_uses",
-    "method_return_type_uses",
-    "parent_child",
-    "produced_finding",
-    "permission_checks_field",
-    "policy_applies_to_field",
-    "related",
-    "returns",
-    "runs",
-    "tested_by",
-    "test_calls_endpoint",
-    "test_targets_type",
-    "transactional_boundary",
-    "uses_type",
-    "service_uses_repository",
-    "wiki_link",
-    *SEMANTIC_TRANSLATION_EDGE_TYPES,
-})
+KNOWN_EDGE_RELATIONS = frozenset(
+    {
+        "aggregates",
+        "bean_factory_method",
+        "built_by",
+        "explained_by",
+        "calls_probable_target",
+        "child_of_file",
+        "child_of_type",
+        "contains_entry",
+        "contains_directory",
+        "contains_file",
+        "contains_method",
+        "contains_section",
+        "contains_symbol",
+        "contains_type",
+        "controller_endpoint_declares",
+        "covers",
+        "declares_bean",
+        "declares_constructor",
+        "declares_method",
+        "depends_on",
+        "extends",
+        "field_type_uses",
+        "frontend_guard_refs_field",
+        "generic_type_uses",
+        "implements",
+        "imports_module",
+        "imports_symbol",
+        "input_to",
+        "injects_dependency",
+        "jpa_relation",
+        "mapper_maps_type",
+        "method_param_type_uses",
+        "method_return_type_uses",
+        "parent_child",
+        "produced_finding",
+        "permission_checks_field",
+        "policy_applies_to_field",
+        "related",
+        "returns",
+        "runs",
+        "tested_by",
+        "test_calls_endpoint",
+        "test_targets_type",
+        "transactional_boundary",
+        "uses_type",
+        "service_uses_repository",
+        "wiki_link",
+        *SEMANTIC_TRANSLATION_EDGE_TYPES,
+    }
+)
 
 _METRIC_NAMES = (
     "blast_radius",
@@ -226,22 +232,26 @@ def _provenance_file(record: Mapping[str, Any]) -> Any | None:
 def _node_file_and_path(node: Mapping[str, Any]) -> tuple[Any | None, Any | None]:
     attributes = node.get("attributes") if isinstance(node.get("attributes"), Mapping) else {}
     source_record = node.get("source_record") if isinstance(node.get("source_record"), Mapping) else {}
-    path = _first_non_blank((
-        attributes.get("path"),
-        node.get("path"),
-        source_record.get("path"),
-    ))
-    file_path = _first_non_blank((
-        attributes.get("file"),
-        node.get("file"),
-        node.get("path"),
-        _provenance_file(node),
-        attributes.get("path"),
-        _provenance_file(attributes),
-        source_record.get("file"),
-        source_record.get("path"),
-        _provenance_file(source_record),
-    ))
+    path = _first_non_blank(
+        (
+            attributes.get("path"),
+            node.get("path"),
+            source_record.get("path"),
+        )
+    )
+    file_path = _first_non_blank(
+        (
+            attributes.get("file"),
+            node.get("file"),
+            node.get("path"),
+            _provenance_file(node),
+            attributes.get("path"),
+            _provenance_file(attributes),
+            source_record.get("file"),
+            source_record.get("path"),
+            _provenance_file(source_record),
+        )
+    )
     return file_path, path
 
 
@@ -328,13 +338,15 @@ def _graph_revision(
     ]
     edge_projection = []
     for item in edges:
-        edge_projection.append({
-            "edge_id": str(item.get("edge_id") or ""),
-            "source_id": str(item.get("source_id") or item.get("source") or ""),
-            "target_id": str(item.get("target_id") or item.get("target") or ""),
-            "raw_edge_type": _raw_edge_type(item),
-            "visual_attributes": _revision_edge_attributes(item),
-        })
+        edge_projection.append(
+            {
+                "edge_id": str(item.get("edge_id") or ""),
+                "source_id": str(item.get("source_id") or item.get("source") or ""),
+                "target_id": str(item.get("target_id") or item.get("target") or ""),
+                "raw_edge_type": _raw_edge_type(item),
+                "visual_attributes": _revision_edge_attributes(item),
+            }
+        )
     revision_input = {
         "nodes": sorted(
             node_projection,
@@ -407,11 +419,7 @@ def _edge_metric_capabilities(
         elif metric_name in {"confidence", "multiplicity"}:
             status = "approximate"
             scope = "subset" if evidence_count else "all_edges"
-            reason_code = (
-                "partial_edge_evidence"
-                if evidence_count
-                else f"{metric_name}_defaulted"
-            )
+            reason_code = "partial_edge_evidence" if evidence_count else f"{metric_name}_defaulted"
         elif evidence_count:
             status = "approximate"
             scope = "subset"
@@ -455,10 +463,7 @@ def _require_finite_non_negative(
     field: str,
     maximum: float | None = None,
 ) -> float | int:
-    if (
-        not _is_finite_non_negative(value)
-        or (maximum is not None and float(value) > maximum)
-    ):
+    if not _is_finite_non_negative(value) or (maximum is not None and float(value) > maximum):
         raise ValueError(f"invalid_graph_edge_value:{field}")
     return value
 
@@ -491,10 +496,12 @@ def _validated_metrics(
     if not hash_matches:
         return _unavailable_capabilities("worker_metrics_hash_invalid"), {}, None, "visual_metrics_hash_invalid"
 
-    if (
-        not str(artifact.get("algorithm_version") or "").strip()
-        or artifact.get("capability_status") not in {"available", "approximate", "degraded", "unavailable"}
-    ):
+    if not str(artifact.get("algorithm_version") or "").strip() or artifact.get("capability_status") not in {
+        "available",
+        "approximate",
+        "degraded",
+        "unavailable",
+    }:
         return _invalid_metrics("worker_metrics_contract_invalid", "visual_metrics_contract_invalid")
 
     raw_capabilities = artifact.get("metric_capabilities")
@@ -608,21 +615,25 @@ class CodeCompassGraphProjectionService:
         evidence_revision = _graph_revision(nodes, edges, graph_revision)
         projection_revision = evidence_revision
         if derive_projection_revision:
-            projection_revision = _content_hash({
-                "parent_graph_revision": evidence_revision,
-                "projection_algorithm_version": PROJECTION_ALGORITHM_VERSION,
-                "subgraph_revision": _graph_revision(nodes, edges, None),
-            })
+            projection_revision = _content_hash(
+                {
+                    "parent_graph_revision": evidence_revision,
+                    "projection_algorithm_version": PROJECTION_ALGORITHM_VERSION,
+                    "subgraph_revision": _graph_revision(nodes, edges, None),
+                }
+            )
         capabilities, metrics_by_node, metrics_hash, metrics_warning = _validated_metrics(
             visual_metrics,
             graph_revision=evidence_revision,
         )
         for capability in capabilities.values():
             capability.setdefault("graph_revision", evidence_revision)
-        capabilities.update(_edge_metric_capabilities(
-            edges,
-            evidence_graph_revision=evidence_revision,
-        ))
+        capabilities.update(
+            _edge_metric_capabilities(
+                edges,
+                evidence_graph_revision=evidence_revision,
+            )
+        )
         capabilities = dict(sorted(capabilities.items()))
         projected_nodes = [self._project_node(node, metrics_by_node) for node in nodes]
         projected_edges = self._project_edges(
@@ -676,12 +687,14 @@ class CodeCompassGraphProjectionService:
         if path is not None:
             attributes["path"] = path
         if not str(attributes.get("name") or "").strip():
-            name = _first_non_blank((
-                node.get("name"),
-                node.get("symbol"),
-                source_record.get("name"),
-                source_record.get("symbol"),
-            ))
+            name = _first_non_blank(
+                (
+                    node.get("name"),
+                    node.get("symbol"),
+                    source_record.get("name"),
+                    source_record.get("symbol"),
+                )
+            )
             if name is not None:
                 attributes["name"] = name
         for output_key, candidates in {
@@ -749,25 +762,31 @@ class CodeCompassGraphProjectionService:
             raw_relation = _raw_edge_type(edge)
             parallel_keys.append((source_id, target_id, raw_relation))
             explicit_ids.append(str(edge.get("edge_id") or "").strip())
-            signatures.append(_canonical_json({
-                "source_id": source_id,
-                "target_id": target_id,
-                "raw_edge_type": raw_relation,
-                "visual_attributes": _revision_edge_attributes(edge),
-                "field": edge.get("field"),
-                "operation": edge.get("operation"),
-                "heuristic": edge.get("heuristic"),
-            }))
+            signatures.append(
+                _canonical_json(
+                    {
+                        "source_id": source_id,
+                        "target_id": target_id,
+                        "raw_edge_type": raw_relation,
+                        "visual_attributes": _revision_edge_attributes(edge),
+                        "field": edge.get("field"),
+                        "operation": edge.get("operation"),
+                        "heuristic": edge.get("heuristic"),
+                    }
+                )
+            )
         parallel_counts_by_key = Counter(parallel_keys)
         parallel_indexes = [0] * len(parallel_keys)
         indexes_by_key: dict[tuple[str, str, str], list[int]] = {}
         for index, key in enumerate(parallel_keys):
             indexes_by_key.setdefault(key, []).append(index)
         for indexes in indexes_by_key.values():
-            for parallel_index, index in enumerate(sorted(
-                indexes,
-                key=lambda item: (explicit_ids[item], signatures[item], item),
-            )):
+            for parallel_index, index in enumerate(
+                sorted(
+                    indexes,
+                    key=lambda item: (explicit_ids[item], signatures[item], item),
+                )
+            ):
                 parallel_indexes[index] = parallel_index
 
         explicit_counts = Counter(item for item in explicit_ids if item)
@@ -783,27 +802,29 @@ class CodeCompassGraphProjectionService:
             if explicit_id and explicit_counts[explicit_id] == 1:
                 edge_identity = explicit_id
             else:
-                identity_seed = _content_hash({
-                    "source_edge_id": explicit_id,
-                    "signature": signatures[index],
-                })
+                identity_seed = _content_hash(
+                    {
+                        "source_edge_id": explicit_id,
+                        "signature": signatures[index],
+                    }
+                )
                 duplicate_index = identity_occurrence[identity_seed]
                 identity_occurrence[identity_seed] += 1
                 edge_identity = (
                     identity_seed
                     if duplicate_index == 0
-                    else _content_hash({
-                        "identity_seed": identity_seed,
-                        "duplicate_index": duplicate_index,
-                    })
+                    else _content_hash(
+                        {
+                            "identity_seed": identity_seed,
+                            "duplicate_index": duplicate_index,
+                        }
+                    )
                 )
             edge_ids.append(edge_identity)
         return CodeCompassPreparedEdgePopulation(
             edge_ids=tuple(edge_ids),
             parallel_indexes=tuple(parallel_indexes),
-            parallel_counts=tuple(
-                parallel_counts_by_key[key] for key in parallel_keys
-            ),
+            parallel_counts=tuple(parallel_counts_by_key[key] for key in parallel_keys),
         )
 
     @classmethod
@@ -828,9 +849,7 @@ class CodeCompassGraphProjectionService:
                 raise ValueError("invalid_graph_edge_population_window")
         else:
             population_offset = int(edge_population_offset)
-            population_indices = tuple(
-                range(population_offset, population_offset + len(edges))
-            )
+            population_indices = tuple(range(population_offset, population_offset + len(edges)))
         if any(index < 0 or index >= prepared.size for index in population_indices):
             raise ValueError("invalid_graph_edge_population_window")
         projected: list[dict[str, Any]] = []
@@ -886,25 +905,29 @@ class CodeCompassGraphProjectionService:
             if dependency_weight is not None:
                 metrics.setdefault("dependency_weight", dependency_weight)
             if metrics:
-                attributes["metrics"] = dict(sorted(
-                    (
-                        str(metric_name),
-                        _require_finite_non_negative(
-                            metric_value,
-                            field=f"metrics.{metric_name}",
-                        ),
+                attributes["metrics"] = dict(
+                    sorted(
+                        (
+                            str(metric_name),
+                            _require_finite_non_negative(
+                                metric_value,
+                                field=f"metrics.{metric_name}",
+                            ),
+                        )
+                        for metric_name, metric_value in metrics.items()
                     )
-                    for metric_name, metric_value in metrics.items()
-                ))
+                )
             attributes.pop("visual_metrics", None)
 
-            projected.append({
-                "edge_id": prepared.edge_ids[population_index],
-                "source_id": source_id,
-                "target_id": target_id,
-                "relation": raw_relation,
-                "attributes": attributes,
-            })
+            projected.append(
+                {
+                    "edge_id": prepared.edge_ids[population_index],
+                    "source_id": source_id,
+                    "target_id": target_id,
+                    "relation": raw_relation,
+                    "attributes": attributes,
+                }
+            )
         return projected
 
 

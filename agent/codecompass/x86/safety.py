@@ -3,12 +3,13 @@
 Execution, network access, and dump writes are structurally blocked.
 This module provides runtime checks that enforce those guarantees.
 """
+
 from __future__ import annotations
 
 from agent.codecompass.x86.diagnostics import (
     BINARY_EXECUTION_BLOCKED,
-    x86_diagnostic,
     X86Diagnostic,
+    x86_diagnostic,
 )
 
 # Safety policy constants — test-verifiable

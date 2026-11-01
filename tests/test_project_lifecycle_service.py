@@ -50,9 +50,7 @@ def test_create_is_atomic_and_membership_controls_archive(project_runtime):
     assert created.id == created.team_id
     assert created.status == "active"
     with sessions() as session:
-        team = session.exec(
-            select(TeamDB).where(TeamDB.id == created.team_id)
-        ).first()
+        team = session.exec(select(TeamDB).where(TeamDB.id == created.team_id)).first()
     assert team is not None
     assert team.name == "Project Alpha"
 

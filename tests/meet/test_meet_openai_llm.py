@@ -124,9 +124,7 @@ def test_an_empty_completion_fails_closed_instead_of_answering_with_nothing(open
 
 def test_hidden_reasoning_is_never_promoted_to_the_answer(openai_backend):
     reasoning = "SYNTHETIC_HIDDEN_THOUGHT: the user asked about the roadmap."
-    chat = completion(
-        choices=[{"message": {"role": "assistant", "content": "", "reasoning_content": reasoning}}]
-    )
+    chat = completion(choices=[{"message": {"role": "assistant", "content": "", "reasoning_content": reasoning}}])
     with pytest.raises(ValueError, match="^meet_llm_response_invalid$") as failure:
         llm.generate("frage", max_output_tokens=8, transport=Port(chat=chat))
     assert "SYNTHETIC_HIDDEN_THOUGHT" not in str(failure.value)

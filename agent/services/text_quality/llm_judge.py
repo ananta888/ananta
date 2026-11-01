@@ -62,8 +62,7 @@ class LLMTextQualityJudge:
                 confidence=float(payload["confidence"]),
                 metadata={
                     "improvement_hints": [
-                        str(value)[:240]
-                        for value in list(payload.get("improvement_hints") or [])[:5]
+                        str(value)[:240] for value in list(payload.get("improvement_hints") or [])[:5]
                     ]
                 },
             )

@@ -15,9 +15,16 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.sfu_broadcast_release_common import (  # noqa: E402
-    atomic_write_report, build_report, canonical_sha256, content_reasons,
-    is_sha256, parse_utc, read_bounded_json, unavailable_report,
-    validate_bindings, validate_exceptions,
+    atomic_write_report,
+    build_report,
+    canonical_sha256,
+    content_reasons,
+    is_sha256,
+    parse_utc,
+    read_bounded_json,
+    unavailable_report,
+    validate_bindings,
+    validate_exceptions,
 )
 
 DEFAULT_POLICY = ROOT / "config/security/sfu_broadcast_dependency_policy.json"
@@ -139,16 +146,21 @@ def _scan_reasons(scans: Mapping[str, Any], component_ids: set[str], as_of: date
         if scans.get(key) != 0:
             reasons.add(f"supply_chain_{key}")
     provenance = scans.get("provenance")
-    if not isinstance(provenance, list) or {
-        row.get("component_id") for row in provenance if isinstance(row, Mapping)
-    } != component_ids:
+    if (
+        not isinstance(provenance, list)
+        or {row.get("component_id") for row in provenance if isinstance(row, Mapping)} != component_ids
+    ):
         reasons.add("supply_chain_provenance_scope_mismatch")
         provenance = []
     if not all(_provenance_verified(row) for row in provenance):
         reasons.add("supply_chain_provenance_unverified")
-    reasons.update(validate_exceptions(
-        scans.get("exceptions"), as_of=as_of, allowed_scopes=component_ids,
-    ))
+    reasons.update(
+        validate_exceptions(
+            scans.get("exceptions"),
+            as_of=as_of,
+            allowed_scopes=component_ids,
+        )
+    )
 
 
 def _container_row_reasons(row: Any, required_controls: set[Any], reasons: set[str]) -> None:
@@ -161,13 +173,9 @@ def _container_row_reasons(row: Any, required_controls: set[Any], reasons: set[s
         reasons.add("supply_chain_container_capability_added")
     for sandbox in _SANDBOX_PROFILES:
         value = row.get(sandbox)
-        if not isinstance(value, Mapping) or (
-            value.get("available") is True and value.get("enforced") is not True
-        ):
+        if not isinstance(value, Mapping) or (value.get("available") is True and value.get("enforced") is not True):
             reasons.add(f"supply_chain_container_{sandbox}_invalid")
-    if row.get("component_id") in {"sfu", "turn"} and row.get(
-        "forbidden_responsibilities"
-    ) not in ([], None):
+    if row.get("component_id") in {"sfu", "turn"} and row.get("forbidden_responsibilities") not in ([], None):
         reasons.add("supply_chain_control_plane_responsibility_leak")
 
 
@@ -251,8 +259,11 @@ def main() -> int:
     paths = (args.sbom, args.scans, args.container_evidence, args.parent_sbom)
     if any(path is None for path in paths):
         report = unavailable_report(
-            schema=REPORT_SCHEMA, gate_id=GATE_ID,
-            reason="supply_chain_external_evidence_missing", config=policy, parent=parent,
+            schema=REPORT_SCHEMA,
+            gate_id=GATE_ID,
+            reason="supply_chain_external_evidence_missing",
+            config=policy,
+            parent=parent,
         )
     else:
         report = evaluate(

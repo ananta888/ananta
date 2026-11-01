@@ -11,6 +11,7 @@ Reported as SKIPPED (never as passed) unless a real server with a vision model i
 The labelled images are drawn like the fork's ``bench/shapes.py`` (coloured shapes, known truth). The accuracy
 bar only applies to fields that were not abstained; abstained fields must escalate and carry no value.
 """
+
 from __future__ import annotations
 
 import io
@@ -107,7 +108,11 @@ def test_real_shapes_single_image(provider):
     correct = accepted = 0
     for i in range(n):
         png, truth = _draw(rng)
-        outcome = _decide_or_skip(provider, [VisionContext(images=(VisionImage(png),), text="Answer the questions about this picture.")], return_probs=True)
+        outcome = _decide_or_skip(
+            provider,
+            [VisionContext(images=(VisionImage(png),), text="Answer the questions about this picture.")],
+            return_probs=True,
+        )
         assert outcome.ok, (outcome.error_code, outcome.error_message)
         assert outcome.usage.media_tokens and outcome.usage.media_tokens > 0
         assert outcome.timings.total_ms and outcome.timings.total_ms > 0
@@ -123,19 +128,23 @@ def test_real_shapes_single_image(provider):
                 accepted += 1
                 correct += item.value == truth[name]
                 assert decision.action is VisionHubAction.CONFIRM  # no policy: never ACT
-        rows.append({
-            "image": i,
-            "truth": truth,
-            "decision": {k: v.top_value for k, v in result.fields.items()},
-            "probability": {k: round(v.probability, 4) for k, v in result.fields.items()},
-            "margin": {k: None if v.margin is None else round(v.margin, 4) for k, v in result.fields.items()},
-            "abstained": list(result.abstained),
-            "media_tokens": outcome.usage.media_tokens,
-            "media_cached": outcome.usage.media_cached,
-            "total_ms": round(outcome.timings.total_ms or 0, 1),
-            "model": outcome.model,
-        })
-    print("\nVISION_DECISION_IT_RESULTS " + json.dumps({"n": n, "accepted": accepted, "correct": correct, "rows": rows}))
+        rows.append(
+            {
+                "image": i,
+                "truth": truth,
+                "decision": {k: v.top_value for k, v in result.fields.items()},
+                "probability": {k: round(v.probability, 4) for k, v in result.fields.items()},
+                "margin": {k: None if v.margin is None else round(v.margin, 4) for k, v in result.fields.items()},
+                "abstained": list(result.abstained),
+                "media_tokens": outcome.usage.media_tokens,
+                "media_cached": outcome.usage.media_cached,
+                "total_ms": round(outcome.timings.total_ms or 0, 1),
+                "model": outcome.model,
+            }
+        )
+    print(
+        "\nVISION_DECISION_IT_RESULTS " + json.dumps({"n": n, "accepted": accepted, "correct": correct, "rows": rows})
+    )
     assert accepted > 0, "every field abstained"
     assert correct / accepted >= 0.9, f"accuracy of accepted fields {correct}/{accepted}"
 
@@ -151,8 +160,17 @@ def test_real_two_contexts_and_warm_cache(provider):
     assert warm.usage.media_cached == 2  # encoded images are reused across requests
     for a, b in zip(cold.results, warm.results):
         assert {k: v.top_value for k, v in a.fields.items()} == {k: v.top_value for k, v in b.fields.items()}
-    print("\nVISION_DECISION_IT_CACHE " + json.dumps({"cold": cold.timings.as_dict(), "warm": warm.timings.as_dict(),
-                                                     "cold_usage": cold.usage.as_dict(), "warm_usage": warm.usage.as_dict()}))
+    print(
+        "\nVISION_DECISION_IT_CACHE "
+        + json.dumps(
+            {
+                "cold": cold.timings.as_dict(),
+                "warm": warm.timings.as_dict(),
+                "cold_usage": cold.usage.as_dict(),
+                "warm_usage": warm.usage.as_dict(),
+            }
+        )
+    )
 
 
 def test_real_ambiguous_image_escalates(provider):
@@ -168,15 +186,22 @@ def test_real_ambiguous_image_escalates(provider):
     for name in result.abstained:
         assert result.fields[name].value is None and hub.fields[name].action is VisionHubAction.ESCALATE
         assert name not in result.accepted
-    print("\nVISION_DECISION_IT_ABSTAIN " + json.dumps({"abstained": list(result.abstained),
-                                                       "escalations": [e.as_dict() for e in hub.escalations]}))
+    print(
+        "\nVISION_DECISION_IT_ABSTAIN "
+        + json.dumps({"abstained": list(result.abstained), "escalations": [e.as_dict() for e in hub.escalations]})
+    )
 
 
 def test_real_http_400_is_no_decision(provider):
     # Bypass Ananta's local validation to see the server's own 400 mapped fail-closed.
     status, body = HttpClientTransport().request(
-        "POST", provider.config.url.rstrip("/") + "/v1/decision", body=json.dumps({"schema": SCHEMA.as_request(), "contexts": []}).encode(),
-        headers={"Content-Type": "application/json", **({"Authorization": f"Bearer {provider.config.api_key}"} if provider.config.api_key else {})},
+        "POST",
+        provider.config.url.rstrip("/") + "/v1/decision",
+        body=json.dumps({"schema": SCHEMA.as_request(), "contexts": []}).encode(),
+        headers={
+            "Content-Type": "application/json",
+            **({"Authorization": f"Bearer {provider.config.api_key}"} if provider.config.api_key else {}),
+        },
         timeout_s=30,
     )
     outcome = parse_decision_response(status, body, schema=SCHEMA, n_contexts=1, min_probability=0.8, min_margin=0.3)
@@ -192,7 +217,11 @@ def test_real_extra_images_are_recorded(provider):
     schema = VisionDecisionSchema.from_mapping(
         "object-kind-v1",
         {
-            "kind": {"type": "enum", "choices": ["animal", "vehicle", "other"], "description": "What is shown in the picture?"},
+            "kind": {
+                "type": "enum",
+                "choices": ["animal", "vehicle", "other"],
+                "description": "What is shown in the picture?",
+            },
             "outdoor": {"type": "boolean", "description": "Is the picture taken outdoors?"},
         },
     )
@@ -201,7 +230,13 @@ def test_real_extra_images_are_recorded(provider):
         outcome = provider.decide(schema, [VisionContext(images=(VisionImage(path.read_bytes()),))])
         assert outcome.ok, (outcome.error_code, outcome.error_message)
         result = outcome.results[0]
-        rows.append({"image": path.name, "decision": {k: v.top_value for k, v in result.fields.items()},
-                     "probability": {k: round(v.probability, 4) for k, v in result.fields.items()},
-                     "abstained": list(result.abstained), "total_ms": round(outcome.timings.total_ms or 0, 1)})
+        rows.append(
+            {
+                "image": path.name,
+                "decision": {k: v.top_value for k, v in result.fields.items()},
+                "probability": {k: round(v.probability, 4) for k, v in result.fields.items()},
+                "abstained": list(result.abstained),
+                "total_ms": round(outcome.timings.total_ms or 0, 1),
+            }
+        )
     print("\nVISION_DECISION_IT_EXTRA " + json.dumps(rows))

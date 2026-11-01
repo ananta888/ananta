@@ -46,9 +46,7 @@ def test_hub_normalizes_adapter_merged_and_gguf_exports() -> None:
 
 def test_hub_requires_explicit_merge_confirmation_for_merged_exports() -> None:
     with pytest.raises(MlInternTrainingContractError) as error:
-        CreateTrainingJobCommand.from_mapping(
-            _payload(exports=[{"format": "merged_16bit"}])
-        )
+        CreateTrainingJobCommand.from_mapping(_payload(exports=[{"format": "merged_16bit"}]))
 
     assert error.value.reason_code == "merge_confirmation_required"
 

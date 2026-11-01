@@ -5,6 +5,7 @@ Provides:
   - Debug panel: heuristic_id, TTL remaining, fallback_reason, last 5 source refs
   - Proposal count for TUI header
 """
+
 from __future__ import annotations
 
 import time
@@ -16,7 +17,7 @@ from typing import Any
 class HeuristicDebugState:
     heuristic_id: str | None = None
     version: str | None = None
-    source: str = "heuristic"          # ai | heuristic | hybrid
+    source: str = "heuristic"  # ai | heuristic | hybrid
     ttl_remaining_seconds: float | None = None
     fallback_reason: str | None = None
     last_source_refs: list[str] = field(default_factory=list)
@@ -101,7 +102,7 @@ class HeuristicDebugView:
         source_refs = list(getattr(result, "selected_context_refs", None) or [])
         state = HeuristicDebugState(
             heuristic_id=getattr(result, "heuristic_id", None)
-                         or (heuristic_def.heuristic_id if heuristic_def else None),
+            or (heuristic_def.heuristic_id if heuristic_def else None),
             version=getattr(heuristic_def, "version", None) if heuristic_def else None,
             source=str(getattr(result, "source", "heuristic") or "heuristic"),
             ttl_remaining_seconds=ttl_remaining,

@@ -26,28 +26,64 @@ def _configured_exclude_dirs() -> set[str]:
 _DATA_EXTENSIONS = frozenset({".json", ".jsonl"})
 
 # File names to skip when scanning data extensions (build artefacts / lock files)
-_DATA_FILE_BLOCKLIST = frozenset({
-    "package-lock.json", "yarn.lock.json", "composer.lock",
-    "angular.json", "tsconfig.json", "tsconfig.app.json",
-    "tsconfig.spec.json", "tsconfig.eslint.json", ".eslintrc.json",
-})
+_DATA_FILE_BLOCKLIST = frozenset(
+    {
+        "package-lock.json",
+        "yarn.lock.json",
+        "composer.lock",
+        "angular.json",
+        "tsconfig.json",
+        "tsconfig.app.json",
+        "tsconfig.spec.json",
+        "tsconfig.eslint.json",
+        ".eslintrc.json",
+    }
+)
 
 # Directories to skip during the extra data-file walk (in addition to _configured_exclude_dirs)
-_DATA_EXTRA_SKIP_DIRS = frozenset({
-    "node_modules", "dist", "build", ".eggs", ".tox",
-    "ananta.egg-info", "ci-artifacts", "test-results.root-owned.backup.1780499293",
-    "archiv", "benchmarks", "fixtures", "data_test",
-    ".rag", "project-workspaces", "venv", ".venv", "myvenv",
-})
+_DATA_EXTRA_SKIP_DIRS = frozenset(
+    {
+        "node_modules",
+        "dist",
+        "build",
+        ".eggs",
+        ".tox",
+        "ananta.egg-info",
+        "ci-artifacts",
+        "test-results.root-owned.backup.1780499293",
+        "archiv",
+        "benchmarks",
+        "fixtures",
+        "data_test",
+        ".rag",
+        "project-workspaces",
+        "venv",
+        ".venv",
+        "myvenv",
+    }
+)
 
 # Directories to skip in the os.walk fallback for CODE files (when git is unavailable).
 # Must exclude node_modules/dist/etc. to avoid hitting max_files before reaching source dirs.
-_CODE_EXTRA_SKIP_DIRS = frozenset({
-    "node_modules", ".git", "__pycache__", "dist", "build",
-    ".eggs", ".tox", ".cache", "ananta.egg-info",
-    "ci-artifacts", "project-workspaces", "venv", ".venv", "myvenv",
-    "test-results.root-owned.backup.1780499293",
-})
+_CODE_EXTRA_SKIP_DIRS = frozenset(
+    {
+        "node_modules",
+        ".git",
+        "__pycache__",
+        "dist",
+        "build",
+        ".eggs",
+        ".tox",
+        ".cache",
+        "ananta.egg-info",
+        "ci-artifacts",
+        "project-workspaces",
+        "venv",
+        ".venv",
+        "myvenv",
+        "test-results.root-owned.backup.1780499293",
+    }
+)
 
 
 def tracked_code_files(*, repo_root: Path, code_extensions: set[str], max_files: int) -> list[Path]:

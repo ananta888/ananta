@@ -41,6 +41,7 @@ class BlueprintArtifactDB(SQLModel, table=True):
 
 class BlueprintWorkflowStepDB(SQLModel, table=True):
     """Persistent representation of a blueprint's optional workflow step."""
+
     __tablename__ = "blueprint_workflow_steps"
     __table_args__ = (
         sa.UniqueConstraint("blueprint_id", "step_id", name="uq_blueprint_workflow_steps_blueprint_step_id"),

@@ -5,33 +5,31 @@ from typing import Any, List, Optional
 from flask import current_app, has_request_context
 
 from agent.auth import get_authenticated_source_control_principal
-
 from agent.db_models import ConfigDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
 from agent.repository import (
     agent_repo,
     audit_repo,
     config_repo,
-    goal_repo,
     role_repo,
-    task_repo,
     team_member_repo,
     team_repo,
     team_type_repo,
     team_type_role_link_repo,
     template_repo,
 )
-from agent.services.template_variable_registry import (
-    find_unknown_template_variables,
-    resolve_allowed_template_variables,
-)
 from agent.services.organization_team_deletion_service import (
     OrganizationTeamDeletionError,
     OrganizationTeamDeletionPrincipal,
     OrganizationTeamDeletionService,
 )
-from agent.tools_registry import ToolRegistry, ToolResult, _TOOL_ALIASES, registry  # noqa: F401
+from agent.services.template_variable_registry import (
+    find_unknown_template_variables,
+    resolve_allowed_template_variables,
+)
+from agent.tools_registry import _TOOL_ALIASES, ToolRegistry, ToolResult, registry  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
 
 def _get_template_allowlist() -> set:
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
@@ -797,21 +795,26 @@ def set_autopilot_state_tool(
 
 
 # Action pack tool registrations — imported from submodules for decorator side effects
-from agent.tools_file import (file_read_tool, file_write_tool, file_list_tool, file_patch_tool)
-from agent.tools_answer import final_answer_tool
+from agent import tools_ops as _tools_ops  # noqa: F401
 from agent.tools_git import (
     _check_git_access,
     _git_cwd,
-    git_status_tool as _git_status_tool_impl,
-    git_diff_tool as _git_diff_tool_impl,
-    git_log_tool as _git_log_tool_impl,
+)
+from agent.tools_git import (
     git_commit_tool as _git_commit_tool_impl,
+)
+from agent.tools_git import (
+    git_diff_tool as _git_diff_tool_impl,
+)
+from agent.tools_git import (
+    git_log_tool as _git_log_tool_impl,
+)
+from agent.tools_git import (
     git_push_tool as _git_push_tool_impl,
 )
-from agent.tools_shell import shell_execute_tool
-from agent.tools_browser import web_fetch_tool, web_search_tool
-from agent.tools_document import doc_extract_tool
-from agent import tools_ops as _tools_ops  # noqa: F401
+from agent.tools_git import (
+    git_status_tool as _git_status_tool_impl,
+)
 
 
 def _with_git_patch_points(func, *args, **kwargs):

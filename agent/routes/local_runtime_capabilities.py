@@ -53,8 +53,7 @@ def _can_refresh() -> bool:
 @check_auth
 def get_runtime_capabilities():
     projection = (
-        current_app.extensions.get("local_runtime_capability_projection")
-        or local_runtime_capability_projection()
+        current_app.extensions.get("local_runtime_capability_projection") or local_runtime_capability_projection()
     )
     return api_response(data=projection.snapshot())
 

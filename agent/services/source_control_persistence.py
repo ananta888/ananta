@@ -56,9 +56,7 @@ class SourceControlPersistenceService:
         self._indexes = indexes
         self._clock = clock
 
-    def register_connection(
-        self, contract: SourceConnection
-    ) -> SourceConnectionRecord:
+    def register_connection(self, contract: SourceConnection) -> SourceConnectionRecord:
         return self._catalog.save_connection(contract)
 
     def transition_connection(
@@ -77,9 +75,7 @@ class SourceControlPersistenceService:
             expected_lock_version=expected_lock_version,
         )
 
-    def append_revision(
-        self, contract: SourceRevision
-    ) -> SourceRevisionRecord:
+    def append_revision(self, contract: SourceRevision) -> SourceRevisionRecord:
         return self._catalog.append_revision(contract)
 
     def create_grant(
@@ -261,9 +257,7 @@ class SourceControlPersistenceService:
             current_policy_snapshot_digest=current_policy_snapshot_digest,
         )
         if not projection.rollback_candidate:
-            raise SourceControlPersistenceError(
-                "source_control_index_not_rollback_candidate"
-            )
+            raise SourceControlPersistenceError("source_control_index_not_rollback_candidate")
         return self._indexes.activate_index(
             tenant_id=index.tenant_id,
             project_id=index.project_id,

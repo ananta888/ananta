@@ -546,9 +546,7 @@ class CodeCompassGraphReadService:
                 "global_unresolved_edge_count": len(snapshot.unresolved_edges),
                 "scope_unresolved_edge_count": len(snapshot.unresolved_edges),
                 "boundary_edge_count": 0,
-                "domain_node_groups": tuple(
-                    group.node_ids for group in selection.groups
-                ),
+                "domain_node_groups": tuple(group.node_ids for group in selection.groups),
             }
 
         selected_ids = frozenset(identifier for node in selection.nodes if (identifier := graph_node_id(node)))
@@ -589,9 +587,7 @@ class CodeCompassGraphReadService:
             "global_unresolved_edge_count": len(snapshot.unresolved_edges),
             "scope_unresolved_edge_count": selected_unresolved,
             "boundary_edge_count": boundary_edges,
-            "domain_node_groups": tuple(
-                group.node_ids for group in selection.groups
-            ),
+            "domain_node_groups": tuple(group.node_ids for group in selection.groups),
         }
 
     def _topology_page(

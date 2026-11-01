@@ -16,8 +16,12 @@ def _fm(active: str = "chat_panel") -> FocusManager:
 def _router() -> MouseRouter:
     mr = MouseRouter()
     mr.register_panel(PanelRect(x1=0, y1=10, x2=30, y2=40, focus_id="chat_panel", scroll_context_id="chat_panel"))
-    mr.register_panel(PanelRect(x1=31, y1=10, x2=60, y2=40, focus_id="artifact_panel", scroll_context_id="artifact_panel"))
-    mr.register_panel(PanelRect(x1=0, y1=0, x2=60, y2=9, focus_id="center_viewport", scroll_context_id="center_viewport"))
+    mr.register_panel(
+        PanelRect(x1=31, y1=10, x2=60, y2=40, focus_id="artifact_panel", scroll_context_id="artifact_panel")
+    )
+    mr.register_panel(
+        PanelRect(x1=0, y1=0, x2=60, y2=9, focus_id="center_viewport", scroll_context_id="center_viewport")
+    )
     return mr
 
 

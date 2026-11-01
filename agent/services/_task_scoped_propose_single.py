@@ -23,10 +23,7 @@ from flask import current_app
 
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend
-from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
 from agent.runtime_policy import normalize_task_kind, runtime_routing_config
-from agent.services.cli_session_service import get_cli_session_service
-from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.services._task_scoped_propose_persist import (
     persist_command_proposal,
     persist_interactive_finalize_proposal,
@@ -39,6 +36,9 @@ from agent.services._task_scoped_propose_run import (
     propose_flow_metrics,
     repair_proposal,
 )
+from agent.services.cli_session_service import get_cli_session_service
+from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
+from agent.services.worker_workspace_service import get_worker_workspace_service
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
@@ -89,7 +89,8 @@ def propose_single_task_step(
         detail = str(run.raw_res or run.cli_err or "")
         log.warning("worker_proposal_failed task=%s rc=%s details=%s", tid, run.rc, detail[:2000])
         return deps.route_response(
-            status="error", message="worker_proposal_failed",
+            status="error",
+            message="worker_proposal_failed",
             data={"backend": run.backend_used, "returncode": run.rc, "details": detail[:2000]},
             code=502,
         )
@@ -174,8 +175,8 @@ def _start_propose_run(
 
 
 def _resolve_effective_backend(cfg: dict, task_kind: str, required_capabilities) -> tuple[str, Any]:
-    from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
     from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
+    from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
 
     _cfg_for_backend = cfg if isinstance(cfg, dict) else (current_app.config.get("AGENT_CONFIG", {}) or {})
     resolved = _resolve_cli_backend_fn(
@@ -279,15 +280,10 @@ def _prepare_prompt(run: ProposeRun, *, request_data, tool_definitions_resolver:
 
 
 def _with_sampling_hint(prompt: str, temperature: float, *, interactive_terminal: bool) -> str:
-    return (
-        f"{prompt}\n\n"
-        f"[Sampling-Hinweis]\n"
-        f"Ziel-Temperatur fuer diese Antwort: {temperature:.2f}\n"
-        + (
-            "Arbeite im sichtbaren OpenCode-Terminal direkt im Workspace."
-            if interactive_terminal
-            else "Behalte strikt das JSON-Output-Schema ein."
-        )
+    return f"{prompt}\n\n[Sampling-Hinweis]\nZiel-Temperatur fuer diese Antwort: {temperature:.2f}\n" + (
+        "Arbeite im sichtbaren OpenCode-Terminal direkt im Workspace."
+        if interactive_terminal
+        else "Behalte strikt das JSON-Output-Schema ein."
     )
 
 
@@ -388,9 +384,7 @@ def _repair_empty_cli_response(run: ProposeRun) -> Any:
     """Repair failed/empty non-interactive CLI output; return an error response when repair fails."""
     response_type = run.deps.route_response
     if not run.interactive_terminal_session and run.rc != 0 and not run.raw_res.strip():
-        repaired = repair_proposal(
-            run, bad_output=(run.cli_err or ""), validation_error="empty_or_failed_cli_response"
-        )
+        repaired = repair_proposal(run, bad_output=(run.cli_err or ""), validation_error="empty_or_failed_cli_response")
         if not repaired:
             return response_type(
                 status="error",

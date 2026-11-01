@@ -53,15 +53,11 @@ class _PagedTaskRepository:
         self.calls: list[dict] = []
 
     def get_paged(self, *, limit: int, offset: int, **filters):
-        self.calls.append(
-            {"limit": limit, "offset": offset, **filters}
-        )
+        self.calls.append({"limit": limit, "offset": offset, **filters})
         return self.rows[offset : offset + limit]
 
     def get_all(self, *, limit: int, offset: int, **filters):
-        self.calls.append(
-            {"limit": limit, "offset": offset, **filters}
-        )
+        self.calls.append({"limit": limit, "offset": offset, **filters})
         return self.rows[offset : offset + limit]
 
 
@@ -281,16 +277,9 @@ def test_access_pagination_applies_offset_to_authorized_rows(
         )
         for index in range(_TASK_READ_SCAN_CHUNK_SIZE + 10)
     ]
-    authorized_rows = [
-        _TaskRow(_scoped_task(id=f"owned-{index}"))
-        for index in range(1, 4)
-    ]
-    active_repo = _PagedTaskRepository(
-        [*foreign_rows, *authorized_rows]
-    )
-    archived_repo = _PagedTaskRepository(
-        [*foreign_rows, *authorized_rows]
-    )
+    authorized_rows = [_TaskRow(_scoped_task(id=f"owned-{index}")) for index in range(1, 4)]
+    active_repo = _PagedTaskRepository([*foreign_rows, *authorized_rows])
+    archived_repo = _PagedTaskRepository([*foreign_rows, *authorized_rows])
     monkeypatch.setattr(
         "agent.services.task_query_service.get_repository_registry",
         lambda: SimpleNamespace(
@@ -333,17 +322,10 @@ def test_access_pagination_applies_offset_to_authorized_rows(
     assert [item["id"] for item in first] == ["owned-1", "owned-2"]
     assert [item["id"] for item in second] == ["owned-3"]
     assert [item["id"] for item in archived] == ["owned-2", "owned-3"]
-    assert any(
-        call["offset"] == _TASK_READ_SCAN_CHUNK_SIZE
-        for call in active_repo.calls
-    )
-    assert any(
-        call["offset"] == _TASK_READ_SCAN_CHUNK_SIZE
-        for call in archived_repo.calls
-    )
+    assert any(call["offset"] == _TASK_READ_SCAN_CHUNK_SIZE for call in active_repo.calls)
+    assert any(call["offset"] == _TASK_READ_SCAN_CHUNK_SIZE for call in archived_repo.calls)
     assert all(
-        call["tenant_id"] == "tenant-a"
-        and call["project_id"] == "project-a"
+        call["tenant_id"] == "tenant-a" and call["project_id"] == "project-a"
         for call in [*active_repo.calls, *archived_repo.calls]
     )
 
@@ -354,9 +336,7 @@ def test_access_pagination_scan_is_bounded(monkeypatch) -> None:
             super().__init__([])
 
         def get_paged(self, *, limit: int, offset: int, **filters):
-            self.calls.append(
-                {"limit": limit, "offset": offset, **filters}
-            )
+            self.calls.append({"limit": limit, "offset": offset, **filters})
             return [
                 _TaskRow(
                     _scoped_task(
@@ -389,13 +369,8 @@ def test_access_pagination_scan_is_bounded(monkeypatch) -> None:
     )
 
     assert result == []
-    assert sum(call["limit"] for call in repository.calls) == (
-        _TASK_READ_SCAN_MAX_ROWS
-    )
-    assert all(
-        call["limit"] <= _TASK_READ_SCAN_CHUNK_SIZE
-        for call in repository.calls
-    )
+    assert sum(call["limit"] for call in repository.calls) == (_TASK_READ_SCAN_MAX_ROWS)
+    assert all(call["limit"] <= _TASK_READ_SCAN_CHUNK_SIZE for call in repository.calls)
 
 
 def test_foreign_task_is_hidden_from_generic_and_control_center_reads(
@@ -410,9 +385,7 @@ def test_foreign_task_is_hidden_from_generic_and_control_center_reads(
         "callback_token": sentinel,
     }
     principal = _principal()
-    runtime = SimpleNamespace(
-        get_local_task_status=lambda _task_id: foreign_task
-    )
+    runtime = SimpleNamespace(get_local_task_status=lambda _task_id: foreign_task)
     monkeypatch.setattr(
         "agent.routes.tasks.management.get_core_services",
         lambda: SimpleNamespace(task_runtime_service=runtime),
@@ -506,9 +479,7 @@ def test_authorized_control_center_task_detail_uses_closed_projection(
     assert "source_catalog" not in serialized
     assert "answer_verification" not in serialized
     task_payload = response.get_json()["data"]["task"]
-    assert task_payload["worker_execution_context"] == {
-        "allowed_tools": ["read_file"]
-    }
+    assert task_payload["worker_execution_context"] == {"allowed_tools": ["read_file"]}
 
 
 def test_scoped_control_center_create_records_authenticated_owner_once(
@@ -558,20 +529,14 @@ def test_scoped_control_center_create_records_authenticated_owner_once(
             "source": sentinel,
             "created_by": sentinel,
             "actor": sentinel,
-            "history": [
-                {"event_type": "task_ingested", "actor": sentinel}
-            ],
+            "history": [{"event_type": "task_ingested", "actor": sentinel}],
         },
     )
 
     assert created.status_code == 201
     task_id = created.get_json()["data"]["task"]["id"]
     persisted = stored[task_id]
-    events = [
-        event
-        for event in persisted.history
-        if event.get("event_type") == "task_ingested"
-    ]
+    events = [event for event in persisted.history if event.get("event_type") == "task_ingested"]
     assert len(events) == 1
     assert events[0]["actor"] == "owner-a"
     assert events[0]["details"] == {
@@ -604,28 +569,21 @@ def test_global_orchestration_read_model_is_admin_metadata_only(
         lambda: pytest.fail("forbidden content request must fail before assembly"),
     )
     include_content = client.get(
-        "/tasks/orchestration/read-model"
-        "?artifact_flow_rag_include_content=true",
+        "/tasks/orchestration/read-model?artifact_flow_rag_include_content=true",
         headers=admin_auth_header,
     )
     assert include_content.status_code == 403
-    assert include_content.get_json()["message"] == (
-        "artifact_flow_rag_content_forbidden"
-    )
+    assert include_content.get_json()["message"] == ("artifact_flow_rag_content_forbidden")
 
     seen_overrides: list[dict] = []
     services = SimpleNamespace(
         task_queue_service=object(),
-        task_claim_service=SimpleNamespace(
-            orchestration_read_model=lambda **_kwargs: {}
-        ),
+        task_claim_service=SimpleNamespace(orchestration_read_model=lambda **_kwargs: {}),
     )
     tracking = SimpleNamespace(
         build_execution_reconciliation_snapshot=lambda: {},
         build_control_layer_observability_snapshot=lambda: {},
-        build_artifact_flow_read_model=lambda *, overrides: (
-            seen_overrides.append(overrides) or {}
-        ),
+        build_artifact_flow_read_model=lambda *, overrides: seen_overrides.append(overrides) or {},
     )
     monkeypatch.setattr(
         "agent.routes.tasks.orchestration._services",
@@ -637,8 +595,7 @@ def test_global_orchestration_read_model_is_admin_metadata_only(
     )
 
     metadata_only = client.get(
-        "/tasks/orchestration/read-model"
-        "?artifact_flow_rag_include_content=false",
+        "/tasks/orchestration/read-model?artifact_flow_rag_include_content=false",
         headers=admin_auth_header,
     )
     assert metadata_only.status_code == 200

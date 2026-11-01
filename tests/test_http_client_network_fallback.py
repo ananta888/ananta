@@ -98,9 +98,7 @@ def test_tracked_post_transport_error_is_not_resent_untracked(monkeypatch):
         clear_thread_context()
 
     assert result is None
-    assert calls == [
-        "http://worker:5001/tasks/tracked/step/execute"
-    ]
+    assert calls == ["http://worker:5001/tasks/tracked/step/execute"]
 
 
 def test_post_header_wait_obeys_absolute_deadline(monkeypatch):
@@ -180,9 +178,7 @@ def test_deadline_governed_post_never_retargets_host_gateway(
     class FailingSession:
         def post(self, url, **_kwargs):
             calls.append(url)
-            raise requests.exceptions.ConnectionError(
-                "response connection dropped"
-            )
+            raise requests.exceptions.ConnectionError("response connection dropped")
 
         def close(self):
             return None
@@ -206,9 +202,7 @@ def test_deadline_governed_post_never_retargets_host_gateway(
     )
 
     assert result is None
-    assert calls == [
-        "http://host.docker.internal:5001/tasks/job/step/execute"
-    ]
+    assert calls == ["http://host.docker.internal:5001/tasks/job/step/execute"]
     assert gateway_calls == []
 
     with pytest.raises(HttpTransportResponseLost):

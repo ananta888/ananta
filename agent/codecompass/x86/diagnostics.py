@@ -1,4 +1,5 @@
 """X86CC-005: Diagnostic codes and helpers for the x86 CodeCompass extension."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

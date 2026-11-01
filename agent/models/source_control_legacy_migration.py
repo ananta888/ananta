@@ -100,36 +100,18 @@ class LegacyMigrationInventory:
     citations: tuple[LegacyCitation, ...] = ()
 
     @classmethod
-    def from_mapping(
-        cls, payload: Mapping[str, Any]
-    ) -> "LegacyMigrationInventory":
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "LegacyMigrationInventory":
         scope = dict(payload["scope"])
         return cls(
             tenant_id=str(scope["tenant_id"]),
             project_id=str(scope["project_id"]),
             owner_id=str(scope["owner_id"]),
-            source_snapshots=tuple(
-                LegacySourceSnapshot(**item)
-                for item in payload.get("source_snapshots", ())
-            ),
-            context_policies=tuple(
-                LegacyContextPolicyVersion(**item)
-                for item in payload.get("context_policies", ())
-            ),
-            knowledge_indexes=tuple(
-                LegacyKnowledgeIndex(**item)
-                for item in payload.get("knowledge_indexes", ())
-            ),
-            index_runs=tuple(
-                LegacyKnowledgeIndexRun(**item)
-                for item in payload.get("index_runs", ())
-            ),
-            citations=tuple(
-                LegacyCitation(**item)
-                for item in payload.get("citations", ())
-            ),
+            source_snapshots=tuple(LegacySourceSnapshot(**item) for item in payload.get("source_snapshots", ())),
+            context_policies=tuple(LegacyContextPolicyVersion(**item) for item in payload.get("context_policies", ())),
+            knowledge_indexes=tuple(LegacyKnowledgeIndex(**item) for item in payload.get("knowledge_indexes", ())),
+            index_runs=tuple(LegacyKnowledgeIndexRun(**item) for item in payload.get("index_runs", ())),
+            citations=tuple(LegacyCitation(**item) for item in payload.get("citations", ())),
         )
-
 
 
 @dataclass(frozen=True)
@@ -150,13 +132,7 @@ class MigrationCounts:
 
     @property
     def total(self) -> int:
-        return (
-            self.source_snapshots
-            + self.context_policies
-            + self.knowledge_indexes
-            + self.index_runs
-            + self.citations
-        )
+        return self.source_snapshots + self.context_policies + self.knowledge_indexes + self.index_runs + self.citations
 
 
 @dataclass(frozen=True)

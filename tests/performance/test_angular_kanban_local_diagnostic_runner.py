@@ -5,8 +5,8 @@ import json
 import pytest
 
 from scripts.performance.run_angular_kanban_local_diagnostic import (
-    AngularDiagnosticError,
     MARKER,
+    AngularDiagnosticError,
     parse_diagnostic_marker,
     validate_local_report,
 )
@@ -30,9 +30,7 @@ def _report() -> dict:
 
 def test_parser_extracts_exactly_one_real_playwright_marker() -> None:
     report = _report()
-    parsed = parse_diagnostic_marker(
-        f"playwright output\n{MARKER}{json.dumps(report)}\n1 passed\n"
-    )
+    parsed = parse_diagnostic_marker(f"playwright output\n{MARKER}{json.dumps(report)}\n1 passed\n")
 
     assert parsed == report
 

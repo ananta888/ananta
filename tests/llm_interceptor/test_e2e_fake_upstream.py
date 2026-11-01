@@ -55,7 +55,7 @@ def test_e2e_non_stream_redacts_before_upstream():
 def test_e2e_streaming_variant():
     server = OpenAICompatInterceptorServer(_cfg())
     app = server.create_app()
-    server._router.forward_chat_stream = lambda **_kwargs: iter(["data: {\"id\":\"x\"}\n\n", "data: [DONE]\n\n"])
+    server._router.forward_chat_stream = lambda **_kwargs: iter(['data: {"id":"x"}\n\n', "data: [DONE]\n\n"])
     client = app.test_client()
     resp = client.post(
         "/v1/chat/completions",
@@ -64,4 +64,3 @@ def test_e2e_streaming_variant():
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "data: [DONE]" in body
-

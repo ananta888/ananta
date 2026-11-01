@@ -20,32 +20,38 @@ def build_duplicate_report(index_records: list[dict], mode: str) -> tuple[dict |
     relations: list[dict] = []
     report_groups: list[dict] = []
     for records in duplicate_groups:
-        record_refs = [{"id": record.get("id"), "file": record.get("file"), "kind": record.get("kind")} for record in records]
-        report_groups.append({
-            "signature": _duplicate_signature(records[0]),
-            "record_count": len(records),
-            "records": record_refs,
-        })
+        record_refs = [
+            {"id": record.get("id"), "file": record.get("file"), "kind": record.get("kind")} for record in records
+        ]
+        report_groups.append(
+            {
+                "signature": _duplicate_signature(records[0]),
+                "record_count": len(records),
+                "records": record_refs,
+            }
+        )
         for left, right in combinations(records, 2):
-            relations.append({
-                "kind": "relation",
-                "file": left.get("file"),
-                "id": f"relation:{safe_id(left.get('id', ''), right.get('id', ''), 'duplicate_candidate')}",
-                "source_id": left.get("id"),
-                "source_kind": left.get("kind"),
-                "source_name": left.get("file"),
-                "relation": "duplicate_candidate",
-                "target": right.get("file"),
-                "target_resolved": right.get("id"),
-                "weight": 1,
-                "confidence": 0.75,
-                "heuristic": "normalized_structure_signature",
-                "duplicate_group_size": len(records),
-                "duplicate_signature": _duplicate_signature(records[0]),
-                "from": left.get("id"),
-                "to": right.get("id"),
-                "type": "duplicate_candidate",
-            })
+            relations.append(
+                {
+                    "kind": "relation",
+                    "file": left.get("file"),
+                    "id": f"relation:{safe_id(left.get('id', ''), right.get('id', ''), 'duplicate_candidate')}",
+                    "source_id": left.get("id"),
+                    "source_kind": left.get("kind"),
+                    "source_name": left.get("file"),
+                    "relation": "duplicate_candidate",
+                    "target": right.get("file"),
+                    "target_resolved": right.get("id"),
+                    "weight": 1,
+                    "confidence": 0.75,
+                    "heuristic": "normalized_structure_signature",
+                    "duplicate_group_size": len(records),
+                    "duplicate_signature": _duplicate_signature(records[0]),
+                    "from": left.get("id"),
+                    "to": right.get("id"),
+                    "type": "duplicate_candidate",
+                }
+            )
 
     return {
         "group_count": len(report_groups),
@@ -56,11 +62,13 @@ def build_duplicate_report(index_records: list[dict], mode: str) -> tuple[dict |
 def _duplicate_signature(record: dict) -> str | None:
     kind = record.get("kind")
     if kind == "java_type":
-        fields = tuple(sorted(
-            f"{field.get('name')}:{field.get('type')}"
-            for field in record.get("fields", [])
-            if field.get("name") and field.get("type")
-        ))
+        fields = tuple(
+            sorted(
+                f"{field.get('name')}:{field.get('type')}"
+                for field in record.get("fields", [])
+                if field.get("name") and field.get("type")
+            )
+        )
         if len(fields) < 2:
             return None
         return f"java_type|{record.get('type_kind')}|{fields}"

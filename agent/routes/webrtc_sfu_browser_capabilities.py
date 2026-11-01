@@ -12,7 +12,6 @@ from agent.services.sfu_browser_capability_ingestion_service import (
     SfuBrowserCapabilityIngestionService,
 )
 
-
 webrtc_sfu_browser_capabilities_bp = Blueprint("webrtc_sfu_browser_capabilities", __name__)
 
 
@@ -22,9 +21,13 @@ def ingest_browser_capability(room_ref: str):
     try:
         actor, tenant = _identity()
         scope = _scope(tenant, room_ref, actor)
-        snapshot = _service().ingest(SfuBrowserCapabilityCommand(
-            request.get_data(cache=False, as_text=False), scope, _expected_version(),
-        ))
+        snapshot = _service().ingest(
+            SfuBrowserCapabilityCommand(
+                request.get_data(cache=False, as_text=False),
+                scope,
+                _expected_version(),
+            )
+        )
     except SfuBrowserCapabilityError as exc:
         response = jsonify({"ok": False, "reason_code": exc.reason_code})
         if exc.retry_after_seconds is not None:
@@ -52,7 +55,8 @@ def revoke_browser_capability(room_ref: str, pseudonym: str):
     try:
         actor, tenant = _identity()
         snapshot = _service().revoke(
-            scope=_scope(tenant, room_ref, actor), browser_pseudonym=pseudonym,
+            scope=_scope(tenant, room_ref, actor),
+            browser_pseudonym=pseudonym,
             expected_version=_expected_version(required=True),
         )
     except SfuBrowserCapabilityError as exc:
@@ -102,15 +106,22 @@ def _service() -> SfuBrowserCapabilityIngestionService:
 
 def _public(snapshot) -> dict:
     return {
-        "ok": True, "state": snapshot.state, "capability_class": snapshot.capability_class,
-        "capability_version": snapshot.capability_version, "sequence": snapshot.sequence,
-        "version": snapshot.version, "expires_at_ms": snapshot.expires_at_ms,
-        "authorization_effect": "none", "reevaluation_required": snapshot.state == "active",
+        "ok": True,
+        "state": snapshot.state,
+        "capability_class": snapshot.capability_class,
+        "capability_version": snapshot.capability_version,
+        "sequence": snapshot.sequence,
+        "version": snapshot.version,
+        "expires_at_ms": snapshot.expires_at_ms,
+        "authorization_effect": "none",
+        "reevaluation_required": snapshot.state == "active",
     }
 
 
 def _audit(outcome: str, reason_code: str) -> None:
-    log_audit("sfu_browser_capability", {"outcome": outcome, "reason_code": reason_code, "authorization_effect": "none"})
+    log_audit(
+        "sfu_browser_capability", {"outcome": outcome, "reason_code": reason_code, "authorization_effect": "none"}
+    )
 
 
 __all__ = ["webrtc_sfu_browser_capabilities_bp"]

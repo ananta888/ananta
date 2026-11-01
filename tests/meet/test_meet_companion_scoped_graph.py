@@ -21,21 +21,27 @@ def graphs(hub, tmp_path, monkeypatch):
 
     admitted = tmp_path / "synthetic-allowed.json"
     foreign = tmp_path / "synthetic-foreign.json"
-    payload = {"nodes": [
-        {"id": "visible", "path": "worker/visible.py", "title": "Visible"},
-        {"id": "visible2", "path": "worker/next.py", "title": "Visible next"},
-        {"id": "sibling", "path": "worker-secret/private.py", "title": "Sibling secret"},
-        {"id": "traversal", "path": "worker/../secret.py", "title": "Traversal secret"},
-        {"id": "outside", "path": "secret/private.py", "title": "Outside"},
-    ], "edges": [{"source": "visible", "target": "visible2"},
-                 {"source": "visible", "target": "outside"}]}
+    payload = {
+        "nodes": [
+            {"id": "visible", "path": "worker/visible.py", "title": "Visible"},
+            {"id": "visible2", "path": "worker/next.py", "title": "Visible next"},
+            {"id": "sibling", "path": "worker-secret/private.py", "title": "Sibling secret"},
+            {"id": "traversal", "path": "worker/../secret.py", "title": "Traversal secret"},
+            {"id": "outside", "path": "secret/private.py", "title": "Outside"},
+        ],
+        "edges": [{"source": "visible", "target": "visible2"}, {"source": "visible", "target": "outside"}],
+    }
     admitted.write_text(json.dumps(payload))
-    foreign.write_text(json.dumps({"nodes": [{"id": "foreign", "path": "worker/visible.py",
-                                             "title": "Foreign secret"}], "edges": []}))
-    rows = [SimpleNamespace(id="foreign", status="completed", index_metadata={}),
-            SimpleNamespace(id="index", status="completed", index_metadata={})]
-    repository = SimpleNamespace(list_completed=lambda: rows,
-                                 get_by_id=lambda identity: next((row for row in rows if row.id == identity), None))
+    foreign.write_text(
+        json.dumps({"nodes": [{"id": "foreign", "path": "worker/visible.py", "title": "Foreign secret"}], "edges": []})
+    )
+    rows = [
+        SimpleNamespace(id="foreign", status="completed", index_metadata={}),
+        SimpleNamespace(id="index", status="completed", index_metadata={}),
+    ]
+    repository = SimpleNamespace(
+        list_completed=lambda: rows, get_by_id=lambda identity: next((row for row in rows if row.id == identity), None)
+    )
     resolved = []
 
     class Artifacts:
@@ -43,18 +49,21 @@ def graphs(hub, tmp_path, monkeypatch):
             resolved.append(index.id)
             return (admitted if index.id == "index" else foreign), tmp_path / "unused-metrics.json"
 
-    monkeypatch.setattr(repository_registry, "get_repository_registry",
-                        lambda: SimpleNamespace(knowledge_index_repo=repository))
-    monkeypatch.setattr(codecompass_graph_artifact_resolver, "get_codecompass_graph_artifact_resolver",
-                        lambda: Artifacts())
+    monkeypatch.setattr(
+        repository_registry, "get_repository_registry", lambda: SimpleNamespace(knowledge_index_repo=repository)
+    )
+    monkeypatch.setattr(
+        codecompass_graph_artifact_resolver, "get_codecompass_graph_artifact_resolver", lambda: Artifacts()
+    )
     hub.capability["allowed_signals"] = ["graph"]
     hub.service.execution.registry = get_mcp_registry_service()
     return SimpleNamespace(**locals())
 
 
 def test_actual_intelligence_handler_uses_only_current_index_and_paths(graphs):
-    _, response = post(graphs.hub, graphs.hub.request | {"tool": "codecompass.architecture_intelligence",
-                                                       "arguments": {}})
+    _, response = post(
+        graphs.hub, graphs.hub.request | {"tool": "codecompass.architecture_intelligence", "arguments": {}}
+    )
     assert response.status_code == 200, response.get_json()
     text = response.get_json()["text"]
     assert "Foreign secret" not in text and "worker-secret" not in text and "secret.py" not in text
@@ -64,8 +73,9 @@ def test_actual_intelligence_handler_uses_only_current_index_and_paths(graphs):
 
 @pytest.mark.parametrize("arguments", [{"snapshot_ref": "foreign"}, {"revision": "2" * 40}])
 def test_foreign_snapshot_or_revision_never_resolves_a_graph(graphs, arguments):
-    _, response = post(graphs.hub, graphs.hub.request | {"tool": "codecompass.architecture_intelligence",
-                                                       "arguments": arguments})
+    _, response = post(
+        graphs.hub, graphs.hub.request | {"tool": "codecompass.architecture_intelligence", "arguments": arguments}
+    )
     assert response.status_code == 403 and graphs.resolved == []
     assert current_task_capability() is None
 
@@ -105,6 +115,9 @@ def test_existing_architecture_slice_cannot_treat_sibling_prefix_as_permission()
     records, edges = _records(), _edges()
     records += [{"id": "private", "path": "agent-secret/private.py", "kind": "file"}]
     result = CodeCompassArchitectureSliceService().build_slice(
-        query="private", records=records, edges=edges,
-        capability={"allowed_paths": ["agent"], "revision": "1" * 40, "workspace_id": "workspace"})
+        query="private",
+        records=records,
+        edges=edges,
+        capability={"allowed_paths": ["agent"], "revision": "1" * 40, "workspace_id": "workspace"},
+    )
     assert all(node["id"] != "private" for node in result["nodes"])

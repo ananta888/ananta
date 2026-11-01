@@ -74,13 +74,8 @@ class SourceAccessRequest:
             value = getattr(self, name)
             if value is not None and not _SHA256.fullmatch(str(value)):
                 raise SourceAccessEnforcementError(f"{name}_invalid")
-        if (
-            self.source_access_grant_id is not None
-            and not _OPAQUE_ID.fullmatch(self.source_access_grant_id)
-        ):
-            raise SourceAccessEnforcementError(
-                "source_access_grant_id_invalid"
-            )
+        if self.source_access_grant_id is not None and not _OPAQUE_ID.fullmatch(self.source_access_grant_id):
+            raise SourceAccessEnforcementError("source_access_grant_id_invalid")
 
 
 @dataclass(frozen=True)
@@ -209,16 +204,9 @@ class SourceAccessEnforcementService:
         )
         if reason is not None:
             raise SourceAccessEnforcementError(reason)
-        grant_expires_at_epoch_ms = int(
-            grant.expires_at.timestamp() * 1000
-        )
-        required_remaining_ms = self._required_remaining_ms(
-            minimum_remaining_ms
-        )
-        if grant_expires_at_epoch_ms <= (
-            int(current_time.timestamp() * 1000)
-            + required_remaining_ms
-        ):
+        grant_expires_at_epoch_ms = int(grant.expires_at.timestamp() * 1000)
+        required_remaining_ms = self._required_remaining_ms(minimum_remaining_ms)
+        if grant_expires_at_epoch_ms <= (int(current_time.timestamp() * 1000) + required_remaining_ms):
             raise SourceAccessEnforcementError("grant_expiring")
         binding_digest = source_access_binding_digest(
             request,
@@ -265,12 +253,8 @@ class SourceAccessEnforcementService:
             grant_expires_at_epoch_ms=grant_expires_at_epoch_ms,
             tenant_id=request.tenant_id,
             project_id=request.project_id,
-            source_revision_digest=str(
-                request.source_revision_digest or ""
-            ),
-            source_access_grant_digest=str(
-                request.source_access_grant_digest or ""
-            ),
+            source_revision_digest=str(request.source_revision_digest or ""),
+            source_access_grant_digest=str(request.source_access_grant_digest or ""),
             policy_digest=str(request.policy_digest or ""),
         )
         return AuthorizedSourceDispatch(
@@ -302,28 +286,14 @@ class SourceAccessEnforcementService:
         try:
             candidate = DelegatedSourceEnforcementManifest(**dict(manifest))
         except (TypeError, ValueError) as exc:
-            raise SourceAccessEnforcementError(
-                "delegated_manifest_invalid"
-            ) from exc
-        if (
-            candidate.schema != "ananta.source-control.enforcement-manifest.v1"
-            or candidate.authority != "hub"
-        ):
+            raise SourceAccessEnforcementError("delegated_manifest_invalid") from exc
+        if candidate.schema != "ananta.source-control.enforcement-manifest.v1" or candidate.authority != "hub":
             raise SourceAccessEnforcementError("delegated_manifest_authority_invalid")
         expiry = candidate.grant_expires_at_epoch_ms
-        required_remaining_ms = self._required_remaining_ms(
-            minimum_remaining_ms
-        )
-        if (
-            isinstance(expiry, bool)
-            or not isinstance(expiry, int)
-            or expiry <= int(current_time.timestamp() * 1000)
-        ):
+        required_remaining_ms = self._required_remaining_ms(minimum_remaining_ms)
+        if isinstance(expiry, bool) or not isinstance(expiry, int) or expiry <= int(current_time.timestamp() * 1000):
             raise SourceAccessEnforcementError("delegated_manifest_expired")
-        if expiry <= (
-            int(current_time.timestamp() * 1000)
-            + required_remaining_ms
-        ):
+        if expiry <= (int(current_time.timestamp() * 1000) + required_remaining_ms):
             raise SourceAccessEnforcementError("delegated_manifest_expiring")
         expected_values = {
             "tenant_id": request.tenant_id,
@@ -333,9 +303,7 @@ class SourceAccessEnforcementService:
             "destination_id": request.destination_id,
             "destination_digest": request.destination_digest,
             "source_access_grant_id": str(request.source_access_grant_id or ""),
-            "source_access_grant_digest": str(
-                request.source_access_grant_digest or ""
-            ),
+            "source_access_grant_digest": str(request.source_access_grant_digest or ""),
             "operation": request.operation.value,
             "transformation": request.transformation.value,
             "purpose": request.purpose,
@@ -346,27 +314,20 @@ class SourceAccessEnforcementService:
             "assignment_id": request.assignment_id,
             "lease_id": request.lease_id,
         }
-        if any(
-            str(getattr(candidate, name)) != str(expected)
-            for name, expected in expected_values.items()
-        ):
+        if any(str(getattr(candidate, name)) != str(expected) for name, expected in expected_values.items()):
             raise SourceAccessEnforcementError("delegated_manifest_binding_mismatch")
         expected_digest = source_access_binding_digest(
             request,
             grant_expires_at_epoch_ms=expiry,
         )
         supplied_digest = candidate.binding_digest
-        if not isinstance(supplied_digest, str) or not _SHA256.fullmatch(
-            supplied_digest
-        ):
+        if not isinstance(supplied_digest, str) or not _SHA256.fullmatch(supplied_digest):
             raise SourceAccessEnforcementError("delegated_manifest_digest_invalid")
         if not hmac.compare_digest(supplied_digest, expected_digest):
             raise SourceAccessEnforcementError("delegated_manifest_digest_invalid")
         verifier = self._manifest_verifier
         if verifier is None:
-            raise SourceAccessEnforcementError(
-                "delegated_manifest_verifier_unavailable"
-            )
+            raise SourceAccessEnforcementError("delegated_manifest_verifier_unavailable")
         if not verifier.verify_manifest(manifest):
             raise SourceAccessEnforcementError("delegated_manifest_signature_invalid")
         return candidate
@@ -376,9 +337,7 @@ class SourceAccessEnforcementService:
         if value is None:
             return _MIN_DELEGATED_MANIFEST_REMAINING_MS
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise SourceAccessEnforcementError(
-                "minimum_remaining_ms_invalid"
-            )
+            raise SourceAccessEnforcementError("minimum_remaining_ms_invalid")
         return max(value, _MIN_DELEGATED_MANIFEST_REMAINING_MS)
 
 
@@ -392,15 +351,11 @@ def _grant_mismatch_reason(
         return "grant_not_active"
     if grant.expires_at <= now:
         return "grant_expired"
-    if (
-        request.source_access_grant_id is not None
-        and grant.grant_id != request.source_access_grant_id
-    ):
+    if request.source_access_grant_id is not None and grant.grant_id != request.source_access_grant_id:
         return "grant_id_mismatch"
     if (
         request.source_access_grant_digest is not None
-        and source_access_grant_digest(grant)
-        != request.source_access_grant_digest
+        and source_access_grant_digest(grant) != request.source_access_grant_digest
     ):
         return "grant_digest_mismatch"
     comparisons = (

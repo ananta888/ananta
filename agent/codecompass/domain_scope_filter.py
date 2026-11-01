@@ -11,6 +11,7 @@ Chunks without a safely recognizable path are dropped in strict mode and
 dropped-with-warning otherwise (CCRDS-008 acceptance). The filter never
 mutates scores; it only keeps/drops and reports statistics.
 """
+
 from __future__ import annotations
 
 import re
@@ -107,11 +108,7 @@ def filter_chunks(
 
     root = Path(repo_root).resolve()
     kept: list[Any] = []
-    external_budget = (
-        max(0, int(scope.max_external_reference_chunks or 0))
-        if scope.allow_external_references
-        else 0
-    )
+    external_budget = max(0, int(scope.max_external_reference_chunks or 0)) if scope.allow_external_references else 0
     for chunk in chunks:
         engine = str(getattr(chunk, "engine", "") or "")
         source = str(getattr(chunk, "source", "") or "")
@@ -134,9 +131,7 @@ def filter_chunks(
             continue
 
         normalized = (
-            None
-            if _IMPLAUSIBLE_SOURCE_CHARS.search(source)
-            else normalize_repo_relative_path(source, repo_root=root)
+            None if _IMPLAUSIBLE_SOURCE_CHARS.search(source) else normalize_repo_relative_path(source, repo_root=root)
         )
         if normalized is None:
             if scope.strict or drop_unresolvable_non_strict:
@@ -196,10 +191,13 @@ def build_no_match_guidance(
         },
     ]
     if dropped:
-        suggestions.insert(0, {
-            "action": "review_dropped",
-            "label": f"{dropped} Treffer lagen ausserhalb der Domain — Scope pruefen",
-        })
+        suggestions.insert(
+            0,
+            {
+                "action": "review_dropped",
+                "label": f"{dropped} Treffer lagen ausserhalb der Domain — Scope pruefen",
+            },
+        )
     return {
         "no_match_in_scope": True,
         "message": (

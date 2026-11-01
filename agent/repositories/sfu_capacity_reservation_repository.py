@@ -23,7 +23,6 @@ from agent.db_models import (
     SfuCapacityReservationMutationDB,
 )
 
-
 RESOURCE_FIELDS = (
     "cpu_millicores",
     "memory_bytes",
@@ -56,9 +55,7 @@ class SfuResourceVector:
 
     def __post_init__(self) -> None:
         if any(
-            isinstance(getattr(self, name), bool)
-            or not isinstance(getattr(self, name), int)
-            or getattr(self, name) < 0
+            isinstance(getattr(self, name), bool) or not isinstance(getattr(self, name), int) or getattr(self, name) < 0
             for name in RESOURCE_FIELDS
         ):
             raise ValueError("sfu_capacity_resource_invalid")
@@ -68,10 +65,7 @@ class SfuResourceVector:
         return all(getattr(self, name) == 0 for name in RESOURCE_FIELDS)
 
     def signed_delta(self, previous: "SfuResourceVector") -> dict[str, int]:
-        return {
-            name: getattr(self, name) - getattr(previous, name)
-            for name in RESOURCE_FIELDS
-        }
+        return {name: getattr(self, name) - getattr(previous, name) for name in RESOURCE_FIELDS}
 
     def payload(self) -> dict[str, int]:
         return {name: getattr(self, name) for name in RESOURCE_FIELDS}
@@ -205,9 +199,7 @@ class SqlSfuCapacityReservationRepository:
                 if replay is not None:
                     if replay.request_digest != request_digest:
                         raise SfuCapacityReservationError("sfu_capacity_command_conflict")
-                    return SfuCapacityMutationResult(
-                        _record_from_payload(replay.result_json), replayed=True
-                    )
+                    return SfuCapacityMutationResult(_record_from_payload(replay.result_json), replayed=True)
 
                 self._expire_scope(
                     db,
@@ -232,9 +224,7 @@ class SqlSfuCapacityReservationRepository:
                     raise SfuCapacityReservationError("sfu_capacity_directory_version_stale")
 
                 self._ensure_ledger(db, mutation.cluster_id, mutation.region, "")
-                self._ensure_ledger(
-                    db, mutation.cluster_id, mutation.region, mutation.tenant_id
-                )
+                self._ensure_ledger(db, mutation.cluster_id, mutation.region, mutation.tenant_id)
                 self._apply_delta(
                     db,
                     mutation.cluster_id,
@@ -255,9 +245,7 @@ class SqlSfuCapacityReservationRepository:
                     "sfu_capacity_tenant_quota",
                     effective_now,
                 )
-                record = self._persist_mutation(
-                    db, mutation, current, desired, effective_now
-                )
+                record = self._persist_mutation(db, mutation, current, desired, effective_now)
                 db.add(
                     SfuCapacityReservationMutationDB(
                         tenant_id=mutation.tenant_id,
@@ -280,9 +268,7 @@ class SqlSfuCapacityReservationRepository:
         except SQLAlchemyError as exc:
             raise SfuCapacityReservationError("sfu_capacity_store_unavailable") from exc
 
-    def purge_expired_mutations(
-        self, *, now: float | None = None, limit: int | None = None
-    ) -> int:
+    def purge_expired_mutations(self, *, now: float | None = None, limit: int | None = None) -> int:
         effective_now = float(self._clock() if now is None else now)
         bounded = self._purge_batch if limit is None else limit
         if not 1 <= bounded <= 1_000:
@@ -295,9 +281,7 @@ class SqlSfuCapacityReservationRepository:
         except SQLAlchemyError as exc:
             raise SfuCapacityReservationError("sfu_capacity_store_unavailable") from exc
 
-    def _purge_expired_mutations(
-        self, db: Session, now: float, limit: int | None = None
-    ) -> int:
+    def _purge_expired_mutations(self, db: Session, now: float, limit: int | None = None) -> int:
         ids = list(
             db.exec(
                 select(SfuCapacityReservationMutationDB.id)
@@ -310,16 +294,10 @@ class SqlSfuCapacityReservationRepository:
             ).all()
         )
         if ids:
-            db.exec(
-                sa.delete(SfuCapacityReservationMutationDB).where(
-                    SfuCapacityReservationMutationDB.id.in_(ids)
-                )
-            )
+            db.exec(sa.delete(SfuCapacityReservationMutationDB).where(SfuCapacityReservationMutationDB.id.in_(ids)))
         return len(ids)
 
-    def get(
-        self, *, tenant_id: str, room_id: str
-    ) -> SfuCapacityReservationRecord | None:
+    def get(self, *, tenant_id: str, room_id: str) -> SfuCapacityReservationRecord | None:
         try:
             with Session(self._engine) as db:
                 row = db.exec(
@@ -393,9 +371,7 @@ class SqlSfuCapacityReservationRepository:
         except SQLAlchemyError as exc:
             raise SfuCapacityReservationError("sfu_capacity_store_unavailable") from exc
 
-    def release_for_observed_node(
-        self, *, observed_node_id: str, limit: int = 100, now: float | None = None
-    ) -> int:
+    def release_for_observed_node(self, *, observed_node_id: str, limit: int = 100, now: float | None = None) -> int:
         if not observed_node_id:
             raise SfuCapacityReservationError("sfu_capacity_node_id_required")
         effective_now = float(self._clock() if now is None else now)
@@ -489,13 +465,9 @@ class SqlSfuCapacityReservationRepository:
         values = {
             **desired.payload(),
             "observed_node_id": (
-                mutation.observed_node_id
-                if mutation.observed_node_id is not None
-                else current.observed_node_id
+                mutation.observed_node_id if mutation.observed_node_id is not None else current.observed_node_id
             ),
-            "lease_expires_at": (
-                now if status == "released" else now + mutation.lease_ttl_seconds
-            ),
+            "lease_expires_at": (now if status == "released" else now + mutation.lease_ttl_seconds),
             "directory_version": mutation.directory_version,
             "fencing_token": current.fencing_token + 1,
             "version": current.version + 1,
@@ -520,9 +492,7 @@ class SqlSfuCapacityReservationRepository:
             raise SfuCapacityReservationError("sfu_capacity_active_reservation_not_found")
         return _record_from_row(updated)
 
-    def _expire_scope(
-        self, db: Session, *, cluster_id: str, region: str, now: float
-    ) -> None:
+    def _expire_scope(self, db: Session, *, cluster_id: str, region: str, now: float) -> None:
         rows = tuple(
             db.exec(
                 select(SfuCapacityReservationDB)
@@ -538,21 +508,15 @@ class SqlSfuCapacityReservationRepository:
         for row in rows:
             self._release_row(db, row, "expired", now)
 
-    def _release_row(
-        self, db: Session, row: SfuCapacityReservationDB, status: str, now: float
-    ) -> None:
+    def _release_row(self, db: Session, row: SfuCapacityReservationDB, status: str, now: float) -> None:
         current = _resources_from_row(row)
         delta = {name: -getattr(current, name) for name in RESOURCE_FIELDS}
         unlimited = SfuResourceVector(**{name: _UNBOUNDED for name in RESOURCE_FIELDS})
         self._ensure_ledger(db, row.cluster_id, row.region, "")
         self._ensure_ledger(db, row.cluster_id, row.region, row.tenant_id)
+        self._apply_delta(db, row.cluster_id, row.region, "", delta, unlimited, "sfu_capacity_ledger_drift", now)
         self._apply_delta(
-            db, row.cluster_id, row.region, "", delta, unlimited,
-            "sfu_capacity_ledger_drift", now
-        )
-        self._apply_delta(
-            db, row.cluster_id, row.region, row.tenant_id, delta, unlimited,
-            "sfu_capacity_ledger_drift", now
+            db, row.cluster_id, row.region, row.tenant_id, delta, unlimited, "sfu_capacity_ledger_drift", now
         )
         values = {
             **SfuResourceVector().payload(),
@@ -574,9 +538,7 @@ class SqlSfuCapacityReservationRepository:
             raise SfuCapacityReservationError("sfu_capacity_reconcile_conflict")
 
     @staticmethod
-    def _ensure_ledger(
-        db: Session, cluster_id: str, region: str, tenant_scope: str
-    ) -> None:
+    def _ensure_ledger(db: Session, cluster_id: str, region: str, tenant_scope: str) -> None:
         values = {
             "id": _ledger_id(cluster_id, region, tenant_scope),
             "cluster_id": cluster_id,
@@ -590,17 +552,13 @@ class SqlSfuCapacityReservationRepository:
             db.exec(
                 sqlite_insert(SfuCapacityLedgerDB)
                 .values(**values)
-                .on_conflict_do_nothing(
-                    index_elements=["cluster_id", "region", "tenant_scope"]
-                )
+                .on_conflict_do_nothing(index_elements=["cluster_id", "region", "tenant_scope"])
             )
         elif dialect == "postgresql":
             db.exec(
                 postgresql_insert(SfuCapacityLedgerDB)
                 .values(**values)
-                .on_conflict_do_nothing(
-                    index_elements=["cluster_id", "region", "tenant_scope"]
-                )
+                .on_conflict_do_nothing(index_elements=["cluster_id", "region", "tenant_scope"])
             )
         else:
             existing = db.get(SfuCapacityLedgerDB, values["id"])
@@ -633,9 +591,7 @@ class SqlSfuCapacityReservationRepository:
             next_value = column + delta[name]
             predicates.extend((next_value >= 0, next_value <= getattr(limit, name)))
             values[name] = next_value
-        result = db.exec(
-            sa.update(SfuCapacityLedgerDB).where(*predicates).values(**values)
-        )
+        result = db.exec(sa.update(SfuCapacityLedgerDB).where(*predicates).values(**values))
         if result.rowcount != 1:
             raise SfuCapacityReservationError(reason_code)
 
@@ -712,9 +668,7 @@ def _record_from_payload(value: dict) -> SfuCapacityReservationRecord:
 def _mutation_digest(value: SfuCapacityMutation) -> str:
     payload = asdict(value)
     payload["resources"] = value.resources.payload()
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def _digest(value: str) -> str:
@@ -722,9 +676,9 @@ def _digest(value: str) -> str:
 
 
 def _ledger_id(cluster_id: str, region: str, tenant_scope: str) -> str:
-    return "sfu-capacity-ledger-" + hashlib.sha256(
-        f"{cluster_id}\0{region}\0{tenant_scope}".encode("utf-8")
-    ).hexdigest()
+    return (
+        "sfu-capacity-ledger-" + hashlib.sha256(f"{cluster_id}\0{region}\0{tenant_scope}".encode("utf-8")).hexdigest()
+    )
 
 
 __all__ = [

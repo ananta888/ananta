@@ -23,9 +23,12 @@ def _service():
     from agent.repositories.memory_quarantine_read import SQLMemoryQuarantineReadRepository
     from agent.repositories.memory_snapshot import SQLMemorySnapshotRepository
 
-    return MemoryAuditReadService(access=access, repository=SQLMemoryAuditRepository(engine),
-                                  snapshots=SQLMemorySnapshotRepository(engine),
-                                  quarantine=SQLMemoryQuarantineReadRepository())
+    return MemoryAuditReadService(
+        access=access,
+        repository=SQLMemoryAuditRepository(engine),
+        snapshots=SQLMemorySnapshotRepository(engine),
+        quarantine=SQLMemoryQuarantineReadRepository(),
+    )
 
 
 @memory_audit_bp.get("/api/projects/<project_id>/memory-audit/events")
@@ -48,8 +51,11 @@ def memory_audit_events(project_id, diffs=False):
             values["scope"] = MemoryScope(values["scope"])
         service = _service()
         method = service.diffs if diffs else service.page
-        result = method(principal=get_authenticated_source_control_principal(),
-                        project_id=project_id, query=MemoryAuditQuery(**values))
+        result = method(
+            principal=get_authenticated_source_control_principal(),
+            project_id=project_id,
+            query=MemoryAuditQuery(**values),
+        )
         return api_response(data=result)
     except ProjectAccessError as exc:
         return api_response(status="error", message=exc.reason_code, code=exc.public_status)
@@ -76,8 +82,9 @@ def memory_audit_quarantine(project_id):
                 raise ValueError("memory_audit_query_invalid")
             limit = int(raw)
         service = _service()
-        result = service.quarantine_state(principal=get_authenticated_source_control_principal(),
-                                          project_id=project_id, limit=limit)
+        result = service.quarantine_state(
+            principal=get_authenticated_source_control_principal(), project_id=project_id, limit=limit
+        )
         return api_response(data=result)
     except ProjectAccessError as exc:
         return api_response(status="error", message=exc.reason_code, code=exc.public_status)

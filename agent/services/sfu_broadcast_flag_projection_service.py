@@ -69,9 +69,7 @@ class SfuBroadcastFlagProjectionService:
         flags: Mapping[str, bool],
     ) -> SfuBroadcastFlagProjectionRecord:
         canonical = {key: value is True for key, value in sorted(flags.items())}
-        digest = hashlib.sha256(
-            json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        digest = hashlib.sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         immediate_fence = canonical.get("immediate_security_fence") is True
         now = float(self._clock())
         return self._repository.stage(

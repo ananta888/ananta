@@ -6,14 +6,15 @@ grants permissions, trains models, follows redirects, or contacts a cloud URL.
 
 from __future__ import annotations
 
-import math
 import hashlib
+import math
 import threading
 import time
 import urllib.request
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 
+from agent.services.decision_providers.local_http import NoRedirect, validate_local_endpoint
 from agent.services.decision_providers.types import (
     DecisionProviderError,
     DecisionRequest,
@@ -21,7 +22,6 @@ from agent.services.decision_providers.types import (
     DecisionUsage,
 )
 from agent.services.decision_providers.typesafe import RetryPolicy, TypeSafeJevProvider
-from agent.services.decision_providers.local_http import NoRedirect, validate_local_endpoint
 
 
 class JeffDecisionProvider:

@@ -26,16 +26,7 @@ def _asciinema_v2_lines(*, title: str, frame: str, width: int = 120, height: int
 
 
 def test_tui_markdown_mermaid_quality_cast_contains_readable_content(tmp_path: Path) -> None:
-    markdown = (
-        "# Architektur\n\n"
-        "- Punkt A\n"
-        "  - Punkt B\n\n"
-        "```mermaid\n"
-        "flowchart TD\n"
-        "A-->B\n"
-        "B-->C\n"
-        "```\n"
-    )
+    markdown = "# Architektur\n\n- Punkt A\n  - Punkt B\n\n```mermaid\nflowchart TD\nA-->B\nB-->C\n```\n"
 
     game = {
         "visual_viewport": {"enabled": True},

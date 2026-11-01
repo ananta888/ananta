@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -106,9 +106,7 @@ def test_audit_hash_chain_is_serialized_before_pool_checkout(monkeypatch) -> Non
         list(executor.map(_append, range(32)))
 
     with Session(isolated_engine) as session:
-        entries = list(
-            session.exec(select(AuditLogDB).order_by(AuditLogDB.id.asc())).all()
-        )
+        entries = list(session.exec(select(AuditLogDB).order_by(AuditLogDB.id.asc())).all())
 
     assert len(entries) == 32
     assert entries[0].prev_hash is None
@@ -121,8 +119,18 @@ def test_a_foreign_row_without_a_hash_cannot_head_the_chain() -> None:
     log_audit("chain_anchor", {"task_id": "task-chain"})
     anchor = _all_audit_entries()[-1]
     with Session(engine) as session:
-        session.add(AuditLogDB(id=999_999_999, username="probe", ip="probe", action="probe", trace_id="x",
-                               timestamp=1.0, prev_hash=None, record_hash=None))
+        session.add(
+            AuditLogDB(
+                id=999_999_999,
+                username="probe",
+                ip="probe",
+                action="probe",
+                trace_id="x",
+                timestamp=1.0,
+                prev_hash=None,
+                record_hash=None,
+            )
+        )
         session.commit()
     try:
         log_audit("after_probe", {"task_id": "task-chain"})

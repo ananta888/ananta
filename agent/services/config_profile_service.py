@@ -261,32 +261,32 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                     "testing": "opencode",
                 }
             },
-                "planning_policy": {
-                    "timeout_seconds": 700,
-                    "segmented_planning_enabled": True,
-                    "segment_context_chars": 2400,
-                    "max_segments": 3,
-                    "preferred_output_format": "json",
-                    "selective_repair_rounds": 2,
-                    "learning_loop": {
-                        "enabled": False,
-                        "interval_seconds": 900,
-                        "lookback_runs": 120,
-                        "min_runs": 8,
-                        "min_failures": 3,
-                        "min_parse_success_rate": 0.7,
-                        "min_validation_success_rate": 0.7,
-                        "min_materialization_success_rate": 0.6,
-                        "max_repair_rate": 0.4,
-                        "candidate_activation_threshold": 0.75,
-                        "rollback_threshold": 0.55,
-                        "freeze_minutes": 120,
-                        "canary_window_runs": 10,
-                        "auto_activate": False,
-                        "require_review_before_activate": True,
-                    },
-                    "validation_profiles": {
-                        "new_software_project": {
+            "planning_policy": {
+                "timeout_seconds": 700,
+                "segmented_planning_enabled": True,
+                "segment_context_chars": 2400,
+                "max_segments": 3,
+                "preferred_output_format": "json",
+                "selective_repair_rounds": 2,
+                "learning_loop": {
+                    "enabled": False,
+                    "interval_seconds": 900,
+                    "lookback_runs": 120,
+                    "min_runs": 8,
+                    "min_failures": 3,
+                    "min_parse_success_rate": 0.7,
+                    "min_validation_success_rate": 0.7,
+                    "min_materialization_success_rate": 0.6,
+                    "max_repair_rate": 0.4,
+                    "candidate_activation_threshold": 0.75,
+                    "rollback_threshold": 0.55,
+                    "freeze_minutes": 120,
+                    "canary_window_runs": 10,
+                    "auto_activate": False,
+                    "require_review_before_activate": True,
+                },
+                "validation_profiles": {
+                    "new_software_project": {
                         "min_total_tasks": 1,
                         "required_categories": {
                             "infrastructure": 1,
@@ -343,10 +343,7 @@ class ConfigProfileService:
             default_workflow_runtime_profile_service,
         )
 
-        return [
-            profile.to_dict()
-            for profile in default_workflow_runtime_profile_service().list_profiles()
-        ]
+        return [profile.to_dict() for profile in default_workflow_runtime_profile_service().list_profiles()]
 
     def get_workflow_runtime_profile(self, profile_id: str | None) -> dict[str, Any] | None:
         """Return one runtime profile or ``None`` for an unknown identifier."""
@@ -409,8 +406,7 @@ class ConfigProfileService:
                 is_ok = bool(runtime.get("ok"))
                 if not is_ok:
                     msg = (
-                        f"profile '{profile_id}' requires provider "
-                        f"'{required_provider}' which is currently unreachable"
+                        f"profile '{profile_id}' requires provider '{required_provider}' which is currently unreachable"
                     )
                     if block_on_unavailable:
                         errors.append(msg)

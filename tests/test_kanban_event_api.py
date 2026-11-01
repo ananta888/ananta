@@ -116,9 +116,7 @@ def test_event_api_reconnect_replay_and_auth_contract(
         headers={**admin_auth_header, "Last-Event-ID": "1"},
     )
     assert reconnect.status_code == 200
-    assert [
-        event["sequence"] for event in reconnect.get_json()["data"]["events"]
-    ] == [2]
+    assert [event["sequence"] for event in reconnect.get_json()["data"]["events"]] == [2]
     repeated = client.get(
         f"/api/v1/kanban/boards/{board_id}/events",
         headers={**admin_auth_header, "Last-Event-ID": "1"},
@@ -127,9 +125,7 @@ def test_event_api_reconnect_replay_and_auth_contract(
         f"/api/v1/kanban/boards/{board_id}/events",
         headers={**admin_auth_header, "Last-Event-ID": "2"},
     )
-    assert repeated.get_json()["data"]["events"] == (
-        reconnect.get_json()["data"]["events"]
-    )
+    assert repeated.get_json()["data"]["events"] == (reconnect.get_json()["data"]["events"])
     assert drained.get_json()["data"]["events"] == []
 
 
@@ -185,9 +181,7 @@ def test_event_api_reports_overflow_gap_and_rest_snapshot_fallback(
     assert batch["overflow_reason"] == "bounded_history_overflow"
     assert batch["overflow_events_total"] == 1
     assert batch["snapshot_required"] is True
-    assert batch["snapshot_url"] == (
-        f"/api/v1/kanban/boards/{board_id}/snapshot"
-    )
+    assert batch["snapshot_url"] == (f"/api/v1/kanban/boards/{board_id}/snapshot")
     ahead = client.get(
         f"/api/v1/kanban/boards/{board_id}/events",
         headers={**admin_auth_header, "Last-Event-ID": "99"},
@@ -221,9 +215,7 @@ def test_event_api_conceals_hub_board_and_rejects_invalid_cursor(
     assert concealed.status_code == 404
     assert concealed.get_json()["error"]["code"] == "kanban_board_not_found"
     assert invalid.status_code == 400
-    assert invalid.get_json()["error"]["code"] == (
-        "kanban_event_cursor_invalid"
-    )
+    assert invalid.get_json()["error"]["code"] == ("kanban_event_cursor_invalid")
 
 
 def test_event_api_rotates_auth_and_resumes_with_new_access_token(
@@ -246,9 +238,7 @@ def test_event_api_rotates_auth_and_resumes_with_new_access_token(
     )
     assert login.status_code == 200
     session = login.get_json()["data"]
-    initial_headers = {
-        "Authorization": f"Bearer {session['access_token']}"
-    }
+    initial_headers = {"Authorization": f"Bearer {session['access_token']}"}
     board_id = _create_board(
         client,
         initial_headers,
@@ -265,10 +255,7 @@ def test_event_api_rotates_auth_and_resumes_with_new_access_token(
         headers=initial_headers,
     )
     assert initial.status_code == 200
-    assert [
-        event["sequence"]
-        for event in initial.get_json()["data"]["events"]
-    ] == [1]
+    assert [event["sequence"] for event in initial.get_json()["data"]["events"]] == [1]
 
     forged = client.get(
         f"/api/v1/kanban/boards/{board_id}/events",
@@ -282,9 +269,7 @@ def test_event_api_rotates_auth_and_resumes_with_new_access_token(
     )
     assert refreshed.status_code == 200
     renewed = refreshed.get_json()["data"]
-    renewed_headers = {
-        "Authorization": f"Bearer {renewed['access_token']}"
-    }
+    renewed_headers = {"Authorization": f"Bearer {renewed['access_token']}"}
     moved = _move(
         client,
         renewed_headers,

@@ -15,10 +15,7 @@ from agent.services.source_control_workspace_contracts import (
 from agent.sources.registered_workspace_connector import RegisteredWorkspace
 
 _DIRECTORY_FLAGS = (
-    os.O_RDONLY
-    | getattr(os, "O_DIRECTORY", 0)
-    | getattr(os, "O_CLOEXEC", 0)
-    | getattr(os, "O_NOFOLLOW", 0)
+    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
 )
 _INTERNAL_FOLDER_PREFIXES = (".ananta-snapshot-",)
 
@@ -42,8 +39,7 @@ class SecureWorkspaceFolderCatalog:
     ) -> None:
         self._configured_root = (
             Path(workspace_root).expanduser()
-            if isinstance(workspace_root, (str, Path))
-            and str(workspace_root).strip()
+            if isinstance(workspace_root, (str, Path)) and str(workspace_root).strip()
             else None
         )
         self._max_entries = int(max_entries)
@@ -82,10 +78,7 @@ class SecureWorkspaceFolderCatalog:
                 folder_fd = os.open(name, _DIRECTORY_FLAGS, dir_fd=root_fd)
                 try:
                     opened = os.fstat(folder_fd)
-                    if (
-                        opened.st_dev != metadata.st_dev
-                        or opened.st_ino != metadata.st_ino
-                    ):
+                    if opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino:
                         raise SourceControlWorkspaceCatalogError(
                             "workspace_folder_identity_changed",
                             status_code=409,
@@ -266,10 +259,7 @@ class SecureWorkspaceFolderCatalog:
                     )
                     try:
                         opened = os.fstat(child_fd)
-                        if (
-                            opened.st_dev != metadata.st_dev
-                            or opened.st_ino != metadata.st_ino
-                        ):
+                        if opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino:
                             raise SourceControlWorkspaceCatalogError(
                                 "workspace_folder_identity_changed",
                                 status_code=409,
@@ -293,10 +283,7 @@ class SecureWorkspaceFolderCatalog:
     @staticmethod
     def _fingerprint(metadata: os.stat_result) -> str:
         return hashlib.sha256(
-            (
-                f"{metadata.st_dev}\0{metadata.st_ino}\0"
-                f"{stat.S_IFMT(metadata.st_mode)}"
-            ).encode("ascii")
+            (f"{metadata.st_dev}\0{metadata.st_ino}\0{stat.S_IFMT(metadata.st_mode)}").encode("ascii")
         ).hexdigest()
 
     @staticmethod
@@ -318,16 +305,12 @@ class SecureWorkspaceFolderCatalog:
         material.update(str(metadata.st_dev).encode("ascii"))
         material.update(b"\0")
         material.update(str(metadata.st_ino).encode("ascii"))
-        token = base64.urlsafe_b64encode(material.digest()).decode(
-            "ascii"
-        ).rstrip("=")
+        token = base64.urlsafe_b64encode(material.digest()).decode("ascii").rstrip("=")
         return f"fld_{token}"
 
     @staticmethod
     def _display_name(name: str, *, folder_handle: str) -> str:
-        normalized = " ".join(
-            unicodedata.normalize("NFKC", str(name)).split()
-        )
+        normalized = " ".join(unicodedata.normalize("NFKC", str(name)).split())
         if (
             not normalized
             or "/" in normalized
@@ -386,11 +369,7 @@ class SQLRegisteredWorkspaceCatalog:
             if callable(method)
             else ()
         )
-        return tuple(
-            workspace
-            for workspace in (self._resolved(item) for item in records)
-            if workspace is not None
-        )
+        return tuple(workspace for workspace in (self._resolved(item) for item in records) if workspace is not None)
 
     def _resolved(self, record: object) -> RegisteredWorkspace | None:
         if (

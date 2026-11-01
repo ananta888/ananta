@@ -25,8 +25,16 @@ def grant(channel="run-scratchpad", scope=MemoryScope.run, operations=tuple(Memo
 
 
 def policy(capabilities=None, **changes):
-    return replace(MemoryRunPolicy(ACTOR, NAMESPACE, "test-policy-revision", 1000,
-                                  capabilities=(grant(),) if capabilities is None else capabilities), **changes)
+    return replace(
+        MemoryRunPolicy(
+            ACTOR,
+            NAMESPACE,
+            "test-policy-revision",
+            1000,
+            capabilities=(grant(),) if capabilities is None else capabilities,
+        ),
+        **changes,
+    )
 
 
 class PolicyFixture:
@@ -57,7 +65,8 @@ def gateway(value=None, *, clock=lambda: 100):
     policies = PolicyFixture(policy() if value is None else value)
     audit = AuditFixture()
     service = MemoryPolicyGateway(
-        policies=policies, audit=audit,
+        policies=policies,
+        audit=audit,
         channels=MemoryChannelRegistry(frozenset({"run-scratchpad", "hub-result-memory", "hub-memory-tree"})),
         clock=clock,
     )
@@ -65,20 +74,28 @@ def gateway(value=None, *, clock=lambda: 100):
 
 
 @contextmanager
-def synthetic_memory_access(*, task_id="test-task", goal_id="test-goal", channels, scopes,
-                            operations=tuple(MemoryOperation), sensitivity=MemorySensitivity.security_sensitive):
+def synthetic_memory_access(
+    *,
+    task_id="test-task",
+    goal_id="test-goal",
+    channels,
+    scopes,
+    operations=tuple(MemoryOperation),
+    sensitivity=MemorySensitivity.security_sensitive,
+):
     """Explicit test-only preauthorization; never installed into application defaults."""
     from agent.services.memory_access_context import MemoryAccessContext, bind_memory_access
 
     namespace = replace(NAMESPACE, task_id=task_id, goal_id=goal_id, conversation_id="synthetic-conversation")
     expiry = time.time() + 3600
-    grants = tuple(MemoryCapability(channel, namespace, scope, operations, sensitivity, expiry)
-                   for channel in channels for scope in scopes)
-    policies = PolicyFixture(MemoryRunPolicy(ACTOR, namespace, "synthetic-memory-fixture", expiry,
-                                             capabilities=grants))
+    grants = tuple(
+        MemoryCapability(channel, namespace, scope, operations, sensitivity, expiry)
+        for channel in channels
+        for scope in scopes
+    )
+    policies = PolicyFixture(MemoryRunPolicy(ACTOR, namespace, "synthetic-memory-fixture", expiry, capabilities=grants))
     audit = AuditFixture()
-    gate = MemoryPolicyGateway(policies=policies, audit=audit,
-                               channels=MemoryChannelRegistry(frozenset(channels)))
+    gate = MemoryPolicyGateway(policies=policies, audit=audit, channels=MemoryChannelRegistry(frozenset(channels)))
     with bind_memory_access(MemoryAccessContext(ACTOR, namespace.run_id, gate)):
         yield policies, audit
 

@@ -1,7 +1,6 @@
 """HDE-017: validation tests run in isolated temp workspaces."""
-import json
 
-import pytest
+import json
 
 from agent.services.custom_tool_proposal_service import CustomToolProposalService
 from agent.services.custom_tool_validation_service import CustomToolValidationService

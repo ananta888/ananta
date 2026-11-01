@@ -11,14 +11,14 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_persona_video_profiles import MeetPersonaVideoProfiles
 from agent.services.meet_persona_videos import MeetPersonaVideos
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
-from tests.test_meet_media import result
 from tests.persona.test_persona_inspection_tasks import runtime as runtime
 from tests.persona.test_persona_profile_service import save
 from tests.persona.test_persona_profile_service import system as system
-from tests.slow.persona.test_persona_profile_videos import selected
-from tests.slow.persona.test_persona_profile_videos import selected_video as selected_video
 from tests.persona.test_persona_video_asset_service import video_assets as video_assets
 from tests.persona.test_persona_video_tasks import video_task as video_task
+from tests.slow.persona.test_persona_profile_videos import selected
+from tests.slow.persona.test_persona_profile_videos import selected_video as selected_video
+from tests.test_meet_media import result
 from worker.meet_media.contract import validate_turn
 
 
@@ -89,12 +89,15 @@ def test_current_video_profile_rejects_revoked_or_replaced_execution(clip_profil
 
 def turn_service(case, tasks=None):
     worker = Mock()
-    worker.execute.side_effect = lambda request: result() | {
-        "task_id": request["task_id"],
-        "lease_id": request["lease_id"],
-        "persona_video": request["persona_video"]["reference"],
-        "engines": result()["engines"] | {"video": "persona-clip-h264_nvenc"},
-    }
+    worker.execute.side_effect = lambda request: (
+        result()
+        | {
+            "task_id": request["task_id"],
+            "lease_id": request["lease_id"],
+            "persona_video": request["persona_video"]["reference"],
+            "engines": result()["engines"] | {"video": "persona-clip-h264_nvenc"},
+        }
+    )
     return MeetTurnService(
         Mock(),
         worker,

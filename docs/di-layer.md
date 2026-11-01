@@ -20,12 +20,15 @@ def get_memory_entry_repository() -> Any:
     """Call-time lookup for the ``memory_entry_repo`` singleton."""
     return _resolve("memory_entry_repo")
 
+
 def _resolve(name: str) -> Any:
     module_value = globals().get(name, _SENTINEL)
     if module_value is not _SENTINEL:
         return module_value  # test monkeypatch
     from agent import repository
+
     return getattr(repository, name)
+
 
 def __getattr__(name: str) -> Any:
     """Resolve ``agent.services.di.<name>`` via ``_resolve``."""

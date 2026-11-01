@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import time
 import uuid
@@ -11,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .coturn_collector import CoturnAggregateCollector, CoturnCollectionError, CoturnCollectorConfig
-from .observation_exporter import ObservationExportError, ObservationExporter, ObservationExporterConfig
+from .observation_exporter import ObservationExporter, ObservationExporterConfig, ObservationExportError
 
 
 def _required(name: str) -> str:

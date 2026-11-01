@@ -31,20 +31,20 @@ Jeder Datenzugriff ist typisiert, versioniert und policy-kontrolliert.
 ```python
 @dataclass
 class Artifact:
-    artifact_id: str      # uuid, unveränderlich
-    run_id: str           # Run-Zugehörigkeit
-    artifact_type: str    # aus obiger Tabelle
+    artifact_id: str  # uuid, unveränderlich
+    run_id: str  # Run-Zugehörigkeit
+    artifact_type: str  # aus obiger Tabelle
 
-    version: int          # beginnt bei 1, erhöht bei Aktualisierung
-    policy_class: str     # "public" | "internal" | "sensitive" | "secret_ref"
+    version: int  # beginnt bei 1, erhöht bei Aktualisierung
+    policy_class: str  # "public" | "internal" | "sensitive" | "secret_ref"
 
-    created_at: float     # unix timestamp
-    created_by: str       # worker_id oder "hub"
+    created_at: float  # unix timestamp
+    created_by: str  # worker_id oder "hub"
 
-    content_hash: str     # sha256 des Inhalts (für Integrität)
-    storage_ref: str      # Dateipfad oder Objekt-Key — kein Inline-Content bei >16 KB
+    content_hash: str  # sha256 des Inhalts (für Integrität)
+    storage_ref: str  # Dateipfad oder Objekt-Key — kein Inline-Content bei >16 KB
 
-    superseded_by: str | None   # artifact_id der neueren Version
+    superseded_by: str | None  # artifact_id der neueren Version
     archived_at: float | None
     deleted_at: float | None
 ```

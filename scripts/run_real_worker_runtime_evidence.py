@@ -294,8 +294,10 @@ def run(out_dir: Path, *, require_opencode: bool) -> None:
             },
             "worker_results": worker_results,
             "checks": {
-                "ananta_native_worker_process_completed": worker_results["ananta_native"].get("engine_result_status") == "completed",
-                "opencode_worker_process_completed": worker_results["opencode"].get("engine_result_status") == "completed",
+                "ananta_native_worker_process_completed": worker_results["ananta_native"].get("engine_result_status")
+                == "completed",
+                "opencode_worker_process_completed": worker_results["opencode"].get("engine_result_status")
+                == "completed",
                 "opencode_real_cli": worker_results["opencode"].get("real_opencode_cli") is True,
                 "read_model_has_completed_tasks": read_model["json"]["data"].get("queue", {}).get("completed", 0) >= 2,
             },

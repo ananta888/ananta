@@ -17,9 +17,7 @@ class RecoverySourcePostCommitWriteAuthority:
     proposed_digest: str
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoverySourcePostCommitWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoverySourcePostCommitWriteAuthority | None] = ContextVar(
     "ananta_recovery_source_post_commit_write_authority",
     default=None,
 )
@@ -43,14 +41,8 @@ def _authority(
     proposed: Any,
 ) -> RecoverySourcePostCommitWriteAuthority:
     normalized_task_id = str(task_id or "").strip()
-    if (
-        not normalized_task_id
-        or not isinstance(current, Mapping)
-        or not isinstance(proposed, Mapping)
-    ):
-        raise ValueError(
-            "recovery_source_post_commit_authority_invalid"
-        )
+    if not normalized_task_id or not isinstance(current, Mapping) or not isinstance(proposed, Mapping):
+        raise ValueError("recovery_source_post_commit_authority_invalid")
     return RecoverySourcePostCommitWriteAuthority(
         task_id=normalized_task_id,
         current_digest=_marker_digest(current),

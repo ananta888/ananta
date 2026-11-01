@@ -1,13 +1,14 @@
 """Tests für DSL Loader + Validator (T05.01)."""
+
 from __future__ import annotations
 
 import pytest
 
 from agent.services.heuristic_runtime.dsl.loader import DslLoader, DslLoadError
-from agent.services.heuristic_runtime.dsl.validator import DslValidator, ValidationResult
-
+from agent.services.heuristic_runtime.dsl.validator import DslValidator
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _minimal_definition(*, mode="dsl_v2", status="candidate", dsl=None):
     if dsl is None:
@@ -32,6 +33,7 @@ def _valid_dsl():
 
 
 # ── DslLoader tests ───────────────────────────────────────────────────────────
+
 
 class TestDslLoader:
     def setup_method(self):
@@ -88,6 +90,7 @@ class TestDslLoader:
 
 
 # ── DslValidator tests ────────────────────────────────────────────────────────
+
 
 class TestDslValidator:
     def setup_method(self):
@@ -181,8 +184,15 @@ class TestDslValidator:
         assert ";" in result.error_summary or len(result.errors) >= 1
 
     def test_all_known_action_kinds_pass(self):
-        for kind in ("suggest_target", "follow_artifact", "lurk_near", "smooth_follow",
-                     "fast_target", "explain_target", "no_action"):
+        for kind in (
+            "suggest_target",
+            "follow_artifact",
+            "lurk_near",
+            "smooth_follow",
+            "fast_target",
+            "explain_target",
+            "no_action",
+        ):
             dsl = _valid_dsl()
             dsl["action"]["kind"] = kind
             result = self.validator.validate(dsl)

@@ -3,21 +3,11 @@
 All tests run without any ML dependency (no torch, no transformers, etc.).
 Uses MockInferenceAdapter for deterministic results.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from agent.services.restricted_model_inference_service import (
-    MockInferenceAdapter,
-    RestrictedModelInferenceService,
-    OP_CLASSIFY,
-    OP_EMBED,
-    OP_RERANK,
-    OP_SCORE_CHOICES,
-    get_restricted_model_inference_service,
-    reset_restricted_model_inference_service,
-    validate_no_generation,
-)
 from agent.services.model_inference_adapters import (
     ChoiceScore,
     ClassificationResult,
@@ -27,6 +17,14 @@ from agent.services.path_ai_mode_policy_service import (
     AI_MODE_RESTRICTED_TRANSFORMER,
     PathAiModePolicyService,
     PathAiModeRule,
+)
+from agent.services.restricted_model_inference_service import (
+    OP_EMBED,
+    MockInferenceAdapter,
+    RestrictedModelInferenceService,
+    get_restricted_model_inference_service,
+    reset_restricted_model_inference_service,
+    validate_no_generation,
 )
 
 
@@ -180,12 +178,16 @@ class TestRestrictedModelInferenceService:
 
 class TestPolicyGating:
     def _blocked_policy(self) -> PathAiModePolicyService:
-        return PathAiModePolicyService(rules=[
-            PathAiModeRule.from_raw({
-                "path_glob": "src/security/**",
-                "blocked_ai_modes": [AI_MODE_RESTRICTED_TRANSFORMER],
-            })
-        ])
+        return PathAiModePolicyService(
+            rules=[
+                PathAiModeRule.from_raw(
+                    {
+                        "path_glob": "src/security/**",
+                        "blocked_ai_modes": [AI_MODE_RESTRICTED_TRANSFORMER],
+                    }
+                )
+            ]
+        )
 
     def test_blocked_path_raises_inference_blocked_error(self):
         svc = RestrictedModelInferenceService(

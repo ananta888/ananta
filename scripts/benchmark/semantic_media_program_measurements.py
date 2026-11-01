@@ -6,7 +6,6 @@ import math
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-
 METRIC_FIELDS = (
     "ingress_bytes",
     "egress_bytes",
@@ -60,9 +59,7 @@ class ModeMeasurement:
         return {
             "binding_sha256": binding_sha256,
             "values": dict(self.values),
-            "availability": {
-                name: self.availability[name].as_dict() for name in METRIC_FIELDS
-            },
+            "availability": {name: self.availability[name].as_dict() for name in METRIC_FIELDS},
             "latency_sample_count": len(self.latency_samples),
             "expected_deliveries": self.expected_deliveries,
             "completed_deliveries": self.completed_deliveries,

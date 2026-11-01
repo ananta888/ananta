@@ -41,8 +41,9 @@ INTENT_OPTIONS: dict[str, str] = {
 }
 
 
-def decide_retrieval_intent(query: str, rule_intent: str, cfg: Mapping[str, Any] | None = None, *,
-                            service: Any = None) -> tuple[str, list[str]]:
+def decide_retrieval_intent(
+    query: str, rule_intent: str, cfg: Mapping[str, Any] | None = None, *, service: Any = None
+) -> tuple[str, list[str]]:
     """``(intent, reasons)``: the rule intent, or the accepted decision in active mode."""
     trigger_mode = str((cfg or {}).get("chat_codecompass_trigger_mode") or "auto").strip().lower()
     if trigger_mode != "auto" or not str(query or "").strip():
@@ -56,8 +57,11 @@ def decide_retrieval_intent(query: str, rule_intent: str, cfg: Mapping[str, Any]
     from agent.services.decision_providers.types import DecisionProviderError, DecisionQuestion, DecisionRequest
 
     try:
-        request = DecisionRequest(state=str(query)[:4000], purpose=AREA, questions=(
-            DecisionQuestion.choice(QUESTION_KEY, INSTRUCTIONS, INTENT_OPTIONS),))
+        request = DecisionRequest(
+            state=str(query)[:4000],
+            purpose=AREA,
+            questions=(DecisionQuestion.choice(QUESTION_KEY, INSTRUCTIONS, INTENT_OPTIONS),),
+        )
         decision = service.decide(AREA, request, current={QUESTION_KEY: rule_intent})
     except DecisionProviderError:
         return rule_intent, ["decision_provider:invalid_request"]
@@ -69,5 +73,7 @@ def decide_retrieval_intent(query: str, rule_intent: str, cfg: Mapping[str, Any]
     answer = decision.outcome.result.answer(QUESTION_KEY)
     if answer.choice == rule_intent:
         return rule_intent, [f"decision_provider:{decision.outcome.decided_by}:agrees"]
-    return answer.choice, [f"decision_provider:{decision.outcome.decided_by}:{answer.confidence:.2f}",
-                           f"rule_intent:{rule_intent}"]
+    return answer.choice, [
+        f"decision_provider:{decision.outcome.decided_by}:{answer.confidence:.2f}",
+        f"rule_intent:{rule_intent}",
+    ]

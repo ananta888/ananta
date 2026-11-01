@@ -9,9 +9,9 @@ Design rules:
 - Sensitivity defaults from the record's own sensitivity field; falls back to "internal".
 - Does not depend on LLM — pure deterministic transformation.
 """
+
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
@@ -38,6 +38,7 @@ _FILE_TO_SOURCE_TYPE: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class IngestionStats:
@@ -67,6 +68,7 @@ class IngestionStats:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sensitivity_from_record(record: dict[str, Any]) -> str:
     raw = str(record.get("sensitivity") or record.get("sensitivity_label") or "internal").strip().lower()
@@ -135,6 +137,7 @@ def _iter_jsonl_records(output_dir: Path) -> Iterable[tuple[str, dict[str, Any]]
 # ---------------------------------------------------------------------------
 # MemoryTreeIngestionService
 # ---------------------------------------------------------------------------
+
 
 class MemoryTreeIngestionService:
     """Ingest KnowledgeIndex and CodeCompass records into the Memory Tree."""

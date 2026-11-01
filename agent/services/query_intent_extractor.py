@@ -12,6 +12,7 @@ Liefert ein QueryIntent-Objekt:
   mode_used        – welcher Modus tatsächlich angewendet wurde
   original         – unveränderter Original-Text
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,6 +67,7 @@ _ANCHOR_VECS: dict[str, Any] | None = None
 
 # ── Datenklasse ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class QueryIntent:
     search_query: str
@@ -76,6 +78,7 @@ class QueryIntent:
 
 
 # ── Haupt-API ─────────────────────────────────────────────────────────────────
+
 
 def extract_query_intent(
     text: str,
@@ -103,6 +106,7 @@ def extract_query_intent(
 
 
 # ── A) Regex-Stripper ─────────────────────────────────────────────────────────
+
 
 def _apply_regex(text: str) -> QueryIntent:
     negations: list[str] = []
@@ -148,12 +152,14 @@ def _apply_regex(text: str) -> QueryIntent:
 
 # ── B) Embedding-Distillation ─────────────────────────────────────────────────
 
+
 def _load_anchor_vecs() -> dict[str, Any] | None:
     global _ANCHOR_VECS
     if _ANCHOR_VECS is not None:
         return _ANCHOR_VECS
     try:
         from agent.services.restricted_model_inference_service import get_restricted_model_inference_service
+
         svc = get_restricted_model_inference_service()
         code_vec = svc.embed([_CODE_ANCHOR], path="__hub_internal__/query-intent")[0]
         meta_vec = svc.embed([_META_ANCHOR], path="__hub_internal__/query-intent")[0]
@@ -166,6 +172,7 @@ def _load_anchor_vecs() -> dict[str, Any] | None:
 
 def _cosine(a: list[float], b: list[float]) -> float:
     import math
+
     dot = sum(x * y for x, y in zip(a, b))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(x * x for x in b))
@@ -186,6 +193,7 @@ def _apply_embedding_distillation(intent: QueryIntent) -> QueryIntent:
 
     try:
         from agent.services.restricted_model_inference_service import get_restricted_model_inference_service
+
         svc = get_restricted_model_inference_service()
         vecs = svc.embed(clauses, path="__hub_internal__/query-intent")
     except Exception as exc:
@@ -227,6 +235,7 @@ def _apply_llm_reform(text: str, cfg: dict[str, Any]) -> QueryIntent:
     prompt = _REFORM_PROMPT.format(user_query=text)
     try:
         from agent.llm_integration import generate_text
+
         result = generate_text(
             prompt=prompt,
             provider=provider,

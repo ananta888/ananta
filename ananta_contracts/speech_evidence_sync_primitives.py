@@ -10,7 +10,6 @@ import math
 import re
 from typing import Any, Mapping
 
-
 PROTOCOL_VERSION = "ananta.speech-evidence-sync.v1"
 OFFER_PROTOCOL_VERSION = "ananta.speech-evidence-sync.v2"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({PROTOCOL_VERSION, OFFER_PROTOCOL_VERSION})
@@ -111,9 +110,7 @@ def _mapping(value: Any, reason: str) -> Mapping[str, Any]:
 
 
 def _identifier(value: Any, reason: str) -> str:
-    if isinstance(value, str) and (
-        value.startswith(("/", "file:", "data:", "~")) or ".." in value or "\\" in value
-    ):
+    if isinstance(value, str) and (value.startswith(("/", "file:", "data:", "~")) or ".." in value or "\\" in value):
         raise SpeechEvidenceProtocolError("speech_evidence_private_path_forbidden")
     if not isinstance(value, str) or not _ID_RE.fullmatch(value):
         raise SpeechEvidenceProtocolError(reason)

@@ -13,26 +13,14 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-GRAPH_FEATURE = (
-    ROOT / "frontend-angular/src/app/features/codecompass-graph"
-)
+GRAPH_FEATURE = ROOT / "frontend-angular/src/app/features/codecompass-graph"
 PROFILE_MODEL = GRAPH_FEATURE / "models/graph-visual-profile.model.ts"
-PROFILE_VALIDATOR = (
-    GRAPH_FEATURE / "services/graph-visual-profile-validator.ts"
-)
+PROFILE_VALIDATOR = GRAPH_FEATURE / "services/graph-visual-profile-validator.ts"
 PROFILE_FACADE = GRAPH_FEATURE / "services/graph-visual-profile.facade.ts"
-LOCAL_STORAGE_ADAPTER = (
-    GRAPH_FEATURE / "services/local-storage-graph-visual-profile.adapter.ts"
-)
-TOOLTIP_HELPER = (
-    GRAPH_FEATURE / "components/graph-tooltip/graph-visual-tooltip.ts"
-)
-TWO_DIMENSIONAL_RENDERER = (
-    GRAPH_FEATURE / "components/graph-2d-view/graph-2d-view.component.ts"
-)
-THREE_DIMENSIONAL_RENDERER = (
-    GRAPH_FEATURE / "components/graph-3d-view/graph-3d-view.component.ts"
-)
+LOCAL_STORAGE_ADAPTER = GRAPH_FEATURE / "services/local-storage-graph-visual-profile.adapter.ts"
+TOOLTIP_HELPER = GRAPH_FEATURE / "components/graph-tooltip/graph-visual-tooltip.ts"
+TWO_DIMENSIONAL_RENDERER = GRAPH_FEATURE / "components/graph-2d-view/graph-2d-view.component.ts"
+THREE_DIMENSIONAL_RENDERER = GRAPH_FEATURE / "components/graph-3d-view/graph-3d-view.component.ts"
 SHARED_THREE_DIMENSIONAL_RENDERER = (
     ROOT / "frontend-angular/src/app/features/graph-rendering/components/force-graph-3d-renderer.component.ts"
 )
@@ -87,14 +75,8 @@ def test_profile_colors_and_visual_numbers_remain_strictly_bounded() -> None:
     assert "const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;" in validator
     assert "!COLOR_PATTERN.test(color)" in validator
     assert "'invalid_color'" in validator
-    assert (
-        "this.validateRange(input['nodeSizeRange'], '$.nodeSizeRange', 1, 100, issues);"
-        in validator
-    )
-    assert (
-        "this.validateRange(input['edgeThicknessRange'], '$.edgeThicknessRange', 0.1, 20, issues);"
-        in validator
-    )
+    assert "this.validateRange(input['nodeSizeRange'], '$.nodeSizeRange', 1, 100, issues);" in validator
+    assert "this.validateRange(input['edgeThicknessRange'], '$.edgeThicknessRange', 0.1, 20, issues);" in validator
     assert "this.validateFiniteNumber(value[key], `${path}.${key}`, issues, 1, 5);" in validator
     assert "Number.isFinite(value)" in validator
     assert "value < min || value > max" in validator

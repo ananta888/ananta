@@ -48,10 +48,7 @@ class VoiceModelManifest:
         configured = tuple(str(value or "").strip() for value in paths if str(value or "").strip())
         if not configured:
             raise ValueError(f"voice runtime artifact path is missing for engine: {self.engine}")
-        declared = {
-            (self.model_root / relative).resolve(strict=True): digest
-            for relative, digest in self.files
-        }
+        declared = {(self.model_root / relative).resolve(strict=True): digest for relative, digest in self.files}
         bound_files: set[Path] = set()
         for raw_path in configured:
             unresolved = Path(raw_path).expanduser()
@@ -165,9 +162,7 @@ def _runtime_paths_for_engine(config: Any, engine: str) -> tuple[str, ...]:
         "silero": ("silero_vad_model_path",),
     }
     return tuple(
-        str(value)
-        for attribute in attribute_names.get(engine, ())
-        if (value := getattr(config, attribute, None))
+        str(value) for attribute in attribute_names.get(engine, ()) if (value := getattr(config, attribute, None))
     )
 
 

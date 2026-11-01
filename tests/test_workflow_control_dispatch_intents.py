@@ -398,9 +398,7 @@ def _control_rows_snapshot(engine, workflow_id: str, intent_id: str) -> tuple[di
         binding = session.get(WorkflowControlBindingDB, workflow_id)
         intent = session.get(WorkflowControlDispatchIntentDB, intent_id)
         assert binding is not None
-        binding_values = {
-            column.name: getattr(binding, column.name) for column in binding.__table__.columns
-        }
+        binding_values = {column.name: getattr(binding, column.name) for column in binding.__table__.columns}
         intent_values = (
             {column.name: getattr(intent, column.name) for column in intent.__table__.columns}
             if intent is not None

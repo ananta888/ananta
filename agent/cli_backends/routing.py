@@ -313,9 +313,7 @@ def _claude_login_command_for_mode(auth_mode: str | None, *, backend_settings: A
     return None
 
 
-def _codex_login_command_for_mode(
-    auth_mode: str | None, *, backend_settings: Any | None = None
-) -> str | None:
+def _codex_login_command_for_mode(auth_mode: str | None, *, backend_settings: Any | None = None) -> str | None:
     """CCA-002: return the official Codex CLI login command for the
     given auth mode, or None if no manual login is required.
 
@@ -336,9 +334,7 @@ def _codex_login_command_for_mode(
     return None
 
 
-def get_cli_backend_preflight(
-    *, runtime_scope: str = "full", backend_settings: Any | None = None
-) -> dict[str, dict]:
+def get_cli_backend_preflight(*, runtime_scope: str = "full", backend_settings: Any | None = None) -> dict[str, dict]:
     backend_settings = settings if backend_settings is None else backend_settings
     from agent.cli_backends.opencode import resolve_claude_runtime_config, resolve_codex_runtime_config
 

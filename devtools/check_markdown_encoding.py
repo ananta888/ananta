@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 
 
 def tracked_markdown_files() -> list[str]:

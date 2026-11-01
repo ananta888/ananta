@@ -5,7 +5,6 @@ import time
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable
 
 COMPACT_HEADER_LINES = 8
 _GIT_INFO_REFRESH_SECONDS = 1.0
@@ -76,9 +75,7 @@ def _safe_cwd() -> str:
 
 
 def _git_info(cwd: str) -> tuple[str, str, bool, str]:
-    refresh_bucket = int(
-        time.monotonic() / _GIT_INFO_REFRESH_SECONDS
-    )
+    refresh_bucket = int(time.monotonic() / _GIT_INFO_REFRESH_SECONDS)
     return _git_info_for_refresh_bucket(cwd, refresh_bucket)
 
 
@@ -95,23 +92,36 @@ def _read_git_info(cwd: str) -> tuple[str, str, bool, str]:
         return "", "", False, ""
     try:
         import subprocess
+
         root = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=2, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            cwd=cwd,
         ).stdout.strip()
         if not root:
             return "", "", False, ""
         branch = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=2, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            cwd=cwd,
         ).stdout.strip()
         dirty = subprocess.run(
             ["git", "status", "--porcelain"],
-            capture_output=True, text=True, timeout=2, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            cwd=cwd,
         ).stdout.strip()
         user = subprocess.run(
             ["git", "config", "user.name"],
-            capture_output=True, text=True, timeout=2, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            cwd=cwd,
         ).stdout.strip()
         return root, branch, bool(dirty), user
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
@@ -122,7 +132,7 @@ def _shorten_path(path: str, max_len: int = 32) -> str:
     if len(path) <= max_len:
         return path
     mid = max_len // 2 - 2
-    return path[:mid] + "..." + path[-(max_len - mid - 3):]
+    return path[:mid] + "..." + path[-(max_len - mid - 3) :]
 
 
 def _repo_relative_path(cwd: str, repo_root: str) -> str:
@@ -167,11 +177,11 @@ def format_status_lines(
     color: bool = True,
     width: int = 80,
 ) -> list[str]:
-    dim   = "\x1b[2m"    if color else ""
-    bold  = "\x1b[1m"    if color else ""
-    green = "\x1b[32m"   if color else ""
-    red   = "\x1b[31m"   if color else ""
-    rst   = "\x1b[0m"    if color else ""
+    dim = "\x1b[2m" if color else ""
+    bold = "\x1b[1m" if color else ""
+    green = "\x1b[32m" if color else ""
+    red = "\x1b[31m" if color else ""
+    rst = "\x1b[0m" if color else ""
 
     max_val = max(10, width - 12)
 
@@ -193,7 +203,7 @@ def format_status_lines(
     # \u2500\u2500 git \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     branch_str = snapshot.git_branch or ""
     dirty_mark = f" {red}\u2717{rst}" if snapshot.git_dirty else (f" {green}\u2713{rst}" if branch_str else "")
-    git_line   = ""
+    git_line = ""
     if branch_str:
         git_line = f"{bold}{branch_str}{rst}{dirty_mark}"
     if snapshot.git_user and branch_str:
@@ -255,5 +265,6 @@ def format_status_compact_right(
 
 def _visible_length(text: str) -> int:
     import re
+
     ansi_re = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
     return len(ansi_re.sub("", text))

@@ -675,12 +675,8 @@ def test_default_http_downloader_streams_v1_over_generic_token_route(
     class Opener:
         def open(self, request, *, timeout):
             assert timeout == 60
-            assert request.full_url.endswith(
-                "/artifacts/artifact-index/content"
-            )
-            headers = {
-                key.lower(): value for key, value in request.header_items()
-            }
+            assert request.full_url.endswith("/artifacts/artifact-index/content")
+            headers = {key.lower(): value for key, value in request.header_items()}
             assert headers["authorization"] == "Bearer worker-token"
             assert "x-ananta-source-access-manifest" not in headers
             return response
@@ -834,9 +830,7 @@ def test_default_http_downloader_enforces_absolute_slow_drip_deadline(
         WorkerForwardDeadlineExceeded,
         match="worker_forward_transport_deadline_exceeded",
     ):
-        HttpKnowledgeIndexWorkerArtifactDownloader(
-            opener=Opener()
-        ).download_to_path(
+        HttpKnowledgeIndexWorkerArtifactDownloader(opener=Opener()).download_to_path(
             worker_url="http://worker-a:5000",
             worker_token="worker-token",
             reference={
@@ -876,10 +870,7 @@ def test_default_http_downloader_uses_job_bound_output_capability_even_with_toke
     class Opener:
         def open(self, request, *, timeout):
             captured["url"] = request.full_url
-            captured["headers"] = {
-                key.lower(): value
-                for key, value in request.header_items()
-            }
+            captured["headers"] = {key.lower(): value for key, value in request.header_items()}
             assert timeout == 60
             return Response()
 
@@ -903,12 +894,8 @@ def test_default_http_downloader_uses_job_bound_output_capability_even_with_toke
         destination=destination,
     )
 
-    assert captured["url"].endswith(
-        "/internal/knowledge-index/output-artifacts/artifact-manifest"
-    )
-    assert captured["headers"]["authorization"] == (
-        "Bearer worker-token"
-    )
+    assert captured["url"].endswith("/internal/knowledge-index/output-artifacts/artifact-manifest")
+    assert captured["headers"]["authorization"] == ("Bearer worker-token")
     assert captured["headers"]["x-ananta-knowledge-index-job-id"] == job_id
     assert "x-ananta-source-access-manifest" in captured["headers"]
     assert destination.read_bytes() == content
@@ -948,9 +935,7 @@ def test_default_http_downloader_rejects_redirect_without_forwarding_headers(
         ValueError,
         match="knowledge_index_worker_artifact_redirect_forbidden",
     ):
-        HttpKnowledgeIndexWorkerArtifactDownloader(
-            opener=opener
-        ).download_to_path(
+        HttpKnowledgeIndexWorkerArtifactDownloader(opener=opener).download_to_path(
             worker_url="http://worker-a:5000",
             worker_token="worker-token",
             source_access_manifest={"schema": "signed-manifest"},
@@ -968,9 +953,7 @@ def test_default_http_downloader_rejects_redirect_without_forwarding_headers(
         )
 
     assert len(opener.requests) == 1
-    assert opener.requests[0].full_url.startswith(
-        "http://worker-a:5000/"
-    )
+    assert opener.requests[0].full_url.startswith("http://worker-a:5000/")
     assert opener.requests[0].full_url != redirect_target
     assert response.closed is True
     assert not destination.exists()
@@ -1009,9 +992,7 @@ def test_bound_v2_result_never_downgrades_to_token_only_transport(
         output_root=tmp_path,
     )
     task = assigned_task()
-    task["worker_execution_context"]["knowledge_index_job"][
-        "schema"
-    ] = "ananta.knowledge_index_execution_job.v2"
+    task["worker_execution_context"]["knowledge_index_job"]["schema"] = "ananta.knowledge_index_execution_job.v2"
 
     with pytest.raises(
         ValueError,
@@ -1119,9 +1100,7 @@ def test_hub_rejects_oversized_graph_json_before_any_download(tmp_path) -> None:
 def test_v2_nested_authority_projects_public_artifact_manifest(tmp_path) -> None:
     manifest = b'{"coverage":{},"exclusions":[]}'
     index = b'{"file":"agent/runtime.py"}\n'
-    downloader = Downloader(
-        {"artifact-manifest": manifest, "artifact-index": index}
-    )
+    downloader = Downloader({"artifact-manifest": manifest, "artifact-index": index})
     index_repository = Repository()
     run_repository = Repository()
     service = KnowledgeIndexWorkerArtifactService(
@@ -1154,27 +1133,16 @@ def test_v2_nested_authority_projects_public_artifact_manifest(tmp_path) -> None
         task=task,
     )
 
-    public = materialized["knowledge_index"]["index_metadata"][
-        "artifact_manifest"
-    ]
+    public = materialized["knowledge_index"]["index_metadata"]["artifact_manifest"]
     assert public["source_revision_id"] == "srev_" + "a" * 64
     assert public["run_id"] == "run-1"
     assert len(public["manifest_digest"]) == 64
-    assert (
-        materialized["run"]["run_metadata"]["artifact_manifest"]
-        == public
-    )
+    assert materialized["run"]["run_metadata"]["artifact_manifest"] == public
     assert materialized["knowledge_index"]["status"] == "completed"
-    assert index_repository.items["idx-1"].status == (
-        "pending_verification"
-    )
+    assert index_repository.items["idx-1"].status == ("pending_verification")
     assert run_repository.items["run-1"].status == "pending_verification"
-    pending_binding = index_repository.items["idx-1"].index_metadata[
-        "knowledge_index_execution_binding"
-    ]
-    assert pending_binding["execution_job_schema"] == (
-        "ananta.knowledge_index_execution_job.v2"
-    )
+    pending_binding = index_repository.items["idx-1"].index_metadata["knowledge_index_execution_binding"]
+    assert pending_binding["execution_job_schema"] == ("ananta.knowledge_index_execution_job.v2")
     assert pending_binding["projection_state"] == "pending"
     assert downloader.capability_calls == [
         {
@@ -1203,9 +1171,10 @@ def test_v2_nested_authority_projects_public_artifact_manifest(tmp_path) -> None
     assert activated["knowledge_index"]["status"] == "completed"
     assert index_repository.items["idx-1"].status == "completed"
     assert run_repository.items["run-1"].status == "completed"
-    assert index_repository.items["idx-1"].index_metadata[
-        "knowledge_index_execution_binding"
-    ]["projection_state"] == "projected"
+    assert (
+        index_repository.items["idx-1"].index_metadata["knowledge_index_execution_binding"]["projection_state"]
+        == "projected"
+    )
 
 
 def test_worker_cannot_overwrite_foreign_index_or_run_ids(tmp_path) -> None:
@@ -1225,9 +1194,7 @@ def test_worker_cannot_overwrite_foreign_index_or_run_ids(tmp_path) -> None:
             content=index,
         ),
     ]
-    downloader = Downloader(
-        {"artifact-manifest": manifest, "artifact-index": index}
-    )
+    downloader = Downloader({"artifact-manifest": manifest, "artifact-index": index})
     index_repository = Repository()
     run_repository = Repository()
     service = KnowledgeIndexWorkerArtifactService(
@@ -1247,9 +1214,7 @@ def test_worker_cannot_overwrite_foreign_index_or_run_ids(tmp_path) -> None:
     calls_before = list(downloader.calls)
 
     foreign_task = assigned_task()
-    foreign_task["worker_execution_context"]["knowledge_index_job"][
-        "job_id"
-    ] = "knowledge-index-" + "b" * 32
+    foreign_task["worker_execution_context"]["knowledge_index_job"]["job_id"] = "knowledge-index-" + "b" * 32
     with pytest.raises(
         ValueError,
         match="materialization_binding_conflict",
@@ -1282,9 +1247,7 @@ def test_same_binding_materialization_replay_is_idempotent(tmp_path) -> None:
             content=index,
         ),
     ]
-    downloader = Downloader(
-        {"artifact-manifest": manifest, "artifact-index": index}
-    )
+    downloader = Downloader({"artifact-manifest": manifest, "artifact-index": index})
     service = KnowledgeIndexWorkerArtifactService(
         downloader=downloader,
         knowledge_index_repository=Repository(),
@@ -1305,9 +1268,7 @@ def test_same_binding_materialization_replay_is_idempotent(tmp_path) -> None:
         task=task,
     )
 
-    assert replay["knowledge_index"]["id"] == first[
-        "knowledge_index"
-    ]["id"]
+    assert replay["knowledge_index"]["id"] == first["knowledge_index"]["id"]
     assert replay["run"]["id"] == first["run"]["id"]
     assert replay["run"]["knowledge_index_id"] == "idx-1"
     assert downloader.calls == first_downloads

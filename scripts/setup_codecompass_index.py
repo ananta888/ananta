@@ -11,6 +11,7 @@ This script:
   2. POSTs them as records to /knowledge/sources/index-records
   3. The snake chat (CodeCompass) can then retrieve real project context
 """
+
 from __future__ import annotations
 
 import argparse
@@ -60,13 +61,25 @@ from scripts.codecompass_semantic_index_records import build_semantic_translatio
 ROOT = Path(__file__).resolve().parents[1]
 
 EXCLUDE_DIRS = {
-    "node_modules", "__pycache__", ".git", "venv", ".venv",
-    "dist", "build", ".angular", "test-results", ".claude",
-    "migrations", "alembic", "project-workspaces", "data", "secrets",
+    "node_modules",
+    "__pycache__",
+    ".git",
+    "venv",
+    ".venv",
+    "dist",
+    "build",
+    ".angular",
+    "test-results",
+    ".claude",
+    "migrations",
+    "alembic",
+    "project-workspaces",
+    "data",
+    "secrets",
 }
 EXCLUDE_FILE_PATTERNS = {"*.pyc", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
 MAX_FILE_BYTES = 48_000  # skip files larger than this
-MAX_RECORDS = 12_000     # hard cap; must cover the fair-share of a full repository
+MAX_RECORDS = 12_000  # hard cap; must cover the fair-share of a full repository
 MAX_SNAPSHOT_HASH_BYTES = 8_000_000
 SNAPSHOT_POLICY_PATH = ROOT / "config" / "codecompass" / "snapshot_policy.v1.json"
 
@@ -90,21 +103,22 @@ class IndexScanPlan:
     truncated: bool
     limits: ParserLimits = field(default_factory=ParserLimits.from_environment)
 
+
 # Semantic aliases: file path fragments → tags added to the content header.
 # This bridges the gap between project-internal names and user-facing terms so
 # embedding queries like "codecompass" find the right Python files.
 _PATH_TAGS: list[tuple[str, str]] = [
-    ("codecompass",          "CodeCompass RAG retrieval system knowledge index"),
-    ("knowledge_index",      "CodeCompass knowledge index retrieval RAG"),
-    ("retrieval_service",    "CodeCompass RAG retrieval orchestration"),
-    ("context_bundle",       "CodeCompass context bundle RAG assembly grounded prompt"),
-    ("worker_workspace",     "worker workspace preparation CodeCompass context files"),
-    ("knowledge_routes",     "CodeCompass knowledge API routes"),
-    ("snake",                "AI-Snake chat CodeCompass question answering"),
-    ("goal_service",         "goal task planning execution service"),
-    ("planning_strategies",  "planning strategy task decomposition"),
-    ("task_scoped_execution","task execution worker proposal pipeline"),
-    ("sgpt",                 "LLM CLI backend ananta-worker execution"),
+    ("codecompass", "CodeCompass RAG retrieval system knowledge index"),
+    ("knowledge_index", "CodeCompass knowledge index retrieval RAG"),
+    ("retrieval_service", "CodeCompass RAG retrieval orchestration"),
+    ("context_bundle", "CodeCompass context bundle RAG assembly grounded prompt"),
+    ("worker_workspace", "worker workspace preparation CodeCompass context files"),
+    ("knowledge_routes", "CodeCompass knowledge API routes"),
+    ("snake", "AI-Snake chat CodeCompass question answering"),
+    ("goal_service", "goal task planning execution service"),
+    ("planning_strategies", "planning strategy task decomposition"),
+    ("task_scoped_execution", "task execution worker proposal pipeline"),
+    ("sgpt", "LLM CLI backend ananta-worker execution"),
 ]
 
 # A synthetic glossary record injected first so the embedding index always
@@ -163,9 +177,7 @@ def _should_exclude_path(relative_path: str) -> str | None:
     lower_name = name.lower()
     if any(fnmatch.fnmatchcase(name, pattern) for pattern in EXCLUDE_FILE_PATTERNS):
         return "excluded_file_pattern"
-    if lower_name == ".env" or (
-        lower_name.startswith(".env.") and lower_name not in {".env.example", ".env.sample"}
-    ):
+    if lower_name == ".env" or (lower_name.startswith(".env.") and lower_name not in {".env.example", ".env.sample"}):
         return "secret_path"
     if lower_name in {"id_rsa", "id_ed25519", "credentials", "credentials.json"}:
         return "secret_path"
@@ -183,11 +195,7 @@ def _repository_paths() -> list[str]:
     if completed.returncode == 0:
         decoded = completed.stdout.decode("utf-8", errors="surrogateescape")
         return sorted({item for item in decoded.split("\0") if item})
-    return sorted(
-        path.relative_to(ROOT).as_posix()
-        for path in ROOT.rglob("*")
-        if path.is_file()
-    )
+    return sorted(path.relative_to(ROOT).as_posix() for path in ROOT.rglob("*") if path.is_file())
 
 
 def _safe_candidate_path(relative_path: str) -> Path | None:
@@ -462,8 +470,7 @@ def _collect_index_plan(
             descriptor=candidate.descriptor,
             detected_type=(
                 "unknown_text"
-                if candidate.classification
-                and candidate.classification.match_kind is FileTypeMatchKind.TEXT_FALLBACK
+                if candidate.classification and candidate.classification.match_kind is FileTypeMatchKind.TEXT_FALLBACK
                 else None
             ),
             outcome=CoverageOutcome.EXCLUDED,
@@ -503,9 +510,10 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
         descriptor = candidate.descriptor
         detected_type = (
             "unknown_text"
-            if candidate.classification
-            and candidate.classification.match_kind is FileTypeMatchKind.TEXT_FALLBACK
-            else descriptor.format_id if descriptor else "unknown_text"
+            if candidate.classification and candidate.classification.match_kind is FileTypeMatchKind.TEXT_FALLBACK
+            else descriptor.format_id
+            if descriptor
+            else "unknown_text"
         )
         try:
             content = candidate.path.read_text(encoding="utf-8", errors="replace")
@@ -526,11 +534,7 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                 continue
             content, was_redacted = _redact_sensitive_values(
                 content,
-                language=(
-                    "python"
-                    if candidate.relative_path.endswith(".py")
-                    else None
-                ),
+                language=("python" if candidate.relative_path.endswith(".py") else None),
             )
             tags = _file_tags(candidate.relative_path)
             header = f"# {candidate.relative_path}"
@@ -647,13 +651,7 @@ def _build_semantic_translation_records(
 
 
 def _csv_environment(name: str) -> list[str]:
-    return sorted(
-        {
-            item.strip()
-            for item in str(os.environ.get(name) or "").split(",")
-            if item.strip()
-        }
-    )
+    return sorted({item.strip() for item in str(os.environ.get(name) or "").split(",") if item.strip()})
 
 
 def _load_snapshot_policy(path: Path = SNAPSHOT_POLICY_PATH) -> dict:

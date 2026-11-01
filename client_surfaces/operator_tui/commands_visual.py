@@ -7,6 +7,7 @@ from pathlib import Path
 
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 
+
 def _doc_preflight_report() -> dict[str, object]:
     def _which(name: str) -> str:
         return shutil.which(name) or ""
@@ -83,7 +84,11 @@ def _doc_switch_markdown_from_state(state: OperatorState) -> tuple[str, dict[str
         for key in ("markdown", "text", "content"):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
-                return heading + value.strip() + "\n", {"kind": "state", "content_or_ref": section_id, "title": section_id}
+                return heading + value.strip() + "\n", {
+                    "kind": "state",
+                    "content_or_ref": section_id,
+                    "title": section_id,
+                }
         body = json.dumps(payload, ensure_ascii=False, indent=2)
     elif isinstance(payload, list):
         body = json.dumps(payload, ensure_ascii=False, indent=2)
@@ -126,7 +131,6 @@ def _apply_doc_mode(game: dict[str, object], mode: str) -> str:
     return "mermaid"
 
 
-
 def handle_visual_commands(command: str, args: list[str], state: OperatorState) -> CommandResult:
     if command == "visual":
         game = dict(state.header_logo_game or {})
@@ -160,7 +164,9 @@ def handle_visual_commands(command: str, args: list[str], state: OperatorState) 
             target = str(args[1]).strip()
             if not target:
                 return CommandResult(state, "visual view: id erforderlich", handled=False)
-            available_views = [str(item) for item in (game.get("visual_viewport_available_views") or []) if str(item).strip()]
+            available_views = [
+                str(item) for item in (game.get("visual_viewport_available_views") or []) if str(item).strip()
+            ]
             if available_views and target not in available_views:
                 listed = ", ".join(available_views)
                 return CommandResult(
@@ -198,7 +204,9 @@ def handle_visual_commands(command: str, args: list[str], state: OperatorState) 
         sub = str(args[0]).strip().lower() if args else "help"
         if sub in {"help", "status"}:
             return CommandResult(
-                state.with_updates(status_message="doc: open <path-to-md> | switch | mode <simple|rendered|mermaid> | preflight"),
+                state.with_updates(
+                    status_message="doc: open <path-to-md> | switch | mode <simple|rendered|mermaid> | preflight"
+                ),
                 "doc help",
                 handled=(sub == "status"),
             )

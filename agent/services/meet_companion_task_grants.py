@@ -14,14 +14,23 @@ CAPABILITIES = frozenset({"avatar.publish", "speech.publish", "chat.send", "chat
 
 
 def closed_companion_assignment(request):
-    if (not isinstance(request, dict) or set(request) != FIELDS
-            or any(not isinstance(request[key], str) or not IDENTITY.fullmatch(request[key])
-                   for key in FIELDS - {"capabilities"})):
+    if (
+        not isinstance(request, dict)
+        or set(request) != FIELDS
+        or any(
+            not isinstance(request[key], str) or not IDENTITY.fullmatch(request[key])
+            for key in FIELDS - {"capabilities"}
+        )
+    ):
         raise MeetError("meet_companion_assignment_invalid", 403)
     caps = request["capabilities"]
-    if (not isinstance(caps, list) or not caps or len(caps) > len(CAPABILITIES)
-            or any(not isinstance(capability, str) or capability not in CAPABILITIES for capability in caps)
-            or len(set(caps)) != len(caps)):
+    if (
+        not isinstance(caps, list)
+        or not caps
+        or len(caps) > len(CAPABILITIES)
+        or any(not isinstance(capability, str) or capability not in CAPABILITIES for capability in caps)
+        or len(set(caps)) != len(caps)
+    ):
         raise MeetError("meet_companion_assignment_invalid", 403)
     return {key: tuple(value) if key == "capabilities" else value for key, value in request.items()}
 
@@ -51,8 +60,11 @@ class BoundCompanionAuthority:
         scope = self.authority.current(task_id, lease_id, runtime_id)
         if not getattr(scope, "companion_execution", False):
             raise MeetError("meet_companion_execution_not_bound", 403)
-        if (scope.project_id != value["project_id"] or scope.session_id != value["session_id"]
-                or set(scope.capabilities) != set(value["capabilities"])):
+        if (
+            scope.project_id != value["project_id"]
+            or scope.session_id != value["session_id"]
+            or set(scope.capabilities) != set(value["capabilities"])
+        ):
             raise MeetError("meet_companion_assignment_mismatch", 403)
         return scope
 
@@ -65,8 +77,14 @@ class MeetCompanionTaskGrants:
     signed control freshness contract before each assigned operation.
     """
 
-    def __init__(self, authority: TaskAuthorityPort, issuer: GrantIssuerPort, *, clock=time.time,
-                 model_policy: ModelProjectionPort | None = None):
+    def __init__(
+        self,
+        authority: TaskAuthorityPort,
+        issuer: GrantIssuerPort,
+        *,
+        clock=time.time,
+        model_policy: ModelProjectionPort | None = None,
+    ):
         self.authority, self.issuer, self.clock = authority, issuer, clock
         self.model_policy = model_policy
 
@@ -85,9 +103,16 @@ class MeetCompanionTaskGrants:
             raise MeetError("meet_companion_assignment_changed", 403)
         if self.model_policy is not policy or (policy is not None and policy.projection(after) != model):
             raise MeetError("meet_companion_model_profile_changed", 403)
-        return {"schema": "ananta.meet-companion-task-grant.v1", **grant,
-                "task_id": after.task_id, "lease_id": after.lease_id, "runtime_id": after.runtime_id,
-                "session_id": after.session_id, "project_id": after.project_id,
-                "deadline": after.deadline, "capabilities": list(after.capabilities),
-                "controls": controls_projection(after.controls),
-                **({"model_execution": model} if model is not None else {})}
+        return {
+            "schema": "ananta.meet-companion-task-grant.v1",
+            **grant,
+            "task_id": after.task_id,
+            "lease_id": after.lease_id,
+            "runtime_id": after.runtime_id,
+            "session_id": after.session_id,
+            "project_id": after.project_id,
+            "deadline": after.deadline,
+            "capabilities": list(after.capabilities),
+            "controls": controls_projection(after.controls),
+            **({"model_execution": model} if model is not None else {}),
+        }

@@ -51,11 +51,12 @@ def build_selective_repair_prompt(
     )
     if not missing_lines:
         missing_lines = "- none"
-    required_lines = "\n".join(
-        f"- task_kind={str(kind).strip().lower()}"
-        for kind in list(required_task_kinds or [])
-        if str(kind).strip()
-    ) or "- none"
+    required_lines = (
+        "\n".join(
+            f"- task_kind={str(kind).strip().lower()}" for kind in list(required_task_kinds or []) if str(kind).strip()
+        )
+        or "- none"
+    )
     repair_error_codes = ", ".join(str(code).strip() for code in list(error_codes or []) if str(code).strip()) or "none"
     return (
         "Repair only missing or weak parts of the plan. Do not rewrite everything.\n"
@@ -94,7 +95,9 @@ def repair_invalid_plan_payload(payload: dict[str, Any], validation_errors: list
             task_kind = str(node.get("task_kind") or "").strip().lower()
             expected = [dict(a) for a in list(node.get("expected_artifacts") or []) if isinstance(a, dict)]
             if task_kind in {"coding", "testing", "ops"} and not expected:
-                expected = [{"kind": "workspace_change", "required": True, "description": f"{node.get('node_key')}-output"}]
+                expected = [
+                    {"kind": "workspace_change", "required": True, "description": f"{node.get('node_key')}-output"}
+                ]
                 node["expected_artifacts"] = expected
             verification_spec = dict(node.get("verification_spec") or {})
             if expected and not verification_spec.get("expected_artifacts"):

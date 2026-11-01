@@ -14,8 +14,10 @@ ROLES = {role_id: spec["grants"] for role_id, spec in BUILTIN_ROLES.items()}
 CAP = {"subject_id": "anna", "capability_signature": "sig"}
 
 
-@pytest.mark.parametrize("role, service, expected", [
-    ("worker", True, CAP), ("worker", False, None), ("hub", True, None), ("hub", False, None)])
+@pytest.mark.parametrize(
+    "role, service, expected",
+    [("worker", True, CAP), ("worker", False, None), ("hub", True, None), ("hub", False, None)],
+)
 def test_only_a_worker_accepts_a_capability_and_only_from_the_hub(role, service, expected):
     assert tc.accepted_capability(CAP, role=role, service_authenticated=service) == expected
     assert tc.accepted_capability("x", role="worker", service_authenticated=True) is None
@@ -35,10 +37,19 @@ def test_access_mode_defaults_to_delegated():
 
 def test_the_capability_is_issued_for_the_requester_found_through_the_parents(monkeypatch):
     issued = []
-    monkeypatch.setattr("agent.services.codecompass_capability_issuer.issue_capability",
-                        lambda **kwargs: issued.append(kwargs) or {"issued": True})
-    tasks = {"root": SimpleNamespace(id="root", requested_by_subject="anna", requested_by_tenant="t1",
-                                     requested_roles=["viewer"], parent_task_id=None)}
+    monkeypatch.setattr(
+        "agent.services.codecompass_capability_issuer.issue_capability",
+        lambda **kwargs: issued.append(kwargs) or {"issued": True},
+    )
+    tasks = {
+        "root": SimpleNamespace(
+            id="root",
+            requested_by_subject="anna",
+            requested_by_tenant="t1",
+            requested_roles=["viewer"],
+            parent_task_id=None,
+        )
+    }
     child = {"id": "child", "parent_task_id": "root", "tenant_id": "t9"}
     assert tc.issue_task_capability(child, audience="http://worker-a", get_task=tasks.get, role_grants=ROLES)
     call = issued[0]

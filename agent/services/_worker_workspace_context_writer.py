@@ -183,7 +183,9 @@ def _runtime_constraints(task: dict, *, include_response_contract: bool) -> str:
     if include_response_contract:
         lines.append("- Follow `.ananta/response-contract.md` for the required response format.")
     else:
-        lines.append("- Apply the requested changes directly in the workspace; results are collected from workspace diffs.")
+        lines.append(
+            "- Apply the requested changes directly in the workspace; results are collected from workspace diffs."
+        )
     agent_template_name = str((task or {}).get("agent_template") or "").strip().lower()
     if agent_template_name in {"opencode", "ananta_worker"}:
         lines.extend(_CODECOMPASS_RUNTIME_RULES)
@@ -231,9 +233,7 @@ def _allowlisted_test_commands() -> list[str]:
         try:
             from agent.services.repository_registry import get_repository_registry
 
-            record = get_repository_registry().config_repo.get_by_key(
-                "ananta_worker_workspace_mutation"
-            )
+            record = get_repository_registry().config_repo.get_by_key("ananta_worker_workspace_mutation")
             payload = json.loads(getattr(record, "value_json", "") or "{}")
             if isinstance(payload, dict):
                 block = payload
@@ -359,8 +359,12 @@ def _task_brief_content(
 
 
 def _write_response_contract(
-    manifest: _ContextManifest, response_contract: Path, *, include_response_contract: bool,
-    allow_complex_shell: bool, response_contract_text: str | None = None,
+    manifest: _ContextManifest,
+    response_contract: Path,
+    *,
+    include_response_contract: bool,
+    allow_complex_shell: bool,
+    response_contract_text: str | None = None,
 ) -> None:
     if not include_response_contract:
         if response_contract.exists():
@@ -391,11 +395,11 @@ def _write_response_contract(
         "",
         "Expected shape:",
         "```json",
-        '{',
+        "{",
         '  "reason": "Short technical reason",',
         '  "command": "optional shell command",',
         '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "value" } } ]',
-        '}',
+        "}",
         "```",
     ]
     manifest.write_text(response_contract, "\n".join(response_lines) + "\n", key="response_contract_path")
@@ -432,9 +436,7 @@ def _write_prompt_inputs(
 def _write_research_context(
     manifest: _ContextManifest, rag_helper_dir: Path, research_context: dict, *, char_limit: int | None
 ) -> None:
-    manifest.write_json(
-        rag_helper_dir / "research-context.json", research_context, key="research_context_json_path"
-    )
+    manifest.write_json(rag_helper_dir / "research-context.json", research_context, key="research_context_json_path")
     prompt_section = str((research_context or {}).get("prompt_section") or "").strip()
     if prompt_section:
         manifest.write_text(

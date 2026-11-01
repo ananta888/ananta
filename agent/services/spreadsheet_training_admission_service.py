@@ -182,13 +182,11 @@ class SpreadsheetTrainingAdmissionService:
             (metrics.get("action_valid_rate", 0) >= self.THRESHOLDS["baseline_min_action_valid_rate"], "actions"),
             (
                 metrics.get("safe_rejection_rate", 0) >= self.THRESHOLDS["baseline_min_safe_rejection_rate"]
-                and metrics.get("safe_rejection_case_count", 0)
-                >= self.THRESHOLDS["baseline_min_safe_rejection_cases"],
+                and metrics.get("safe_rejection_case_count", 0) >= self.THRESHOLDS["baseline_min_safe_rejection_cases"],
                 "safe_rejection",
             ),
             (
-                metrics.get("execution_success_rate", 0)
-                >= self.THRESHOLDS["baseline_min_execution_success_rate"],
+                metrics.get("execution_success_rate", 0) >= self.THRESHOLDS["baseline_min_execution_success_rate"],
                 "execution",
             ),
             (
@@ -196,8 +194,7 @@ class SpreadsheetTrainingAdmissionService:
                 "validators",
             ),
             (
-                metrics.get("unintended_change_rate", 1)
-                <= self.THRESHOLDS["baseline_max_unintended_change_rate"],
+                metrics.get("unintended_change_rate", 1) <= self.THRESHOLDS["baseline_max_unintended_change_rate"],
                 "unintended_changes",
             ),
         )
@@ -218,8 +215,7 @@ class SpreadsheetTrainingAdmissionService:
                 "lineage_diversity_not_met",
             ),
             (
-                diversity.get("instruction_template_count", 0)
-                >= self.THRESHOLDS["dataset_min_instruction_templates"],
+                diversity.get("instruction_template_count", 0) >= self.THRESHOLDS["dataset_min_instruction_templates"],
                 "template_diversity_not_met",
             ),
             (

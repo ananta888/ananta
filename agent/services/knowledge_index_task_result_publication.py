@@ -16,12 +16,8 @@ from typing import Any, Callable, Protocol
 
 from agent.services.hub_event_service import build_task_history_event
 
-KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = (
-    "ananta.knowledge_index_execution_job.v2"
-)
-KNOWLEDGE_INDEX_TASK_RESULT_PUBLICATION_SCHEMA = (
-    "ananta.knowledge_index_task_result_publication.v1"
-)
+KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
+KNOWLEDGE_INDEX_TASK_RESULT_PUBLICATION_SCHEMA = "ananta.knowledge_index_task_result_publication.v1"
 
 _RECONCILABLE_TASK_STATUSES = frozenset(
     {
@@ -35,9 +31,7 @@ _RECONCILABLE_TASK_STATUSES = frozenset(
         "running",
     }
 )
-_TERMINAL_RESULT_STATUSES = frozenset(
-    {"completed", "failed", "cancelled"}
-)
+_TERMINAL_RESULT_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _STATUS_VALUE_FIELDS = frozenset(
     {
         "history",
@@ -87,11 +81,7 @@ def _task_mapping(task: Any) -> dict[str, Any]:
 def _bound_envelope(task: Any) -> dict[str, Any]:
     raw = _task_mapping(task)
     context = raw.get("worker_execution_context")
-    envelope = (
-        context.get("knowledge_index_job")
-        if isinstance(context, Mapping)
-        else None
-    )
+    envelope = context.get("knowledge_index_job") if isinstance(context, Mapping) else None
     if not isinstance(envelope, Mapping):
         return {}
     normalized = copy.deepcopy(dict(envelope))
@@ -137,41 +127,27 @@ class KnowledgeIndexTaskResultPublisher:
 
         normalized_job_id = str(job_id or "").strip()
         normalized_result = copy.deepcopy(dict(result))
-        target_status = str(
-            normalized_result.get("status") or ""
-        ).strip().lower()
-        result_job_id = str(
-            normalized_result.get("job_id") or normalized_job_id
-        ).strip()
+        target_status = str(normalized_result.get("status") or "").strip().lower()
+        result_job_id = str(normalized_result.get("job_id") or normalized_job_id).strip()
         base_envelope = copy.deepcopy(dict(expected_envelope))
         base_envelope.pop("source_access_enforcement_manifest", None)
         if (
             not normalized_job_id
             or result_job_id != normalized_job_id
             or target_status not in _TERMINAL_RESULT_STATUSES
-            or base_envelope.get("schema")
-            != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-            or str(base_envelope.get("job_id") or "")
-            != normalized_job_id
+            or base_envelope.get("schema") != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
+            or str(base_envelope.get("job_id") or "") != normalized_job_id
         ):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_task_result_publication_binding_invalid"
-            )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_task_result_publication_binding_invalid")
 
         values = copy.deepcopy(dict(status_values or {}))
         unknown_fields = set(values) - _STATUS_VALUE_FIELDS
         if unknown_fields:
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_task_result_publication_fields_unknown"
-            )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_task_result_publication_fields_unknown")
         verification_patch = values.get("verification_status", {})
         if not isinstance(verification_patch, Mapping):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_task_result_verification_invalid"
-            )
-        forwarded_history_event = self._forwarded_history_event(
-            values.get("history")
-        )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_task_result_verification_invalid")
+        forwarded_history_event = self._forwarded_history_event(values.get("history"))
         projection_digest = self._require_completion_projection(
             normalized_job_id,
             target_status=target_status,
@@ -184,9 +160,7 @@ class KnowledgeIndexTaskResultPublisher:
             "result_digest": result_digest,
         }
         if projection_digest is not None:
-            publication["completion_projection_digest"] = (
-                projection_digest
-            )
+            publication["completion_projection_digest"] = projection_digest
 
         normalized_event_details = {
             **dict(event_details or {}),
@@ -206,21 +180,13 @@ class KnowledgeIndexTaskResultPublisher:
 
         def _mutate(task: Any) -> None:
             raw = _task_mapping(task)
-            verification = copy.deepcopy(
-                dict(raw.get("verification_status") or {})
-            )
+            verification = copy.deepcopy(dict(raw.get("verification_status") or {}))
             verification.update(copy.deepcopy(dict(verification_patch)))
-            verification["knowledge_index_job_result"] = copy.deepcopy(
-                normalized_result
-            )
+            verification["knowledge_index_job_result"] = copy.deepcopy(normalized_result)
             task.verification_status = verification
 
-            details = copy.deepcopy(
-                dict(raw.get("status_reason_details") or {})
-            )
-            details["knowledge_index_task_result_publication"] = (
-                copy.deepcopy(publication)
-            )
+            details = copy.deepcopy(dict(raw.get("status_reason_details") or {}))
+            details["knowledge_index_task_result_publication"] = copy.deepcopy(publication)
             task.status_reason_details = details
             task.status_reason_code = status_reason_code
 
@@ -235,9 +201,7 @@ class KnowledgeIndexTaskResultPublisher:
             history = copy.deepcopy(list(raw.get("history") or []))
             if forwarded_history_event is not None:
                 execution_event = copy.deepcopy(forwarded_history_event)
-                execution_event[
-                    "knowledge_index_result_digest"
-                ] = result_digest
+                execution_event["knowledge_index_result_digest"] = result_digest
                 history.append(execution_event)
             history.append(
                 build_task_history_event(
@@ -255,9 +219,7 @@ class KnowledgeIndexTaskResultPublisher:
             None,
         )
         if not callable(status_cas):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_atomic_task_status_repository_required"
-            )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_atomic_task_status_repository_required")
         outcome = status_cas(
             normalized_job_id,
             expected_statuses={
@@ -278,9 +240,7 @@ class KnowledgeIndexTaskResultPublisher:
                 result=normalized_result,
             )
         ):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_task_result_projection_conflict"
-            )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_task_result_projection_conflict")
         if updated and self._post_commit is not None:
             try:
                 self._post_commit(
@@ -296,8 +256,7 @@ class KnowledgeIndexTaskResultPublisher:
                 # Status/result/history are already one durable commit.  A
                 # notification failure must not cause Worker redispatch.
                 logging.exception(
-                    "Knowledge-index task post-commit observation failed "
-                    "for %s",
+                    "Knowledge-index task post-commit observation failed for %s",
                     normalized_job_id,
                 )
         return projected_task
@@ -316,25 +275,13 @@ class KnowledgeIndexTaskResultPublisher:
             None,
         )
         if not callable(getter):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_completion_projection_store_unavailable"
-            )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_completion_projection_store_unavailable")
         projection = getter(str(job_id))
-        if str(_projection_value(projection, "state") or "") != (
-            "projected"
-        ):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_completion_projection_not_projected"
-            )
-        digest = str(
-            _projection_value(projection, "projection_digest") or ""
-        ).strip().lower()
-        if len(digest) != 64 or any(
-            character not in "0123456789abcdef" for character in digest
-        ):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_completion_projection_digest_invalid"
-            )
+        if str(_projection_value(projection, "state") or "") != ("projected"):
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_completion_projection_not_projected")
+        digest = str(_projection_value(projection, "projection_digest") or "").strip().lower()
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_completion_projection_digest_invalid")
         return digest
 
     @staticmethod
@@ -342,14 +289,11 @@ class KnowledgeIndexTaskResultPublisher:
         if value is None:
             return None
         if not isinstance(value, list):
-            raise KnowledgeIndexTaskResultPublicationError(
-                "knowledge_index_task_result_history_invalid"
-            )
+            raise KnowledgeIndexTaskResultPublicationError("knowledge_index_task_result_history_invalid")
         for item in reversed(value):
             if (
                 isinstance(item, Mapping)
-                and str(item.get("event_type") or "")
-                == "execution_result"
+                and str(item.get("event_type") or "") == "execution_result"
                 and item.get("forwarded") is True
             ):
                 return copy.deepcopy(dict(item))
@@ -366,12 +310,9 @@ class KnowledgeIndexTaskResultPublisher:
         details = dict(raw.get("status_reason_details") or {})
         verification = dict(raw.get("verification_status") or {})
         return bool(
-            str(raw.get("status") or "").strip().lower()
-            == str(publication.get("status") or "")
-            and details.get("knowledge_index_task_result_publication")
-            == dict(publication)
-            and verification.get("knowledge_index_job_result")
-            == dict(result)
+            str(raw.get("status") or "").strip().lower() == str(publication.get("status") or "")
+            and details.get("knowledge_index_task_result_publication") == dict(publication)
+            and verification.get("knowledge_index_job_result") == dict(result)
         )
 
 

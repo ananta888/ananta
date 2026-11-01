@@ -36,9 +36,7 @@ class ContextManagerService:
         task_context_bundle_access: (TaskContextBundleAccessPort | None) = None,
     ) -> None:
         self._retrieval_vector_scope_binder = retrieval_vector_scope_binder or get_retrieval_vector_scope_binder()
-        self._task_context_bundle_access = (
-            task_context_bundle_access or get_task_context_bundle_access_service()
-        )
+        self._task_context_bundle_access = task_context_bundle_access or get_task_context_bundle_access_service()
 
     def create_context_bundle(
         self,
@@ -172,8 +170,7 @@ class ContextManagerService:
                 "retrieval_hints": dict((existing.bundle_metadata or {}).get("retrieval_hints") or {}),
                 "task_neighborhood": {
                     "neighbor_task_ids": list(
-                        ((existing.bundle_metadata or {}).get("retrieval_hints") or {}).get("neighbor_task_ids")
-                        or []
+                        ((existing.bundle_metadata or {}).get("retrieval_hints") or {}).get("neighbor_task_ids") or []
                     ),
                 },
             }

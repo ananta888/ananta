@@ -12,6 +12,7 @@ GET    /api/caseflow/cases/<case_id>/actions    — list actions
 POST   /api/caseflow/cases/<case_id>/actions    — add action
 GET    /api/caseflow/actions/open               — all open actions across cases
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -19,7 +20,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from agent.caseflow.actions import CaseAction, next_action
+from agent.caseflow.actions import CaseAction
 from agent.caseflow.artifacts import CaseArtifact
 from agent.caseflow.models import CaseFlowCase
 from agent.caseflow.status_machine import get_status_machine
@@ -30,7 +31,7 @@ caseflow_bp = Blueprint("caseflow", __name__, url_prefix="/api/caseflow")
 # In-memory stores (dict-based, sufficient for tests and PoC)
 _cases: dict[str, CaseFlowCase] = {}
 _artifacts: dict[str, list[CaseArtifact]] = {}  # case_id -> list
-_actions: dict[str, list[CaseAction]] = {}       # case_id -> list
+_actions: dict[str, list[CaseAction]] = {}  # case_id -> list
 
 
 def _case_to_dict(case: CaseFlowCase) -> dict[str, Any]:
@@ -120,7 +121,7 @@ def list_cases():
         results = [c for c in results if search in c.title.lower()]
 
     total = len(results)
-    page = results[offset: offset + limit]
+    page = results[offset : offset + limit]
     return jsonify({"items": [_case_to_dict(c) for c in page], "total": total}), 200
 
 
@@ -280,4 +281,5 @@ def reset_stores() -> None:
     _artifacts.clear()
     _actions.clear()
     from agent.caseflow.timeline import clear_events
+
     clear_events()

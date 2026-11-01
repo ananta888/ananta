@@ -20,12 +20,11 @@ from agent.services.semantic_media_program_evidence import (
     source_hash,
 )
 from agent.services.semantic_media_rollout_policy import ROLLOUT_STAGES
-from scripts.semantic_media_release_paths import ROOT, SCHEMA, TODO
 from scripts.semantic_media_release_gate_catalog import (
     QA_GATES,
     task_gate_requirements,
 )
-
+from scripts.semantic_media_release_paths import ROOT, SCHEMA, TODO
 
 _RELEASE_CORE_SOURCE_PATHS = (
     "agent/services/semantic_media_program_evidence.py",

@@ -17,23 +17,16 @@ from ananta_contracts.recovery_artifact_ingress import (
 )
 
 RECOVERY_SOURCE_RESULT_SCHEMA = "ananta.recovery_source_result.v2"
-_RECOVERY_POST_COMMIT_SCHEMA = (
-    "ananta.recovery_source_post_commit.v1"
-)
+_RECOVERY_POST_COMMIT_SCHEMA = "ananta.recovery_source_post_commit.v1"
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-_POST_COMMIT_STATES = frozenset(
-    {"pending", "processing", "completed"}
-)
-_VERIFIED_RECEIPT_REQUIRED_FIELDS = (
-    RECOVERY_ARTIFACT_RECEIPT_FIELDS
-    | frozenset(
-        {
-            "relative_path",
-            "_exists",
-            "_hash_verified",
-            "required",
-        }
-    )
+_POST_COMMIT_STATES = frozenset({"pending", "processing", "completed"})
+_VERIFIED_RECEIPT_REQUIRED_FIELDS = RECOVERY_ARTIFACT_RECEIPT_FIELDS | frozenset(
+    {
+        "relative_path",
+        "_exists",
+        "_hash_verified",
+        "required",
+    }
 )
 _VERIFIED_RECEIPT_OPTIONAL_FIELDS = frozenset({"id", "path"})
 
@@ -75,30 +68,16 @@ def _closed_receipt(value: Any) -> dict[str, Any] | None:
     fields = set(row)
     if (
         not _VERIFIED_RECEIPT_REQUIRED_FIELDS.issubset(fields)
-        or not fields.issubset(
-            _VERIFIED_RECEIPT_REQUIRED_FIELDS
-            | _VERIFIED_RECEIPT_OPTIONAL_FIELDS
-        )
+        or not fields.issubset(_VERIFIED_RECEIPT_REQUIRED_FIELDS | _VERIFIED_RECEIPT_OPTIONAL_FIELDS)
         or row.get("_exists") is not True
         or row.get("_hash_verified") is not True
         or row.get("required") is not True
-        or row.get("relative_path")
-        != row.get("workspace_relative_path")
-        or (
-            "id" in row
-            and row.get("id") != row.get("artifact_id")
-        )
-        or (
-            "path" in row
-            and row.get("path")
-            != row.get("workspace_relative_path")
-        )
+        or row.get("relative_path") != row.get("workspace_relative_path")
+        or ("id" in row and row.get("id") != row.get("artifact_id"))
+        or ("path" in row and row.get("path") != row.get("workspace_relative_path"))
     ):
         return None
-    return {
-        field: row[field]
-        for field in RECOVERY_ARTIFACT_RECEIPT_FIELDS
-    }
+    return {field: row[field] for field in RECOVERY_ARTIFACT_RECEIPT_FIELDS}
 
 
 def validate_recovery_source_artifact_aggregate(
@@ -106,30 +85,18 @@ def validate_recovery_source_artifact_aggregate(
 ) -> list[dict[str, Any]] | None:
     """Validate the same global bounds used by callback projection."""
 
-    if (
-        len(raw_artifacts) > MAX_RECOVERY_ARTIFACT_COUNT
-        or not _bounded_json(raw_artifacts)
-    ):
+    if len(raw_artifacts) > MAX_RECOVERY_ARTIFACT_COUNT or not _bounded_json(raw_artifacts):
         return None
-    closed = [
-        _closed_receipt(value)
-        for value in raw_artifacts
-    ]
+    closed = [_closed_receipt(value) for value in raw_artifacts]
     if any(value is None for value in closed):
         return None
-    receipts = [
-        dict(value)
-        for value in closed
-        if value is not None
-    ]
+    receipts = [dict(value) for value in closed if value is not None]
     grouped: dict[
         tuple[str, str],
         list[dict[str, Any]],
     ] = {}
     for receipt in receipts:
-        provenance = _mapping(
-            receipt.get("provenance_summary")
-        )
+        provenance = _mapping(receipt.get("provenance_summary"))
         key = (
             str(receipt.get("task_id") or ""),
             str(provenance.get("manifest_digest") or ""),
@@ -155,10 +122,7 @@ def validate_recovery_source_artifact_aggregate(
                 canonical_by_identity[identity] = receipt
     except RecoveryArtifactIngressContractError:
         return None
-    if (
-        sum(int(value["size_bytes"]) for value in receipts)
-        > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES
-    ):
+    if sum(int(value["size_bytes"]) for value in receipts) > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES:
         return None
     ordered: list[dict[str, Any]] = []
     for receipt in receipts:
@@ -191,9 +155,7 @@ def _project_artifact(
         "path": workspace_path,
         "content_hash": receipt["content_hash"],
         "size_bytes": receipt["size_bytes"],
-        "provenance_summary": dict(
-            receipt["provenance_summary"]
-        ),
+        "provenance_summary": dict(receipt["provenance_summary"]),
         "_exists": True,
         "_hash_verified": True,
         "required": True,
@@ -235,15 +197,11 @@ def project_recovery_source_callback_artifacts(
         or result.get("schema") != RECOVERY_SOURCE_RESULT_SCHEMA
         or result.get("status") != expected_result_status
         or not reason_code
-        or reason_code
-        != str(_value(task, "status_reason_code") or "").strip()
+        or reason_code != str(_value(task, "status_reason_code") or "").strip()
         or marker.get("state") not in _POST_COMMIT_STATES
         or marker.get("transition_status") != task_status
         or marker.get("transition_reason") != reason_code
-        or _SHA256_PATTERN.fullmatch(
-            str(marker.get("transition_id") or "")
-        )
-        is None
+        or _SHA256_PATTERN.fullmatch(str(marker.get("transition_id") or "")) is None
         or not isinstance(raw_artifacts, list)
         or not isinstance(artifact_count, int)
         or isinstance(artifact_count, bool)
@@ -251,15 +209,10 @@ def project_recovery_source_callback_artifacts(
         or artifact_count > MAX_RECOVERY_ARTIFACT_COUNT
     ):
         return []
-    receipts = validate_recovery_source_artifact_aggregate(
-        raw_artifacts
-    )
+    receipts = validate_recovery_source_artifact_aggregate(raw_artifacts)
     if receipts is None:
         return []
-    projected = [
-        _project_artifact(value)
-        for value in receipts
-    ]
+    projected = [_project_artifact(value) for value in receipts]
     return projected if _bounded_json(projected) else []
 
 

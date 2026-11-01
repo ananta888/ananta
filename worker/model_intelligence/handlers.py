@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import hmac
-from pathlib import Path, PurePosixPath
 import re
+from dataclasses import dataclass, replace
+from pathlib import Path, PurePosixPath
 from typing import Mapping, Protocol, Sequence
 
 from ananta_contracts.model_intelligence import AnalysisJob, ArtifactRef
@@ -41,12 +41,7 @@ class AdmittedSnapshot:
             )
         for relative_path in self.weight_files:
             parsed = PurePosixPath(relative_path)
-            if (
-                not relative_path
-                or parsed.is_absolute()
-                or ".." in parsed.parts
-                or "\\" in relative_path
-            ):
+            if not relative_path or parsed.is_absolute() or ".." in parsed.parts or "\\" in relative_path:
                 raise ModelAnalysisHandlerError(
                     "admitted_snapshot_file_invalid",
                     "admitted snapshot files must be safe relative paths",
@@ -85,9 +80,7 @@ class TenantBoundAdmittedSnapshotResolver(AdmittedSnapshotResolverPort):
                     "tenant/import-ref admission must be unique",
                 )
             self._snapshots[key] = snapshot
-            self._tenants_by_ref.setdefault(snapshot.import_ref, set()).add(
-                snapshot.tenant_id
-            )
+            self._tenants_by_ref.setdefault(snapshot.import_ref, set()).add(snapshot.tenant_id)
 
     def resolve(self, *, tenant_id: str, import_ref: str) -> AdmittedSnapshot:
         _validate_import_ref(import_ref)
@@ -139,11 +132,7 @@ class _SnapshotAnalysisHandler:
     ) -> AdmittedSnapshot:
         cancellation.raise_if_cancelled()
         extensions = getattr(job, "extensions", {})
-        import_ref = (
-            extensions.get("x-import-ref")
-            if isinstance(extensions, Mapping)
-            else None
-        )
+        import_ref = extensions.get("x-import-ref") if isinstance(extensions, Mapping) else None
         if not isinstance(import_ref, str):
             raise ModelAnalysisHandlerError(
                 "analysis_import_ref_required",

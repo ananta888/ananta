@@ -1,4 +1,5 @@
 """HDE-002: configuration defaults and gates for hub-direct execution."""
+
 from agent.config_defaults import build_default_agent_config
 from agent.services.hub_direct_execution_router import HubDirectExecutionRouter
 

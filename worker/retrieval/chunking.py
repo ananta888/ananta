@@ -101,4 +101,3 @@ def split_into_chunks(
         )
         chunks.append({"text": text, "metadata": metadata.as_dict()})
     return chunks
-

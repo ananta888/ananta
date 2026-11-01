@@ -18,18 +18,10 @@ from agent.services.sfu_broadcast_data_queue_policy import (
     parse_sfu_broadcast_data_queue_profile,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE_PATH = ROOT / "config" / "sfu_broadcast_egress_limits.json"
 SCHEMA_PATH = ROOT / "schemas" / "webrtc" / "sfu_broadcast_data_queue_profile.v1.json"
-TS_PORT_PATH = (
-    ROOT
-    / "frontend-angular"
-    / "src"
-    / "app"
-    / "services"
-    / "sfu-broadcast-data-queue.port.ts"
-)
+TS_PORT_PATH = ROOT / "frontend-angular" / "src" / "app" / "services" / "sfu-broadcast-data-queue.port.ts"
 
 
 @pytest.fixture()
@@ -77,9 +69,7 @@ def test_profile_conforms_to_schema_and_closed_policy(profile) -> None:
     jsonschema.Draft202012Validator(schema).validate(document)
 
     assert set(profile.per_destination_class) == set(DataTrafficClass)
-    assert {item.overflow_action for item in profile.per_destination_class.values()} == set(
-        QueueOverflowAction
-    )
+    assert {item.overflow_action for item in profile.per_destination_class.values()} == set(QueueOverflowAction)
     assert all("payload" not in field for field in profile.reason_codes.__dataclass_fields__)
 
 
@@ -198,9 +188,7 @@ def test_coalesce_replaces_only_same_destination_class_and_key(profile) -> None:
     assert decision.accepted
     assert decision.overflow_action is QueueOverflowAction.COALESCE
     assert decision.removed_message_ids == ("message-00001",)
-    assert tuple(entry.message_id for entry in queue.snapshot().entries) == (
-        "message-00002",
-    )
+    assert tuple(entry.message_id for entry in queue.snapshot().entries) == ("message-00002",)
 
 
 def test_higher_priority_interrupt_preempts_oldest_low_priority_entry(profile) -> None:
@@ -226,14 +214,10 @@ def test_sustained_blocked_adapter_disconnects_and_releases_all_metadata(profile
     assert queue.enqueue(_offer(1), now_ms=0).accepted
     queue.mark_blocked(now_ms=10)
 
-    before_timeout = queue.cleanup(
-        now_ms=10 + profile.cleanup.disconnect_after_blocked_ms - 1
-    )
+    before_timeout = queue.cleanup(now_ms=10 + profile.cleanup.disconnect_after_blocked_ms - 1)
     assert not before_timeout.disconnect_required
     assert before_timeout.removed_message_ids == ("message-00001",)
-    at_timeout = queue.cleanup(
-        now_ms=10 + profile.cleanup.disconnect_after_blocked_ms
-    )
+    at_timeout = queue.cleanup(now_ms=10 + profile.cleanup.disconnect_after_blocked_ms)
     assert at_timeout.disconnect_required
     assert at_timeout.removed_message_ids == ()
     snapshot = queue.snapshot()
@@ -276,9 +260,7 @@ def test_authoritative_sensitive_and_unknown_traffic_fail_closed(
 def test_parser_rejects_attempt_to_allow_authoritative_membership(profile) -> None:
     document = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
     membership = next(
-        rule
-        for rule in document["traffic_kinds"]
-        if rule["traffic_kind"] == "authoritative_membership_mutation"
+        rule for rule in document["traffic_kinds"] if rule["traffic_kind"] == "authoritative_membership_mutation"
     )
     membership.update(
         {
@@ -293,23 +275,20 @@ def test_parser_rejects_attempt_to_allow_authoritative_membership(profile) -> No
 
 
 def test_reason_codes_are_content_free(profile) -> None:
-    codes = [
-        value
-        for value in profile.reason_codes.__dict__.values()
-        if isinstance(value, str)
-    ] if hasattr(profile.reason_codes, "__dict__") else [
-        profile.reason_codes.accepted,
-        profile.reason_codes.accepted_after_priority_eviction,
-        profile.reason_codes.coalesced,
-        profile.reason_codes.unknown_traffic_kind,
-        profile.reason_codes.forbidden_traffic_kind,
-        profile.reason_codes.invalid_metadata,
-        profile.reason_codes.blocked_timeout,
-        profile.reason_codes.cleanup_expired,
-    ]
-    codes.extend(
-        item.overflow_reason_code
-        for item in profile.per_destination_class.values()
+    codes = (
+        [value for value in profile.reason_codes.__dict__.values() if isinstance(value, str)]
+        if hasattr(profile.reason_codes, "__dict__")
+        else [
+            profile.reason_codes.accepted,
+            profile.reason_codes.accepted_after_priority_eviction,
+            profile.reason_codes.coalesced,
+            profile.reason_codes.unknown_traffic_kind,
+            profile.reason_codes.forbidden_traffic_kind,
+            profile.reason_codes.invalid_metadata,
+            profile.reason_codes.blocked_timeout,
+            profile.reason_codes.cleanup_expired,
+        ]
     )
+    codes.extend(item.overflow_reason_code for item in profile.per_destination_class.values())
     assert all(re.fullmatch(r"[A-Z][A-Z0-9_]{2,95}", code) for code in codes)
     assert all("{" not in code and "/" not in code and ":" not in code for code in codes)

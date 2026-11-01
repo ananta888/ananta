@@ -7,29 +7,33 @@ Proves the complete Autopilot lifecycle end-to-end:
 
 sgpt is blocked. No real LLM is contacted. Execution uses a temporary isolated workspace.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
+if TYPE_CHECKING:
+    from agent.services.task_execution_context_builder import LocalExecutionResult
+    from worker.core.propose import ProposeStrategyResult
+
 from agent.models import TaskExecutionPolicyContract
-from agent.services.task_execution_service import TaskExecutionService
-from agent.services.task_completion_policy_service import get_task_completion_policy_service
-from agent.services.worker_output_collector_service import get_worker_output_collector_service
-from agent.services.workspace_diff_service import WorkspaceDiffService
 from agent.services.propose_policy import (
     STRATEGY_TOOL_CALLING_LLM,
     build_policy_from_dict,
     get_task_kind_preset,
 )
 from agent.services.propose_strategy_registry import build_strategy_registry
+from agent.services.task_completion_policy_service import get_task_completion_policy_service
+from agent.services.task_execution_service import TaskExecutionService
+from agent.services.worker_output_collector_service import get_worker_output_collector_service
+from agent.services.workspace_diff_service import WorkspaceDiffService
+from tests.fixtures.mock_openai_compatible_provider import make_mock_invoke_with_tools
 from worker.core.propose import STATUS_EXECUTABLE
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
-
-from tests.fixtures.mock_openai_compatible_provider import make_mock_invoke_with_tools
-
 
 GOAL_ID = "goal-fib-full-e2e-001"
 TASK_ID = "task-fib-full-e2e-001"
@@ -149,15 +153,14 @@ def _execute(workspace: Path, tool_calls: list[dict], app) -> "LocalExecutionRes
 # AFF-E2E-T001: propose → execute → files on disk
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestProposeExecuteFilesOnDisk:
     """T001: prove that execute_local_step physically creates the LLM-proposed files."""
 
     def test_propose_selects_tool_calling_llm(self, workspace, monkeypatch, app):
         result = _propose(workspace, monkeypatch)
 
-        assert result.status == STATUS_EXECUTABLE, (
-            f"Expected executable, got {result.status}: {result.reason}"
-        )
+        assert result.status == STATUS_EXECUTABLE, f"Expected executable, got {result.status}: {result.reason}"
         assert result.metadata.get("selected_strategy") == STRATEGY_TOOL_CALLING_LLM
         assert result.metadata.get("selected_strategy") != "deterministic_handler", (
             "deterministic_handler was selected before LLM — LLM-first policy violated"
@@ -181,9 +184,7 @@ class TestProposeExecuteFilesOnDisk:
         propose_result = _propose(workspace, monkeypatch)
         exec_result = _execute(workspace, propose_result.proposal.tool_calls, app)
 
-        assert exec_result.exit_code in (0, None), (
-            f"Expected exit_code 0 or None, got {exec_result.exit_code}"
-        )
+        assert exec_result.exit_code in (0, None), f"Expected exit_code 0 or None, got {exec_result.exit_code}"
 
     def test_files_have_expected_content(self, workspace, monkeypatch, app):
         propose_result = _propose(workspace, monkeypatch)
@@ -198,6 +199,7 @@ class TestProposeExecuteFilesOnDisk:
 # ─────────────────────────────────────────────────────────────────────────────
 # AFF-E2E-T002: artifact collection via synthesized workspace diff
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestArtifactCollectionAfterExecute:
     """T002: prove that WorkerOutputCollectorService collects generated files as artifacts."""
@@ -239,29 +241,21 @@ class TestArtifactCollectionAfterExecute:
     def test_collection_is_valid(self, workspace, monkeypatch, app):
         collection = self._run_full_flow(workspace, monkeypatch, app)
 
-        assert collection["manifest_valid"], (
-            f"Collection must be valid; errors={collection.get('errors')}"
-        )
+        assert collection["manifest_valid"], f"Collection must be valid; errors={collection.get('errors')}"
         assert collection["artifacts"], "Artifact list must not be empty after execution"
 
     def test_all_expected_files_are_collected_as_artifacts(self, workspace, monkeypatch, app):
         collection = self._run_full_flow(workspace, monkeypatch, app)
 
-        artifact_paths = {
-            str(a.get("relative_path") or "") for a in collection["artifacts"]
-        }
+        artifact_paths = {str(a.get("relative_path") or "") for a in collection["artifacts"]}
         for rel in EXPECTED_RELATIVE_PATHS:
-            assert rel in artifact_paths, (
-                f"Expected artifact not collected: {rel}. Found: {artifact_paths}"
-            )
+            assert rel in artifact_paths, f"Expected artifact not collected: {rel}. Found: {artifact_paths}"
 
     def test_collected_artifacts_exist_on_disk(self, workspace, monkeypatch, app):
         collection = self._run_full_flow(workspace, monkeypatch, app)
 
         for artifact in collection["artifacts"]:
-            assert artifact.get("_exists") is True, (
-                f"Artifact {artifact.get('relative_path')!r} must exist on disk"
-            )
+            assert artifact.get("_exists") is True, f"Artifact {artifact.get('relative_path')!r} must exist on disk"
 
     def test_unsafe_path_not_collected(self, workspace, monkeypatch, app):
         """Synthesized diff must not include path traversal artifacts."""
@@ -276,6 +270,7 @@ class TestArtifactCollectionAfterExecute:
 # ─────────────────────────────────────────────────────────────────────────────
 # AFF-E2E-T003: TaskCompletionPolicyService returns completed from artifact evidence
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestCompletionFromArtifacts:
     """T003: prove TaskCompletionPolicyService returns completed based on artifacts, not prose."""
@@ -366,6 +361,7 @@ class TestCompletionFromArtifacts:
 
         # Model prose claiming success
         from agent.services.planning_utils import parse_followup_analysis
+
         advisory = parse_followup_analysis(
             '{"task_complete": true, "summary": "All Fibonacci files created successfully!"}'
         )
@@ -406,7 +402,5 @@ class TestCompletionFromArtifacts:
             allow_synthesized_manifest=True,
         )
 
-        assert decision.decision == "completed", (
-            "Advisory parse failure must not block artifact-first completion"
-        )
+        assert decision.decision == "completed", "Advisory parse failure must not block artifact-first completion"
         assert "advisory_parse_failed_ignored" in (decision.reason_codes or [])

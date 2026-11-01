@@ -298,19 +298,20 @@ def test_persistent_restart_late_signed_ack_and_content_free_tombstone() -> None
         )
     with Session(engine) as session:
         persisted = session.exec(
-            select(SpeechPrivacyLifecycleDB).where(
-                SpeechPrivacyLifecycleDB.evidence_digest == record.content_digest
-            )
+            select(SpeechPrivacyLifecycleDB).where(SpeechPrivacyLifecycleDB.evidence_digest == record.content_digest)
         ).one()
     projection = persisted.model_dump()
     assert projection["remote_state"] == "acknowledged"
     assert "restart private transcript canary" not in repr(projection)
-    assert all(isinstance(projection[name], str) and len(projection[name]) == 64 for name in (
-        "scope_digest",
-        "evidence_digest",
-        "remote_request_digest",
-        "remote_ack_digest",
-    ))
+    assert all(
+        isinstance(projection[name], str) and len(projection[name]) == 64
+        for name in (
+            "scope_digest",
+            "evidence_digest",
+            "remote_request_digest",
+            "remote_ack_digest",
+        )
+    )
 
 
 def test_restart_resumes_reserved_but_not_yet_completed_product_fence() -> None:

@@ -32,7 +32,8 @@ class Decider:
 def record(outcome, calls=(), mode="shadow"):
     sink = Sink()
     result = shadow.ToolDecisionShadow(Decider(outcome), sink, wall=lambda: 1000.0).record(
-        QUESTION, outcome, route="ananta_code_architecture", calls=list(calls), mode=mode)
+        QUESTION, outcome, route="ananta_code_architecture", calls=list(calls), mode=mode
+    )
     assert sink.records == [result]
     return result
 
@@ -54,10 +55,12 @@ def test_a_respond_decision_counts_as_none():
 
 
 def test_the_generated_argument_is_compared_without_keeping_its_text():
-    decision = ToolDecision(CALL, "codecompass_search", {"query": " circuitbreaker "}, 0.97,
-                            generated_arguments=("query",))
-    result = record(DecisionOutcome(decision, "", 200.0), calls=[{"query": "CircuitBreaker", "forced": True}],
-                    mode="fast")
+    decision = ToolDecision(
+        CALL, "codecompass_search", {"query": " circuitbreaker "}, 0.97, generated_arguments=("query",)
+    )
+    result = record(
+        DecisionOutcome(decision, "", 200.0), calls=[{"query": "CircuitBreaker", "forced": True}], mode="fast"
+    )
     assert result["mode"] == "fast" and result["argument_equal"] is True and result["argument_chars"] == 16
     assert "ircuit" not in json.dumps(result)
 

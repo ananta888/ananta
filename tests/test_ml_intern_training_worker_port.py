@@ -253,8 +253,14 @@ def _port(tmp_path: Path, opener: _EvaluationOpener) -> tuple[HttpMlInternTraini
     return port, train, validation
 
 
-def _execute(port: HttpMlInternTrainingWorkerPort, train: Path, validation: Path,
-             *, scorer_name: str = "ananta_todo_json", extra_spec: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+def _execute(
+    port: HttpMlInternTrainingWorkerPort,
+    train: Path,
+    validation: Path,
+    *,
+    scorer_name: str = "ananta_todo_json",
+    extra_spec: Mapping[str, Any] | None = None,
+) -> Mapping[str, Any]:
     return port.execute(
         job_id="job-eval-1",
         spec={
@@ -295,22 +301,9 @@ def test_evaluation_is_correlated_staged_and_downloaded_with_hashes(tmp_path: Pa
     assert opener.envelope["configuration"]["scorer_name"] == "ananta_todo_json"
     assert TOKEN not in json.dumps(opener.envelope)
     assert not {"authorization", "bearer_token", "worker_url"}.intersection(opener.envelope)
-    tenant_attempt = (
-        f"tenants/{'a' * 64}/jobs/job-eval-1/"
-        "attempts/attempt-eval-1"
-    )
-    assert (
-        tmp_path
-        / "workspaces"
-        / tenant_attempt
-        / "workspace/adapter/adapter_model.safetensors"
-    ).is_file()
-    assert (
-        tmp_path
-        / "artifacts"
-        / tenant_attempt
-        / "artifacts/evaluation_manifest.json"
-    ).is_file()
+    tenant_attempt = f"tenants/{'a' * 64}/jobs/job-eval-1/attempts/attempt-eval-1"
+    assert (tmp_path / "workspaces" / tenant_attempt / "workspace/adapter/adapter_model.safetensors").is_file()
+    assert (tmp_path / "artifacts" / tenant_attempt / "artifacts/evaluation_manifest.json").is_file()
     first = opener.requests[0]
     assert first.get_header("Authorization") == f"Bearer {TOKEN}"
     assert first.get_header("Host") == "lora-training-worker:8095"
@@ -332,11 +325,14 @@ def test_worker_capability_probe_fails_closed_on_missing_schema_fields(tmp_path:
 
     port, _train, _validation = _port(tmp_path, _InvalidProbeOpener())
 
-    assert port.supports(
-        job_type="train_lora",
-        backend="unsloth",
-        gpu_profile="rtx3080-safe",
-    ) is False
+    assert (
+        port.supports(
+            job_type="train_lora",
+            backend="unsloth",
+            gpu_profile="rtx3080-safe",
+        )
+        is False
+    )
 
 
 def test_worker_delegation_requires_opaque_tenant_scope_binding(tmp_path: Path) -> None:
@@ -374,14 +370,24 @@ def test_changed_specialist_partition_is_refused_before_worker_submission(tmp_pa
     opener = _EvaluationOpener()
     port, train, validation = _port(tmp_path, opener)
     digest = hashlib.sha256(validation.read_bytes()).hexdigest()
-    binding = {"schema": "ananta.specialist-dataset-binding.v1", "dataset_id": "dataset-one",
-               "version": 1, "dataset_sha256": hashlib.sha256(train.read_bytes()).hexdigest(),
-               "train_sha256": hashlib.sha256(train.read_bytes()).hexdigest(), "train_records": 1,
-               "validation_sha256": digest, "validation_records": 1}
+    binding = {
+        "schema": "ananta.specialist-dataset-binding.v1",
+        "dataset_id": "dataset-one",
+        "version": 1,
+        "dataset_sha256": hashlib.sha256(train.read_bytes()).hexdigest(),
+        "train_sha256": hashlib.sha256(train.read_bytes()).hexdigest(),
+        "train_records": 1,
+        "validation_sha256": digest,
+        "validation_records": 1,
+    }
     validation.write_text('{"instruction":"replaced","output":"wrong"}\n')
     with pytest.raises(MlInternTrainingContractError) as error:
-        _execute(port, train, validation, extra_spec={"task_family": "specialist_decision",
-                                                    "_specialist_dataset_binding": binding})
+        _execute(
+            port,
+            train,
+            validation,
+            extra_spec={"task_family": "specialist_decision", "_specialist_dataset_binding": binding},
+        )
     assert error.value.reason_code == "specialist_dataset_partition_changed"
     assert opener.envelope is None
     assert not any(request.method == "POST" for request in opener.requests)
@@ -504,13 +510,7 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
     port.capability_probe()
     port._request_json = worker_response  # type: ignore[method-assign]  # noqa: SLF001
     port._download_artifacts = (  # type: ignore[method-assign]  # noqa: SLF001
-        lambda _job_id,
-        _artifacts,
-            *,
-            job_type,
-            backend,
-            attempt_id,
-        tenant_scope_digest: []
+        lambda _job_id, _artifacts, *, job_type, backend, attempt_id, tenant_scope_digest: []
     )
 
     result = port.execute(
@@ -603,9 +603,7 @@ def test_redirect_handler_and_default_opener_disable_redirects_and_proxies(tmp_p
         artifact_root=artifacts,
         model_catalog={"local/base": {"relative_path": "base", "snapshot_hash": "b" * 64}},
     )
-    proxy_handlers = [
-        handler for handler in port._opener.handlers if isinstance(handler, urllib.request.ProxyHandler)
-    ]
+    proxy_handlers = [handler for handler in port._opener.handlers if isinstance(handler, urllib.request.ProxyHandler)]
     # Passing the explicit empty ProxyHandler suppresses urllib's environment
     # proxy handler; urllib omits the empty handler from the final chain.
     assert proxy_handlers == []

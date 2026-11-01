@@ -12,22 +12,22 @@ Mouse event handling has been extracted to ``mouse_event_handler.py``.
 This module keeps the ``MouseArtifactMixin`` class and re-exports all
 public symbols for backward compatibility.
 """
+
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, IntentConfidence
+from client_surfaces.operator_tui.audit_nav import audit_nav_items
 from client_surfaces.operator_tui.chat_long_message import (
     configure_middle_view_for_history_entry,
-    is_showing_chat_long_message,
     long_message_history_rows,
-    refresh_rendered_view,
 )
 from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
 from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.mouse_event_handler import (
     clamp_down,
     handle_left_click,
@@ -42,15 +42,13 @@ from client_surfaces.operator_tui.mouse_event_handler import (
     shortcut_action_display_map,
     trigger_shortcut_action,
 )
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.plugins import resolve_item_reference
-from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
+from client_surfaces.operator_tui.region_index import RegionTarget
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import audit_nav_items
 from client_surfaces.operator_tui.template_nav import template_nav_items
 
 if TYPE_CHECKING:
-    from client_surfaces.operator_tui.chat_state import ChatState
+    pass
 
 
 class MouseArtifactMixin:
@@ -174,8 +172,11 @@ class MouseArtifactMixin:
             next_state = load_active_section(next_state, self._registry)
         if target.pane == "nav" and target.kind in {"section", "pane"}:
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+
             next_state = open_or_activate_tab(
-                next_state, section_id=new_section, kind="section",
+                next_state,
+                section_id=new_section,
+                kind="section",
                 label=tab_label_for_section(new_section),
             )
         self._set_state(next_state)
@@ -238,7 +239,9 @@ class MouseArtifactMixin:
             "id": str(target.payload.get("id") or ""),
         }
         messages_raw = chat.get("messages")
-        messages = [dict(msg) for msg in messages_raw if isinstance(msg, dict)] if isinstance(messages_raw, list) else []
+        messages = (
+            [dict(msg) for msg in messages_raw if isinstance(msg, dict)] if isinstance(messages_raw, list) else []
+        )
         if not messages or messages[-1].get("text") != f"Kontext aktiv: {target.label}":
             messages.append(
                 {
@@ -264,11 +267,17 @@ class MouseArtifactMixin:
             return
         chat = dict(chat_raw)
         messages_raw = chat.get("messages")
-        messages = [dict(msg) for msg in messages_raw if isinstance(msg, dict)] if isinstance(messages_raw, list) else []
+        messages = (
+            [dict(msg) for msg in messages_raw if isinstance(msg, dict)] if isinstance(messages_raw, list) else []
+        )
         normalized = " ".join(str(text or "").split())
         if not normalized:
             return
-        if messages and str(messages[-1].get("text") or "") == normalized and str(messages[-1].get("source") or "") == "ai":
+        if (
+            messages
+            and str(messages[-1].get("text") or "") == normalized
+            and str(messages[-1].get("source") or "") == "ai"
+        ):
             return
         messages.append({"at": float(now), "source": "ai", "text": normalized})
         chat["messages"] = messages[-8:]
@@ -328,11 +337,7 @@ class MouseArtifactMixin:
         fenced = "\n".join(numbered)
         if truncated:
             fenced += f"\n... ({len(lines) - max_lines} more lines)"
-        markdown = (
-            f"# Inline Vim Viewer\n\n"
-            f"`{path}`\n\n"
-            f"```{language}\n{fenced}\n```"
-        )
+        markdown = f"# Inline Vim Viewer\n\n`{path}`\n\n```{language}\n{fenced}\n```"
         self._set_state(
             self.state.with_updates(
                 mode=OperatorMode.EDIT,
@@ -351,6 +356,7 @@ class MouseArtifactMixin:
         state = result.state.with_updates(status_message=msg)
         if msg:
             import time as _t
+
             _now = _t.monotonic()
             if hasattr(self, "_last_command_feedback"):
                 self._last_command_feedback = msg
@@ -360,7 +366,13 @@ class MouseArtifactMixin:
             _game_pre["_cmd_feedback_at"] = _now
             state = state.with_updates(header_logo_game=_game_pre)
         state = self._deactivate_aux_views_for_section_change(state, next_section_id=state.section_id)
-        if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
+        if state.section_id != self.state.section_id or command.strip().lower() in {
+            ":refresh",
+            "refresh",
+            "r",
+            ":next",
+            ":prev",
+        }:
             state = load_active_section(state, self._registry)
         if hasattr(self, "_apply_visual_command_requests"):
             state = self._apply_visual_command_requests(state)
@@ -381,8 +393,11 @@ class MouseArtifactMixin:
         state = state.with_updates(header_logo_game=game, command_line="", mode=mode_after)
         if state.section_id != self.state.section_id:
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+
             state = open_or_activate_tab(
-                state, section_id=state.section_id, kind="section",
+                state,
+                section_id=state.section_id,
+                kind="section",
                 label=tab_label_for_section(state.section_id),
             )
         self._set_state(state)
@@ -405,13 +420,19 @@ class MouseArtifactMixin:
                 if section.id != self.state.section_id:
                     next_state = load_active_section(next_state, self._registry)
                 from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+
                 next_state = open_or_activate_tab(
-                    next_state, section_id=section.id, kind="section",
+                    next_state,
+                    section_id=section.id,
+                    kind="section",
                     label=tab_label_for_section(section.id),
                 )
             elif template_count > 0 and len(SECTIONS) <= new_index < len(SECTIONS) + template_count:
                 next_state = next_state.with_updates(section_id="templates")
-            elif audit_count > 0 and len(SECTIONS) + template_count <= new_index < len(SECTIONS) + template_count + audit_count:
+            elif (
+                audit_count > 0
+                and len(SECTIONS) + template_count <= new_index < len(SECTIONS) + template_count + audit_count
+            ):
                 next_state = next_state.with_updates(section_id="audit")
             else:
                 game = dict(self.state.header_logo_game or self._default_header_snake())

@@ -50,9 +50,7 @@ class MlInternTrainingRepository:
         self._engine = db_engine
         self._audit = audit
         self._clock = clock
-        self._events = audit_events or MlInternTrainingAuditEvents(
-            audit_resolver=lambda: self._audit or _DEFAULT_AUDIT
-        )
+        self._events = audit_events or MlInternTrainingAuditEvents(audit_resolver=lambda: self._audit or _DEFAULT_AUDIT)
         self._execution_leases = execution_leases or MlInternTrainingExecutionLeaseStore(
             db_engine=db_engine,
             events=self._events,
@@ -483,14 +481,10 @@ class MlInternTrainingRepository:
             self._enqueue(session, job_event)
             if job.status in {"cancelled", "completed", "failed"}:
                 capacity = session.exec(
-                    select(MlInternTrainingCapacityLeaseDB).where(
-                        MlInternTrainingCapacityLeaseDB.job_id == job.id
-                    )
+                    select(MlInternTrainingCapacityLeaseDB).where(MlInternTrainingCapacityLeaseDB.job_id == job.id)
                 ).first()
                 execution = session.exec(
-                    select(MlInternTrainingExecutionLeaseDB).where(
-                        MlInternTrainingExecutionLeaseDB.job_id == job.id
-                    )
+                    select(MlInternTrainingExecutionLeaseDB).where(MlInternTrainingExecutionLeaseDB.job_id == job.id)
                 ).first()
                 if capacity is not None:
                     self._enqueue(
@@ -603,9 +597,7 @@ class MlInternTrainingRepository:
                     )
                 if job.status == "cancelled":
                     capacity = session.exec(
-                        select(MlInternTrainingCapacityLeaseDB).where(
-                            MlInternTrainingCapacityLeaseDB.job_id == job.id
-                        )
+                        select(MlInternTrainingCapacityLeaseDB).where(MlInternTrainingCapacityLeaseDB.job_id == job.id)
                     ).first()
                     execution = session.exec(
                         select(MlInternTrainingExecutionLeaseDB).where(
@@ -892,9 +884,7 @@ class MlInternTrainingRepository:
             ),
         )
         lease = session.exec(
-            select(MlInternTrainingCapacityLeaseDB).where(
-                MlInternTrainingCapacityLeaseDB.job_id == job.id
-            )
+            select(MlInternTrainingCapacityLeaseDB).where(MlInternTrainingCapacityLeaseDB.job_id == job.id)
         ).first()
         if lease is not None:
             self._enqueue(

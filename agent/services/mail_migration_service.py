@@ -249,9 +249,7 @@ class MailMigrationService:
                     unmatched=len(mapped_messages),
                     source_hashes=source_hashes,
                 )
-            backup, source_hashes, backup_hashes = self._backup(
-                command, migration_id, source_paths, target_paths
-            )
+            backup, source_hashes, backup_hashes = self._backup(command, migration_id, source_paths, target_paths)
             accounts_payload = self._load_target(
                 target_paths["accounts"], schema="mail_accounts.v2", defaults={"accounts": []}
             )
@@ -420,11 +418,15 @@ class MailMigrationService:
         approval_ref: str,
     ) -> MailMigrationReport:
         if not str(approval_ref).strip():
-            return MailMigrationReport(migration_id, "restore_denied", False, 0, 0, 0, 1, reason_code="restore_approval_required")
+            return MailMigrationReport(
+                migration_id, "restore_denied", False, 0, 0, 0, 1, reason_code="restore_approval_required"
+            )
         root = command.target_accounts_path.parent / ".migration-backup" / str(migration_id)
         manifest_path = root / "manifest.json"
         if not manifest_path.exists():
-            return MailMigrationReport(migration_id, "restore_failed", False, 0, 0, 0, 1, reason_code="backup_not_found")
+            return MailMigrationReport(
+                migration_id, "restore_failed", False, 0, 0, 0, 1, reason_code="backup_not_found"
+            )
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         lock_path = command.global_lock_path or command.target_accounts_path.parent / ".mail-migration.lock"
         with MailFileLock(path=lock_path, timeout_seconds=0.25):
@@ -437,7 +439,13 @@ class MailMigrationService:
                 preimage = Path(str(item["preimage"]))
                 if self._hash(preimage) != str(item.get("sha256") or ""):
                     return MailMigrationReport(
-                        migration_id, "restore_failed", False, 0, 0, 0, 1,
+                        migration_id,
+                        "restore_failed",
+                        False,
+                        0,
+                        0,
+                        0,
+                        1,
                         reason_code="backup_content_hash_mismatch",
                     )
                 restore_files[target] = json.loads(preimage.read_text(encoding="utf-8"))

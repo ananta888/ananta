@@ -16,6 +16,7 @@ shared_mock_strategy (from todo):
   existing probe helpers — no real CLIProxyAPI instance
 * No test sets real global user config or XDG_CONFIG_HOME persistently
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,14 +32,14 @@ from agent.local_llm_backends import (
     resolve_local_openai_backend,
 )
 
-
 # ---------------------------------------------------------------------------
 # shared mock strategy: helpers that other cliproxyapi tests can reuse
 # ---------------------------------------------------------------------------
 
-def make_cliproxyapi_entry(*, with_v1: bool = True, with_key: bool = False,
-                           key_profile: str | None = None,
-                           models: list[str] | None = None) -> dict[str, Any]:
+
+def make_cliproxyapi_entry(
+    *, with_v1: bool = True, with_key: bool = False, key_profile: str | None = None, models: list[str] | None = None
+) -> dict[str, Any]:
     """Build a CLIProxyAPI-shaped local_openai_backends entry.
 
     If both ``with_key`` and ``key_profile`` are provided, both
@@ -64,6 +65,7 @@ def make_cliproxyapi_entry(*, with_v1: bool = True, with_key: bool = False,
 # normalisation of the entry itself
 # ---------------------------------------------------------------------------
 
+
 def test_cliproxyapi_entry_is_accepted_by_normalize_with_preflight_visible_fields():
     raw = make_cliproxyapi_entry()
     normalised = _normalize_local_backend_entry(raw)
@@ -73,7 +75,8 @@ def test_cliproxyapi_entry_is_accepted_by_normalize_with_preflight_visible_field
     assert normalised["transport_provider"] == "openai"
     assert normalised["supports_tool_calls"] is True
     assert normalised["configured_models"] == [
-        "codex/gpt-5.5-codex", "claude/sonnet",
+        "codex/gpt-5.5-codex",
+        "claude/sonnet",
     ]
     assert normalised["source"] == "agent_config.local_openai_backends"
     # Fields that preflight (cliproxyapi-007) needs to surface.
@@ -129,18 +132,17 @@ def test_cliproxyapi_non_dict_entry_is_rejected():
 # base_url normalisation
 # ---------------------------------------------------------------------------
 
+
 def test_base_url_with_v1_is_not_doubled():
     """http://localhost:8317/v1 stays http://localhost:8317/v1,
     NOT http://localhost:8317/v1/v1."""
-    normalised = normalize_openai_compatible_base_url(
-        "http://localhost:8317/v1")
+    normalised = normalize_openai_compatible_base_url("http://localhost:8317/v1")
     assert normalised == "http://localhost:8317/v1"
 
 
 def test_base_url_without_v1_gets_v1_appended():
     """http://localhost:8317 -> http://localhost:8317/v1."""
-    normalised = normalize_openai_compatible_base_url(
-        "http://localhost:8317")
+    normalised = normalize_openai_compatible_base_url("http://localhost:8317")
     assert normalised == "http://localhost:8317/v1"
 
 
@@ -148,8 +150,7 @@ def test_base_url_with_chat_completions_suffix_is_trimmed_idempotently():
     """http://localhost:8317/v1/chat/completions -> /v1 (the suffix
     is stripped before the v1-detection). Normalising twice yields the
     same result as normalising once."""
-    normalised = normalize_openai_compatible_base_url(
-        "http://localhost:8317/v1/chat/completions")
+    normalised = normalize_openai_compatible_base_url("http://localhost:8317/v1/chat/completions")
     assert normalised == "http://localhost:8317/v1"
     # idempotence: normalising the result again changes nothing
     twice = normalize_openai_compatible_base_url(normalised)
@@ -158,14 +159,12 @@ def test_base_url_with_chat_completions_suffix_is_trimmed_idempotently():
 
 def test_base_url_with_trailing_slash_is_cleaned():
     """Trailing slashes don't produce double slashes."""
-    normalised = normalize_openai_compatible_base_url(
-        "http://localhost:8317/v1/")
+    normalised = normalize_openai_compatible_base_url("http://localhost:8317/v1/")
     assert normalised == "http://localhost:8317/v1"
 
 
 def test_base_url_with_models_suffix_is_trimmed():
-    normalised = normalize_openai_compatible_base_url(
-        "http://localhost:8317/v1/models")
+    normalised = normalize_openai_compatible_base_url("http://localhost:8317/v1/models")
     assert normalised == "http://localhost:8317/v1"
 
 
@@ -181,6 +180,7 @@ def test_invalid_url_returns_none():
 # ---------------------------------------------------------------------------
 # api_key vs api_key_profile
 # ---------------------------------------------------------------------------
+
 
 def test_cliproxyapi_with_plaintext_key_keeps_it():
     raw = make_cliproxyapi_entry(with_key=True)
@@ -212,43 +212,49 @@ def test_cliproxyapi_with_both_prefers_plaintext_when_non_empty():
 # integration with get_local_openai_backends + dedup
 # ---------------------------------------------------------------------------
 
+
 def test_cliproxyapi_appears_alongside_unpolluted_lmstudio_in_backends():
     """Even with cliproxyapi configured, lmstudio is *still* in the
     list (lmstudio is always added by the resolver)."""
-    backends = get_local_openai_backends(agent_cfg={
-        "local_openai_backends": [make_cliproxyapi_entry()],
-    })
+    backends = get_local_openai_backends(
+        agent_cfg={
+            "local_openai_backends": [make_cliproxyapi_entry()],
+        }
+    )
     providers = {b["provider"] for b in backends}
     assert "lmstudio" in providers
     assert "cliproxyapi" in providers
     lmstudio = next(b for b in backends if b["provider"] == "lmstudio")
     assert lmstudio["source"] in (
-        "agent_config.lmstudio_url", "provider_urls.lmstudio",
+        "agent_config.lmstudio_url",
+        "provider_urls.lmstudio",
     )
 
 
 def test_cliproxyapi_dedup_against_duplicate_id():
     """Two entries with id=cliproxyapi — the second is dropped."""
-    backends = get_local_openai_backends(agent_cfg={
-        "local_openai_backends": [
-            make_cliproxyapi_entry(with_v1=True),
-            make_cliproxyapi_entry(with_v1=False),
-        ],
-    })
+    backends = get_local_openai_backends(
+        agent_cfg={
+            "local_openai_backends": [
+                make_cliproxyapi_entry(with_v1=True),
+                make_cliproxyapi_entry(with_v1=False),
+            ],
+        }
+    )
     matches = [b for b in backends if b["provider"] == "cliproxyapi"]
     assert len(matches) == 1
 
 
 def test_cliproxyapi_dedup_is_case_insensitive():
     """'CLIPROXYAPI' and 'cliproxyapi' are the same provider."""
-    backends = get_local_openai_backends(agent_cfg={
-        "local_openai_backends": [
-            {"id": "cliproxyapi", "base_url": "http://localhost:8317/v1",
-             "supports_tool_calls": True},
-            {"id": "CLIPROXYAPI", "base_url": "http://other:9999/v1",
-             "supports_tool_calls": False},
-        ],
-    })
+    backends = get_local_openai_backends(
+        agent_cfg={
+            "local_openai_backends": [
+                {"id": "cliproxyapi", "base_url": "http://localhost:8317/v1", "supports_tool_calls": True},
+                {"id": "CLIPROXYAPI", "base_url": "http://other:9999/v1", "supports_tool_calls": False},
+            ],
+        }
+    )
     matches = [b for b in backends if b["provider"].lower() == "cliproxyapi"]
     assert len(matches) == 1
 
@@ -263,7 +269,9 @@ def test_cliproxyapi_resolved_via_resolve_local_openai_backend():
 def test_cliproxyapi_resolved_with_default_provider_marker():
     cfg = {"local_openai_backends": [make_cliproxyapi_entry()]}
     resolved = resolve_local_openai_backend(
-        "cliproxyapi", agent_cfg=cfg, default_provider="cliproxyapi",
+        "cliproxyapi",
+        agent_cfg=cfg,
+        default_provider="cliproxyapi",
         default_model="cliproxyapi/foo",
     )
     assert resolved is not None
@@ -281,9 +289,9 @@ def test_cliproxyapi_unknown_id_returns_none():
 # YAML example loads cleanly (cliproxyapi-003 acceptance)
 # ---------------------------------------------------------------------------
 
+
 def test_yaml_example_loads_and_matches_expected_fields():
-    example_path = (Path(__file__).resolve().parents[1]
-                    / "docs" / "examples" / "cliproxyapi-agent-config.yaml")
+    example_path = Path(__file__).resolve().parents[1] / "docs" / "examples" / "cliproxyapi-agent-config.yaml"
     if not example_path.exists():
         pytest.skip("cliproxyapi-agent-config.yaml not present yet")
     data = yaml.safe_load(example_path.read_text(encoding="utf-8"))
@@ -298,18 +306,17 @@ def test_yaml_example_loads_and_matches_expected_fields():
 
 
 def test_yaml_example_contains_no_real_secrets_or_tokens():
-    example_path = (Path(__file__).resolve().parents[1]
-                    / "docs" / "examples" / "cliproxyapi-agent-config.yaml")
+    example_path = Path(__file__).resolve().parents[1] / "docs" / "examples" / "cliproxyapi-agent-config.yaml"
     if not example_path.exists():
         pytest.skip("cliproxyapi-agent-config.yaml not present yet")
     text = example_path.read_text(encoding="utf-8")
     forbidden = [
-        "sk-",            # OpenAI-style keys
-        "AKIA",           # AWS
-        "ghp_",           # GitHub PAT
-        "xoxb-",          # Slack
-        "Bearer ",        # generic bearer
-        "-----BEGIN",     # PEM
+        "sk-",  # OpenAI-style keys
+        "AKIA",  # AWS
+        "ghp_",  # GitHub PAT
+        "xoxb-",  # Slack
+        "Bearer ",  # generic bearer
+        "-----BEGIN",  # PEM
     ]
     for needle in forbidden:
         assert needle not in text, f"yaml contains forbidden token: {needle}"
@@ -318,6 +325,7 @@ def test_yaml_example_contains_no_real_secrets_or_tokens():
 # ---------------------------------------------------------------------------
 # invalid url produces a clean failure (not an exception)
 # ---------------------------------------------------------------------------
+
 
 def test_cliproxyapi_invalid_url_returns_none_for_base_url_only():
     """If only the base_url is bad (no scheme) but the rest of the
@@ -329,15 +337,18 @@ def test_cliproxyapi_invalid_url_returns_none_for_base_url_only():
     assert n["base_url"] is None
     assert n["provider"] == "cliproxyapi"  # entry is not dropped
 
+
 def test_a_llamacpp_backend_keeps_its_own_openai_shaped_transport():
     from agent.local_llm_backends import resolve_local_openai_backend
 
-    cfg = {"local_openai_backends": [
-        {"id": "llamacpp", "base_url": "http://host.docker.internal:18150/v1"},
-        {"id": "other-server", "base_url": "http://host.docker.internal:9000/v1", "transport_provider": "llamacpp"},
-        {"id": "remote-ish", "base_url": "http://host.docker.internal:9001/v1", "transport_provider": "anthropic"},
-        {"id": "plain", "base_url": "http://host.docker.internal:9002/v1"},
-    ]}
+    cfg = {
+        "local_openai_backends": [
+            {"id": "llamacpp", "base_url": "http://host.docker.internal:18150/v1"},
+            {"id": "other-server", "base_url": "http://host.docker.internal:9000/v1", "transport_provider": "llamacpp"},
+            {"id": "remote-ish", "base_url": "http://host.docker.internal:9001/v1", "transport_provider": "anthropic"},
+            {"id": "plain", "base_url": "http://host.docker.internal:9002/v1"},
+        ]
+    }
     assert resolve_local_openai_backend("llamacpp", agent_cfg=cfg)["transport_provider"] == "llamacpp"
     assert resolve_local_openai_backend("other-server", agent_cfg=cfg)["transport_provider"] == "llamacpp"
     # only OpenAI-shaped transports; anything else stays the previous default
@@ -351,5 +362,7 @@ def test_the_llamacpp_transport_counts_as_local_for_the_endpoint_policy():
     validate_provider_endpoint_resolution(provider_id="llamacpp", endpoint_url="http://host.docker.internal:18150/v1")
     with pytest.raises(ValueError):
         validate_provider_endpoint_resolution(
-            provider_id="openai", endpoint_url="http://host.docker.internal:18150/v1",
-            resolver=lambda *args, **kwargs: [(0, 0, 0, "", ("172.17.0.1", 18150))])
+            provider_id="openai",
+            endpoint_url="http://host.docker.internal:18150/v1",
+            resolver=lambda *args, **kwargs: [(0, 0, 0, "", ("172.17.0.1", 18150))],
+        )

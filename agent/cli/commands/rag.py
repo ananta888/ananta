@@ -1,4 +1,5 @@
 """ananta rag — RAG index and retrieval commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -17,8 +18,8 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  ananta rag index\n"
-            "  ananta rag query \"What does the auth service do?\"\n"
-            "  ananta rag explain --query \"auth\"\n"
+            '  ananta rag query "What does the auth service do?"\n'
+            '  ananta rag explain --query "auth"\n'
             "  ananta rag policy-check\n"
             "  ananta rag obsidian scan-vault --vault my_vault\n"
         ),
@@ -47,6 +48,7 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
 
     # Obsidian sub-namespace
     from agent.cli.commands.obsidian_commands import _configure_subparsers as _obs_sub
+
     obs_p = sub.add_parser("obsidian", help="Manage Obsidian Vault integration.")
     _obs_sub(obs_p)
 
@@ -60,6 +62,7 @@ def dispatch(argv: Sequence[str]) -> int:
     # Delegate to obsidian sub-dispatcher before full parse
     if argv[0] == "obsidian":
         from agent.cli.commands.obsidian_commands import dispatch as obs_dispatch
+
         return obs_dispatch(list(argv[1:]))
 
     try:

@@ -3,23 +3,88 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 PYTHON_TO_JAVA: dict[str, dict[str, Any]] = {
     "bool": {"java_type": "boolean", "boxed": "Boolean", "lossiness": "lossless", "import": None, "notes": ""},
-    "int": {"java_type": "long", "boxed": "Long", "lossiness": "policy_guarded", "import": None, "notes": "Python int is arbitrary precision; Java long is 64-bit. Use BigInteger policy for arbitrary precision."},
-    "float": {"java_type": "double", "boxed": "Double", "lossiness": "lossless", "import": None, "notes": "IEEE 754 double — matches Python float semantics."},
+    "int": {
+        "java_type": "long",
+        "boxed": "Long",
+        "lossiness": "policy_guarded",
+        "import": None,
+        "notes": "Python int is arbitrary precision; Java long is 64-bit. Use BigInteger policy for arbitrary precision.",
+    },
+    "float": {
+        "java_type": "double",
+        "boxed": "Double",
+        "lossiness": "lossless",
+        "import": None,
+        "notes": "IEEE 754 double — matches Python float semantics.",
+    },
     "str": {"java_type": "String", "boxed": "String", "lossiness": "lossless", "import": None, "notes": ""},
     "bytes": {"java_type": "byte[]", "boxed": "byte[]", "lossiness": "lossless", "import": None, "notes": ""},
-    "Decimal": {"java_type": "BigDecimal", "boxed": "BigDecimal", "lossiness": "lossless", "import": "java.math.BigDecimal", "notes": ""},
-    "decimal.Decimal": {"java_type": "BigDecimal", "boxed": "BigDecimal", "lossiness": "lossless", "import": "java.math.BigDecimal", "notes": ""},
-    "datetime": {"java_type": "LocalDateTime", "boxed": "LocalDateTime", "lossiness": "policy_guarded", "import": "java.time.LocalDateTime", "notes": "Timezone not preserved — use ZonedDateTime policy if tz-aware."},
-    "datetime.datetime": {"java_type": "LocalDateTime", "boxed": "LocalDateTime", "lossiness": "policy_guarded", "import": "java.time.LocalDateTime", "notes": "Timezone not preserved — use ZonedDateTime policy if tz-aware."},
-    "date": {"java_type": "LocalDate", "boxed": "LocalDate", "lossiness": "lossless", "import": "java.time.LocalDate", "notes": ""},
-    "datetime.date": {"java_type": "LocalDate", "boxed": "LocalDate", "lossiness": "lossless", "import": "java.time.LocalDate", "notes": ""},
+    "Decimal": {
+        "java_type": "BigDecimal",
+        "boxed": "BigDecimal",
+        "lossiness": "lossless",
+        "import": "java.math.BigDecimal",
+        "notes": "",
+    },
+    "decimal.Decimal": {
+        "java_type": "BigDecimal",
+        "boxed": "BigDecimal",
+        "lossiness": "lossless",
+        "import": "java.math.BigDecimal",
+        "notes": "",
+    },
+    "datetime": {
+        "java_type": "LocalDateTime",
+        "boxed": "LocalDateTime",
+        "lossiness": "policy_guarded",
+        "import": "java.time.LocalDateTime",
+        "notes": "Timezone not preserved — use ZonedDateTime policy if tz-aware.",
+    },
+    "datetime.datetime": {
+        "java_type": "LocalDateTime",
+        "boxed": "LocalDateTime",
+        "lossiness": "policy_guarded",
+        "import": "java.time.LocalDateTime",
+        "notes": "Timezone not preserved — use ZonedDateTime policy if tz-aware.",
+    },
+    "date": {
+        "java_type": "LocalDate",
+        "boxed": "LocalDate",
+        "lossiness": "lossless",
+        "import": "java.time.LocalDate",
+        "notes": "",
+    },
+    "datetime.date": {
+        "java_type": "LocalDate",
+        "boxed": "LocalDate",
+        "lossiness": "lossless",
+        "import": "java.time.LocalDate",
+        "notes": "",
+    },
     "UUID": {"java_type": "UUID", "boxed": "UUID", "lossiness": "lossless", "import": "java.util.UUID", "notes": ""},
-    "uuid.UUID": {"java_type": "UUID", "boxed": "UUID", "lossiness": "lossless", "import": "java.util.UUID", "notes": ""},
-    "None": {"java_type": "void", "boxed": "Void", "lossiness": "lossless", "import": None, "notes": "Only valid as return type — use Optional<T> or @Nullable for nullable fields."},
-    "Any": {"java_type": "Object", "boxed": "Object", "lossiness": "lossy", "import": None, "notes": "Dynamic typing lost — needs_review."},
+    "uuid.UUID": {
+        "java_type": "UUID",
+        "boxed": "UUID",
+        "lossiness": "lossless",
+        "import": "java.util.UUID",
+        "notes": "",
+    },
+    "None": {
+        "java_type": "void",
+        "boxed": "Void",
+        "lossiness": "lossless",
+        "import": None,
+        "notes": "Only valid as return type — use Optional<T> or @Nullable for nullable fields.",
+    },
+    "Any": {
+        "java_type": "Object",
+        "boxed": "Object",
+        "lossiness": "lossy",
+        "import": None,
+        "notes": "Dynamic typing lost — needs_review.",
+    },
 }
 
 _COLLECTION_MAPPINGS: dict[str, dict[str, Any]] = {
@@ -27,10 +92,21 @@ _COLLECTION_MAPPINGS: dict[str, dict[str, Any]] = {
     "List": {"java_type": "List<{E}>", "mutable": True, "import": "java.util.List", "impl": "java.util.ArrayList"},
     "set": {"java_type": "Set<{E}>", "mutable": True, "import": "java.util.Set", "impl": "java.util.HashSet"},
     "Set": {"java_type": "Set<{E}>", "mutable": True, "import": "java.util.Set", "impl": "java.util.HashSet"},
-    "frozenset": {"java_type": "Set<{E}>", "mutable": False, "import": "java.util.Set", "impl": "java.util.Collections.unmodifiableSet", "notes": "Immutability must be enforced at construction site."},
+    "frozenset": {
+        "java_type": "Set<{E}>",
+        "mutable": False,
+        "import": "java.util.Set",
+        "impl": "java.util.Collections.unmodifiableSet",
+        "notes": "Immutability must be enforced at construction site.",
+    },
     "dict": {"java_type": "Map<{K},{V}>", "mutable": True, "import": "java.util.Map", "impl": "java.util.HashMap"},
     "Dict": {"java_type": "Map<{K},{V}>", "mutable": True, "import": "java.util.Map", "impl": "java.util.HashMap"},
-    "tuple": {"java_type": "List<{E}>", "mutable": False, "import": "java.util.List", "notes": "Fixed-length tuple → consider record or Pair policy."},
+    "tuple": {
+        "java_type": "List<{E}>",
+        "mutable": False,
+        "import": "java.util.List",
+        "notes": "Fixed-length tuple → consider record or Pair policy.",
+    },
 }
 
 
@@ -72,19 +148,26 @@ class PythonToJavaTypeRegistry:
             return JavaTypeMapping("None", "void", "Void", "lossless", [], [], False)
 
         # Collection types
-        for prefix, kind in [("list[", "list"), ("List[", "list"), ("set[", "set"), ("Set[", "set"), ("frozenset[", "frozenset"), ("FrozenSet[", "frozenset")]:
+        for prefix, kind in [
+            ("list[", "list"),
+            ("List[", "list"),
+            ("set[", "set"),
+            ("Set[", "set"),
+            ("frozenset[", "frozenset"),
+            ("FrozenSet[", "frozenset"),
+        ]:
             if inner.startswith(prefix) and inner.endswith("]"):
-                elem = inner[len(prefix):-1].strip()
+                elem = inner[len(prefix) : -1].strip()
                 return self._map_collection(kind, elem_type=elem, is_optional=is_optional)
         for prefix, kind in [("dict[", "dict"), ("Dict[", "dict")]:
             if inner.startswith(prefix) and inner.endswith("]"):
-                kv = inner[len(prefix):-1]
+                kv = inner[len(prefix) : -1]
                 parts = _split_args(kv)
                 if len(parts) == 2:
                     return self._map_dict(parts[0].strip(), parts[1].strip(), is_optional=is_optional)
         for prefix in ("tuple[", "Tuple["):
             if inner.startswith(prefix) and inner.endswith("]"):
-                elem = inner[len(prefix):-1].strip()
+                elem = inner[len(prefix) : -1].strip()
                 return self._map_tuple(elem, is_optional=is_optional)
 
         # Primitive / known
@@ -101,11 +184,21 @@ class PythonToJavaTypeRegistry:
             needs_review = lossy or (inner == "Any")
             if policy_guarded and inner == "int":
                 # Allow long by default, note the precision risk
-                warnings.append("int_precision_policy: Python int is arbitrary precision; mapped to long — use BigInteger policy if needed")
+                warnings.append(
+                    "int_precision_policy: Python int is arbitrary precision; mapped to long — use BigInteger policy if needed"
+                )
             imports = [m["import"]] if m.get("import") else []
             if is_optional and java_t.startswith("Optional"):
                 imports.append("java.util.Optional")
-            return JavaTypeMapping(python_type=inner, java_type=java_t, boxed=m["boxed"], lossiness=m["lossiness"], imports=imports, warnings=warnings, needs_review=needs_review)
+            return JavaTypeMapping(
+                python_type=inner,
+                java_type=java_t,
+                boxed=m["boxed"],
+                lossiness=m["lossiness"],
+                imports=imports,
+                warnings=warnings,
+                needs_review=needs_review,
+            )
 
         # Unknown
         return JavaTypeMapping(
@@ -130,7 +223,15 @@ class PythonToJavaTypeRegistry:
         warnings = list(elem_mapped.warnings)
         if coll.get("notes"):
             warnings.append(coll["notes"])
-        return JavaTypeMapping(kind, java_t, java_t, "lossless" if not elem_mapped.needs_review else "lossy", list(dict.fromkeys(imports)), warnings, elem_mapped.needs_review)
+        return JavaTypeMapping(
+            kind,
+            java_t,
+            java_t,
+            "lossless" if not elem_mapped.needs_review else "lossy",
+            list(dict.fromkeys(imports)),
+            warnings,
+            elem_mapped.needs_review,
+        )
 
     def _map_dict(self, key_type: str, val_type: str, *, is_optional: bool = False) -> JavaTypeMapping:
         km = self.map_type(key_type)
@@ -143,7 +244,15 @@ class PythonToJavaTypeRegistry:
             imports.append("java.util.Optional")
         warnings = km.warnings + vm.warnings
         needs_review = km.needs_review or vm.needs_review
-        return JavaTypeMapping("dict", java_t, java_t, "lossy" if needs_review else "lossless", list(dict.fromkeys(imports)), warnings, needs_review)
+        return JavaTypeMapping(
+            "dict",
+            java_t,
+            java_t,
+            "lossy" if needs_review else "lossless",
+            list(dict.fromkeys(imports)),
+            warnings,
+            needs_review,
+        )
 
     def _map_tuple(self, elem: str, *, is_optional: bool = False) -> JavaTypeMapping:
         parts = _split_args(elem)
@@ -158,7 +267,9 @@ class PythonToJavaTypeRegistry:
         imports = ["java.util.List"]
         if is_optional:
             imports.append("java.util.Optional")
-        return JavaTypeMapping("tuple", java_t, java_t, "policy_guarded", imports, ["fixed_tuple_consider_record_policy"], False)
+        return JavaTypeMapping(
+            "tuple", java_t, java_t, "policy_guarded", imports, ["fixed_tuple_consider_record_policy"], False
+        )
 
 
 def _split_args(value: str) -> list[str]:

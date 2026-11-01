@@ -260,8 +260,16 @@ class LipSyncClient:
     """
 
     def __init__(
-        self, portrait_png, *, base_url=None, timeout=DEFAULT_TIMEOUT_SECONDS, cooldown=30.0,
-        rate=22050, renderer=render, clock=time.monotonic, log=lambda message: None,
+        self,
+        portrait_png,
+        *,
+        base_url=None,
+        timeout=DEFAULT_TIMEOUT_SECONDS,
+        cooldown=30.0,
+        rate=22050,
+        renderer=render,
+        clock=time.monotonic,
+        log=lambda message: None,
     ):
         self.portrait_png = bytes(portrait_png)
         self.base_url = service_url() if base_url is None else base_url

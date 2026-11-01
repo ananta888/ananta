@@ -208,19 +208,13 @@ class OidcIdentityLinkService:
             OidcIdentityProvisioningStatus.CREATED,
             OidcIdentityProvisioningStatus.IDENTITY_ALREADY_LINKED,
         }:
-            persisted_user = (
-                self._users.get_by_username(result.username)
-                if result.username is not None
-                else None
-            )
+            persisted_user = self._users.get_by_username(result.username) if result.username is not None else None
             if persisted_user is None:
                 raise OidcAccountProvisioningError("oidc_identity_link_conflict")
             local_user_tenant_id(persisted_user.username)
             return persisted_user
         if result.status == OidcIdentityProvisioningStatus.USERNAME_CONFLICT:
-            raise OidcAccountProvisioningError(
-                "oidc_local_account_requires_explicit_link"
-            )
+            raise OidcAccountProvisioningError("oidc_local_account_requires_explicit_link")
         if result.status == OidcIdentityProvisioningStatus.PERSISTENCE_UNAVAILABLE:
             raise OidcAccountProvisioningUnavailableError()
         raise OidcAccountProvisioningError("oidc_identity_link_conflict")

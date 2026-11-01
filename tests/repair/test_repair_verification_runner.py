@@ -1,12 +1,10 @@
 """DRR-T022: RepairVerificationRunner tests."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from worker.core.execution_envelope import RepairStep
 from worker.repair.repair_verification_runner import (
     ProbeType,
-    VerificationResult,
     run_verification_probe,
     verify_final,
     verify_step,

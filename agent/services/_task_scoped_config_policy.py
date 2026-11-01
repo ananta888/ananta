@@ -42,7 +42,6 @@ from flask import current_app, has_app_context
 
 from agent.model_selection import normalize_legacy_model_name
 
-
 # ======================================================================
 # 1. Pure leaf utilities (SPLIT-001b)
 # ======================================================================
@@ -263,7 +262,9 @@ def compact_research_context(
     return {
         **dict(research_context or {}),
         "artifact_ids": list((research_context or {}).get("artifact_ids") or [])[:artifact_limit],
-        "knowledge_collection_ids": list((research_context or {}).get("knowledge_collection_ids") or [])[:knowledge_limit],
+        "knowledge_collection_ids": list((research_context or {}).get("knowledge_collection_ids") or [])[
+            :knowledge_limit
+        ],
         "repo_scope_refs": list((research_context or {}).get("repo_scope_refs") or [])[:repo_ref_limit],
         "prompt_section": prompt_section or None,
         "context_char_count": min(
@@ -417,7 +418,7 @@ def allow_synthetic_llm_profile_fallback() -> bool:
     """
     if not has_app_context():
         return False
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     policy = dict(cfg.get("llm_profile_policy") or {})
     return bool(policy.get("allow_synthetic_fallback", False))
 
@@ -427,7 +428,9 @@ _allow_synthetic_llm_profile_fallback = allow_synthetic_llm_profile_fallback
 
 def is_interactive_terminal_session(session_payload: dict | None) -> bool:
     """Return True iff the given session payload marks an interactive-terminal run."""
-    metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
+    metadata = (
+        (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
+    )
     return str(metadata.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal"
 
 
@@ -466,7 +469,11 @@ def resolve_task_propose_timeout(agent_cfg: dict, task_kind: str) -> int:
 
     Falls back to ``max(60, command_timeout, task-kind command_timeout, task_propose_timeout_seconds)``.
     """
-    task_kind_policies = agent_cfg.get("task_kind_execution_policies") if isinstance(agent_cfg.get("task_kind_execution_policies"), dict) else {}
+    task_kind_policies = (
+        agent_cfg.get("task_kind_execution_policies")
+        if isinstance(agent_cfg.get("task_kind_execution_policies"), dict)
+        else {}
+    )
     task_kind_cfg = task_kind_policies.get(task_kind) if isinstance(task_kind_policies.get(task_kind), dict) else {}
     general_timeout = int(agent_cfg.get("command_timeout", 60) or 60)
     kind_timeout = int(task_kind_cfg.get("command_timeout") or 0)

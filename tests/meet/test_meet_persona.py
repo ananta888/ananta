@@ -11,10 +11,10 @@ from agent.services.meet_media_result import validate_response_budget, validate_
 from agent.services.meet_persona_images import MeetPersonaImages
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
 from ananta_contracts.meet_persona_image import decode_assignment
-from tests.test_meet_media import result, turn
 from tests.persona.test_persona_assets import application
 from tests.persona.test_persona_assets import setup as setup
 from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.test_meet_media import result, turn
 from worker.meet_media.persona_video import static_frame
 from worker.meet_media.video_frames import encode_frames
 

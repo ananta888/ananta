@@ -100,9 +100,7 @@ class ToolRoutingService:
         providers = cfg.get("providers")
         raw = providers.get("ananta_webcrawler") if isinstance(providers, dict) else None
         try:
-            provider_config = AnantaWebcrawlerProviderConfig.from_mapping(
-                raw if isinstance(raw, dict) else None
-            )
+            provider_config = AnantaWebcrawlerProviderConfig.from_mapping(raw if isinstance(raw, dict) else None)
         except WebcrawlerConfigError as exc:
             return {
                 "selected": False,
@@ -121,16 +119,19 @@ class ToolRoutingService:
 
     def build_capability_catalog(self, *, agent_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         cfg = dict(agent_cfg or {})
-        preflight_scope = str(
-            ((cfg.get("worker_runtime") or {}).get("preflight_scope") or "worker")
-        ).strip().lower() or "worker"
+        preflight_scope = (
+            str(((cfg.get("worker_runtime") or {}).get("preflight_scope") or "worker")).strip().lower() or "worker"
+        )
         backends = get_integration_registry_service().list_execution_backends(
             include_preflight=True,
             preflight_scope=preflight_scope,
         )
         backend_caps = dict(backends.get("capabilities") or {})
         tool_classes = self._normalize_tool_class_map(((cfg.get("llm_tool_guardrails") or {}).get("tool_classes")))
-        stateful_backends = {str(item or "").strip().lower() for item in list(((cfg.get("cli_session_mode") or {}).get("stateful_backends") or []))}
+        stateful_backends = {
+            str(item or "").strip().lower()
+            for item in list(((cfg.get("cli_session_mode") or {}).get("stateful_backends") or []))
+        }
 
         items: list[dict[str, Any]] = []
         for backend, payload in sorted(backend_caps.items(), key=lambda item: str(item[0])):
@@ -148,13 +149,24 @@ class ToolRoutingService:
                     "availability": "ready" if bool((payload or {}).get("available")) else "unavailable",
                 }
             )
-        known_backend_ids = {str(item.get("id") or "").strip().lower() for item in items if item.get("kind") == "backend"}
+        known_backend_ids = {
+            str(item.get("id") or "").strip().lower() for item in items if item.get("kind") == "backend"
+        }
         for profile in self._specialized_backend_profiles(cfg):
             profile_id = str(profile.get("id") or "").strip().lower()
             if not profile_id or profile_id in known_backend_ids:
                 continue
-            capability_classes = [str(item or "").strip().lower() for item in list(profile.get("capability_classes") or []) if str(item or "").strip()]
-            risk_class = str(profile.get("risk_class") or self._risk_class_for_capability_classes(capability_classes)).strip().lower() or "medium"
+            capability_classes = [
+                str(item or "").strip().lower()
+                for item in list(profile.get("capability_classes") or [])
+                if str(item or "").strip()
+            ]
+            risk_class = (
+                str(profile.get("risk_class") or self._risk_class_for_capability_classes(capability_classes))
+                .strip()
+                .lower()
+                or "medium"
+            )
             items.append(
                 {
                     "id": profile_id,
@@ -214,14 +226,14 @@ class ToolRoutingService:
             governance = "balanced"
         required = self._required_capabilities(normalized_kind, required_capabilities)
         backend_items = [
-            item
-            for item in list(catalog.get("items") or [])
-            if item.get("kind") in {"backend", "specialized_backend"}
+            item for item in list(catalog.get("items") or []) if item.get("kind") in {"backend", "specialized_backend"}
         ]
 
         requested = str(requested_backend or "").strip().lower() or None
         hermes_enabled = bool(((agent_cfg or {}).get("hermes_worker_adapter") or {}).get("enabled", False))
-        hermes_flag_enabled = bool(((agent_cfg or {}).get("feature_flags") or {}).get("enable_hermes_worker_adapter", False))
+        hermes_flag_enabled = bool(
+            ((agent_cfg or {}).get("feature_flags") or {}).get("enable_hermes_worker_adapter", False)
+        )
         # HF-T002: review is canonical; HF-T003: both shell vocab forms denied
         hermes_allowed_caps = {"planning", "review", "code_review", "summarize", "patch_propose", "research_limited"}
         hermes_denied_caps = {"patch_apply", "shell_execution", "shell_execute", "service_mutation", "config_mutation"}
@@ -232,7 +244,9 @@ class ToolRoutingService:
             candidate_caps = {str(cap or "").strip().lower() for cap in list(item.get("capability_classes") or [])}
             missing = [cap for cap in required if cap not in candidate_caps]
             available = str(item.get("availability") or "unavailable") == "ready"
-            governance_block = self._is_governance_blocked(governance_mode=governance, risk_class=str(item.get("risk_class") or "low"))
+            governance_block = self._is_governance_blocked(
+                governance_mode=governance, risk_class=str(item.get("risk_class") or "low")
+            )
             reason = "candidate_available"
             if not available:
                 reason = "backend_unavailable"
@@ -254,7 +268,10 @@ class ToolRoutingService:
             candidate_rows.append(
                 {
                     "target": candidate_id,
-                    "eligible": available and not governance_block and not missing and not (candidate_id == "hermes" and (not hermes_enabled or not hermes_flag_enabled)),
+                    "eligible": available
+                    and not governance_block
+                    and not missing
+                    and not (candidate_id == "hermes" and (not hermes_enabled or not hermes_flag_enabled)),
                     "reason": reason,
                     "missing_capabilities": missing,
                     "risk_class": item.get("risk_class"),
@@ -269,12 +286,23 @@ class ToolRoutingService:
         if requested:
             selected_row = next((row for row in eligible if row.get("target") == requested), None)
         if selected_row is None and eligible:
-            selected_row = sorted(eligible, key=lambda row: (-int(row.get("score") or 0), int(row.get("risk_rank") or 3), str(row.get("target") or "")))[0]
+            selected_row = sorted(
+                eligible,
+                key=lambda row: (
+                    -int(row.get("score") or 0),
+                    int(row.get("risk_rank") or 3),
+                    str(row.get("target") or ""),
+                ),
+            )[0]
 
         selected_target = str(selected_row.get("target")) if selected_row else None
         selected_reason = "no_backend_available"
         if selected_target:
-            selected_reason = "requested_backend_selected" if requested and requested == selected_target else "capability_match_selected"
+            selected_reason = (
+                "requested_backend_selected"
+                if requested and requested == selected_target
+                else "capability_match_selected"
+            )
         for row in candidate_rows:
             row_target = str(row.get("target") or "")
             row_selected = bool(selected_target and row_target == selected_target)
@@ -295,7 +323,11 @@ class ToolRoutingService:
             )
 
         policy_checks = [
-            {"rule_id": "required_capabilities_present", "result": bool(required), "reason": ",".join(required) if required else "no_explicit_required_capabilities"},
+            {
+                "rule_id": "required_capabilities_present",
+                "result": bool(required),
+                "reason": ",".join(required) if required else "no_explicit_required_capabilities",
+            },
             {"rule_id": "governance_mode", "result": True, "reason": governance},
             {"rule_id": "requested_backend", "result": bool(requested), "reason": requested or "not_requested"},
         ]
@@ -338,7 +370,9 @@ class ToolRoutingService:
 
     @staticmethod
     def _required_capabilities(task_kind: str, required_capabilities: list[str] | None) -> list[str]:
-        requested = [str(item or "").strip().lower() for item in list(required_capabilities or []) if str(item or "").strip()]
+        requested = [
+            str(item or "").strip().lower() for item in list(required_capabilities or []) if str(item or "").strip()
+        ]
         derived = list(_TASK_KIND_CAPABILITY_HINTS.get(task_kind, []))
         merged: list[str] = []
         for item in [*derived, *requested]:
@@ -359,7 +393,9 @@ class ToolRoutingService:
 
     @staticmethod
     def _specialized_backend_profiles(cfg: dict[str, Any]) -> list[dict[str, Any]]:
-        payload = cfg.get("specialized_worker_profiles") if isinstance(cfg.get("specialized_worker_profiles"), dict) else {}
+        payload = (
+            cfg.get("specialized_worker_profiles") if isinstance(cfg.get("specialized_worker_profiles"), dict) else {}
+        )
         if not bool(payload.get("enabled", False)):
             return []
         profiles = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}

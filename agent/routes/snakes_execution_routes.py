@@ -7,6 +7,7 @@ here. It is an ordinary module, not an alias of the implementation: handlers
 receive their collaborators through
 :data:`.snakes_execution_dependencies.SNAKE_EXECUTION_DEPENDENCIES`.
 """
+
 from __future__ import annotations
 
 from .snakes_execution_handlers import *  # noqa: F401, F403

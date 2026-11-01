@@ -36,16 +36,9 @@ def is_authoritative_vector_index_task(
 
     task_kind = str(task.get("task_kind") or "").strip().lower()
     context = task.get("worker_execution_context")
-    envelope = (
-        context.get("vector_index_task")
-        if isinstance(context, Mapping)
-        else None
-    )
+    envelope = context.get("vector_index_task") if isinstance(context, Mapping) else None
     has_kind = task_kind == "vector_index_operation"
-    has_envelope = (
-        isinstance(envelope, Mapping)
-        and envelope.get("schema") == "ananta.vector_index_task.v1"
-    )
+    has_envelope = isinstance(envelope, Mapping) and envelope.get("schema") == "ananta.vector_index_task.v1"
     if has_kind != has_envelope:
         raise ValueError("vector_index_task_domain_binding_invalid")
     return has_kind and has_envelope
@@ -163,13 +156,9 @@ def persist_forwarded_execution_status(
         return
     if bound_knowledge_index_result is not None:
         if recovery_child:
-            raise ValueError(
-                "knowledge_index_result_recovery_task_forbidden"
-            )
+            raise ValueError("knowledge_index_result_recovery_task_forbidden")
         if publish_bound_knowledge_index_result is None:
-            raise RuntimeError(
-                "knowledge_index_task_result_publisher_missing"
-            )
+            raise RuntimeError("knowledge_index_task_result_publisher_missing")
         publish_bound_knowledge_index_result(
             job_id=job_id,
             result=bound_knowledge_index_result,
@@ -177,9 +166,7 @@ def persist_forwarded_execution_status(
         )
         return
     if recovery_child:
-        current_status = str(
-            getattr(authoritative_recovery_task, "status", "") or ""
-        ).strip().lower()
+        current_status = str(getattr(authoritative_recovery_task, "status", "") or "").strip().lower()
         if current_status in {
             "completed",
             "failed",

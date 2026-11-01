@@ -13,16 +13,36 @@ def receipt(ids):
 
 
 def scope(generation=1):
-    return {"origin": "https://meet.invalid", "tenant_id": "tenant", "project_id": "project",
-            "task_id": "task", "session_id": "session", "runtime_id": "runtime", "lease_id": "lease",
-            "room_id": "room-aaaaaaaaaaaaaaaaaa", "own_peer_id": "machine", "generation": generation,
-            "membership_epoch": 1, "policy_revision": 1, "deadline_ms": 1_000_000}
+    return {
+        "origin": "https://meet.invalid",
+        "tenant_id": "tenant",
+        "project_id": "project",
+        "task_id": "task",
+        "session_id": "session",
+        "runtime_id": "runtime",
+        "lease_id": "lease",
+        "room_id": "room-aaaaaaaaaaaaaaaaaa",
+        "own_peer_id": "machine",
+        "generation": generation,
+        "membership_epoch": 1,
+        "policy_revision": 1,
+        "deadline_ms": 1_000_000,
+    }
 
 
 def event(number, generation=1):
-    return {"cursor": number, "event": {"message_id": f"{number:032x}", "text": "synthetic",
-            "sender_peer_id": "human", "session_id": "session", "room_id": "room-aaaaaaaaaaaaaaaaaa",
-            "generation": generation, "membership_epoch": 1}}
+    return {
+        "cursor": number,
+        "event": {
+            "message_id": f"{number:032x}",
+            "text": "synthetic",
+            "sender_peer_id": "human",
+            "session_id": "session",
+            "room_id": "room-aaaaaaaaaaaaaaaaaa",
+            "generation": generation,
+            "membership_epoch": 1,
+        },
+    }
 
 
 def test_all_pages_are_admitted_without_ack_and_renewal_rebinds_current_scope():
@@ -39,9 +59,17 @@ def test_all_pages_are_admitted_without_ack_and_renewal_rebinds_current_scope():
         generation[0] += 1
 
     inbox = CompanionChatInbox()
-    pump = CompanionChatPump(inbox, status=lambda: {"joined": True}, open_chat=lambda: scope(generation[0]),
-                             poll=poll, redeliver=receipt, renew=renew, stopped=lambda: False, log=lambda _: None,
-                             clock=lambda: now[0])
+    pump = CompanionChatPump(
+        inbox,
+        status=lambda: {"joined": True},
+        open_chat=lambda: scope(generation[0]),
+        poll=poll,
+        redeliver=receipt,
+        renew=renew,
+        stopped=lambda: False,
+        log=lambda _: None,
+        clock=lambda: now[0],
+    )
     pump.step()
     assert calls == [0, 8, 16, 24] and inbox.cursor == 32
     # The renewed port reports its fence once, then accepts current pagination.
@@ -52,8 +80,10 @@ def test_all_pages_are_admitted_without_ack_and_renewal_rebinds_current_scope():
         if not raised[0]:
             raised[0] = True
             return original(cursor)
-        return {"schema": "ananta.meet-chat-batch.draft1", "events":
-                [event(i, generation[0]) for i in range(1, 33) if i > cursor][:8]}
+        return {
+            "schema": "ananta.meet-chat-batch.draft1",
+            "events": [event(i, generation[0]) for i in range(1, 33) if i > cursor][:8],
+        }
 
     pump.poll = renewed_poll
     now[0] = 41
@@ -74,9 +104,16 @@ def test_control_loss_escapes_message_handler_and_clears_all_held_input(failure)
 
     foreign = {**scope(), "project_id": "foreign"}
     logs = []
-    pump = CompanionChatPump(inbox, status=lambda: {"joined": True}, open_chat=lambda: foreign,
-                             poll=poll, redeliver=receipt, renew=lambda: None,
-                             stopped=lambda: failure == "stopped", log=logs.append)
+    pump = CompanionChatPump(
+        inbox,
+        status=lambda: {"joined": True},
+        open_chat=lambda: foreign,
+        poll=poll,
+        redeliver=receipt,
+        renew=lambda: None,
+        stopped=lambda: failure == "stopped",
+        log=logs.append,
+    )
     if failure == "revoked":
         pump.opened = True
     with pytest.raises(CompanionSessionEnded):
@@ -86,9 +123,16 @@ def test_control_loss_escapes_message_handler_and_clears_all_held_input(failure)
 
 def test_legacy_client_ignoring_cursor_cannot_silently_claim_continuous_polling():
     inbox = CompanionChatInbox()
-    pump = CompanionChatPump(inbox, status=lambda: {"joined": True}, open_chat=lambda: scope(),
-                             poll=lambda _cursor: {"schema": "ananta.meet-chat-batch.draft1", "events": [event(1)]},
-                             redeliver=receipt, renew=lambda: None, stopped=lambda: False, log=lambda _: None)
+    pump = CompanionChatPump(
+        inbox,
+        status=lambda: {"joined": True},
+        open_chat=lambda: scope(),
+        poll=lambda _cursor: {"schema": "ananta.meet-chat-batch.draft1", "events": [event(1)]},
+        redeliver=receipt,
+        renew=lambda: None,
+        stopped=lambda: False,
+        log=lambda _: None,
+    )
     with pytest.raises(CompanionSessionEnded):
         pump.step()
     assert not inbox.batch()["events"]
@@ -103,11 +147,20 @@ def test_redelivery_is_bounded_and_excludes_already_answered_inputs():
         return receipt(ids)
 
     pump = CompanionChatPump(
-        inbox, status=lambda: {"joined": True}, open_chat=lambda: scope(),
-        poll=lambda cursor: {"schema": "ananta.meet-chat-batch.draft1", "events":
-                             [event(i) for i in range(1, 33) if i > cursor][:8]},
-        redeliver=redeliver, reply_pending=lambda identity: identity not in answered,
-        renew=lambda: None, stopped=lambda: False, log=lambda _: None, clock=lambda: now[0])
+        inbox,
+        status=lambda: {"joined": True},
+        open_chat=lambda: scope(),
+        poll=lambda cursor: {
+            "schema": "ananta.meet-chat-batch.draft1",
+            "events": [event(i) for i in range(1, 33) if i > cursor][:8],
+        },
+        redeliver=redeliver,
+        reply_pending=lambda identity: identity not in answered,
+        renew=lambda: None,
+        stopped=lambda: False,
+        log=lambda _: None,
+        clock=lambda: now[0],
+    )
     pump.step()
     assert len(calls) == 1 and len(calls[0]) == 32
     answered.add(f"{1:032x}")
@@ -123,9 +176,17 @@ def test_redelivery_is_bounded_and_excludes_already_answered_inputs():
 def test_deferred_renewal_remains_due_and_retries_without_claiming_success():
     now = [0]
     renew = Mock(side_effect=[False, None])
-    pump = CompanionChatPump(CompanionChatInbox(), status=lambda: {"joined": True}, open_chat=lambda: scope(),
+    pump = CompanionChatPump(
+        CompanionChatInbox(),
+        status=lambda: {"joined": True},
+        open_chat=lambda: scope(),
         poll=lambda _cursor: {"schema": "ananta.meet-chat-batch.draft1", "events": []},
-        redeliver=receipt, renew=renew, stopped=lambda: False, log=lambda _: None, clock=lambda: now[0])
+        redeliver=receipt,
+        renew=renew,
+        stopped=lambda: False,
+        log=lambda _: None,
+        clock=lambda: now[0],
+    )
     now[0] = 41
     pump.step()
     assert pump.last_renew == 0 and renew.call_count == 1
@@ -152,9 +213,15 @@ def test_missing_or_invalid_current_redelivery_aborts_the_conversation(failure):
         return {**receipt(ids), "untrusted": "private content"}
 
     pump = CompanionChatPump(
-        inbox, status=lambda: {"joined": True}, open_chat=lambda: scope(),
+        inbox,
+        status=lambda: {"joined": True},
+        open_chat=lambda: scope(),
         poll=lambda cursor: {"schema": "ananta.meet-chat-batch.draft1", "events": [event(1)] if not cursor else []},
-        redeliver=redeliver, renew=lambda: None, stopped=lambda: False, log=logs.append)
+        redeliver=redeliver,
+        renew=lambda: None,
+        stopped=lambda: False,
+        log=logs.append,
+    )
     with pytest.raises(CompanionSessionEnded):
         pump.step()
     assert inbox.pending_message_ids() == []

@@ -158,9 +158,7 @@ class SfuRuntimeEnrollmentClient:
             idempotency_key,
         )
 
-    def _post(
-        self, path: str, payload: Mapping[str, object], idempotency_key: str
-    ) -> Mapping[str, object]:
+    def _post(self, path: str, payload: Mapping[str, object], idempotency_key: str) -> Mapping[str, object]:
         token = _read_secret(self._config.admin_token_file)
         try:
             response = self._session.post(

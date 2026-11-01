@@ -15,6 +15,7 @@ persists the chat settings itself when it changed the game. Adding a config
 key is one table entry (OCP); each rule is one small function or value object
 (SRP).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

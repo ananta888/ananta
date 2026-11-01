@@ -20,7 +20,6 @@ from tests.e2e.mail_ananta_composition_harness import (
     assert_reference_only_results,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SMOKE_KEYWORD = "ananta-provider-smoke"
 

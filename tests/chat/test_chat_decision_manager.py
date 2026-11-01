@@ -1,8 +1,9 @@
 """Tests for ChatDecisionManager — T05.01."""
+
 from __future__ import annotations
 
 import pytest
-from sqlmodel import SQLModel, Session, delete
+from sqlmodel import Session, SQLModel, delete
 
 from agent.database import engine
 from agent.db_models import DecisionTraceDB, HeuristicDecisionLeaseDB
@@ -25,9 +26,17 @@ def _fresh_db():
 
 def _make_heuristic():
     return HeuristicDefinition(
-        heuristic_id="chat-select-v1", version="1.0.0", domain="chat_codecompass",
-        strategy_kind="context_select", description="test", deterministic=True,
-        safety_class="bounded", capabilities=(), inputs=(), outputs=(), parameters={},
+        heuristic_id="chat-select-v1",
+        version="1.0.0",
+        domain="chat_codecompass",
+        strategy_kind="context_select",
+        description="test",
+        deterministic=True,
+        safety_class="bounded",
+        capabilities=(),
+        inputs=(),
+        outputs=(),
+        parameters={},
     )
 
 
@@ -42,6 +51,7 @@ def _make_manager(policy_check=None):
     mgr = ChatDecisionManager(lease_repo=lease_repo, trace_repo=trace_repo, policy_check=policy_check)
     mgr._registry = reg
     from agent.services.heuristic_runtime.lease_reevaluation_service import LeaseReevaluationService
+
     mgr._reeval = LeaseReevaluationService(repo=lease_repo, registry=reg)
     return mgr
 
@@ -56,6 +66,7 @@ def _ctx(ai_status="offline", goal=None, artifacts=None):
 
 
 # ── basic decide ──────────────────────────────────────────────────────────────
+
 
 def test_decide_heuristic_when_ai_offline():
     mgr = _make_manager()
@@ -90,8 +101,11 @@ def test_decide_enriches_with_intent_reason_code():
 
 # ── policy gate ───────────────────────────────────────────────────────────────
 
+
 def test_policy_denied_blocks_decision():
-    def deny_all(q, ctx): return False, "blocked_by_policy"
+    def deny_all(q, ctx):
+        return False, "blocked_by_policy"
+
     mgr = _make_manager(policy_check=deny_all)
     result = mgr.decide("anything", _ctx())
     assert result.action_kind == "policy_denied"
@@ -99,7 +113,9 @@ def test_policy_denied_blocks_decision():
 
 
 def test_policy_allowed_proceeds():
-    def allow_all(q, ctx): return True, ""
+    def allow_all(q, ctx):
+        return True, ""
+
     mgr = _make_manager(policy_check=allow_all)
     result = mgr.decide("was macht das", _ctx(ai_status="offline"))
     assert result.action_kind != "policy_denied"
@@ -107,12 +123,14 @@ def test_policy_allowed_proceeds():
 
 # ── late AI response ──────────────────────────────────────────────────────────
 
+
 def test_late_ai_response_discarded_when_context_changed():
     mgr = _make_manager()
     ctx1 = _ctx(ai_status="available")
     mgr.decide("explain", ctx1)  # sets last_context_hash = ctx1.context_hash
 
     from agent.services.heuristic_runtime.decision_result import DecisionResult
+
     ai_result = DecisionResult(action_kind="chat", confidence=0.9, source="ai")
 
     # Simulate context change — use a different context
@@ -129,12 +147,14 @@ def test_late_ai_response_accepted_when_still_waiting():
     mgr.decide("explain", ctx)  # ai available → waiting_ai state
 
     from agent.services.heuristic_runtime.decision_result import DecisionResult
+
     ai_result = DecisionResult(action_kind="chat", confidence=0.9, source="ai")
     accepted = mgr.handle_late_ai_response(ai_result, original_context_hash=ctx.context_hash)
     assert accepted
 
 
 # ── state machine ─────────────────────────────────────────────────────────────
+
 
 def test_initial_state_is_waiting_ai():
     mgr = _make_manager()
@@ -150,6 +170,7 @@ def test_state_transitions_to_heuristic_on_offline():
 
 # ── metrics ───────────────────────────────────────────────────────────────────
 
+
 def test_metrics_accumulate_after_decisions():
     mgr = _make_manager()
     mgr.decide("erkläre", _ctx(ai_status="offline"))
@@ -160,6 +181,7 @@ def test_metrics_accumulate_after_decisions():
 
 
 # ── trace persistence ─────────────────────────────────────────────────────────
+
 
 def test_trace_persisted_after_decide():
     mgr = _make_manager()

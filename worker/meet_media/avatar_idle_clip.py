@@ -46,12 +46,12 @@ def _boxes(data, start, end):
     """Yield ``(type, header_end, box_end)`` for the boxes in ``data[start:end]``."""
     offset = start
     while offset + 8 <= end:
-        size, kind = struct.unpack(">I4s", data[offset:offset + 8])
+        size, kind = struct.unpack(">I4s", data[offset : offset + 8])
         header = 8
         if size == 1:
             if offset + 16 > end:
                 raise IdleClipError("meet_avatar_idle_clip_invalid", "truncated largesize")
-            size = struct.unpack(">Q", data[offset + 8:offset + 16])[0]
+            size = struct.unpack(">Q", data[offset + 8 : offset + 16])[0]
             header = 16
         elif size == 0:
             size = end - offset
@@ -85,12 +85,12 @@ def mp4_frame_count(data):
         if kind != b"trak":
             continue
         handler = _find(data, body, box_end, (b"mdia", b"hdlr"))
-        if handler is None or data[handler[0] + 8:handler[0] + 12] != b"vide":
+        if handler is None or data[handler[0] + 8 : handler[0] + 12] != b"vide":
             continue
         stsz = _find(data, body, box_end, (b"mdia", b"minf", b"stbl", b"stsz"))
         if stsz is None or stsz[1] - stsz[0] < 12:
             raise IdleClipError("meet_avatar_idle_clip_invalid", "no stsz")
-        return struct.unpack(">I", data[stsz[0] + 8:stsz[0] + 12])[0]
+        return struct.unpack(">I", data[stsz[0] + 8 : stsz[0] + 12])[0]
     raise IdleClipError("meet_avatar_idle_clip_invalid", "no video track")
 
 

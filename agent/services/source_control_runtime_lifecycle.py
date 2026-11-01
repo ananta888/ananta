@@ -115,18 +115,12 @@ class SourceControlIndexLifecycleCommands:
                 "scope": [actor.tenant_id, actor.project_id, actor.subject_id],
             }
         )
-        key = operation_key(
-            "lifecycle", actor.tenant_id, idempotency_key
-        )
-        claim = self._idempotency.claim(
-            idempotency_key=key, plan_digest=request_digest
-        )
+        key = operation_key("lifecycle", actor.tenant_id, idempotency_key)
+        claim = self._idempotency.claim(idempotency_key=key, plan_digest=request_digest)
         if claim.state == "completed":
             return dict(claim.result or {})
         if claim.state == "in_progress":
-            raise SourceControlApiRuntimeError(
-                "idempotency_in_progress", status_code=409
-            )
+            raise SourceControlApiRuntimeError("idempotency_in_progress", status_code=409)
         scope = lifecycle_scope(principal)
         if operation in {"activate", "rollback"}:
             generation = _etag_number(if_match, "active")
@@ -149,9 +143,7 @@ class SourceControlIndexLifecycleCommands:
                 "result": wire(pointer),
             }
         elif operation == "disable":
-            projection = self._projection.get(
-                principal=actor, connection_id=resource_id
-            )
+            projection = self._projection.get(principal=actor, connection_id=resource_id)
             self._projection.assert_if_match(projection, if_match)
             version = self._reads.connection_version(
                 tenant_id=actor.tenant_id,
@@ -201,9 +193,7 @@ class SourceControlIndexLifecycleCommands:
                 "result": {"purged": True},
             }
         else:
-            raise SourceControlApiRuntimeError(
-                "source_control_operation_invalid"
-            )
+            raise SourceControlApiRuntimeError("source_control_operation_invalid")
         self._idempotency.complete(
             idempotency_key=key,
             plan_digest=request_digest,
@@ -211,9 +201,7 @@ class SourceControlIndexLifecycleCommands:
         )
         return result
 
-    def bulk_plan(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def bulk_plan(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         mutation, targets = parse_bulk_request(payload)
         actor = runtime_principal(principal)
         return wire(
@@ -255,17 +243,13 @@ class SourceControlIndexLifecycleCommands:
             service.execute(
                 plan=plan,
                 supplied_plan_digest=supplied,
-                idempotency_key=operation_key(
-                    "bulk", actor.tenant_id, idempotency_key
-                ),
+                idempotency_key=operation_key("bulk", actor.tenant_id, idempotency_key),
             )
         )
         result.pop("schema", None)
         return result
 
-    def _bulk(
-        self, actor: SourceControlPrincipal
-    ) -> SourceControlBulkService:
+    def _bulk(self, actor: SourceControlPrincipal) -> SourceControlBulkService:
         return SourceControlBulkService(
             authorization=BulkProjectionAuthorization(self._projection, actor),
             mutations=BulkLifecycleMutation(
@@ -289,9 +273,7 @@ class SourceControlIndexLifecycleCommands:
             knowledge_index_id=knowledge_index_id,
         )
         if if_match != self._reads.index_etag(version):
-            raise SourceControlApiRuntimeError(
-                "index_version_conflict", status_code=412
-            )
+            raise SourceControlApiRuntimeError("index_version_conflict", status_code=412)
         return version
 
 
@@ -306,13 +288,7 @@ def _etag_number(value: str, namespace: str) -> int:
     try:
         parsed = int(normalized)
     except ValueError as exc:
-        raise SourceControlApiRuntimeError(
-            "if_match_invalid", status_code=412
-        ) from exc
+        raise SourceControlApiRuntimeError("if_match_invalid", status_code=412) from exc
     if parsed < 0:
-        raise SourceControlApiRuntimeError(
-            "if_match_invalid", status_code=412
-        )
+        raise SourceControlApiRuntimeError("if_match_invalid", status_code=412)
     return parsed
-
-

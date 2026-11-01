@@ -27,9 +27,7 @@ SENTINEL_CATEGORIES = frozenset(
         "sdp_ice",
     }
 )
-REQUIRED_SURFACES = frozenset(
-    {"hub", "sfu", "turn", "browser", "metrics", "trace", "crashdump", "test_artifact"}
-)
+REQUIRED_SURFACES = frozenset({"hub", "sfu", "turn", "browser", "metrics", "trace", "crashdump", "test_artifact"})
 ALLOWED_FORMATS = frozenset(
     {"text_log", "json_log", "openmetrics", "otel_json", "browser_json", "binary_dump", "artifact_json"}
 )

@@ -6,6 +6,7 @@ the single-shot review dispatch then failed with ``worker_review_answer_missing`
 These tests pin the worker-side gate (materialize / force / bound) and the hub-side
 condition that defers ``collect_review`` for another round.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,9 +25,10 @@ FINAL_ANSWER_REPORT = "Tool 'final_answer': Erfolg\nOutput: " + repr({"answer": 
 
 
 def test_gate_ignores_every_other_task_kind(tmp_path):
-    assert enforce_review_answer_gate(
-        task_kind="coding", workspace=tmp_path, task_id="t", output=FINAL_ANSWER_REPORT
-    ) is None
+    assert (
+        enforce_review_answer_gate(task_kind="coding", workspace=tmp_path, task_id="t", output=FINAL_ANSWER_REPORT)
+        is None
+    )
     assert not (tmp_path / ".ananta").exists()
     assert review_answer_rounds(tmp_path) == 0
 
@@ -49,9 +51,7 @@ def test_gate_materializes_when_the_command_report_follows_the_answer(tmp_path):
     """The executor joins command and tool parts with '---': the end-anchored
     report regex misses, the raw verdict scan must still materialize."""
     combined = FINAL_ANSWER_REPORT + "\n---\n7 passed in 0.12s"
-    gate = enforce_review_answer_gate(
-        task_kind="gate_review", workspace=tmp_path, task_id="task-1", output=combined
-    )
+    gate = enforce_review_answer_gate(task_kind="gate_review", workspace=tmp_path, task_id="task-1", output=combined)
     assert gate is None
     assert review_answer_present(tmp_path) is True
     assert review_answer_rounds(tmp_path) == 0
@@ -91,9 +91,12 @@ def test_gate_forces_bounded_further_rounds_without_an_answer(tmp_path):
         )
         assert gate == {"status": "todo", "reason_code": "review_answer_required", "round": expected_round}
     # exhausted: completion falls through to the honest answer_missing downstream
-    assert enforce_review_answer_gate(
-        task_kind="gate_review", workspace=tmp_path, task_id="task-1", output="I read the files. Done."
-    ) is None
+    assert (
+        enforce_review_answer_gate(
+            task_kind="gate_review", workspace=tmp_path, task_id="task-1", output="I read the files. Done."
+        )
+        is None
+    )
     assert review_answer_present(tmp_path) is False
 
 
@@ -101,9 +104,7 @@ def test_gate_passes_when_the_loop_already_wrote_the_artifact(tmp_path):
     from agent.services.self_development.final_answer_artifact import write_final_answer
 
     assert write_final_answer(tmp_path, task_id="task-1", answer=VERDICT) is True
-    gate = enforce_review_answer_gate(
-        task_kind="gate_review", workspace=tmp_path, task_id="task-1", output=""
-    )
+    gate = enforce_review_answer_gate(task_kind="gate_review", workspace=tmp_path, task_id="task-1", output="")
     assert gate is None
     assert review_answer_rounds(tmp_path) == 0
 

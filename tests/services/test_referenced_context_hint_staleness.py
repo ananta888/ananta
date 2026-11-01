@@ -7,40 +7,36 @@ Key invariants tested:
 4. Deterministic generator works without LLM key.
 5. Stale hint excluded from authoritative tasks.
 """
+
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
 
 import pytest
 
+from agent.services.referenced_context_hint_generators import (
+    DeterministicHintGenerator,
+    HybridHintGenerator,
+    LlmHintGenerator,
+    ManualHintImporter,
+)
 from agent.services.referenced_context_hint_schema import (
     GEN_DETERMINISTIC,
     GEN_LLM,
     GEN_MANUAL,
     KIND_FILE_SUMMARY,
-    KIND_SYMBOL_HINT,
     KIND_TEST_HINT,
     STALENESS_FRESH,
-    STALENESS_INVALID,
-    STALENESS_POSSIBLY_STALE,
     STALENESS_STALE,
     GeneratorMetadata,
     HashMetadata,
     HintValidationError,
     ReferencedContextHint,
     SourceRef,
-    ValidityMetadata,
     make_hint_id,
 )
-from agent.services.referenced_context_hint_store import ReferencedContextHintStore
-from agent.services.referenced_context_hint_generators import (
-    DeterministicHintGenerator,
-    LlmHintGenerator,
-    ManualHintImporter,
-    HybridHintGenerator,
-)
 from agent.services.referenced_context_hint_service import ReferencedContextHintService
+from agent.services.referenced_context_hint_store import ReferencedContextHintStore
 
 
 def tmp_store() -> ReferencedContextHintStore:
@@ -52,6 +48,7 @@ def tmp_svc(store=None) -> ReferencedContextHintService:
 
 
 # ── KEY INVARIANT 1: Unreferenced hint rejected ───────────────────────────────
+
 
 def test_unreferenced_non_manual_hint_rejected():
     """Non-manual hint with no source_refs or codecompass_refs → HintValidationError."""
@@ -72,21 +69,24 @@ def test_manual_hint_without_refs_allowed_for_domain_scope():
     """Manual hint with domain scope may omit source_refs."""
     store = tmp_store()
     importer = ManualHintImporter(require_source_refs=False)
-    h = importer.import_hint({
-        "id": "hint:domain_summary:auth:manual001",
-        "kind": "domain_summary",
-        "title": "Auth domain",
-        "summary": "Auth handles login, OAuth, MFA flows.",
-        "source_refs": [],
-        "generator": {"kind": "manual"},
-        "validity": {"scope": "domain", "valid_for_tasks": ["navigation"], "not_valid_for": []},
-        "confidence": {"score": 0.7},
-    })
+    h = importer.import_hint(
+        {
+            "id": "hint:domain_summary:auth:manual001",
+            "kind": "domain_summary",
+            "title": "Auth domain",
+            "summary": "Auth handles login, OAuth, MFA flows.",
+            "source_refs": [],
+            "generator": {"kind": "manual"},
+            "validity": {"scope": "domain", "valid_for_tasks": ["navigation"], "not_valid_for": []},
+            "confidence": {"score": 0.7},
+        }
+    )
     store.put(h)
     assert store.get(h.id) is not None
 
 
 # ── KEY INVARIANT 2: Hint improves ranking ────────────────────────────────────
+
 
 def test_hint_can_improve_candidate_ranking():
     """hints_for_candidates returns hints sorted by confidence — high-confidence hints first."""
@@ -125,6 +125,7 @@ def test_hint_can_improve_candidate_ranking():
 
 
 # ── KEY INVARIANT 3: Original source wins ─────────────────────────────────────
+
 
 def test_stale_hint_excluded_from_authoritative_task():
     """Stale hint not returned for 'authoritative_code_review'."""
@@ -176,6 +177,7 @@ def test_fresh_hint_valid_for_navigation():
 
 # ── KEY INVARIANT 4: Deterministic generator without LLM ──────────────────────
 
+
 def test_deterministic_generator_produces_file_summary(tmp_path):
     py_file = tmp_path / "my_module.py"
     py_file.write_text(
@@ -205,9 +207,7 @@ def test_deterministic_generator_produces_symbol_hints(tmp_path):
 
 def test_deterministic_generator_produces_test_hint(tmp_path):
     test_file = tmp_path / "test_foo.py"
-    test_file.write_text(
-        "def test_one(): pass\ndef test_two(): pass\ndef test_three(): pass\n"
-    )
+    test_file.write_text("def test_one(): pass\ndef test_two(): pass\ndef test_three(): pass\n")
     gen = DeterministicHintGenerator()
     hint = gen.generate_test_hint(test_file, workspace_root=tmp_path)
     assert hint is not None
@@ -223,6 +223,7 @@ def test_deterministic_generator_nonexistent_file():
 
 # ── Manual hint importer ──────────────────────────────────────────────────────
 
+
 def test_manual_hint_importer_accepts_valid():
     importer = ManualHintImporter(owner="dev@example.com")
     raw = {
@@ -232,9 +233,11 @@ def test_manual_hint_importer_accepts_valid():
         "summary": "This file handles the core loop.",
         "source_refs": [{"path": "agent/foo.py", "sha256": "abc"}],
         "generator": {"kind": "manual"},
-        "validity": {"scope": "file", "valid_for_tasks": ["navigation"],
-                     "not_valid_for": ["authoritative_code_review",
-                                        "security_claim_without_original_source"]},
+        "validity": {
+            "scope": "file",
+            "valid_for_tasks": ["navigation"],
+            "not_valid_for": ["authoritative_code_review", "security_claim_without_original_source"],
+        },
         "confidence": {"score": 0.8},
     }
     hint = importer.import_hint(raw)
@@ -268,9 +271,11 @@ def test_manual_hint_import_many():
             "summary": f"Auth note {i}.",
             "source_refs": [],
             "generator": {"kind": "manual"},
-            "validity": {"scope": "domain", "valid_for_tasks": ["navigation"],
-                         "not_valid_for": ["authoritative_code_review",
-                                            "security_claim_without_original_source"]},
+            "validity": {
+                "scope": "domain",
+                "valid_for_tasks": ["navigation"],
+                "not_valid_for": ["authoritative_code_review", "security_claim_without_original_source"],
+            },
             "confidence": {"score": 0.7},
         }
         for i in range(3)
@@ -281,6 +286,7 @@ def test_manual_hint_import_many():
 
 
 # ── LLM generator (disabled / no generate_fn) ────────────────────────────────
+
 
 def test_llm_generator_returns_none_when_not_allowed():
     gen = LlmHintGenerator(generate_fn=None, policy_allows_llm=False)
@@ -299,6 +305,7 @@ def test_llm_generator_uses_fn(tmp_path):
     py_file.write_text("# subject\ndef foo(): pass\n")
 
     calls: list[str] = []
+
     def fake_generate(prompt: str) -> str:
         calls.append(prompt)
         return "This module provides the foo utility."
@@ -314,6 +321,7 @@ def test_llm_generator_uses_fn(tmp_path):
 
 # ── Hybrid generator ──────────────────────────────────────────────────────────
 
+
 def test_hybrid_falls_back_to_deterministic_when_no_llm(tmp_path):
     py_file = tmp_path / "hybrid.py"
     py_file.write_text("class HybridClass:\n    pass\n")
@@ -325,6 +333,7 @@ def test_hybrid_falls_back_to_deterministic_when_no_llm(tmp_path):
 
 def test_hybrid_marks_as_hybrid_when_llm_available(tmp_path):
     from agent.services.referenced_context_hint_generators import GEN_HYBRID
+
     py_file = tmp_path / "hybrid2.py"
     py_file.write_text("class Foo:\n    pass\n")
 
@@ -340,9 +349,10 @@ def test_hybrid_marks_as_hybrid_when_llm_available(tmp_path):
 
 # ── Service: generate_and_store ───────────────────────────────────────────────
 
+
 def test_service_generate_and_store(tmp_path):
     py_file = tmp_path / "svc_target.py"
-    py_file.write_text("class SvcClass:\n    \"\"\"SvcClass docstring.\"\"\"\n    pass\n")
+    py_file.write_text('class SvcClass:\n    """SvcClass docstring."""\n    pass\n')
     store = tmp_store()
     svc = ReferencedContextHintService(store=store, workspace_root=tmp_path)
     hint = svc.generate_and_store(py_file, kind=KIND_FILE_SUMMARY)
@@ -358,6 +368,7 @@ def test_service_generate_nonexistent_returns_none():
 
 
 # ── Service: on_files_changed ─────────────────────────────────────────────────
+
 
 def test_service_on_files_changed_marks_stale(tmp_path):
     py_file = tmp_path / "changing.py"
@@ -378,14 +389,20 @@ def test_service_on_files_changed_marks_stale(tmp_path):
 
 # ── Service: build_hints_prompt_section ──────────────────────────────────────
 
+
 def test_build_hints_prompt_section_non_empty():
     svc = tmp_svc()
     hints = [
         {
-            "hint_id": "h1", "kind": KIND_FILE_SUMMARY, "title": "Foo summary",
-            "summary": "Foo does bar.", "source_paths": ["agent/foo.py"],
-            "generator_kind": GEN_DETERMINISTIC, "staleness_status": STALENESS_FRESH,
-            "confidence": 0.9, "requires_human_review": False,
+            "hint_id": "h1",
+            "kind": KIND_FILE_SUMMARY,
+            "title": "Foo summary",
+            "summary": "Foo does bar.",
+            "source_paths": ["agent/foo.py"],
+            "generator_kind": GEN_DETERMINISTIC,
+            "staleness_status": STALENESS_FRESH,
+            "confidence": 0.9,
+            "requires_human_review": False,
         }
     ]
     section = svc.build_hints_prompt_section(hints)
@@ -404,10 +421,15 @@ def test_build_hints_prompt_section_truncates_at_max_chars():
     svc = tmp_svc()
     hints = [
         {
-            "hint_id": f"h{i}", "kind": KIND_FILE_SUMMARY, "title": f"Module {i}",
-            "summary": "A" * 300, "source_paths": [f"agent/file{i}.py"],
-            "generator_kind": GEN_DETERMINISTIC, "staleness_status": STALENESS_FRESH,
-            "confidence": 0.8, "requires_human_review": False,
+            "hint_id": f"h{i}",
+            "kind": KIND_FILE_SUMMARY,
+            "title": f"Module {i}",
+            "summary": "A" * 300,
+            "source_paths": [f"agent/file{i}.py"],
+            "generator_kind": GEN_DETERMINISTIC,
+            "staleness_status": STALENESS_FRESH,
+            "confidence": 0.8,
+            "requires_human_review": False,
         }
         for i in range(10)
     ]
@@ -417,6 +439,7 @@ def test_build_hints_prompt_section_truncates_at_max_chars():
 
 # ── ChatPromptBuilder integration ─────────────────────────────────────────────
 
+
 def test_prompt_builder_includes_hints_section():
     from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
     from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder
@@ -424,10 +447,15 @@ def test_prompt_builder_includes_hints_section():
     memory = ChatMemoryContext(recent_turns=[])
     hints = [
         {
-            "hint_id": "h1", "kind": KIND_FILE_SUMMARY, "title": "Auth module",
-            "summary": "Handles authentication.", "source_paths": ["agent/auth.py"],
-            "generator_kind": GEN_DETERMINISTIC, "staleness_status": STALENESS_FRESH,
-            "confidence": 0.85, "requires_human_review": False,
+            "hint_id": "h1",
+            "kind": KIND_FILE_SUMMARY,
+            "title": "Auth module",
+            "summary": "Handles authentication.",
+            "source_paths": ["agent/auth.py"],
+            "generator_kind": GEN_DETERMINISTIC,
+            "staleness_status": STALENESS_FRESH,
+            "confidence": 0.85,
+            "requires_human_review": False,
         }
     ]
     builder = ChatPromptBuilder(
@@ -447,10 +475,19 @@ def test_prompt_builder_worker_v2_includes_hints():
     from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder
 
     memory = ChatMemoryContext(recent_turns=[])
-    hints = [{"hint_id": "h1", "kind": KIND_FILE_SUMMARY, "title": "Foo",
-               "summary": "Foo.", "source_paths": ["foo.py"],
-               "generator_kind": GEN_DETERMINISTIC, "staleness_status": STALENESS_FRESH,
-               "confidence": 0.8, "requires_human_review": False}]
+    hints = [
+        {
+            "hint_id": "h1",
+            "kind": KIND_FILE_SUMMARY,
+            "title": "Foo",
+            "summary": "Foo.",
+            "source_paths": ["foo.py"],
+            "generator_kind": GEN_DETERMINISTIC,
+            "staleness_status": STALENESS_FRESH,
+            "confidence": 0.8,
+            "requires_human_review": False,
+        }
+    ]
     builder = ChatPromptBuilder(question="?", depth="overview", memory=memory, derived_hints=hints)
     result = builder.build()
     assert "derived_context_hints" in result.worker_v2_payload
@@ -469,8 +506,10 @@ def test_prompt_builder_no_hints_works_without_hints():
 
 # ── CodeCompass integration: derived_context_hints ────────────────────────────
 
+
 def test_codecompass_resolve_context_has_derived_hints_key():
     from agent.services.codecompass_context_service import CodeCompassContextService
+
     svc = CodeCompassContextService()
     result = svc.resolve_context(query="what does foo do?")
     assert "derived_context_hints" in result

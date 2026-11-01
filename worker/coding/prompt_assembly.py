@@ -43,10 +43,9 @@ def _context_chunk_entry(value: Any) -> dict[str, Any]:
         record_id = str(metadata.get("record_id") or value.get("record_id") or "").strip()
         relation_path = str(metadata.get("relation_path") or "").strip()
         expanded_from = str(metadata.get("expanded_from") or "").strip()
-        group = str(
-            metadata.get("group")
-            or ("expanded_neighbor" if expanded_from else "seed")
-        ).strip().lower() or "seed"
+        group = (
+            str(metadata.get("group") or ("expanded_neighbor" if expanded_from else "seed")).strip().lower() or "seed"
+        )
         label_parts = [part for part in [engine, source, record_id] if part]
         if relation_path:
             label_parts.append(f"path={relation_path}")
@@ -92,7 +91,11 @@ def assemble_coding_prompt(
     execution_profile: str | None = "balanced",
 ) -> dict[str, Any]:
     normalized_profile = normalize_execution_profile(execution_profile)
-    bounded_context_limit = int(max_context_chars) if max_context_chars is not None else prompt_context_chars_for_profile(normalized_profile)
+    bounded_context_limit = (
+        int(max_context_chars)
+        if max_context_chars is not None
+        else prompt_context_chars_for_profile(normalized_profile)
+    )
     if bounded_context_limit <= 0:
         raise ValueError("max_context_chars_must_be_positive")
     normalized_context_hash = str(context_hash).strip()
@@ -112,7 +115,7 @@ def assemble_coding_prompt(
         if guardrail_reason:
             if bool(entry.get("is_structured")):
                 quoted_untrusted_chunks += 1
-                clean = f"[UNTRUSTED_DATA:{guardrail_reason}] \"{clean}\""
+                clean = f'[UNTRUSTED_DATA:{guardrail_reason}] "{clean}"'
             else:
                 blocked_chunks.append({"reason": guardrail_reason, "preview": clean[:160]})
                 continue
@@ -143,14 +146,18 @@ def assemble_coding_prompt(
     task_text = _redact(str(task))
     expected_schema_text = _redact(str(expected_output_schema))
     context_text = _grouped_context(bounded_seed_chunks, bounded_neighbor_chunks)
-    trace_data = quote_context_data(
-        str(dict(retrieval_trace)), max_chars=4096, source_type="descriptive_retrieval_trace",
-    ) if retrieval_trace else None
+    trace_data = (
+        quote_context_data(
+            str(dict(retrieval_trace)),
+            max_chars=4096,
+            source_type="descriptive_retrieval_trace",
+        )
+        if retrieval_trace
+        else None
+    )
     retrieval_summary = trace_data.text if trace_data else "- none"
     guardrail_summary = (
-        f"- blocked_context_chunks={len(blocked_chunks)}"
-        if blocked_chunks
-        else "- blocked_context_chunks=0"
+        f"- blocked_context_chunks={len(blocked_chunks)}" if blocked_chunks else "- blocked_context_chunks=0"
     )
     prompt = (
         "You are Ananta native coding worker.\n"
@@ -182,7 +189,9 @@ def assemble_coding_prompt(
             "blocked_context_chunks": len(blocked_chunks),
             "quoted_untrusted_chunks": int(quoted_untrusted_chunks),
             "context_guard_status": "degraded" if blocked_chunks else "ok",
-            "blocked_context_reasons": sorted({str(item.get("reason") or "") for item in blocked_chunks if item.get("reason")}),
+            "blocked_context_reasons": sorted(
+                {str(item.get("reason") or "") for item in blocked_chunks if item.get("reason")}
+            ),
             "retrieval_trace_present": bool(retrieval_trace),
         },
     }

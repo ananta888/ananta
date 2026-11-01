@@ -1,4 +1,5 @@
 """Shared hub-owned state and request policy for snake route modules."""
+
 from __future__ import annotations
 
 import threading
@@ -42,10 +43,7 @@ def _is_local_request() -> bool:
     production workflow profile.
     """
 
-    if (
-        not settings.snake_local_dev_auth_bypass
-        or settings.workflow_require_registered_worker_auth
-    ):
+    if not settings.snake_local_dev_auth_bypass or settings.workflow_require_registered_worker_auth:
         return False
     remote = request.remote_addr or ""
     try:
@@ -173,12 +171,7 @@ def _request_device_id() -> str:
 
 def _chat_principal_from_auth(auth: dict[str, Any]) -> ChatSessionPrincipal | None:
     subject = auth.get("sub") or auth.get("username") or ""
-    tenant_id = (
-        auth.get("tenant_id")
-        or auth.get("tenant")
-        or auth.get("organization_id")
-        or subject
-    )
+    tenant_id = auth.get("tenant_id") or auth.get("tenant") or auth.get("organization_id") or subject
     try:
         return ChatSessionPrincipal.from_values(tenant_id, subject)
     except (IdentityValidationError, ValueError):

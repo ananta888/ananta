@@ -46,10 +46,14 @@ def test_pre_model_context_and_curation_budgets(window, tokens):
     budgets = window(tokens)
     scale = tokens // 32768
     assert PreModelContextConfig.from_raw({}).context_budget_chars == 12000 * scale
-    assert PreModelContextConfig.from_raw({"pre_model_context": {"context_budget_chars": 12000}}) \
-        .context_budget_chars == 12000 * scale
-    assert PreModelContextConfig.from_raw({"pre_model_context": {"context_budget_chars": 5000}}) \
-        .context_budget_chars == 5000
+    assert (
+        PreModelContextConfig.from_raw({"pre_model_context": {"context_budget_chars": 12000}}).context_budget_chars
+        == 12000 * scale
+    )
+    assert (
+        PreModelContextConfig.from_raw({"pre_model_context": {"context_budget_chars": 5000}}).context_budget_chars
+        == 5000
+    )
     assert CurationPolicy(allowed_paths=[], denied_paths=[]).budget_chars == min(40000 * scale, budgets.available * 4)
     assert CurationPolicy(allowed_paths=[], denied_paths=[], budget_chars=9000).budget_chars == 9000
 
@@ -77,10 +81,16 @@ def test_worker_batch_sizes(window, tokens):
 
     window(tokens)
     scale = tokens // 32768
-    per_file = _window_worker_chars("ananta_worker_context_per_file_chars", share="worker_file",
-                                    legacy="worker_file_chars", lo=500, hi=40_000)
-    snippet = _window_worker_chars("ananta_worker_context_max_snippet_chars", share="worker_snippet",
-                                   legacy="worker_snippet_chars", lo=200, hi=40_000)
+    per_file = _window_worker_chars(
+        "ananta_worker_context_per_file_chars", share="worker_file", legacy="worker_file_chars", lo=500, hi=40_000
+    )
+    snippet = _window_worker_chars(
+        "ananta_worker_context_max_snippet_chars",
+        share="worker_snippet",
+        legacy="worker_snippet_chars",
+        lo=200,
+        hi=40_000,
+    )
     assert (per_file, snippet) == (4000 * scale, 8000 * scale)
 
 
@@ -90,12 +100,20 @@ def test_snake_rag_budgets(tokens):
 
     scale = tokens // 32768
     budgets = ContextBudgets(tokens)
-    assert _window_chars(20000, window_tokens=tokens, share="snake_catalog", legacy="snake_catalog_chars",
-                         minimum=5000) == 20000 * scale
-    assert _window_chars(9000, window_tokens=tokens, share="snake_catalog", legacy="snake_catalog_chars",
-                         minimum=5000) == 9000
-    assert _window_chars(10_000_000, window_tokens=tokens, share="snake_tool_file",
-                         legacy="snake_tool_file_chars", minimum=4000) == budgets.available * 4
+    assert (
+        _window_chars(20000, window_tokens=tokens, share="snake_catalog", legacy="snake_catalog_chars", minimum=5000)
+        == 20000 * scale
+    )
+    assert (
+        _window_chars(9000, window_tokens=tokens, share="snake_catalog", legacy="snake_catalog_chars", minimum=5000)
+        == 9000
+    )
+    assert (
+        _window_chars(
+            10_000_000, window_tokens=tokens, share="snake_tool_file", legacy="snake_tool_file_chars", minimum=4000
+        )
+        == budgets.available * 4
+    )
 
 
 @pytest.mark.parametrize("tokens", WINDOWS)
@@ -118,5 +136,9 @@ def test_recommendations_and_wizard_use_the_profiles():
     gpu = recommend_runtime_profile(RuntimeRecommendationRequest(environment="nvidia-gpu"))
     assert (cpu.context_window_tokens, cpu.rag_budget_tokens) == (32768, 12288)
     assert (gpu.context_window_tokens, gpu.rag_budget_tokens) == (65536, 32768)
-    assert [nearest_profile(value) for value in (8000, 32768, 65536, 200_000)] == \
-        ["compact_12k", "standard_32k", "full_64k", "extended_128k"]
+    assert [nearest_profile(value) for value in (8000, 32768, 65536, 200_000)] == [
+        "compact_12k",
+        "standard_32k",
+        "full_64k",
+        "extended_128k",
+    ]

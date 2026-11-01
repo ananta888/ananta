@@ -48,7 +48,9 @@ class ResearchContextBridgeService:
         _, _, document = get_ingestion_service().extract_artifact(artifact_id)
         return document
 
-    def _artifact_context(self, artifact_ids: list[str], *, include_extracted_text: bool, per_item_limit: int) -> list[dict]:
+    def _artifact_context(
+        self, artifact_ids: list[str], *, include_extracted_text: bool, per_item_limit: int
+    ) -> list[dict]:
         repos = get_repository_registry()
         items: list[dict] = []
         for artifact_id in artifact_ids:
@@ -74,7 +76,9 @@ class ResearchContextBridgeService:
             )
         return items
 
-    def _knowledge_context(self, collection_ids: list[str], *, query: str, top_k: int, per_item_limit: int) -> list[dict]:
+    def _knowledge_context(
+        self, collection_ids: list[str], *, query: str, top_k: int, per_item_limit: int
+    ) -> list[dict]:
         repos = get_repository_registry()
         retrieval = get_knowledge_index_retrieval_service()
         items: list[dict] = []
@@ -87,11 +91,13 @@ class ResearchContextBridgeService:
                 str(link.artifact_id)
                 for link in links
                 if getattr(link, "artifact_id", None)
-                and is_artifact_visible_on_generic_surfaces(
-                    repos.artifact_repo.get_by_id(str(link.artifact_id))
-                )
+                and is_artifact_visible_on_generic_surfaces(repos.artifact_repo.get_by_id(str(link.artifact_id)))
             }
-            chunks = retrieval.search(query, top_k=max(1, top_k), artifact_ids=artifact_ids) if artifact_ids and query else []
+            chunks = (
+                retrieval.search(query, top_k=max(1, top_k), artifact_ids=artifact_ids)
+                if artifact_ids and query
+                else []
+            )
             items.append(
                 {
                     "collection_id": collection.id,
@@ -117,11 +123,13 @@ class ResearchContextBridgeService:
     def _auto_index_cfg() -> dict:
         try:
             from flask import current_app, has_app_context
+
             if has_app_context():
                 return dict(
                     (current_app.config.get("AGENT_CONFIG", {}) or {})
                     .get("knowledge_context", {})
-                    .get("auto_index_paths") or {}
+                    .get("auto_index_paths")
+                    or {}
                 )
         except Exception:
             pass
@@ -129,6 +137,7 @@ class ResearchContextBridgeService:
 
     def _trigger_path_indexing(self, scope_id: str, *, profile: str) -> None:
         from agent.services.rag_helper_index_service import get_rag_helper_index_service
+
         def _run():
             try:
                 get_rag_helper_index_service().index_repo_path(
@@ -136,6 +145,7 @@ class ResearchContextBridgeService:
                 )
             except Exception:
                 pass
+
         threading.Thread(target=_run, daemon=True).start()
 
     def _repo_scope_context(self, repo_scope_refs: list[dict], *, per_item_limit: int) -> list[dict]:
@@ -173,9 +183,7 @@ class ResearchContextBridgeService:
             # Check for an existing repo_path index
             if auto_enabled or safe_path.is_dir():
                 repos = get_repository_registry()
-                existing_index = repos.knowledge_index_repo.get_by_scope(
-                    source_scope="repo_path", scope_id=scope_id
-                )
+                existing_index = repos.knowledge_index_repo.get_by_scope(source_scope="repo_path", scope_id=scope_id)
                 index_status = str(getattr(existing_index, "status", "") or "")
 
                 if index_status == "completed":
@@ -245,7 +253,9 @@ class ResearchContextBridgeService:
             )
         return items
 
-    def _render_prompt_section(self, *, artifacts: list[dict], knowledge_collections: list[dict], repo_scopes: list[dict]) -> str:
+    def _render_prompt_section(
+        self, *, artifacts: list[dict], knowledge_collections: list[dict], repo_scopes: list[dict]
+    ) -> str:
         sections: list[str] = []
         if artifacts:
             lines = []
@@ -290,9 +300,13 @@ class ResearchContextBridgeService:
         return "\n\n".join(section for section in sections if section.strip())
 
     def build_context(self, *, task: dict | None, research_context, query: str | None) -> dict | None:
-        payload = research_context.model_dump() if hasattr(research_context, "model_dump") else dict(research_context or {})
+        payload = (
+            research_context.model_dump() if hasattr(research_context, "model_dump") else dict(research_context or {})
+        )
         artifact_ids = [str(item).strip() for item in list(payload.get("artifact_ids") or []) if str(item).strip()]
-        collection_ids = [str(item).strip() for item in list(payload.get("knowledge_collection_ids") or []) if str(item).strip()]
+        collection_ids = [
+            str(item).strip() for item in list(payload.get("knowledge_collection_ids") or []) if str(item).strip()
+        ]
         repo_scope_refs = [dict(item or {}) for item in list(payload.get("repo_scope_refs") or [])]
         if not artifact_ids and not collection_ids and not repo_scope_refs:
             return None
@@ -302,9 +316,13 @@ class ResearchContextBridgeService:
         include_extracted_text = bool(payload.get("include_extracted_text", True))
         search_query = str(query or (task or {}).get("description") or "").strip()
 
-        artifacts = self._artifact_context(artifact_ids, include_extracted_text=include_extracted_text, per_item_limit=per_item_limit)
+        artifacts = self._artifact_context(
+            artifact_ids, include_extracted_text=include_extracted_text, per_item_limit=per_item_limit
+        )
         visible_artifact_ids = [str(item["artifact_id"]) for item in artifacts]
-        knowledge_collections = self._knowledge_context(collection_ids, query=search_query, top_k=top_k, per_item_limit=per_item_limit)
+        knowledge_collections = self._knowledge_context(
+            collection_ids, query=search_query, top_k=top_k, per_item_limit=per_item_limit
+        )
         repo_scopes = self._repo_scope_context(repo_scope_refs, per_item_limit=per_item_limit)
         prompt_section = self._render_prompt_section(
             artifacts=artifacts,

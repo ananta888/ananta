@@ -56,8 +56,7 @@ def start_speech_evidence_retention_reconciler_thread(app: Any) -> None:
                     summary = service.run_once(batch_size=batch_size)
                 if summary.staged or summary.completed or summary.failed:
                     logging.info(
-                        "Speech evidence retention: staged=%s completed=%s "
-                        "pending=%s skipped=%s failed=%s",
+                        "Speech evidence retention: staged=%s completed=%s pending=%s skipped=%s failed=%s",
                         summary.staged,
                         summary.completed,
                         summary.pending,
@@ -104,9 +103,7 @@ def _feature_enabled() -> bool:
 
     flags = resolve_semantic_media_feature_flags(os.environ)
     return bool(
-        flags.get("peer_evidence_sync")
-        or flags.get("speech_reconciliation")
-        or flags.get("speech_adaptation_training")
+        flags.get("peer_evidence_sync") or flags.get("speech_reconciliation") or flags.get("speech_adaptation_training")
     )
 
 

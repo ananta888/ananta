@@ -10,4 +10,3 @@ class ViewportState:
     region: ViewportRegion
     is_too_small_for_image_protocols: bool
     reason: str = ""
-

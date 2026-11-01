@@ -1,9 +1,10 @@
 """Tests for Command Pattern — T03.05."""
+
 from __future__ import annotations
 
 import pytest
 
-from agent.services.heuristic_runtime.decision_result import DecisionResult, SuggestedMotion
+from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_commands import (
     AskScopeCommand,
     CommandResult,
@@ -28,6 +29,7 @@ def adapter():
 
 # ── CommandResult ─────────────────────────────────────────────────────────────
 
+
 def test_command_result_ok():
     r = CommandResult.ok("done", key="val")
     assert r.success
@@ -41,6 +43,7 @@ def test_command_result_fail():
 
 
 # ── FollowWithDistanceCommand ─────────────────────────────────────────────────
+
 
 def test_follow_moves_snake(adapter):
     cmd = FollowWithDistanceCommand(dx=1, dy=0)
@@ -57,6 +60,7 @@ def test_follow_to_dict():
 
 # ── LurkNearCommand ───────────────────────────────────────────────────────────
 
+
 def test_lurk_sets_lurk_mode(adapter):
     cmd = LurkNearCommand(zone="editor")
     result = cmd.execute(adapter)
@@ -72,6 +76,7 @@ def test_lurk_to_dict():
 
 # ── ShowHintCommand ───────────────────────────────────────────────────────────
 
+
 def test_show_hint(adapter):
     cmd = ShowHintCommand(hint_text="hello", duration_ms=2000)
     cmd.execute(adapter)
@@ -80,12 +85,14 @@ def test_show_hint(adapter):
 
 # ── OpenChatCommand ───────────────────────────────────────────────────────────
 
+
 def test_open_chat(adapter):
     OpenChatCommand().execute(adapter)
     assert any(c["method"] == "open_chat" for c in adapter.calls)
 
 
 # ── ShowContextSummaryCommand ─────────────────────────────────────────────────
+
 
 def test_show_context_summary(adapter):
     cmd = ShowContextSummaryCommand(refs=["ref1", "ref2"])
@@ -96,6 +103,7 @@ def test_show_context_summary(adapter):
 
 # ── OpenSourceRefCommand ──────────────────────────────────────────────────────
 
+
 def test_open_source_ref(adapter):
     OpenSourceRefCommand(ref="src/main.py").execute(adapter)
     call = next(c for c in adapter.calls if c["method"] == "open_source_ref")
@@ -104,12 +112,14 @@ def test_open_source_ref(adapter):
 
 # ── AskScopeCommand ───────────────────────────────────────────────────────────
 
+
 def test_ask_scope(adapter):
     AskScopeCommand().execute(adapter)
     assert any(c["method"] == "request_scope" for c in adapter.calls)
 
 
 # ── NoActionCommand ───────────────────────────────────────────────────────────
+
 
 def test_no_action_succeeds(adapter):
     result = NoActionCommand().execute(adapter)
@@ -119,11 +129,13 @@ def test_no_action_succeeds(adapter):
 
 # ── undo is optional / returns False ─────────────────────────────────────────
 
+
 def test_undo_returns_false(adapter):
     assert FollowWithDistanceCommand().undo(adapter) is False
 
 
 # ── TuiCommandAdapter ─────────────────────────────────────────────────────────
+
 
 def test_tui_adapter_move_snake():
     state: dict = {}
@@ -149,6 +161,7 @@ def test_tui_adapter_lurk_mode():
 
 # ── EclipseCommandAdapter ─────────────────────────────────────────────────────
 
+
 def test_eclipse_adapter_move_snake():
     adapter = EclipseCommandAdapter()
     FollowWithDistanceCommand(dx=-1, dy=0).execute(adapter)
@@ -165,6 +178,7 @@ def test_eclipse_adapter_flush_clears():
 
 # ── command_for_decision mapping ──────────────────────────────────────────────
 
+
 def test_follow_maps_to_follow_command():
     result = DecisionResult.heuristic_follow(dx=1, dy=0)
     cmd = command_for_decision(result)
@@ -179,10 +193,7 @@ def test_lurk_maps_to_lurk_command():
 
 
 def test_chat_with_refs_maps_to_context_summary():
-    result = DecisionResult(
-        action_kind="chat", confidence=0.9, source="heuristic",
-        selected_context_refs=["ref1"]
-    )
+    result = DecisionResult(action_kind="chat", confidence=0.9, source="heuristic", selected_context_refs=["ref1"])
     cmd = command_for_decision(result)
     assert isinstance(cmd, ShowContextSummaryCommand)
 

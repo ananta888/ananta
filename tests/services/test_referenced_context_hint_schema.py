@@ -1,7 +1,9 @@
 """RCHCS-008: Tests for referenced_context_hint.v1 schema."""
+
 from __future__ import annotations
 
 import time
+
 import pytest
 
 from agent.services.referenced_context_hint_schema import (
@@ -11,31 +13,21 @@ from agent.services.referenced_context_hint_schema import (
     GEN_DETERMINISTIC,
     GEN_LLM,
     GEN_MANUAL,
-    GEN_RESTRICTED_TRANSFORMER_INFERENCE,
     HINT_SCHEMA_VERSION,
-    KIND_ARCHITECTURE_HINT,
-    KIND_DOMAIN_SUMMARY,
     KIND_FILE_SUMMARY,
-    KIND_MANUAL_NOTE,
-    KIND_RISK_HINT,
     KIND_SYMBOL_HINT,
-    KIND_TEST_HINT,
     STALENESS_FRESH,
     STALENESS_INVALID,
     STALENESS_POSSIBLY_STALE,
     STALENESS_STALE,
     CodeCompassRef,
-    ConfidenceMetadata,
     GeneratorMetadata,
-    HashMetadata,
-    HintPolicyMetadata,
     HintValidationError,
     ReferencedContextHint,
     SourceRef,
     ValidityMetadata,
     compute_confidence,
     compute_staleness,
-    hash_text,
     make_hint_id,
     validate_hint,
 )
@@ -55,6 +47,7 @@ def make_hint(*, kind=KIND_FILE_SUMMARY, with_refs=True, generator_kind=GEN_DETE
 
 # ── Schema version ────────────────────────────────────────────────────────────
 
+
 def test_schema_version():
     assert HINT_SCHEMA_VERSION == "referenced_context_hint.v1"
 
@@ -68,6 +61,7 @@ def test_all_gen_kinds_count():
 
 
 # ── make_hint_id ──────────────────────────────────────────────────────────────
+
 
 def test_make_hint_id_format_is_deterministic():
     hid = make_hint_id("agent/foo.py", KIND_FILE_SUMMARY)
@@ -87,12 +81,27 @@ def test_make_hint_id_extra_differentiates():
 
 # ── ReferencedContextHint ─────────────────────────────────────────────────────
 
+
 def test_hint_to_dict_has_required_keys_and_schema_version():
     h = make_hint()
     d = h.to_dict()
-    for k in ("schema", "id", "kind", "title", "summary", "source_refs",
-               "codecompass_refs", "generator", "confidence", "validity",
-               "hashes", "created_at", "updated_at", "staleness_status", "policy"):
+    for k in (
+        "schema",
+        "id",
+        "kind",
+        "title",
+        "summary",
+        "source_refs",
+        "codecompass_refs",
+        "generator",
+        "confidence",
+        "validity",
+        "hashes",
+        "created_at",
+        "updated_at",
+        "staleness_status",
+        "policy",
+    ):
         assert k in d, f"missing: {k}"
     assert h.to_dict()["schema"] == HINT_SCHEMA_VERSION
 
@@ -151,6 +160,7 @@ def test_is_safe_for_external_cloud_true_when_allowed():
 
 # ── ValidityMetadata ──────────────────────────────────────────────────────────
 
+
 def test_validity_is_valid_for_listed_task():
     v = ValidityMetadata(valid_for_tasks=["navigation", "explanation"])
     assert v.is_valid_for("navigation") is True
@@ -174,6 +184,7 @@ def test_validity_empty_valid_for_tasks_allows_all():
 
 
 # ── validate_hint ─────────────────────────────────────────────────────────────
+
 
 def test_validate_hint_passes_for_valid_hint():
     h = make_hint()
@@ -222,6 +233,7 @@ def test_validate_hint_confidence_out_of_range():
 
 # ── compute_staleness ─────────────────────────────────────────────────────────
 
+
 def test_staleness_fresh_unchanged_hash():
     h = make_hint()
     h.hashes.source_hash = "abc"
@@ -246,7 +258,12 @@ def test_staleness_possibly_stale_when_old():
     h = make_hint()
     h.hashes.source_hash = "abc"
     old_time = time.time() - FRESH_TTL_SECONDS - 3600  # 25 hours ago
-    result = compute_staleness(h, current_source_hash="abc", source_exists=True, now=time.time(), )
+    result = compute_staleness(
+        h,
+        current_source_hash="abc",
+        source_exists=True,
+        now=time.time(),
+    )
     # Just updated → fresh
     assert result == STALENESS_FRESH
     # Simulate old hint
@@ -260,7 +277,8 @@ def test_staleness_possibly_stale_manifest_changed():
     h.hashes.source_hash = "abc"
     h.hashes.knowledge_index_manifest_hash = "manifest1"
     result = compute_staleness(
-        h, current_source_hash="abc",
+        h,
+        current_source_hash="abc",
         current_manifest_hash="manifest2",
         source_exists=True,
     )
@@ -272,7 +290,8 @@ def test_staleness_fresh_same_manifest():
     h.hashes.source_hash = "abc"
     h.hashes.knowledge_index_manifest_hash = "manifest1"
     result = compute_staleness(
-        h, current_source_hash="abc",
+        h,
+        current_source_hash="abc",
         current_manifest_hash="manifest1",
         source_exists=True,
     )
@@ -280,6 +299,7 @@ def test_staleness_fresh_same_manifest():
 
 
 # ── compute_confidence ────────────────────────────────────────────────────────
+
 
 def test_confidence_deterministic_three_refs():
     score = compute_confidence(
@@ -305,36 +325,33 @@ def test_confidence_llm_lower_than_deterministic():
 
 
 def test_confidence_stale_lower_than_fresh():
-    fresh = compute_confidence(source_ref_count=1, generator_kind=GEN_DETERMINISTIC,
-                               staleness_status=STALENESS_FRESH)
-    stale = compute_confidence(source_ref_count=1, generator_kind=GEN_DETERMINISTIC,
-                               staleness_status=STALENESS_STALE)
+    fresh = compute_confidence(source_ref_count=1, generator_kind=GEN_DETERMINISTIC, staleness_status=STALENESS_FRESH)
+    stale = compute_confidence(source_ref_count=1, generator_kind=GEN_DETERMINISTIC, staleness_status=STALENESS_STALE)
     assert fresh > stale
 
 
 def test_confidence_invalid_is_zero():
-    score = compute_confidence(source_ref_count=1, generator_kind=GEN_DETERMINISTIC,
-                               staleness_status=STALENESS_INVALID)
+    score = compute_confidence(source_ref_count=1, generator_kind=GEN_DETERMINISTIC, staleness_status=STALENESS_INVALID)
     assert score == 0.0
 
 
 def test_confidence_no_refs_reduces_score():
-    with_refs = compute_confidence(source_ref_count=2, generator_kind=GEN_DETERMINISTIC,
-                                   staleness_status=STALENESS_FRESH)
-    no_refs = compute_confidence(source_ref_count=0, generator_kind=GEN_DETERMINISTIC,
-                                 staleness_status=STALENESS_FRESH)
+    with_refs = compute_confidence(
+        source_ref_count=2, generator_kind=GEN_DETERMINISTIC, staleness_status=STALENESS_FRESH
+    )
+    no_refs = compute_confidence(source_ref_count=0, generator_kind=GEN_DETERMINISTIC, staleness_status=STALENESS_FRESH)
     assert with_refs > no_refs
 
 
 def test_confidence_in_range():
     for gen_kind in ALL_GEN_KINDS:
         for staleness in (STALENESS_FRESH, STALENESS_POSSIBLY_STALE, STALENESS_STALE, STALENESS_INVALID):
-            score = compute_confidence(source_ref_count=2, generator_kind=gen_kind,
-                                       staleness_status=staleness)
+            score = compute_confidence(source_ref_count=2, generator_kind=gen_kind, staleness_status=staleness)
             assert 0.0 <= score <= 1.0, f"{gen_kind} {staleness}: {score}"
 
 
 # ── SourceRef / CodeCompassRef / GeneratorMetadata roundtrip ─────────────────
+
 
 def test_source_ref_roundtrip():
     sr = SourceRef(path="foo.py", sha256="abc", line_start=1, line_end=50, role="primary_source")
@@ -346,8 +363,9 @@ def test_source_ref_roundtrip():
 
 
 def test_codecompass_ref_roundtrip():
-    cr = CodeCompassRef(record_id="cc:1", node_id="file:foo.py",
-                         manifest_hash="mhash", relation_types=["defines", "calls"])
+    cr = CodeCompassRef(
+        record_id="cc:1", node_id="file:foo.py", manifest_hash="mhash", relation_types=["defines", "calls"]
+    )
     cr2 = CodeCompassRef.from_dict(cr.to_dict())
     assert cr2.record_id == "cc:1"
     assert "defines" in cr2.relation_types

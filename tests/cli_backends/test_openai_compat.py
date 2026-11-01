@@ -124,9 +124,7 @@ def test_openai_files_hide_system_managed_knowledge_index_artifacts(
         ArtifactDB(
             id="openai-hidden-index-payload",
             latest_filename="payload.json",
-            artifact_metadata={
-                "system_artifact_kind": "knowledge_index_job_payload"
-            },
+            artifact_metadata={"system_artifact_kind": "knowledge_index_job_payload"},
         )
     )
 
@@ -202,7 +200,9 @@ def test_openai_compat_policy_requires_admin_for_user_jwt(client, app):
                 }
             },
         }
-    token = generate_token({"sub": "user-1", "role": "user", "mfa_enabled": False}, settings.secret_key, expires_in=3600)
+    token = generate_token(
+        {"sub": "user-1", "role": "user", "mfa_enabled": False}, settings.secret_key, expires_in=3600
+    )
     user_auth_header = {"Authorization": f"Bearer {token}"}
 
     res = client.get("/v1/models", headers=user_auth_header)

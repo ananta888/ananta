@@ -105,9 +105,7 @@ def test_selective_forwarding_is_detected_per_class_without_multiplying_votes() 
                 },
             ]
         )
-    decision = policy.evaluate(
-        lease=_lease(), observations=observations, now_ms=now, last_failover_at_ms=None
-    )
+    decision = policy.evaluate(lease=_lease(), observations=observations, now_ms=now, last_failover_at_ms=None)
     assert decision["switch_to_backup"] is True
     assert decision["affected_traffic_classes"] == ["control"]
     assert decision["complaining_peer_ids"] == ["observer-1", "observer-2"]

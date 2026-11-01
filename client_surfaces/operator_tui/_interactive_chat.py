@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import shutil
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from client_surfaces.operator_tui.chat_long_message import (
     configure_middle_view_for_message,
@@ -11,7 +11,7 @@ from client_surfaces.operator_tui.chat_long_message import (
     latest_long_message_for_channel,
     toggle_render_mode,
 )
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode
+from client_surfaces.operator_tui.models import FocusPane
 from client_surfaces.operator_tui.tui_snapshot import rendered_tui_snapshot_text, write_tui_snapshot
 
 if TYPE_CHECKING:
@@ -20,11 +20,14 @@ if TYPE_CHECKING:
 
 # ── Chat focus helpers ───────────────────────────────────────────────────
 
+
 def chat_focus_active(tui: InteractiveOperatorTui) -> bool:
     game = tui.state.header_logo_game or {}
     chat_raw = game.get("chat_state")
-    return isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus")) and (
-        tui._snake_mode_active() or bool(game.get("chat_panel_open"))
+    return (
+        isinstance(chat_raw, dict)
+        and bool(chat_raw.get("chat_focus"))
+        and (tui._snake_mode_active() or bool(game.get("chat_panel_open")))
     )
 
 
@@ -43,9 +46,11 @@ def artifact_chat_focus_active(tui: InteractiveOperatorTui) -> bool:
 
 # ── Scroll / Focus managers ──────────────────────────────────────────────
 
+
 def get_scroll_manager(tui: InteractiveOperatorTui):
-    from client_surfaces.operator_tui.scroll.scroll_manager import ScrollManager
     from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
+    from client_surfaces.operator_tui.scroll.scroll_manager import ScrollManager
+
     if not hasattr(tui, "_scroll_manager_instance"):
         tui._scroll_manager_instance = ScrollManager()
         tui._scroll_manager_instance.register(
@@ -62,6 +67,7 @@ def get_scroll_manager(tui: InteractiveOperatorTui):
 
 def get_focus_manager(tui: InteractiveOperatorTui):
     from client_surfaces.operator_tui.focus.focus_manager import FocusManager
+
     if not hasattr(tui, "_focus_manager_instance"):
         tui._focus_manager_instance = FocusManager()
         tui._focus_manager_instance.register_scroll_context("chat_panel", "chat_panel")
@@ -100,6 +106,7 @@ def sync_scroll_focus_and_mouse_regions(
 
     try:
         from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
+
         mr = getattr(tui, "_mouse_router_instance", None)
         if mr is None:
             tui._mouse_router_instance = MouseRouter()
@@ -122,16 +129,14 @@ def sync_scroll_focus_and_mouse_regions(
 
 # ── Scrolling ────────────────────────────────────────────────────────────
 
+
 def scroll_active_panel(tui: InteractiveOperatorTui, direction: str) -> None:
     if chat_focus_active(tui):
         delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
         chat_scroll(tui, delta_map.get(direction, 0))
         return
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
-    if (
-        str(game.get("tutor_ask_question") or "").strip()
-        and tui.state.focus is FocusPane.CONTENT
-    ):
+    if str(game.get("tutor_ask_question") or "").strip() and tui.state.focus is FocusPane.CONTENT:
         delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
         delta = delta_map.get(direction, 0)
         if delta:
@@ -171,7 +176,11 @@ def scroll_active_panel(tui: InteractiveOperatorTui, direction: str) -> None:
         game[f"scroll_offset_{ctx_id}"] = ctx.offset
         if ctx_id == "center_viewport":
             game["visual_viewport_force_render"] = True
-        tui._set_state(tui.state.with_updates(header_logo_game=game, status_message=f"scroll: {ctx.label} {ctx.offset}/{ctx.max_scroll}"))
+        tui._set_state(
+            tui.state.with_updates(
+                header_logo_game=game, status_message=f"scroll: {ctx.label} {ctx.offset}/{ctx.max_scroll}"
+            )
+        )
 
 
 def h_scroll_center(tui: InteractiveOperatorTui, delta: int) -> None:
@@ -197,6 +206,7 @@ def h_scroll_center(tui: InteractiveOperatorTui, delta: int) -> None:
 
 
 # ── Visual view toggles ──────────────────────────────────────────────────
+
 
 def toggle_visual_view_switcher_overlay(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
@@ -224,6 +234,7 @@ def previous_visual_view(tui: InteractiveOperatorTui) -> None:
 
 # ── Chat panel / context help toggles ────────────────────────────────────
 
+
 def toggle_chat_panel_open(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
     game["chat_panel_open"] = not bool(game.get("chat_panel_open"))
@@ -236,6 +247,7 @@ def toggle_chat_panel_open(tui: InteractiveOperatorTui) -> None:
         game["artifact_chat_focus"] = False
     try:
         from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+
         save_tui_chat_settings({"chat_panel_open": bool(game.get("chat_panel_open"))})
     except Exception:
         pass
@@ -282,6 +294,7 @@ def send_terminal_context_to_ai(tui: InteractiveOperatorTui) -> None:
     game["artifact_chat_focus"] = False
 
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+
     chat = get_chat_state(game)
     switch_channel(chat, "ai:tutor", preserve_input=True)
     chat["chat_focus"] = True
@@ -298,11 +311,16 @@ def send_terminal_context_to_ai(tui: InteractiveOperatorTui) -> None:
 
 # ── Chat channel operations ──────────────────────────────────────────────
 
+
 def chat_cycle_channel(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
     from client_surfaces.operator_tui.chat_state import (
-        get_chat_state, set_chat_state, switch_channel, get_sessions,
+        get_chat_state,
+        get_sessions,
+        set_chat_state,
+        switch_channel,
     )
+
     chat = get_chat_state(game)
     channels_dict = chat.get("channels") or {}
     session_ids = [str(s.get("id") or "") for s in get_sessions(chat) if isinstance(s, dict)]
@@ -325,6 +343,7 @@ def chat_cycle_channel(tui: InteractiveOperatorTui) -> None:
 def chat_switch_channel(tui: InteractiveOperatorTui, channel_id: str) -> None:
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+
     chat = get_chat_state(game)
     if switch_channel(chat, channel_id, preserve_input=True):
         set_chat_state(game, chat)
@@ -333,9 +352,11 @@ def chat_switch_channel(tui: InteractiveOperatorTui, channel_id: str) -> None:
 
 # ── Chat focus (enter / leave / toggle) ──────────────────────────────────
 
+
 def chat_focus_enter(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     chat["chat_focus"] = True
     chat["chat_input_buffer"] = ""
@@ -349,6 +370,7 @@ def chat_focus_enter(tui: InteractiveOperatorTui) -> None:
 def chat_focus_leave(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     chat["chat_focus"] = False
     chat["chat_input_buffer"] = ""
@@ -374,9 +396,11 @@ def toggle_chat_focus(tui: InteractiveOperatorTui) -> None:
 
 # ── Chat input operations ────────────────────────────────────────────────
 
+
 def chat_append(tui: InteractiveOperatorTui, ch: str) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     buf = str(chat.get("chat_input_buffer") or "")
     cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
@@ -396,6 +420,7 @@ def chat_append(tui: InteractiveOperatorTui, ch: str) -> None:
 def chat_backspace(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     buf = str(chat.get("chat_input_buffer") or "")
     cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
@@ -403,7 +428,7 @@ def chat_backspace(tui: InteractiveOperatorTui) -> None:
         set_chat_state(game, chat)
         tui._set_state(tui.state.with_updates(header_logo_game=game))
         return
-    chat["chat_input_buffer"] = buf[:cursor - 1] + buf[cursor:]
+    chat["chat_input_buffer"] = buf[: cursor - 1] + buf[cursor:]
     chat["chat_input_cursor"] = cursor - 1
     chat["chat_input_history_index"] = None
     set_chat_state(game, chat)
@@ -413,6 +438,7 @@ def chat_backspace(tui: InteractiveOperatorTui) -> None:
 def chat_delete(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     buf = str(chat.get("chat_input_buffer") or "")
     cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
@@ -420,7 +446,7 @@ def chat_delete(tui: InteractiveOperatorTui) -> None:
         set_chat_state(game, chat)
         tui._set_state(tui.state.with_updates(header_logo_game=game))
         return
-    chat["chat_input_buffer"] = buf[:cursor] + buf[cursor + 1:]
+    chat["chat_input_buffer"] = buf[:cursor] + buf[cursor + 1 :]
     chat["chat_input_cursor"] = cursor
     chat["chat_input_history_index"] = None
     set_chat_state(game, chat)
@@ -430,6 +456,7 @@ def chat_delete(tui: InteractiveOperatorTui) -> None:
 def chat_move_cursor(tui: InteractiveOperatorTui, delta: int) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     buf = str(chat.get("chat_input_buffer") or "")
     cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
@@ -441,6 +468,7 @@ def chat_move_cursor(tui: InteractiveOperatorTui, delta: int) -> None:
 def chat_history_move(tui: InteractiveOperatorTui, step: int) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
     if not history:
@@ -483,6 +511,7 @@ def chat_history_move(tui: InteractiveOperatorTui, step: int) -> None:
 def chat_clear_input(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     chat["chat_input_buffer"] = ""
     chat["chat_input_cursor"] = 0
@@ -493,13 +522,20 @@ def chat_clear_input(tui: InteractiveOperatorTui) -> None:
 
 # ── Artifact chat operations ─────────────────────────────────────────────
 
+
 def artifact_chat_focus_enter(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
     if not chat_panel_available(tui):
         game["chat_panel_open"] = True
     game["artifact_chat_focus"] = True
     game.setdefault("artifact_chat_input", "")
-    game["artifact_chat_cursor"] = max(0, min(len(str(game.get("artifact_chat_input") or "")), int(game.get("artifact_chat_cursor") or len(str(game.get("artifact_chat_input") or "")))))
+    game["artifact_chat_cursor"] = max(
+        0,
+        min(
+            len(str(game.get("artifact_chat_input") or "")),
+            int(game.get("artifact_chat_cursor") or len(str(game.get("artifact_chat_input") or ""))),
+        ),
+    )
     game["artifact_chat_history_index"] = None
     game.setdefault("artifact_chat_history", [])
     game.setdefault("artifact_chat_saved_draft", "")
@@ -539,7 +575,7 @@ def artifact_chat_backspace(tui: InteractiveOperatorTui) -> None:
     if cursor <= 0:
         tui._set_state(tui.state.with_updates(header_logo_game=game))
         return
-    game["artifact_chat_input"] = buf[:cursor - 1] + buf[cursor:]
+    game["artifact_chat_input"] = buf[: cursor - 1] + buf[cursor:]
     game["artifact_chat_cursor"] = cursor - 1
     game["artifact_chat_history_index"] = None
     tui._set_state(tui.state.with_updates(header_logo_game=game))
@@ -552,7 +588,7 @@ def artifact_chat_delete(tui: InteractiveOperatorTui) -> None:
     if cursor >= len(buf):
         tui._set_state(tui.state.with_updates(header_logo_game=game))
         return
-    game["artifact_chat_input"] = buf[:cursor] + buf[cursor + 1:]
+    game["artifact_chat_input"] = buf[:cursor] + buf[cursor + 1 :]
     game["artifact_chat_cursor"] = cursor
     game["artifact_chat_history_index"] = None
     tui._set_state(tui.state.with_updates(header_logo_game=game))
@@ -628,7 +664,14 @@ def artifact_chat_send_message(tui: InteractiveOperatorTui) -> None:
     messages.append({"at": time.time(), "source": "user", "text": text})
     artifact_chat["messages"] = messages[-12:]
     game["artifact_chat_state"] = artifact_chat
-    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel, append_message, make_message
+    from client_surfaces.operator_tui.chat_state import (
+        append_message,
+        get_chat_state,
+        make_message,
+        set_chat_state,
+        switch_channel,
+    )
+
     chat = get_chat_state(game)
     switch_channel(chat, "ai:tutor", preserve_input=True)
     msg = make_message(
@@ -661,9 +704,11 @@ def artifact_chat_send_message(tui: InteractiveOperatorTui) -> None:
 
 # ── Chat scroll / snapshot / copy ────────────────────────────────────────
 
+
 def chat_scroll(tui: InteractiveOperatorTui, delta: int) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
     chat = get_chat_state(game)
     current = int(chat.get("scroll_offset") or 0)
     chat["scroll_offset"] = max(0, current + delta)
@@ -674,6 +719,7 @@ def chat_scroll(tui: InteractiveOperatorTui, delta: int) -> None:
 def copy_chat_panel_snapshot(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or {})
     from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
+
     chat = get_chat_state(game)
     active_ch_id = str(chat.get("active_channel") or "room:main")
     channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
@@ -722,7 +768,11 @@ def copy_ai_status_snapshot(tui: InteractiveOperatorTui) -> None:
         lines.append("events:")
         for item in rows[-20:]:
             created_at = item.get("created_at")
-            ts = time.strftime("%H:%M", time.localtime(float(created_at))) if isinstance(created_at, (int, float)) else "--:--"
+            ts = (
+                time.strftime("%H:%M", time.localtime(float(created_at)))
+                if isinstance(created_at, (int, float))
+                else "--:--"
+            )
             label = str(item.get("label") or item.get("event") or "event")
             lines.append(f"- {ts} {label}")
     copied = "\n".join(lines).strip()
@@ -766,9 +816,12 @@ def save_tui_snapshot(tui: InteractiveOperatorTui) -> None:
 
 # ── Long chat message ────────────────────────────────────────────────────
 
+
 def open_latest_long_chat_message(tui: InteractiveOperatorTui) -> None:
     game = dict(tui.state.header_logo_game or tui._default_header_snake())
-    active_view = str(game.get("visual_viewport_active_view") or game.get("visual_runtime_status", {}).get("active_view") or "")
+    active_view = str(
+        game.get("visual_viewport_active_view") or game.get("visual_runtime_status", {}).get("active_view") or ""
+    )
 
     if is_showing_chat_long_message(game):
         new_mode = toggle_render_mode(game)
@@ -806,6 +859,7 @@ def open_latest_long_chat_message(tui: InteractiveOperatorTui) -> None:
         return
 
     from client_surfaces.operator_tui.chat_state import get_chat_state
+
     chat = get_chat_state(game)
     channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
     active_ch_id = str(chat.get("active_channel") or "room:main")
@@ -825,6 +879,7 @@ def open_latest_long_chat_message(tui: InteractiveOperatorTui) -> None:
         plain_text=True,
     )
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
+
     preview = str(message.get("text") or message.get("preview") or "Chat")
     label = tab_label_for_chat_preview(preview)
     vp_state = {"scroll_offset": 0, "preview": preview[:80]}
@@ -837,7 +892,9 @@ def open_latest_long_chat_message(tui: InteractiveOperatorTui) -> None:
     )
     game_out = dict(next_state.header_logo_game or game)
     game_out["visual_viewport_enabled"] = True
-    tui._set_state(next_state.with_updates(
-        header_logo_game=game_out,
-        status_message="lange Chatnachricht: Originalausgabe",
-    ))
+    tui._set_state(
+        next_state.with_updates(
+            header_logo_game=game_out,
+            status_message="lange Chatnachricht: Originalausgabe",
+        )
+    )

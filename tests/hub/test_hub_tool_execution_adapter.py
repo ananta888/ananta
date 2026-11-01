@@ -1,5 +1,4 @@
 """HDE-006: registry bridge + control-plane dispatch tests."""
-import pytest
 
 from agent.services.hub_tool_execution_adapter import HubToolExecutionAdapter, derive_mutation_mode
 from agent.services.worker_runtime_execution_adapter import WorkerRuntimeExecutionAdapter

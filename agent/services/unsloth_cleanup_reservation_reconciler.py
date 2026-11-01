@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import re
 import time
-from typing import Any, Callable, Mapping
 import uuid
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping
 
-from ananta_contracts.unsloth_task import canonical_unsloth_json
+from agent.services.unsloth_mutation_command_service import (
+    UnslothMutationError,
+)
 from agent.services.unsloth_storage_governance_service import (
     StorageCleanupAdmissionPort,
     UnslothStorageError,
     cleanup_plan_from_submission,
 )
-from agent.services.unsloth_mutation_command_service import (
-    UnslothMutationError,
-)
 from agent.services.unsloth_task_port import HubTaskSubmissionPort
-
+from ananta_contracts.unsloth_task import canonical_unsloth_json
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _AUDIT_EVENT = "unsloth_cleanup_reservation_reconciled"
@@ -35,15 +34,11 @@ class UnslothCleanupReservationPolicy:
     def __post_init__(self) -> None:
         if (
             not 1.0 <= self.stale_after_seconds <= 86_400.0
-            or not self.stale_after_seconds
-            <= self.max_age_seconds
-            <= 2_592_000.0
+            or not self.stale_after_seconds <= self.max_age_seconds <= 2_592_000.0
             or not 5.0 <= self.lease_seconds <= 300.0
             or not 1 <= self.batch_limit <= 500
         ):
-            raise ValueError(
-                "unsloth_cleanup_reservation_policy_invalid"
-            )
+            raise ValueError("unsloth_cleanup_reservation_policy_invalid")
 
     @classmethod
     def from_mapping(
@@ -167,9 +162,7 @@ class UnslothCleanupReservationReconciler:
                 summary["errors"].append(
                     {
                         "task_id": task_id,
-                        "reason_code": (
-                            "unsloth_cleanup_reservation_reconcile_failed"
-                        ),
+                        "reason_code": ("unsloth_cleanup_reservation_reconcile_failed"),
                         "error_type": type(exc).__name__,
                     }
                 )
@@ -180,9 +173,7 @@ class UnslothCleanupReservationReconciler:
                     reason_sha256="",
                     age_seconds=0.0,
                     outcome="deferred",
-                    reason_code=(
-                        "unsloth_cleanup_reservation_reconcile_failed"
-                    ),
+                    reason_code=("unsloth_cleanup_reservation_reconcile_failed"),
                 )
                 continue
             summary[outcome] += 1
@@ -205,18 +196,11 @@ class UnslothCleanupReservationReconciler:
         if (
             submission.get("status") != "reserved"
             or submission.get("task_type") != "ml.storage.cleanup"
-            or submission.get("result_handler")
-            != "unsloth_storage_cleanup_v1"
+            or submission.get("result_handler") != "unsloth_storage_cleanup_v1"
             or not tenant_id
             or not isinstance(payload, Mapping)
-            or _SHA256.fullmatch(
-                str(payload.get("reason_sha256") or "")
-            )
-            is None
-            or _SHA256.fullmatch(
-                str(submission.get("payload_sha256") or "")
-            )
-            is None
+            or _SHA256.fullmatch(str(payload.get("reason_sha256") or "")) is None
+            or _SHA256.fullmatch(str(submission.get("payload_sha256") or "")) is None
         ):
             return self._invalid_submission(
                 task_id=task_id,
@@ -367,20 +351,12 @@ class UnslothCleanupReservationReconciler:
         self._emit_audit(
             task_id=task_id,
             tenant_id=tenant_id,
-            plan_sha256=str(
-                raw_payload.get("plan_sha256") or ""
-            ),
-            reason_sha256=str(
-                raw_payload.get("reason_sha256") or ""
-            ),
+            plan_sha256=str(raw_payload.get("plan_sha256") or ""),
+            reason_sha256=str(raw_payload.get("reason_sha256") or ""),
             age_seconds=age_seconds,
             outcome="invalid",
-            reason_code=(
-                "unsloth_cleanup_reservation_contract_invalid"
-            ),
-            payload_sha256=str(
-                submission.get("payload_sha256") or ""
-            ),
+            reason_code=("unsloth_cleanup_reservation_contract_invalid"),
+            payload_sha256=str(submission.get("payload_sha256") or ""),
         )
         return "invalid"
 

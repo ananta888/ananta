@@ -208,9 +208,7 @@ def test_source_verification_route_requires_current_organization_membership(
         ),
     )
     app.extensions["project_access_authority"] = project_access
-    app.extensions["organization_membership_service"] = (
-        organization_membership
-    )
+    app.extensions["organization_membership_service"] = organization_membership
 
     response = client.get(
         "/tasks/T-SOURCE-SCOPED/sources",
@@ -248,17 +246,11 @@ def test_general_task_reads_redact_governed_source_metadata(
                 "source_catalog_publication": {
                     "schema": "organization_source_catalog_publication.v1",
                     "binding_digest": "binding-digest-safe",
-                    "record_bindings": [
-                        {"path": "VERIFICATION-RAW-CONTENT-SENTINEL"}
-                    ],
+                    "record_bindings": [{"path": "VERIFICATION-RAW-CONTENT-SENTINEL"}],
                 },
-                "answer_verification": {
-                    "cited_source_ids": ["VERIFICATION-RAW-CONTENT-SENTINEL"]
-                },
+                "answer_verification": {"cited_source_ids": ["VERIFICATION-RAW-CONTENT-SENTINEL"]},
             },
-            worker_execution_context={
-                "source_catalog_binding": {"catalog_task_id": "secret-task"}
-            },
+            worker_execution_context={"source_catalog_binding": {"catalog_task_id": "secret-task"}},
         )
     )
 
@@ -266,17 +258,11 @@ def test_general_task_reads_redact_governed_source_metadata(
     assert detail.status_code == 200
     detail_data = detail.get_json()["data"]
     assert detail_data["verification_status"] == {"status": "passed"}
-    assert "source_catalog_binding" not in (
-        detail_data.get("worker_execution_context") or {}
-    )
+    assert "source_catalog_binding" not in (detail_data.get("worker_execution_context") or {})
 
     listing = client.get("/tasks", headers=admin_auth_header)
     assert listing.status_code == 200
-    listed_task = next(
-        row
-        for row in listing.get_json()["data"]
-        if row.get("id") == task_id
-    )
+    listed_task = next(row for row in listing.get_json()["data"] if row.get("id") == task_id)
     assert listed_task["verification_status"] == {"status": "passed"}
 
     control_center = client.get(
@@ -285,9 +271,7 @@ def test_general_task_reads_redact_governed_source_metadata(
     )
     assert control_center.status_code == 200
     control_data = control_center.get_json()["data"]
-    assert control_data["task"]["verification_status"] == {
-        "status": "passed"
-    }
+    assert control_data["task"]["verification_status"] == {"status": "passed"}
     assert control_data["verification"] == {"status": "passed"}
 
     governed = client.get(
@@ -308,6 +292,4 @@ def test_general_task_reads_redact_governed_source_metadata(
             "binding_digest": "binding-digest-safe",
         },
     }
-    assert "VERIFICATION-RAW-CONTENT-SENTINEL" not in governed.get_data(
-        as_text=True
-    )
+    assert "VERIFICATION-RAW-CONTENT-SENTINEL" not in governed.get_data(as_text=True)

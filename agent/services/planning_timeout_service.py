@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from agent.planning_reason_codes import PLANNING_DEADLINE_GUARD_TIMEOUT
+from agent.services.planning_telemetry_service import get_planning_telemetry_service
+from agent.services.product_event_service import record_product_event
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
-from agent.services.product_event_service import record_product_event
-from agent.services.planning_telemetry_service import get_planning_telemetry_service
 
 
 @dataclass(frozen=True)
@@ -74,14 +74,18 @@ class PlanningTimeoutService:
                 plan_id=None,
             )
 
-    def start_deadline_guard(self, *, goal_id: str, timeout_s: int, trace_id: str | None = None, app: Any | None = None) -> bool:
+    def start_deadline_guard(
+        self, *, goal_id: str, timeout_s: int, trace_id: str | None = None, app: Any | None = None
+    ) -> bool:
         app_obj = app
         if app_obj is None:
             from flask import current_app
 
             app_obj = current_app._get_current_object()
         if bool(getattr(app_obj, "testing", False) or (getattr(app_obj, "config", {}) or {}).get("TESTING")):
-            planning_policy = ((getattr(app_obj, "config", {}) or {}).get("AGENT_CONFIG") or {}).get("planning_policy") or {}
+            planning_policy = ((getattr(app_obj, "config", {}) or {}).get("AGENT_CONFIG") or {}).get(
+                "planning_policy"
+            ) or {}
             if not bool(planning_policy.get("enable_deadline_guard_threads_in_tests", False)):
                 return False
         if not self._acquire(goal_id):

@@ -1,11 +1,10 @@
 """Tests for shell_policy.py (EW-T015) and file_policy.py (EW-T016)."""
-import pytest
 
-from worker.core.shell_policy import CommandPlanArtifact, PlannedCommand, ShellPolicy
 from worker.core.file_policy import FilePolicy, PatchArtifact, PatchHunk, _parse_unified_diff
-
+from worker.core.shell_policy import CommandPlanArtifact, ShellPolicy
 
 # ── ShellPolicy: command safety ───────────────────────────────────────────────
+
 
 class TestShellPolicySafety:
     def setup_method(self):
@@ -133,7 +132,10 @@ class TestCommandPlanArtifact:
 
     def test_plan_artifact_as_dict(self):
         artifact = self.policy.build_plan_artifact(
-            task_id="t1", goal="test", commands=["echo hi"], workspace_root="/workspace",
+            task_id="t1",
+            goal="test",
+            commands=["echo hi"],
+            workspace_root="/workspace",
         )
         d = artifact.as_dict()
         assert d["kind"] == "command_plan_artifact"
@@ -141,6 +143,7 @@ class TestCommandPlanArtifact:
 
 
 # ── FilePolicy ────────────────────────────────────────────────────────────────
+
 
 class TestFilePolicy:
     def setup_method(self):
@@ -211,38 +214,46 @@ class TestPatchArtifact:
 
     def test_patch_within_workspace_allowed(self):
         artifact = PatchArtifact(
-            artifact_id="a1", task_id="t1", provenance="t1:step1",
-            hunks=[PatchHunk(
-                path="/workspace/src/main.py",
-                old_start=1, old_lines=3, new_start=1, new_lines=3,
-                diff="@@ -1,3 +1,3 @@\n-old\n+new",
-            )],
+            artifact_id="a1",
+            task_id="t1",
+            provenance="t1:step1",
+            hunks=[
+                PatchHunk(
+                    path="/workspace/src/main.py",
+                    old_start=1,
+                    old_lines=3,
+                    new_start=1,
+                    new_lines=3,
+                    diff="@@ -1,3 +1,3 @@\n-old\n+new",
+                )
+            ],
         )
-        result = self.policy.check_patch_paths(
-            artifact, write_paths=[], workspace_root="/workspace"
-        )
+        result = self.policy.check_patch_paths(artifact, write_paths=[], workspace_root="/workspace")
         assert result.allowed
 
     def test_patch_outside_workspace_blocked(self):
         artifact = PatchArtifact(
-            artifact_id="a1", task_id="t1", provenance="t1:step1",
-            hunks=[PatchHunk(
-                path="/etc/passwd",
-                old_start=1, old_lines=1, new_start=1, new_lines=1,
-                diff="@@ -1,1 +1,1 @@\n-root\n+hacker",
-            )],
+            artifact_id="a1",
+            task_id="t1",
+            provenance="t1:step1",
+            hunks=[
+                PatchHunk(
+                    path="/etc/passwd",
+                    old_start=1,
+                    old_lines=1,
+                    new_start=1,
+                    new_lines=1,
+                    diff="@@ -1,1 +1,1 @@\n-root\n+hacker",
+                )
+            ],
         )
-        result = self.policy.check_patch_paths(
-            artifact, write_paths=[], workspace_root="/workspace"
-        )
+        result = self.policy.check_patch_paths(artifact, write_paths=[], workspace_root="/workspace")
         assert result.allowed is False
         assert result.reason_code == "patch_scope_violation"
 
     def test_patch_hash_deterministic(self):
         h1 = PatchHunk(path="f.py", old_start=1, old_lines=1, new_start=1, new_lines=1, diff="abc")
-        artifact = PatchArtifact(
-            artifact_id="a1", task_id="t1", provenance="p1", hunks=[h1]
-        )
+        artifact = PatchArtifact(artifact_id="a1", task_id="t1", provenance="p1", hunks=[h1])
         assert artifact.patch_hash == artifact.patch_hash
 
     def test_patch_not_applied_by_default(self):
@@ -259,13 +270,7 @@ class TestPatchArtifact:
 
 class TestUnifiedDiffParser:
     def test_parse_simple_diff(self):
-        diff = (
-            "--- a/foo.py\n"
-            "+++ b/foo.py\n"
-            "@@ -1,3 +1,3 @@\n"
-            "-old line\n"
-            "+new line\n"
-        )
+        diff = "--- a/foo.py\n+++ b/foo.py\n@@ -1,3 +1,3 @@\n-old line\n+new line\n"
         hunks = _parse_unified_diff(diff)
         assert len(hunks) == 1
         assert hunks[0].path == "foo.py"
@@ -277,8 +282,7 @@ class TestUnifiedDiffParser:
 
     def test_parse_multi_file_diff(self):
         diff = (
-            "--- a/foo.py\n+++ b/foo.py\n@@ -1,1 +1,1 @@\n-a\n+b\n"
-            "--- a/bar.py\n+++ b/bar.py\n@@ -1,1 +1,1 @@\n-c\n+d\n"
+            "--- a/foo.py\n+++ b/foo.py\n@@ -1,1 +1,1 @@\n-a\n+b\n--- a/bar.py\n+++ b/bar.py\n@@ -1,1 +1,1 @@\n-c\n+d\n"
         )
         hunks = _parse_unified_diff(diff)
         assert len(hunks) == 2

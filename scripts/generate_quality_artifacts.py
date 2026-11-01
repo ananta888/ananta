@@ -1,11 +1,11 @@
-import os
-import sys
-import subprocess
-from pathlib import Path
 import json
+import subprocess
+import sys
 import time
+from pathlib import Path
 
 ARTIFACTS_DIR = Path(".artifacts")
+
 
 def run_and_save(command: list[str], filename: str):
     print(f"Running: {' '.join(command)}")
@@ -22,6 +22,7 @@ def run_and_save(command: list[str], filename: str):
     except Exception as e:
         print(f"❌ Error running {command[0]}: {e}")
         return False
+
 
 def main():
     ARTIFACTS_DIR.mkdir(exist_ok=True)
@@ -41,14 +42,12 @@ def main():
     run_and_save([sys.executable, "scripts/audit_runtime.py"], "runtime_audit.txt")
 
     # 5. Create a summary index
-    summary = {
-        "generated_at": time.time(),
-        "artifacts": [str(p.name) for p in ARTIFACTS_DIR.glob("*.txt")]
-    }
+    summary = {"generated_at": time.time(), "artifacts": [str(p.name) for p in ARTIFACTS_DIR.glob("*.txt")]}
     with open(ARTIFACTS_DIR / "summary.json", "w") as f:
         json.dump(summary, f, indent=2)
 
     print("\nAll artifacts generated in .artifacts/")
+
 
 if __name__ == "__main__":
     main()

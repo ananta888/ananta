@@ -14,11 +14,8 @@ from agent.services.source_control_connection_binding import (
     normalize_workspace_relative_path,
 )
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,191}$")
-_WORKSPACE_CONNECTORS = frozenset(
-    {"registered_workspace", "local_directory"}
-)
+_WORKSPACE_CONNECTORS = frozenset({"registered_workspace", "local_directory"})
 _REMOTE_CONNECTORS = frozenset({"git", "github"})
 
 
@@ -60,9 +57,7 @@ class ResolvedSourceControlConnectionIntent:
             project_id=project_id,
             owner_id=owner_id,
             public_connector_type=self.connector_type,
-            implementation_connector_type=(
-                self.implementation_connector_type
-            ),
+            implementation_connector_type=(self.implementation_connector_type),
             selector_kind=self.selector_kind,
             selector_id=self.selector_id,
             relative_path=self.relative_path,
@@ -87,10 +82,7 @@ class SourceControlConnectionIntentResolver:
         project_id = str(getattr(principal, "project_id", "") or "")
         actor_id = str(getattr(principal, "subject_id", "") or "")
         roles = frozenset(getattr(principal, "roles", frozenset()) or ())
-        if not all(
-            _OPAQUE_ID.fullmatch(value)
-            for value in (tenant_id, project_id, actor_id)
-        ):
+        if not all(_OPAQUE_ID.fullmatch(value) for value in (tenant_id, project_id, actor_id)):
             raise SourceControlConnectionIntentError(
                 "source_control_principal_scope_required",
                 status_code=403,
@@ -104,9 +96,7 @@ class SourceControlConnectionIntentResolver:
             raise SourceControlConnectionIntentError("sensitivity_invalid")
         if connector_type in _WORKSPACE_CONNECTORS:
             selector_id = str(payload.get("workspace_id") or "")
-            relative_path = normalize_workspace_relative_path(
-                payload.get("relative_path")
-            )
+            relative_path = normalize_workspace_relative_path(payload.get("relative_path"))
             identity = self._workspace_identity(
                 connector_type=connector_type,
                 tenant_id=tenant_id,
@@ -128,13 +118,9 @@ class SourceControlConnectionIntentResolver:
             )
             selector_kind = "remote"
             relative_path = None
-            repository_identifier = (
-                str(identity.get("repository") or "") or None
-            )
+            repository_identifier = str(identity.get("repository") or "") or None
         else:
-            raise SourceControlConnectionIntentError(
-                "connector_type_not_registered"
-            )
+            raise SourceControlConnectionIntentError("connector_type_not_registered")
         return ResolvedSourceControlConnectionIntent(
             connector_type=connector_type,
             connection_identity_digest=_digest(identity),
@@ -142,9 +128,7 @@ class SourceControlConnectionIntentResolver:
             sensitivity=sensitivity,
             selector_kind=selector_kind,
             selector_id=selector_id,
-            implementation_connector_type=implementation_connector_type(
-                connector_type
-            ),
+            implementation_connector_type=implementation_connector_type(connector_type),
             relative_path=relative_path,
             repository_identifier=repository_identifier,
         )
@@ -161,9 +145,7 @@ class SourceControlConnectionIntentResolver:
     ) -> Mapping[str, object]:
         if _OPAQUE_ID.fullmatch(workspace_id) is None:
             raise SourceControlConnectionIntentError("workspace_id_invalid")
-        resolve = getattr(
-            self._workspaces, "resolve_registered_workspace", None
-        )
+        resolve = getattr(self._workspaces, "resolve_registered_workspace", None)
         if callable(resolve):
             workspace = resolve(
                 workspace_id=workspace_id,
@@ -183,42 +165,26 @@ class SourceControlConnectionIntentResolver:
                 else None
             )
         if workspace is None:
-            raise SourceControlConnectionIntentError(
-                "workspace_not_found", status_code=404
-            )
+            raise SourceControlConnectionIntentError("workspace_not_found", status_code=404)
         workspace_owner = getattr(workspace, "owner_id", None)
         if (
             str(getattr(workspace, "workspace_id", "")) != workspace_id
             or str(getattr(workspace, "tenant_id", "")) != tenant_id
             or str(getattr(workspace, "project_id", "")) != project_id
-            or (
-                actor_id is not None
-                and workspace_owner is not None
-                and str(workspace_owner) != actor_id
-            )
+            or (actor_id is not None and workspace_owner is not None and str(workspace_owner) != actor_id)
         ):
-            raise SourceControlConnectionIntentError(
-                "workspace_not_found", status_code=404
-            )
+            raise SourceControlConnectionIntentError("workspace_not_found", status_code=404)
         if not bool(getattr(workspace, "enabled", False)):
             raise SourceControlConnectionIntentError("workspace_disabled")
         if not bool(getattr(workspace, "read_only", False)):
-            raise SourceControlConnectionIntentError(
-                "workspace_read_only_required"
-            )
+            raise SourceControlConnectionIntentError("workspace_read_only_required")
         root = getattr(workspace, "root", None)
         try:
-            root_identity = (
-                str(root.resolve(strict=True)) if root is not None else ""
-            )
+            root_identity = str(root.resolve(strict=True)) if root is not None else ""
         except OSError as exc:
-            raise SourceControlConnectionIntentError(
-                "workspace_registration_invalid"
-            ) from exc
+            raise SourceControlConnectionIntentError("workspace_registration_invalid") from exc
         if not root_identity:
-            raise SourceControlConnectionIntentError(
-                "workspace_registration_invalid"
-            )
+            raise SourceControlConnectionIntentError("workspace_registration_invalid")
         return {
             "kind": "registered_workspace",
             "connector_type": connector_type,
@@ -227,9 +193,7 @@ class SourceControlConnectionIntentResolver:
             "workspace_id": workspace_id,
             "relative_path": relative_path,
             "owner_id": str(workspace_owner or ""),
-            "registered_root_digest": hashlib.sha256(
-                root_identity.encode("utf-8")
-            ).hexdigest(),
+            "registered_root_digest": hashlib.sha256(root_identity.encode("utf-8")).hexdigest(),
             "read_only": True,
         }
 
@@ -256,37 +220,20 @@ class SourceControlConnectionIntentResolver:
             else None
         )
         if record is None:
-            raise SourceControlConnectionIntentError(
-                "registered_remote_not_found", status_code=404
-            )
-        expected_connector = (
-            "github"
-            if str(getattr(record, "authorization_kind", "")).startswith(
-                "github_"
-            )
-            else "git"
-        )
+            raise SourceControlConnectionIntentError("registered_remote_not_found", status_code=404)
+        expected_connector = "github" if str(getattr(record, "authorization_kind", "")).startswith("github_") else "git"
         if expected_connector != connector_type:
-            raise SourceControlConnectionIntentError(
-                "registered_remote_connector_mismatch"
-            )
+            raise SourceControlConnectionIntentError("registered_remote_connector_mismatch")
         if str(getattr(record, "authorization_state", "")) != "active":
-            raise SourceControlConnectionIntentError(
-                "registered_remote_not_active"
-            )
+            raise SourceControlConnectionIntentError("registered_remote_not_active")
         scope = getattr(record, "scope", None)
         if (
             scope is None
             or str(getattr(scope, "tenant_id", "")) != tenant_id
             or str(getattr(scope, "project_id", "")) != project_id
-            or (
-                actor_id is not None
-                and str(getattr(scope, "owner_id", "")) != actor_id
-            )
+            or (actor_id is not None and str(getattr(scope, "owner_id", "")) != actor_id)
         ):
-            raise SourceControlConnectionIntentError(
-                "registered_remote_not_found", status_code=404
-            )
+            raise SourceControlConnectionIntentError("registered_remote_not_found", status_code=404)
         return {
             "kind": "registered_remote",
             "connector_type": expected_connector,
@@ -294,9 +241,7 @@ class SourceControlConnectionIntentResolver:
             "project_id": project_id,
             "owner_id": str(getattr(scope, "owner_id", "")),
             "remote_id": remote_id,
-            "authorization_kind": str(
-                getattr(record, "authorization_kind", "")
-            ),
+            "authorization_kind": str(getattr(record, "authorization_kind", "")),
             "remote_url": str(getattr(record, "remote_url", "")),
             "repository": getattr(record, "repository", None),
         }

@@ -20,7 +20,6 @@ from agent.services.kanban_event_stream_service import (
 from agent.services.kanban_projection_service import KanbanProjectionService
 from ananta_contracts.kanban import CommentCardCommand, CreateCardCommand
 
-
 ADMIN = KanbanPrincipal(subject="admin", role="admin", is_admin=True)
 
 
@@ -133,11 +132,9 @@ def test_mirror_crash_cannot_lose_committed_event(tmp_path: Path) -> None:
     mirror = _FailingMirror()
     card = _create(_service(engine, mirror=mirror), "crash", "Durable")
 
-    replay = KanbanEventReconnectService(
-        SqlKanbanEventJournal(
-            lambda: SqlKanbanProjectionStore(engine)
-        )
-    ).reconnect(board_id="hub", after_sequence=0, limit=100)
+    replay = KanbanEventReconnectService(SqlKanbanEventJournal(lambda: SqlKanbanProjectionStore(engine))).reconnect(
+        board_id="hub", after_sequence=0, limit=100
+    )
 
     assert mirror.calls == 1
     assert replay.gap_detected is False
@@ -159,15 +156,12 @@ def test_durable_replay_detects_corrupt_sequence_gap(tmp_path: Path) -> None:
         )
         session.commit()
 
-    replay = KanbanEventReconnectService(
-        SqlKanbanEventJournal(
-            lambda: SqlKanbanProjectionStore(engine)
-        )
-    ).reconnect(board_id="hub", after_sequence=0, limit=100)
+    replay = KanbanEventReconnectService(SqlKanbanEventJournal(lambda: SqlKanbanProjectionStore(engine))).reconnect(
+        board_id="hub", after_sequence=0, limit=100
+    )
 
     assert replay.events == ()
     assert replay.gap_detected is True
     assert replay.gap_reason == "sequence_gap"
     assert replay.snapshot_required is True
     assert replay.snapshot_url == "/api/v1/kanban/boards/hub/snapshot"
-

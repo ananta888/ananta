@@ -7,7 +7,9 @@ def test_deerflow_adapter_submit_status_and_fetch_result():
     from agent.research_backend import DeerFlowAdapter
 
     adapter = DeerFlowAdapter()
-    with patch("agent.research_backend._execute_research_backend_cli", return_value=(0, "# Report\n\nhttps://example.com", "")):
+    with patch(
+        "agent.research_backend._execute_research_backend_cli", return_value=(0, "# Report\n\nhttps://example.com", "")
+    ):
         record = adapter.submit_job(prompt="research", task_id="T-DF-ADAPTER")
 
     status = adapter.get_job_status(record["job_id"])
@@ -23,7 +25,9 @@ def test_ananta_research_adapter_submit_status_and_fetch_result():
     from agent.research_backend import AnantaResearchAdapter
 
     adapter = AnantaResearchAdapter()
-    with patch("agent.research_backend._execute_research_backend_cli", return_value=(0, "# Report\n\nhttps://example.com", "")):
+    with patch(
+        "agent.research_backend._execute_research_backend_cli", return_value=(0, "# Report\n\nhttps://example.com", "")
+    ):
         record = adapter.submit_job(prompt="research", task_id="T-AR-ADAPTER")
 
     status = adapter.get_job_status(record["job_id"])
@@ -103,7 +107,9 @@ def test_config_post_merges_research_backend_partial_update(client, admin_auth_h
 
 
 def test_sgpt_execute_deerflow_backend_returns_research_artifact(client, admin_auth_header):
-    with patch("agent.routes.sgpt.run_llm_cli_command", return_value=(0, "# Report\n\nSee https://example.com", "", "deerflow")):
+    with patch(
+        "agent.routes.sgpt.run_llm_cli_command", return_value=(0, "# Report\n\nSee https://example.com", "", "deerflow")
+    ):
         response = client.post(
             "/api/sgpt/execute",
             json={"prompt": "research market", "backend": "deerflow"},
@@ -287,20 +293,27 @@ def test_task_propose_attaches_research_context_bridge(client, app, admin_auth_h
             ]
 
     with app.app_context():
-        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+        from agent.routes.tasks.utils import _update_local_task_status
 
         cfg = app.config.get("AGENT_CONFIG", {}) or {}
-        cfg["sgpt_routing"] = {"policy_version": "v2", "default_backend": "sgpt", "task_kind_backend": {"research": "deerflow"}}
+        cfg["sgpt_routing"] = {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {"research": "deerflow"},
+        }
         app.config["AGENT_CONFIG"] = cfg
         _update_local_task_status(tid, "assigned", description="research competitor landscape")
-        readme_path = str(app.root_path)
+        str(app.root_path)
 
     def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
         captured["prompt"] = prompt
         captured["research_context"] = research_context
         return 0, "# Research Report\n\nSource: https://example.com/context", "", "deerflow"
 
-    with patch("agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service", return_value=StubRetrieval()):
+    with patch(
+        "agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service",
+        return_value=StubRetrieval(),
+    ):
         with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
             response = client.post(
                 f"/tasks/{tid}/step/propose",
@@ -412,7 +425,13 @@ def test_task_execute_research_artifact_persists_worker_result_and_memory(client
     }
     with app.app_context():
         from agent.db_models import WorkerJobDB
-        from agent.repository import artifact_repo, extracted_document_repo, memory_entry_repo, worker_job_repo, worker_result_repo
+        from agent.repository import (
+            artifact_repo,
+            extracted_document_repo,
+            memory_entry_repo,
+            worker_job_repo,
+            worker_result_repo,
+        )
         from agent.routes.tasks.utils import _update_local_task_status
 
         worker_job_repo.save(

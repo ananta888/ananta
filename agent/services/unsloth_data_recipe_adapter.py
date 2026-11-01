@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from pathlib import PurePosixPath
-import re
 from typing import Literal, Protocol
 
+from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
 from ananta_contracts.unsloth_task import (
     canonical_unsloth_json,
     unsloth_payload_sha256,
 )
-from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
 
 
 class DataRecipeValidationError(ValueError):
@@ -142,8 +142,7 @@ class UnslothDataRecipeAdapter:
                 "Tenant and dataset IDs are required.",
             )
         if any(
-            not isinstance(value, str)
-            or cls._FIELD_NAME.fullmatch(value) is None
+            not isinstance(value, str) or cls._FIELD_NAME.fullmatch(value) is None
             for value in (
                 request.prompt_field,
                 request.response_field,
@@ -172,11 +171,7 @@ class UnslothDataRecipeAdapter:
                 "dataset_split_invalid",
                 "Validation fraction must be greater than zero and below 0.5.",
             )
-        if (
-            isinstance(request.seed, bool)
-            or not isinstance(request.seed, int)
-            or not 0 <= request.seed <= 2**31 - 1
-        ):
+        if isinstance(request.seed, bool) or not isinstance(request.seed, int) or not 0 <= request.seed <= 2**31 - 1:
             raise DataRecipeValidationError(
                 "dataset_seed_invalid",
                 "The deterministic split seed is outside its supported bounds.",
@@ -186,17 +181,9 @@ class UnslothDataRecipeAdapter:
             "audio_instruction",
         }
         media_field_valid = (
-            isinstance(request.media_field, str)
-            and cls._FIELD_NAME.fullmatch(request.media_field)
-            is not None
+            isinstance(request.media_field, str) and cls._FIELD_NAME.fullmatch(request.media_field) is not None
         )
-        if (
-            is_multimodal
-            and not media_field_valid
-        ) or (
-            not is_multimodal
-            and request.media_field is not None
-        ):
+        if (is_multimodal and not media_field_valid) or (not is_multimodal and request.media_field is not None):
             raise DataRecipeValidationError(
                 "dataset_media_mapping_invalid",
                 "Multimodal objectives require exactly one media field.",
@@ -237,10 +224,7 @@ class UnslothDataRecipeAdapter:
             len(snapshot.dataset_hash) != cls._HASH_LENGTH
             or any(char not in "0123456789abcdef" for char in snapshot.dataset_hash)
             or len(snapshot.dataset_partition_sha256) != cls._HASH_LENGTH
-            or any(
-                char not in "0123456789abcdef"
-                for char in snapshot.dataset_partition_sha256
-            )
+            or any(char not in "0123456789abcdef" for char in snapshot.dataset_partition_sha256)
         ):
             raise DataRecipeValidationError(
                 "dataset_hash_invalid",

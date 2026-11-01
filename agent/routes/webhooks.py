@@ -42,7 +42,9 @@ def _webhook_config() -> dict[str, Any]:
         "test_mode": bool(cfg.get("test_mode", False)),
         "allowed_providers": _normalize_str_set(cfg.get("allowed_providers")) or set(_DEFAULT_ALLOWED_PROVIDERS),
         "allowed_events": _normalize_str_set(cfg.get("allowed_events")) or set(_DEFAULT_ALLOWED_EVENTS),
-        "allowed_repositories": {str(item).strip() for item in list(cfg.get("allowed_repositories") or []) if str(item).strip()},
+        "allowed_repositories": {
+            str(item).strip() for item in list(cfg.get("allowed_repositories") or []) if str(item).strip()
+        },
         "secrets": {
             str(key).strip().lower(): str(value)
             for key, value in dict(cfg.get("secrets") or {}).items()

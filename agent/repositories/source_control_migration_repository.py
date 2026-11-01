@@ -80,22 +80,16 @@ class SQLSourceControlMigrationRepository:
                         or row.owner_id != plan.owner_id
                         or row.total_entries != len(plan.entries)
                     ):
-                        raise SourceControlMigrationError(
-                            "source_control_migration_identity_conflict"
-                        )
+                        raise SourceControlMigrationError("source_control_migration_identity_conflict")
                     if row.state == "aborted":
                         if not resume:
-                            raise SourceControlMigrationError(
-                                "source_control_migration_resume_required"
-                            )
+                            raise SourceControlMigrationError("source_control_migration_resume_required")
                         row.state = "applying"
                         row.failure_reason = None
                         row.lock_version += 1
                         row.updated_at_epoch = float(self._clock())
                     elif row.state == "rolled_back":
-                        raise SourceControlMigrationError(
-                            "source_control_migration_already_rolled_back"
-                        )
+                        raise SourceControlMigrationError("source_control_migration_already_rolled_back")
             return self._run_record(row)
 
     def apply_entry(
@@ -110,20 +104,11 @@ class SQLSourceControlMigrationRepository:
                 with db.begin():
                     run = db.get(SourceControlMigrationRunDB, migration_id)
                     if run is None:
-                        raise SourceControlMigrationError(
-                            "source_control_migration_not_found"
-                        )
+                        raise SourceControlMigrationError("source_control_migration_not_found")
                     if run.state != "applying":
-                        raise SourceControlMigrationError(
-                            "source_control_migration_not_applying"
-                        )
-                    if (
-                        run.cursor != expected_cursor
-                        or entry.sequence != expected_cursor + 1
-                    ):
-                        raise SourceControlMigrationError(
-                            "source_control_migration_cursor_conflict"
-                        )
+                        raise SourceControlMigrationError("source_control_migration_not_applying")
+                    if run.cursor != expected_cursor or entry.sequence != expected_cursor + 1:
+                        raise SourceControlMigrationError("source_control_migration_cursor_conflict")
                     existing_mapping = db.get(
                         SourceControlLegacyMappingDB,
                         entry.mapping_id,
@@ -132,30 +117,21 @@ class SQLSourceControlMigrationRepository:
                         if (
                             existing_mapping.migration_id != migration_id
                             or existing_mapping.sequence != entry.sequence
-                            or existing_mapping.legacy_record_digest
-                            != entry.legacy_record_digest
+                            or existing_mapping.legacy_record_digest != entry.legacy_record_digest
                         ):
-                            raise SourceControlMigrationError(
-                                "source_control_legacy_mapping_conflict"
-                            )
+                            raise SourceControlMigrationError("source_control_legacy_mapping_conflict")
                         created = False
                         flags = (False, False, False)
                     else:
                         prior_mapping = db.exec(
                             select(SourceControlLegacyMappingDB)
                             .where(
-                                SourceControlLegacyMappingDB.tenant_id
-                                == entry.tenant_id,
-                                SourceControlLegacyMappingDB.project_id
-                                == entry.project_id,
-                                SourceControlLegacyMappingDB.owner_id
-                                == entry.owner_id,
-                                SourceControlLegacyMappingDB.legacy_kind
-                                == entry.legacy_kind,
-                                SourceControlLegacyMappingDB.legacy_key
-                                == entry.legacy_key,
-                                SourceControlLegacyMappingDB.legacy_record_digest
-                                == entry.legacy_record_digest,
+                                SourceControlLegacyMappingDB.tenant_id == entry.tenant_id,
+                                SourceControlLegacyMappingDB.project_id == entry.project_id,
+                                SourceControlLegacyMappingDB.owner_id == entry.owner_id,
+                                SourceControlLegacyMappingDB.legacy_kind == entry.legacy_kind,
+                                SourceControlLegacyMappingDB.legacy_key == entry.legacy_key,
+                                SourceControlLegacyMappingDB.legacy_record_digest == entry.legacy_record_digest,
                             )
                             .order_by(
                                 SourceControlLegacyMappingDB.created_at_epoch,
@@ -164,9 +140,7 @@ class SQLSourceControlMigrationRepository:
                         ).first()
                         self._ensure_connection(db, entry)
                         self._ensure_revision(db, entry)
-                        created_source_ref = self._ensure_source_ref(
-                            db, entry
-                        )
+                        created_source_ref = self._ensure_source_ref(db, entry)
                         created_index = self._ensure_index_binding(db, entry)
                         created_run = self._ensure_run_binding(db, entry)
                         flags = (
@@ -187,46 +161,24 @@ class SQLSourceControlMigrationRepository:
                                 owner_id=entry.owner_id,
                                 legacy_kind=entry.legacy_kind,
                                 legacy_key=entry.legacy_key,
-                                legacy_record_digest=(
-                                    entry.legacy_record_digest
-                                ),
-                                connection_id=(
-                                    entry.connection.connection_id
-                                    if entry.connection
-                                    else None
-                                ),
+                                legacy_record_digest=(entry.legacy_record_digest),
+                                connection_id=(entry.connection.connection_id if entry.connection else None),
                                 source_revision_id=(
                                     entry.revision.source_revision_id
                                     if entry.revision
                                     else (
                                         entry.index_binding.source_revision_id
                                         if entry.index_binding
-                                        else (
-                                            entry.run_binding.source_revision_id
-                                            if entry.run_binding
-                                            else None
-                                        )
+                                        else (entry.run_binding.source_revision_id if entry.run_binding else None)
                                     )
                                 ),
-                                source_ref_id=(
-                                    entry.source_ref.source_ref_id
-                                    if entry.source_ref
-                                    else None
-                                ),
+                                source_ref_id=(entry.source_ref.source_ref_id if entry.source_ref else None),
                                 knowledge_index_id=(
                                     entry.index_binding.knowledge_index_id
                                     if entry.index_binding
-                                    else (
-                                        entry.run_binding.knowledge_index_id
-                                        if entry.run_binding
-                                        else None
-                                    )
+                                    else (entry.run_binding.knowledge_index_id if entry.run_binding else None)
                                 ),
-                                index_run_id=(
-                                    entry.run_binding.index_run_id
-                                    if entry.run_binding
-                                    else None
-                                ),
+                                index_run_id=(entry.run_binding.index_run_id if entry.run_binding else None),
                                 policy_snapshot_id=entry.policy_snapshot_id,
                                 policy_version=entry.policy_version,
                                 created_source_ref_mapping=flags[0],
@@ -238,44 +190,29 @@ class SQLSourceControlMigrationRepository:
                     result = db.execute(
                         update(SourceControlMigrationRunDB)
                         .where(
-                            SourceControlMigrationRunDB.migration_id
-                            == migration_id,
-                            SourceControlMigrationRunDB.cursor
-                            == expected_cursor,
-                            SourceControlMigrationRunDB.lock_version
-                            == run.lock_version,
+                            SourceControlMigrationRunDB.migration_id == migration_id,
+                            SourceControlMigrationRunDB.cursor == expected_cursor,
+                            SourceControlMigrationRunDB.lock_version == run.lock_version,
                         )
                         .values(
                             cursor=entry.sequence,
-                            created_mapping_count=(
-                                run.created_mapping_count
-                                + (1 if created else 0)
-                            ),
-                            reused_mapping_count=(
-                                run.reused_mapping_count
-                                + (0 if created else 1)
-                            ),
+                            created_mapping_count=(run.created_mapping_count + (1 if created else 0)),
+                            reused_mapping_count=(run.reused_mapping_count + (0 if created else 1)),
                             lock_version=run.lock_version + 1,
                             updated_at_epoch=float(self._clock()),
                         )
                     )
                     if result.rowcount != 1:
-                        raise SourceControlMigrationError(
-                            "source_control_migration_cursor_conflict"
-                        )
+                        raise SourceControlMigrationError("source_control_migration_cursor_conflict")
                 refreshed = db.get(
                     SourceControlMigrationRunDB,
                     migration_id,
                 )
                 if refreshed is None:
-                    raise SourceControlMigrationError(
-                        "source_control_migration_not_found"
-                    )
+                    raise SourceControlMigrationError("source_control_migration_not_found")
                 return self._run_record(refreshed)
         except IntegrityError:
-            raise SourceControlMigrationError(
-                "source_control_legacy_mapping_conflict"
-            ) from None
+            raise SourceControlMigrationError("source_control_legacy_mapping_conflict") from None
 
     def finish(
         self,
@@ -292,9 +229,7 @@ class SQLSourceControlMigrationRepository:
                     or row.cursor != expected_cursor
                     or row.cursor != row.total_entries
                 ):
-                    raise SourceControlMigrationError(
-                        "source_control_migration_finish_invalid"
-                    )
+                    raise SourceControlMigrationError("source_control_migration_finish_invalid")
                 row.state = "applied"
                 row.lock_version += 1
                 row.updated_at_epoch = float(self._clock())
@@ -311,14 +246,8 @@ class SQLSourceControlMigrationRepository:
         with Session(self._engine) as db:
             with db.begin():
                 row = db.get(SourceControlMigrationRunDB, migration_id)
-                if (
-                    row is None
-                    or row.state != "applying"
-                    or row.cursor != expected_cursor
-                ):
-                    raise SourceControlMigrationError(
-                        "source_control_migration_abort_invalid"
-                    )
+                if row is None or row.state != "applying" or row.cursor != expected_cursor:
+                    raise SourceControlMigrationError("source_control_migration_abort_invalid")
                 row.state = "aborted"
                 row.failure_reason = reason_code[:160]
                 row.conflict_count += 1
@@ -331,79 +260,51 @@ class SQLSourceControlMigrationRepository:
             row = db.get(SourceControlMigrationRunDB, migration_id)
             return None if row is None else self._run_record(row)
 
-    def list_mappings(
-        self, migration_id: str
-    ) -> tuple[LegacyMappingRecord, ...]:
+    def list_mappings(self, migration_id: str) -> tuple[LegacyMappingRecord, ...]:
         with Session(self._engine) as db:
             rows = db.exec(
                 select(SourceControlLegacyMappingDB)
-                .where(
-                    SourceControlLegacyMappingDB.migration_id
-                    == migration_id
-                )
+                .where(SourceControlLegacyMappingDB.migration_id == migration_id)
                 .order_by(SourceControlLegacyMappingDB.sequence)
             ).all()
             return tuple(self._mapping_record(row) for row in rows)
 
-    def rollback_new_mappings(
-        self, migration_id: str
-    ) -> MigrationRunRecord:
+    def rollback_new_mappings(self, migration_id: str) -> MigrationRunRecord:
         with Session(self._engine) as db:
             with db.begin():
                 run = db.get(SourceControlMigrationRunDB, migration_id)
                 if run is None:
-                    raise SourceControlMigrationError(
-                        "source_control_migration_not_found"
-                    )
+                    raise SourceControlMigrationError("source_control_migration_not_found")
                 if run.state not in {"applied", "aborted"}:
-                    raise SourceControlMigrationError(
-                        "source_control_migration_rollback_invalid"
-                    )
+                    raise SourceControlMigrationError("source_control_migration_rollback_invalid")
                 mappings = db.exec(
                     select(SourceControlLegacyMappingDB)
-                    .where(
-                        SourceControlLegacyMappingDB.migration_id
-                        == migration_id
-                    )
+                    .where(SourceControlLegacyMappingDB.migration_id == migration_id)
                     .order_by(SourceControlLegacyMappingDB.sequence.desc())
                 ).all()
                 for mapping in mappings:
                     if mapping.created_run_binding and mapping.index_run_id:
                         db.execute(
                             delete(KnowledgeIndexRunSourceBindingDB).where(
-                                KnowledgeIndexRunSourceBindingDB.index_run_id
-                                == mapping.index_run_id
+                                KnowledgeIndexRunSourceBindingDB.index_run_id == mapping.index_run_id
                             )
                         )
-                    if (
-                        mapping.created_index_binding
-                        and mapping.knowledge_index_id
-                    ):
+                    if mapping.created_index_binding and mapping.knowledge_index_id:
                         active = db.exec(
                             select(ActiveKnowledgeIndexDB).where(
-                                ActiveKnowledgeIndexDB.knowledge_index_id
-                                == mapping.knowledge_index_id
+                                ActiveKnowledgeIndexDB.knowledge_index_id == mapping.knowledge_index_id
                             )
                         ).first()
                         if active is not None:
-                            raise SourceControlMigrationError(
-                                "source_control_migration_mapping_in_use"
-                            )
+                            raise SourceControlMigrationError("source_control_migration_mapping_in_use")
                         db.execute(
                             delete(KnowledgeIndexSourceBindingDB).where(
-                                KnowledgeIndexSourceBindingDB.knowledge_index_id
-                                == mapping.knowledge_index_id
+                                KnowledgeIndexSourceBindingDB.knowledge_index_id == mapping.knowledge_index_id
                             )
                         )
-                    if (
-                        mapping.created_source_ref_mapping
-                        and mapping.source_ref_id
-                    ):
+                    if mapping.created_source_ref_mapping and mapping.source_ref_id:
                         db.execute(
-                            delete(SourceRefMappingDB).where(
-                                SourceRefMappingDB.source_ref_id
-                                == mapping.source_ref_id
-                            )
+                            delete(SourceRefMappingDB).where(SourceRefMappingDB.source_ref_id == mapping.source_ref_id)
                         )
                     db.delete(mapping)
                 run.state = "rolled_back"
@@ -429,9 +330,7 @@ class SQLSourceControlMigrationRepository:
                     project_id=contract.project_id,
                     owner_id=contract.owner_id,
                     connector_type=contract.connector_type.value,
-                    connection_identity_digest=(
-                        contract.connection_identity_digest
-                    ),
+                    connection_identity_digest=(contract.connection_identity_digest),
                     display_name=contract.display_name,
                     sensitivity=contract.sensitivity.value,
                     state=contract.state.value,
@@ -443,9 +342,7 @@ class SQLSourceControlMigrationRepository:
             db.flush()
             return
         if SQLSourceControlMigrationRepository._connection_contract(row) != contract:
-            raise SourceControlMigrationError(
-                "source_control_connection_identity_conflict"
-            )
+            raise SourceControlMigrationError("source_control_connection_identity_conflict")
 
     @staticmethod
     def _ensure_revision(
@@ -469,9 +366,7 @@ class SQLSourceControlMigrationRepository:
                     revision_token=contract.revision_token,
                     revision_digest=contract.revision_digest,
                     content_manifest_id=contract.content_manifest_id,
-                    content_manifest_digest=(
-                        contract.content_manifest_digest
-                    ),
+                    content_manifest_digest=(contract.content_manifest_digest),
                     admission_state=contract.admission_state.value,
                     captured_at_epoch=contract.captured_at.timestamp(),
                 )
@@ -479,9 +374,7 @@ class SQLSourceControlMigrationRepository:
             db.flush()
             return
         if SQLSourceControlMigrationRepository._revision_contract(row) != contract:
-            raise SourceControlMigrationError(
-                "source_control_revision_append_conflict"
-            )
+            raise SourceControlMigrationError("source_control_revision_append_conflict")
 
     def _ensure_source_ref(
         self,
@@ -515,9 +408,7 @@ class SQLSourceControlMigrationRepository:
             or row.owner_id != entry.owner_id
             or row.provenance_digest != contract.provenance_digest
         ):
-            raise SourceControlMigrationError(
-                "source_control_source_ref_mapping_conflict"
-            )
+            raise SourceControlMigrationError("source_control_source_ref_mapping_conflict")
         return False
 
     @staticmethod
@@ -537,9 +428,7 @@ class SQLSourceControlMigrationRepository:
             db.flush()
             return True
         if SQLSourceControlMigrationRepository._index_values(row) != record:
-            raise SourceControlMigrationError(
-                "source_control_index_binding_conflict"
-            )
+            raise SourceControlMigrationError("source_control_index_binding_conflict")
         return False
 
     @staticmethod
@@ -559,9 +448,7 @@ class SQLSourceControlMigrationRepository:
             db.flush()
             return True
         if SQLSourceControlMigrationRepository._run_values(row) != record:
-            raise SourceControlMigrationError(
-                "source_control_index_run_binding_conflict"
-            )
+            raise SourceControlMigrationError("source_control_index_run_binding_conflict")
         return False
 
     @staticmethod

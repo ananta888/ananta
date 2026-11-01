@@ -1,12 +1,11 @@
 """Tests for T06 — TokenUsageReport / normalize_usage."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
 from agent.services.token_budget_service import normalize_usage
-
 
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas/chat/token_usage_report.v1.json"
 
@@ -16,6 +15,7 @@ def _schema() -> dict:
 
 
 # ── Basic normalization ───────────────────────────────────────────────────────
+
 
 def test_openai_format_normalized():
     raw = {"prompt_tokens": 150, "completion_tokens": 75, "total_tokens": 225}

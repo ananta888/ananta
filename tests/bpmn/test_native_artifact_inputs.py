@@ -31,21 +31,33 @@ from worker.runtime.native_graph.composition import TaskScopedNativeWorkerExecut
 
 @pytest.fixture
 def consumer(ingress):  # noqa: F811
-    receipt, = materialize(ingress)
+    (receipt,) = materialize(ingress)
     set_result_artifact(ingress, receipt["artifact_ref"])
     complete(ingress.native)
     source = ingress.native.command
     envelope = RuntimeAuthorizationEnvelope.issue(
-        key_ring=ingress.native.keys, tenant_id=source.tenant_id, workflow_id=source.workflow_id,
-        run_id=source.run_id, step_id="consumer", plan_hash=source.plan_hash, policy_version=source.policy_version,
-        allowed_artifacts=("report",), now=ingress.native.clock.now,
+        key_ring=ingress.native.keys,
+        tenant_id=source.tenant_id,
+        workflow_id=source.workflow_id,
+        run_id=source.run_id,
+        step_id="consumer",
+        plan_hash=source.plan_hash,
+        policy_version=source.policy_version,
+        allowed_artifacts=("report",),
+        now=ingress.native.clock.now,
     )
     command = NativeNodeCommand(
-        command_id="synthetic-consumer-command", control_task_id=source.control_task_id, tenant_id=source.tenant_id,
-        workflow_id=source.workflow_id, run_id=source.run_id, plan_hash=source.plan_hash,
+        command_id="synthetic-consumer-command",
+        control_task_id=source.control_task_id,
+        tenant_id=source.tenant_id,
+        workflow_id=source.workflow_id,
+        run_id=source.run_id,
+        plan_hash=source.plan_hash,
         policy_version=source.policy_version,
         node=ExecutionNode("consumer", task_kind="tool_task", input_artifacts=("report",)),
-        authorization=envelope, attempt_id="synthetic-consumer-attempt", fencing_token=1,
+        authorization=envelope,
+        attempt_id="synthetic-consumer-attempt",
+        fencing_token=1,
         artifact_refs={"report": receipt["artifact_ref"]},
     )
     ingress.native.grants.grant(envelope)
@@ -53,27 +65,48 @@ def consumer(ingress):  # noqa: F811
     with Session(ingress.native.engine) as session:
         ownership = session.exec(select(WorkflowExecutionOwnershipDB)).one().model_dump()
         assignment = session.exec(select(WorkflowWorkerAssignmentDB)).one().model_dump()
-        ownership.update(id=stable_row_id("wfro", source.tenant_id, source.run_id, "consumer"),
-                         step_id="consumer", attempt_id=command.attempt_id,
-                         owner_id=f"hub-native:{source.run_id}:consumer")
-        ownership["ownership"] = {**ownership["ownership"], "step_id": "consumer", "attempt_id": command.attempt_id,
-                                  "owner_id": ownership["owner_id"]}
-        assignment.update(id=stable_row_id("wfra", source.tenant_id, source.run_id, "consumer"),
-                          step_id="consumer", attempt_id=command.attempt_id, hub_task_id=task_id)
+        ownership.update(
+            id=stable_row_id("wfro", source.tenant_id, source.run_id, "consumer"),
+            step_id="consumer",
+            attempt_id=command.attempt_id,
+            owner_id=f"hub-native:{source.run_id}:consumer",
+        )
+        ownership["ownership"] = {
+            **ownership["ownership"],
+            "step_id": "consumer",
+            "attempt_id": command.attempt_id,
+            "owner_id": ownership["owner_id"],
+        }
+        assignment.update(
+            id=stable_row_id("wfra", source.tenant_id, source.run_id, "consumer"),
+            step_id="consumer",
+            attempt_id=command.attempt_id,
+            hub_task_id=task_id,
+        )
         session.add(WorkflowExecutionOwnershipDB(**ownership))
         session.add(WorkflowWorkerAssignmentDB(**assignment))
-        session.add(TaskDB(
-            id=task_id, tenant_id=source.tenant_id, status="in_progress", task_kind="tool_task",
-            derivation_reason="native_graph_hub_delegation", assigned_agent_url=assignment["worker_url"],
-            worker_execution_context={"schema": "ananta.native_graph_worker_context.v1",
-                                      "runtime_path": "native_graph_node", "native_node_command": command.to_dict()},
-        ))
+        session.add(
+            TaskDB(
+                id=task_id,
+                tenant_id=source.tenant_id,
+                status="in_progress",
+                task_kind="tool_task",
+                derivation_reason="native_graph_hub_delegation",
+                assigned_agent_url=assignment["worker_url"],
+                worker_execution_context={
+                    "schema": "ananta.native_graph_worker_context.v1",
+                    "runtime_path": "native_graph_node",
+                    "native_node_command": command.to_dict(),
+                },
+            )
+        )
         session.commit()
     authority = SQLAlchemyNativeResultAuthority(key_ring=lambda: ingress.native.keys)
     service = NativeArtifactInputService(
-        authority=authority, dispatch=NativeArtifactDispatch(authority=authority, worker_id="worker-1",
-                                                            worker_url="http://worker-1:5000"),
-        storage=ingress.store, clock=lambda: ingress.native.clock.now,
+        authority=authority,
+        dispatch=NativeArtifactDispatch(authority=authority, worker_id="worker-1", worker_url="http://worker-1:5000"),
+        storage=ingress.store,
+        clock=lambda: ingress.native.clock.now,
     )
     return SimpleNamespace(ingress=ingress, task_id=task_id, command=command, service=service)
 
@@ -105,9 +138,11 @@ def test_fresh_hub_composition_recovers_only_immutable_accepted_input(consumer, 
     """Reopen persisted SQL/storage; no surviving service instance supplies proof."""
     hub = consumer.ingress.native
     with Session(hub.engine) as session:
-        source_lease = session.exec(select(WorkflowExecutionOwnershipDB).where(
-            WorkflowExecutionOwnershipDB.step_id == hub.command.node.node_id,
-        )).one()
+        source_lease = session.exec(
+            select(WorkflowExecutionOwnershipDB).where(
+                WorkflowExecutionOwnershipDB.step_id == hub.command.node.node_id,
+            )
+        ).one()
         source_lease.lease_expires_at = 1
         session.add(source_lease)
         if mode == "mutated-producer":
@@ -124,7 +159,8 @@ def test_fresh_hub_composition_recovers_only_immutable_accepted_input(consumer, 
     restored = NativeArtifactInputService(
         authority=authority,
         dispatch=NativeArtifactDispatch(authority=authority, worker_id="worker-1", worker_url="http://worker-1:5000"),
-        storage=ArtifactStore(consumer.ingress.store.base_dir), clock=lambda: hub.clock.now,
+        storage=ArtifactStore(consumer.ingress.store.base_dir),
+        clock=lambda: hub.clock.now,
     )
     try:
         with Session(engine) as session:
@@ -141,8 +177,9 @@ def test_fresh_hub_composition_recovers_only_immutable_accepted_input(consumer, 
 def test_completed_producer_requires_its_immutable_result_receipt(consumer):
     with Session(consumer.ingress.native.engine) as session:
         task = session.get(TaskDB, consumer.ingress.native.task_id)
-        task.verification_status = {key: value for key, value in task.verification_status.items()
-                                    if key != "native_result_receipt"}
+        task.verification_status = {
+            key: value for key, value in task.verification_status.items() if key != "native_result_receipt"
+        }
         session.add(task)
         session.commit()
     with pytest.raises(ValueError, match="receipt_required"):
@@ -163,7 +200,9 @@ def test_modified_stored_bytes_never_reach_consumer(consumer):
 
 def test_foreign_authenticated_worker_cannot_read_inputs(consumer):
     consumer.service._dispatch = NativeArtifactDispatch(
-        authority=consumer.service._authority, worker_id="foreign", worker_url="http://worker-1:5000",
+        authority=consumer.service._authority,
+        worker_id="foreign",
+        worker_url="http://worker-1:5000",
     )
     with pytest.raises(ValueError, match="worker_assignment_mismatch"):
         read(consumer)
@@ -207,14 +246,18 @@ def test_fifo_cannot_block_hub_input_read(consumer):
 
 def test_authenticated_download_checks_hub_proof_and_actual_bytes(consumer, http):  # noqa: F811
     item = NativeArtifactInputDownloader(transport=FlaskArtifactTransport(http)).download(
-        command=consumer.command, hub_task_id=consumer.task_id, project_id=None, input_name="report",
+        command=consumer.command,
+        hub_task_id=consumer.task_id,
+        project_id=None,
+        input_name="report",
     )
     assert item.content == consumer.ingress.content
     assert item.output_name == "report"
 
 
-@pytest.mark.parametrize("headers", [{}, {**HEADERS, "Authorization": "Bearer invalid"},
-                                     {**HEADERS, "X-Ananta-Worker-ID": "foreign"}])
+@pytest.mark.parametrize(
+    "headers", [{}, {**HEADERS, "Authorization": "Bearer invalid"}, {**HEADERS, "X-Ananta-Worker-ID": "foreign"}]
+)
 def test_input_http_auth_cannot_be_bypassed(consumer, http, headers):  # noqa: F811
     url = f"/internal/tasks/{consumer.task_id}/native-artifact-inputs/report"
     response = http.client.get(url, headers=headers)
@@ -222,18 +265,28 @@ def test_input_http_auth_cannot_be_bypassed(consumer, http, headers):  # noqa: F
     assert "content_base64" not in str(response.get_json())
 
 
-@pytest.mark.parametrize("field,value", [
-    ("artifact_ref", "artifact://foreign"), ("sha256", "a" * 64), ("size_bytes", True),
-    ("filename", "foreign.txt"), ("consumer_command_digest", "a" * 64),
-    ("artifact_version_id", "SRC_forged"), ("content_base64", ""),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("artifact_ref", "artifact://foreign"),
+        ("sha256", "a" * 64),
+        ("size_bytes", True),
+        ("filename", "foreign.txt"),
+        ("consumer_command_digest", "a" * 64),
+        ("artifact_version_id", "SRC_forged"),
+        ("content_base64", ""),
+    ],
+)
 def test_worker_rejects_modified_input_download(consumer, http, field, value):  # noqa: F811
     def tamper(method, response):
         response[field] = value
 
     with pytest.raises(ValueError):
         NativeArtifactInputDownloader(transport=FlaskArtifactTransport(http, tamper=tamper)).download(
-            command=consumer.command, hub_task_id=consumer.task_id, project_id=None, input_name="report",
+            command=consumer.command,
+            hub_task_id=consumer.task_id,
+            project_id=None,
+            input_name="report",
         )
 
 
@@ -248,9 +301,15 @@ def test_input_http_denies_undeclared_artifact_name(consumer, http):  # noqa: F8
 def test_current_consumer_downloads_then_command_reads_workspace_input(consumer, http, tmp_path, real_policy):  # noqa: F811
     from worker.runtime.native_worker_runtime_service import NativeWorkerRuntimeService
 
-    command = replace(consumer.command, node=replace(consumer.command.node, metadata={
-        "native_input_files": {"report": "inputs/report.txt"},
-    }))
+    command = replace(
+        consumer.command,
+        node=replace(
+            consumer.command.node,
+            metadata={
+                "native_input_files": {"report": "inputs/report.txt"},
+            },
+        ),
+    )
     with Session(consumer.ingress.native.engine) as session:
         task = session.get(TaskDB, consumer.task_id)
         task.worker_execution_context = {**task.worker_execution_context, "native_node_command": command.to_dict()}
@@ -281,8 +340,14 @@ def test_current_consumer_downloads_then_command_reads_workspace_input(consumer,
     )
     text = shlex.join([sys.executable, "-c", script]) if real_policy else "synthetic-read"
     config = {"worker_runtime": {"native_worker_runtime": {"shell_policy": {"allowlist": [sys.executable]}}}}
-    result = executor.execute(hub_task_id=consumer.task_id, task=snapshot, command=text, trace_id="trace",
-                              timeout_seconds=10, agent_config=config)
+    result = executor.execute(
+        hub_task_id=consumer.task_id,
+        task=snapshot,
+        command=text,
+        trace_id="trace",
+        timeout_seconds=10,
+        agent_config=config,
+    )
     assert result["status"] == "completed", result
     assert calls == ([] if real_policy else ["executed_after_download"])
 
@@ -295,6 +360,12 @@ def test_missing_input_materializer_prevents_command_execution(consumer, tmp_pat
         workspaces=SimpleNamespace(resolve_workspace_context=lambda **values: SimpleNamespace(workspace_dir=tmp_path)),
     )
     with pytest.raises(ValueError, match="input_materializer_unavailable"):
-        executor.execute(hub_task_id=consumer.task_id, task=task, command="synthetic", trace_id="trace",
-                         timeout_seconds=1, agent_config={})
+        executor.execute(
+            hub_task_id=consumer.task_id,
+            task=task,
+            command="synthetic",
+            trace_id="trace",
+            timeout_seconds=1,
+            agent_config={},
+        )
     assert calls == []

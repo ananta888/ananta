@@ -48,11 +48,7 @@ def get_task_sources(task_id: str):
         # Project an explicit metadata allowlist.  Legacy or malformed catalog
         # rows may contain arbitrary body-like fields (for example ``text`` or
         # ``excerpt``); copying then deleting one known key is not fail-closed.
-        entry = {
-            field: source.get(field)
-            for field in public_fields
-            if field in source and field != "source_ref"
-        }
+        entry = {field: source.get(field) for field in public_fields if field in source and field != "source_ref"}
         raw_ref = source.get("source_ref")
         if isinstance(raw_ref, Mapping):
             entry["source_ref"] = {

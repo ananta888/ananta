@@ -330,7 +330,7 @@ class WorkflowControlService:
 
     def authorize_query(self, *, principal: WorkflowPrincipal, workflow_id: str, run_id: str) -> None:
         """Authorize Hub-persisted reads without requiring a live execution backend."""
-        self._authorize_bound(principal, 'query', workflow_id, run_id)
+        self._authorize_bound(principal, "query", workflow_id, run_id)
 
     def history(
         self,

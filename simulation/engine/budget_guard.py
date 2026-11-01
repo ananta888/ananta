@@ -1,8 +1,9 @@
 """BudgetGuard — enforces per-run resource limits (SIM-020)."""
+
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from simulation.models.scenario import BudgetConfig
@@ -18,14 +19,18 @@ class BudgetUsage:
     consecutive_failures: int = 0
 
     def as_dict(self) -> dict[str, Any]:
-        return {"ticks": self.ticks, "wall_seconds": self.wall_seconds,
-                "tokens": self.tokens, "cost_usd": self.cost_usd,
-                "consecutive_failures": self.consecutive_failures}
+        return {
+            "ticks": self.ticks,
+            "wall_seconds": self.wall_seconds,
+            "tokens": self.tokens,
+            "cost_usd": self.cost_usd,
+            "consecutive_failures": self.consecutive_failures,
+        }
 
 
 @dataclass
 class BudgetViolation:
-    kind: str    # ticks | wall_seconds | tokens | cost_usd | failures | extinction
+    kind: str  # ticks | wall_seconds | tokens | cost_usd | failures | extinction
     message: str
 
 
@@ -37,9 +42,9 @@ class BudgetGuard:
         self.usage = BudgetUsage()
         self._start_time = time.monotonic()
 
-    def record_tick(self, state: WorldState,
-                     tokens_used: int = 0, cost_usd: float = 0.0,
-                     failures: int = 0) -> BudgetViolation | None:
+    def record_tick(
+        self, state: WorldState, tokens_used: int = 0, cost_usd: float = 0.0, failures: int = 0
+    ) -> BudgetViolation | None:
         self.usage.ticks += 1
         self.usage.tokens += tokens_used
         self.usage.cost_usd += cost_usd
@@ -64,8 +69,7 @@ class BudgetGuard:
         if u.cost_usd >= cfg.max_cost_usd:
             return BudgetViolation("cost_usd", f"cost limit ${cfg.max_cost_usd} exceeded")
         if u.consecutive_failures >= cfg.max_consecutive_failures:
-            return BudgetViolation("failures",
-                                    f"{cfg.max_consecutive_failures} consecutive failures")
+            return BudgetViolation("failures", f"{cfg.max_consecutive_failures} consecutive failures")
         if cfg.stop_on_extinction and not state.living_agents():
             return BudgetViolation("extinction", "all agents dead")
 

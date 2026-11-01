@@ -258,9 +258,7 @@ def test_resolver_recomputes_catalog_hash_and_id() -> None:
     task = _task_payload(with_authority=True)
     catalog = task["verification_status"]["source_catalog"]
     catalog["sources"][0]["content_hash"] = "f" * 64
-    service = SourceCatalogAuthorityService(
-        SimpleNamespace(get_by_id=lambda _task_id: task)
-    )
+    service = SourceCatalogAuthorityService(SimpleNamespace(get_by_id=lambda _task_id: task))
 
     with pytest.raises(
         SourceCatalogAuthorityError,
@@ -269,12 +267,8 @@ def test_resolver_recomputes_catalog_hash_and_id() -> None:
         _resolve(service, task)
 
     task = _task_payload(with_authority=True)
-    task["verification_status"]["source_catalog"][
-        "source_catalog_id"
-    ] = "catalog-ffffffffffffffff"
-    service = SourceCatalogAuthorityService(
-        SimpleNamespace(get_by_id=lambda _task_id: task)
-    )
+    task["verification_status"]["source_catalog"]["source_catalog_id"] = "catalog-ffffffffffffffff"
+    service = SourceCatalogAuthorityService(SimpleNamespace(get_by_id=lambda _task_id: task))
     with pytest.raises(
         SourceCatalogAuthorityError,
         match="id_integrity_mismatch",
@@ -287,9 +281,7 @@ def test_resolver_validates_complete_v2_payload() -> None:
     catalog = task["verification_status"]["source_catalog"]
     catalog["sources"][0]["source_type"] = "repo_symbol"
     _rehash_catalog(task)
-    service = SourceCatalogAuthorityService(
-        SimpleNamespace(get_by_id=lambda _task_id: task)
-    )
+    service = SourceCatalogAuthorityService(SimpleNamespace(get_by_id=lambda _task_id: task))
 
     with pytest.raises(
         SourceCatalogAuthorityError,
@@ -329,9 +321,7 @@ def test_organization_catalog_uses_scoped_authority_not_publisher_identity() -> 
     )
     _rehash_catalog(task)
     catalog = task["verification_status"]["source_catalog"]
-    service = SourceCatalogAuthorityService(
-        SimpleNamespace(get_by_id=lambda _task_id: task)
-    )
+    service = SourceCatalogAuthorityService(SimpleNamespace(get_by_id=lambda _task_id: task))
 
     resolved = service.resolve(
         principal=ChatSessionPrincipal.from_values("tenant-a", "user-b"),
@@ -358,9 +348,7 @@ def test_organization_catalog_requires_exact_scope_and_access_proof() -> None:
     task = _task_payload(with_authority=True)
     task["organization_id"] = "organization-a"
     catalog = task["verification_status"]["source_catalog"]
-    service = SourceCatalogAuthorityService(
-        SimpleNamespace(get_by_id=lambda _task_id: task)
-    )
+    service = SourceCatalogAuthorityService(SimpleNamespace(get_by_id=lambda _task_id: task))
     common = {
         "principal": ChatSessionPrincipal.from_values("tenant-a", "user-b"),
         "catalog_task_id": task["id"],

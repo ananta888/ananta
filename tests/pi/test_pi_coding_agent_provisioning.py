@@ -30,8 +30,15 @@ class ProvisioningRunner:
             prefix = Path(argv[argv.index("--prefix") + 1])
             assert kwargs["cwd"] == prefix
             assert argv == [
-                "/usr/bin/npm", "install", "--prefix", str(prefix), "--ignore-scripts",
-                "--no-audit", "--no-fund", "--save-exact", "@earendil-works/pi-coding-agent@0.85.1",
+                "/usr/bin/npm",
+                "install",
+                "--prefix",
+                str(prefix),
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--save-exact",
+                "@earendil-works/pi-coding-agent@0.85.1",
             ]
             environment = kwargs["environment"]
             configs = [Path(environment[key]) for key in ("NPM_CONFIG_USERCONFIG", "NPM_CONFIG_GLOBALCONFIG")]
@@ -145,7 +152,8 @@ def test_pi_does_not_inherit_interactive_login_routes(client, admin_auth_header,
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "worker")
     response = client.post(
         f"/api/sgpt/backends/pi/{endpoint}",
-        json={"action": "login_start"}, headers=admin_auth_header,
+        json={"action": "login_start"},
+        headers=admin_auth_header,
     )
     assert response.status_code == 404
 
@@ -159,7 +167,9 @@ def test_pi_provision_route_reports_bounded_runtime_failure(client, admin_auth_h
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "worker")
     monkeypatch.setattr("agent.cli_backends.provisioning.get_cli_backend_provisioner", lambda: provisioner)
     response = client.post(
-        "/api/sgpt/backends/pi/provision", json={"action": "install"}, headers=admin_auth_header,
+        "/api/sgpt/backends/pi/provision",
+        json={"action": "install"},
+        headers=admin_auth_header,
     )
     assert response.status_code == 500
     assert response.json["data"]["reason_code"] == reason

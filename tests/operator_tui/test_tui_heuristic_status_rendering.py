@@ -1,5 +1,5 @@
 """Tests für TUI Heuristik-Status-Anzeige (T07.05)."""
-import pytest
+
 from client_surfaces.operator_tui.renderer import _overlay_snake_score_header
 
 
@@ -9,6 +9,7 @@ def _make_lines(width: int = 80, count: int = 3) -> list[str]:
 
 def _strip_ansi(text: str) -> str:
     import re
+
     return re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
 
 

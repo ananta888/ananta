@@ -3,6 +3,7 @@
 Uses generated files in an isolated workspace, runs real pytest, and feeds
 verification evidence into TaskCompletionPolicyService.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,18 +17,12 @@ from agent.services.task_completion_policy_service import get_task_completion_po
 def _write_project(workspace: Path, *, failing: bool) -> None:
     (workspace / "tests").mkdir(parents=True, exist_ok=True)
     (workspace / "app.py").write_text(
-        "def fibonacci(n):\n"
-        "    a, b = 0, 1\n"
-        "    for _ in range(n):\n"
-        "        a, b = b, a + b\n"
-        "    return a\n",
+        "def fibonacci(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n",
         encoding="utf-8",
     )
     expected = 54 if failing else 55
     (workspace / "tests" / "test_app.py").write_text(
-        "from app import fibonacci\n\n"
-        "def test_fibonacci_ten():\n"
-        f"    assert fibonacci(10) == {expected}\n",
+        f"from app import fibonacci\n\ndef test_fibonacci_ten():\n    assert fibonacci(10) == {expected}\n",
         encoding="utf-8",
     )
 
@@ -55,8 +50,20 @@ def _collection(verified: bool) -> dict:
         "errors": [],
         "warnings": [],
         "artifacts": [
-            {"artifact_id": "a1", "relative_path": "app.py", "_exists": True, "required": True, "verification_status": status},
-            {"artifact_id": "a2", "relative_path": "tests/test_app.py", "_exists": True, "required": True, "verification_status": status},
+            {
+                "artifact_id": "a1",
+                "relative_path": "app.py",
+                "_exists": True,
+                "required": True,
+                "verification_status": status,
+            },
+            {
+                "artifact_id": "a2",
+                "relative_path": "tests/test_app.py",
+                "_exists": True,
+                "required": True,
+                "verification_status": status,
+            },
         ],
     }
 

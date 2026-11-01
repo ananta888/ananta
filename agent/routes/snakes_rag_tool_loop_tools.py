@@ -152,13 +152,15 @@ class ToolCallExecutor:
             },
         )
         state.tool_call_count += 1
-        state.trace["tools_used"].append({
-            "iteration": iteration,
-            "name": "codecompass_symbol_context",
-            "args": {"query": query[:120]},
-            "result_chars": len(symbol_result),
-            "automatic_companion": True,
-        })
+        state.trace["tools_used"].append(
+            {
+                "iteration": iteration,
+                "name": "codecompass_symbol_context",
+                "args": {"query": query[:120]},
+                "result_chars": len(symbol_result),
+                "automatic_companion": True,
+            }
+        )
         state.codecompass_evidence.append(
             "[codecompass_symbol_context]\n" + symbol_result[:_CODECOMPASS_EVIDENCE_CHARS]
         )

@@ -1,4 +1,5 @@
 """LangGraphProviderConfig — serialisierbar, validierbar (LCG-004)."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -19,24 +20,21 @@ class LangGraphProviderConfig(BaseModel):
     Default: disabled and dry_run. External state is cache_only unless
     explicitly overridden. Hub task state is never overwritten.
     """
+
     enabled: bool = False
     mode: LangGraphMode = "dry_run"
 
     allowed_task_types: list[str] = Field(
-        default_factory=lambda: [
-            "agent_workflow", "multi_step_plan", "human_in_loop", "stateful_task"
-        ]
+        default_factory=lambda: ["agent_workflow", "multi_step_plan", "human_in_loop", "stateful_task"]
     )
-    allowed_graphs: list[str] = Field(default_factory=list)   # empty = any
+    allowed_graphs: list[str] = Field(default_factory=list)  # empty = any
 
     # State management
     state_policy: StatePolicy = "external_state_cache_only"
     checkpoint_policy: CheckpointPolicy = "local_ephemeral_or_hub_owned"
 
     # Human-in-the-loop
-    human_in_loop_required_for: list[str] = Field(
-        default_factory=lambda: list(DEFAULT_HUMAN_REQUIRED)
-    )
+    human_in_loop_required_for: list[str] = Field(default_factory=lambda: list(DEFAULT_HUMAN_REQUIRED))
 
     # Limits — prevent infinite loops
     timeout_seconds: int = 300
@@ -101,9 +99,7 @@ class LangGraphProviderConfig(BaseModel):
     @model_validator(mode="after")
     def _cloud_requires_external_calls(self) -> "LangGraphProviderConfig":
         if self.mode == "cloud_gated" and not self.external_calls_allowed:
-            raise ValueError(
-                "cloud_gated mode requires external_calls_allowed=true"
-            )
+            raise ValueError("cloud_gated mode requires external_calls_allowed=true")
         return self
 
     def requires_human_approval(self, action: str) -> bool:
@@ -117,7 +113,7 @@ class LangGraphProviderConfig(BaseModel):
 
     def graph_allowed(self, graph_id: str) -> bool:
         if not self.allowed_graphs:
-            return True   # empty list = allow any
+            return True  # empty list = allow any
         return graph_id in self.allowed_graphs
 
     @classmethod

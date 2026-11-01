@@ -10,38 +10,18 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
 import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import TYPE_CHECKING, Any
 
 from agent.services._deterministic_repair_constants import (
-    REPAIR_PATH_TARGET_MODEL,
-    REPAIR_PROBLEM_CLASS_INVENTORY,
-    REPAIR_STATE_MODEL,
-    ALLOWED_EVIDENCE_TYPES,
     SEVERITY_PATTERNS,
-    DIAGNOSIS_PROCEDURE_MODEL,
-    REPAIR_PROCEDURE_MODEL,
-    REPAIR_VERIFICATION_MODEL,
-    REPAIR_OUTCOME_MEMORY_MODEL,
-    ENVIRONMENT_SIMILARITY_MODEL,
-    REPAIR_ACTION_SAFETY_CLASSES,
-    APPROVAL_REQUIREMENT_MODEL,
-    LLM_ESCALATION_POLICY_MODEL,
-    OPERATOR_VIEW_MODEL,
-    OPERATOR_GUIDE_METADATA,
-    ROLLOUT_PLAN_MODEL,
-    TEST_COVERAGE_MODEL,
 )
+
+if TYPE_CHECKING:
+    from agent.services._deterministic_repair_signatures import FailureSignature
+
 log = logging.getLogger(__name__)
-
-
 
 
 def _extract_evidence_text(normalized_evidence: dict[str, Any]) -> str:
@@ -59,9 +39,6 @@ def _extract_evidence_text(normalized_evidence: dict[str, Any]) -> str:
             ]
         )
     return "\n".join(piece for piece in chunks if piece).lower()
-
-
-
 
 
 def _evaluate_environment_match(signature: FailureSignature, environment_facts: dict[str, Any]) -> dict[str, Any]:
@@ -88,10 +65,9 @@ def _evaluate_environment_match(signature: FailureSignature, environment_facts: 
     }
 
 
-
-
-
-def _evaluate_structured_field_match(signature: FailureSignature, normalized_evidence: dict[str, Any]) -> dict[str, Any]:
+def _evaluate_structured_field_match(
+    signature: FailureSignature, normalized_evidence: dict[str, Any]
+) -> dict[str, Any]:
     fields = list(signature.structured_fields or [])
     if not fields:
         return {"score": 1.0, "matched_fields": []}
@@ -104,9 +80,6 @@ def _evaluate_structured_field_match(signature: FailureSignature, normalized_evi
     return {"score": round(score, 3), "matched_fields": matched_fields}
 
 
-
-
-
 def _match_failure_signatures_impl(
     *,
     normalized_evidence: dict[str, Any],
@@ -115,6 +88,7 @@ def _match_failure_signatures_impl(
     top_k: int = 5,
 ) -> dict[str, Any]:
     from agent.services import _deterministic_repair_signatures as _drr_signatures
+
     catalog = signature_catalog or _drr_signatures.build_initial_failure_signature_catalog()
     evidence_text = _extract_evidence_text(normalized_evidence)
     matches: list[dict[str, Any]] = []
@@ -128,9 +102,7 @@ def _match_failure_signatures_impl(
         environment_match = _evaluate_environment_match(signature, environment_facts)
         structured_match = _evaluate_structured_field_match(signature, normalized_evidence)
         weighted_score = (
-            (pattern_strength * 0.7)
-            + (environment_match["score"] * 0.2)
-            + (structured_match["score"] * 0.1)
+            (pattern_strength * 0.7) + (environment_match["score"] * 0.2) + (structured_match["score"] * 0.1)
         ) * signature.confidence_weight
         score = round(min(1.0, weighted_score), 3)
         matches.append(
@@ -158,9 +130,6 @@ def _match_failure_signatures_impl(
     }
 
 
-
-
-
 def _detect_contradictory_evidence(normalized_evidence: dict[str, Any]) -> bool:
     text = _extract_evidence_text(normalized_evidence)
     has_healthy = bool(re.search(r"\b(healthy|running|ok|resolved)\b", text))
@@ -168,22 +137,13 @@ def _detect_contradictory_evidence(normalized_evidence: dict[str, Any]) -> bool:
     return has_healthy and has_failure
 
 
-
-
-
 def _detect_worsening_signals(normalized_evidence: dict[str, Any]) -> bool:
     text = _extract_evidence_text(normalized_evidence)
     return bool(re.search(r"\b(regressed|worse|panic|fatal|crash loop)\b", text))
 
 
-
-
-
 def _approval_scope_key(*, procedure_id: str, target_scope: str, session_id: str) -> str:
     return f"{procedure_id}|{target_scope}|{session_id}"
-
-
-
 
 
 def _structure_llm_proposal(
@@ -210,22 +170,21 @@ def _structure_llm_proposal(
             allowed = False
         if not title:
             continue
-        structured_steps.append({
-            "id": step_id,
-            "title": title,
-            "mutation_candidate": mutation,
-            "requires_review": review,
-            "requires_approval": approval,
-            "execution_allowed": allowed,
-        })
+        structured_steps.append(
+            {
+                "id": step_id,
+                "title": title,
+                "mutation_candidate": mutation,
+                "requires_review": review,
+                "requires_approval": approval,
+                "execution_allowed": allowed,
+            }
+        )
     return _build_llm_conversion_result(
         structured_steps=structured_steps,
         llm_proposal=llm_proposal,
         environment_facts=environment_facts,
     )
-
-
-
 
 
 def _default_llm_proposal_conversion(
@@ -238,29 +197,31 @@ def _default_llm_proposal_conversion(
         text = str(step).strip()
         if not text:
             continue
-        structured_steps.append({
-            "id": f"llm-proposal-step-{index:02d}",
-            "title": text[:180],
-            "mutation_candidate": True,
-            "requires_review": True,
-            "requires_approval": True,
-            "execution_allowed": False,
-        })
+        structured_steps.append(
+            {
+                "id": f"llm-proposal-step-{index:02d}",
+                "title": text[:180],
+                "mutation_candidate": True,
+                "requires_review": True,
+                "requires_approval": True,
+                "execution_allowed": False,
+            }
+        )
     return _build_llm_conversion_result(
-        structured_steps=structured_steps or [{
-            "id": "llm-proposal-step-01",
-            "title": "No concrete step supplied; requires operator curation.",
-            "mutation_candidate": False,
-            "requires_review": True,
-            "requires_approval": True,
-            "execution_allowed": False,
-        }],
+        structured_steps=structured_steps
+        or [
+            {
+                "id": "llm-proposal-step-01",
+                "title": "No concrete step supplied; requires operator curation.",
+                "mutation_candidate": False,
+                "requires_review": True,
+                "requires_approval": True,
+                "execution_allowed": False,
+            }
+        ],
         llm_proposal=llm_proposal,
         environment_facts=environment_facts,
     )
-
-
-
 
 
 def _build_llm_conversion_result(
@@ -284,14 +245,9 @@ def _build_llm_conversion_result(
     }
 
 
-
-
-
 def _detect_severity(message: str) -> str:
     text = str(message or "").lower()
     for severity, pattern in SEVERITY_PATTERNS:
         if re.search(pattern, text):
             return severity
     return "info"
-
-

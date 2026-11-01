@@ -128,9 +128,8 @@ class ReceiverLocalSpeechAdaptationRuntime:
                     "speech_adapter_load_failed",
                     "receiver-local speech adapter load failed",
                 ) from exc
-            if (
-                loaded.adapter_id != record.adapter_id
-                or not secrets.compare_digest(loaded.artifact_sha256, record.artifact_sha256)
+            if loaded.adapter_id != record.adapter_id or not secrets.compare_digest(
+                loaded.artifact_sha256, record.artifact_sha256
             ):
                 self._safe_unload(loaded)
                 self._loader.clear_artifact_cache(record.artifact_sha256)
@@ -197,12 +196,9 @@ class ReceiverLocalSpeechAdaptationRuntime:
                 loaded = entry.loaded
                 loaded_version = entry.record_version
             before_inference = self._resolve_current(request)
-            if (
-                before_inference.registry_version != loaded_version
-                or not secrets.compare_digest(
-                    before_inference.artifact_sha256,
-                    loaded.artifact_sha256,
-                )
+            if before_inference.registry_version != loaded_version or not secrets.compare_digest(
+                before_inference.artifact_sha256,
+                loaded.artifact_sha256,
             ):
                 raise SpeechAdapterInferenceError(
                     "speech_adapter_authority_changed",
@@ -212,12 +208,9 @@ class ReceiverLocalSpeechAdaptationRuntime:
             if not isinstance(audio, bytes) or not audio:
                 raise SpeechAdapterInferenceError("speech_adapter_quality_failed", "adapter produced no audio")
             after_inference = self._resolve_current(request)
-            if (
-                after_inference.registry_version != loaded_version
-                or not secrets.compare_digest(
-                    after_inference.artifact_sha256,
-                    loaded.artifact_sha256,
-                )
+            if after_inference.registry_version != loaded_version or not secrets.compare_digest(
+                after_inference.artifact_sha256,
+                loaded.artifact_sha256,
             ):
                 raise SpeechAdapterInferenceError(
                     "speech_adapter_authority_changed",

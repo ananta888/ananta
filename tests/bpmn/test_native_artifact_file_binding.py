@@ -13,11 +13,21 @@ from tests.bpmn.test_xml_regions import document, meta
 
 def artifact_document(output_path="outputs/report.txt"):
     return document(
-        '<startEvent id="start"/><serviceTask id="producer">' + meta({
-            "outputs": ["report"], "native_output_files": {"report": {"path": output_path, "media_type": "text/plain"}},
-        }) + '</serviceTask><serviceTask id="consumer">' + meta({
-            "inputs": ["report"], "native_input_files": {"report": "inputs/report.txt"},
-        }) + '</serviceTask><endEvent id="end"/>'
+        '<startEvent id="start"/><serviceTask id="producer">'
+        + meta(
+            {
+                "outputs": ["report"],
+                "native_output_files": {"report": {"path": output_path, "media_type": "text/plain"}},
+            }
+        )
+        + '</serviceTask><serviceTask id="consumer">'
+        + meta(
+            {
+                "inputs": ["report"],
+                "native_input_files": {"report": "inputs/report.txt"},
+            }
+        )
+        + '</serviceTask><endEvent id="end"/>'
         '<sequenceFlow id="begin" sourceRef="start" targetRef="producer"/>'
         '<sequenceFlow id="handoff" sourceRef="producer" targetRef="consumer"/>'
         '<sequenceFlow id="finish" sourceRef="consumer" targetRef="end"/>'

@@ -7,14 +7,13 @@ Risk score uses a documented, versioned formula with clamped
 components. The output names ``risk_model_version`` and a
 ``score_breakdown`` so the consumer can audit the model.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
-
 
 RISK_MODEL_VERSION = "blast_radius.v1"
 RISK_MODEL_DESCRIPTION = (

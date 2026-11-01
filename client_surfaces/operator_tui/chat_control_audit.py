@@ -13,9 +13,9 @@ class AuditEvent:
     sender_kind: str
     raw_text_hash: str
     parsed_action_id: str
-    policy_verdict: str     # "allow" | "deny" | "require_confirmation"
-    dispatch_status: str    # "ok" | "error" | "skipped"
-    mode: str               # "interactive_safe" | "autonomous_e2e"
+    policy_verdict: str  # "allow" | "deny" | "require_confirmation"
+    dispatch_status: str  # "ok" | "error" | "skipped"
+    mode: str  # "interactive_safe" | "autonomous_e2e"
     auto_confirmed: bool
     reason: str
     extra: dict[str, Any] = field(default_factory=dict)
@@ -57,7 +57,7 @@ class AuditLog:
         if self.enabled:
             self._events.append(event)
             if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events:]
+                self._events = self._events[-self._max_events :]
         return event
 
     def events(self) -> list[AuditEvent]:

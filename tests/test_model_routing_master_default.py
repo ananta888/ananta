@@ -14,11 +14,13 @@ Verifies the full precedence matrix:
   11 capability_match
   12 legacy_fallback_chain
 """
+
 from __future__ import annotations
 
-import os
-import pytest
-
+from agent.services.model_master_default_service import (
+    _GLOBAL_MASTER_PROFILE_ID,
+    ModelMasterDefaultService,
+)
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import (
     ModelProfileResolver,
@@ -26,29 +28,38 @@ from agent.services.model_profile_resolver import (
     RoutingRules,
     SecurityPolicyChecker,
 )
-from agent.services.model_master_default_service import (
-    ModelMasterDefaultService,
-    _GLOBAL_MASTER_PROFILE_ID,
-)
 
 
 def _local(pid: str, role: str = "any", **kw) -> ModelProfile:
     return ModelProfile(
-        profile_id=pid, provider_id="ollama", model="qwen:7b",
-        model_role=role, local=True, cloud=False,
-        cloud_allowed=False, block_secret_context=False, **kw,
+        profile_id=pid,
+        provider_id="ollama",
+        model="qwen:7b",
+        model_role=role,
+        local=True,
+        cloud=False,
+        cloud_allowed=False,
+        block_secret_context=False,
+        **kw,
     )
 
 
 def _cloud(pid: str, **kw) -> ModelProfile:
     return ModelProfile(
-        profile_id=pid, provider_id="openai", model="gpt-4o",
-        model_role="planner", local=False, cloud=True,
-        cloud_allowed=True, block_secret_context=True, **kw,
+        profile_id=pid,
+        provider_id="openai",
+        model="gpt-4o",
+        model_role="planner",
+        local=False,
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        **kw,
     )
 
 
 # ── master default profile helper ─────────────────────────────────────────────
+
 
 def _master_profile(provider: str = "lmstudio", model: str = "master-model") -> ModelProfile:
     return ModelProfile(
@@ -68,6 +79,7 @@ def _master_profile(provider: str = "lmstudio", model: str = "master-model") -> 
 
 # ── A) Request runtime override beats master default ─────────────────────────
 
+
 def test_request_override_beats_master_default():
     """request_runtime_override (rank 1) beats global_master_default (rank 9)."""
     resolver = ModelProfileResolver(
@@ -83,6 +95,7 @@ def test_request_override_beats_master_default():
 
 
 # ── B) Blueprint rule beats master default ───────────────────────────────────
+
 
 def test_blueprint_rule_beats_master_default():
     """blueprint_rule (rank 3) beats global_master_default (rank 9)."""
@@ -102,6 +115,7 @@ def test_blueprint_rule_beats_master_default():
 
 # ── C) Role rule beats master default ────────────────────────────────────────
 
+
 def test_role_rule_beats_master_default():
     """model_role_rule (rank 7) beats global_master_default (rank 9)."""
     rules = RoutingRules(role_rules={"coder": "coder-p"})
@@ -120,6 +134,7 @@ def test_role_rule_beats_master_default():
 
 # ── D) Master default wins when nothing else matches ────────────────────────
 
+
 def test_master_default_wins_when_nothing_else_set():
     """global_master_default (rank 9) resolves when no rule/override matches."""
     resolver = ModelProfileResolver(
@@ -137,6 +152,7 @@ def test_master_default_wins_when_nothing_else_set():
 
 # ── E) User runtime override beats master default ────────────────────────────
 
+
 def test_user_runtime_override_beats_master_default():
     """user_runtime_override (rank 8) beats global_master_default (rank 9)."""
     resolver = ModelProfileResolver(
@@ -152,6 +168,7 @@ def test_user_runtime_override_beats_master_default():
 
 
 # ── F) Task override beats master default ────────────────────────────────────
+
 
 def test_task_override_beats_master_default():
     """task_override_map (rank 2) beats global_master_default (rank 9)."""
@@ -171,6 +188,7 @@ def test_task_override_beats_master_default():
 
 # ── G) Env override (MODEL_PROFILE) ranks below master default ───────────────
 
+
 def test_env_override_ranks_below_master_default():
     """env_override (rank 10) is below global_master_default (rank 9)."""
     resolver = ModelProfileResolver(
@@ -186,6 +204,7 @@ def test_env_override_ranks_below_master_default():
 
 
 # ── H) Master default not used when exact profile is not loaded ──────────────
+
 
 def test_master_default_wins_over_env_override():
     """global_master_default (rank 9) beats env_override (rank 10)."""
@@ -203,6 +222,7 @@ def test_master_default_wins_over_env_override():
 
 # ── I) Master default without profiles falls back to capability_match ─────────
 
+
 def test_master_default_without_profiles_falls_to_capability_match():
     """With no routing rules, no master default, falls to capability_match."""
     resolver = ModelProfileResolver(
@@ -218,19 +238,24 @@ def test_master_default_without_profiles_falls_to_capability_match():
 
 # ── J) Fallback chain used when everything fails ─────────────────────────────
 
+
 def test_fallback_chain_rank_is_12():
     """legacy_fallback_chain resolves at rank 12."""
     # p-fallback supports tools → capability_match picks it at rank 11
     # When it fails (e.g. blocked by health), fallback chain at rank 12 can still pick it
     rules = RoutingRules(fallback_chain=["fallback-p"])
     from agent.services.model_profile_resolver import ProviderHealthCache
+
     cache = ProviderHealthCache()
     cache.mark_unavailable("ollama")
     p_fallback = ModelProfile(
         profile_id="fallback-p",
         provider_id="lmstudio",
         model="m",
-        local=True, cloud=False, cloud_allowed=False, block_secret_context=False,
+        local=True,
+        cloud=False,
+        cloud_allowed=False,
+        block_secret_context=False,
         supports_tools=True,
     )
     resolver = ModelProfileResolver(
@@ -246,6 +271,7 @@ def test_fallback_chain_rank_is_12():
 
 
 # ── K) Security still blocks cloud master default ────────────────────────────
+
 
 def test_security_blocks_cloud_master_default_when_secrets_present():
     """Security policy beats master default (cloud blocked with secrets)."""
@@ -264,13 +290,16 @@ def test_security_blocks_cloud_master_default_when_secrets_present():
 
 # ── L) ModelMasterDefaultService reads ANANTA_MASTER_LLM_* ───────────────────
 
+
 def test_master_service_reads_ananta_env_vars():
-    svc = ModelMasterDefaultService(env={
-        "ANANTA_MASTER_LLM_PROVIDER": "openai",
-        "ANANTA_MASTER_LLM_MODEL": "gpt-4o-mini",
-        "ANANTA_MASTER_LLM_BASE_URL": "https://api.openai.com/v1",
-        "ANANTA_MASTER_LLM_API_KEY": "sk-test-123",
-    })
+    svc = ModelMasterDefaultService(
+        env={
+            "ANANTA_MASTER_LLM_PROVIDER": "openai",
+            "ANANTA_MASTER_LLM_MODEL": "gpt-4o-mini",
+            "ANANTA_MASTER_LLM_BASE_URL": "https://api.openai.com/v1",
+            "ANANTA_MASTER_LLM_API_KEY": "sk-test-123",
+        }
+    )
     profile = svc.get_master_profile()
     assert profile is not None
     assert profile.profile_id == _GLOBAL_MASTER_PROFILE_ID
@@ -282,10 +311,12 @@ def test_master_service_reads_ananta_env_vars():
 
 
 def test_master_service_falls_back_to_legacy_env_vars():
-    svc = ModelMasterDefaultService(env={
-        "DEFAULT_PROVIDER": "lmstudio",
-        "DEFAULT_MODEL": "qwen2.5-coder-7b",
-    })
+    svc = ModelMasterDefaultService(
+        env={
+            "DEFAULT_PROVIDER": "lmstudio",
+            "DEFAULT_MODEL": "qwen2.5-coder-7b",
+        }
+    )
     profile = svc.get_master_profile()
     assert profile is not None
     assert profile.provider_id == "lmstudio"
@@ -294,12 +325,14 @@ def test_master_service_falls_back_to_legacy_env_vars():
 
 
 def test_master_service_ananta_takes_precedence_over_legacy():
-    svc = ModelMasterDefaultService(env={
-        "ANANTA_MASTER_LLM_PROVIDER": "openai",
-        "ANANTA_MASTER_LLM_MODEL": "gpt-4o",
-        "DEFAULT_PROVIDER": "lmstudio",
-        "DEFAULT_MODEL": "old-model",
-    })
+    svc = ModelMasterDefaultService(
+        env={
+            "ANANTA_MASTER_LLM_PROVIDER": "openai",
+            "ANANTA_MASTER_LLM_MODEL": "gpt-4o",
+            "DEFAULT_PROVIDER": "lmstudio",
+            "DEFAULT_MODEL": "old-model",
+        }
+    )
     profile = svc.get_master_profile()
     assert profile is not None
     assert profile.provider_id == "openai"
@@ -314,11 +347,14 @@ def test_master_service_returns_none_when_nothing_set():
 
 # ── M) Read model ──────────────────────────────────────────────────────────
 
+
 def test_master_service_read_model():
-    svc = ModelMasterDefaultService(env={
-        "ANANTA_MASTER_LLM_PROVIDER": "openai",
-        "ANANTA_MASTER_LLM_MODEL": "gpt-4o",
-    })
+    svc = ModelMasterDefaultService(
+        env={
+            "ANANTA_MASTER_LLM_PROVIDER": "openai",
+            "ANANTA_MASTER_LLM_MODEL": "gpt-4o",
+        }
+    )
     rm = svc.read_model()
     assert rm["provider"] == "openai"
     assert rm["model"] == "gpt-4o"
@@ -328,16 +364,19 @@ def test_master_service_read_model():
 
 
 def test_master_service_read_model_warns_on_dual_config():
-    svc = ModelMasterDefaultService(env={
-        "ANANTA_MASTER_LLM_PROVIDER": "openai",
-        "DEFAULT_PROVIDER": "lmstudio",
-    })
+    svc = ModelMasterDefaultService(
+        env={
+            "ANANTA_MASTER_LLM_PROVIDER": "openai",
+            "DEFAULT_PROVIDER": "lmstudio",
+        }
+    )
     rm = svc.read_model()
     assert len(rm["warnings"]) == 1
     assert "ANANTA_MASTER_LLM_*" in rm["warnings"][0]
 
 
 # ── N) Full chain: request_override beats task_override ─────────────────────
+
 
 def test_request_override_beats_task_override():
     """request_runtime_override (rank 1) beats task_override_map (rank 2)."""
@@ -354,6 +393,7 @@ def test_request_override_beats_task_override():
 
 # ── O) Full chain: user_override beats master_default ───────────────────────
 
+
 def test_user_override_beats_master_default():
     """user_runtime_override (rank 8) beats global_master_default (rank 9)."""
     resolver = ModelProfileResolver(
@@ -367,6 +407,7 @@ def test_user_override_beats_master_default():
 
 
 # ── P) Request override with non-existent profile_id falls through ──────────
+
 
 def test_request_override_unknown_profile_falls_through():
     """If request_profile_id does not match any profile, fall through ranks."""

@@ -108,30 +108,18 @@ class ComposeAdapter:
         if not _NUMERIC_USER.fullmatch(runtime_user):
             raise BackupError("Hub runtime user must be an explicit non-root UID:GID")
 
-        postgres_environment = self._mapping(
-            postgres.get("environment"), "PostgreSQL environment"
-        )
-        postgres_user = self._required_text(
-            postgres_environment.get("POSTGRES_USER"), "POSTGRES_USER"
-        )
-        postgres_database = self._required_text(
-            postgres_environment.get("POSTGRES_DB"), "POSTGRES_DB"
-        )
-        postgres_image = self._required_text(
-            postgres.get("image"), "PostgreSQL runtime image"
-        )
+        postgres_environment = self._mapping(postgres.get("environment"), "PostgreSQL environment")
+        postgres_user = self._required_text(postgres_environment.get("POSTGRES_USER"), "POSTGRES_USER")
+        postgres_database = self._required_text(postgres_environment.get("POSTGRES_DB"), "POSTGRES_DB")
+        postgres_image = self._required_text(postgres.get("image"), "PostgreSQL runtime image")
         hub_environment = self._mapping(hub.get("environment"), "Hub environment")
         model_profiles_file = self._bind_file_source(
             hub,
-            self._required_text(
-                hub_environment.get("MODEL_PROFILES_PATH"), "MODEL_PROFILES_PATH"
-            ),
+            self._required_text(hub_environment.get("MODEL_PROFILES_PATH"), "MODEL_PROFILES_PATH"),
         )
         model_routing_file = self._bind_file_source(
             hub,
-            self._required_text(
-                hub_environment.get("MODEL_ROUTING_PATH"), "MODEL_ROUTING_PATH"
-            ),
+            self._required_text(hub_environment.get("MODEL_ROUTING_PATH"), "MODEL_ROUTING_PATH"),
         )
 
         named_volumes: dict[str, str] = {}
@@ -139,18 +127,12 @@ class ComposeAdapter:
             service = self._mapping(services.get(service_name), service_name)
             source = self._volume_source(service, target, "volume")
             volume_config = self._mapping(volumes.get(source), f"volume {source}")
-            actual_name = self._safe_name(
-                volume_config.get("name"), f"volume {logical_name}"
-            )
+            actual_name = self._safe_name(volume_config.get("name"), f"volume {logical_name}")
             named_volumes[logical_name] = actual_name
 
         ollama_root = self._bind_source(services, "ollama", "/root/.ollama")
-        workspace_root = self._bind_source(
-            services, "ai-agent-hub", "/project-workspaces"
-        )
-        workflow_secret_root = self._bind_source(
-            services, "workflow-keyring-bootstrap", "/run/ananta-dev-workflow"
-        )
+        workspace_root = self._bind_source(services, "ai-agent-hub", "/project-workspaces")
+        workflow_secret_root = self._bind_source(services, "workflow-keyring-bootstrap", "/run/ananta-dev-workflow")
 
         return ComposeLayout(
             project_name=project_name,
@@ -169,22 +151,16 @@ class ComposeAdapter:
 
     def preflight(self, layout: ComposeLayout) -> None:
         running = set(
-            self.runner.capture(
-                [*self._base, "ps", "--status", "running", "--services"]
-            )
+            self.runner.capture([*self._base, "ps", "--status", "running", "--services"])
             .decode("utf-8", errors="strict")
             .splitlines()
         )
         missing = sorted(set(self.REQUIRED_RUNNING_SERVICES) - running)
         if missing:
-            raise BackupError(
-                "Required Compose services are not running: " + ", ".join(missing)
-            )
+            raise BackupError("Required Compose services are not running: " + ", ".join(missing))
         for actual_name in layout.named_volumes.values():
             inspected = (
-                self.runner.capture(
-                    ["docker", "volume", "inspect", "--format", "{{.Name}}", actual_name]
-                )
+                self.runner.capture(["docker", "volume", "inspect", "--format", "{{.Name}}", actual_name])
                 .decode("utf-8", errors="strict")
                 .strip()
             )
@@ -207,17 +183,12 @@ class ComposeAdapter:
                 except BackupError as exc:
                     cleanup_errors.append(f"{service}: {exc}")
             if cleanup_errors:
-                raise BackupError(
-                    "Failed to resume one or more Ananta services: "
-                    + "; ".join(cleanup_errors)
-                )
+                raise BackupError("Failed to resume one or more Ananta services: " + "; ".join(cleanup_errors))
 
     def assert_quiescent(self, layout: ComposeLayout) -> None:
         """Fail if the Hub still owns tasks which may be executing."""
 
-        statuses = ", ".join(
-            f"'{status}'" for status in self.EXECUTING_TASK_STATUSES
-        )
+        statuses = ", ".join(f"'{status}'" for status in self.EXECUTING_TASK_STATUSES)
         query = (
             "SET statement_timeout = '10s'; "
             "SELECT count(*) FROM tasks "
@@ -292,9 +263,7 @@ class ComposeAdapter:
             descriptor.flush()
         return catalog_path
 
-    def capture_reproducibility(
-        self, layout: ComposeLayout, destination: Path
-    ) -> dict[str, str]:
+    def capture_reproducibility(self, layout: ComposeLayout, destination: Path) -> dict[str, str]:
         """Capture secret configuration and source state inside the encrypted payload."""
 
         destination.mkdir(mode=0o700)
@@ -302,12 +271,8 @@ class ComposeAdapter:
         profile_copy = destination / "model_profiles.yaml"
         routing_copy = destination / "model_routing.json"
         self._copy_strict_regular(self.env_file, env_copy, ".env")
-        self._copy_strict_regular(
-            layout.model_profiles_file, profile_copy, "model profile"
-        )
-        self._copy_strict_regular(
-            layout.model_routing_file, routing_copy, "model routing"
-        )
+        self._copy_strict_regular(layout.model_profiles_file, profile_copy, "model profile")
+        self._copy_strict_regular(layout.model_routing_file, routing_copy, "model routing")
 
         rendered = destination / "compose.rendered.json"
         self.runner.to_file(
@@ -323,9 +288,7 @@ class ComposeAdapter:
 
         repository_root = self.compose_file.parents[2]
         commit = (
-            self.runner.capture(
-                ["git", "-C", str(repository_root), "rev-parse", "HEAD"]
-            )
+            self.runner.capture(["git", "-C", str(repository_root), "rev-parse", "HEAD"])
             .decode("ascii", errors="strict")
             .strip()
         )
@@ -386,27 +349,19 @@ class ComposeAdapter:
                 SafeTarExtractor.extract_file(archive_path, temporary)
                 database = temporary / "ananta.db"
                 if not database.is_file() or database.is_symlink():
-                    raise BackupError(
-                        f"{logical_name} archive has no regular ananta.db"
-                    )
+                    raise BackupError(f"{logical_name} archive has no regular ananta.db")
                 connection = sqlite3.connect(
                     f"file:{database.as_posix()}?mode=ro",
                     uri=True,
                 )
                 try:
-                    result = connection.execute(
-                        "PRAGMA integrity_check"
-                    ).fetchone()
+                    result = connection.execute("PRAGMA integrity_check").fetchone()
                 finally:
                     connection.close()
         except sqlite3.Error as exc:
-            raise BackupError(
-                f"{logical_name} archive SQLite verification failed: {exc}"
-            ) from exc
+            raise BackupError(f"{logical_name} archive SQLite verification failed: {exc}") from exc
         if result != ("ok",):
-            raise BackupError(
-                f"{logical_name} archive SQLite integrity check failed"
-            )
+            raise BackupError(f"{logical_name} archive SQLite integrity check failed")
 
     def export_volume(
         self,
@@ -459,24 +414,13 @@ class ComposeAdapter:
                 for member in archive:
                     parts = Path(member.name).parts
                     if member.name.startswith("/") or ".." in parts:
-                        raise BackupError(
-                            f"Unsafe path in volume archive {path.name}: {member.name}"
-                        )
-                    if not (
-                        member.isdir()
-                        or member.isreg()
-                        or member.issym()
-                    ):
-                        raise BackupError(
-                            f"Special entry in volume archive {path.name}: {member.name}"
-                        )
+                        raise BackupError(f"Unsafe path in volume archive {path.name}: {member.name}")
+                    if not (member.isdir() or member.isreg() or member.issym()):
+                        raise BackupError(f"Special entry in volume archive {path.name}: {member.name}")
                     if member.issym():
                         link = Path(member.name).parent / member.linkname
                         if member.linkname.startswith("/") or ".." in link.parts:
-                            raise BackupError(
-                                f"Unsafe symlink in volume archive {path.name}: "
-                                f"{member.name}"
-                            )
+                            raise BackupError(f"Unsafe symlink in volume archive {path.name}: {member.name}")
         except (OSError, tarfile.TarError) as exc:
             raise BackupError(f"Invalid volume archive {path.name}: {exc}") from exc
 
@@ -500,27 +444,21 @@ class ComposeAdapter:
         return text
 
     @classmethod
-    def _volume_source(
-        cls, service: Mapping[str, object], target: str, expected_type: str
-    ) -> str:
+    def _volume_source(cls, service: Mapping[str, object], target: str, expected_type: str) -> str:
         mounts = service.get("volumes")
         if not isinstance(mounts, list):
             raise BackupError(f"Service has no volume for {target}")
         matches = [
             mount
             for mount in mounts
-            if isinstance(mount, dict)
-            and mount.get("target") == target
-            and mount.get("type") == expected_type
+            if isinstance(mount, dict) and mount.get("target") == target and mount.get("type") == expected_type
         ]
         if len(matches) != 1:
             raise BackupError(f"Expected exactly one {expected_type} mount at {target}")
         return cls._required_text(matches[0].get("source"), f"source for {target}")
 
     @classmethod
-    def _bind_source(
-        cls, services: Mapping[str, object], service_name: str, target: str
-    ) -> Path:
+    def _bind_source(cls, services: Mapping[str, object], service_name: str, target: str) -> Path:
         service = cls._mapping(services.get(service_name), service_name)
         source = Path(cls._volume_source(service, target, "bind"))
         if not source.is_absolute():
@@ -531,9 +469,7 @@ class ComposeAdapter:
         return source.resolve(strict=False)
 
     @classmethod
-    def _bind_file_source(
-        cls, service: Mapping[str, object], container_path: str
-    ) -> Path:
+    def _bind_file_source(cls, service: Mapping[str, object], container_path: str) -> Path:
         requested = Path(container_path)
         if not requested.is_absolute():
             raise BackupError(f"Container configuration path is not absolute: {container_path}")
@@ -563,15 +499,9 @@ class ComposeAdapter:
     def _copy_strict_regular(source: Path, destination: Path, label: str) -> None:
         try:
             metadata = source.lstat()
-            if (
-                not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_nlink != 1
-                or stat.S_ISLNK(metadata.st_mode)
-            ):
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1 or stat.S_ISLNK(metadata.st_mode):
                 raise BackupError(f"{label} must be a non-linked regular file")
-            input_descriptor = os.open(
-                source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-            )
+            input_descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
             try:
                 output_descriptor = os.open(
                     destination,
@@ -581,9 +511,7 @@ class ComposeAdapter:
             except Exception:
                 os.close(input_descriptor)
                 raise
-            with os.fdopen(input_descriptor, "rb") as input_file, os.fdopen(
-                output_descriptor, "wb"
-            ) as output_file:
+            with os.fdopen(input_descriptor, "rb") as input_file, os.fdopen(output_descriptor, "wb") as output_file:
                 opened_metadata = os.fstat(input_file.fileno())
                 initial_signature = (
                     metadata.st_mode,
@@ -600,9 +528,7 @@ class ComposeAdapter:
                     opened_metadata.st_ino,
                 )
                 if opened_signature != initial_signature:
-                    raise BackupError(
-                        f"{label} changed while it was being opened"
-                    )
+                    raise BackupError(f"{label} changed while it was being opened")
                 for block in iter(lambda: input_file.read(1024 * 1024), b""):
                     output_file.write(block)
                 closed_signature = os.fstat(input_file.fileno())
@@ -613,9 +539,7 @@ class ComposeAdapter:
                     closed_signature.st_dev,
                     closed_signature.st_ino,
                 ) != initial_signature:
-                    raise BackupError(
-                        f"{label} changed while it was being captured"
-                    )
+                    raise BackupError(f"{label} changed while it was being captured")
                 output_file.flush()
                 os.fsync(output_file.fileno())
             final_metadata = source.lstat()
@@ -636,9 +560,7 @@ class ComposeAdapter:
     @staticmethod
     def _validate_mount_path(path: Path) -> None:
         if "," in str(path) or "\n" in str(path):
-            raise BackupError(
-                "Temporary backup path cannot contain a comma or newline for Docker mount"
-            )
+            raise BackupError("Temporary backup path cannot contain a comma or newline for Docker mount")
 
 
 class IsolatedPostgresRestoreDrill:
@@ -699,9 +621,7 @@ class IsolatedPostgresRestoreDrill:
             )
             started = True
             self._wait_ready(name)
-            self.runner.run(
-                ["docker", "exec", name, "createdb", "--username", "postgres", "restore_drill"]
-            )
+            self.runner.run(["docker", "exec", name, "createdb", "--username", "postgres", "restore_drill"])
             self.runner.from_file(
                 [
                     "docker",
@@ -744,10 +664,7 @@ class IsolatedPostgresRestoreDrill:
                 except BackupError as cleanup_error:
                     if primary_error is None:
                         raise
-                    primary_error.add_note(
-                        "Ephemeral PostgreSQL cleanup also failed: "
-                        f"{cleanup_error}"
-                    )
+                    primary_error.add_note(f"Ephemeral PostgreSQL cleanup also failed: {cleanup_error}")
 
     def _wait_ready(self, name: str) -> None:
         deadline = time.monotonic() + self.timeout_seconds
@@ -768,6 +685,4 @@ class IsolatedPostgresRestoreDrill:
             except BackupError as exc:
                 last_error = exc
                 time.sleep(1)
-        raise BackupError(
-            f"Ephemeral PostgreSQL restore drill did not become ready: {last_error}"
-        )
+        raise BackupError(f"Ephemeral PostgreSQL restore drill did not become ready: {last_error}")

@@ -73,7 +73,7 @@ class NativeGraphScheduler:
         if state.status != "running":
             return
         if state.hub_deadline_at is not None and float(self._clock()) >= state.hub_deadline_at:
-            self._lifecycle.fail_run(plan, request, state, 'native_hub_run_deadline_exceeded')
+            self._lifecycle.fail_run(plan, request, state, "native_hub_run_deadline_exceeded")
             return
         if self.expire_bpmn_run(plan, request, state):
             return
@@ -97,8 +97,9 @@ class NativeGraphScheduler:
     def _observe_bpmn_edges(self, plan, request, state):
         from agent.services.bpmn_edge_events import emit_bpmn_edge_events
 
-        emit_bpmn_edge_events(plan=plan, request=request, state=state,
-                              emitter=self._emitter, evaluate=self._evaluator.edge_result)
+        emit_bpmn_edge_events(
+            plan=plan, request=request, state=state, emitter=self._emitter, evaluate=self._evaluator.edge_result
+        )
 
     def expire_bpmn_run(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> bool:
         if state.status in _TERMINAL or state.bpmn_deadline_at is None:
@@ -455,7 +456,7 @@ class NativeGraphScheduler:
     ) -> None:
         gate = next(gate for gate in plan.gates if gate.gate_id == node.gate_id)
         if node.gate_id in state.open_gates:
-            state.status = 'paused' if gate.gate_type == 'resume' else 'waiting_for_approval'
+            state.status = "paused" if gate.gate_type == "resume" else "waiting_for_approval"
             return
         state.open_gates[node.gate_id] = node.node_id
         self._emitter.emit(

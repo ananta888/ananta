@@ -47,7 +47,5 @@ def test_tui_operation_policy_inventory_uses_shared_read_only_contract() -> None
     filtered = filter_operation_policy_inventory(inventory, access_class="read", status="allowed")
     assert filtered["count"] == 1
     assert filtered["items"][0]["lifecycle"] == "future_state"
-    assert render_operation_policy_rows(filtered) == [
-        "api.config.get [allowed] read/low operation_allowed"
-    ]
+    assert render_operation_policy_rows(filtered) == ["api.config.get [allowed] read/low operation_allowed"]
     assert "allow_operations" not in filtered["items"][0]

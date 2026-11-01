@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
-from client_surfaces.operator_tui.diff.ai_diff_context import build_ai_diff_context_envelope
+from agent.artifacts.goal_artifact_service import GoalArtifactService
 from client_surfaces.operator_tui.diff import ai_diff_dispatch as _dispatch_module
-from client_surfaces.operator_tui.diff.ai_diff_dispatch import dispatch_ai_diff_request, _mock_ai_response
-from client_surfaces.operator_tui.diff.ai_diff_prompts import get_ai_diff_prompt_template, render_ai_diff_prompt
+from client_surfaces.operator_tui.diff.ai_diff_context import build_ai_diff_context_envelope
+from client_surfaces.operator_tui.diff.ai_diff_dispatch import _mock_ai_response, dispatch_ai_diff_request
 from client_surfaces.operator_tui.diff.ai_diff_panel_state import build_ai_diff_panel_state
+from client_surfaces.operator_tui.diff.ai_diff_prompts import get_ai_diff_prompt_template, render_ai_diff_prompt
 from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
 from client_surfaces.operator_tui.diff.diff_sources import build_current_diff_source_ref
 from client_surfaces.operator_tui.diff.three_way_diff_state import build_current_diff_three_panel_session
@@ -60,7 +60,9 @@ def test_context_envelope_contains_denied_and_truncation(tmp_path: Path) -> None
     import subprocess
 
     subprocess.run(["git", "init"], cwd=str(repo), check=True, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "tests@example.local"], cwd=str(repo), check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.local"], cwd=str(repo), check=True, capture_output=True
+    )
     subprocess.run(["git", "config", "user.name", "tests"], cwd=str(repo), check=True, capture_output=True)
     subprocess.run(["git", "add", "demo.txt"], cwd=str(repo), check=True, capture_output=True)
     subprocess.run(["git", "commit", "-m", "init"], cwd=str(repo), check=True, capture_output=True)
@@ -74,7 +76,9 @@ def test_context_envelope_contains_denied_and_truncation(tmp_path: Path) -> None
         "display_name": "Artifact",
         "locator": {"artifact_ref": "sources:unknown:snap_2"},
     }
-    session["extensions"]["ai_panel_state"] = build_ai_diff_panel_state(mode="review", selected_panels=["A", "B"], selected_hunks=["hunk-1"])
+    session["extensions"]["ai_panel_state"] = build_ai_diff_panel_state(
+        mode="review", selected_panels=["A", "B"], selected_hunks=["hunk-1"]
+    )
     envelope = build_ai_diff_context_envelope(
         diff3_state=session,
         goal_id="goal-ctx",
@@ -127,7 +131,9 @@ def test_dispatch_registers_patch_output_and_provenance(tmp_path: Path, monkeypa
     assert result["provenance_id"]
     assert result["output_artifact_id"]
     graph = service.get_goal_graph("goal-ctx")
-    output = next((item for item in graph["output_artifacts"] if item["output_artifact_id"] == result["output_artifact_id"]), None)
+    output = next(
+        (item for item in graph["output_artifacts"] if item["output_artifact_id"] == result["output_artifact_id"]), None
+    )
     assert output is not None
     assert output["artifact_type"] == "patch_suggestion"
     prov = service.get_execution_provenance(goal_id="goal-ctx", provenance_id=result["provenance_id"])
@@ -172,7 +178,10 @@ def test_diff3_ai_run_timeout_sets_degraded_state(monkeypatch) -> None:
     from client_surfaces.operator_tui.commands import execute_command
     from client_surfaces.operator_tui.models import OperatorState
 
-    monkeypatch.setattr("client_surfaces.operator_tui.commands_planning.dispatch_ai_diff_request", lambda **kwargs: (_ for _ in ()).throw(TimeoutError()))
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.commands_planning.dispatch_ai_diff_request",
+        lambda **kwargs: (_ for _ in ()).throw(TimeoutError()),
+    )
     state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
     opened = execute_command(":diff3", state)
     ran = execute_command(":diff3 ai run review", opened.state)

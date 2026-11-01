@@ -37,11 +37,14 @@ class PiRuntimeManifest:
             or re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", self.repository_revision) is None
             or not isinstance(self.image_digest, str)
             or re.fullmatch(r"sha256:[a-f0-9]{64}", self.image_digest) is None
-            or not _node_version(self.node_version) or self.pi_version != "0.85.1"
-            or self.execution_profile != "pi-sdk-no-tools-v1" or self.schema != "ananta.pi-runtime-manifest.v1"
+            or not _node_version(self.node_version)
+            or self.pi_version != "0.85.1"
+            or self.execution_profile != "pi-sdk-no-tools-v1"
+            or self.schema != "ananta.pi-runtime-manifest.v1"
             or not isinstance(self.evidence_scope, str)
             or self.evidence_scope not in {"test", "local", "external", "production"}
-            or type(self.synthetic) is not bool or (self.synthetic and self.evidence_scope != "test")
+            or type(self.synthetic) is not bool
+            or (self.synthetic and self.evidence_scope != "test")
         ):
             raise ValueError("pi_runtime_manifest_invalid")
 
@@ -60,12 +63,16 @@ class PiRuntimeManifest:
 
     @property
     def environment_digest(self) -> str:
-        return native_context_digest({
-            "schema": "ananta.pi-runtime-environment.v1",
-            "repository_revision": self.repository_revision, "image_digest": self.image_digest,
-            "node_version": self.node_version, "pi_version": self.pi_version,
-            "execution_profile": self.execution_profile,
-        })
+        return native_context_digest(
+            {
+                "schema": "ananta.pi-runtime-environment.v1",
+                "repository_revision": self.repository_revision,
+                "image_digest": self.image_digest,
+                "node_version": self.node_version,
+                "pi_version": self.pi_version,
+                "execution_profile": self.execution_profile,
+            }
+        )
 
 
 def _identifier(value) -> bool:
@@ -84,8 +91,13 @@ def _worker_url(value) -> bool:
     try:
         parsed = urlsplit(value)
         return bool(
-            parsed.scheme in {"http", "https"} and parsed.hostname and not parsed.username and not parsed.password
-            and not parsed.query and not parsed.fragment and value == value.rstrip("/")
+            parsed.scheme in {"http", "https"}
+            and parsed.hostname
+            and not parsed.username
+            and not parsed.password
+            and not parsed.query
+            and not parsed.fragment
+            and value == value.rstrip("/")
             and (parsed.port is None or 1 <= parsed.port <= 65535)
         )
     except ValueError:

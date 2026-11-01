@@ -9,6 +9,7 @@ mutations. The resulting ``custom_tool_validation_report.v1`` is stored
 as an artifact and referenced from the proposal (HDE-015 uses the
 report + digest to gate promotion).
 """
+
 from __future__ import annotations
 
 import json
@@ -94,7 +95,9 @@ class CustomToolValidationService:
             if expect_status and str(result.get("status")) != expect_status:
                 outcome["failures"].append(f"status_mismatch:{result.get('status')}!={expect_status}")
             if "expect_exit_code" in case and data.get("exit_code") != case.get("expect_exit_code"):
-                outcome["failures"].append(f"exit_code_mismatch:{data.get('exit_code')}!={case.get('expect_exit_code')}")
+                outcome["failures"].append(
+                    f"exit_code_mismatch:{data.get('exit_code')}!={case.get('expect_exit_code')}"
+                )
             for fragment in case.get("expect_output_contains") or []:
                 if str(fragment) not in output:
                     outcome["failures"].append(f"missing_output_fragment:{fragment}")

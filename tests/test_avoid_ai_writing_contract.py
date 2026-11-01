@@ -1,10 +1,10 @@
 import pytest
 
-from agent.services.text_quality.providers.avoid_ai_writing_contract import (
-    normalize_result,
-)
 from agent.services.text_quality.providers.avoid_ai_writing_category_map import (
     KNOWN_UPSTREAM_TYPES,
+)
+from agent.services.text_quality.providers.avoid_ai_writing_contract import (
+    normalize_result,
 )
 
 

@@ -135,14 +135,9 @@ class SqlKanbanProjectionStore:
                 if self._engine.dialect.name == "sqlite":
                     session.exec(text("BEGIN"))
                 elif self._engine.dialect.name == "postgresql":
+                    session.exec(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
                     session.exec(
-                        text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-                    )
-                    session.exec(
-                        text(
-                            "SELECT pg_advisory_xact_lock_shared("
-                            "hashtext(:scope))"
-                        ),
+                        text("SELECT pg_advisory_xact_lock_shared(hashtext(:scope))"),
                         params={"scope": f"kanban:{scope.board_id}"},
                     )
                 yield session
@@ -249,24 +244,14 @@ class SqlKanbanProjectionStore:
     def read_snapshot(self, scope: KanbanScope) -> KanbanProjectionSnapshot:
         with self._read_transaction(scope) as session:
             tasks = tuple(session.exec(self._statement(scope)).all())
-            goal = (
-                session.get(GoalDB, scope.scope_id)
-                if scope.kind == "goal" and scope.scope_id
-                else None
-            )
-            team = (
-                session.get(TeamDB, scope.scope_id)
-                if scope.kind == "team" and scope.scope_id
-                else None
-            )
+            goal = session.get(GoalDB, scope.scope_id) if scope.kind == "goal" and scope.scope_id else None
+            team = session.get(TeamDB, scope.scope_id) if scope.kind == "team" and scope.scope_id else None
             counter = session.get(KanbanBoardSequenceDB, scope.board_id)
             return KanbanProjectionSnapshot(
                 tasks=tasks,
                 goal=goal,
                 team=team,
-                event_sequence=(
-                    int(counter.last_sequence or 0) if counter is not None else 0
-                ),
+                event_sequence=(int(counter.last_sequence or 0) if counter is not None else 0),
             )
 
     def read_events(
@@ -280,9 +265,7 @@ class SqlKanbanProjectionStore:
             raise ValueError("kanban_event_cursor_invalid")
         with self._read_transaction(scope) as session:
             counter = session.get(KanbanBoardSequenceDB, scope.board_id)
-            latest = (
-                int(counter.last_sequence or 0) if counter is not None else 0
-            )
+            latest = int(counter.last_sequence or 0) if counter is not None else 0
             if after_sequence > latest:
                 return KanbanOutboxRead(
                     events=(),

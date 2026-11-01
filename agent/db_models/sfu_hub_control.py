@@ -11,12 +11,8 @@ from sqlmodel import Field, SQLModel
 class SfuOperationsSnapshotDB(SQLModel, table=True):
     __tablename__ = "sfu_operations_snapshots"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "snapshot_version", name="uq_sfu_operations_snapshot_version"
-        ),
-        sa.CheckConstraint(
-            "record_count >= 0", name="ck_sfu_operations_snapshot_record_count"
-        ),
+        sa.UniqueConstraint("snapshot_version", name="uq_sfu_operations_snapshot_version"),
+        sa.CheckConstraint("record_count >= 0", name="ck_sfu_operations_snapshot_record_count"),
         sa.Index(
             "ix_sfu_operations_snapshot_current",
             "created_at",
@@ -35,17 +31,13 @@ class SfuOperationsSnapshotDB(SQLModel, table=True):
 class SfuOperationsSnapshotRecordDB(SQLModel, table=True):
     __tablename__ = "sfu_operations_snapshot_records"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "snapshot_id", "ordinal", name="uq_sfu_operations_snapshot_ordinal"
-        ),
+        sa.UniqueConstraint("snapshot_id", "ordinal", name="uq_sfu_operations_snapshot_ordinal"),
         sa.CheckConstraint(
             "ordinal >= 0 AND cohort_size >= 0 AND queue_depth >= 0",
             name="ck_sfu_operations_record_counts",
         ),
         sa.CheckConstraint(
-            "ingress_bytes_per_second >= 0 "
-            "AND egress_bytes_per_second >= 0 "
-            "AND turn_bytes_per_second >= 0",
+            "ingress_bytes_per_second >= 0 AND egress_bytes_per_second >= 0 AND turn_bytes_per_second >= 0",
             name="ck_sfu_operations_record_rates",
         ),
         sa.Index(
@@ -155,8 +147,7 @@ class SfuFanoutReconciliationControlDB(SQLModel, table=True):
             name="ck_sfu_fanout_reconciliation_fencing",
         ),
         sa.CheckConstraint(
-            "checkpoint_phase IS NULL "
-            "OR checkpoint_phase IN ('revoke','ensure')",
+            "checkpoint_phase IS NULL OR checkpoint_phase IN ('revoke','ensure')",
             name="ck_sfu_fanout_reconciliation_phase",
         ),
         sa.Index(

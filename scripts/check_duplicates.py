@@ -1,11 +1,13 @@
+import difflib
 import os
 import sys
-import difflib
 from typing import List, Tuple
+
 
 def get_file_content(file_path: str) -> List[str]:
     with open(file_path, "r", encoding="utf-8") as f:
         return [line.strip() for line in f.readlines() if line.strip() and not line.strip().startswith("#")]
+
 
 def check_duplicates(root_dir: str, threshold: float = 0.85) -> List[Tuple[str, str, float]]:
     py_files = []
@@ -43,6 +45,7 @@ def check_duplicates(root_dir: str, threshold: float = 0.85) -> List[Tuple[str, 
 
     return duplicates
 
+
 def main():
     root_dir = os.path.abspath("agent")
     print(f"Checking for duplicate code in {root_dir}...")
@@ -62,6 +65,7 @@ def main():
     else:
         print("No significant duplicates found.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

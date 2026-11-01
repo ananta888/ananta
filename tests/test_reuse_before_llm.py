@@ -1,4 +1,5 @@
 """HDE-020: reuse-before-LLM — direct tools first, no silent policy bypass."""
+
 import pytest
 
 from agent.models import TaskStepProposeRequest
@@ -41,9 +42,9 @@ class ScriptedRuntime:
 @pytest.fixture
 def install_runtime(monkeypatch):
     def _install(runtime):
+        import agent.services.hub_tool_execution_adapter as adapter_module
         from agent.services.hub_tool_execution_adapter import HubToolExecutionAdapter
         from agent.services.worker_runtime_execution_adapter import WorkerRuntimeExecutionAdapter
-        import agent.services.hub_tool_execution_adapter as adapter_module
 
         adapter = HubToolExecutionAdapter(runtime_adapter=WorkerRuntimeExecutionAdapter(runtime))
         monkeypatch.setattr(adapter_module, "hub_tool_execution_adapter", adapter)
@@ -123,8 +124,8 @@ def test_policy_block_does_not_silently_fall_back_to_llm(install_runtime, tmp_pa
     assert decision.eligible
 
     # Force the policy gate to block by patching evaluate.
-    from agent.services.ananta_tool_policy_service import ToolPolicyDecision
     import agent.services.hub_tool_execution_adapter as adapter_module
+    from agent.services.ananta_tool_policy_service import ToolPolicyDecision
 
     class _BlockingPolicy:
         def evaluate(self, **kwargs):

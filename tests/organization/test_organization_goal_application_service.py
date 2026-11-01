@@ -476,12 +476,8 @@ def test_non_plannable_organization_lifecycle_fails_closed(lifecycle: str) -> No
 
 def test_goal_command_is_closed_and_rejects_ambiguous_text() -> None:
     with pytest.raises(ValidationError):
-        OrganizationGoalCreateCommand.model_validate(
-            {"goal": "Research", "team_id": "caller-selected-team"}
-        )
+        OrganizationGoalCreateCommand.model_validate({"goal": "Research", "team_id": "caller-selected-team"})
     with pytest.raises(ValidationError):
         OrganizationGoalCreateCommand.model_validate({"goal": "Research", "summary": 42})
     with pytest.raises(ValidationError):
-        OrganizationGoalCreateCommand.model_validate(
-            {"goal": "Research", "constraints": ["same", "same"]}
-        )
+        OrganizationGoalCreateCommand.model_validate({"goal": "Research", "constraints": ["same", "same"]})

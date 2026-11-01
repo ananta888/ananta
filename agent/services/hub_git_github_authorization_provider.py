@@ -26,9 +26,7 @@ from agent.services.hub_git_authorization_provisioning import (
 from agent.sources.git_source_connector_common import GitSourceScope
 
 _INSTALLATION_HANDLE = re.compile(r"^github-installation:(\d{1,20})$")
-_OAUTH_HANDLE = re.compile(
-    r"^github-oauth:([A-Za-z0-9][A-Za-z0-9_.:-]{0,191})$"
-)
+_OAUTH_HANDLE = re.compile(r"^github-oauth:([A-Za-z0-9][A-Za-z0-9_.:-]{0,191})$")
 _REPOSITORY = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})/"
     r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$"
@@ -36,24 +34,18 @@ _REPOSITORY = re.compile(
 _DEFAULT_API_ORIGIN = "https://api.github.com"
 _ALLOWED_API_HOSTS = frozenset({"api.github.com"})
 _CONTENTS_PERMISSIONS = frozenset({"read", "write"})
-_OAUTH_CONTENT_SCOPES = frozenset(
-    {"contents:read", "repo", "public_repo"}
-)
+_OAUTH_CONTENT_SCOPES = frozenset({"contents:read", "repo", "public_repo"})
 _MAX_BODY_BYTES = 64 * 1024
 
 
 class GitHubAuthorizationApiPort(Protocol):
-    def inspect_installation(
-        self, *, installation_id: str, app_jwt: str
-    ) -> Mapping[str, Any]: ...
+    def inspect_installation(self, *, installation_id: str, app_jwt: str) -> Mapping[str, Any]: ...
 
     def create_installation_token(
         self, *, installation_id: str, app_jwt: str, repository: str
     ) -> Mapping[str, Any]: ...
 
-    def inspect_repository(
-        self, *, repository: str, access_token: str
-    ) -> Mapping[str, Any]: ...
+    def inspect_repository(self, *, repository: str, access_token: str) -> Mapping[str, Any]: ...
 
     def inspect_oauth_scopes(self, *, access_token: str) -> frozenset[str]: ...
 
@@ -127,18 +119,14 @@ class HttpGitHubAuthorizationApi:
         self._origin = f"https://{host}"
         self._opener = urllib.request.build_opener(NoRedirectHandler)
 
-    def inspect_installation(
-        self, *, installation_id: str, app_jwt: str
-    ) -> Mapping[str, Any]:
+    def inspect_installation(self, *, installation_id: str, app_jwt: str) -> Mapping[str, Any]:
         return self._json(
             "GET",
             f"/app/installations/{quote(installation_id, safe='')}",
             bearer=app_jwt,
         )
 
-    def create_installation_token(
-        self, *, installation_id: str, app_jwt: str, repository: str
-    ) -> Mapping[str, Any]:
+    def create_installation_token(self, *, installation_id: str, app_jwt: str, repository: str) -> Mapping[str, Any]:
         repository_name = _require_repository(repository).split("/", 1)[1]
         return self._json(
             "POST",
@@ -150,9 +138,7 @@ class HttpGitHubAuthorizationApi:
             },
         )
 
-    def inspect_repository(
-        self, *, repository: str, access_token: str
-    ) -> Mapping[str, Any]:
+    def inspect_repository(self, *, repository: str, access_token: str) -> Mapping[str, Any]:
         return self._json(
             "GET",
             f"/repos/{quote(repository, safe='/')}",
@@ -166,13 +152,9 @@ class HttpGitHubAuthorizationApi:
             bearer=access_token,
         )
         raw = str(headers.get("X-OAuth-Scopes") or "")
-        return frozenset(
-            item.strip() for item in raw.split(",") if item.strip()
-        )
+        return frozenset(item.strip() for item in raw.split(",") if item.strip())
 
-    def _json(
-        self, method: str, path: str, *, bearer: str, body: Mapping[str, Any] | None = None
-    ) -> Mapping[str, Any]:
+    def _json(self, method: str, path: str, *, bearer: str, body: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         _headers, payload = self._request(method, path, bearer=bearer, body=body)
         if not isinstance(payload, Mapping):
             raise HubGitAuthorizationProvisioningError(
@@ -190,11 +172,7 @@ class HttpGitHubAuthorizationApi:
                 "git_authorization_github_credential_missing",
                 status_code=503,
             )
-        encoded_body = (
-            json.dumps(dict(body), separators=(",", ":")).encode("utf-8")
-            if body is not None
-            else None
-        )
+        encoded_body = json.dumps(dict(body), separators=(",", ":")).encode("utf-8") if body is not None else None
         headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
@@ -283,10 +261,7 @@ def migrate_legacy_github_app_reference(
         return {"status": "current", "reference": value, "changed": False}
     if not repository:
         return {"status": "invalidated", "reference": "", "changed": True}
-    scoped = (
-        f"{prefix}{installation_id}/repository/"
-        f"{quote(_require_repository(repository), safe='')}"
-    )
+    scoped = f"{prefix}{installation_id}/repository/{quote(_require_repository(repository), safe='')}"
     return {
         "status": "planned" if dry_run else "migrated",
         "reference": scoped,
@@ -302,9 +277,7 @@ class GitHubAuthorizationProvisioner:
     jwt_issuer: GitHubAppJwtIssuerPort | None = None
     oauth_grants: GitHubOAuthGrantStorePort | None = None
 
-    def resolve_authorization(
-        self, request: GitAuthorizationProvisioningRequest
-    ) -> ProvisionedGitAuthorization:
+    def resolve_authorization(self, request: GitAuthorizationProvisioningRequest) -> ProvisionedGitAuthorization:
         selection = request.selection
         if selection.authorization_kind == "github_app":
             return self._resolve_app(selection.authorization_handle, selection.repository)
@@ -332,9 +305,7 @@ class GitHubAuthorizationProvisioner:
                 )
         return GitAuthorizationProviderHealth(status="healthy")
 
-    def _resolve_app(
-        self, handle: str, repository: str | None
-    ) -> ProvisionedGitAuthorization:
+    def _resolve_app(self, handle: str, repository: str | None) -> ProvisionedGitAuthorization:
         match = _INSTALLATION_HANDLE.fullmatch(str(handle or "").strip())
         repo = _require_repository(repository)
         if match is None or self.jwt_issuer is None:
@@ -382,26 +353,19 @@ class GitHubAuthorizationProvisioner:
             connection_ref=handle,
             authorization_kind="github_app",
             remote_url=f"https://github.com/{repo}.git",
-            credential_ref=(
-                f"secret://github-app/installation/{installation_id}/repository/"
-                f"{quote(repo, safe='')}"
-            ),
+            credential_ref=(f"secret://github-app/installation/{installation_id}/repository/{quote(repo, safe='')}"),
             credential_username="x-access-token",
             authorization_state="active",
             granted_scopes=frozenset({"contents:read"}),
             repository=repo,
         )
 
-    def _resolve_oauth(
-        self, handle: str, repository: str | None
-    ) -> ProvisionedGitAuthorization:
+    def _resolve_oauth(self, handle: str, repository: str | None) -> ProvisionedGitAuthorization:
         match = _OAUTH_HANDLE.fullmatch(str(handle or "").strip())
         repo = _require_repository(repository)
         store = self.oauth_grants or UnavailableGitHubOAuthGrantStore()
         if match is None:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_github_oauth_handle_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_github_oauth_handle_invalid")
         access_token = str(store.resolve_token(handle) or "").strip()
         if not access_token:
             raise HubGitAuthorizationProvisioningError(
@@ -424,10 +388,7 @@ class GitHubAuthorizationProvisioner:
             connection_ref=handle,
             authorization_kind="github_oauth",
             remote_url=f"https://github.com/{repo}.git",
-            credential_ref=(
-                f"secret://github-oauth/grant/{grant}/repository/"
-                f"{quote(repo, safe='')}"
-            ),
+            credential_ref=(f"secret://github-oauth/grant/{grant}/repository/{quote(repo, safe='')}"),
             credential_username="x-access-token",
             authorization_state="active",
             granted_scopes=frozenset({"contents:read"}),
@@ -451,9 +412,7 @@ class GitHubAppInstallationSecretResolver:
 
     def handles(self, reference: str) -> bool:
         value = str(reference or "").strip()
-        return value.startswith("secret://github-app/installation/") or value.startswith(
-            "secret://github-oauth/grant/"
-        )
+        return value.startswith("secret://github-app/installation/") or value.startswith("secret://github-oauth/grant/")
 
     def resolve(self, reference: str) -> str:
         value = str(reference or "").strip()
@@ -496,9 +455,7 @@ class GitHubAppInstallationSecretResolver:
             grant, separator, encoded_repository = remainder.partition("/repository/")
             repository = unquote(encoded_repository) if separator else ""
             if not grant or not repository:
-                raise HubGitAuthorizationProvisioningError(
-                    "git_secret_reference_invalid", status_code=503
-                )
+                raise HubGitAuthorizationProvisioningError("git_secret_reference_invalid", status_code=503)
             handle = f"github-oauth:{grant}"
             token = str(self._oauth_grants.resolve_token(handle) or "").strip()
             if not token:
@@ -552,9 +509,7 @@ def compose_github_authorization_provisioner_from_env(
         issuer = None
         if app_id:
             private_key = secret_resolver.resolve(key_ref)
-            issuer = GitHubAppJwtIssuer(
-                app_id=app_id, private_key_pem=private_key
-            )
+            issuer = GitHubAppJwtIssuer(app_id=app_id, private_key_pem=private_key)
     except Exception:
         return None
     provisioner = GitHubAuthorizationProvisioner(
@@ -576,9 +531,7 @@ def compose_github_authorization_provisioner_from_env(
 def _require_repository(repository: str | None) -> str:
     value = str(repository or "").strip()
     if _REPOSITORY.fullmatch(value) is None:
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_repository_invalid"
-        )
+        raise HubGitAuthorizationProvisioningError("git_authorization_repository_invalid")
     return value
 
 

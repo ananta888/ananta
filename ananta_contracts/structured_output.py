@@ -148,13 +148,9 @@ class StructuredOutputService:
             value, depth, path = stack.pop()
             visited += 1
             if visited > self.maximum_schema_nodes:
-                return (
-                    StructuredOutputIssue(path, "json_schema_node_limit_exceeded", "schema is too complex"),
-                )
+                return (StructuredOutputIssue(path, "json_schema_node_limit_exceeded", "schema is too complex"),)
             if depth > self.maximum_schema_depth:
-                return (
-                    StructuredOutputIssue(path, "json_schema_depth_exceeded", "schema is too deeply nested"),
-                )
+                return (StructuredOutputIssue(path, "json_schema_depth_exceeded", "schema is too deeply nested"),)
             if isinstance(value, dict):
                 for key, item in value.items():
                     item_path = f"{path}/{key}"
@@ -178,15 +174,11 @@ class StructuredOutputService:
                         )
                     stack.append((item, depth + 1, item_path))
             elif isinstance(value, list):
-                stack.extend(
-                    (item, depth + 1, f"{path}/{index}") for index, item in enumerate(value)
-                )
+                stack.extend((item, depth + 1, f"{path}/{index}") for index, item in enumerate(value))
         try:
             Draft202012Validator.check_schema(schema)
         except SchemaError as exc:
-            return (
-                StructuredOutputIssue("$", "json_schema_invalid", str(exc.message)),
-            )
+            return (StructuredOutputIssue("$", "json_schema_invalid", str(exc.message)),)
         return ()
 
     def validate_json(
@@ -219,8 +211,10 @@ class StructuredOutputService:
                 content_hash=content_hash,
                 audit_events=tuple(audit),
             )
-        rendered_raw = raw if isinstance(raw, str) else json.dumps(
-            raw, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+        rendered_raw = (
+            raw
+            if isinstance(raw, str)
+            else json.dumps(raw, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
         )
         if len(rendered_raw.encode("utf-8")) > self.maximum_content_bytes:
             issue = StructuredOutputIssue("$", "structured_output_too_large", "output exceeds its byte limit")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any
 
 
 def _print_table(rows: list[dict], columns: list[str]) -> None:
@@ -21,4 +20,3 @@ def _format_ts(ts: float | None) -> str:
     if not ts:
         return ""
     return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-

@@ -1,4 +1,5 @@
 """ananta ssh — OIDC-backed SSH certificate login and terminal access."""
+
 from __future__ import annotations
 
 import argparse
@@ -129,7 +130,8 @@ def _cmd_connect(args: argparse.Namespace, base_url: str, token: str | None) -> 
             resp = client.get("/terminal/targets")
             targets_payload = resp.json()
             candidates = [
-                t for t in (targets_payload.get("targets") or [])
+                t
+                for t in (targets_payload.get("targets") or [])
                 if t.get("target_type") == target_type and ((t.get("capabilities") or {}).get("create") is True)
             ]
             if len(candidates) > 1:
@@ -146,13 +148,16 @@ def _cmd_connect(args: argparse.Namespace, base_url: str, token: str | None) -> 
             return 1
 
     try:
-        resp = client.post("/terminal/sessions", {
-            "target_type": target_type,
-            "target_id": target_id or target_type,
-            "workspace_path": args.workspace,
-            "goal_id": args.goal_id,
-            "task_id": args.task_id,
-        })
+        resp = client.post(
+            "/terminal/sessions",
+            {
+                "target_type": target_type,
+                "target_id": target_id or target_type,
+                "workspace_path": args.workspace,
+                "goal_id": args.goal_id,
+                "task_id": args.task_id,
+            },
+        )
         data = resp.json()
     except Exception as exc:
         print(f"[ananta ssh] session create failed: {exc}", file=sys.stderr)
@@ -179,17 +184,18 @@ def _cmd_connect(args: argparse.Namespace, base_url: str, token: str | None) -> 
         return 1
 
     from urllib.parse import urlparse
+
     parsed = urlparse(base_url)
     host = parsed.hostname or "ananta-hub"
     user = f"ananta-{target_type}"
 
     print(f"\n[ananta ssh] Session {session_id[:8]}… created.")
-    print(f"\nConnect using:\n")
-    print(f"  ssh -i ~/.ssh/ananta_ssh_key -o CertificateFile=~/.ssh/ananta_ssh_cert.pub \\")
+    print("\nConnect using:\n")
+    print("  ssh -i ~/.ssh/ananta_ssh_key -o CertificateFile=~/.ssh/ananta_ssh_cert.pub \\")
     print(f"      {user}@{host}")
-    print(f"\nOr use the WebSocket terminal:\n")
+    print("\nOr use the WebSocket terminal:\n")
     print(f"  wss://{parsed.netloc}/ws/terminal/session?attach_token=<redacted>")
-    print(f"\nAttach token: (not printed — use the web UI or the ananta tmux attach command)\n")
+    print("\nAttach token: (not printed — use the web UI or the ananta tmux attach command)\n")
     return 0
 
 

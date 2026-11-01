@@ -74,4 +74,3 @@ def test_context_compaction_returns_output_format_profile():
     profile = out["output_format_profile"]
     assert isinstance(profile, dict)
     assert profile.get("preferred_output_format") in {"markdown", "json", "yaml"}
-

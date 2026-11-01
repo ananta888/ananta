@@ -32,8 +32,7 @@ class UnslothHubTaskCommand:
 class HubTaskCommandPort(Protocol):
     """Focused Hub port; implementations enqueue work and own deduplication."""
 
-    def submit(self, command: UnslothHubTaskCommand) -> Mapping[str, Any]:
-        ...
+    def submit(self, command: UnslothHubTaskCommand) -> Mapping[str, Any]: ...
 
 
 class HubTaskSubmissionPort(Protocol):
@@ -44,8 +43,7 @@ class HubTaskSubmissionPort(Protocol):
         tenant_id: str,
         payload: Mapping[str, object],
         idempotency_key: str,
-    ) -> str:
-        ...
+    ) -> str: ...
 
 
 class HubTaskSubmissionCommandAdapter:
@@ -67,9 +65,7 @@ class HubTaskSubmissionCommandAdapter:
             idempotency_key=command.idempotency_key,
         )
         if _IDENTIFIER_RE.fullmatch(str(task_id or "")) is None:
-            raise UnslothStudioWorkerAdapterError(
-                "unsloth_hub_task_receipt_invalid"
-            )
+            raise UnslothStudioWorkerAdapterError("unsloth_hub_task_receipt_invalid")
         return {
             "task_id": str(task_id),
             "status": "queued",
@@ -122,15 +118,11 @@ class UnslothStudioWorkerAdapter:
     ) -> Mapping[str, Any]:
         normalized_mutation = _validated_identifier(mutation, "mutation")
         if normalized_mutation not in self._allowed_mutations:
-            raise UnslothStudioWorkerAdapterError(
-                "unsloth_mutation_not_allowlisted"
-            )
+            raise UnslothStudioWorkerAdapterError("unsloth_mutation_not_allowlisted")
         normalized_tenant = _validated_identifier(tenant_id, "tenant")
         normalized_actor = _validated_identifier(actor_id, "actor")
         if _IDEMPOTENCY_KEY_RE.fullmatch(str(idempotency_key or "")) is None:
-            raise UnslothStudioWorkerAdapterError(
-                "unsloth_mutation_idempotency_key_invalid"
-            )
+            raise UnslothStudioWorkerAdapterError("unsloth_mutation_idempotency_key_invalid")
         command = UnslothHubTaskCommand(
             command_type=f"unsloth.mcp.{normalized_mutation}",
             tenant_id=normalized_tenant,
@@ -140,9 +132,7 @@ class UnslothStudioWorkerAdapter:
         )
         receipt = self._hub_task_commands.submit(command)
         if not isinstance(receipt, Mapping):
-            raise UnslothStudioWorkerAdapterError(
-                "unsloth_hub_task_receipt_invalid"
-            )
+            raise UnslothStudioWorkerAdapterError("unsloth_hub_task_receipt_invalid")
         return dict(receipt)
 
 

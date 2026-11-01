@@ -4,16 +4,19 @@ SOLID checks: tests verify DIP (call-time lookup, not module-import cache),
 LSP (substitutability of factory return values), SRP (factory functions
 only — no domain logic).
 """
+
 from __future__ import annotations
 
 
 def test_di_module_imports():
     from agent.services import di  # noqa: F401
+
     assert hasattr(di, "get_memory_entry_repository")
 
 
 def test_get_memory_entry_repository_returns_singleton():
     from agent.services.di import get_memory_entry_repository
+
     repo_a = get_memory_entry_repository()
     repo_b = get_memory_entry_repository()
     assert repo_a is repo_b  # idempotent call-time lookup
@@ -59,11 +62,7 @@ def test_factory_completeness_for_service_level_imports():
                     imported.add(name)
 
     # Subset: nur die, die wir aktuell abdecken (memory_entry_repo + alle 59)
-    covered = {
-        name
-        for name in imported
-        if hasattr(di, f"get_{name[:-5]}_repository")
-    }
+    covered = {name for name in imported if hasattr(di, f"get_{name[:-5]}_repository")}
     missing = imported - covered
     assert not missing, f"di.py is missing factories for: {sorted(missing)}"
 

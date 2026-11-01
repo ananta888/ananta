@@ -4,6 +4,7 @@ The patch service mutates graph snapshots.  This service maps supported graph
 operations back to concrete configuration artifacts and returns source diffs and
 rollback metadata.  Unsupported or runtime-only nodes stay readonly.
 """
+
 from __future__ import annotations
 
 import difflib
@@ -87,23 +88,29 @@ class ConfigGraphPersistenceService:
             if before == after:
                 continue
             rel = self._relative(path)
-            diff_text = "".join(difflib.unified_diff(
-                before.splitlines(keepends=True),
-                after.splitlines(keepends=True),
-                fromfile=f"a/{rel}",
-                tofile=f"b/{rel}",
-            ))
-            result.source_diffs.append(SourceDiff(
-                source_file=rel,
-                source_kind=source_kind,
-                diff=diff_text,
-                rollback_content=before,
-            ))
-            result.rollback_artifact["sources"].append({
-                "source_file": rel,
-                "source_kind": source_kind,
-                "rollback_content": before,
-            })
+            diff_text = "".join(
+                difflib.unified_diff(
+                    before.splitlines(keepends=True),
+                    after.splitlines(keepends=True),
+                    fromfile=f"a/{rel}",
+                    tofile=f"b/{rel}",
+                )
+            )
+            result.source_diffs.append(
+                SourceDiff(
+                    source_file=rel,
+                    source_kind=source_kind,
+                    diff=diff_text,
+                    rollback_content=before,
+                )
+            )
+            result.rollback_artifact["sources"].append(
+                {
+                    "source_file": rel,
+                    "source_kind": source_kind,
+                    "rollback_content": before,
+                }
+            )
 
         try:
             for path, (_before, after, _source_kind) in staged.items():
@@ -128,10 +135,7 @@ class ConfigGraphPersistenceService:
         if op.op == "add_node":
             self._stage_add_node(op, staged)
             return
-        raise ValueError(
-            f"op {op.op!r} is not persistable; "
-            "structural runtime graph edits are readonly"
-        )
+        raise ValueError(f"op {op.op!r} is not persistable; structural runtime graph edits are readonly")
 
     def _stage_set_data(
         self,
@@ -281,10 +285,7 @@ class ConfigGraphPersistenceService:
             raise ValueError("path_glob is required")
         config = self._load_json_staged(self._root / "user.json", "user_config", staged)
         rules = list(config.get("path_ai_modes") or [])
-        if any(
-            isinstance(rule, dict) and str(rule.get("path_glob") or "") == glob
-            for rule in rules
-        ):
+        if any(isinstance(rule, dict) and str(rule.get("path_glob") or "") == glob for rule in rules):
             raise ValueError(f"path rule already exists: {glob}")
         rules.append(self._clean_path_rule_payload(data))
         config["path_ai_modes"] = rules
@@ -320,23 +321,29 @@ class ConfigGraphPersistenceService:
             if before == after:
                 continue
             rel = self._relative(path)
-            diff_text = "".join(difflib.unified_diff(
-                before.splitlines(keepends=True),
-                after.splitlines(keepends=True),
-                fromfile=f"a/{rel}",
-                tofile=f"b/{rel}",
-            ))
-            result.source_diffs.append(SourceDiff(
-                source_file=rel,
-                source_kind=source_kind,
-                diff=diff_text,
-                rollback_content=before,
-            ))
-            result.rollback_artifact["sources"].append({
-                "source_file": rel,
-                "source_kind": source_kind,
-                "rollback_content": before,
-            })
+            diff_text = "".join(
+                difflib.unified_diff(
+                    before.splitlines(keepends=True),
+                    after.splitlines(keepends=True),
+                    fromfile=f"a/{rel}",
+                    tofile=f"b/{rel}",
+                )
+            )
+            result.source_diffs.append(
+                SourceDiff(
+                    source_file=rel,
+                    source_kind=source_kind,
+                    diff=diff_text,
+                    rollback_content=before,
+                )
+            )
+            result.rollback_artifact["sources"].append(
+                {
+                    "source_file": rel,
+                    "source_kind": source_kind,
+                    "rollback_content": before,
+                }
+            )
         try:
             for path, (_before, after, _source_kind) in staged.items():
                 path.write_text(after, encoding="utf-8")
@@ -363,9 +370,7 @@ class ConfigGraphPersistenceService:
             rollback_content = source.get("rollback_content")
             if not source_file or not isinstance(rollback_content, str):
                 result.success = False
-                result.errors.append(
-                    "rollback source_file and rollback_content are required"
-                )
+                result.errors.append("rollback source_file and rollback_content are required")
                 continue
             path = (self._root / source_file).resolve()
             try:
@@ -377,17 +382,21 @@ class ConfigGraphPersistenceService:
             before = path.read_text(encoding="utf-8") if path.exists() else ""
             if before != rollback_content:
                 rel = self._relative(path)
-                result.source_diffs.append(SourceDiff(
-                    source_file=rel,
-                    source_kind=str(source.get("source_kind") or "unknown"),
-                    diff="".join(difflib.unified_diff(
-                        before.splitlines(keepends=True),
-                        rollback_content.splitlines(keepends=True),
-                        fromfile=f"a/{rel}",
-                        tofile=f"b/{rel}",
-                    )),
-                    rollback_content=before,
-                ))
+                result.source_diffs.append(
+                    SourceDiff(
+                        source_file=rel,
+                        source_kind=str(source.get("source_kind") or "unknown"),
+                        diff="".join(
+                            difflib.unified_diff(
+                                before.splitlines(keepends=True),
+                                rollback_content.splitlines(keepends=True),
+                                fromfile=f"a/{rel}",
+                                tofile=f"b/{rel}",
+                            )
+                        ),
+                        rollback_content=before,
+                    )
+                )
                 path.write_text(rollback_content, encoding="utf-8")
         if result.success and any(
             str(source.get("source_file") or "").strip() == "user.json"
@@ -585,15 +594,26 @@ class ConfigGraphPersistenceService:
     @staticmethod
     def _clean_restricted_model_payload(data: dict[str, Any]) -> dict[str, Any]:
         allowed = {
-            "id", "engine", "model", "revision", "local_path", "device", "enabled", "tasks",
+            "id",
+            "engine",
+            "model",
+            "revision",
+            "local_path",
+            "device",
+            "enabled",
+            "tasks",
         }
         return {key: data[key] for key in allowed if key in data}
 
     @staticmethod
     def _clean_restricted_task_payload(data: dict[str, Any]) -> dict[str, Any]:
         allowed = {
-            "enabled", "preferred_engine", "fallback_to_deterministic",
-            "max_candidates", "labels", "weight",
+            "enabled",
+            "preferred_engine",
+            "fallback_to_deterministic",
+            "max_candidates",
+            "labels",
+            "weight",
         }
         return {key: data[key] for key in allowed if key in data}
 

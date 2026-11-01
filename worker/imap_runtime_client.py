@@ -126,8 +126,7 @@ class SecureImapClient:
             status, fetched = connection.uid(
                 "fetch",
                 raw_uid,
-                "(UID RFC822.SIZE BODY.PEEK[HEADER.FIELDS "
-                "(MESSAGE-ID DATE FROM TO SUBJECT)])",
+                "(UID RFC822.SIZE BODY.PEEK[HEADER.FIELDS (MESSAGE-ID DATE FROM TO SUBJECT)])",
             )
             if str(status).upper() != "OK":
                 raise ConnectionError("imap_fetch_headers_failed")

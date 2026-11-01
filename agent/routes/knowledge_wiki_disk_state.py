@@ -52,6 +52,7 @@ def collect_wiki_disk_state(data_dir: Path) -> dict:
     ki_wiki_dir = data_dir / "knowledge_indices" / "wiki"
     if ki_wiki_dir.exists():
         import json as _json_cc
+
         for index_dir in sorted(ki_wiki_dir.iterdir()):
             if not index_dir.is_dir():
                 continue
@@ -71,23 +72,28 @@ def collect_wiki_disk_state(data_dir: Path) -> dict:
                     if info:
                         run_files[rf.name] = info
                 if run_files:
-                    cc_outputs.append({
-                        "index_id": index_dir.name,
-                        "run_id": run_dir.name,
-                        "files": run_files,
-                        "manifest": {
-                            "index_record_count": manifest.get("index_record_count"),
-                            "node_count": manifest.get("node_count"),
-                            "relation_record_count": manifest.get("relation_record_count"),
-                            "link_edge_count": manifest.get("link_edge_count"),
-                            "profile_name": manifest.get("profile_name"),
-                            "generated_at": manifest.get("generated_at"),
-                        } if manifest else None,
-                    })
+                    cc_outputs.append(
+                        {
+                            "index_id": index_dir.name,
+                            "run_id": run_dir.name,
+                            "files": run_files,
+                            "manifest": {
+                                "index_record_count": manifest.get("index_record_count"),
+                                "node_count": manifest.get("node_count"),
+                                "relation_record_count": manifest.get("relation_record_count"),
+                                "link_edge_count": manifest.get("link_edge_count"),
+                                "profile_name": manifest.get("profile_name"),
+                                "generated_at": manifest.get("generated_at"),
+                            }
+                            if manifest
+                            else None,
+                        }
+                    )
 
     checkpoints = []
     if checkpoint_dir.exists():
         import json as _json
+
         for f in sorted(checkpoint_dir.glob("*.json")):
             try:
                 data = _json.loads(f.read_text(encoding="utf-8"))

@@ -41,24 +41,24 @@ def server_models(app):
         from agent.routes.config.providers import _model_catalog_service
 
         config = dict(app.config.get("AGENT_CONFIG", {}) or {})
-        return _model_catalog_service().versioned_catalog(
-            CatalogQuery(
-                default_provider=str(
-                    config.get("default_provider") or ""
-                ),
-                default_model=str(config.get("default_model") or ""),
-                task_kind="code_review",
-                timeout_seconds=3,
-                cache_ttl_seconds=30,
+        return (
+            _model_catalog_service()
+            .versioned_catalog(
+                CatalogQuery(
+                    default_provider=str(config.get("default_provider") or ""),
+                    default_model=str(config.get("default_model") or ""),
+                    task_kind="code_review",
+                    timeout_seconds=3,
+                    cache_ttl_seconds=30,
+                )
             )
-        ).models
+            .models
+        )
 
 
 def source_control_rollout_policy(app) -> SourceControlRolloutPolicy:
     raw_stage = str(
-        app.config.get("SOURCE_CONTROL_ROLLOUT_STAGE")
-        or os.environ.get("SOURCE_CONTROL_ROLLOUT_STAGE")
-        or "GITHUB"
+        app.config.get("SOURCE_CONTROL_ROLLOUT_STAGE") or os.environ.get("SOURCE_CONTROL_ROLLOUT_STAGE") or "GITHUB"
     ).strip()
     try:
         stage = (
@@ -78,12 +78,8 @@ def source_control_rollout_policy(app) -> SourceControlRolloutPolicy:
         "SOURCE_CONTROL_LEGACY_ALIASES_ENABLED",
         default=stage is not SourceControlRolloutStage.LEGACY_DISABLED,
     )
-    release_report = app.extensions.get(
-        "source_control_release_gate_report"
-    )
-    production_release_allowed = bool(
-        getattr(release_report, "release_allowed", False)
-    )
+    release_report = app.extensions.get("source_control_release_gate_report")
+    production_release_allowed = bool(getattr(release_report, "release_allowed", False))
     return SourceControlRolloutPolicy(
         SourceControlRolloutConfiguration(
             stage=stage,

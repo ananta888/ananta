@@ -91,9 +91,7 @@ CONTRACTS = (
     ),
     DocContract(
         "docs/release-golden-path.md",
-        contains=(
-            "python3 scripts/run_client_surface_test_gate.py --out ci-artifacts/client-surface-test-gate.json",
-        ),
+        contains=("python3 scripts/run_client_surface_test_gate.py --out ci-artifacts/client-surface-test-gate.json",),
     ),
     DocContract(
         # X86CC-001: scope, non-goals, schema, safety and the master feature flag

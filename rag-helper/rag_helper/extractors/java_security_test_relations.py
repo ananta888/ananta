@@ -9,6 +9,7 @@ Alle Kanten aus String-/Annotation-Heuristiken tragen reduzierte Confidence und
 ein heuristic-Flag; nur direkte Annotation-Referenzen (X.class, Mapping-Pfade)
 gelten als harte Evidence.
 """
+
 from __future__ import annotations
 
 import re
@@ -89,16 +90,18 @@ def build_test_type_relations(
         if not annotation.startswith(_TEST_TARGET_ANNOTATIONS):
             continue
         for class_ref in _CLASS_REF_PATTERN.findall(annotation):
-            relations.append(make_relation(
-                file=rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=type_name,
-                relation="test_targets_type",
-                target=class_ref,
-                target_resolved=resolve(class_ref) or class_ref,
-                extra={"confidence": 0.95},
-            ))
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation="test_targets_type",
+                    target=class_ref,
+                    target_resolved=resolve(class_ref) or class_ref,
+                    extra={"confidence": 0.95},
+                )
+            )
 
     for field in fields:
         field_annotations = list(field.get("annotations") or [])
@@ -106,27 +109,31 @@ def build_test_type_relations(
         field_type = str(field.get("type") or "")
         primary_target = resolved_types[0] if resolved_types else (field_type or None)
         if primary_target and field_type.endswith("Controller"):
-            relations.append(make_relation(
-                file=rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=type_name,
-                relation="test_uses_controller",
-                target=field_type,
-                target_resolved=primary_target,
-                extra={"confidence": 0.85},
-            ))
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation="test_uses_controller",
+                    target=field_type,
+                    target_resolved=primary_target,
+                    extra={"confidence": 0.85},
+                )
+            )
         if primary_target and any(annotation.startswith(_MOCK_FIELD_ANNOTATIONS) for annotation in field_annotations):
-            relations.append(make_relation(
-                file=rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=type_name,
-                relation="mock_injects_dependency",
-                target=field_type,
-                target_resolved=primary_target,
-                extra={"confidence": 0.9},
-            ))
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation="mock_injects_dependency",
+                    target=field_type,
+                    target_resolved=primary_target,
+                    extra={"confidence": 0.9},
+                )
+            )
     return relations
 
 
@@ -152,16 +159,18 @@ def build_endpoint_relations(
                 extra["endpoint_path"] = endpoint_path
             if resolved_http_method:
                 extra["http_method"] = resolved_http_method
-            relations.append(make_relation(
-                file=rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=type_name,
-                relation="controller_endpoint_declares",
-                target=str(method_record.get("name") or ""),
-                target_resolved=str(method_record.get("id") or ""),
-                extra=extra,
-            ))
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation="controller_endpoint_declares",
+                    target=str(method_record.get("name") or ""),
+                    target_resolved=str(method_record.get("id") or ""),
+                    extra=extra,
+                )
+            )
             break
     return relations
 
@@ -186,21 +195,23 @@ def build_test_endpoint_call_relations(
         if key in seen_paths:
             continue
         seen_paths.add(key)
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=method_id,
-            source_kind="java_method",
-            source_name=source_name,
-            relation="test_calls_endpoint",
-            target=endpoint_path,
-            target_resolved=None,
-            extra={
-                "confidence": 0.6,
-                "heuristic": "mockmvc_string_match",
-                "endpoint_path": endpoint_path,
-                "http_method": http_method,
-            },
-        ))
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=method_id,
+                source_kind="java_method",
+                source_name=source_name,
+                relation="test_calls_endpoint",
+                target=endpoint_path,
+                target_resolved=None,
+                extra={
+                    "confidence": 0.6,
+                    "heuristic": "mockmvc_string_match",
+                    "endpoint_path": endpoint_path,
+                    "http_method": http_method,
+                },
+            )
+        )
     return relations
 
 
@@ -236,69 +247,77 @@ def build_policy_relations(
                     param_target = resolve(bound_type) or bound_type
                     break
             for field_name, operation in field_hits:
-                relations.append(make_relation(
-                    file=rel_path,
-                    source_id=method_id,
-                    source_kind="java_method",
-                    source_name=source_name,
-                    relation="permission_checks_field",
-                    target=field_name,
-                    target_resolved=param_target,
-                    extra={
-                        "confidence": 0.85,
-                        "field": field_name,
-                        "operation": operation,
-                        "source_file": rel_path,
-                    },
-                ))
+                relations.append(
+                    make_relation(
+                        file=rel_path,
+                        source_id=method_id,
+                        source_kind="java_method",
+                        source_name=source_name,
+                        relation="permission_checks_field",
+                        target=field_name,
+                        target_resolved=param_target,
+                        extra={
+                            "confidence": 0.85,
+                            "field": field_name,
+                            "operation": operation,
+                            "source_file": rel_path,
+                        },
+                    )
+                )
             for role_name in _ROLE_PATTERN.findall(annotation):
-                relations.append(make_relation(
-                    file=rel_path,
-                    source_id=method_id,
-                    source_kind="java_method",
-                    source_name=source_name,
-                    relation="role_allows_operation",
-                    target=role_name,
-                    target_resolved=None,
-                    extra={
-                        "confidence": 0.9,
-                        "operation": fallback_operation,
-                        "source_file": rel_path,
-                    },
-                ))
-            if annotation.startswith(("@Secured", "@RolesAllowed")):
-                for quoted_role in _QUOTED_PATTERN.findall(annotation):
-                    relations.append(make_relation(
+                relations.append(
+                    make_relation(
                         file=rel_path,
                         source_id=method_id,
                         source_kind="java_method",
                         source_name=source_name,
                         relation="role_allows_operation",
-                        target=quoted_role,
+                        target=role_name,
                         target_resolved=None,
                         extra={
                             "confidence": 0.9,
                             "operation": fallback_operation,
                             "source_file": rel_path,
                         },
-                    ))
+                    )
+                )
+            if annotation.startswith(("@Secured", "@RolesAllowed")):
+                for quoted_role in _QUOTED_PATTERN.findall(annotation):
+                    relations.append(
+                        make_relation(
+                            file=rel_path,
+                            source_id=method_id,
+                            source_kind="java_method",
+                            source_name=source_name,
+                            relation="role_allows_operation",
+                            target=quoted_role,
+                            target_resolved=None,
+                            extra={
+                                "confidence": 0.9,
+                                "operation": fallback_operation,
+                                "source_file": rel_path,
+                            },
+                        )
+                    )
             continue
 
         annotation_name = annotation.lstrip("@").split("(", 1)[0].strip()
         if annotation_name.endswith(_CUSTOM_GUARD_SUFFIXES) and not annotation.startswith(_SECURITY_ANNOTATIONS):
             guard_type = resolve(annotation_name) or annotation_name
-            relations.append(make_relation(
-                file=rel_path,
-                source_id=guard_type,
-                source_kind="java_type",
-                source_name=annotation_name,
-                relation="interceptor_guards_method",
-                target=method_name,
-                target_resolved=method_id,
-                extra={
-                    "confidence": 0.7,
-                    "heuristic": "annotation_guard",
-                    "source_file": rel_path,
-                },
-            ))
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=guard_type,
+                    source_kind="java_type",
+                    source_name=annotation_name,
+                    relation="interceptor_guards_method",
+                    target=method_name,
+                    target_resolved=method_id,
+                    extra={
+                        "confidence": 0.7,
+                        "heuristic": "annotation_guard",
+                        "source_file": rel_path,
+                    },
+                )
+            )
     return relations

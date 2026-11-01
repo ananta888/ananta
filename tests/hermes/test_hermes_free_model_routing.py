@@ -23,11 +23,13 @@ class _Client:
 
     def chat_completions(self, **_: object) -> dict[str, object]:
         return {
-            "choices": [{
-                "message": {
-                    "content": '{"status":"success","artifact_type":"plan","summary":"ok","findings":[],"risks":[],"suggested_tests":[],"confidence":0.8,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"status":"success","artifact_type":"plan","summary":"ok","findings":[],"risks":[],"suggested_tests":[],"confidence":0.8,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+                    }
                 }
-            }]
+            ]
         }
 
 
@@ -61,5 +63,7 @@ def test_adapter_blocks_command_execute_for_hermes() -> None:
         default_model="z-ai/glm-4.5-air:free",
     )
     adapter = HermesAdapter(config=cfg, client=_Client())  # type: ignore[arg-type]
-    denied = adapter._execute_mode("command_execute", _env(["planning"]), [ContextBlock("task", "1", "hub", content="do shell")])
+    denied = adapter._execute_mode(
+        "command_execute", _env(["planning"]), [ContextBlock("task", "1", "hub", content="do shell")]
+    )
     assert denied.status.value == "denied"

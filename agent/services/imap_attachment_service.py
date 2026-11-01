@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-
 _DANGEROUS_EXTENSIONS = {".exe", ".bat", ".cmd", ".sh", ".ps1", ".jar", ".js", ".vbs", ".scr", ".msi"}
 
 

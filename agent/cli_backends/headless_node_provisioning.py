@@ -34,9 +34,20 @@ class HeadlessNodeProvisioning:
                     pass
                 (configuration / name).chmod(0o400)
             result = self._run(
-                [npm, "install", "--prefix", str(prefix), "--ignore-scripts", "--no-audit", "--no-fund",
-                 "--save-exact", f"{package}@{version}"],
-                cwd=prefix, timeout=540, npm_configuration=configuration,
+                [
+                    npm,
+                    "install",
+                    "--prefix",
+                    str(prefix),
+                    "--ignore-scripts",
+                    "--no-audit",
+                    "--no-fund",
+                    "--save-exact",
+                    f"{package}@{version}",
+                ],
+                cwd=prefix,
+                timeout=540,
+                npm_configuration=configuration,
             )
         if result.returncode != 0:
             raise HeadlessNodeProvisioningError("npm_install_failed")
@@ -45,7 +56,10 @@ class HeadlessNodeProvisioning:
         self._check_node(minimum_node)
         with TemporaryDirectory(prefix="ananta-node-version-") as directory:
             result = self._run(
-                [str(binary), "--version"], cwd=binary.parent, timeout=5, agent_directory=Path(directory),
+                [str(binary), "--version"],
+                cwd=binary.parent,
+                timeout=5,
+                agent_directory=Path(directory),
             )
         valid = result.returncode == 0 and result.stdout.strip() == version and not result.stderr.strip()
         return subprocess.CompletedProcess(
@@ -65,27 +79,44 @@ class HeadlessNodeProvisioning:
             raise HeadlessNodeProvisioningError("node_runtime_incompatible")
 
     def _run(
-        self, command, *, cwd: Path, timeout: int, npm_configuration: Path | None = None,
+        self,
+        command,
+        *,
+        cwd: Path,
+        timeout: int,
+        npm_configuration: Path | None = None,
         agent_directory: Path | None = None,
     ):
         # No provider/Hub tokens or npm user/global configuration are inherited.
         environment = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL") if key in os.environ}
-        environment.update({
-            "CI": "1", "NO_COLOR": "1", "PI_OFFLINE": "1", "PI_TELEMETRY": "0",
-        })
+        environment.update(
+            {
+                "CI": "1",
+                "NO_COLOR": "1",
+                "PI_OFFLINE": "1",
+                "PI_TELEMETRY": "0",
+            }
+        )
         if agent_directory is not None:
             environment["PI_CODING_AGENT_DIR"] = str(agent_directory)
         if npm_configuration is not None:
-            environment.update({
-                "NPM_CONFIG_USERCONFIG": str(npm_configuration / "user"),
-                "NPM_CONFIG_GLOBALCONFIG": str(npm_configuration / "global"),
-                "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/", "NPM_CONFIG_IGNORE_SCRIPTS": "true",
-                "NPM_CONFIG_CACHE": str(cwd / ".npm-cache"),
-            })
+            environment.update(
+                {
+                    "NPM_CONFIG_USERCONFIG": str(npm_configuration / "user"),
+                    "NPM_CONFIG_GLOBALCONFIG": str(npm_configuration / "global"),
+                    "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/",
+                    "NPM_CONFIG_IGNORE_SCRIPTS": "true",
+                    "NPM_CONFIG_CACHE": str(cwd / ".npm-cache"),
+                }
+            )
         try:
             result = self.runner.run(
-                command, cwd=cwd, environment=environment, timeout_seconds=timeout,
-                cancellation=Event(), maximum_output_chars=32_768,
+                command,
+                cwd=cwd,
+                environment=environment,
+                timeout_seconds=timeout,
+                cancellation=Event(),
+                maximum_output_chars=32_768,
             )
         except (OSError, ValueError) as exc:
             raise HeadlessNodeProvisioningError("node_package_command_failed") from exc

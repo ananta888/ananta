@@ -176,8 +176,7 @@ class GoalArtifactService:
             item
             for item in list(extensions.get("execution_provenance") or [])
             if isinstance(item, dict)
-            and str(item.get("provenance_id") or "")
-            != str(payload.get("provenance_id") or "")
+            and str(item.get("provenance_id") or "") != str(payload.get("provenance_id") or "")
         ]
         existing.append(payload)
         extensions["execution_provenance"] = existing
@@ -335,9 +334,9 @@ class GoalArtifactService:
 
     @staticmethod
     def _build_provenance_id(*, goal_id: str, task_id: str, worker_id: str, execution_id: str) -> str:
-        digest = hashlib.sha1(
-            f"{goal_id}:{task_id}:{worker_id}:{execution_id}:provenance".encode("utf-8")
-        ).hexdigest()[:16]
+        digest = hashlib.sha1(f"{goal_id}:{task_id}:{worker_id}:{execution_id}:provenance".encode("utf-8")).hexdigest()[
+            :16
+        ]
         return f"prov-{digest}"
 
     @staticmethod
@@ -355,10 +354,7 @@ class GoalArtifactService:
     @staticmethod
     def _build_provenance_summary(*, task_id: str, worker_id: str | None, input_usage_refs: list[str]) -> str:
         if input_usage_refs:
-            return (
-                f"task={task_id}; worker={str(worker_id or 'unknown')}; "
-                f"input_usage_refs={len(input_usage_refs)}"
-            )
+            return f"task={task_id}; worker={str(worker_id or 'unknown')}; input_usage_refs={len(input_usage_refs)}"
         return f"task={task_id}; worker={str(worker_id or 'unknown')}; input_usage_refs=none"
 
     @staticmethod

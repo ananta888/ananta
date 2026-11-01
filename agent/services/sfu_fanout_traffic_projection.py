@@ -40,9 +40,7 @@ class SfuTrafficPrivacyScope(str, Enum):
 _PRIVACY_SCOPE_BY_ROUTE_CLASS = {
     SfuFanoutRouteClass.SHARED: SfuTrafficPrivacyScope.AUTHORIZED_GROUP,
     SfuFanoutRouteClass.RECEIVER_PRIVATE: SfuTrafficPrivacyScope.AUTHORIZED_RECEIVER,
-    SfuFanoutRouteClass.PAIR_PRIVATE: (
-        SfuTrafficPrivacyScope.AUTHORIZED_SENDER_RECEIVER_PAIR
-    ),
+    SfuFanoutRouteClass.PAIR_PRIVATE: (SfuTrafficPrivacyScope.AUTHORIZED_SENDER_RECEIVER_PAIR),
     SfuFanoutRouteClass.FORBIDDEN_FOR_SFU: SfuTrafficPrivacyScope.SFU_FORBIDDEN,
 }
 
@@ -129,17 +127,13 @@ class SfuFanoutTrafficProjectionService:
         """Classify exact contract identifiers without parsing message content."""
 
         kind = parent_message_kind if isinstance(parent_message_kind, str) else None
-        schema_version = (
-            parent_schema_version if isinstance(parent_schema_version, str) else None
-        )
+        schema_version = parent_schema_version if isinstance(parent_schema_version, str) else None
 
         if schema_version != self._policy.parent_contract.schema_version:
             return self._fail_closed_decision(
                 parent_message_kind=kind,
                 parent_schema_version=schema_version,
-                reason_code=(
-                    self._policy.fail_closed_defaults.unsupported_schema_reason_code
-                ),
+                reason_code=(self._policy.fail_closed_defaults.unsupported_schema_reason_code),
             )
 
         rule = self._classifications.get(kind) if kind is not None else None
@@ -191,9 +185,7 @@ def load_sfu_fanout_traffic_projection_policy(
         with policy_path.open("r", encoding="utf-8") as handle:
             document = json.load(handle)
     except json.JSONDecodeError as exc:
-        raise TrafficProjectionPolicyError(
-            f"traffic projection policy is not valid JSON: {exc.msg}"
-        ) from exc
+        raise TrafficProjectionPolicyError(f"traffic projection policy is not valid JSON: {exc.msg}") from exc
     return parse_sfu_fanout_traffic_projection_policy(document)
 
 
@@ -224,26 +216,18 @@ def parse_sfu_fanout_traffic_projection_policy(
     )
     parent_contract = ParentMessageContract(
         schema_id=_require_string(parent_document["schema_id"], "parent_contract.schema_id"),
-        schema_version=_require_string(
-            parent_document["schema_version"], "parent_contract.schema_version"
-        ),
+        schema_version=_require_string(parent_document["schema_version"], "parent_contract.schema_version"),
         message_kind_field=_require_string(
             parent_document["message_kind_field"],
             "parent_contract.message_kind_field",
         ),
     )
 
-    payload_inspection = _require_string(
-        root["payload_inspection"], "payload_inspection"
-    )
+    payload_inspection = _require_string(root["payload_inspection"], "payload_inspection")
     if payload_inspection != "forbidden":
-        raise TrafficProjectionPolicyError(
-            "payload_inspection must be 'forbidden' for the projection service"
-        )
+        raise TrafficProjectionPolicyError("payload_inspection must be 'forbidden' for the projection service")
 
-    defaults_document = _require_object(
-        root["fail_closed_defaults"], "fail_closed_defaults"
-    )
+    defaults_document = _require_object(root["fail_closed_defaults"], "fail_closed_defaults")
     _require_exact_keys(
         defaults_document,
         {
@@ -255,9 +239,7 @@ def parse_sfu_fanout_traffic_projection_policy(
         "fail_closed_defaults",
     )
     defaults = FailClosedProjectionDefaults(
-        route_class=_parse_route_class(
-            defaults_document["route_class"], "fail_closed_defaults.route_class"
-        ),
+        route_class=_parse_route_class(defaults_document["route_class"], "fail_closed_defaults.route_class"),
         privacy_scope=_parse_privacy_scope(
             defaults_document["privacy_scope"],
             "fail_closed_defaults.privacy_scope",
@@ -275,15 +257,11 @@ def parse_sfu_fanout_traffic_projection_policy(
         defaults.route_class is not SfuFanoutRouteClass.FORBIDDEN_FOR_SFU
         or defaults.privacy_scope is not SfuTrafficPrivacyScope.SFU_FORBIDDEN
     ):
-        raise TrafficProjectionPolicyError(
-            "fail_closed_defaults must use forbidden_for_sfu and sfu_forbidden"
-        )
+        raise TrafficProjectionPolicyError("fail_closed_defaults must use forbidden_for_sfu and sfu_forbidden")
 
     classifications_document = root["classifications"]
     if not isinstance(classifications_document, list) or not classifications_document:
-        raise TrafficProjectionPolicyError(
-            "classifications must be a non-empty JSON array"
-        )
+        raise TrafficProjectionPolicyError("classifications must be a non-empty JSON array")
 
     classifications: list[TrafficProjectionRule] = []
     seen_message_kinds: set[str] = set()
@@ -310,37 +288,23 @@ def parse_sfu_fanout_traffic_projection_policy(
                 rule_document["parent_schema_version"],
                 f"{rule_path}.parent_schema_version",
             ),
-            privacy_scope=_parse_privacy_scope(
-                rule_document["privacy_scope"], f"{rule_path}.privacy_scope"
-            ),
-            route_class=_parse_route_class(
-                rule_document["route_class"], f"{rule_path}.route_class"
-            ),
-            reason_code=_require_string(
-                rule_document["reason_code"], f"{rule_path}.reason_code"
-            ),
+            privacy_scope=_parse_privacy_scope(rule_document["privacy_scope"], f"{rule_path}.privacy_scope"),
+            route_class=_parse_route_class(rule_document["route_class"], f"{rule_path}.route_class"),
+            reason_code=_require_string(rule_document["reason_code"], f"{rule_path}.reason_code"),
         )
         if rule.parent_message_kind in seen_message_kinds:
-            raise TrafficProjectionPolicyError(
-                f"duplicate parent message kind: {rule.parent_message_kind}"
-            )
+            raise TrafficProjectionPolicyError(f"duplicate parent message kind: {rule.parent_message_kind}")
         if rule.parent_schema_version != parent_contract.schema_version:
-            raise TrafficProjectionPolicyError(
-                f"{rule_path}.parent_schema_version does not match parent contract"
-            )
+            raise TrafficProjectionPolicyError(f"{rule_path}.parent_schema_version does not match parent contract")
         required_scope = _PRIVACY_SCOPE_BY_ROUTE_CLASS[rule.route_class]
         if rule.privacy_scope is not required_scope:
-            raise TrafficProjectionPolicyError(
-                f"{rule_path}.privacy_scope does not match its route class"
-            )
+            raise TrafficProjectionPolicyError(f"{rule_path}.privacy_scope does not match its route class")
         seen_message_kinds.add(rule.parent_message_kind)
         classifications.append(rule)
 
     represented_classes = {rule.route_class for rule in classifications}
     if represented_classes != set(SfuFanoutRouteClass):
-        raise TrafficProjectionPolicyError(
-            "classifications must represent all four closed route classes"
-        )
+        raise TrafficProjectionPolicyError("classifications must represent all four closed route classes")
 
     return SfuFanoutTrafficProjectionPolicy(
         policy_id=_require_string(root["policy_id"], "policy_id"),
@@ -358,24 +322,18 @@ def _require_object(value: object, path: str) -> Mapping[str, Any]:
     return value
 
 
-def _require_exact_keys(
-    value: Mapping[str, Any], expected: set[str], path: str
-) -> None:
+def _require_exact_keys(value: Mapping[str, Any], expected: set[str], path: str) -> None:
     actual = set(value)
     if actual == expected:
         return
     missing = sorted(expected - actual)
     unexpected = sorted(str(key) for key in actual - expected)
-    raise TrafficProjectionPolicyError(
-        f"{path} has invalid fields; missing={missing}, unexpected={unexpected}"
-    )
+    raise TrafficProjectionPolicyError(f"{path} has invalid fields; missing={missing}, unexpected={unexpected}")
 
 
 def _require_string(value: object, path: str) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
-        raise TrafficProjectionPolicyError(
-            f"{path} must be a non-empty string without surrounding whitespace"
-        )
+        raise TrafficProjectionPolicyError(f"{path} must be a non-empty string without surrounding whitespace")
     return value
 
 

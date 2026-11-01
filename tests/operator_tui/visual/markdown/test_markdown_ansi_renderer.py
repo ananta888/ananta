@@ -104,9 +104,8 @@ def test_scroll_offset_changes_output():
 
 def test_scroll_offset_zero_same_as_default():
     blocks = [ParagraphBlock(text="Text")]
-    assert (
-        render_markdown_ansi(blocks, width=40, height=5)
-        == render_markdown_ansi(blocks, width=40, height=5, scroll_offset=0)
+    assert render_markdown_ansi(blocks, width=40, height=5) == render_markdown_ansi(
+        blocks, width=40, height=5, scroll_offset=0
     )
 
 

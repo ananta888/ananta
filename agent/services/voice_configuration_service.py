@@ -485,11 +485,7 @@ class VoiceConfigurationService:
                 raise VoiceGovernanceError(
                     code="voice_configuration.invalid_value", message=f"invalid {key}", status_code=422
                 ) from exc
-            if (
-                (isinstance(value, float) and not math.isfinite(value))
-                or value < minimum
-                or value > maximum
-            ):
+            if (isinstance(value, float) and not math.isfinite(value)) or value < minimum or value > maximum:
                 raise VoiceGovernanceError(
                     code="voice_configuration.invalid_value", message=f"invalid {key}", status_code=422
                 )
@@ -669,15 +665,11 @@ class VoiceConfigurationService:
     def _legacy_delta(raw: Mapping[str, Any]) -> dict[str, Any]:
         voice_value = raw.get("voice_runtime")
         voice: Mapping[str, Any] = voice_value if isinstance(voice_value, Mapping) else raw
-        candidate = VoiceConfigurationService._legacy_pipeline_projection(
-            voice.get("transcription_pipeline")
-        )
+        candidate = VoiceConfigurationService._legacy_pipeline_projection(voice.get("transcription_pipeline"))
 
         explicit_primary = "primary_backend" in voice
         explicit_secondary = "secondary_backends" in voice
-        fallback_backends = VoiceConfigurationService._legacy_fallback_backends(
-            voice.get("backend_fallback_order")
-        )
+        fallback_backends = VoiceConfigurationService._legacy_fallback_backends(voice.get("backend_fallback_order"))
         legacy_asr = str(voice.get("asr_backend") or "").strip()
         if legacy_asr and legacy_asr not in {*BACKENDS, "mock"}:
             raise VoiceGovernanceError(

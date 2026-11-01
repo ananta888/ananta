@@ -31,9 +31,7 @@ from agent.ports.context_policy_lifecycle import (
 from ananta_contracts.source_control import GrantOperation, GrantTransformation
 
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
-_DOCUMENT_KEYS = frozenset(
-    {"schema", "policy_id", "scope", "defaults", "rules", "precedence"}
-)
+_DOCUMENT_KEYS = frozenset({"schema", "policy_id", "scope", "defaults", "rules", "precedence"})
 
 
 class ContextPolicyLifecycleService:
@@ -132,9 +130,7 @@ class ContextPolicyLifecycleService:
             actor=actor,
             operation=_mutation_operation,
             reason_code=(
-                "policy_rollback_draft_created"
-                if _mutation_operation == "rollback"
-                else "policy_draft_created"
+                "policy_rollback_draft_created" if _mutation_operation == "rollback" else "policy_draft_created"
             ),
         )
         return saved
@@ -152,10 +148,7 @@ class ContextPolicyLifecycleService:
             if (
                 diagnostic.severity not in {"error", "warning", "info"}
                 or not _OPAQUE_ID.fullmatch(diagnostic.reason_code)
-                or (
-                    diagnostic.rule_id is not None
-                    and not _OPAQUE_ID.fullmatch(diagnostic.rule_id)
-                )
+                or (diagnostic.rule_id is not None and not _OPAQUE_ID.fullmatch(diagnostic.rule_id))
             ):
                 raise ContextPolicyLifecycleError("policy_diagnostic_invalid")
         return diagnostics
@@ -173,9 +166,7 @@ class ContextPolicyLifecycleService:
     ) -> ContextPolicyPreview:
         policy = self._required(actor, policy_id, version)
         if policy.state not in {"draft", "active"}:
-            raise ContextPolicyLifecycleError(
-                "policy_version_not_usable"
-            )
+            raise ContextPolicyLifecycleError("policy_version_not_usable")
         for name, value in (
             ("source_revision_id", source_revision_id),
             ("destination_id", destination_id),
@@ -339,9 +330,7 @@ class ContextPolicyLifecycleService:
             policy_id=policy_id,
         )
         if policy is None or policy.state != "active":
-            raise ContextPolicyLifecycleError(
-                "active_policy_snapshot_missing"
-            )
+            raise ContextPolicyLifecycleError("active_policy_snapshot_missing")
         return policy
 
     def versions(
@@ -362,11 +351,7 @@ class ContextPolicyLifecycleService:
             cursor=cursor,
             limit=limit,
         )
-        if any(
-            item.tenant_id != actor.tenant_id
-            or item.project_id != actor.project_id
-            for item in versions
-        ):
+        if any(item.tenant_id != actor.tenant_id or item.project_id != actor.project_id for item in versions):
             raise ContextPolicyLifecycleError("policy_scope_mismatch")
         return tuple(versions), next_cursor
 
@@ -483,9 +468,7 @@ def _normalize_document(
     if claimed_policy_id != policy_id:
         raise ContextPolicyLifecycleError("policy_identity_mismatch")
     normalized["policy_id"] = policy_id
-    normalized["schema"] = str(
-        normalized.get("schema") or "ananta.context-access-policy.v1"
-    )
+    normalized["schema"] = str(normalized.get("schema") or "ananta.context-access-policy.v1")
     normalized["scope"] = "project"
     try:
         encoded = json.dumps(

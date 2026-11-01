@@ -31,6 +31,9 @@ from agent.services.workflow_worker_service_auth import (
 from ananta_contracts.knowledge_index_execution import (
     MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES,
 )
+from ananta_contracts.knowledge_index_legacy_output_capability import (
+    KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER,
+)
 from ananta_contracts.knowledge_index_payload_capability import (
     KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER,
     decode_knowledge_index_payload_capability,
@@ -45,9 +48,6 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER,
     KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER,
     decode_knowledge_index_output_capability,
-)
-from ananta_contracts.knowledge_index_legacy_output_capability import (
-    KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER,
 )
 
 artifacts_bp = Blueprint("artifacts", __name__)
@@ -92,11 +92,7 @@ def _read_pinned_verified_artifact_bytes(
         descriptor = None
         with handle:
             before = os.fstat(handle.fileno())
-            if (
-                not stat.S_ISREG(before.st_mode)
-                or before.st_nlink != 1
-                or before.st_size != expected_size
-            ):
+            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size != expected_size:
                 raise NotFoundError(integrity_reason)
             content = handle.read(expected_size + 1)
             after = os.fstat(handle.fileno())
@@ -138,62 +134,36 @@ def _require_public_artifact(artifact_id: str):
 def _check_knowledge_index_payload_access(target):
     @wraps(target)
     def wrapper(artifact_id: str, *args, **kwargs):
-        encoded_capability = str(
-            request.headers.get(
-                KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER
-            )
-            or ""
-        ).strip()
+        encoded_capability = str(request.headers.get(KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER) or "").strip()
         if not encoded_capability:
             try:
                 identity = dict(getattr(g, "service_identity", {}) or {})
-                authorizer = current_app.extensions.get(
-                    "legacy_knowledge_index_payload_assignment_authorizer"
-                )
+                authorizer = current_app.extensions.get("legacy_knowledge_index_payload_assignment_authorizer")
                 if authorizer is None:
-                    raise ValueError(
-                        "legacy_knowledge_index_payload_authorizer_unavailable"
-                    )
+                    raise ValueError("legacy_knowledge_index_payload_authorizer_unavailable")
                 authorizer.authorize(
                     artifact_id=artifact_id,
                     worker_id=str(identity.get("worker_id") or ""),
                     worker_url=str(identity.get("worker_url") or ""),
                 )
             except Exception as exc:
-                reason_code = str(
-                    getattr(exc, "reason_code", "")
-                    or "knowledge_index_payload_capability_required"
-                )
+                reason_code = str(getattr(exc, "reason_code", "") or "knowledge_index_payload_capability_required")
                 status_code = int(getattr(exc, "status_code", 401) or 401)
                 return api_response(
                     status="error",
-                    message=(
-                        "forbidden" if status_code == 403 else "unauthorized"
-                    ),
+                    message=("forbidden" if status_code == 403 else "unauthorized"),
                     data={"reason_code": reason_code},
                     code=status_code,
                 )
             return target(artifact_id, *args, **kwargs)
         try:
-            manifest = decode_knowledge_index_payload_capability(
-                encoded_capability
-            )
+            manifest = decode_knowledge_index_payload_capability(encoded_capability)
             artifact = _artifact_repo().get_by_id(artifact_id)
-            latest_version_id = str(
-                getattr(artifact, "latest_version_id", None) or ""
-            ).strip()
-            version = (
-                _artifact_version_repo().get_by_id(latest_version_id)
-                if latest_version_id
-                else None
-            )
-            authorizer = current_app.extensions.get(
-                "knowledge_index_payload_capability_authorizer"
-            )
+            latest_version_id = str(getattr(artifact, "latest_version_id", None) or "").strip()
+            version = _artifact_version_repo().get_by_id(latest_version_id) if latest_version_id else None
+            authorizer = current_app.extensions.get("knowledge_index_payload_capability_authorizer")
             if authorizer is None or artifact is None or version is None:
-                raise ValueError(
-                    "knowledge_index_payload_authorizer_unavailable"
-                )
+                raise ValueError("knowledge_index_payload_authorizer_unavailable")
             authorizer.authorize(
                 artifact_id=artifact_id,
                 artifact_sha256=str(version.sha256 or ""),
@@ -203,12 +173,8 @@ def _check_knowledge_index_payload_access(target):
                 # The outer registered-Worker boundary authenticates and
                 # normalizes this identity.  Never re-trust caller-controlled
                 # identity headers inside the capability decision.
-                worker_id=str(
-                    getattr(g, "auth_payload", {}).get("worker_id") or ""
-                ),
-                worker_url=str(
-                    getattr(g, "auth_payload", {}).get("worker_url") or ""
-                ),
+                worker_id=str(getattr(g, "auth_payload", {}).get("worker_id") or ""),
+                worker_url=str(getattr(g, "auth_payload", {}).get("worker_url") or ""),
             )
         except Exception as exc:
             reason_code = str(
@@ -233,126 +199,53 @@ def _check_knowledge_index_payload_access(target):
 def _check_knowledge_index_worker_output_access(target):
     @wraps(target)
     def wrapper(artifact_id: str, *args, **kwargs):
-        encoded_capability = str(
-            request.headers.get(KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER) or ""
-        ).strip()
+        encoded_capability = str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER) or "").strip()
         try:
             artifact = _artifact_repo().get_by_id(artifact_id)
-            metadata = dict(
-                getattr(artifact, "artifact_metadata", None) or {}
-            ) if artifact else {}
-            latest_version_id = str(
-                getattr(artifact, "latest_version_id", None) or ""
-            ).strip()
-            version = (
-                _artifact_version_repo().get_by_id(latest_version_id)
-                if latest_version_id
-                else None
-            )
-            authorizer = current_app.extensions.get(
-                "knowledge_index_worker_output_capability_authorizer"
-            )
+            metadata = dict(getattr(artifact, "artifact_metadata", None) or {}) if artifact else {}
+            latest_version_id = str(getattr(artifact, "latest_version_id", None) or "").strip()
+            version = _artifact_version_repo().get_by_id(latest_version_id) if latest_version_id else None
+            authorizer = current_app.extensions.get("knowledge_index_worker_output_capability_authorizer")
             if authorizer is None or artifact is None or version is None:
-                raise ValueError(
-                    "knowledge_index_output_authorizer_unavailable"
-                )
+                raise ValueError("knowledge_index_output_authorizer_unavailable")
             request_binding = {
-                "job_id": str(
-                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER)
-                    or ""
-                ),
-                "knowledge_index_id": str(
-                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER)
-                    or ""
-                ),
-                "run_id": str(
-                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER)
-                    or ""
-                ),
-                "output_role": str(
-                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER)
-                    or ""
-                ),
+                "job_id": str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER) or ""),
+                "knowledge_index_id": str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER) or ""),
+                "run_id": str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER) or ""),
+                "output_role": str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER) or ""),
             }
             if not encoded_capability:
-                legacy = current_app.extensions.get(
-                    "legacy_knowledge_index_worker_output_assignment_authorizer"
-                )
+                legacy = current_app.extensions.get("legacy_knowledge_index_worker_output_assignment_authorizer")
                 if legacy is None:
                     raise ValueError("knowledge_index_output_authorizer_unavailable")
                 legacy.authorize(
                     artifact_id=artifact_id,
-                    artifact_sha256=str(
-                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER)
-                        or ""
-                    ),
-                    artifact_size_bytes=str(
-                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER)
-                        or ""
-                    ),
-                    artifact_media_type=str(
-                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER)
-                        or ""
-                    ),
+                    artifact_sha256=str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER) or ""),
+                    artifact_size_bytes=str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER) or ""),
+                    artifact_media_type=str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER) or ""),
                     artifact_metadata=metadata,
-                    encoded_capability=str(
-                        request.headers.get(
-                            KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER
-                        )
-                        or ""
-                    ),
+                    encoded_capability=str(request.headers.get(KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER) or ""),
                     **request_binding,
                 )
             else:
-                manifest = decode_knowledge_index_output_capability(
-                    encoded_capability
-                )
+                manifest = decode_knowledge_index_output_capability(encoded_capability)
                 authorizer.authorize(
                     artifact_id=artifact_id,
-                    artifact_sha256=str(
-                        request.headers.get(
-                            KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER
-                        )
-                        or ""
-                    ),
-                    artifact_size_bytes=str(
-                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER)
-                        or ""
-                    ),
-                    artifact_media_type=str(
-                        request.headers.get(
-                            KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER
-                        )
-                        or ""
-                    ),
+                    artifact_sha256=str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER) or ""),
+                    artifact_size_bytes=str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER) or ""),
+                    artifact_media_type=str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER) or ""),
                     artifact_metadata=metadata,
                     manifest=manifest,
                     **request_binding,
                 )
             if (
                 str(version.sha256 or "").lower()
-                != str(
-                    request.headers.get(
-                        KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER
-                    )
-                    or ""
-                ).lower()
-                or int(version.size_bytes or 0)
-                != int(
-                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER)
-                    or -1
-                )
+                != str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER) or "").lower()
+                or int(version.size_bytes or 0) != int(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER) or -1)
                 or str(version.media_type or "").lower()
-                != str(
-                    request.headers.get(
-                        KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER
-                    )
-                    or ""
-                ).lower()
+                != str(request.headers.get(KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER) or "").lower()
             ):
-                raise ValueError(
-                    "knowledge_index_output_version_binding_mismatch"
-                )
+                raise ValueError("knowledge_index_output_version_binding_mismatch")
         except Exception as exc:
             reason_code = str(
                 getattr(
@@ -451,16 +344,20 @@ def _enforce_mutation_gate(operation: str, *, artifact_id: str | None = None):
         task={"id": f"artifact:{artifact_id}" if artifact_id else "artifact:route"},
         agent_cfg=cfg,
     )
-    decision = get_mutation_gate_service().evaluate(
-        command=None,
-        tool_calls=[tool_call],
-        task={"id": f"artifact:{artifact_id}" if artifact_id else "artifact:route"},
-        agent_cfg=cfg,
-        approval_decision=approval,
-        risk_decision=risk,
-        trace_id=None,
-        actor=_current_username(),
-    ).as_dict()
+    decision = (
+        get_mutation_gate_service()
+        .evaluate(
+            command=None,
+            tool_calls=[tool_call],
+            task={"id": f"artifact:{artifact_id}" if artifact_id else "artifact:route"},
+            agent_cfg=cfg,
+            approval_decision=approval,
+            risk_decision=risk,
+            trace_id=None,
+            actor=_current_username(),
+        )
+        .as_dict()
+    )
     get_execution_audit_service().emit(
         operation_type="mutation_gate_decision",
         outcome=str(decision.get("classification") or "unknown"),
@@ -642,7 +539,7 @@ def list_artifacts():
                 continue
         filtered.append(item)
 
-    paged = filtered[offset: offset + limit]
+    paged = filtered[offset : offset + limit]
     return api_response(
         data=[item.model_dump() for item in paged],
         message=None,
@@ -758,7 +655,7 @@ def get_artifact_content(artifact_id: str):
         limit = int(request.args.get("limit", default=262144, type=int) or 262144)
         limit = max(1024, min(limit, 1024 * 1024))
         content = storage_path.read_bytes()
-        chunk = content[offset: offset + limit]
+        chunk = content[offset : offset + limit]
         next_offset = offset + len(chunk)
         return api_response(
             data={
@@ -833,23 +730,11 @@ def get_knowledge_index_worker_output_artifact(artifact_id: str):
     """Serve one job-bound Worker output to the delegating Hub."""
 
     artifact = _artifact_repo().get_by_id(artifact_id)
-    metadata = dict(
-        getattr(artifact, "artifact_metadata", None) or {}
-    ) if artifact else {}
-    if (
-        artifact is None
-        or metadata.get("system_artifact_kind")
-        != "knowledge_index_worker_output"
-    ):
+    metadata = dict(getattr(artifact, "artifact_metadata", None) or {}) if artifact else {}
+    if artifact is None or metadata.get("system_artifact_kind") != "knowledge_index_worker_output":
         raise NotFoundError()
-    latest_version_id = str(
-        getattr(artifact, "latest_version_id", None) or ""
-    ).strip()
-    latest = (
-        _artifact_version_repo().get_by_id(latest_version_id)
-        if latest_version_id
-        else None
-    )
+    latest_version_id = str(getattr(artifact, "latest_version_id", None) or "").strip()
+    latest = _artifact_version_repo().get_by_id(latest_version_id) if latest_version_id else None
     if latest is None:
         raise NotFoundError("knowledge_index_output_not_found")
     size_bytes = int(latest.size_bytes or 0)

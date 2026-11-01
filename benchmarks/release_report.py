@@ -116,8 +116,7 @@ class ExecutionEvidence:
         if self.profile_id not in _PROFILE_IDS:
             raise ValueError("unknown benchmark execution profile")
         incomplete_engine_versions = any(
-            not str(key).strip() or not str(value).strip()
-            for key, value in self.engine_versions.items()
+            not str(key).strip() or not str(value).strip() for key, value in self.engine_versions.items()
         )
         if not self.engine_versions or incomplete_engine_versions:
             raise ValueError("engine versions must be complete")
@@ -173,8 +172,10 @@ class ThresholdSet:
         if raw.get("schema_version") != THRESHOLD_SCHEMA_VERSION:
             raise ValueError("unsupported threshold schema")
         raw_thresholds = raw.get("thresholds")
-        if not isinstance(raw_thresholds, list) or not raw_thresholds or not all(
-            isinstance(item, Mapping) for item in raw_thresholds
+        if (
+            not isinstance(raw_thresholds, list)
+            or not raw_thresholds
+            or not all(isinstance(item, Mapping) for item in raw_thresholds)
         ):
             raise ValueError("thresholds must be a non-empty list of objects")
         result = cls(

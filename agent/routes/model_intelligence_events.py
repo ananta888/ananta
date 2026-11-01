@@ -111,12 +111,7 @@ def emit_sanitized_model_intelligence_events(
         is_cancellation = request_view.method == "POST" and normalized_path.endswith("/cancel")
         operational_port = extensions.get("model_intelligence_operational_event_port")
         operational_emit = getattr(operational_port, "emit", None)
-        if (
-            callable(operational_emit)
-            and response.status_code < 400
-            and job_id
-            and (is_submission or is_cancellation)
-        ):
+        if callable(operational_emit) and response.status_code < 400 and job_id and (is_submission or is_cancellation):
             correlation_service = extensions.get("model_intelligence_correlation_service")
             if correlation_service is None:
                 configured_secret = config.get("MODEL_INTELLIGENCE_CORRELATION_SECRET") or secret_key
@@ -126,18 +121,14 @@ def emit_sanitized_model_intelligence_events(
                         if isinstance(configured_secret, bytes)
                         else str(configured_secret).encode("utf-8")
                     )
-                    correlation_service = HmacModelIntelligenceCorrelationService(
-                        sha256(secret_bytes).digest()
-                    )
+                    correlation_service = HmacModelIntelligenceCorrelationService(sha256(secret_bytes).digest())
                     extensions["model_intelligence_correlation_service"] = correlation_service
             if correlation_service is not None:
                 correlation = correlation_service.correlate(
                     hub_job_id=job_id,
                     worker_task_id=HubModelAnalysisTaskSubmissionPort.execution_task_id(job_id),
                 )
-                normalized_state = _OPERATIONAL_STATES.get(
-                    state or "", "queued" if is_submission else "running"
-                )
+                normalized_state = _OPERATIONAL_STATES.get(state or "", "queued" if is_submission else "running")
                 operational_emit(
                     ModelIntelligenceOperationalEvent(
                         state=normalized_state,

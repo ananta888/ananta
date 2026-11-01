@@ -90,9 +90,7 @@ class FileTypeMetricsService:
                 ).inc(min(10_000_000, max(0, int(count or 0))))
             byte_size = min(10_000_000_000, max(0, int(raw.get("byte_size") or 0)))
             self.ports.bytes.labels(pipeline=normalized_pipeline, format_id=format_id).observe(byte_size)
-            for outcome, duration_seconds in sorted(
-                dict(raw.get("duration_seconds_by_outcome") or {}).items()
-            ):
+            for outcome, duration_seconds in sorted(dict(raw.get("duration_seconds_by_outcome") or {}).items()):
                 normalized_outcome = str(outcome) if str(outcome) in _KNOWN_OUTCOMES else "failed"
                 self.ports.durations.labels(
                     pipeline=normalized_pipeline,
@@ -201,11 +199,7 @@ class FileTypeMetricsService:
             classification = self._classifier.classify(path, is_text=True) if path else None
             format_id = classification.format_id if classification is not None else "other"
             stats = raw.get("stats") if isinstance(raw.get("stats"), Mapping) else {}
-            diagnostics = [
-                str(code)
-                for code in list(stats.get("diagnostic_codes") or [])[:100]
-                if str(code).strip()
-            ]
+            diagnostics = [str(code) for code in list(stats.get("diagnostic_codes") or [])[:100] if str(code).strip()]
             if raw.get("error"):
                 outcome = "failed"
                 diagnostics.append("file_read_failed")

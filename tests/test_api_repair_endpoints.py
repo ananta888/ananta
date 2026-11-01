@@ -4,17 +4,16 @@ DRR-T034: Repair diagnostics read model tests.
 DRR-T035: API endpoints for analyze, preview, execute, outcomes.
 DRR-T038: Operator view API test.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.services.repair_diagnostics_service import (
     RepairDiagnosticsReadModel,
     build_repair_diagnostics_read_model,
 )
 
-
 # ── DRR-T034: Repair diagnostics read model ───────────────────────────────────
+
 
 class TestRepairDiagnosticsReadModel:
     def test_default_build_returns_ready_read_model_with_safety_defaults(self) -> None:
@@ -56,9 +55,7 @@ class TestRepairDiagnosticsReadModel:
         assert not model.has_secrets()
 
     def test_custom_flags_override_defaults(self) -> None:
-        model = build_repair_diagnostics_read_model(
-            feature_flags={"deterministic_repair_execution_enabled": True}
-        )
+        model = build_repair_diagnostics_read_model(feature_flags={"deterministic_repair_execution_enabled": True})
         assert model.deterministic_repair_execution_enabled is True
 
     def test_degraded_persistence_reflected(self) -> None:
@@ -71,6 +68,7 @@ class TestRepairDiagnosticsReadModel:
 
 
 # ── DRR-T035: Repair service functions ───────────────────────────────────────
+
 
 class TestRepairAnalysisService:
     def test_generate_plan_for_high_confidence_match(self) -> None:
@@ -126,6 +124,7 @@ class TestRepairAnalysisService:
 
 # ── DRR-T038: Operator view functions ────────────────────────────────────────
 
+
 class TestOperatorViewFunctions:
     def test_build_operator_session_summary(self) -> None:
         from agent.services.deterministic_repair_path_service import build_operator_session_summary
@@ -173,6 +172,7 @@ class TestOperatorViewFunctions:
 
 
 # ── DRR-T035: Hub-driven orchestrator ────────────────────────────────────────
+
 
 class TestHubDrivenOrchestrator:
     def test_orchestrator_runs_all_inspect_steps(self) -> None:
@@ -231,6 +231,7 @@ class TestHubDrivenOrchestrator:
 
 
 # ── DRR-T036: Blueprint role config validation ────────────────────────────────
+
 
 class TestBlueprintRoleConfig:
     def test_blueprint_role_config_can_include_repair_fields(self) -> None:

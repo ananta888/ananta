@@ -200,8 +200,7 @@ class CompositeRiskReviewService:
         if len(tasks) < 3:
             return None
         scopes = [
-            str(task.get("scope") or task.get("domain") or task.get("kind") or "").strip().lower()
-            for task in tasks
+            str(task.get("scope") or task.get("domain") or task.get("kind") or "").strip().lower() for task in tasks
         ]
         previous = [scope for scope in scopes[:-1] if scope]
         final = scopes[-1]

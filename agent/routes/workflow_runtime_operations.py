@@ -35,12 +35,7 @@ def _identity() -> tuple[str, str]:
     if not claims and bool(getattr(g, "is_admin", False)):
         return "system", "hub"
     raw_actor = claims.get("sub") or claims.get("username") or ""
-    raw_tenant_id = (
-        claims.get("tenant_id")
-        or claims.get("tenant")
-        or claims.get("organization_id")
-        or ""
-    )
+    raw_tenant_id = claims.get("tenant_id") or claims.get("tenant") or claims.get("organization_id") or ""
     try:
         actor = require_canonical_identity(
             raw_actor,
@@ -158,14 +153,7 @@ def send_runtime_operation_command(run_id: str):
     if command_status == "rejected_by_policy":
         result = command.get("result")
         try:
-            policy_status = int(
-                (
-                    result.get("http_status")
-                    if isinstance(result, dict)
-                    else None
-                )
-                or 422
-            )
+            policy_status = int((result.get("http_status") if isinstance(result, dict) else None) or 422)
         except (TypeError, ValueError):
             policy_status = 422
         return jsonify(
@@ -174,11 +162,7 @@ def send_runtime_operation_command(run_id: str):
                 "reason_code": "runtime_command_rejected_by_hub_policy",
                 "command": command,
             }
-        ), (
-            policy_status
-            if 400 <= policy_status < 500
-            else 422
-        )
+        ), (policy_status if 400 <= policy_status < 500 else 422)
     if command_status == "failed":
         return jsonify(
             {

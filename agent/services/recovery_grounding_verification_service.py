@@ -10,9 +10,7 @@ from typing import Any, Callable
 
 _SOURCE_ID_PATTERN = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
 _RUN_ID_PATTERN = re.compile(r"^RUN_[0-9]{4}$")
-_MENTIONED_SOURCE_ID_PATTERN = re.compile(
-    r"\b(?:SRC|RUN)_[A-Za-z0-9][A-Za-z0-9_.:-]*"
-)
+_MENTIONED_SOURCE_ID_PATTERN = re.compile(r"\b(?:SRC|RUN)_[A-Za-z0-9][A-Za-z0-9_.:-]*")
 _SOURCE_TYPES = frozenset(
     {
         "rag_chunk",
@@ -24,9 +22,7 @@ _SOURCE_TYPES = frozenset(
         "generated_artifact",
     }
 )
-_RUN_SOURCE_TYPES = frozenset(
-    {"tool_run", "test_result", "generated_artifact"}
-)
+_RUN_SOURCE_TYPES = frozenset({"tool_run", "test_result", "generated_artifact"})
 
 
 def _mapping(value: Any) -> dict[str, Any]:
@@ -64,9 +60,7 @@ class RecoveryGroundingVerificationService:
     def __init__(
         self,
         *,
-        citation_verification_service_provider: (
-            Callable[[], Any] | None
-        ) = None,
+        citation_verification_service_provider: (Callable[[], Any] | None) = None,
         hub_run_evidence_provider: (
             Callable[
                 [str],
@@ -75,12 +69,8 @@ class RecoveryGroundingVerificationService:
             | None
         ) = None,
     ) -> None:
-        self._citation_verification_service_provider = (
-            citation_verification_service_provider
-        )
-        self._hub_run_evidence_provider = (
-            hub_run_evidence_provider
-        )
+        self._citation_verification_service_provider = citation_verification_service_provider
+        self._hub_run_evidence_provider = hub_run_evidence_provider
 
     def _citation_verification(self) -> Any:
         if self._citation_verification_service_provider is not None:
@@ -98,9 +88,7 @@ class RecoveryGroundingVerificationService:
         task_id: str,
         phase: str,
     ) -> dict[str, Any]:
-        results = _mapping(
-            verification_status.get("recovery_worker_results")
-        )
+        results = _mapping(verification_status.get("recovery_worker_results"))
         envelope = results.get(phase)
         if not isinstance(envelope, Mapping):
             return {}
@@ -110,12 +98,10 @@ class RecoveryGroundingVerificationService:
         )
 
         try:
-            validated = (
-                get_recovery_worker_result_service().validate(
-                    envelope,
-                    task_id=task_id,
-                    phase=phase,
-                )
+            validated = get_recovery_worker_result_service().validate(
+                envelope,
+                task_id=task_id,
+                phase=phase,
             )
         except RecoveryWorkerResultError:
             return {}
@@ -129,11 +115,7 @@ class RecoveryGroundingVerificationService:
             calculate_recovery_task_payload_digest,
         )
 
-        release = _mapping(
-            _mapping(
-                _value(task, "status_reason_details")
-            ).get("model_recovery_release")
-        )
+        release = _mapping(_mapping(_value(task, "status_reason_details")).get("model_recovery_release"))
         required_release_values = (
             "release_epoch",
             "plan_id",
@@ -143,12 +125,8 @@ class RecoveryGroundingVerificationService:
             "recovery_key",
         )
         if (
-            str(release.get("schema") or "")
-            != "ananta.recovery_release_gate.v1"
-            or any(
-                not str(release.get(key) or "").strip()
-                for key in required_release_values
-            )
+            str(release.get("schema") or "") != "ananta.recovery_release_gate.v1"
+            or any(not str(release.get(key) or "").strip() for key in required_release_values)
             or "team_id" not in release
         ):
             return "recovery_task_payload_binding_invalid"
@@ -158,22 +136,13 @@ class RecoveryGroundingVerificationService:
             ("goal_id", "goal_id"),
             ("team_id", "team_id"),
         ):
-            if str(release.get(release_key) or "") != str(
-                _value(task, task_field) or ""
-            ):
+            if str(release.get(release_key) or "") != str(_value(task, task_field) or ""):
                 return "recovery_task_payload_binding_invalid"
-        expected_digest = str(
-            release.get("task_payload_digest") or ""
-        ).strip()
-        actual_digest = calculate_recovery_task_payload_digest(
-            task
-        )
-        if (
-            len(expected_digest) != 64
-            or not hmac.compare_digest(
-                expected_digest,
-                actual_digest,
-            )
+        expected_digest = str(release.get("task_payload_digest") or "").strip()
+        actual_digest = calculate_recovery_task_payload_digest(task)
+        if len(expected_digest) != 64 or not hmac.compare_digest(
+            expected_digest,
+            actual_digest,
         ):
             return "recovery_task_payload_binding_invalid"
         return None
@@ -184,17 +153,9 @@ class RecoveryGroundingVerificationService:
     ) -> dict[str, Any]:
         """Mirror the persisted status projection produced at propose time."""
 
-        sources = [
-            dict(value)
-            for value in list(catalog.get("sources") or [])
-            if isinstance(value, Mapping)
-        ]
+        sources = [dict(value) for value in list(catalog.get("sources") or []) if isinstance(value, Mapping)]
         rejected = [
-            dict(value)
-            for value in list(
-                catalog.get("rejected_candidates") or []
-            )
-            if isinstance(value, Mapping)
+            dict(value) for value in list(catalog.get("rejected_candidates") or []) if isinstance(value, Mapping)
         ]
         return {
             "schema": catalog.get("schema"),
@@ -203,15 +164,9 @@ class RecoveryGroundingVerificationService:
             "catalog_state": catalog.get("catalog_state"),
             "source_count": len(sources),
             "rejected_count": len(rejected),
-            "retrieval_trace_id": catalog.get(
-                "retrieval_trace_id"
-            ),
-            "retrieval_context_hash": catalog.get(
-                "retrieval_context_hash"
-            ),
-            "retrieval_manifest_hash": catalog.get(
-                "retrieval_manifest_hash"
-            ),
+            "retrieval_trace_id": catalog.get("retrieval_trace_id"),
+            "retrieval_context_hash": catalog.get("retrieval_context_hash"),
+            "retrieval_manifest_hash": catalog.get("retrieval_manifest_hash"),
             "sources": sources,
         }
 
@@ -254,14 +209,8 @@ class RecoveryGroundingVerificationService:
             task_id=task_id,
             phase="propose",
         )
-        proposal_catalog = _mapping(
-            proposal_projection.get("source_catalog")
-        )
-        if (
-            direct_catalog
-            and proposal_catalog
-            and direct_catalog != proposal_catalog
-        ):
+        proposal_catalog = _mapping(proposal_projection.get("source_catalog"))
+        if direct_catalog and proposal_catalog and direct_catalog != proposal_catalog:
             return {}, "recovery_worker_source_catalog_mismatch"
         return direct_catalog or proposal_catalog, None
 
@@ -277,9 +226,7 @@ class RecoveryGroundingVerificationService:
                 get_recovery_hub_run_evidence_service,
             )
 
-            provider = (
-                get_recovery_hub_run_evidence_service().for_task
-            )
+            provider = get_recovery_hub_run_evidence_service().for_task
         try:
             value = provider(task_id)
         except Exception:
@@ -307,44 +254,24 @@ class RecoveryGroundingVerificationService:
             return {}, [], "missing", binding_error, False
 
         task_id = str(_value(task, "id") or "").strip()
-        verification_status = _mapping(
-            _value(task, "verification_status")
-        )
-        hub_catalog, hub_catalog_error = (
-            self._hub_source_catalog(task)
-        )
-        candidate_catalog, candidate_error = (
-            self._candidate_source_catalog(
-                task_id=task_id,
-                verification_status=verification_status,
-            )
+        verification_status = _mapping(_value(task, "verification_status"))
+        hub_catalog, hub_catalog_error = self._hub_source_catalog(task)
+        candidate_catalog, candidate_error = self._candidate_source_catalog(
+            task_id=task_id,
+            verification_status=verification_status,
         )
         resolution_error = hub_catalog_error or candidate_error
         if candidate_catalog:
             if not hub_catalog:
-                resolution_error = (
-                    resolution_error
-                    or "recovery_hub_source_catalog_missing"
-                )
-            elif candidate_catalog != self._catalog_status_projection(
-                hub_catalog
-            ):
-                resolution_error = (
-                    resolution_error
-                    or "recovery_worker_source_catalog_mismatch"
-                )
+                resolution_error = resolution_error or "recovery_hub_source_catalog_missing"
+            elif candidate_catalog != self._catalog_status_projection(hub_catalog):
+                resolution_error = resolution_error or "recovery_worker_source_catalog_mismatch"
 
-        hub_runs, run_authority_available, run_error = (
-            self._hub_run_evidence(task_id)
-        )
+        hub_runs, run_authority_available, run_error = self._hub_run_evidence(task_id)
         return (
             hub_catalog,
             hub_runs,
-            (
-                "hub_worker_execution_context"
-                if hub_catalog
-                else "hub_worker_execution_context_empty"
-            ),
+            ("hub_worker_execution_context" if hub_catalog else "hub_worker_execution_context_empty"),
             resolution_error or run_error,
             run_authority_available,
         )
@@ -360,11 +287,7 @@ class RecoveryGroundingVerificationService:
         run_ids: set[str] = set()
         if source_catalog and "sources" not in source_catalog:
             return "recovery_source_catalog_invalid", source_ids, run_ids
-        raw_sources = (
-            source_catalog.get("sources")
-            if "sources" in source_catalog
-            else []
-        )
+        raw_sources = source_catalog.get("sources") if "sources" in source_catalog else []
         if not isinstance(raw_sources, list):
             return "recovery_source_catalog_invalid", source_ids, run_ids
         catalog_schema = str(source_catalog.get("schema") or "")
@@ -374,13 +297,8 @@ class RecoveryGroundingVerificationService:
         }:
             return "recovery_source_catalog_invalid", source_ids, run_ids
         source_count = source_catalog.get("source_count")
-        if (
-            source_count is not None
-            and (
-                not isinstance(source_count, int)
-                or isinstance(source_count, bool)
-                or source_count != len(raw_sources)
-            )
+        if source_count is not None and (
+            not isinstance(source_count, int) or isinstance(source_count, bool) or source_count != len(raw_sources)
         ):
             return "recovery_source_catalog_invalid", source_ids, run_ids
 
@@ -394,9 +312,7 @@ class RecoveryGroundingVerificationService:
             row = dict(value)
             source_id = str(row.get("source_id") or "").strip()
             source_type = str(row.get("source_type") or "")
-            source_is_run_evidence = (
-                source_type in _RUN_SOURCE_TYPES
-            )
+            source_is_run_evidence = source_type in _RUN_SOURCE_TYPES
             if (
                 _SOURCE_ID_PATTERN.fullmatch(source_id) is None
                 or source_id in source_ids
@@ -415,13 +331,8 @@ class RecoveryGroundingVerificationService:
                     run_ids,
                 )
             source_ref = row.get("source_ref")
-            if (
-                source_ref is not None
-                and (
-                    not isinstance(source_ref, Mapping)
-                    or str(source_ref.get("source_id") or "")
-                    != source_id
-                )
+            if source_ref is not None and (
+                not isinstance(source_ref, Mapping) or str(source_ref.get("source_id") or "") != source_id
             ):
                 return (
                     "recovery_source_catalog_invalid",
@@ -443,8 +354,7 @@ class RecoveryGroundingVerificationService:
                 or run_id in run_ids
                 or run_id in source_ids
                 or str(row.get("task_id") or "").strip() != task_id
-                or str(row.get("source_type") or "")
-                not in _RUN_SOURCE_TYPES
+                or str(row.get("source_type") or "") not in _RUN_SOURCE_TYPES
                 or row.get("allowed_for_llm_scope") is not True
             ):
                 return (
@@ -479,25 +389,17 @@ class RecoveryGroundingVerificationService:
         provided_ids = source_ids | run_ids
         raw_output = str(output or "").strip()
         verified_artifact_present = any(
-            bool(value.get("_exists"))
-            and bool(value.get("_hash_verified"))
-            for value in artifacts
+            bool(value.get("_exists")) and bool(value.get("_hash_verified")) for value in artifacts
         )
         result: dict[str, Any] = {
             "status": "failed",
             "passed": False,
-            "reason_code": (
-                context_error or "recovery_grounding_not_evaluated"
-            ),
+            "reason_code": (context_error or "recovery_grounding_not_evaluated"),
             "source_catalog_origin": source_origin,
             "provided_source_ids": sorted(source_ids),
             "provided_run_ids": sorted(run_ids),
-            "verified_artifact_present": (
-                verified_artifact_present
-            ),
-            "hub_run_authority_available": (
-                run_authority_available
-            ),
+            "verified_artifact_present": (verified_artifact_present),
+            "hub_run_authority_available": (run_authority_available),
             "citation_verification": {
                 "status": "not_evaluated",
                 "verified_claim_count": 0,
@@ -508,20 +410,13 @@ class RecoveryGroundingVerificationService:
         if context_error:
             return result
 
-        mentioned_ids = set(
-            _MENTIONED_SOURCE_ID_PATTERN.findall(raw_output)
-        )
+        mentioned_ids = set(_MENTIONED_SOURCE_ID_PATTERN.findall(raw_output))
         unknown_mentions = sorted(mentioned_ids - provided_ids)
         if unknown_mentions:
-            unknown_run_ids = [
-                value
-                for value in unknown_mentions
-                if value.startswith("RUN_")
-            ]
+            unknown_run_ids = [value for value in unknown_mentions if value.startswith("RUN_")]
             result["reason_code"] = (
                 "recovery_hub_run_evidence_missing"
-                if unknown_run_ids
-                and not run_authority_available
+                if unknown_run_ids and not run_authority_available
                 else "recovery_output_unknown_source_id"
             )
             result["unknown_source_ids"] = unknown_mentions
@@ -533,11 +428,7 @@ class RecoveryGroundingVerificationService:
                 parsed = json.loads(raw_output)
             except (TypeError, ValueError):
                 parsed = None
-            if (
-                isinstance(parsed, dict)
-                and str(parsed.get("schema") or "")
-                == "grounded_answer.v1"
-            ):
+            if isinstance(parsed, dict) and str(parsed.get("schema") or "") == "grounded_answer.v1":
                 answer_payload = parsed
 
         if answer_payload is not None:
@@ -547,47 +438,23 @@ class RecoveryGroundingVerificationService:
                 source_catalog={
                     **source_catalog,
                     "sources": [
-                        dict(value)
-                        for value in list(
-                            source_catalog.get("sources") or []
-                        )
-                        if isinstance(value, Mapping)
+                        dict(value) for value in list(source_catalog.get("sources") or []) if isinstance(value, Mapping)
                     ],
                 },
-                tool_run_catalog=[
-                    dict(value)
-                    for value in tool_run_refs
-                    if isinstance(value, Mapping)
-                ],
+                tool_run_catalog=[dict(value) for value in tool_run_refs if isinstance(value, Mapping)],
             )
-            result["citation_verification"] = dict(
-                citation_result
-            )
-            if (
-                str(citation_result.get("status") or "")
-                != "verified"
-            ):
+            result["citation_verification"] = dict(citation_result)
+            if str(citation_result.get("status") or "") != "verified":
                 result["reason_code"] = (
-                    str(citation_result.get("status") or "")
-                    or "recovery_citation_verification_failed"
+                    str(citation_result.get("status") or "") or "recovery_citation_verification_failed"
                 )
                 return result
-            if (
-                int(
-                    citation_result.get(
-                        "verified_claim_count"
-                    )
-                    or 0
-                )
-                > 0
-            ):
+            if int(citation_result.get("verified_claim_count") or 0) > 0:
                 result.update(
                     {
                         "status": "passed",
                         "passed": True,
-                        "reason_code": (
-                            "recovery_citations_verified"
-                        ),
+                        "reason_code": ("recovery_citations_verified"),
                     }
                 )
                 return result
@@ -597,17 +464,13 @@ class RecoveryGroundingVerificationService:
                 {
                     "status": "passed",
                     "passed": True,
-                    "reason_code": (
-                        "recovery_artifact_evidence_verified"
-                    ),
+                    "reason_code": ("recovery_artifact_evidence_verified"),
                 }
             )
             return result
 
         result["reason_code"] = (
-            "recovery_result_evidence_missing"
-            if not raw_output
-            else "recovery_grounded_answer_required"
+            "recovery_result_evidence_missing" if not raw_output else "recovery_grounded_answer_required"
         )
         return result
 
@@ -615,9 +478,7 @@ class RecoveryGroundingVerificationService:
 _service = RecoveryGroundingVerificationService()
 
 
-def get_recovery_grounding_verification_service() -> (
-    RecoveryGroundingVerificationService
-):
+def get_recovery_grounding_verification_service() -> RecoveryGroundingVerificationService:
     return _service
 
 

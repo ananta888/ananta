@@ -1,10 +1,8 @@
 import json
-import logging
-import os
 import re
 from typing import Any, List, Optional
 
-_BARE_JSON_KEY_RE = re.compile(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)')
+_BARE_JSON_KEY_RE = re.compile(r"([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)")
 
 
 def _strip_markdown_fences(text: str) -> str:

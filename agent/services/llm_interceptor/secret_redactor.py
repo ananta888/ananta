@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 _DEFAULT_PATTERNS = [
     re.compile(r"(?i)\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"]?[A-Za-z0-9_\-\.]{6,}['\"]?"),
     re.compile(r"(?i)\bBearer\s+[A-Za-z0-9_\-\.=]{10,}"),
@@ -43,4 +42,3 @@ class SecretRedactor:
                 total += int(meta.get("redaction_hits") or 0)
             out.append(item)
         return out, {"redaction_hits": total}
-

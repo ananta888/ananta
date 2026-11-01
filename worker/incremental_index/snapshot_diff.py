@@ -275,12 +275,7 @@ def diff_snapshots(
             )
         )
 
-    changed_paths = sorted(
-        {
-            item.new_path or item.path
-            for item in changes
-        }
-    )
+    changed_paths = sorted({item.new_path or item.path for item in changes})
     changeset_id = _compute_changeset_id(
         str(old_manifest["snapshot_revision"]),
         str(new_manifest["snapshot_revision"]),

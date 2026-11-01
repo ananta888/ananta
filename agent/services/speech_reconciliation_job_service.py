@@ -627,10 +627,7 @@ def build_speech_reconciliation_job_service(
 
 def _idempotency_key(value: Any) -> str:
     normalized = str(value or "").strip()
-    if (
-        not 8 <= len(normalized) <= 256
-        or any(not 0x21 <= ord(character) <= 0x7E for character in normalized)
-    ):
+    if not 8 <= len(normalized) <= 256 or any(not 0x21 <= ord(character) <= 0x7E for character in normalized):
         raise SpeechReconciliationJobServiceError("speech_reconciliation_idempotency_key_invalid")
     return normalized
 
@@ -695,17 +692,10 @@ def _training_budget(value: Any) -> dict[str, int] | None:
     if set(raw) != expected:
         raise SpeechReconciliationJobServiceError("speech_reconciliation_training_budget_invalid")
     try:
-        parsed = SpeechResourceBudget.from_mapping(
-            {**raw, "budget_digest": speech_budget_digest(raw)}
-        )
+        parsed = SpeechResourceBudget.from_mapping({**raw, "budget_digest": speech_budget_digest(raw)})
     except SpeechAdaptationContractError as exc:
-        raise SpeechReconciliationJobServiceError(
-            "speech_reconciliation_training_budget_invalid"
-        ) from exc
-    return {
-        field: int(getattr(parsed, field))
-        for field in expected
-    }
+        raise SpeechReconciliationJobServiceError("speech_reconciliation_training_budget_invalid") from exc
+    return {field: int(getattr(parsed, field)) for field in expected}
 
 
 __all__ = [

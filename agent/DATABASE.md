@@ -90,6 +90,7 @@ with Session(engine) as session:
 
 # Via Repository (empfohlen)
 from agent.repository import get_user_repo
+
 with Session(engine) as session:
     repo = get_user_repo(session)
     user = repo.get_by_username("admin")

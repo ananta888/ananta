@@ -272,11 +272,7 @@ class TranscriptionResult:
             "correction_state": self.correction_state,
             "supersedes_revision": self.supersedes_revision,
         }
-        value.update(
-            (name, field_value)
-            for name, field_value in optional_scalars.items()
-            if field_value is not None
-        )
+        value.update((name, field_value) for name, field_value in optional_scalars.items() if field_value is not None)
         if self.semantic_frame_refs:
             value["semantic_frame_refs"] = list(self.semantic_frame_refs)
         value.update(dict(self.extensions))

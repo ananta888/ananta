@@ -128,9 +128,7 @@ def test_windows_target_matches_redirected_desktop_known_folder(
     ]
 
 
-def test_windows_target_rejects_non_known_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_windows_target_rejects_non_known_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     desktop = tmp_path / "Desktop"
     other = tmp_path / "other"
     desktop.mkdir()
@@ -150,9 +148,7 @@ class AtomicMoveRunner:
 
     def capture(self, command: Sequence[str]) -> bytes:
         path = Path(command[-1])
-        return (
-            "C:\\Users\\test\\Desktop\\" + path.name + "\r\n"
-        ).encode()
+        return ("C:\\Users\\test\\Desktop\\" + path.name + "\r\n").encode()
 
     def run(self, command: Sequence[str]) -> None:
         self.run_commands.append(list(command))
@@ -182,10 +178,7 @@ def test_windows_publication_uses_native_atomic_directory_move(
     script = base64.b64decode(command[4], validate=True).decode("utf-16-le")
     assert "[IO.Directory]::Move" in script
     encoded_paths = re.findall(r"FromBase64String\('([^']+)'\)", script)
-    assert [
-        base64.b64decode(value, validate=True).decode("utf-16-le")
-        for value in encoded_paths
-    ] == [
+    assert [base64.b64decode(value, validate=True).decode("utf-16-le") for value in encoded_paths] == [
         r"C:\Users\test\Desktop\.delivery",
         r"C:\Users\test\Desktop\ananta-backup-test",
     ]
@@ -219,10 +212,7 @@ def test_windows_publication_treats_metacharacter_paths_as_encoded_data(
     assert "INJECTION_SENTINEL" not in script
     assert "SECOND_SENTINEL" not in script
     encoded_paths = re.findall(r"FromBase64String\('([^']+)'\)", script)
-    assert [
-        base64.b64decode(value, validate=True).decode("utf-16-le")
-        for value in encoded_paths
-    ] == [
+    assert [base64.b64decode(value, validate=True).decode("utf-16-le") for value in encoded_paths] == [
         r"C:\Users\test\Desktop\.delivery; ' & $(INJECTION_SENTINEL)",
         r"C:\Users\test\Desktop\backup; ' & $(SECOND_SENTINEL)",
     ]
@@ -323,7 +313,8 @@ def test_postgres_restore_drill_uses_no_live_volume_network_or_port(
     runner = DrillRunner()
 
     IsolatedPostgresRestoreDrill(
-        "postgres:16@test-digest", runner  # type: ignore[arg-type]
+        "postgres:16@test-digest",
+        runner,  # type: ignore[arg-type]
     ).verify(dump)
 
     start = runner.run_commands[0]

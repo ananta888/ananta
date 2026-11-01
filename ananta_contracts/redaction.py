@@ -125,11 +125,7 @@ class Redactor:
 
     @staticmethod
     def _build_key_map() -> dict[str, SensitiveDataClass]:
-        return {
-            key.lower(): data_class
-            for data_class, keys in DEFAULT_SENSITIVE_KEYS.items()
-            for key in keys
-        }
+        return {key.lower(): data_class for data_class, keys in DEFAULT_SENSITIVE_KEYS.items() for key in keys}
 
     def redact(
         self,

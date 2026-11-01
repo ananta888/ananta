@@ -1,8 +1,7 @@
 import json
 import os
 import tempfile
-import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -21,7 +20,10 @@ class TestHubBenchmarkCore:
         result = load_hub_benchmark_config(temp_data_dir)
         assert isinstance(result, dict)
         assert result.get("enabled") == DEFAULT_HUB_BENCH_CONFIG["enabled"]
-        assert result.get("default_models", {}).get("ollama", [None])[0] == DEFAULT_HUB_BENCH_CONFIG["default_models"]["ollama"][0]
+        assert (
+            result.get("default_models", {}).get("ollama", [None])[0]
+            == DEFAULT_HUB_BENCH_CONFIG["default_models"]["ollama"][0]
+        )
         assert "scoring" in result
         assert "retention" in result
 
@@ -49,7 +51,10 @@ class TestHubBenchmarkCore:
         assert result["scoring"]["weights"]["success_rate"] == 0.9
         assert result["scoring"]["weights"]["quality_rate"] == 0.35
         assert result["scoring"]["thresholds"]["min_samples"] == 2
-        assert result["hub_config"]["fixed_model"]["model"] == DEFAULT_HUB_BENCH_CONFIG["hub_config"]["fixed_model"]["model"]
+        assert (
+            result["hub_config"]["fixed_model"]["model"]
+            == DEFAULT_HUB_BENCH_CONFIG["hub_config"]["fixed_model"]["model"]
+        )
 
     def test_load_invalid_config_raises_visible_error(self, temp_data_dir):
         from agent.hub_benchmark import HubBenchmarkDataError, load_hub_benchmark_config
@@ -146,7 +151,7 @@ class TestHubBenchmarkCore:
         assert result["suitability_score"] >= 0.0
 
     def test_recommend_hub_model(self, temp_data_dir):
-        from agent.hub_benchmark import record_hub_benchmark_sample, recommend_hub_model
+        from agent.hub_benchmark import recommend_hub_model, record_hub_benchmark_sample
 
         for i in range(5):
             record_hub_benchmark_sample(
@@ -185,7 +190,7 @@ class TestHubBenchmarkCore:
         assert result is None
 
     def test_hub_benchmark_rows(self, temp_data_dir):
-        from agent.hub_benchmark import record_hub_benchmark_sample, hub_benchmark_rows
+        from agent.hub_benchmark import hub_benchmark_rows, record_hub_benchmark_sample
 
         record_hub_benchmark_sample(
             data_dir=temp_data_dir,
@@ -239,7 +244,7 @@ class TestHubBenchmarkCore:
         assert "insufficient_samples" in reason
 
     def test_update_benchmark_run_timestamp(self, temp_data_dir):
-        from agent.hub_benchmark import update_benchmark_run_timestamp, load_hub_benchmark_results
+        from agent.hub_benchmark import load_hub_benchmark_results, update_benchmark_run_timestamp
 
         update_benchmark_run_timestamp(temp_data_dir, 99999)
         result = load_hub_benchmark_results(temp_data_dir)

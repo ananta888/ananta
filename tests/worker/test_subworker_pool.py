@@ -49,4 +49,3 @@ def test_subworker_pool_requires_context_subset_ref():
     )
     result = SubworkerPool(max_children_per_parent=1).run_subtask(env, execute_fn=_ok_exec)
     assert result.status == "denied"
-

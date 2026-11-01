@@ -73,9 +73,7 @@ def test_pinned_qdrant_client_receives_split_transport_timeouts() -> None:
         assert rest_timeout.write == 7.5
         assert rest_timeout.pool == 7.5
         assert remote._timeout == 7.5
-        assert remote._grpc_options[
-            "grpc.max_reconnect_backoff_ms"
-        ] == 1250
+        assert remote._grpc_options["grpc.max_reconnect_backoff_ms"] == 1250
         assert remote._ananta_grpc_connect_timeout_seconds == 1.25
     finally:
         adapter.close()
@@ -89,9 +87,7 @@ def _cleanup(client: object, prefix: str) -> None:
         if alias_name.startswith(prefix):
             client.update_collection_aliases(
                 change_aliases_operations=[
-                    models.DeleteAliasOperation(
-                        delete_alias=models.DeleteAlias(alias_name=alias_name)
-                    )
+                    models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=alias_name))
                 ]
             )
     for item in client.get_collections().collections:
@@ -106,9 +102,7 @@ def _real_components(
     assert api_key, "ANANTA_QDRANT_API_KEY is required for the integration profile"
     rest_url = str(os.environ.get("ANANTA_QDRANT_URL") or "").strip()
     assert rest_url.startswith("https://"), "real Qdrant integration requires HTTPS"
-    ca_path = Path(
-        str(os.environ.get("ANANTA_QDRANT_TLS_CA_FILE") or "").strip()
-    ).resolve(strict=True)
+    ca_path = Path(str(os.environ.get("ANANTA_QDRANT_TLS_CA_FILE") or "").strip()).resolve(strict=True)
     resolver = EnvFileSecretResolver(
         environ={"ANANTA_QDRANT_API_KEY": api_key},
         allowed_file_roots=(ca_path.parent,),
@@ -288,9 +282,7 @@ def test_real_qdrant_crud_filters_source_hash_and_atomic_alias_swap(
         )
         assert {hit.record_id for hit in final.hits} == {"doc-a", "doc-b"}
 
-        collections_before_failure = set(
-            store.collection_manager.client.list_collections(prefix=prefix)
-        )
+        collections_before_failure = set(store.collection_manager.client.list_collections(prefix=prefix))
         active_before_failure = store.collection_manager.active_collection(scope)
 
         def _reject_alias_swap(_alias_name: str, _collection_name: str) -> None:
@@ -318,13 +310,8 @@ def test_real_qdrant_crud_filters_source_hash_and_atomic_alias_swap(
         )
         assert failed.status == "failed"
         assert failed.reason == "qdrant_unavailable"
-        assert (
-            store.collection_manager.active_collection(scope)
-            == active_before_failure
-        )
-        assert set(
-            store.collection_manager.client.list_collections(prefix=prefix)
-        ) == collections_before_failure
+        assert store.collection_manager.active_collection(scope) == active_before_failure
+        assert set(store.collection_manager.client.list_collections(prefix=prefix)) == collections_before_failure
         after_failed_rebuild = store.search_by_vector(
             VectorSearchQuery(
                 (1.0, 0.0, 0.0),
@@ -349,9 +336,7 @@ def test_real_worker_prepares_digest_bound_documents_and_rebuilds(
     tmp_path: Path,
 ) -> None:
     prefix = f"qtask-{uuid4().hex[:10]}"
-    raw_client, qdrant_config, secret_resolver = _real_components(
-        prefix
-    )
+    raw_client, qdrant_config, secret_resolver = _real_components(prefix)
     verification_store = QdrantVectorStore.from_config(
         qdrant_config,
         secret_resolver=secret_resolver,
@@ -403,9 +388,7 @@ def test_real_worker_prepares_digest_bound_documents_and_rebuilds(
     source.write_bytes(raw)
     execution = ConfiguredVectorIndexExecution(
         secret_resolver=secret_resolver,
-        input_loader=BoundedVectorIndexInputLoader(
-            allowed_roots=(input_root,)
-        ),
+        input_loader=BoundedVectorIndexInputLoader(allowed_roots=(input_root,)),
     )
     resolved_config = {
         "schema": "ananta.vector_store_resolved_config.v1",
@@ -433,9 +416,7 @@ def test_real_worker_prepares_digest_bound_documents_and_rebuilds(
                         "external_calls_allowed": False,
                         "allowed_base_urls": [],
                     },
-                    "embedding_text_profile": (
-                        "codecompass-symbol-path-summary-v1"
-                    ),
+                    "embedding_text_profile": ("codecompass-symbol-path-summary-v1"),
                 },
                 "compatibility": compatibility.as_dict(),
                 "batch_size": 1,
@@ -448,11 +429,7 @@ def test_real_worker_prepares_digest_bound_documents_and_rebuilds(
         provider = HashEmbeddingProvider(dimensions=12)
         hits = verification_store.search_by_vector(
             VectorSearchQuery(
-                tuple(
-                    provider.embed_texts(
-                        ["delegated payment retry"]
-                    )[0]
-                ),
+                tuple(provider.embed_texts(["delegated payment retry"])[0]),
                 top_k=2,
                 scope=scope,
                 compatibility=compatibility,
@@ -615,10 +592,7 @@ def test_real_qdrant_outage_uses_only_compatible_json_fallback(
     json_store = JsonVectorStore(index_path=tmp_path / "fallback-index.json")
     try:
         assert store.rebuild(points, compatibility=compatibility).status == "ok"
-        assert (
-            json_store.rebuild(points, compatibility=compatibility).status
-            == "ok"
-        )
+        assert json_store.rebuild(points, compatibility=compatibility).status == "ok"
         assert json_store.compatibility_reason(compatibility) == "unchanged"
         monkeypatch.setattr(
             store.collection_manager.client,
@@ -635,13 +609,9 @@ def test_real_qdrant_outage_uses_only_compatible_json_fallback(
                 on_unavailable="explicit_json_fallback",
                 fallback_provider="json",
             ),
-            availability_probe=ClientAvailabilityProbe(
-                store.collection_manager.client
-            ),
+            availability_probe=ClientAvailabilityProbe(store.collection_manager.client),
             fallback_compatibility=lambda query: (
-                query.compatibility is not None
-                and json_store.compatibility_reason(query.compatibility)
-                == "unchanged"
+                query.compatibility is not None and json_store.compatibility_reason(query.compatibility) == "unchanged"
             ),
         )
 
@@ -673,9 +643,7 @@ def test_real_wiki_qdrant_index_search_delete_and_scope_isolation() -> None:
     assert api_key, "ANANTA_QDRANT_API_KEY is required for the integration profile"
     rest_url = str(os.environ.get("ANANTA_QDRANT_URL") or "").strip()
     assert rest_url.startswith("https://"), "real Qdrant integration requires HTTPS"
-    ca_path = Path(
-        str(os.environ.get("ANANTA_QDRANT_TLS_CA_FILE") or "").strip()
-    ).resolve(strict=True)
+    ca_path = Path(str(os.environ.get("ANANTA_QDRANT_TLS_CA_FILE") or "").strip()).resolve(strict=True)
     prefix = f"ananta-wiki-{uuid4().hex[:8]}"
     resolver = EnvFileSecretResolver(
         environ={"ANANTA_QDRANT_API_KEY": api_key},

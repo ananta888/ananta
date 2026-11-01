@@ -33,8 +33,15 @@ from worker.incremental_index.chunk_builder import ChunkLayerBuilder
 from worker.incremental_index.layer_store import ArtifactLayerStore
 from worker.incremental_index.snapshot_diff import FileChange
 
-_CHANGE_FIELDS = ("operation", "path", "new_path", "old_content_sha256", "new_content_sha256", "old_byte_size",
-                  "new_byte_size")
+_CHANGE_FIELDS = (
+    "operation",
+    "path",
+    "new_path",
+    "old_content_sha256",
+    "new_content_sha256",
+    "old_byte_size",
+    "new_byte_size",
+)
 
 
 class LayerJobHubClientPort(Protocol):
@@ -59,16 +66,23 @@ class CodeCompassLayerJobHandler:
             "strategy_id": "deterministic_handler",
             "command": None,
             "tool_calls": [{"name": TASK_KIND, "arguments": {"task_id": ticket.task_id}}],
-            "safety_flags": {"worker_only": True, "worker_orchestration_forbidden": True,
-                             "human_approval_required": False},
+            "safety_flags": {
+                "worker_only": True,
+                "worker_orchestration_forbidden": True,
+                "human_approval_required": False,
+            },
         }
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
         try:
             ticket = self._ticket(kwargs)
         except Exception as error:  # noqa: BLE001 -- an unbindable task is a coded failure
-            return {"schema": RESULT_SCHEMA, "status": "failed", "task_id": str(kwargs.get("tid") or "")[:191],
-                    "reason_code": _reason(error)}
+            return {
+                "schema": RESULT_SCHEMA,
+                "status": "failed",
+                "task_id": str(kwargs.get("tid") or "")[:191],
+                "reason_code": _reason(error),
+            }
         spec: Mapping[str, Any] = {}
         try:
             spec = self._spec(ticket)
@@ -78,10 +92,20 @@ class CodeCompassLayerJobHandler:
                 raise ValueError("codecompass_layer_upload_id_mismatch")
         except Exception as error:  # noqa: BLE001 -- the Hub needs a bound failure, not a crash
             return {**_binding(ticket, spec), "status": "failed", "reason_code": _reason(error)}
-        artifact_set = {"chunks": {"content_digest": layer["layer_id"], "record_count": layer["record_count"],
-                                   "tombstone_count": layer["tombstone_count"]}}
-        return {**_binding(ticket, spec), "status": "completed", "artifact_kinds": ["chunks"],
-                "artifact_set": artifact_set, "artifact_set_digest": canonical_digest(artifact_set)}
+        artifact_set = {
+            "chunks": {
+                "content_digest": layer["layer_id"],
+                "record_count": layer["record_count"],
+                "tombstone_count": layer["tombstone_count"],
+            }
+        }
+        return {
+            **_binding(ticket, spec),
+            "status": "completed",
+            "artifact_kinds": ["chunks"],
+            "artifact_set": artifact_set,
+            "artifact_set_digest": canonical_digest(artifact_set),
+        }
 
     @staticmethod
     def _ticket(kwargs: Mapping[str, Any]) -> JobTicket:
@@ -109,8 +133,10 @@ class CodeCompassLayerJobHandler:
         for part in range(int(spec.get("content_parts") or 0)):
             payload = dict(self._client.fetch_content(ticket.task_id, part) or {})
             texts.update({str(key): str(value) for key, value in dict(payload.get("texts") or {}).items()})
-        changes = [FileChange(**{key: item.get(key) for key in _CHANGE_FIELDS})
-                   for item in list(spec.get("file_changes") or [])]
+        changes = [
+            FileChange(**{key: item.get(key) for key in _CHANGE_FIELDS})
+            for item in list(spec.get("file_changes") or [])
+        ]
         targets = [change.new_path or change.path for change in changes]
         if any(not path for path in targets) or len(set(targets)) != len(targets):
             # Never build a layer from a spec whose paths collapsed (e.g. masked in transit).
@@ -196,6 +222,10 @@ class HttpLayerJobHubClient:
         return json.loads(self._open(urllib.request.Request(url, headers=self._headers)))
 
     def upload_layer(self, task_id: str, blob: bytes) -> Mapping[str, Any]:
-        request = urllib.request.Request(self._url(LAYER_PATH, task_id), data=blob, method="PUT",
-                                         headers={**self._headers, "Content-Type": LAYER_MEDIA_TYPE})
+        request = urllib.request.Request(
+            self._url(LAYER_PATH, task_id),
+            data=blob,
+            method="PUT",
+            headers={**self._headers, "Content-Type": LAYER_MEDIA_TYPE},
+        )
         return self._json(request)

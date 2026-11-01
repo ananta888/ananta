@@ -44,10 +44,7 @@ def _raise_forwarded_worker_http_error(
     worker_url: str,
     endpoint: str,
 ) -> None:
-    if not (
-        isinstance(response, dict)
-        and str(response.get("status") or "").strip().lower() == "error"
-    ):
+    if not (isinstance(response, dict) and str(response.get("status") or "").strip().lower() == "error"):
         return
     try:
         http_status = int(response.get("http_status") or 0)
@@ -57,11 +54,7 @@ def _raise_forwarded_worker_http_error(
         raw_details = response.get("details")
         details = raw_details if isinstance(raw_details, Mapping) else {}
         raw_nested_details = details.get("details")
-        nested_details = (
-            raw_nested_details
-            if isinstance(raw_nested_details, Mapping)
-            else {}
-        )
+        nested_details = raw_nested_details if isinstance(raw_nested_details, Mapping) else {}
         reason_code = str(
             (
                 "worker_authentication_rejected"
@@ -86,8 +79,7 @@ def _raise_forwarded_worker_http_error(
             retryable=False,
         )
     raise RuntimeError(
-        f"worker_http_error:{worker_url}:{endpoint}:"
-        f"status={http_status}:{str(response.get('message') or '')}"
+        f"worker_http_error:{worker_url}:{endpoint}:status={http_status}:{str(response.get('message') or '')}"
     )
 
 
@@ -106,22 +98,14 @@ def _raise_if_no_worker_response(
     """
     if response is not None:
         return
-    if (
-        transport_deadline is not None
-        and transport_deadline.remaining_seconds() <= 0
-    ):
+    if transport_deadline is not None and transport_deadline.remaining_seconds() <= 0:
         raise WorkerForwardDeadlineExceeded()
     raise WorkerForwardAmbiguousTransportError()
 
 
 def _worker_404_hub_fallback_enabled() -> bool:
     try:
-        policy = dict(
-            current_app.config.get("AGENT_CONFIG", {}).get(
-                "execution_fallback_policy"
-            )
-            or {}
-        )
+        policy = dict(current_app.config.get("AGENT_CONFIG", {}).get("execution_fallback_policy") or {})
     except (AttributeError, RuntimeError, TypeError, ValueError):
         return True
     return bool(policy.get("worker_404_hub_fallback_enabled", True))
@@ -202,8 +186,7 @@ def _completion_projection_pending_response(
     )
     release_mail_lease()
     current_app.logger.warning(
-        "Knowledge-index result accepted for task %s; "
-        "Hub completion projection remains pending",
+        "Knowledge-index result accepted for task %s; Hub completion projection remains pending",
         task_id,
     )
     return TaskScopedRouteResponse(
@@ -276,13 +259,7 @@ def _handle_forwarding_failure(
                 "worker_url": worker_url,
                 "retryable": exc.retryable,
             },
-            status_code=(
-                504
-                if isinstance(exc, WorkerForwardDeadlineExceeded)
-                else 502
-            ),
+            status_code=(504 if isinstance(exc, WorkerForwardDeadlineExceeded) else 502),
             retryable=exc.retryable,
         ) from exc
-    raise WorkerForwardingError(
-        details={"details": str(exc), "worker_url": worker_url}
-    ) from exc
+    raise WorkerForwardingError(details={"details": str(exc), "worker_url": worker_url}) from exc

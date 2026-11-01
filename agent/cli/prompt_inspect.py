@@ -1,12 +1,11 @@
 """CLI commands for prompt trace inspection. PTI-019, PTI-020, PTI-021, PTI-022, PTI-023."""
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import sys
-import time
-from pathlib import Path
 from typing import Any
 
 from agent.cli.prompt_inspect_core import (
@@ -15,7 +14,6 @@ from agent.cli.prompt_inspect_core import (
     _get_trace_svc,
     _is_propose_like_request_kind,
     _latest_llm_response_by_request_id,
-    _load_llm_log_entries,
 )
 from agent.cli.prompt_inspect_formatters import _format_ts, _print_table
 
@@ -60,7 +58,7 @@ def _extract_last_event(task: dict[str, Any], task_detail: dict[str, Any]) -> tu
 def _collect_goal_runtime_view(
     goal_id: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, list[dict[str, Any]]], dict[str, Any]]:
-    from agent.cli_goals import _request, _api_data
+    from agent.cli_goals import _api_data
 
     goal_res = _api_request("GET", f"/goals/{goal_id}/detail", timeout=30)
     if goal_res is None or goal_res.status_code != 200:
@@ -179,6 +177,7 @@ def cmd_llm_log_tail(args: argparse.Namespace) -> int:
         # fallback: try llm_log.jsonl
         try:
             from agent.utils import get_data_dir
+
             log_path = os.path.join(get_data_dir(), "llm_log.jsonl")
             if not os.path.exists(log_path):
                 print("No prompt traces or LLM log found.")
@@ -199,7 +198,9 @@ def cmd_llm_log_tail(args: argparse.Namespace) -> int:
             else:
                 for row in rows:
                     ts = _format_ts(row.get("timestamp"))
-                    print(f"[{ts}] {row.get('event','')} provider={row.get('provider','')} model={row.get('model','')} success={row.get('success','')}")  # noqa: E501
+                    print(
+                        f"[{ts}] {row.get('event', '')} provider={row.get('provider', '')} model={row.get('model', '')} success={row.get('success', '')}"
+                    )  # noqa: E501
             return 0
         except Exception as exc:
             print(f"No traces found. ({exc})")
@@ -214,16 +215,18 @@ def cmd_llm_log_tail(args: argparse.Namespace) -> int:
         preview = ""
         if t.final_prompt_redacted:
             preview = t.final_prompt_redacted[:60].replace("\n", " ")
-        rows.append({
-            "trace_id": t.trace_id[:16],
-            "ts": _format_ts(t.created_at),
-            "provider": t.provider or "",
-            "model": (t.model or "")[:20],
-            "kind": t.request_kind or "",
-            "ok": str(t.success),
-            "ms": str(t.latency_ms or ""),
-            "preview": preview,
-        })
+        rows.append(
+            {
+                "trace_id": t.trace_id[:16],
+                "ts": _format_ts(t.created_at),
+                "provider": t.provider or "",
+                "model": (t.model or "")[:20],
+                "kind": t.request_kind or "",
+                "ok": str(t.success),
+                "ms": str(t.latency_ms or ""),
+                "preview": preview,
+            }
+        )
     _print_table(rows, ["ts", "provider", "model", "kind", "ok", "ms", "preview", "trace_id"])
     return 0
 
@@ -305,7 +308,9 @@ def cmd_prompt_inspect(args: argparse.Namespace) -> int:
         print("--- Template Chain ---")
         for entry in trace.template_chain:
             applied = "✓" if entry.get("applied") else "✗"
-            print(f"  {entry.get('order',0):02d} [{applied}] {entry.get('type','')} - {entry.get('name') or entry.get('id') or ''} v={entry.get('version','')}")  # noqa: E501
+            print(
+                f"  {entry.get('order', 0):02d} [{applied}] {entry.get('type', '')} - {entry.get('name') or entry.get('id') or ''} v={entry.get('version', '')}"
+            )  # noqa: E501
     if trace.usage:
         print()
         print("--- Usage ---")
@@ -337,9 +342,9 @@ def cmd_prompt_render(args: argparse.Namespace) -> int:
 
     try:
         from agent.services.planning_prompt_registry import get_planning_prompt_registry
-        from agent.services.prompt_trace_service import get_prompt_trace_service, prompt_hash
         from agent.services.prompt_provenance import PromptProvenanceChain
         from agent.services.prompt_redaction_service import get_redaction_service
+        from agent.services.prompt_trace_service import get_prompt_trace_service, prompt_hash
 
         registry = get_planning_prompt_registry()
         resolved = registry.resolve(
@@ -369,15 +374,20 @@ def cmd_prompt_render(args: argparse.Namespace) -> int:
     redaction_result = get_redaction_service().redact(resolved.prompt)
 
     if getattr(args, "json", False):
-        print(json.dumps({
-            "prompt_version_id": resolved.prompt_version_id,
-            "version": resolved.version,
-            "checksum": resolved.checksum,
-            "prompt_hash_sha256": p_hash,
-            "final_prompt_redacted": redaction_result.redacted_text,
-            "template_chain": chain.to_list(),
-            "secrets_detected": redaction_result.secrets_detected,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "prompt_version_id": resolved.prompt_version_id,
+                    "version": resolved.version,
+                    "checksum": resolved.checksum,
+                    "prompt_hash_sha256": p_hash,
+                    "final_prompt_redacted": redaction_result.redacted_text,
+                    "template_chain": chain.to_list(),
+                    "secrets_detected": redaction_result.secrets_detected,
+                },
+                indent=2,
+            )
+        )
     else:
         print(f"Prompt Version:  {resolved.prompt_version_id}")
         print(f"Version:         {resolved.version}")
@@ -441,16 +451,18 @@ def cmd_prompt_goal_traces(args: argparse.Namespace) -> int:
         preview = ""
         if t.final_prompt_redacted:
             preview = t.final_prompt_redacted[:60].replace("\n", " ")
-        rows.append({
-            "trace_id": t.trace_id[:16],
-            "ts": _format_ts(t.created_at),
-            "provider": t.provider or "",
-            "model": (t.model or "")[:20],
-            "kind": t.request_kind or "",
-            "ok": str(t.success),
-            "ms": str(t.latency_ms or ""),
-            "preview": preview,
-        })
+        rows.append(
+            {
+                "trace_id": t.trace_id[:16],
+                "ts": _format_ts(t.created_at),
+                "provider": t.provider or "",
+                "model": (t.model or "")[:20],
+                "kind": t.request_kind or "",
+                "ok": str(t.success),
+                "ms": str(t.latency_ms or ""),
+                "preview": preview,
+            }
+        )
     _print_table(rows, ["ts", "provider", "model", "kind", "ok", "ms", "preview", "trace_id"])
     return 0
 
@@ -510,7 +522,8 @@ def cmd_prompt_trace_full(args: argparse.Namespace) -> int:
 
 
 def cmd_prompt_delegation_report(args: argparse.Namespace) -> int:
-    from agent.cli_goals import _request, _api_data as _cli_api_data
+    from agent.cli_goals import _api_data as _cli_api_data
+    from agent.cli_goals import _request
 
     goal_id = str(getattr(args, "goal_id", "") or "")
     as_json = getattr(args, "json", False)
@@ -542,25 +555,29 @@ def cmd_prompt_delegation_report(args: argparse.Namespace) -> int:
         layers = {
             "selected_profile": layers_raw.get("selected_profile") if isinstance(layers_raw, dict) else None,
             "selected_overlay": layers_raw.get("selected_overlay") if isinstance(layers_raw, dict) else None,
-            "template_compatibility": (layers_raw.get("template_compatibility") or {}) if isinstance(layers_raw, dict) else {},
+            "template_compatibility": (layers_raw.get("template_compatibility") or {})
+            if isinstance(layers_raw, dict)
+            else {},
         }
         task_traces = sorted(traces_by_task.get(tid, []), key=lambda x: float(x.get("created_at") or 0))
         last_trace = task_traces[-1] if task_traces else {}
-        task_rows.append({
-            "task_id": tid,
-            "title": str(task.get("title") or ""),
-            "status": str(task.get("status") or ""),
-            "task_kind": str(task.get("task_kind") or ""),
-            "assigned_agent_url": str(task.get("assigned_agent_url") or ""),
-            "instruction_layers": layers,
-            "last_prompt_trace": {
-                "request_kind": str(last_trace.get("request_kind") or ""),
-                "provider": str(last_trace.get("provider") or ""),
-                "model": str(last_trace.get("model") or ""),
-                "prompt_hash": str(last_trace.get("prompt_hash_sha256") or ""),
-                "created_at": last_trace.get("created_at"),
-            },
-        })
+        task_rows.append(
+            {
+                "task_id": tid,
+                "title": str(task.get("title") or ""),
+                "status": str(task.get("status") or ""),
+                "task_kind": str(task.get("task_kind") or ""),
+                "assigned_agent_url": str(task.get("assigned_agent_url") or ""),
+                "instruction_layers": layers,
+                "last_prompt_trace": {
+                    "request_kind": str(last_trace.get("request_kind") or ""),
+                    "provider": str(last_trace.get("provider") or ""),
+                    "model": str(last_trace.get("model") or ""),
+                    "prompt_hash": str(last_trace.get("prompt_hash_sha256") or ""),
+                    "created_at": last_trace.get("created_at"),
+                },
+            }
+        )
 
     report = {"goal_id": goal_id, "task_count": len(task_rows), "tasks": task_rows}
     if as_json:
@@ -573,7 +590,8 @@ def cmd_prompt_delegation_report(args: argparse.Namespace) -> int:
 
 
 def cmd_prompt_task_report(args: argparse.Namespace) -> int:
-    from agent.cli_goals import _request, _api_data as _cli_api_data
+    from agent.cli_goals import _api_data as _cli_api_data
+    from agent.cli_goals import _request
 
     task_id = str(getattr(args, "task_id", "") or "")
     as_json = getattr(args, "json", False)
@@ -594,20 +612,25 @@ def cmd_prompt_task_report(args: argparse.Namespace) -> int:
         raw_response = str(log_entry.get("response") or "")
         response_preview = raw_response[:200] if raw_response else ""
         prompt_preview = str(t.final_prompt_redacted or "")[:200]
-        trace_rows.append({
-            "trace_id": t.trace_id,
-            "request_id": req_id,
-            "request_kind": str(t.request_kind or ""),
-            "provider": str(t.provider or ""),
-            "model": str(t.model or ""),
-            "prompt_preview_redacted": prompt_preview,
-            "response_preview": response_preview,
-            "created_at": t.created_at,
-            "success": t.success,
-        })
+        trace_rows.append(
+            {
+                "trace_id": t.trace_id,
+                "request_id": req_id,
+                "request_kind": str(t.request_kind or ""),
+                "provider": str(t.provider or ""),
+                "model": str(t.model or ""),
+                "prompt_preview_redacted": prompt_preview,
+                "response_preview": response_preview,
+                "created_at": t.created_at,
+                "success": t.success,
+            }
+        )
 
     report = {
-        "task": {"task_id": str(task_detail.get("id") or task_id), **{k: v for k, v in task_detail.items() if k != "id"}},
+        "task": {
+            "task_id": str(task_detail.get("id") or task_id),
+            **{k: v for k, v in task_detail.items() if k != "id"},
+        },
         "trace_count": len(trace_rows),
         "traces": trace_rows,
     }
@@ -619,7 +642,8 @@ def cmd_prompt_task_report(args: argparse.Namespace) -> int:
 
 
 def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
-    from agent.cli_goals import _request, _api_data as _cli_api_data
+    from agent.cli_goals import _api_data as _cli_api_data
+    from agent.cli_goals import _request
 
     as_json = getattr(args, "json", False)
 
@@ -647,22 +671,24 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
         if not isinstance(p, dict):
             p = {}
         ls: dict = p.get("learning_state") or {}
-        profiles.append({
-            "profile_name": str(p.get("profile_name") or ""),
-            "enabled": p.get("enabled"),
-            "provider": str(p.get("provider") or ""),
-            "model_family": str(p.get("model_family") or ""),
-            "learning_state": ls,
-            "observed_output_shape": str(ls.get("observed_output_shape") or ""),
-            "observed_output_format": str(ls.get("observed_output_format") or ""),
-            "preferred_output_format": str(preferred_format or ""),
-            "active_prompt_version_id": str(p.get("active_prompt_version_id") or ""),
-            "current_quality_score": p.get("current_quality_score"),
-            "trend_direction": str(p.get("trend_direction") or ""),
-            "current_candidate": p.get("current_candidate"),
-            "freeze": p.get("freeze"),
-            "metrics": p.get("metrics"),
-        })
+        profiles.append(
+            {
+                "profile_name": str(p.get("profile_name") or ""),
+                "enabled": p.get("enabled"),
+                "provider": str(p.get("provider") or ""),
+                "model_family": str(p.get("model_family") or ""),
+                "learning_state": ls,
+                "observed_output_shape": str(ls.get("observed_output_shape") or ""),
+                "observed_output_format": str(ls.get("observed_output_format") or ""),
+                "preferred_output_format": str(preferred_format or ""),
+                "active_prompt_version_id": str(p.get("active_prompt_version_id") or ""),
+                "current_quality_score": p.get("current_quality_score"),
+                "trend_direction": str(p.get("trend_direction") or ""),
+                "current_candidate": p.get("current_candidate"),
+                "freeze": p.get("freeze"),
+                "metrics": p.get("metrics"),
+            }
+        )
 
     report = {
         "enabled": bool(learning.get("enabled")),
@@ -670,8 +696,22 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
         "review_item_count": int(learning.get("review_item_count") or 0),
         "policy": learning.get("policy") or {},
         "overview": {
-            "preferred_output_shape": {"value": preferred_shape, **({} if not isinstance(overview.get("preferred_output_shape"), dict) else {k: v for k, v in overview["preferred_output_shape"].items() if k != "value"})},
-            "preferred_output_format": {"value": preferred_format, **({} if not isinstance(overview.get("preferred_output_format"), dict) else {k: v for k, v in overview["preferred_output_format"].items() if k != "value"})},
+            "preferred_output_shape": {
+                "value": preferred_shape,
+                **(
+                    {}
+                    if not isinstance(overview.get("preferred_output_shape"), dict)
+                    else {k: v for k, v in overview["preferred_output_shape"].items() if k != "value"}
+                ),
+            },
+            "preferred_output_format": {
+                "value": preferred_format,
+                **(
+                    {}
+                    if not isinstance(overview.get("preferred_output_format"), dict)
+                    else {k: v for k, v in overview["preferred_output_format"].items() if k != "value"}
+                ),
+            },
             "state_counts": overview.get("state_counts") or {},
         },
         "profiles": profiles,
@@ -731,9 +771,7 @@ def run_prompt_command(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="CLI tool to inspect prompt traces, LLM logs, and goal runtimes."
-    )
+    parser = argparse.ArgumentParser(description="CLI tool to inspect prompt traces, LLM logs, and goal runtimes.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # llm-log tail
@@ -749,9 +787,7 @@ def main(argv: list[str] | None = None) -> int:
     llm_log_parser.set_defaults(func=cmd_llm_log_tail)
 
     # prompt inspect
-    prompt_inspect_parser = subparsers.add_parser(
-        "inspect", help="Inspect a specific prompt trace by its ID."
-    )
+    prompt_inspect_parser = subparsers.add_parser("inspect", help="Inspect a specific prompt trace by its ID.")
     prompt_inspect_parser.add_argument("--trace-id", help="The ID of the prompt trace to inspect.")
     prompt_inspect_parser.add_argument("--request-id", help="Alias for --trace-id.")
     prompt_inspect_parser.add_argument("--json", action="store_true", help="Output as JSON.")
@@ -767,15 +803,19 @@ def main(argv: list[str] | None = None) -> int:
     prompt_render_parser.add_argument("--language", default="en", help="Target language (e.g., 'en', 'de').")
     prompt_render_parser.add_argument("--model-family", help="LLM family for context tuning (e.g., 'claude', 'gpt').")
     prompt_render_parser.add_argument("--context-file", help="Path to a file containing additional context.")
-    prompt_render_parser.add_argument("--preferred-output-format", default="json", help="Expected output format (e.g., 'json', 'yaml').")  # noqa: E501
+    prompt_render_parser.add_argument(
+        "--preferred-output-format", default="json", help="Expected output format (e.g., 'json', 'yaml')."
+    )  # noqa: E501
     prompt_render_parser.add_argument("--json", action="store_true", help="Output result as JSON.")
-    prompt_render_parser.add_argument("--save-trace", action="store_true", help="Save the rendered prompt to the trace service.")  # noqa: E501
+    prompt_render_parser.add_argument(
+        "--save-trace", action="store_true", help="Save the rendered prompt to the trace service."
+    )  # noqa: E501
     prompt_render_parser.set_defaults(func=cmd_prompt_render)
-
 
     # goal traces
     goal_traces_parser = subparsers.add_parser(
-        "goal-traces", help="List all prompt traces associated with a given goal ID remotely first, then locally."  # noqa: E501
+        "goal-traces",
+        help="List all prompt traces associated with a given goal ID remotely first, then locally.",  # noqa: E501
     )
     goal_traces_parser.add_argument("--goal-id", required=True, help="The ID of the goal to list traces for.")
     goal_traces_parser.add_argument("--json", action="store_true", help="Output as JSON.")
@@ -788,7 +828,6 @@ def main(argv: list[str] | None = None) -> int:
     prompt_trace_full_parser.add_argument("--trace-id", help="The ID of the prompt trace to inspect.")  # noqa: E501
     prompt_trace_full_parser.add_argument("--json", action="store_true", help="Output as JSON.")
     prompt_trace_full_parser.set_defaults(func=cmd_prompt_trace_full)
-
 
     args = parser.parse_args(argv)
     return args.func(args)

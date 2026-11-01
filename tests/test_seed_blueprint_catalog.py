@@ -136,8 +136,11 @@ def _workflow_payload(*, steps: list[dict] | None = None) -> dict:
 
 def _step(*, sid: str, role: str, depends_on: list[str] | None = None, gate: bool = False) -> dict:
     step: dict = {
-        "id": sid, "role": role, "task_kind": "planning",
-        "title": sid, "description": "",
+        "id": sid,
+        "role": role,
+        "task_kind": "planning",
+        "title": sid,
+        "description": "",
     }
     if depends_on:
         step["depends_on"] = depends_on
@@ -157,11 +160,13 @@ def test_workflow_absent_yields_none(tmp_path: Path) -> None:
 
 def test_workflow_valid_dag_loads(tmp_path: Path) -> None:
     catalog_path = tmp_path / "blueprints.json"
-    payload = _workflow_payload(steps=[
-        _step(sid="plan", role="Lead"),
-        _step(sid="implement", role="Dev", depends_on=["plan"]),
-        _step(sid="review", role="Rev", depends_on=["implement"], gate=True),
-    ])
+    payload = _workflow_payload(
+        steps=[
+            _step(sid="plan", role="Lead"),
+            _step(sid="implement", role="Dev", depends_on=["plan"]),
+            _step(sid="review", role="Rev", depends_on=["implement"], gate=True),
+        ]
+    )
     _write_json(catalog_path, payload)
     service = SeedBlueprintCatalog(catalog_path=catalog_path, schema_path=SCHEMA_PATH, repository_root=tmp_path)
     blueprint = service.get_blueprint("Tiny")
@@ -174,9 +179,11 @@ def test_workflow_valid_dag_loads(tmp_path: Path) -> None:
 
 def test_workflow_rejects_unknown_role_reference(tmp_path: Path) -> None:
     catalog_path = tmp_path / "blueprints.json"
-    payload = _workflow_payload(steps=[
-        _step(sid="plan", role="Ghost"),
-    ])
+    payload = _workflow_payload(
+        steps=[
+            _step(sid="plan", role="Ghost"),
+        ]
+    )
     _write_json(catalog_path, payload)
     service = SeedBlueprintCatalog(catalog_path=catalog_path, schema_path=SCHEMA_PATH, repository_root=tmp_path)
     assert service.as_seed_blueprint_map() == {}
@@ -186,8 +193,11 @@ def test_workflow_rejects_unknown_role_reference(tmp_path: Path) -> None:
 def test_workflow_rejects_gate_without_checks(tmp_path: Path) -> None:
     catalog_path = tmp_path / "blueprints.json"
     bad_step = {
-        "id": "loose_gate", "role": "Rev", "task_kind": "gate_review",
-        "gate": True, "depends_on": [],
+        "id": "loose_gate",
+        "role": "Rev",
+        "task_kind": "gate_review",
+        "gate": True,
+        "depends_on": [],
     }
     payload = _workflow_payload(steps=[bad_step])
     _write_json(catalog_path, payload)
@@ -198,10 +208,12 @@ def test_workflow_rejects_gate_without_checks(tmp_path: Path) -> None:
 
 def test_workflow_rejects_cycle(tmp_path: Path) -> None:
     catalog_path = tmp_path / "blueprints.json"
-    payload = _workflow_payload(steps=[
-        _step(sid="a", role="Lead", depends_on=["b"]),
-        _step(sid="b", role="Dev", depends_on=["a"]),
-    ])
+    payload = _workflow_payload(
+        steps=[
+            _step(sid="a", role="Lead", depends_on=["b"]),
+            _step(sid="b", role="Dev", depends_on=["a"]),
+        ]
+    )
     _write_json(catalog_path, payload)
     service = SeedBlueprintCatalog(catalog_path=catalog_path, schema_path=SCHEMA_PATH, repository_root=tmp_path)
     assert service.as_seed_blueprint_map() == {}
@@ -210,10 +222,12 @@ def test_workflow_rejects_cycle(tmp_path: Path) -> None:
 
 def test_workflow_rejects_unknown_dependency(tmp_path: Path) -> None:
     catalog_path = tmp_path / "blueprints.json"
-    payload = _workflow_payload(steps=[
-        _step(sid="plan", role="Lead"),
-        _step(sid="implement", role="Dev", depends_on=["ghost_step"]),
-    ])
+    payload = _workflow_payload(
+        steps=[
+            _step(sid="plan", role="Lead"),
+            _step(sid="implement", role="Dev", depends_on=["ghost_step"]),
+        ]
+    )
     _write_json(catalog_path, payload)
     service = SeedBlueprintCatalog(catalog_path=catalog_path, schema_path=SCHEMA_PATH, repository_root=tmp_path)
     assert service.as_seed_blueprint_map() == {}
@@ -222,10 +236,12 @@ def test_workflow_rejects_unknown_dependency(tmp_path: Path) -> None:
 
 def test_workflow_rejects_duplicate_step_id(tmp_path: Path) -> None:
     catalog_path = tmp_path / "blueprints.json"
-    payload = _workflow_payload(steps=[
-        _step(sid="plan", role="Lead"),
-        _step(sid="plan", role="Dev"),
-    ])
+    payload = _workflow_payload(
+        steps=[
+            _step(sid="plan", role="Lead"),
+            _step(sid="plan", role="Dev"),
+        ]
+    )
     _write_json(catalog_path, payload)
     service = SeedBlueprintCatalog(catalog_path=catalog_path, schema_path=SCHEMA_PATH, repository_root=tmp_path)
     assert service.as_seed_blueprint_map() == {}

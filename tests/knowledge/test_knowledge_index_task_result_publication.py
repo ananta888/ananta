@@ -88,9 +88,7 @@ def test_bound_result_publication_is_atomic_and_exact_replay_is_noop(
     publisher = KnowledgeIndexTaskResultPublisher(
         repository=TaskRepository(),
         execution_binding_service=_ProjectedBindings(),
-        post_commit=lambda *args, **kwargs: post_commits.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        post_commit=lambda *args, **kwargs: post_commits.append({"args": args, "kwargs": kwargs}),
     )
     values = {
         "history": [
@@ -134,18 +132,14 @@ def test_bound_result_publication_is_atomic_and_exact_replay_is_noop(
         "worker_verified": True,
         "knowledge_index_job_result": _result(),
     }
-    assert persisted.worker_execution_context["parallel_context"] == {
-        "preserved": True
-    }
+    assert persisted.worker_execution_context["parallel_context"] == {"preserved": True}
     assert [item["event_type"] for item in persisted.history] == [
         "existing",
         "execution_result",
         "knowledge_index_job_completed",
     ]
     assert (
-        persisted.status_reason_details[
-            "knowledge_index_task_result_publication"
-        ]["completion_projection_digest"]
+        persisted.status_reason_details["knowledge_index_task_result_publication"]["completion_projection_digest"]
         == "c" * 64
     )
     assert len(post_commits) == 1
@@ -182,9 +176,7 @@ def test_completed_task_cannot_publish_before_projection_is_projected() -> None:
     ):
         publisher.publish(
             job_id=TASK_ID,
-            expected_envelope=task.worker_execution_context[
-                "knowledge_index_job"
-            ],
+            expected_envelope=task.worker_execution_context["knowledge_index_job"],
             result=_result(),
             event_type="knowledge_index_job_completed",
             event_actor="test",
@@ -207,9 +199,7 @@ def test_forwarded_bound_result_uses_specialized_publisher_only() -> None:
             "bound v2 result must not use the generic status writer"
         ),
         bound_knowledge_index_result=_result(),
-        publish_bound_knowledge_index_result=lambda **kwargs: (
-            publications.append(kwargs)
-        ),
+        publish_bound_knowledge_index_result=lambda **kwargs: publications.append(kwargs),
     )
 
     assert publications == [
@@ -339,9 +329,7 @@ def test_crash_after_projection_marker_reconciles_task_without_worker() -> None:
     )
 
     assert reconciled["status"] == "completed"
-    assert task.verification_status["knowledge_index_job_result"] == (
-        _result()
-    )
+    assert task.verification_status["knowledge_index_job_result"] == (_result())
     assert events == [
         "load_outbox",
         "project",

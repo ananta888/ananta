@@ -60,12 +60,8 @@ class PlanningCategoryContractService:
                     {
                         "source_catalog_id": evidence_context.source_catalog_id,
                         "source_catalog_hash": evidence_context.source_catalog_hash,
-                        "allowed_source_refs": sorted(
-                            evidence_context.allowed_source_refs
-                        ),
-                        "allowed_run_refs": sorted(
-                            evidence_context.allowed_run_refs
-                        ),
+                        "allowed_source_refs": sorted(evidence_context.allowed_source_refs),
+                        "allowed_run_refs": sorted(evidence_context.allowed_run_refs),
                     }
                 )
                 candidate["planning_quality_profile"] = quality

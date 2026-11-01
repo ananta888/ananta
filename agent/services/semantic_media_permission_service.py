@@ -94,8 +94,7 @@ class SemanticMediaPermissionService:
         if not now < float(expires_at) <= now + 86_400:
             raise SemanticMediaPermissionError("capability_expiry_invalid")
         if idempotency_key is not None and (
-            not 8 <= len(idempotency_key) <= 256
-            or any(character.isspace() for character in idempotency_key)
+            not 8 <= len(idempotency_key) <= 256 or any(character.isspace() for character in idempotency_key)
         ):
             raise SemanticMediaPermissionError("capability_idempotency_key_invalid", status_code=400)
 

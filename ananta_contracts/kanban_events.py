@@ -6,10 +6,9 @@ import json
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
 
 KANBAN_EVENT_SCHEMA_VERSION = "kanban.event.v1"
 KANBAN_EVENT_BATCH_SCHEMA_VERSION = "kanban.event-batch.v1"
@@ -37,9 +36,7 @@ class KanbanEvent(BaseModel):
         pattern=r"^kanban\.[a-z0-9_.-]+$",
     )
     occurred_at: datetime
-    payload: dict[str, str | int | float | bool | None] = Field(
-        default_factory=dict
-    )
+    payload: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
 
     @field_validator("payload")
     @classmethod
@@ -62,9 +59,7 @@ class KanbanEvent(BaseModel):
 class KanbanAuthRenewalContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["kanban.auth-renewal.v1"] = (
-        KANBAN_AUTH_RENEWAL_SCHEMA_VERSION
-    )
+    schema_version: Literal["kanban.auth-renewal.v1"] = KANBAN_AUTH_RENEWAL_SCHEMA_VERSION
     mode: Literal["refresh_then_reconnect"] = "refresh_then_reconnect"
     refresh_endpoint: Literal["/refresh-token"] = "/refresh-token"
     authorization_header: Literal["Authorization"] = "Authorization"
@@ -76,9 +71,7 @@ class KanbanAuthRenewalContract(BaseModel):
 class KanbanEventBatch(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["kanban.event-batch.v1"] = (
-        KANBAN_EVENT_BATCH_SCHEMA_VERSION
-    )
+    schema_version: Literal["kanban.event-batch.v1"] = KANBAN_EVENT_BATCH_SCHEMA_VERSION
     board_id: str = Field(min_length=1, max_length=320)
     requested_after_sequence: int = Field(ge=0)
     next_after_sequence: int = Field(ge=0)
@@ -92,9 +85,7 @@ class KanbanEventBatch(BaseModel):
     gap_reason: KanbanEventGapReason | None = None
     snapshot_required: bool = False
     snapshot_url: str | None = Field(default=None, max_length=1000)
-    auth_renewal: KanbanAuthRenewalContract = Field(
-        default_factory=KanbanAuthRenewalContract
-    )
+    auth_renewal: KanbanAuthRenewalContract = Field(default_factory=KanbanAuthRenewalContract)
 
     @model_validator(mode="after")
     def validate_reconnect_contract(self) -> "KanbanEventBatch":

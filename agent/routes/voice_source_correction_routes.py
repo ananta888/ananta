@@ -187,8 +187,7 @@ def _authorize_semantic_source_session(
         return
     participants = dependencies.get_share_session_service().get_participants(str(session.get("id") or ""))
     if not any(
-        str(item.get("user_id") or "") == principal.subject and item.get("revoked_at") is None
-        for item in participants
+        str(item.get("user_id") or "") == principal.subject and item.get("revoked_at") is None for item in participants
     ):
         raise SemanticSpeechSourceCorrectionError("source_correction_membership_required", status_code=403)
 

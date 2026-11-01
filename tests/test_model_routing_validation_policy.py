@@ -22,20 +22,36 @@ from ananta_contracts.model_selection import (
 def _profiles() -> tuple[ModelProfile, ...]:
     return (
         ModelProfile(
-            profile_id="local-chat", provider_id="lmstudio", model="chat",
-            model_role="chat", local=True, supports_json=False,
-            supports_tools=False, tool_calling_mode="none", context_tokens=8192,
+            profile_id="local-chat",
+            provider_id="lmstudio",
+            model="chat",
+            model_role="chat",
+            local=True,
+            supports_json=False,
+            supports_tools=False,
+            tool_calling_mode="none",
+            context_tokens=8192,
         ),
         ModelProfile(
-            profile_id="local-code", provider_id="lmstudio", model="code",
-            model_role="coder", local=True, supports_json=True,
-            supports_tools=True, tool_calling_mode="native_tools",
+            profile_id="local-code",
+            provider_id="lmstudio",
+            model="code",
+            model_role="coder",
+            local=True,
+            supports_json=True,
+            supports_tools=True,
+            tool_calling_mode="native_tools",
             context_tokens=32768,
         ),
         ModelProfile(
-            profile_id="cloud-code", provider_id="openrouter", model="cloud",
-            model_role="coder", cloud=True, cloud_allowed=True,
-            block_secret_context=True, supports_json=True,
+            profile_id="cloud-code",
+            provider_id="openrouter",
+            model="cloud",
+            model_role="coder",
+            cloud=True,
+            cloud_allowed=True,
+            block_secret_context=True,
+            supports_json=True,
         ),
     )
 
@@ -48,9 +64,7 @@ def _service() -> ModelRoutingAssignmentService:
         consumers=consumers,
         known_profile_ids=(profile.profile_id for profile in profiles),
         known_models=((profile.provider_id, profile.model) for profile in profiles),
-        validation_policy=ModelRoutingValidationPolicy(
-            consumers=consumers, profiles=profiles
-        ),
+        validation_policy=ModelRoutingValidationPolicy(consumers=consumers, profiles=profiles),
     )
 
 
@@ -64,17 +78,23 @@ def _command(*, assignment: ModelAssignment, group=None):
 
 
 def test_direct_assignment_rejects_hard_consumer_capability_mismatch():
-    command = _command(assignment=ModelAssignment(
-        consumer_id="task.coding", scope="global", mode="profile",
-        profile_id="local-chat",
-    ))
+    command = _command(
+        assignment=ModelAssignment(
+            consumer_id="task.coding",
+            scope="global",
+            mode="profile",
+            profile_id="local-chat",
+        )
+    )
 
     issues = _service().validation_issues(command)
 
-    assert [(item.reason_code, item.reference) for item in issues] == [(
-        "model_profile_capability_mismatch:code",
-        "task.coding@global:global",
-    )]
+    assert [(item.reason_code, item.reference) for item in issues] == [
+        (
+            "model_profile_capability_mismatch:code",
+            "task.coding@global:global",
+        )
+    ]
     with pytest.raises(ValueError, match="model_profile_capability_mismatch:code"):
         _service().apply(command)
 
@@ -84,17 +104,22 @@ def test_fallback_rejects_cloud_bypass_and_candidate_requirement_mismatch():
         group_id="guarded",
         candidates=(
             ModelFallbackCandidate(
-                profile_id="local-chat", requires_tools=True,
+                profile_id="local-chat",
+                requires_tools=True,
             ),
             ModelFallbackCandidate(
-                profile_id="cloud-code", cloud_allowed=False,
+                profile_id="cloud-code",
+                cloud_allowed=False,
             ),
         ),
     )
     command = _command(
         assignment=ModelAssignment(
-            consumer_id="task.coding", scope="global", mode="profile",
-            profile_id="local-code", fallback_group_id="guarded",
+            consumer_id="task.coding",
+            scope="global",
+            mode="profile",
+            profile_id="local-code",
+            fallback_group_id="guarded",
         ),
         group=group,
     )
@@ -109,14 +134,20 @@ def test_fallback_rejects_cloud_bypass_and_candidate_requirement_mismatch():
 def test_context_metadata_mismatch_is_warning_and_does_not_block_apply():
     group = ModelFallbackGroup(
         group_id="large-context",
-        candidates=(ModelFallbackCandidate(
-            profile_id="local-code", max_context_tokens=100_000,
-        ),),
+        candidates=(
+            ModelFallbackCandidate(
+                profile_id="local-code",
+                max_context_tokens=100_000,
+            ),
+        ),
     )
     command = _command(
         assignment=ModelAssignment(
-            consumer_id="task.coding", scope="global", mode="profile",
-            profile_id="local-code", fallback_group_id="large-context",
+            consumer_id="task.coding",
+            scope="global",
+            mode="profile",
+            profile_id="local-code",
+            fallback_group_id="large-context",
         ),
         group=group,
     )

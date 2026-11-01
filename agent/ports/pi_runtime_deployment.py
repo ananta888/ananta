@@ -7,7 +7,12 @@ from ananta_contracts.pi_runtime_manifest import PiRuntimeManifest
 
 class PiRuntimeDeploymentPort(Protocol):
     def require_manifest(
-        self, *, tenant_id: str, project_id: str, worker_id: str, worker_url: str,
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        worker_id: str,
+        worker_url: str,
     ) -> PiRuntimeManifest:
         """Return pinned, policy-admitted scheduler facts or raise.
 

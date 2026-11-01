@@ -61,9 +61,7 @@ class RecoveryWorkerArtifactPublisher:
                 request_fingerprint,
             )
         ):
-            raise RecoveryWorkerArtifactPublishError(
-                "recovery_artifact_publisher_identity_unavailable"
-            )
+            raise RecoveryWorkerArtifactPublishError("recovery_artifact_publisher_identity_unavailable")
         try:
             built = self._manifest_service().build(
                 task=task,
@@ -74,13 +72,8 @@ class RecoveryWorkerArtifactPublisher:
                 executor_url=worker_url,
             )
         except Exception as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "") or str(exc)
-            )
-            raise RecoveryWorkerArtifactPublishError(
-                reason_code
-                or "recovery_artifact_manifest_build_failed"
-            ) from exc
+            reason_code = str(getattr(exc, "reason_code", "") or str(exc))
+            raise RecoveryWorkerArtifactPublishError(reason_code or "recovery_artifact_manifest_build_failed") from exc
         manifest = built.manifest
         descriptors = list(built.descriptors)
         from agent.services.workflow_worker_service_auth import (
@@ -89,10 +82,7 @@ class RecoveryWorkerArtifactPublisher:
         )
 
         response = self._http_client().post(
-            (
-                f"{hub_url}/internal/tasks/{task_id}"
-                "/recovery-artifacts"
-            ),
+            (f"{hub_url}/internal/tasks/{task_id}/recovery-artifacts"),
             data=manifest,
             timeout=30,
             return_response=True,
@@ -102,29 +92,16 @@ class RecoveryWorkerArtifactPublisher:
                 "Authorization": f"Bearer {worker_token}",
                 WORKER_ID_HEADER: worker_id,
                 WORKER_URL_HEADER: worker_url,
-                "X-Ananta-Recovery-Dispatch-Lease": (
-                    lease_token
-                ),
+                "X-Ananta-Recovery-Dispatch-Lease": (lease_token),
             },
         )
-        if (
-            response is None
-            or int(getattr(response, "status_code", 500)) != 200
-        ):
-            raise RecoveryWorkerArtifactPublishError(
-                "recovery_artifact_hub_ingress_failed"
-            )
+        if response is None or int(getattr(response, "status_code", 500)) != 200:
+            raise RecoveryWorkerArtifactPublishError("recovery_artifact_hub_ingress_failed")
         try:
             body = response.json()
         except Exception as exc:
-            raise RecoveryWorkerArtifactPublishError(
-                "recovery_artifact_hub_receipt_invalid"
-            ) from exc
-        payload = (
-            body.get("data")
-            if isinstance(body, Mapping)
-            else None
-        )
+            raise RecoveryWorkerArtifactPublishError("recovery_artifact_hub_receipt_invalid") from exc
+        payload = body.get("data") if isinstance(body, Mapping) else None
         try:
             return validate_recovery_artifact_receipts_payload(
                 payload,
@@ -132,9 +109,7 @@ class RecoveryWorkerArtifactPublisher:
                 descriptors=descriptors,
             )["artifacts"]
         except RecoveryArtifactIngressContractError as exc:
-            raise RecoveryWorkerArtifactPublishError(
-                exc.reason_code
-            ) from exc
+            raise RecoveryWorkerArtifactPublishError(exc.reason_code) from exc
 
     def _http_client(self) -> Any:
         if self._http_client_provider is not None:
@@ -153,9 +128,7 @@ class RecoveryWorkerArtifactPublisher:
 
         if self._workspace_service_provider is not None:
             return RecoveryWorkspaceArtifactManifestService(
-                workspace_service_provider=(
-                    self._workspace_service_provider
-                )
+                workspace_service_provider=(self._workspace_service_provider)
             )
         return get_recovery_workspace_artifact_manifest_service()
 
@@ -170,9 +143,7 @@ class RecoveryWorkerArtifactPublisher:
 _PUBLISHER = RecoveryWorkerArtifactPublisher()
 
 
-def get_recovery_worker_artifact_publisher() -> (
-    RecoveryWorkerArtifactPublisher
-):
+def get_recovery_worker_artifact_publisher() -> RecoveryWorkerArtifactPublisher:
     return _PUBLISHER
 
 

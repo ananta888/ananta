@@ -60,9 +60,7 @@ class _Bindings:
 class _Destinations:
     def __init__(self) -> None:
         self.local = _destination(ProviderLocation.LOCAL_CONTAINER, "local")
-        self.external = _destination(
-            ProviderLocation.EXTERNAL_REGION, "external"
-        )
+        self.external = _destination(ProviderLocation.EXTERNAL_REGION, "external")
 
     def list(self, **_kwargs):
         return (self.local, self.external), None
@@ -135,9 +133,7 @@ class _Idempotency:
     def claim(self, *, plan_digest, **_kwargs):
         if self.completed is not None:
             if plan_digest != self.digest:
-                raise SourceControlPrepareIndexAccessError(
-                    "idempotency_key_conflict", status_code=409
-                )
+                raise SourceControlPrepareIndexAccessError("idempotency_key_conflict", status_code=409)
             return SimpleNamespace(state="completed", result=self.completed)
         self.digest = plan_digest
         return SimpleNamespace(state="claimed", claim_token="claim-example")
@@ -202,14 +198,10 @@ def _payload(destination_id: str):
 def test_options_expose_only_local_redacted_one_time_normal_form() -> None:
     service, _, destinations, _, _, _ = _service()
 
-    result = service.options(
-        actor=_actor(), connection_id="connection-example"
-    )
+    result = service.options(actor=_actor(), connection_id="connection-example")
 
     assert result["readiness"] == {"ready": True, "reason_codes": []}
-    assert [item["destination_id"] for item in result["destinations"]] == [
-        destinations.local.destination_id
-    ]
+    assert [item["destination_id"] for item in result["destinations"]] == [destinations.local.destination_id]
     assert result["options"][0]["effect"] == {
         "provider_location": "local",
         "transformation": "redacted",
@@ -225,9 +217,7 @@ def test_options_expose_only_local_redacted_one_time_normal_form() -> None:
 
 def test_prepare_owns_policy_and_grant_and_replays_before_occ() -> None:
     service, projections, destinations, policies, grants, idempotency = _service()
-    options = service.options(
-        actor=_actor(), connection_id="connection-example"
-    )
+    options = service.options(actor=_actor(), connection_id="connection-example")
     payload = _payload(destinations.local.destination_id)
 
     created = service.prepare(
@@ -257,17 +247,12 @@ def test_prepare_owns_policy_and_grant_and_replays_before_occ() -> None:
     assert request.preset_id == SAFE_INDEX_ACCESS_PRESET_ID
     assert grants.calls[0]["if_match"] == "e" * 64
     serialized = str(created).casefold()
-    assert not any(
-        forbidden in serialized
-        for forbidden in ("credential", "capability", "source_content")
-    )
+    assert not any(forbidden in serialized for forbidden in ("credential", "capability", "source_content"))
     assert idempotency.releases == 0
 
 
 def test_prepare_fails_closed_for_scope_confirmation_occ_and_external() -> None:
-    foreign, _, _, _, _, _ = _service(
-        bindings=_Bindings(project_id="project-other")
-    )
+    foreign, _, _, _, _, _ = _service(bindings=_Bindings(project_id="project-other"))
     with pytest.raises(
         SourceControlPrepareIndexAccessError,
         match="index_access_resource_not_found",
@@ -275,9 +260,7 @@ def test_prepare_fails_closed_for_scope_confirmation_occ_and_external() -> None:
         foreign.options(actor=_actor(), connection_id="connection-example")
 
     service, _, destinations, _, grants, idempotency = _service()
-    options = service.options(
-        actor=_actor(), connection_id="connection-example"
-    )
+    options = service.options(actor=_actor(), connection_id="connection-example")
     with pytest.raises(
         SourceControlPrepareIndexAccessError,
         match="index_access_confirmation_required",

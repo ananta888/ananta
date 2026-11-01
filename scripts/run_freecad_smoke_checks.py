@@ -31,7 +31,9 @@ def evaluate_freecad_runtime(*, root: Path = ROOT) -> dict[str, Any]:
     bridge_file = root / BRIDGE_PATH
     for rel_path in (WORKBENCH_INITGUI_PATH, BRIDGE_PATH):
         exists = (root / rel_path).exists()
-        checks.append({"check_id": f"file_exists:{rel_path.as_posix()}", "ok": exists, "detail": "found" if exists else "missing"})
+        checks.append(
+            {"check_id": f"file_exists:{rel_path.as_posix()}", "ok": exists, "detail": "found" if exists else "missing"}
+        )
 
     if workbench_file.exists():
         workbench_module = _load_module("ananta_freecad_initgui", workbench_file)
@@ -39,11 +41,17 @@ def evaluate_freecad_runtime(*, root: Path = ROOT) -> dict[str, Any]:
         checks.append(
             {
                 "check_id": "workbench_contract",
-                "ok": workbench is not None and callable(getattr(workbench, "Initialize", None)) and callable(getattr(workbench, "GetClassName", None)),
+                "ok": workbench is not None
+                and callable(getattr(workbench, "Initialize", None))
+                and callable(getattr(workbench, "GetClassName", None)),
                 "detail": {
                     "has_workbench": workbench is not None,
-                    "has_initialize": callable(getattr(workbench, "Initialize", None)) if workbench is not None else False,
-                    "has_class_name": callable(getattr(workbench, "GetClassName", None)) if workbench is not None else False,
+                    "has_initialize": callable(getattr(workbench, "Initialize", None))
+                    if workbench is not None
+                    else False,
+                    "has_class_name": callable(getattr(workbench, "GetClassName", None))
+                    if workbench is not None
+                    else False,
                 },
             }
         )
@@ -58,7 +66,9 @@ def evaluate_freecad_runtime(*, root: Path = ROOT) -> dict[str, Any]:
             correlation_id="smoke-correlation",
         )
         bridge_errors = bridge_module.validate_freecad_bridge_envelope(envelope)
-        checks.append({"check_id": "bridge_envelope_contract", "ok": not bridge_errors, "detail": {"errors": bridge_errors}})
+        checks.append(
+            {"check_id": "bridge_envelope_contract", "ok": not bridge_errors, "detail": {"errors": bridge_errors}}
+        )
 
     ok = all(bool(item.get("ok")) for item in checks)
     return {

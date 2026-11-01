@@ -4,11 +4,15 @@ Erzeugt und verwaltet ContextTrace-Daten fuer CodeCompass und externe Provider.
 Erklaert welche Query, welcher Provider, welcher Treffer, welche Policy und
 welcher Auswahlgrund beteiligt war.
 """
+
 from __future__ import annotations
-import time, uuid
-from dataclasses import dataclass, field
+
+import time
+import uuid
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
 
 class ContextDiscardReason(str, Enum):
     DENIED_PATH = "denied_path"
@@ -19,10 +23,11 @@ class ContextDiscardReason(str, Enum):
     EXTERNAL_PROVIDER_BLOCKED = "external_provider_blocked"
     REDACTED = "redacted"
 
+
 @dataclass
 class ContextHitRecord:
     hit_id: str
-    provider: str          # "codecompass" | "augment" | "manual"
+    provider: str  # "codecompass" | "augment" | "manual"
     path: str
     symbol: str | None
     score: float
@@ -33,6 +38,7 @@ class ContextHitRecord:
     freshness: float
     snippet_truncated: bool
 
+
 @dataclass
 class DiscardedHitRecord:
     hit_id: str
@@ -41,6 +47,7 @@ class DiscardedHitRecord:
     score: float
     reason: ContextDiscardReason
     policy_note: str | None
+
 
 @dataclass
 class CodeCompassContextTrace:
@@ -67,8 +74,10 @@ class CodeCompassContextTrace:
         for d in self.discarded_items:
             discard_counts[d.reason.value] = discard_counts.get(d.reason.value, 0) + 1
         discard_str = ", ".join(f"{k}: {v}" for k, v in discard_counts.items()) if discard_counts else "none"
-        return (f"{self.provider}: {len(self.selected_items)} treffer, "
-                f"{len(self.discarded_items)} verworfen ({discard_str})")
+        return (
+            f"{self.provider}: {len(self.selected_items)} treffer, "
+            f"{len(self.discarded_items)} verworfen ({discard_str})"
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -92,43 +101,90 @@ class CodeCompassContextTraceService:
         self._pending: dict[str, dict] = {}
         self._completed: dict[str, CodeCompassContextTrace] = {}
 
-    def start_trace(self, *, run_id: str, query: str, provider: str = "codecompass",
-                    tool_call_id: str | None = None, budget_chars_limit: int = 40000) -> str:
+    def start_trace(
+        self,
+        *,
+        run_id: str,
+        query: str,
+        provider: str = "codecompass",
+        tool_call_id: str | None = None,
+        budget_chars_limit: int = 40000,
+    ) -> str:
         trace_id = str(uuid.uuid4())
         self._pending[trace_id] = {
-            "run_id": run_id, "query": query, "provider": provider,
-            "tool_call_id": tool_call_id, "budget_chars_limit": budget_chars_limit,
-            "selected": [], "discarded": [], "started_at": time.time(),
+            "run_id": run_id,
+            "query": query,
+            "provider": provider,
+            "tool_call_id": tool_call_id,
+            "budget_chars_limit": budget_chars_limit,
+            "selected": [],
+            "discarded": [],
+            "started_at": time.time(),
         }
         return trace_id
 
-    def add_selected(self, trace_id: str, *, provider: str, path: str, score: float,
-                     symbol: str | None = None, source_kind: str = "unknown",
-                     confidence: float = 0.5, policy_status: str = "allowed",
-                     is_external: bool = False, freshness: float = 1.0,
-                     snippet_chars: int = 0, snippet_truncated: bool = False) -> None:
+    def add_selected(
+        self,
+        trace_id: str,
+        *,
+        provider: str,
+        path: str,
+        score: float,
+        symbol: str | None = None,
+        source_kind: str = "unknown",
+        confidence: float = 0.5,
+        policy_status: str = "allowed",
+        is_external: bool = False,
+        freshness: float = 1.0,
+        snippet_chars: int = 0,
+        snippet_truncated: bool = False,
+    ) -> None:
         if trace_id not in self._pending:
             return
         hit_id = str(uuid.uuid4())[:8]
-        self._pending[trace_id]["selected"].append(ContextHitRecord(
-            hit_id=hit_id, provider=provider, path=path, symbol=symbol,
-            score=score, source_kind=source_kind, confidence=confidence,
-            policy_status=policy_status, is_external=is_external,
-            freshness=freshness, snippet_truncated=snippet_truncated,
-        ))
+        self._pending[trace_id]["selected"].append(
+            ContextHitRecord(
+                hit_id=hit_id,
+                provider=provider,
+                path=path,
+                symbol=symbol,
+                score=score,
+                source_kind=source_kind,
+                confidence=confidence,
+                policy_status=policy_status,
+                is_external=is_external,
+                freshness=freshness,
+                snippet_truncated=snippet_truncated,
+            )
+        )
 
-    def add_discarded(self, trace_id: str, *, provider: str, path: str, score: float,
-                      reason: ContextDiscardReason, policy_note: str | None = None) -> None:
+    def add_discarded(
+        self,
+        trace_id: str,
+        *,
+        provider: str,
+        path: str,
+        score: float,
+        reason: ContextDiscardReason,
+        policy_note: str | None = None,
+    ) -> None:
         if trace_id not in self._pending:
             return
         hit_id = str(uuid.uuid4())[:8]
-        self._pending[trace_id]["discarded"].append(DiscardedHitRecord(
-            hit_id=hit_id, provider=provider, path=path, score=score,
-            reason=reason, policy_note=policy_note,
-        ))
+        self._pending[trace_id]["discarded"].append(
+            DiscardedHitRecord(
+                hit_id=hit_id,
+                provider=provider,
+                path=path,
+                score=score,
+                reason=reason,
+                policy_note=policy_note,
+            )
+        )
 
-    def finalize(self, trace_id: str, *, budget_chars_used: int = 0,
-                 policy_decisions: list[str] | None = None) -> CodeCompassContextTrace:
+    def finalize(
+        self, trace_id: str, *, budget_chars_used: int = 0, policy_decisions: list[str] | None = None
+    ) -> CodeCompassContextTrace:
         p = self._pending.pop(trace_id, None)
         if p is None:
             raise KeyError(f"Unknown trace_id: {trace_id}")

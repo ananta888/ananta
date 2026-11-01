@@ -109,7 +109,12 @@ def test_heuristic_declare_maps_to_file_write():
 
 def test_read_range_intent_maps_to_bounded_file_read_never_file_write():
     result = ToolIntentResolver().resolve(
-        [{"name": "repo.read_file_range", "args": {"file": ".ananta/task-material.md", "start_line": 3, "end_line": 9}}],
+        [
+            {
+                "name": "repo.read_file_range",
+                "args": {"file": ".ananta/task-material.md", "start_line": 3, "end_line": 9},
+            }
+        ],
         known_tools=["file_read", "file_write", "shell_execute"],
     )
     assert result.resolved_tool_calls[0]["name"] == "file_read"

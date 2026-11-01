@@ -148,10 +148,14 @@ def test_all_declared_reconciliation_and_variance_kinds_are_supported(
     actual_label: str,
 ) -> None:
     policy = _policy(relative_tolerance=Decimal("0.05"), absolute_tolerance=Decimal("0"))
-    report = BusinessControllingReconciliationService().evaluate(
-        dataset=_dataset(),
-        checks=(_check(kind=kind, expected="100.00", actual="105.00", policy=policy),),
-    ).reports[0]
+    report = (
+        BusinessControllingReconciliationService()
+        .evaluate(
+            dataset=_dataset(),
+            checks=(_check(kind=kind, expected="100.00", actual="105.00", policy=policy),),
+        )
+        .reports[0]
+    )
     assert report.status is ReconciliationStatus.PASS
     assert (report.expected_label, report.actual_label, report.tolerance) == (
         expected_label,
@@ -217,15 +221,19 @@ def test_declared_exclusions_are_counted_without_hiding_complete_comparison() ->
 
 
 def test_rounding_policy_is_applied_before_tolerance_decision() -> None:
-    report = BusinessControllingReconciliationService().evaluate(
-        dataset=_dataset(),
-        checks=(
-            _check(
-                expected="10.005",
-                actual="10.00",
-                policy=_policy(absolute_tolerance=Decimal("0")),
+    report = (
+        BusinessControllingReconciliationService()
+        .evaluate(
+            dataset=_dataset(),
+            checks=(
+                _check(
+                    expected="10.005",
+                    actual="10.00",
+                    policy=_policy(absolute_tolerance=Decimal("0")),
+                ),
             ),
-        ),
-    ).reports[0]
+        )
+        .reports[0]
+    )
     assert report.expected == Decimal("10.00")
     assert report.status is ReconciliationStatus.PASS

@@ -1,4 +1,5 @@
 """SCG-009: OpenCode command normalization tests — both command-string and tool-call paths."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -7,7 +8,7 @@ from agent.models import TaskExecutionPolicyContract
 from agent.services.execution_risk_policy_service import ExecutionRiskDecision
 from agent.services.task_execution_service import TaskExecutionService
 
-_OPENCODE_CMD = 'python hello.py; python -c "from hello import greet; print(greet(\'World\'))"'
+_OPENCODE_CMD = "python hello.py; python -c \"from hello import greet; print(greet('World'))\""
 
 
 class _StubShell:
@@ -44,7 +45,7 @@ def test_opencode_command_string_python_semicolon_chain_allowed():
     shell = _StubShell()
     shell.outputs = {
         "python hello.py": ("hello", 0),
-        'python -c "from hello import greet; print(greet(\'World\'))"': ("World", 0),
+        "python -c \"from hello import greet; print(greet('World'))\"": ("World", 0),
     }
     with (
         patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
@@ -134,6 +135,7 @@ def test_opencode_tool_call_rm_segment_blocked_before_any_execution():
 def test_opencode_shell_execute_tool_call_with_pipe_blocked():
     """shell_execute tool call with pipe in command arg must be blocked (SCG-008)."""
     from agent.exceptions import ToolGuardrailError
+
     svc = TaskExecutionService()
     shell = _StubShell()
     tool_calls = [{"name": "shell_execute", "args": {"command": "cat hello.py | grep def"}}]

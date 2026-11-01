@@ -33,7 +33,9 @@ class MCPToolRegistry:
         normalized["access_class"] = access_class
         normalized["risk_class"] = str(descriptor.get("risk_class") or "").strip().lower()
         normalized["lifecycle"] = str(descriptor.get("lifecycle") or "enabled").strip().lower() or "enabled"
-        normalized["allowed_scopes"] = [str(item).strip() for item in list(descriptor.get("allowed_scopes") or []) if str(item).strip()]
+        normalized["allowed_scopes"] = [
+            str(item).strip() for item in list(descriptor.get("allowed_scopes") or []) if str(item).strip()
+        ]
         self._descriptors[tool_id] = normalized
 
     def register_many(self, descriptors: list[dict[str, Any]]) -> None:
@@ -55,16 +57,16 @@ class MCPToolRegistry:
         if str(descriptor.get("lifecycle") or "enabled") not in {"enabled", "degraded"}:
             return False
         if scope:
-            allowed_scopes = set(str(item).strip() for item in list(descriptor.get("allowed_scopes") or []) if str(item).strip())
+            allowed_scopes = set(
+                str(item).strip() for item in list(descriptor.get("allowed_scopes") or []) if str(item).strip()
+            )
             if scope not in allowed_scopes:
                 return False
         return True
 
     def health(self) -> dict[str, Any]:
         descriptor_states = [
-            str(item.get("lifecycle") or "enabled")
-            for item in self._descriptors.values()
-            if isinstance(item, dict)
+            str(item.get("lifecycle") or "enabled") for item in self._descriptors.values() if isinstance(item, dict)
         ]
         degraded_count = sum(1 for state in descriptor_states if state == "degraded")
         disabled_count = sum(1 for state in descriptor_states if state == "disabled")

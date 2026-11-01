@@ -19,13 +19,8 @@ from scripts.performance.run_tui_kanban_local_diagnostic import (
     validate_profile,
 )
 
-
 PROFILE_PATH = (
-    Path(__file__).parents[2]
-    / "config"
-    / "test-profiles"
-    / "kanban-model-dashboard"
-    / "local-tui-performance.v1.json"
+    Path(__file__).parents[2] / "config" / "test-profiles" / "kanban-model-dashboard" / "local-tui-performance.v1.json"
 )
 
 
@@ -165,16 +160,22 @@ def test_baseline_rule_is_exactly_fifteen_percent() -> None:
     rejected = _measurements()
     rejected["terminal_sizes"]["80x24"]["render_tick_p95_ms"] = 4.61
 
-    assert evaluate_baseline(
-        accepted,
-        baseline,
-        15.0,
-    )["within_regression_limit"] is True
-    assert evaluate_baseline(
-        rejected,
-        baseline,
-        15.0,
-    )["within_regression_limit"] is False
+    assert (
+        evaluate_baseline(
+            accepted,
+            baseline,
+            15.0,
+        )["within_regression_limit"]
+        is True
+    )
+    assert (
+        evaluate_baseline(
+            rejected,
+            baseline,
+            15.0,
+        )["within_regression_limit"]
+        is False
+    )
 
 
 def test_report_is_never_release_or_formal_gate_evidence() -> None:
@@ -191,6 +192,4 @@ def test_report_is_never_release_or_formal_gate_evidence() -> None:
     assert report["release_evidence"] is False
     assert report["formal_gate_eligible"] is False
     assert "angular" in report["missing_surface_metrics"]
-    assert report["diagnostic_status"] == (
-        "within_local_budgets_without_release_evidence"
-    )
+    assert report["diagnostic_status"] == ("within_local_budgets_without_release_evidence")

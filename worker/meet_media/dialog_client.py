@@ -101,6 +101,7 @@ class HubDialogClient:
     def call(self, action, **fields):
         if action == "reconnect":
             self.recovery_receipts.require_enabled()
+
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *_args, **_kwargs):
                 raise ValueError("meet_dialog_redirect_denied")

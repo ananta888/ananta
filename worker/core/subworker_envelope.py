@@ -1,16 +1,22 @@
 """SubworkerEnvelope: capability subset enforcement for delegated subworkers. AWF-T032, T034, T035."""
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 _MAX_DEPTH_LIMIT = 5
 _MAX_CHILDREN_LIMIT = 10
 
-_MUTATION_CAPABILITIES = frozenset({
-    "shell_execute", "patch_apply", "memory_write", "file_write", "mcp_call",
-})
+_MUTATION_CAPABILITIES = frozenset(
+    {
+        "shell_execute",
+        "patch_apply",
+        "memory_write",
+        "file_write",
+        "mcp_call",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -20,6 +26,7 @@ class SubworkerEnvelope:
     Child capabilities must be a strict subset of parent capabilities.
     Hub creates or approves this envelope — parent workers cannot mint new authority.
     """
+
     parent_execution_id: str
     child_task_id: str
     delegated_objective: str
@@ -47,15 +54,11 @@ class SubworkerEnvelope:
 
         # T034: depth limit
         if self.current_depth >= self.max_depth:
-            errors.append(
-                f"delegation_cycle_or_depth_limit:current={self.current_depth},max={self.max_depth}"
-            )
+            errors.append(f"delegation_cycle_or_depth_limit:current={self.current_depth},max={self.max_depth}")
         if self.max_depth > _MAX_DEPTH_LIMIT:
             errors.append(f"max_depth_exceeds_system_limit:{self.max_depth}>{_MAX_DEPTH_LIMIT}")
         if self.max_children > _MAX_CHILDREN_LIMIT:
-            errors.append(
-                f"max_children_exceeds_system_limit:{self.max_children}>{_MAX_CHILDREN_LIMIT}"
-            )
+            errors.append(f"max_children_exceeds_system_limit:{self.max_children}>{_MAX_CHILDREN_LIMIT}")
         return errors
 
     def is_expired(self) -> bool:

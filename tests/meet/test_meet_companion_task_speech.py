@@ -28,8 +28,14 @@ def publication(*, avatar=True, update=lambda _clock, _state: None):
             pending.set_result(state)
             controls.step()
 
-    media = SimpleNamespace(speaking=Mock(side_effect=lambda value, cooperate: (
-        cooperate(), SpeechAvatarPublisher(ports, encoder=fake_encoder).prepare(value)[1])[1]))
+    media = SimpleNamespace(
+        speaking=Mock(
+            side_effect=lambda value, cooperate: (
+                cooperate(),
+                SpeechAvatarPublisher(ports, encoder=fake_encoder).prepare(value)[1],
+            )[1]
+        )
+    )
     publisher = AssignedCompanionSpeech(controls, media, ports, cooperate=cooperate)
     return SimpleNamespace(**locals())
 
@@ -56,7 +62,7 @@ def test_assigned_long_speech_uses_one_pcm_timeline_and_cooperative_clip_prepara
 
 def test_disabled_avatar_does_not_render_or_publish_clips_and_speech_still_completes():
     f = publication(avatar=False)
-    pcm = pcm_bytes(tone(.5))
+    pcm = pcm_bytes(tone(0.5))
     try:
         generation, report = f.publisher.publish(pcm)
         assert generation is None and report["sync_complete"] is False and report["retired_segments"] == 1
@@ -81,7 +87,7 @@ def test_avatar_revoked_during_preparation_cannot_open_prepared_video_or_stop_sp
         return clips
 
     f.media.speaking.side_effect = revoked
-    pcm = pcm_bytes(tone(.5))
+    pcm = pcm_bytes(tone(0.5))
     try:
         _generation, report = f.publisher.publish(pcm)
         assert report["sync_complete"] is False

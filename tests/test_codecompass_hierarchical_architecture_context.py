@@ -5,7 +5,6 @@ from pathlib import Path
 
 import jsonschema
 
-from agent.services.codecompass_architecture_budget import resolve_architecture_budget
 from agent.services.codecompass_architecture_diagram_service import (
     CodeCompassArchitectureDiagramService,
 )
@@ -28,9 +27,27 @@ def _records():
     return [
         {"id": "ananta", "kind": "system", "name": "Ananta", "path": "README.md", "content": "hub-worker platform"},
         {"id": "cc", "kind": "subsystem", "name": "CodeCompass", "path": "docs/codecompass.md", "parent_id": "ananta"},
-        {"id": "planner", "kind": "component_service", "name": "Context Planner", "path": "agent/services/codecompass_context_planner_service.py", "parent_id": "cc"},
-        {"id": "planner-file", "kind": "file", "name": "codecompass_context_planner_service.py", "path": "agent/services/codecompass_context_planner_service.py", "parent_id": "planner"},
-        {"id": "plan-fn", "kind": "python_function", "name": "plan_architecture_prefill", "path": "agent/services/codecompass_context_planner_service.py", "parent_id": "planner-file"},
+        {
+            "id": "planner",
+            "kind": "component_service",
+            "name": "Context Planner",
+            "path": "agent/services/codecompass_context_planner_service.py",
+            "parent_id": "cc",
+        },
+        {
+            "id": "planner-file",
+            "kind": "file",
+            "name": "codecompass_context_planner_service.py",
+            "path": "agent/services/codecompass_context_planner_service.py",
+            "parent_id": "planner",
+        },
+        {
+            "id": "plan-fn",
+            "kind": "python_function",
+            "name": "plan_architecture_prefill",
+            "path": "agent/services/codecompass_context_planner_service.py",
+            "parent_id": "planner-file",
+        },
         {"id": "mystery", "kind": "weird_blob", "name": "???", "path": ""},
     ]
 
@@ -46,7 +63,12 @@ def _edges():
 
 
 def _capability():
-    return {"workspace_id": "ws-1", "revision": "rev-1", "tenant_id": "t1", "allowed_paths": ["agent", "docs", "README.md"]}
+    return {
+        "workspace_id": "ws-1",
+        "revision": "rev-1",
+        "tenant_id": "t1",
+        "allowed_paths": ["agent", "docs", "README.md"],
+    }
 
 
 def test_schema_accepts_five_level_slice() -> None:
@@ -102,9 +124,7 @@ def test_projection_adapts_persisted_graph_vocabulary() -> None:
         revision="rev",
     )
 
-    assert [node["level"] for node in projected["nodes"]] == [
-        "system", "subsystem", "component", "file"
-    ]
+    assert [node["level"] for node in projected["nodes"]] == ["system", "subsystem", "component", "file"]
     assert len(projected["edges"]) == 3
     assert {edge["relation"] for edge in projected["edges"]} == {"contains"}
 
@@ -135,7 +155,8 @@ def test_capability_fail_closed_and_redaction() -> None:
         assert str(exc) == "empty_scope"
     leaked = service.build_slice(
         query="secret",
-        records=_records() + [{"id": "sec", "kind": "file", "name": "secret", "path": "secret/key.py", "content": "password=hunter2"}],
+        records=_records()
+        + [{"id": "sec", "kind": "file", "name": "secret", "path": "secret/key.py", "content": "password=hunter2"}],
         capability=_capability(),
     )
     assert all("secret/key.py" not in str(node.get("path") or "") for node in leaked["nodes"])
@@ -155,8 +176,18 @@ def test_system_question_prefers_system_before_files() -> None:
 
 def test_broad_codecompass_query_prefers_explanatory_entrypoints() -> None:
     records = [
-        {"id": "migration", "kind": "source_file", "name": "codecompass_hardening.py", "file": "agent/services/codecompass_hardening.py"},
-        {"id": "architecture", "kind": "source_file", "name": "codecompass_architecture_slice_service.py", "file": "agent/services/codecompass_architecture_slice_service.py"},
+        {
+            "id": "migration",
+            "kind": "source_file",
+            "name": "codecompass_hardening.py",
+            "file": "agent/services/codecompass_hardening.py",
+        },
+        {
+            "id": "architecture",
+            "kind": "source_file",
+            "name": "codecompass_architecture_slice_service.py",
+            "file": "agent/services/codecompass_architecture_slice_service.py",
+        },
     ]
 
     payload = CodeCompassArchitectureSliceService().build_slice(
@@ -170,7 +201,13 @@ def test_broad_codecompass_query_prefers_explanatory_entrypoints() -> None:
 
 def test_summary_cache_invalidates_on_revision_change() -> None:
     service = CodeCompassArchitectureSummaryService()
-    node = {"id": "cc", "title": "CodeCompass", "level": "subsystem", "source_refs": ["docs/codecompass.md"], "short_summary": "context layer"}
+    node = {
+        "id": "cc",
+        "title": "CodeCompass",
+        "level": "subsystem",
+        "source_refs": ["docs/codecompass.md"],
+        "short_summary": "context layer",
+    }
     first = service.summarize(node, revision="rev-1")
     second = service.summarize(node, revision="rev-2")
     assert first["cache_key"] != second["cache_key"]

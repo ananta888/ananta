@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import re
-import ast
 from typing import Any, Optional
 from warnings import warn
 
@@ -16,9 +16,10 @@ from agent.services.execution_focused_planning import (
 from agent.services.execution_focused_planning import (
     match_execution_focused_goal_template,
 )
-from agent.services.planning_template_catalog import get_planning_template_catalog
-from agent.services.planning_output_shape_classifier import classify_output_shape
 from agent.services.planning_format_error_analyzer import analyze_format_errors
+from agent.services.planning_output_shape_classifier import classify_output_shape
+from agent.services.planning_template_catalog import get_planning_template_catalog
+
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}
 SUSPICIOUS_TASK_PATTERNS = [
     r"\bignore\b",
@@ -41,6 +42,7 @@ _ACTIONABLE_VERBS = (
     "build",
 )
 _CONCRETE_TARGET_HINTS = ("file", "endpoint", "command", "artifact", "/", ".py", ".md", ".json", "api")
+
 
 def _load_goal_templates_from_catalog() -> dict[str, dict]:
     catalog = get_planning_template_catalog()
@@ -203,7 +205,10 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
         if extracted:
             return extracted
 
-    if any(str(payload.get(key) or "").strip() for key in ("title", "name", "description", "task", "detail", "recommendation")):
+    if any(
+        str(payload.get(key) or "").strip()
+        for key in ("title", "name", "description", "task", "detail", "recommendation")
+    ):
         return [payload]
 
     return _collect_task_like_items(payload)
@@ -297,7 +302,9 @@ def _looks_task_like(obj: object) -> bool:
     if not isinstance(obj, dict):
         return False
     has_title = any(str(obj.get(k) or "").strip() for k in ("title", "name", "task", "step", "layer", "area"))
-    has_desc = any(str(obj.get(k) or "").strip() for k in ("description", "detail", "content", "responsibility", "recommendation"))
+    has_desc = any(
+        str(obj.get(k) or "").strip() for k in ("description", "detail", "content", "responsibility", "recommendation")
+    )
     return bool(has_title or has_desc)
 
 
@@ -403,10 +410,10 @@ def _balanced_object_spans(text: str) -> list[tuple[int, int]]:
                 escaped = False
             elif ch == "\\":
                 escaped = True
-            elif ch == "\"":
+            elif ch == '"':
                 in_string = False
             continue
-        if ch == "\"":
+        if ch == '"':
             in_string = True
         elif ch == "{":
             if depth == 0:
@@ -480,7 +487,9 @@ def _bullet_subtasks(cleaned: str, default_priority: str) -> list[dict]:
     return tasks
 
 
-def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medium") -> tuple[list[dict], dict[str, Any]]:
+def parse_subtasks_with_diagnostics(
+    response: str, default_priority: str = "Medium"
+) -> tuple[list[dict], dict[str, Any]]:
     from agent.services.planning_parser_chain import run_parser_chain
 
     shape = classify_output_shape(response)
@@ -588,9 +597,7 @@ def parse_followup_analysis(raw_response: str, default_priority: str = "Medium")
     if isinstance(followups, list):
         normalized_followups = [
             item
-            for item in (
-                normalize_subtask(entry, default_priority=default_priority) for entry in followups
-            )
+            for item in (normalize_subtask(entry, default_priority=default_priority) for entry in followups)
             if item
         ][:5]
     suggestions = parsed.get("suggestions") if isinstance(parsed.get("suggestions"), list) else []
@@ -722,13 +729,15 @@ def build_planning_prompt_en(goal: str, context: Optional[str] = None, max_tasks
         pass
     try:
         from agent.services.system_prompt_catalog import get_system_prompt
+
         tpl = get_system_prompt("system.planning_fallback", "")
     except Exception:
         tpl = ""
     context_block = f"\nCONTEXT:\n{str(context).strip()}\n" if context else ""
     if tpl:
-        return tpl.format(goal=goal, context=str(context or "").strip(),
-                          max_tasks=max_tasks, context_block=context_block)
+        return tpl.format(
+            goal=goal, context=str(context or "").strip(), max_tasks=max_tasks, context_block=context_block
+        )
     prompt = (
         "You are a project planning assistant. Break down the following goal into concrete, "
         f"actionable subtasks. Output ONLY a valid JSON array with at least 5 and at most {max_tasks} tasks, "

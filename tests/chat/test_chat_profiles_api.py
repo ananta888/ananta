@@ -112,9 +112,7 @@ def test_setting_schema_is_deterministic_and_scope_aware(client):
     assert "openai" in api_base["visible_when"]["chat_backend"]
     assert "https://api.openai.com/v1" in api_base["suggestions"]
 
-    credential_ref = next(
-        item for item in response.json["settings"] if item["key"] == "chat_backend_credential_ref"
-    )
+    credential_ref = next(item for item in response.json["settings"] if item["key"] == "chat_backend_credential_ref")
     assert "openai" not in credential_ref["visible_when"]["chat_backend"]
 
 

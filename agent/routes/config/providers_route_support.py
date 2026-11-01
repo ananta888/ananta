@@ -4,6 +4,7 @@ Feature-flag and capability checks and input/rate-limit error responses used by
 :mod:`.providers` (catalog, default selection) and
 :mod:`.providers_model_routing` (routing configuration API).
 """
+
 from __future__ import annotations
 
 from flask import current_app, g, request
@@ -132,4 +133,3 @@ def _surface_rate_limit_response(namespace: str):
     response = result[0] if isinstance(result, tuple) else result
     response.headers["Retry-After"] = str(decision.retry_after_seconds)
     return result
-

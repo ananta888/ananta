@@ -149,15 +149,11 @@ def test_mcp_artifact_tool_and_resource_hide_system_managed_artifacts(
     admin_auth_header,
 ) -> None:
     _enable_mcp(app)
-    public = artifact_repo.save(
-        ArtifactDB(id="mcp-public-artifact", artifact_metadata={})
-    )
+    public = artifact_repo.save(ArtifactDB(id="mcp-public-artifact", artifact_metadata={}))
     hidden = artifact_repo.save(
         ArtifactDB(
             id="mcp-hidden-index-payload",
-            artifact_metadata={
-                "system_artifact_kind": "knowledge_index_job_payload"
-            },
+            artifact_metadata={"system_artifact_kind": "knowledge_index_job_payload"},
         )
     )
 
@@ -189,9 +185,7 @@ def test_mcp_artifact_tool_and_resource_hide_system_managed_artifacts(
     assert hidden.id not in tool_ids
 
     assert resource_response.status_code == 200
-    resource_payload = resource_response.get_json()["result"]["contents"][0][
-        "text"
-    ]
+    resource_payload = resource_response.get_json()["result"]["contents"][0]["text"]
     resource_ids = {item["id"] for item in resource_payload["items"]}
     assert public.id in resource_ids
     assert hidden.id not in resource_ids
@@ -364,7 +358,9 @@ def test_operation_inventory_is_admin_only_and_uses_registry_decisions(client, a
     from agent.auth import generate_token
     from agent.config import settings
 
-    admin_response = client.get("/governance/operations?transport=mcp.tool&access_class=read", headers=admin_auth_header)
+    admin_response = client.get(
+        "/governance/operations?transport=mcp.tool&access_class=read", headers=admin_auth_header
+    )
     assert admin_response.status_code == 200
     payload = admin_response.get_json()["data"]
     assert payload["schema"] == "ananta.operation_policy_inventory.v1"

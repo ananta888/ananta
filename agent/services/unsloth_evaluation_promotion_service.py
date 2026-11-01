@@ -144,9 +144,7 @@ class UnslothEvaluationPromotionService:
             "expected_registry_revision": request.expected_registry_revision,
         }
         payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        confirmation = hashlib.sha256(
-            f"unsloth-artifact-promotion:{payload_json}".encode()
-        ).hexdigest()
+        confirmation = hashlib.sha256(f"unsloth-artifact-promotion:{payload_json}".encode()).hexdigest()
         return PromotionPlan(
             tenant_id=request.tenant_id,
             payload_json=payload_json,
@@ -159,12 +157,9 @@ class UnslothEvaluationPromotionService:
         *,
         confirmation_digest: str,
     ) -> int:
-        expected = hashlib.sha256(
-            f"unsloth-artifact-promotion:{plan.payload_json}".encode()
-        ).hexdigest()
-        if (
-            not hmac.compare_digest(confirmation_digest, plan.confirmation_digest)
-            or not hmac.compare_digest(confirmation_digest, expected)
+        expected = hashlib.sha256(f"unsloth-artifact-promotion:{plan.payload_json}".encode()).hexdigest()
+        if not hmac.compare_digest(confirmation_digest, plan.confirmation_digest) or not hmac.compare_digest(
+            confirmation_digest, expected
         ):
             raise PromotionGateError(
                 "promotion_confirmation_invalid",
@@ -180,10 +175,7 @@ class UnslothEvaluationPromotionService:
                 self._storage_references.bind_reference(
                     tenant_id=plan.tenant_id,
                     reference_kind="promotion",
-                    reference_id=(
-                        f"{payload['artifact_id']}:"
-                        f"{payload['expected_registry_revision'] + 1}"
-                    ),
+                    reference_id=(f"{payload['artifact_id']}:{payload['expected_registry_revision'] + 1}"),
                     artifact_id=payload["artifact_id"],
                     artifact_sha256=payload["artifact_sha256"],
                 )
@@ -268,9 +260,7 @@ class UnslothEvaluationPromotionService:
             ("adapter_id", request.adapter_id, snapshot.adapter_id),
         )
         if any(
-            not requested
-            or not observed
-            or not hmac.compare_digest(str(requested), str(observed))
+            not requested or not observed or not hmac.compare_digest(str(requested), str(observed))
             for _name, requested, observed in identity_pairs
         ):
             raise PromotionGateError(
@@ -288,9 +278,7 @@ class UnslothEvaluationPromotionService:
             ("export_sha256", request.export_sha256, snapshot.export_sha256),
         )
         if any(
-            not requested
-            or not observed
-            or not hmac.compare_digest(str(requested), str(observed))
+            not requested or not observed or not hmac.compare_digest(str(requested), str(observed))
             for _name, requested, observed in hash_pairs
         ):
             raise PromotionGateError(

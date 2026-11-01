@@ -2,6 +2,7 @@
 
 Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 """
+
 from __future__ import annotations
 
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState
@@ -21,9 +22,11 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
         elif token:
             try:
                 import base64 as _b64
+
                 parts = token.split(".")
                 pad = parts[1] + "=" * (-len(parts[1]) % 4)
                 import json as _json
+
                 claims = _json.loads(_b64.b64decode(pad))
                 username = str(claims.get("preferred_username") or claims.get("email") or claims.get("sub") or "")
                 msg = f"OIDC: eingeloggt als {username}"
@@ -34,8 +37,9 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
         return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)
 
     if sub == "login":
-        from client_surfaces.operator_tui.network_profile import oidc_issuer, get_active_profile
+        from client_surfaces.operator_tui.network_profile import get_active_profile, oidc_issuer
         from client_surfaces.operator_tui.oidc_device_flow import DeviceFlowPoller
+
         issuer = oidc_issuer()
         if not issuer:
             msg = "Kein OIDC Issuer konfiguriert. ANANTA_NETWORK_PROFILE=public-ananta setzen."
@@ -69,6 +73,7 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
             # Poller als Attribut auf dem Shell-Objekt setzen (via Sidecar-Dict im game)
             game["_oidc_device_flow_active"] = True
             import client_surfaces.operator_tui.oidc_device_flow as _odf
+
             _odf._active_poller = poller
             msg = f"OIDC Device Flow gestartet. Browser öffnen: {flow_state.verification_uri}  Code: {flow_state.user_code}"
             return CommandResult(
@@ -108,10 +113,13 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
         game.pop("oidc_device_flow", None)
         game.pop("_oidc_device_flow_active", None)
         from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
+
         set_share_oidc_token("")
         import client_surfaces.operator_tui.oidc_device_flow as _odf
+
         _odf._active_poller = None
         from client_surfaces.operator_tui.snake_persistence import clear_oidc_token
+
         clear_oidc_token()
         msg = "OIDC: ausgeloggt"
         return CommandResult(

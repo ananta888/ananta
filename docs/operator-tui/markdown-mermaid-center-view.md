@@ -100,6 +100,7 @@ Or use a `DocumentSource`:
 
 ```python
 from client_surfaces.operator_tui.visual.markdown.document_source import inline_source
+
 state = {"document_source": inline_source("# Title\n\nContent")}
 ```
 

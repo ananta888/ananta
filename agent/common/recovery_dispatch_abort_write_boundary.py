@@ -20,9 +20,7 @@ class RecoveryDispatchAbortWriteAuthority:
     target_status: str
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoveryDispatchAbortWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoveryDispatchAbortWriteAuthority | None] = ContextVar(
     "ananta_recovery_dispatch_abort_write_authority",
     default=None,
 )
@@ -38,13 +36,9 @@ def _revision(value: Any) -> int:
     try:
         revision = int(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "recovery_dispatch_abort_authority_invalid"
-        ) from exc
+        raise ValueError("recovery_dispatch_abort_authority_invalid") from exc
     if revision < 0:
-        raise ValueError(
-            "recovery_dispatch_abort_authority_invalid"
-        )
+        raise ValueError("recovery_dispatch_abort_authority_invalid")
     return revision
 
 
@@ -64,28 +58,17 @@ def _authority(
         task_id=normalized_task_id,
         current_revision=current_revision,
         proposed_revision=proposed_revision,
-        phase=str(
-            current.get("phase")
-            or current.get("accepted_result_phase")
-            or ""
-        ).strip(),
-        token_digest=str(
-            current.get("token_digest") or ""
-        ).strip(),
-        request_fingerprint=str(
-            current.get("request_fingerprint") or ""
-        ).strip(),
-        reason_code=str(
-            proposed.get("revocation_reason") or ""
-        ).strip(),
+        phase=str(current.get("phase") or current.get("accepted_result_phase") or "").strip(),
+        token_digest=str(current.get("token_digest") or "").strip(),
+        request_fingerprint=str(current.get("request_fingerprint") or "").strip(),
+        reason_code=str(proposed.get("revocation_reason") or "").strip(),
         target_status=str(target_status or "").strip().lower(),
     )
     if (
         not authority.task_id
         or authority.phase not in {"propose", "execute"}
         or proposed.get("state") != "revoked"
-        or authority.proposed_revision
-        != authority.current_revision + 1
+        or authority.proposed_revision != authority.current_revision + 1
         or not authority.reason_code
         or len(authority.reason_code.encode("utf-8")) > 160
         or authority.target_status
@@ -97,9 +80,7 @@ def _authority(
             "timeout",
         }
     ):
-        raise ValueError(
-            "recovery_dispatch_abort_authority_invalid"
-        )
+        raise ValueError("recovery_dispatch_abort_authority_invalid")
     return authority
 
 

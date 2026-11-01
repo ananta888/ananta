@@ -8,10 +8,7 @@ from ananta_contracts.knowledge_index_payload_capability import (
     encode_knowledge_index_payload_capability,
 )
 
-
-KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER = (
-    KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER
-)
+KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER = KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER
 KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER = "X-Ananta-Knowledge-Index-Job-ID"
 KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER = "X-Ananta-Knowledge-Index-ID"
 KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER = "X-Ananta-Knowledge-Index-Run-ID"

@@ -44,11 +44,7 @@ def test_restricted_model_mount_is_read_only_and_runtime_is_offline() -> None:
 
     for service_name in RESTRICTED_SERVICES:
         service = services[service_name]
-        model_mount = next(
-            volume
-            for volume in service["volumes"]
-            if volume.get("target") == "/models/restricted"
-        )
+        model_mount = next(volume for volume in service["volumes"] if volume.get("target") == "/models/restricted")
         environment = service["environment"]
         assert model_mount["read_only"] is True
         assert model_mount["bind"]["create_host_path"] is False
@@ -56,10 +52,7 @@ def test_restricted_model_mount_is_read_only_and_runtime_is_offline() -> None:
         assert environment["TRANSFORMERS_OFFLINE"] == "1"
         assert environment["RESTRICTED_INFERENCE_ALLOW_MODEL_DOWNLOAD"] == "false"
         assert environment["RESTRICTED_INFERENCE_REQUIRE_INTERNAL_AUTH"] == "true"
-        assert all(
-            "noexec" in mount and "nosuid" in mount and "nodev" in mount
-            for mount in service["tmpfs"]
-        )
+        assert all("noexec" in mount and "nosuid" in mount and "nodev" in mount for mount in service["tmpfs"])
 
 
 def test_restricted_profiles_define_cpu_memory_and_pid_limits() -> None:

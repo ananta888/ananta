@@ -102,15 +102,27 @@ def test_full_scan_worker_writes_plan_summary_progress_and_diagram(tmp_path):
     def fake_run(prompt, **kwargs):
         prompts.append(prompt)
         if "architecture_batch_analysis.v1" in prompt:
-            return 0, json.dumps({
-                "schema": "architecture_batch_analysis.v1",
-                "analyzed_refs": [{"path": "agent/routes/snakes.py"}],
-                "components": [{"name": "Snake Route", "source": "agent/routes/snakes.py"}],
-                "edges": [{"from": "Snake Route", "to": "RagService", "relation": "calls"}],
-                "source_evidence": [{"source": "agent/routes/snakes.py", "source_kind": "file_excerpt", "note": "route"}],
-                "confidence": 0.8,
-            }), ""
-        return 0, "```mermaid\nflowchart TD\nSnakeRoute-->RagService\n```\n\nQuellen: agent/routes/snakes.py, agent/services/rag_service.py", ""
+            return (
+                0,
+                json.dumps(
+                    {
+                        "schema": "architecture_batch_analysis.v1",
+                        "analyzed_refs": [{"path": "agent/routes/snakes.py"}],
+                        "components": [{"name": "Snake Route", "source": "agent/routes/snakes.py"}],
+                        "edges": [{"from": "Snake Route", "to": "RagService", "relation": "calls"}],
+                        "source_evidence": [
+                            {"source": "agent/routes/snakes.py", "source_kind": "file_excerpt", "note": "route"}
+                        ],
+                        "confidence": 0.8,
+                    }
+                ),
+                "",
+            )
+        return (
+            0,
+            "```mermaid\nflowchart TD\nSnakeRoute-->RagService\n```\n\nQuellen: agent/routes/snakes.py, agent/services/rag_service.py",
+            "",
+        )
 
     with (
         patch("agent.cli_backends.sgpt._resolve_repo_root", return_value=repo),
@@ -137,7 +149,9 @@ def test_full_scan_worker_writes_plan_summary_progress_and_diagram(tmp_path):
     assert summary["schema"] == "architecture_analysis_summary.v1"
     assert summary["coverage"]["processed_refs"] == 4
     assert progress["processed_refs"] == 4
-    assert any("Strukturierte Summary" in prompt for prompt in prompts if "architecture_batch_analysis.v1" not in prompt)
+    assert any(
+        "Strukturierte Summary" in prompt for prompt in prompts if "architecture_batch_analysis.v1" not in prompt
+    )
 
 
 def test_full_scan_resume_skips_processed_batches(tmp_path):

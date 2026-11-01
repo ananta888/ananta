@@ -37,4 +37,3 @@ def test_tool_calling_strategy_uses_instruction_stack_prompt_and_checksum(monkey
     assert result.status == "executable"
     assert result.proposal.metadata["prompt_context_bundle"]["instruction_stack_checksum"] == "stack-int-1"
     assert "INSTRUCTION STACK" in mock_llm.call_args.kwargs["system_prompt"]
-

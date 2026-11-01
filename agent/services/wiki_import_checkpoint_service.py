@@ -41,4 +41,3 @@ class WikiImportCheckpointService:
         path = self.path_for(source_id=source_id, corpus_path=corpus_path, index_path=index_path)
         path.write_text(json.dumps(dict(checkpoint or {}), ensure_ascii=False, sort_keys=True), encoding="utf-8")
         return path
-

@@ -5,9 +5,9 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from agent.services.propose_policy import ProposePolicy
 from agent.services.planning_contract import resolve_planning_contract
 from agent.services.planning_validation_service import get_planning_validation_service
+from agent.services.propose_policy import ProposePolicy
 
 ERR_TIMEOUT = "context_compactor_timeout"
 ERR_UNPARSEABLE = "context_compactor_unparseable_output"
@@ -47,14 +47,25 @@ class PlanningContextCompactorService:
         tail = max_chars - head
         return raw[:head] + "\n...[truncated]...\n" + raw[-tail:]
 
-    def _pre_trim(self, value: Any, *, max_chars: int, max_items: int, truncated_fields: list[str], path: str = "root") -> Any:
+    def _pre_trim(
+        self, value: Any, *, max_chars: int, max_items: int, truncated_fields: list[str], path: str = "root"
+    ) -> Any:
         if isinstance(value, str):
             trimmed = self._trim_text(value, max_chars=max_chars)
             if trimmed != value:
                 truncated_fields.append(path)
             return trimmed
         if isinstance(value, list):
-            out = [self._pre_trim(v, max_chars=max_chars, max_items=max_items, truncated_fields=truncated_fields, path=f"{path}[{idx}]") for idx, v in enumerate(value[:max_items])]
+            out = [
+                self._pre_trim(
+                    v,
+                    max_chars=max_chars,
+                    max_items=max_items,
+                    truncated_fields=truncated_fields,
+                    path=f"{path}[{idx}]",
+                )
+                for idx, v in enumerate(value[:max_items])
+            ]
             if len(value) > max_items:
                 truncated_fields.append(path)
                 out.append({"_omitted_items": len(value) - max_items})
@@ -73,11 +84,15 @@ class PlanningContextCompactorService:
                     if out[key] != v:
                         truncated_fields.append(child_path)
                     continue
-                out[key] = self._pre_trim(v, max_chars=max_chars, max_items=max_items, truncated_fields=truncated_fields, path=child_path)
+                out[key] = self._pre_trim(
+                    v, max_chars=max_chars, max_items=max_items, truncated_fields=truncated_fields, path=child_path
+                )
             return out
         return value
 
-    def _deterministic_constraints(self, goal_text: str, context_text: str, preserve_keywords: list[str]) -> tuple[list[str], list[str]]:
+    def _deterministic_constraints(
+        self, goal_text: str, context_text: str, preserve_keywords: list[str]
+    ) -> tuple[list[str], list[str]]:
         blob = f"{goal_text}\n{context_text}".lower()
         hard: list[str] = []
         non_neg: list[str] = []
@@ -90,7 +105,9 @@ class PlanningContextCompactorService:
             non_neg = ["must_keep_constraints"]
         return list(dict.fromkeys(hard)), list(dict.fromkeys(non_neg))
 
-    def _base_payload(self, *, goal_text: str, context_text: str, hard: list[str], non_neg: list[str], trimmed_mode_data: Any) -> dict[str, Any]:
+    def _base_payload(
+        self, *, goal_text: str, context_text: str, hard: list[str], non_neg: list[str], trimmed_mode_data: Any
+    ) -> dict[str, Any]:
         relevant = []
         if goal_text:
             relevant.append(self._trim_text(goal_text, max_chars=1200))
@@ -108,7 +125,9 @@ class PlanningContextCompactorService:
             "open_questions": [],
         }
 
-    def _validate_payload(self, payload: dict[str, Any], *, max_output_chars: int, hard_constraints: list[str], non_negotiables: list[str]) -> tuple[bool, str | None]:
+    def _validate_payload(
+        self, payload: dict[str, Any], *, max_output_chars: int, hard_constraints: list[str], non_negotiables: list[str]
+    ) -> tuple[bool, str | None]:
         required = [
             "goal_summary",
             "hard_constraints",
@@ -121,7 +140,9 @@ class PlanningContextCompactorService:
         for key in required:
             if key not in payload:
                 return False, ERR_SCHEMA
-        if not isinstance(payload.get("hard_constraints"), list) or not isinstance(payload.get("non_negotiables"), list):
+        if not isinstance(payload.get("hard_constraints"), list) or not isinstance(
+            payload.get("non_negotiables"), list
+        ):
             return False, ERR_SCHEMA
         if len(json.dumps(payload, ensure_ascii=False)) > max_output_chars:
             return False, ERR_SCHEMA
@@ -133,7 +154,9 @@ class PlanningContextCompactorService:
                 return False, ERR_CONTRACT_CONSTRAINT_LOSS
         return True, None
 
-    def _llm_compact(self, *, trimmed_input: dict[str, Any], policy: ProposePolicy, llm_config: dict[str, Any] | None) -> tuple[dict[str, Any] | None, str | None, dict[str, Any]]:
+    def _llm_compact(
+        self, *, trimmed_input: dict[str, Any], policy: ProposePolicy, llm_config: dict[str, Any] | None
+    ) -> tuple[dict[str, Any] | None, str | None, dict[str, Any]]:
         cfg = dict(llm_config or {})
         provider = str(cfg.get("provider") or "").strip() or None
         model = str(cfg.get("model") or "").strip() or None
@@ -163,20 +186,36 @@ class PlanningContextCompactorService:
                     text = text[4:].strip()
             parsed = json.loads(text)
             if not isinstance(parsed, dict):
-                return None, ERR_UNPARSEABLE, {
+                return (
+                    None,
+                    ERR_UNPARSEABLE,
+                    {
+                        "provider": provider,
+                        "model": model,
+                        "duration_ms": int((time.time() - started) * 1000),
+                    },
+                )
+            return (
+                parsed,
+                None,
+                {
                     "provider": provider,
                     "model": model,
                     "duration_ms": int((time.time() - started) * 1000),
-                }
-            return parsed, None, {
-                "provider": provider,
-                "model": model,
-                "duration_ms": int((time.time() - started) * 1000),
-            }
+                },
+            )
         except TimeoutError:
-            return None, ERR_TIMEOUT, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+            return (
+                None,
+                ERR_TIMEOUT,
+                {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)},
+            )
         except Exception:
-            return None, ERR_RUNTIME, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+            return (
+                None,
+                ERR_RUNTIME,
+                {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)},
+            )
 
     def _llm_repair_compact(
         self,
@@ -215,12 +254,28 @@ class PlanningContextCompactorService:
             text = str(raw.get("text") if isinstance(raw, dict) else raw or "").strip()
             parsed = json.loads(text)
             if not isinstance(parsed, dict):
-                return None, ERR_UNPARSEABLE, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
-            return parsed, None, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+                return (
+                    None,
+                    ERR_UNPARSEABLE,
+                    {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)},
+                )
+            return (
+                parsed,
+                None,
+                {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)},
+            )
         except TimeoutError:
-            return None, ERR_TIMEOUT, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+            return (
+                None,
+                ERR_TIMEOUT,
+                {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)},
+            )
         except Exception:
-            return None, ERR_RUNTIME, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+            return (
+                None,
+                ERR_RUNTIME,
+                {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)},
+            )
 
     def compact(
         self,
@@ -359,7 +414,10 @@ class PlanningContextCompactorService:
             subtasks=[
                 {
                     "title": "Compactor constraints preservation",
-                    "description": " ".join(list(final_payload.get("hard_constraints") or []) + list(final_payload.get("non_negotiables") or [])),
+                    "description": " ".join(
+                        list(final_payload.get("hard_constraints") or [])
+                        + list(final_payload.get("non_negotiables") or [])
+                    ),
                     "task_kind": "analysis",
                 },
                 {
@@ -383,7 +441,9 @@ class PlanningContextCompactorService:
         if not contract_validation.ok and status != "bypassed":
             status = "failed"
             error_classification = ERR_CONTRACT_CONSTRAINT_LOSS
-        reduction_ratio = 1.0 if input_chars <= 0 else round(max(0.0, min(1.0, output_chars / float(max(1, input_chars)))), 4)
+        reduction_ratio = (
+            1.0 if input_chars <= 0 else round(max(0.0, min(1.0, output_chars / float(max(1, input_chars)))), 4)
+        )
         meta = {
             "input_chars": int(input_chars),
             "output_chars": int(output_chars),

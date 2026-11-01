@@ -30,9 +30,7 @@ def _mutation_locks(lock_port: Any, lock_ids: list[str]):
         return
     with contextlib.ExitStack() as stack:
         for lock_id in sorted(set(lock_ids)):
-            acquired = stack.enter_context(
-                lock_port.mutation_lock(lock_id)
-            )
+            acquired = stack.enter_context(lock_port.mutation_lock(lock_id))
             if not acquired:
                 yield False
                 return
@@ -47,10 +45,9 @@ def _merge_rag_sources(
 ) -> dict:
     try:
         from flask import current_app, has_app_context
+
         agent_cfg = (
-            current_app.config.get("AGENT_CONFIG", {}) or {}
-            if include_global_defaults and has_app_context()
-            else {}
+            current_app.config.get("AGENT_CONFIG", {}) or {} if include_global_defaults and has_app_context() else {}
         )
     except Exception:
         agent_cfg = {}
@@ -61,17 +58,17 @@ def _merge_rag_sources(
     def _ids(src: dict, key: str) -> list[str]:
         return [str(v).strip() for v in list(src.get(key) or []) if str(v).strip()]
 
-    collection_ids = list(dict.fromkeys(
-        _ids(goal_sources, "knowledge_collection_ids")
-        + (_ids(kc_cfg, "knowledge_collection_ids") if include_defaults else [])
-    ))
-    artifact_ids = list(dict.fromkeys(
-        _ids(goal_sources, "artifact_ids")
-        + (_ids(kc_cfg, "artifact_ids") if include_defaults else [])
-    ))
-    repo_scope_refs = (
-        list(goal_sources.get("repo_scope_refs") or [])
-        + (list(kc_cfg.get("repo_scope_refs") or []) if include_defaults else [])
+    collection_ids = list(
+        dict.fromkeys(
+            _ids(goal_sources, "knowledge_collection_ids")
+            + (_ids(kc_cfg, "knowledge_collection_ids") if include_defaults else [])
+        )
+    )
+    artifact_ids = list(
+        dict.fromkeys(_ids(goal_sources, "artifact_ids") + (_ids(kc_cfg, "artifact_ids") if include_defaults else []))
+    )
+    repo_scope_refs = list(goal_sources.get("repo_scope_refs") or []) + (
+        list(kc_cfg.get("repo_scope_refs") or []) if include_defaults else []
     )
     if not collection_ids and not artifact_ids and not repo_scope_refs:
         return {}
@@ -110,9 +107,7 @@ class TaskLifecycleService:
             "template_name": str(rationale.get("template_name") or "").strip(),
             "template_id": str(rationale.get("template_id") or "").strip(),
         }
-        blueprint_provenance = {
-            key: value for key, value in blueprint_provenance.items() if value
-        }
+        blueprint_provenance = {key: value for key, value in blueprint_provenance.items() if value}
         shell_command_mode = str(rationale.get("shell_command_mode") or "").strip() or None
         task_kind = str(rationale.get("task_kind") or "").strip().lower()
         output_dir = ""
@@ -131,12 +126,17 @@ class TaskLifecycleService:
                     goal_context_text = str(goal.goal or "").strip()
                     goal_rag_sources = dict((goal.execution_preferences or {}).get("rag_sources") or {})
                     goal_mode_data = dict(goal.mode_data or {})
-                    goal_execution_contract = dict((goal.execution_preferences or {}).get("goal_execution_contract") or {})
-                    _snap_cfg = dict(((goal.execution_preferences or {}).get("config_snapshot") or {}).get("config") or {})
+                    goal_execution_contract = dict(
+                        (goal.execution_preferences or {}).get("goal_execution_contract") or {}
+                    )
+                    _snap_cfg = dict(
+                        ((goal.execution_preferences or {}).get("config_snapshot") or {}).get("config") or {}
+                    )
                     _wr_cfg = dict((_snap_cfg.get("worker_runtime") or {}))
                     _reuse_mode = str(_wr_cfg.get("workspace_reuse_mode") or "").strip().lower()
                     if _reuse_mode == "goal_worker":
                         import re as _re
+
                         _raw_gid = str(goal_id).strip().lower()
                         _safe_gid = _re.sub(r"[^a-z0-9._-]+", "-", _raw_gid).strip("-.")
                         goal_scope_key = _safe_gid or None
@@ -147,10 +147,8 @@ class TaskLifecycleService:
                 pass
             try:
                 from flask import current_app, has_app_context
-                if (
-                    derivation_reason != "goal_task_recovery"
-                    and has_app_context()
-                ):
+
+                if derivation_reason != "goal_task_recovery" and has_app_context():
                     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
                     global_git_ws = dict((agent_cfg.get("workspace") or {}).get("git_workspace") or {})
                     if global_git_ws.get("enabled"):
@@ -168,14 +166,14 @@ class TaskLifecycleService:
         research_context_input = _merge_rag_sources(
             goal_rag_sources,
             task_kind,
-            include_global_defaults=(
-                derivation_reason != "goal_task_recovery"
-            ),
+            include_global_defaults=(derivation_reason != "goal_task_recovery"),
         )
         verification_spec = dict(node.verification_spec or {})
 
         deterministic_repair_foundation = goal_mode_data.get("deterministic_repair_foundation")
-        if isinstance(deterministic_repair_foundation, dict) and deterministic_repair_foundation.get("repair_procedure"):
+        if isinstance(deterministic_repair_foundation, dict) and deterministic_repair_foundation.get(
+            "repair_procedure"
+        ):
             extra_context = {"deterministic_repair_foundation": deterministic_repair_foundation}
         else:
             extra_context = {}
@@ -198,12 +196,18 @@ class TaskLifecycleService:
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
             },
             **({"context": {"context_text": goal_context_text}} if goal_context_text else {}),
-            **({"workspace": {
-                **({"output_dir": output_dir} if output_dir else {}),
-                **({"git_workspace": goal_git_workspace_cfg} if goal_git_workspace_cfg else {}),
-                **({"scope_key": goal_scope_key} if goal_scope_key else {}),
-                **({"sync_mode": goal_workspace_sync_mode} if goal_workspace_sync_mode else {}),
-            }} if (output_dir or goal_git_workspace_cfg or goal_scope_key or goal_workspace_sync_mode) else {}),
+            **(
+                {
+                    "workspace": {
+                        **({"output_dir": output_dir} if output_dir else {}),
+                        **({"git_workspace": goal_git_workspace_cfg} if goal_git_workspace_cfg else {}),
+                        **({"scope_key": goal_scope_key} if goal_scope_key else {}),
+                        **({"sync_mode": goal_workspace_sync_mode} if goal_workspace_sync_mode else {}),
+                    }
+                }
+                if (output_dir or goal_git_workspace_cfg or goal_scope_key or goal_workspace_sync_mode)
+                else {}
+            ),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
             **({"research_context_input": research_context_input} if research_context_input else {}),
             **extra_context,
@@ -214,12 +218,8 @@ class TaskLifecycleService:
             plan_node_id=node.id,
             expected_artifacts=list(verification_spec.get("expected_artifacts") or []),
         )
-        worker_execution_context["worker_execution_contract"] = dict(
-            worker_execution_contract or {}
-        )
-        worker_execution_context["expected_artifacts"] = list(
-            verification_spec.get("expected_artifacts") or []
-        )
+        worker_execution_context["worker_execution_contract"] = dict(worker_execution_contract or {})
+        worker_execution_context["expected_artifacts"] = list(verification_spec.get("expected_artifacts") or [])
         from agent.services.task_mutation_lock_service import (
             get_task_mutation_lock_port,
         )
@@ -228,20 +228,12 @@ class TaskLifecycleService:
         if goal_id:
             lock_ids.add(goal_mutation_lock_id(goal_id))
         if source_task_id or parent_task_id:
-            lock_ids.add(
-                str(source_task_id or parent_task_id)
-            )
-        with get_task_mutation_lock_port().mutation_locks(
-            lock_ids
-        ) as acquired:
+            lock_ids.add(str(source_task_id or parent_task_id))
+        with get_task_mutation_lock_port().mutation_locks(lock_ids) as acquired:
             if not acquired:
-                raise RuntimeError(
-                    f"task_materialization_fence_unavailable:{task_id}"
-                )
+                raise RuntimeError(f"task_materialization_fence_unavailable:{task_id}")
             if goal_id:
-                authoritative_goal = goal_repo.get_by_id(
-                    str(goal_id)
-                )
+                authoritative_goal = goal_repo.get_by_id(str(goal_id))
                 if (
                     authoritative_goal is None
                     or str(
@@ -256,9 +248,7 @@ class TaskLifecycleService:
                     .lower()
                     in GoalLifecycleService._TERMINAL_GOAL_STATUSES
                 ):
-                    raise RuntimeError(
-                        f"goal_terminal_task_materialization_denied:{goal_id}"
-                    )
+                    raise RuntimeError(f"goal_terminal_task_materialization_denied:{goal_id}")
             get_task_queue_service().ingest_task(
                 task_id=task_id,
                 status=str(initial_status or "todo"),
@@ -272,48 +262,44 @@ class TaskLifecycleService:
                 event_channel="planning_service",
                 event_details={"plan_id": plan_id, "plan_node_id": node.id, "goal_id": goal_id},
                 extra_fields={
-                "goal_id": goal_id,
-                "goal_trace_id": goal_trace_id,
-                "plan_id": plan_id,
-                # tasks.plan_node_id carries a foreign key to plan_nodes, and a
-                # plan node is only persisted when its plan is. Pointing at a
-                # node that was never written fails that key, so without a plan
-                # the reference is left out; the same ids stay in
-                # worker_execution_context for tracing, where nothing enforces
-                # them.
-                "plan_node_id": node.id if plan_id else None,
-                "task_kind": rationale.get("task_kind"),
-                "retrieval_intent": rationale.get("retrieval_intent"),
-                "required_context_scope": rationale.get("required_context_scope"),
-                "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
-                "required_capabilities": list(rationale.get("required_capabilities") or []),
-                "verification_spec": verification_spec,
-                "expected_artifacts": list(verification_spec.get("expected_artifacts") or []),
-                "worker_execution_context": worker_execution_context,
-                "worker_execution_contract": worker_execution_contract,
-                "status_reason_details": {
-                    "materialized_from_plan": True,
-                    "planning_provenance": {
-                        "plan_id": plan_id,
-                        "plan_node_id": node.id,
-                        "blueprint_role_defaults": dict((rationale or {}).get("blueprint_role_defaults") or {}),
-                        **blueprint_provenance,
+                    "goal_id": goal_id,
+                    "goal_trace_id": goal_trace_id,
+                    "plan_id": plan_id,
+                    # tasks.plan_node_id carries a foreign key to plan_nodes, and a
+                    # plan node is only persisted when its plan is. Pointing at a
+                    # node that was never written fails that key, so without a plan
+                    # the reference is left out; the same ids stay in
+                    # worker_execution_context for tracing, where nothing enforces
+                    # them.
+                    "plan_node_id": node.id if plan_id else None,
+                    "task_kind": rationale.get("task_kind"),
+                    "retrieval_intent": rationale.get("retrieval_intent"),
+                    "required_context_scope": rationale.get("required_context_scope"),
+                    "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
+                    "required_capabilities": list(rationale.get("required_capabilities") or []),
+                    "verification_spec": verification_spec,
+                    "expected_artifacts": list(verification_spec.get("expected_artifacts") or []),
+                    "worker_execution_context": worker_execution_context,
+                    "worker_execution_contract": worker_execution_contract,
+                    "status_reason_details": {
+                        "materialized_from_plan": True,
+                        "planning_provenance": {
+                            "plan_id": plan_id,
+                            "plan_node_id": node.id,
+                            "blueprint_role_defaults": dict((rationale or {}).get("blueprint_role_defaults") or {}),
+                            **blueprint_provenance,
+                        },
+                        "artifact_traceability": {
+                            "plan_node_id": node.id,
+                            "artifact_trace_id": str((rationale or {}).get("artifact_trace_id") or ""),
+                            "expected_artifacts_count": len(list(verification_spec.get("expected_artifacts") or [])),
+                        },
                     },
-                    "artifact_traceability": {
-                        "plan_node_id": node.id,
-                        "artifact_trace_id": str((rationale or {}).get("artifact_trace_id") or ""),
-                        "expected_artifacts_count": len(list(verification_spec.get("expected_artifacts") or [])),
-                    },
-                },
-                "parent_task_id": parent_task_id,
-                "source_task_id": (
-                    source_task_id
-                    if source_task_id is not None
-                    else parent_task_id
-                ),
-                "derivation_reason": derivation_reason,
-                "derivation_depth": derivation_depth,
-                "depends_on": depends_on if depends_on else None,
+                    "parent_task_id": parent_task_id,
+                    "source_task_id": (source_task_id if source_task_id is not None else parent_task_id),
+                    "derivation_reason": derivation_reason,
+                    "derivation_depth": derivation_depth,
+                    "depends_on": depends_on if depends_on else None,
                 },
             )
 
@@ -365,15 +351,8 @@ class GoalLifecycleService:
     def _recovery_source_ids(tasks: list[Any]) -> list[str]:
         source_ids: set[str] = set()
         for task in tasks:
-            if (
-                str(
-                    getattr(task, "derivation_reason", "") or ""
-                )
-                == "goal_task_recovery"
-            ):
-                source_task_id = str(
-                    getattr(task, "source_task_id", "") or ""
-                ).strip()
+            if str(getattr(task, "derivation_reason", "") or "") == "goal_task_recovery":
+                source_task_id = str(getattr(task, "source_task_id", "") or "").strip()
                 if source_task_id:
                     source_ids.add(source_task_id)
             recovery = dict(
@@ -388,9 +367,7 @@ class GoalLifecycleService:
                 or {}
             )
             if str(recovery.get("plan_id") or "").strip():
-                task_id = str(
-                    getattr(task, "id", "") or ""
-                ).strip()
+                task_id = str(getattr(task, "id", "") or "").strip()
                 if task_id:
                     source_ids.add(task_id)
         return sorted(source_ids)
@@ -405,21 +382,12 @@ class GoalLifecycleService:
         # Lock every current Goal task.  Any of them can become a recovery
         # source while the terminal transition is racing.
         lock_ids = {
-            str(getattr(task, "id", "") or "").strip()
-            for task in tasks
-            if str(getattr(task, "id", "") or "").strip()
+            str(getattr(task, "id", "") or "").strip() for task in tasks if str(getattr(task, "id", "") or "").strip()
         }
         lock_ids.update(cls._recovery_source_ids(tasks))
         for task in tasks:
-            if (
-                str(
-                    getattr(task, "derivation_reason", "") or ""
-                )
-                == "goal_task_recovery"
-            ):
-                task_id = str(
-                    getattr(task, "id", "") or ""
-                ).strip()
+            if str(getattr(task, "derivation_reason", "") or "") == "goal_task_recovery":
+                task_id = str(getattr(task, "id", "") or "").strip()
                 if task_id:
                     lock_ids.add(task_id)
         if goal_id:
@@ -450,25 +418,13 @@ class GoalLifecycleService:
         readiness: dict[str, Any] | None = None,
     ) -> GoalDB:
         normalized_target = str(target_status or goal.status)
-        goal_id = str(
-            getattr(goal, "id", "") or ""
-        ).strip()
+        goal_id = str(getattr(goal, "id", "") or "").strip()
         goal_tasks = (
-            [
-                task
-                for task in task_repo.get_all()
-                if str(
-                    getattr(task, "goal_id", "") or ""
-                ).strip()
-                == goal_id
-            ]
+            [task for task in task_repo.get_all() if str(getattr(task, "goal_id", "") or "").strip() == goal_id]
             if goal_id
             else []
         )
-        terminal_transition = bool(
-            normalized_target in self._TERMINAL_GOAL_STATUSES
-            and goal_id
-        )
+        terminal_transition = bool(normalized_target in self._TERMINAL_GOAL_STATUSES and goal_id)
         if not terminal_transition:
             return self._transition_goal_under_recovery_fence(
                 goal,
@@ -499,43 +455,30 @@ class GoalLifecycleService:
                 lock_ids,
             ) as acquired:
                 if not acquired:
-                    raise RuntimeError(
-                        "goal_recovery_fence_unavailable:" + goal_id
-                    )
+                    raise RuntimeError("goal_recovery_fence_unavailable:" + goal_id)
                 fenced_goal_tasks = [
-                    task
-                    for task in task_repo.get_all()
-                    if str(
-                        getattr(task, "goal_id", "") or ""
-                    ).strip()
-                    == goal_id
+                    task for task in task_repo.get_all() if str(getattr(task, "goal_id", "") or "").strip() == goal_id
                 ]
                 required_ids = self._recovery_lock_ids(
                     fenced_goal_tasks,
                     goal_id=goal_id,
                 )
                 if not set(required_ids).issubset(lock_ids):
-                    retry_with_ids = sorted(
-                        set(lock_ids).union(required_ids)
-                    )
+                    retry_with_ids = sorted(set(lock_ids).union(required_ids))
                 else:
-                    saved_goal = (
-                        self._transition_goal_under_recovery_fence(
-                            goal,
-                            normalized_target=normalized_target,
-                            reason=reason,
-                            readiness=readiness,
-                            goal_tasks=fenced_goal_tasks,
-                        )
+                    saved_goal = self._transition_goal_under_recovery_fence(
+                        goal,
+                        normalized_target=normalized_target,
+                        reason=reason,
+                        readiness=readiness,
+                        goal_tasks=fenced_goal_tasks,
                     )
             if retry_with_ids is not None:
                 lock_ids = retry_with_ids
                 continue
             break
         if saved_goal is None:
-            raise RuntimeError(
-                "goal_recovery_fence_snapshot_unstable:" + goal_id
-            )
+            raise RuntimeError("goal_recovery_fence_snapshot_unstable:" + goal_id)
 
         if terminal_transition:
             try:
@@ -568,20 +511,15 @@ class GoalLifecycleService:
         if reason:
             current = dict(goal.execution_preferences or {})
             current["last_status_reason"] = str(reason)
-            scoped = get_goal_config_runtime_service().get_effective_config(goal_id=str(getattr(goal, "id", "") or "").strip() or None)
+            scoped = get_goal_config_runtime_service().get_effective_config(
+                goal_id=str(getattr(goal, "id", "") or "").strip() or None
+            )
             current["goal_config_source"] = str(scoped.source or "global_fallback")
             goal.execution_preferences = current
         saved_goal = goal_repo.save(goal)
-        if (
-            normalized_target in self._TERMINAL_GOAL_STATUSES
-            and str(getattr(goal, "id", "") or "").strip()
-        ):
+        if normalized_target in self._TERMINAL_GOAL_STATUSES and str(getattr(goal, "id", "") or "").strip():
             goal_id = str(goal.id)
-            sweep_status = (
-                "failed"
-                if normalized_target in {"failed", "completed"}
-                else "cancelled"
-            )
+            sweep_status = "failed" if normalized_target in {"failed", "completed"} else "cancelled"
             for task in goal_tasks:
                 task_status = str(getattr(task, "status", "") or "").strip().lower()
                 if task_status in self._TERMINAL_TASK_STATUSES:
@@ -603,24 +541,16 @@ class GoalLifecycleService:
                         update_local_task_status(
                             task_id,
                             sweep_status,
-                            error=(
-                                f"goal_terminal:{normalized_target}"
-                            ),
-                            event_type=(
-                                "goal_terminal_task_sweep"
-                            ),
-                            event_actor=(
-                                "goal_lifecycle_service"
-                            ),
+                            error=(f"goal_terminal:{normalized_target}"),
+                            event_type=("goal_terminal_task_sweep"),
+                            event_actor=("goal_lifecycle_service"),
                             event_details=event_details,
                             force=True,
                         )
                         continue
 
                     invalidated_at = time.time()
-                    reason_code = (
-                        f"goal_terminal:{normalized_target}"
-                    )
+                    reason_code = f"goal_terminal:{normalized_target}"
                     details = dict(
                         getattr(
                             task,
@@ -629,33 +559,21 @@ class GoalLifecycleService:
                         )
                         or {}
                     )
-                    lease = details.get(
-                        "recovery_dispatch_lease"
-                    )
+                    lease = details.get("recovery_dispatch_lease")
                     previous_lease = None
                     invalidated_lease = None
-                    if isinstance(lease, dict) and str(
-                        lease.get("state") or ""
-                    ) in {"active", "worker_admitted"}:
+                    if isinstance(lease, dict) and str(lease.get("state") or "") in {"active", "worker_admitted"}:
                         previous_lease = dict(lease)
                         invalidated_lease = {
                             **lease,
                             "state": "revoked",
-                            "revision": int(
-                                lease.get("revision") or 0
-                            )
-                            + 1,
+                            "revision": int(lease.get("revision") or 0) + 1,
                             "revoked_at": invalidated_at,
                             "revocation_reason": reason_code,
                         }
-                        details[
-                            "recovery_dispatch_lease"
-                        ] = invalidated_lease
+                        details["recovery_dispatch_lease"] = invalidated_lease
                     marker = {
-                        "schema": (
-                            "ananta.recovery_owner_terminal_"
-                            "invalidation.v1"
-                        ),
+                        "schema": ("ananta.recovery_owner_terminal_invalidation.v1"),
                         "task_id": task_id,
                         "goal_id": goal_id,
                         "goal_status": normalized_target,
@@ -664,9 +582,7 @@ class GoalLifecycleService:
                         "reason_code": reason_code,
                         "invalidated_at": invalidated_at,
                     }
-                    details[
-                        "recovery_owner_terminal_invalidation"
-                    ] = marker
+                    details["recovery_owner_terminal_invalidation"] = marker
                     from agent.common.recovery_owner_terminal_write_boundary import (
                         authorize_recovery_owner_terminal_write,
                     )
@@ -678,10 +594,7 @@ class GoalLifecycleService:
                                 marker=marker,
                             )
                         )
-                        if (
-                            previous_lease is not None
-                            and invalidated_lease is not None
-                        ):
+                        if previous_lease is not None and invalidated_lease is not None:
                             from agent.common.recovery_dispatch_invalidation_write_boundary import (
                                 authorize_recovery_dispatch_invalidation_write,
                             )
@@ -698,12 +611,8 @@ class GoalLifecycleService:
                             sweep_status,
                             status_reason_details=details,
                             error=reason_code,
-                            event_type=(
-                                "goal_terminal_task_sweep"
-                            ),
-                            event_actor=(
-                                "goal_lifecycle_service"
-                            ),
+                            event_type=("goal_terminal_task_sweep"),
+                            event_actor=("goal_lifecycle_service"),
                             event_details=event_details,
                             force=True,
                         )
@@ -714,7 +623,6 @@ class GoalLifecycleService:
                         getattr(task, "id", ""),
                     )
         return saved_goal
-
 
     def recover_stalled_planning_goal(self, goal: GoalDB) -> GoalDB:
         """Re-triggers planning for a goal stuck in 'planning' with no tasks.
@@ -737,12 +645,15 @@ class GoalLifecycleService:
         # If there is a very recent started planning run, do not trigger a second plan call.
         try:
             from agent.services.repository_registry import get_repository_registry
+
             planning_runs = [
                 r
                 for r in get_repository_registry().planning_run_repo.get_by_goal_id(goal_id, limit=20)
                 if str(getattr(r, "goal_id", "") or "") == goal_id
             ]
-            started_runs = [r for r in planning_runs if str(getattr(r, "status", "") or "").strip().lower() == "started"]
+            started_runs = [
+                r for r in planning_runs if str(getattr(r, "status", "") or "").strip().lower() == "started"
+            ]
             if started_runs:
                 latest_started = sorted(
                     started_runs,
@@ -765,7 +676,9 @@ class GoalLifecycleService:
             return goal
         if last_attempt_at and (now_ts - last_attempt_at) < 60:
             return goal
-        recovery.update({"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": "stalled_planning_no_tasks"})
+        recovery.update(
+            {"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": "stalled_planning_no_tasks"}
+        )
         execution_preferences["planning_recovery"] = recovery
         goal.execution_preferences = execution_preferences
         goal = goal_repo.save(goal)

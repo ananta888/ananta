@@ -14,7 +14,6 @@ from alembic.operations import Operations
 from sqlalchemy import inspect
 from sqlmodel import create_engine
 
-
 MIGRATION_MODULE = "migrations.versions.3bf2c3d4e5f6_add_sfu_broadcast_projections"
 PROJECTION_TABLES = (
     "sfu_broadcast_audiences",
@@ -46,17 +45,19 @@ def _create_room_state_table(connection) -> sa.Table:
     )
     metadata.create_all(connection)
     now = time.time()
-    connection.execute(table.insert().values(
-        id="room-state-a",
-        tenant_id="tenant-a",
-        session_id="session-a",
-        revision=3,
-        participants=[],
-        publications=[{"publication_id": "publication-a"}],
-        subscriptions=[{"subscription_id": "subscription-b"}],
-        created_at=now,
-        updated_at=now,
-    ))
+    connection.execute(
+        table.insert().values(
+            id="room-state-a",
+            tenant_id="tenant-a",
+            session_id="session-a",
+            revision=3,
+            participants=[],
+            publications=[{"publication_id": "publication-a"}],
+            subscriptions=[{"subscription_id": "subscription-b"}],
+            created_at=now,
+            updated_at=now,
+        )
+    )
     return table
 
 
@@ -145,10 +146,7 @@ def _route(identifier: str = "route-a-b", **overrides) -> dict:
 
 def _tables(connection) -> tuple[sa.Table, sa.Table, sa.Table]:
     metadata = sa.MetaData()
-    return tuple(
-        sa.Table(name, metadata, autoload_with=connection)
-        for name in PROJECTION_TABLES
-    )
+    return tuple(sa.Table(name, metadata, autoload_with=connection) for name in PROJECTION_TABLES)
 
 
 def _assert_schema(connection) -> None:
@@ -192,41 +190,51 @@ def _exercise_projection_guards(connection) -> None:
 
     _expect_integrity(
         connection,
-        audiences.insert().values(**_audience(
-            "stale-audience",
-            room_state_revision=2,
-            status="pending",
-        )),
+        audiences.insert().values(
+            **_audience(
+                "stale-audience",
+                room_state_revision=2,
+                status="pending",
+            )
+        ),
     )
     _expect_integrity(
         connection,
-        audiences.insert().values(**_audience(
-            "orphan-publication",
-            publication_ref="invented-publication",
-            status="pending",
-        )),
+        audiences.insert().values(
+            **_audience(
+                "orphan-publication",
+                publication_ref="invented-publication",
+                status="pending",
+            )
+        ),
     )
     _expect_integrity(
         connection,
-        groups.insert().values(**_receiver_group(
-            "orphan-subscription",
-            subscription_ref="invented-subscription",
-            status="pending",
-        )),
+        groups.insert().values(
+            **_receiver_group(
+                "orphan-subscription",
+                subscription_ref="invented-subscription",
+                status="pending",
+            )
+        ),
     )
     _expect_integrity(
         connection,
-        routes.insert().values(**_route(
-            "expired-route",
-            status="active",
-            created_at=time.time() - 120,
-            expires_at=time.time() - 60,
-            retain_until=time.time() + 60,
-        )),
+        routes.insert().values(
+            **_route(
+                "expired-route",
+                status="active",
+                created_at=time.time() - 120,
+                expires_at=time.time() - 60,
+                retain_until=time.time() + 60,
+            )
+        ),
     )
     _expect_integrity(
         connection,
-        audiences.update().where(audiences.c.id == "audience-a").values(
+        audiences.update()
+        .where(audiences.c.id == "audience-a")
+        .values(
             version=1,
             fencing_token=6,
             updated_at=time.time(),
@@ -240,10 +248,7 @@ def test_sfu_broadcast_migration_upgrade_guards_and_safe_rollback(monkeypatch) -
     with engine.begin() as connection:
         connection.execute(sa.text("CREATE TABLE legacy_sfu_control (id VARCHAR PRIMARY KEY)"))
         _create_room_state_table(connection)
-        base_columns = {
-            column["name"]
-            for column in inspect(connection).get_columns("semantic_sfu_room_states")
-        }
+        base_columns = {column["name"] for column in inspect(connection).get_columns("semantic_sfu_room_states")}
         _install_operations(migration, connection, monkeypatch)
         migration.upgrade()
         migration.upgrade()
@@ -264,8 +269,7 @@ def test_sfu_broadcast_migration_upgrade_guards_and_safe_rollback(monkeypatch) -
             "semantic_sfu_room_states",
         }
         assert {
-            column["name"]
-            for column in inspect(connection).get_columns("semantic_sfu_room_states")
+            column["name"] for column in inspect(connection).get_columns("semantic_sfu_room_states")
         } == base_columns
 
 
@@ -331,9 +335,7 @@ def test_sfu_broadcast_migration_on_postgresql(monkeypatch) -> None:
             connection.execute(groups.delete())
             connection.execute(audiences.delete())
             migration.downgrade()
-            assert set(inspect(connection).get_table_names()) == {
-                "semantic_sfu_room_states"
-            }
+            assert set(inspect(connection).get_table_names()) == {"semantic_sfu_room_states"}
     finally:
         with engine.begin() as connection:
             connection.execute(sa.text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))

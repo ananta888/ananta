@@ -34,7 +34,9 @@ class CodeCompassArchitectureDiagramService:
                 }
             lines = ["sequenceDiagram"]
             for edge in call_edges:
-                lines.append(f"    {_label(_node(nodes, edge['source']))}->>{_label(_node(nodes, edge['target']))}: calls")
+                lines.append(
+                    f"    {_label(_node(nodes, edge['source']))}->>{_label(_node(nodes, edge['target']))}: calls"
+                )
             return {"status": "ok", "reason": "", "format": "mermaid", "diagram": "\n".join(lines)}
 
         lines = ["flowchart LR"]
@@ -42,7 +44,7 @@ class CodeCompassArchitectureDiagramService:
             lines.append(f'    {node["id"]}["{_label(node)}"]')
         for edge in edges:
             if edge.get("source") in node_ids and edge.get("target") in node_ids:
-                lines.append(f'    {edge["source"]} -->|{edge["relation"]}| {edge["target"]}')
+                lines.append(f"    {edge['source']} -->|{edge['relation']}| {edge['target']}")
         return {"status": "ok", "reason": "", "format": "mermaid", "diagram": "\n".join(lines)}
 
 

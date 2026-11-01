@@ -11,6 +11,7 @@ Outcomes:
   propose    — context suggests AI handoff; no new heuristic lease acquired
   no_change  — lease still valid, nothing to do
 """
+
 from __future__ import annotations
 
 import time
@@ -22,7 +23,6 @@ from agent.db_models import HeuristicDecisionLeaseDB
 from agent.repositories.heuristic_lease_repo import HeuristicLeaseRepository
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicRegistry, get_heuristic_registry
-
 
 _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS = 20.0
 _EXPERIMENTAL_LIVE_DEFAULT_TTL_SECONDS = 10.0
@@ -126,7 +126,7 @@ class LeaseReevaluationService:
             _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS,
         )
 
-        now = float(now_ts or time.time())
+        float(now_ts or time.time())
 
         try:
             lease = self._repo.acquire(
@@ -209,6 +209,7 @@ _SAFETY_ORDER = {"safety_critical": 3, "bounded": 2, "low_risk": 1}
 
 def _select_best(candidates: list, ctx: DecisionContext) -> Any:
     """Prefer deterministic heuristics; break ties by safety_class rank."""
+
     def score(h: Any) -> tuple[int, int]:
         det = 1 if getattr(h, "deterministic", False) else 0
         safety = _SAFETY_ORDER.get(getattr(h, "safety_class", "low_risk"), 0)

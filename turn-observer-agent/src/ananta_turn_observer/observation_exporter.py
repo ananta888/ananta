@@ -78,9 +78,9 @@ class ObservationExporter:
         document["boot_id"] = self.boot_id
         document["sequence"] = sequence
         canonical = self._canonical(document)
-        document["signature"] = base64.b64encode(
-            self._private_key.sign(self.SIGNING_CONTEXT + canonical)
-        ).decode("ascii")
+        document["signature"] = base64.b64encode(self._private_key.sign(self.SIGNING_CONTEXT + canonical)).decode(
+            "ascii"
+        )
         pending.append({"enqueued_at": int(self._wall_clock()), "document": document})
         state = {"boot_id": self.boot_id, "last_sequence": sequence, "pending": pending}
         self._persist(state)

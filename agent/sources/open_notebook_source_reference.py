@@ -40,10 +40,7 @@ def build_source_reference(metadata: Mapping[str, Any]) -> dict[str, Any]:
     if record_kind not in _RECORD_KINDS:
         record_kind = "primary_source"
 
-    source_id = (
-        str(payload.get("registry_source_id") or "").strip()
-        or str(payload.get("source_id") or "").strip()
-    )
+    source_id = str(payload.get("registry_source_id") or "").strip() or str(payload.get("source_id") or "").strip()
     if not source_id:
         raise ValueError("unverified_source_reference:source_id_missing")
     chunk_id = str(payload.get("chunk_id") or "").strip()

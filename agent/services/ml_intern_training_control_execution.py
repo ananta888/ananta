@@ -276,7 +276,9 @@ class MlInternTrainingControlExecutionMixin:
                 return
             try:
                 self._repository.append_event(
-                    principal, job_id, event_type="evidence_completion_pending",
+                    principal,
+                    job_id,
+                    event_type="evidence_completion_pending",
                     dedupe_key=f"evidence-pending:{projected.active_attempt_id}:{projected.version}",
                     payload={"reason_code": str(getattr(exc, "reason_code", "evidence_completion_failed"))[:128]},
                 )

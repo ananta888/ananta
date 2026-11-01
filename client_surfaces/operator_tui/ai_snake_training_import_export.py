@@ -186,7 +186,8 @@ def _merge_patterns_with_conflicts(
     normalized_strategy = aliases.get(strategy, strategy)
     valid_strategy = (
         normalized_strategy
-        if normalized_strategy in {"keep_higher_confidence", "overwrite", "keep_local", "merge_counters", "import_disabled_copy"}
+        if normalized_strategy
+        in {"keep_higher_confidence", "overwrite", "keep_local", "merge_counters", "import_disabled_copy"}
         else "keep_higher_confidence"
     )
     result_by_id: dict[str, dict[str, Any]] = {}

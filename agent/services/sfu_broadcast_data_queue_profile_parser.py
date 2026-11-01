@@ -18,7 +18,6 @@ from agent.services.sfu_broadcast_data_queue_models import (
     DataQueuePolicyError,
     DataTrafficClass,
     DeliveryScope,
-    _is_handle,
     QueueCleanupProfile,
     QueueLimits,
     QueueOverflowAction,
@@ -27,8 +26,8 @@ from agent.services.sfu_broadcast_data_queue_models import (
     TrafficAuthority,
     TrafficClassProfile,
     TrafficKindRule,
+    _is_handle,
 )
-
 
 _ALLOWED_KINDS = frozenset(member.value for member in DataTrafficClass)
 _FORBIDDEN_KINDS = frozenset(
@@ -41,9 +40,7 @@ _FORBIDDEN_KINDS = frozenset(
         "evidence_payload",
     }
 )
-_AUTHORITATIVE_KINDS = frozenset(
-    {"authoritative_membership_mutation", "authoritative_key_mutation"}
-)
+_AUTHORITATIVE_KINDS = frozenset({"authoritative_membership_mutation", "authoritative_key_mutation"})
 _REASON_CODE = re.compile(r"^[A-Z][A-Z0-9_]{2,95}$")
 _LIMIT_FIELDS = (
     "queue_bytes_max",
@@ -95,9 +92,7 @@ def parse_sfu_broadcast_data_queue_profile(
         raise DataQueuePolicyError("payload_inspection must be forbidden")
     _parse_accounting(root["accounting"])
 
-    class_document = _require_object(
-        root["per_destination_class"], "per_destination_class"
-    )
+    class_document = _require_object(root["per_destination_class"], "per_destination_class")
     _require_exact_keys(class_document, set(_ALLOWED_KINDS), "per_destination_class")
     class_profiles: dict[DataTrafficClass, TrafficClassProfile] = {}
     for traffic_class in DataTrafficClass:
@@ -132,9 +127,7 @@ def parse_sfu_broadcast_data_queue_profile(
     traffic_kinds = _parse_traffic_kinds(root["traffic_kinds"])
     reason_codes = _parse_reason_codes(root["reason_codes"])
     cleanup = _parse_cleanup(root["cleanup"])
-    if cleanup.sweep_interval_ms >= min(
-        profile.limits.age_ms_max for profile in class_profiles.values()
-    ):
+    if cleanup.sweep_interval_ms >= min(profile.limits.age_ms_max for profile in class_profiles.values()):
         raise DataQueuePolicyError("cleanup sweep must be shorter than every age cap")
 
     return SfuBroadcastDataQueueProfile(
@@ -184,16 +177,10 @@ def _parse_class_profile(
         overflow_action = QueueOverflowAction(document["overflow_action"])
     except (TypeError, ValueError) as exc:
         raise DataQueuePolicyError(f"{path}.overflow_action is invalid") from exc
-    reason_code = _require_reason_code(
-        document["overflow_reason_code"], f"{path}.overflow_reason_code"
-    )
-    coalesce_required = _require_bool(
-        document["coalesce_key_required"], f"{path}.coalesce_key_required"
-    )
+    reason_code = _require_reason_code(document["overflow_reason_code"], f"{path}.overflow_reason_code")
+    coalesce_required = _require_bool(document["coalesce_key_required"], f"{path}.coalesce_key_required")
     if coalesce_required != (overflow_action is QueueOverflowAction.COALESCE):
-        raise DataQueuePolicyError(
-            f"{path}.coalesce_key_required must match coalesce overflow action"
-        )
+        raise DataQueuePolicyError(f"{path}.coalesce_key_required must match coalesce overflow action")
     return TrafficClassProfile(
         traffic_class=traffic_class,
         priority=priority,
@@ -209,24 +196,16 @@ def _parse_queue_limits(value: object, path: str) -> QueueLimits:
     fields = {*_LIMIT_FIELDS, "age_ms_max"}
     _require_exact_keys(document, fields, path)
     return QueueLimits(
-        queue_bytes_max=_require_bounded_int(
-            document["queue_bytes_max"], f"{path}.queue_bytes_max", 1, 8_388_608
-        ),
-        messages_max=_require_bounded_int(
-            document["messages_max"], f"{path}.messages_max", 1, 4096
-        ),
-        age_ms_max=_require_bounded_int(
-            document["age_ms_max"], f"{path}.age_ms_max", 1, 60_000
-        ),
+        queue_bytes_max=_require_bounded_int(document["queue_bytes_max"], f"{path}.queue_bytes_max", 1, 8_388_608),
+        messages_max=_require_bounded_int(document["messages_max"], f"{path}.messages_max", 1, 4096),
+        age_ms_max=_require_bounded_int(document["age_ms_max"], f"{path}.age_ms_max", 1, 60_000),
         buffered_duration_ms_max=_require_bounded_int(
             document["buffered_duration_ms_max"],
             f"{path}.buffered_duration_ms_max",
             1,
             600_000,
         ),
-        chunk_count_max=_require_bounded_int(
-            document["chunk_count_max"], f"{path}.chunk_count_max", 1, 8192
-        ),
+        chunk_count_max=_require_bounded_int(document["chunk_count_max"], f"{path}.chunk_count_max", 1, 8192),
     )
 
 
@@ -234,21 +213,15 @@ def _parse_aggregate_limits(value: object, path: str) -> AggregateQueueLimits:
     document = _require_object(value, path)
     _require_exact_keys(document, set(_LIMIT_FIELDS), path)
     return AggregateQueueLimits(
-        queue_bytes_max=_require_bounded_int(
-            document["queue_bytes_max"], f"{path}.queue_bytes_max", 1, 16_777_216
-        ),
-        messages_max=_require_bounded_int(
-            document["messages_max"], f"{path}.messages_max", 1, 8192
-        ),
+        queue_bytes_max=_require_bounded_int(document["queue_bytes_max"], f"{path}.queue_bytes_max", 1, 16_777_216),
+        messages_max=_require_bounded_int(document["messages_max"], f"{path}.messages_max", 1, 8192),
         buffered_duration_ms_max=_require_bounded_int(
             document["buffered_duration_ms_max"],
             f"{path}.buffered_duration_ms_max",
             1,
             1_200_000,
         ),
-        chunk_count_max=_require_bounded_int(
-            document["chunk_count_max"], f"{path}.chunk_count_max", 1, 16_384
-        ),
+        chunk_count_max=_require_bounded_int(document["chunk_count_max"], f"{path}.chunk_count_max", 1, 16_384),
     )
 
 
@@ -341,10 +314,7 @@ def _parse_reason_codes(value: object) -> QueueReasonCodes:
         "cleanup_expired",
     }
     _require_exact_keys(document, fields, "reason_codes")
-    values = {
-        field: _require_reason_code(document[field], f"reason_codes.{field}")
-        for field in fields
-    }
+    values = {field: _require_reason_code(document[field], f"reason_codes.{field}") for field in fields}
     if len(set(values.values())) != len(values):
         raise DataQueuePolicyError("reason_codes must be unique")
     return QueueReasonCodes(**values)
@@ -358,9 +328,7 @@ def _parse_cleanup(value: object) -> QueueCleanupProfile:
         "cleanup",
     )
     return QueueCleanupProfile(
-        sweep_interval_ms=_require_bounded_int(
-            document["sweep_interval_ms"], "cleanup.sweep_interval_ms", 10, 1000
-        ),
+        sweep_interval_ms=_require_bounded_int(document["sweep_interval_ms"], "cleanup.sweep_interval_ms", 10, 1000),
         disconnect_after_blocked_ms=_require_bounded_int(
             document["disconnect_after_blocked_ms"],
             "cleanup.disconnect_after_blocked_ms",
@@ -379,9 +347,7 @@ def _validate_limit_hierarchy(
     for profile in classes.values():
         for field in _LIMIT_FIELDS:
             if getattr(profile.limits, field) > getattr(room, field):
-                raise DataQueuePolicyError(
-                    f"{profile.traffic_class.value}.{field} exceeds room limit"
-                )
+                raise DataQueuePolicyError(f"{profile.traffic_class.value}.{field} exceeds room limit")
     for adapter_name, adapter in (("browser", browser), ("hub", hub)):
         for field in _LIMIT_FIELDS:
             if getattr(room, field) > getattr(adapter, field):
@@ -394,9 +360,7 @@ def _require_object(value: object, path: str) -> Mapping[str, Any]:
     return value
 
 
-def _require_exact_keys(
-    value: Mapping[str, Any], expected: set[str], path: str
-) -> None:
+def _require_exact_keys(value: Mapping[str, Any], expected: set[str], path: str) -> None:
     actual = set(value)
     if actual != expected:
         raise DataQueuePolicyError(
@@ -432,9 +396,7 @@ def _require_bounded_int(
     maximum: int,
 ) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
-        raise DataQueuePolicyError(
-            f"{path} must be an integer between {minimum} and {maximum}"
-        )
+        raise DataQueuePolicyError(f"{path} must be an integer between {minimum} and {maximum}")
     return value
 
 

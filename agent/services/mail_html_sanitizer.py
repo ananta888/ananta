@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import html
 from html.parser import HTMLParser
-from typing import Iterable
 from urllib.parse import urlsplit
-
 
 _ALLOWED_TAGS = frozenset(
     {

@@ -166,7 +166,12 @@ def test_sgpt_execute_ml_intern_backend_when_enabled(client, admin_auth_header):
     assert cfg_res.status_code == 200
     with patch("agent.routes.sgpt.get_ml_intern_adapter_service") as mock_service_factory:
         mock_service = MagicMock()
-        mock_service.invoke_spike.return_value = {"ok": True, "stdout": "ml intern output", "stderr": "", "backend": "ml_intern"}
+        mock_service.invoke_spike.return_value = {
+            "ok": True,
+            "stdout": "ml intern output",
+            "stderr": "",
+            "backend": "ml_intern",
+        }
         mock_service_factory.return_value = mock_service
         response = client.post(
             "/api/sgpt/execute",
@@ -347,6 +352,7 @@ def test_sgpt_backends_endpoint(client, admin_auth_header):
 
 def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(app, client, admin_auth_header):
     from unittest.mock import MagicMock as _MagicMock
+
     _ms = _MagicMock()
     _ms.sgpt_execution_backend = "codex"
     _ms.codex_path = "codex"
@@ -359,16 +365,23 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(app, client,
     _ms.openai_url = "https://api.openai.com/v1/chat/completions"
     _ms.openai_api_key = None
     _ms.http_timeout = 5.0
-    with patch("agent.cli_backends.routing.shutil.which", side_effect=lambda cmd: f"/usr/bin/{cmd}" if cmd in {"codex", "opencode"} else None), patch(
-        "agent.llm_integration.probe_lmstudio_runtime",
-        return_value={
-            "ok": True,
-            "status": "ok",
-            "models_url": "http://host.docker.internal:1234/v1/models",
-            "candidate_count": 3,
-            "candidates": [{"id": "qwen2.5-coder"}],
-        },
-    ), SGPT_ROUTE_DEPENDENCIES.override(app, settings=_ms):
+    with (
+        patch(
+            "agent.cli_backends.routing.shutil.which",
+            side_effect=lambda cmd: f"/usr/bin/{cmd}" if cmd in {"codex", "opencode"} else None,
+        ),
+        patch(
+            "agent.llm_integration.probe_lmstudio_runtime",
+            return_value={
+                "ok": True,
+                "status": "ok",
+                "models_url": "http://host.docker.internal:1234/v1/models",
+                "candidate_count": 3,
+                "candidates": [{"id": "qwen2.5-coder"}],
+            },
+        ),
+        SGPT_ROUTE_DEPENDENCIES.override(app, settings=_ms),
+    ):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -383,7 +396,11 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(app, client,
     assert str(preflight["providers"]["codex"]["base_url"]).endswith("/v1")
     assert preflight["providers"]["codex"]["api_key_configured"] is True
     assert routing_dimensions["execution_backend_default"] == response.json["data"]["configured_backend"]
-    assert (routing_dimensions.get("codex_runtime_target") or {}).get("target_kind") in {"local_openai", "remote_openai_compatible", "remote_ananta_hub"}
+    assert (routing_dimensions.get("codex_runtime_target") or {}).get("target_kind") in {
+        "local_openai",
+        "remote_openai_compatible",
+        "remote_ananta_hub",
+    }
 
 
 def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_auth_header):
@@ -409,12 +426,17 @@ def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_
 
     assert response.status_code == 200
     providers = response.json["data"]["preflight"]["providers"]["local_openai"]
-    assert any(item["provider"] == "vllm_local" and item["base_url"] == "http://127.0.0.1:8010/v1" for item in providers)
-    assert any(item["provider"] == "vllm_local" and item["provider_type"] == "local_openai_compatible" for item in providers)
+    assert any(
+        item["provider"] == "vllm_local" and item["base_url"] == "http://127.0.0.1:8010/v1" for item in providers
+    )
+    assert any(
+        item["provider"] == "vllm_local" and item["provider_type"] == "local_openai_compatible" for item in providers
+    )
 
 
 def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(app, client, admin_auth_header):
     from unittest.mock import MagicMock as _MagicMock
+
     _ms = _MagicMock()
     _ms.sgpt_execution_backend = "codex"
     _ms.codex_path = "codex"
@@ -427,17 +449,20 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(app, c
     _ms.openai_url = "https://api.openai.com/v1/chat/completions"
     _ms.openai_api_key = None
     _ms.http_timeout = 5.0
-    with patch(
-        "agent.llm_integration.probe_lmstudio_runtime",
-        return_value={
-            "ok": False,
-            "status": "invalid_url",
-            "base_url": "not-a-valid-url",
-            "models_url": None,
-            "candidate_count": 0,
-            "candidates": [],
-        },
-    ), SGPT_ROUTE_DEPENDENCIES.override(app, settings=_ms):
+    with (
+        patch(
+            "agent.llm_integration.probe_lmstudio_runtime",
+            return_value={
+                "ok": False,
+                "status": "invalid_url",
+                "base_url": "not-a-valid-url",
+                "models_url": None,
+                "candidate_count": 0,
+                "candidates": [],
+            },
+        ),
+        SGPT_ROUTE_DEPENDENCIES.override(app, settings=_ms),
+    ):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -534,7 +559,9 @@ def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
             "strategy": {"repository_map": 3, "semantic_search": 1, "agentic_search": 1},
             "policy_version": "v1",
             "bundle_type": "retrieval_context",
-            "chunks": [{"engine": "repository_map", "source": "module.py", "content": "x", "score": 2.0, "metadata": {}}],
+            "chunks": [
+                {"engine": "repository_map", "source": "module.py", "content": "x", "score": 2.0, "metadata": {}}
+            ],
             "context_text": "selected context",
             "token_estimate": 30,
         },
@@ -586,7 +613,9 @@ def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app, admin_auth_h
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (0, "ok", "", "opencode")
         response = client.post(
-            "/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"}, headers=admin_auth_header
+            "/api/sgpt/execute",
+            json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"},
+            headers=admin_auth_header,
         )
 
     assert response.status_code == 200
@@ -608,7 +637,9 @@ def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app,
     }
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (0, "ok", "", "opencode")
-        response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header)
+        response = client.post(
+            "/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -627,7 +658,9 @@ def test_sgpt_execute_auto_routing_defaults_to_ananta_worker(client, app, admin_
     }
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (0, "ok", "", "ananta-worker")
-        response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header)
+        response = client.post(
+            "/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -655,7 +688,9 @@ def test_sgpt_execute_returns_context_limit_diagnostics_for_opencode_errors(clie
             'Error: "Cannot truncate prompt with n_keep (9801) >= n_ctx (4096)"',
             "opencode",
         )
-        response = client.post("/api/sgpt/execute", json={"prompt": "analyze", "backend": "opencode"}, headers=admin_auth_header)
+        response = client.post(
+            "/api/sgpt/execute", json={"prompt": "analyze", "backend": "opencode"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 500
     assert response.json["status"] == "error"

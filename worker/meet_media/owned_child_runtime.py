@@ -36,7 +36,7 @@ def main(arguments):
             if finished:
                 code = os.waitstatus_to_exitcode(status)
                 return code if code >= 0 else 128 - code
-            if select.select([parent_fd], [], [], .1)[0]:
+            if select.select([parent_fd], [], [], 0.1)[0]:
                 os.killpg(os.getpgrp(), signal.SIGKILL)
     finally:
         os.close(parent_fd)

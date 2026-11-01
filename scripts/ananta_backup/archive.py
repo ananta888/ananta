@@ -29,13 +29,8 @@ class BoundedTarInfo(tarfile.TarInfo):
         self._enter_extension(archive)
         try:
             payload = self._peek_extension_payload(archive)
-            if any(
-                key.startswith(b"GNU.sparse.")
-                for key in self._parse_pax_keys(payload)
-            ):
-                raise tarfile.InvalidHeaderError(
-                    "GNU sparse PAX metadata is forbidden"
-                )
+            if any(key.startswith(b"GNU.sparse.") for key in self._parse_pax_keys(payload)):
+                raise tarfile.InvalidHeaderError("GNU sparse PAX metadata is forbidden")
             return super()._proc_pax(archive)
         finally:
             self._leave_extension(archive)
@@ -53,21 +48,13 @@ class BoundedTarInfo(tarfile.TarInfo):
 
     def _require_bounded_extension(self) -> None:
         if self.size < 0 or self.size > _MAX_TAR_METADATA_BYTES:
-            raise tarfile.InvalidHeaderError(
-                "tar extended metadata exceeds the safety limit"
-            )
+            raise tarfile.InvalidHeaderError("tar extended metadata exceeds the safety limit")
 
     @staticmethod
     def _enter_extension(archive: tarfile.TarFile) -> None:
         depth = getattr(archive, "_ananta_extension_depth", 0)
-        if (
-            type(depth) is not int
-            or depth < 0
-            or depth >= _MAX_TAR_EXTENSION_DEPTH
-        ):
-            raise tarfile.InvalidHeaderError(
-                "tar extension header nesting exceeds the safety limit"
-            )
+        if type(depth) is not int or depth < 0 or depth >= _MAX_TAR_EXTENSION_DEPTH:
+            raise tarfile.InvalidHeaderError("tar extension header nesting exceeds the safety limit")
         archive._ananta_extension_depth = depth + 1
 
     @staticmethod
@@ -84,25 +71,15 @@ class BoundedTarInfo(tarfile.TarInfo):
         while position < len(payload) and payload[position] != 0:
             separator = payload.find(b" ", position)
             length_field = payload[position:separator]
-            if (
-                separator <= position
-                or len(length_field) > 20
-                or not length_field.isdigit()
-            ):
+            if separator <= position or len(length_field) > 20 or not length_field.isdigit():
                 raise tarfile.InvalidHeaderError("invalid PAX metadata")
             try:
                 record_length = int(length_field)
             except ValueError as exc:
-                raise tarfile.InvalidHeaderError(
-                    "invalid PAX metadata"
-                ) from exc
+                raise tarfile.InvalidHeaderError("invalid PAX metadata") from exc
             record_end = position + record_length
             minimum_length = separator - position + 4
-            if (
-                record_length < minimum_length
-                or record_end > len(payload)
-                or payload[record_end - 1] != 0x0A
-            ):
+            if record_length < minimum_length or record_end > len(payload) or payload[record_end - 1] != 0x0A:
                 raise tarfile.InvalidHeaderError("invalid PAX metadata")
             assignment = payload[separator + 1 : record_end - 1]
             key, equals, _value = assignment.partition(b"=")
@@ -122,9 +99,7 @@ class BoundedTarInfo(tarfile.TarInfo):
         block_size = self._block(self.size)
         payload = stream.read(block_size)
         if len(payload) != block_size:
-            raise tarfile.InvalidHeaderError(
-                "tar extended metadata is truncated"
-            )
+            raise tarfile.InvalidHeaderError("tar extended metadata is truncated")
         try:
             stream.seek(position)
         except (OSError, tarfile.StreamError):
@@ -137,9 +112,7 @@ class BoundedTarInfo(tarfile.TarInfo):
                 or not isinstance(getattr(stream, "buf", None), bytes)
                 or getattr(stream, "pos", None) != position + block_size
             ):
-                raise tarfile.InvalidHeaderError(
-                    "tar metadata replay is unavailable"
-                )
+                raise tarfile.InvalidHeaderError("tar metadata replay is unavailable")
             stream.buf = payload + stream.buf
             stream.pos = position
         return payload[: self.size]
@@ -167,15 +140,8 @@ class _TarStreamValidator:
             self.total_bytes += member.size
             if self.total_bytes > self.max_total_bytes:
                 raise BackupError("Archive exceeds the restore size limit")
-        if not (
-            member.isdir()
-            or member.isreg()
-            or member.issym()
-            or member.islnk()
-        ):
-            raise BackupError(
-                f"Special archive entry is forbidden: {member.name}"
-            )
+        if not (member.isdir() or member.isreg() or member.issym() or member.islnk()):
+            raise BackupError(f"Special archive entry is forbidden: {member.name}")
         return SafeTarExtractor.safe_relative(member.name)
 
 
@@ -329,11 +295,7 @@ class TreePlan:
         for entry in self.entries:
             source_path = self.source.joinpath(*entry.relative.parts)
             self._assert_unchanged(source_path, entry)
-            archive_name = (
-                self.archive_root / entry.relative
-                if self.archive_root is not None
-                else entry.relative
-            )
+            archive_name = self.archive_root / entry.relative if self.archive_root is not None else entry.relative
             info = archive.gettarinfo(str(source_path), arcname=str(archive_name))
             if entry.kind == "file":
                 info.type = tarfile.REGTYPE
@@ -351,10 +313,7 @@ class TreePlan:
             str(self.archive_root) if self.archive_root is not None else None,
             strict_files=self.strict_files,
         )
-        if (
-            current.root_entry != self.root_entry
-            or current.entries != self.entries
-        ):
+        if current.root_entry != self.root_entry or current.entries != self.entries:
             raise BackupError(f"{self.label} changed while it was being archived")
 
     @staticmethod
@@ -383,9 +342,7 @@ class GpgRecipient:
     def __init__(self, fingerprint: str) -> None:
         normalized = fingerprint.upper()
         if not _FINGERPRINT.fullmatch(normalized):
-            raise BackupError(
-                "Recipient file must contain one full 40- or 64-hex fingerprint"
-            )
+            raise BackupError("Recipient file must contain one full 40- or 64-hex fingerprint")
         self.fingerprint = normalized
 
     @classmethod
@@ -614,10 +571,7 @@ class OpenPgpArchive:
         if (
             not member_names
             or max_member_bytes < 1
-            or any(
-                str(self._safe_metadata_name(name)) != name
-                for name in member_names
-            )
+            or any(str(self._safe_metadata_name(name)) != name for name in member_names)
         ):
             raise BackupError("Requested archive metadata paths are invalid")
         gpg_error = tempfile.TemporaryFile()
@@ -663,28 +617,16 @@ class OpenPgpArchive:
                     if normalized not in member_names:
                         continue
                     if normalized in selected:
-                        raise BackupError(
-                            f"Duplicate archive metadata entry: {normalized}"
-                        )
-                    if (
-                        not member.isreg()
-                        or member.size < 1
-                        or member.size > max_member_bytes
-                    ):
-                        raise BackupError(
-                            f"Archive metadata entry is invalid: {normalized}"
-                        )
+                        raise BackupError(f"Duplicate archive metadata entry: {normalized}")
+                    if not member.isreg() or member.size < 1 or member.size > max_member_bytes:
+                        raise BackupError(f"Archive metadata entry is invalid: {normalized}")
                     source = archive.extractfile(member)
                     if source is None:
-                        raise BackupError(
-                            f"Cannot read archive metadata: {normalized}"
-                        )
+                        raise BackupError(f"Cannot read archive metadata: {normalized}")
                     with source:
                         payload = source.read(max_member_bytes + 1)
                     if len(payload) != member.size:
-                        raise BackupError(
-                            f"Archive metadata entry is truncated: {normalized}"
-                        )
+                        raise BackupError(f"Archive metadata entry is truncated: {normalized}")
                     selected[normalized] = payload
             zstd_process.stdout.close()
             zstd_status = zstd_process.wait()
@@ -701,19 +643,14 @@ class OpenPgpArchive:
                 )
             missing = sorted(member_names - set(selected))
             if missing:
-                raise BackupError(
-                    "Encrypted backup metadata is incomplete: "
-                    + ", ".join(missing)
-                )
+                raise BackupError("Encrypted backup metadata is incomplete: " + ", ".join(missing))
             return selected
         except (OSError, tarfile.TarError, BrokenPipeError) as exc:
             self._terminate(zstd_process)
             self._terminate(gpg_process)
             if isinstance(exc, BackupError):
                 raise
-            raise BackupError(
-                f"Cannot inspect encrypted backup metadata: {exc}"
-            ) from exc
+            raise BackupError(f"Cannot inspect encrypted backup metadata: {exc}") from exc
         except BaseException:
             self._terminate(zstd_process)
             self._terminate(gpg_process)
@@ -829,12 +766,7 @@ class SafeTarExtractor:
     @staticmethod
     def safe_relative(name: str) -> PurePosixPath:
         normalized = PurePosixPath(name)
-        if (
-            not name
-            or "\x00" in name
-            or normalized.is_absolute()
-            or ".." in normalized.parts
-        ):
+        if not name or "\x00" in name or normalized.is_absolute() or ".." in normalized.parts:
             raise BackupError(f"Unsafe archive path: {name!r}")
         parts = tuple(part for part in normalized.parts if part not in {"", "."})
         if not parts:
@@ -864,9 +796,7 @@ class SafeTarExtractor:
             raise BackupError(f"Extraction path leaves target: {path}")
 
     @classmethod
-    def _create_safe_symlink(
-        cls, root: Path, target: Path, linkname: str, member_name: str
-    ) -> None:
+    def _create_safe_symlink(cls, root: Path, target: Path, linkname: str, member_name: str) -> None:
         if os.path.isabs(linkname):
             raise BackupError(f"Absolute symlink is forbidden: {member_name}")
         resolved_link = (target.parent / linkname).resolve(strict=False)

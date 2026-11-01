@@ -50,25 +50,31 @@ def recover_native_dispatch_results(*, ports, tenant_id: str, limit: int = 1, ta
             else:
                 results.append({"task_id": task_id, "state": "accepted"})
                 continue
-            if (task.status != "waiting_for_review"
-                    or task.status_reason_code != "native_autopilot_dispatch_blocked"):
+            if task.status != "waiting_for_review" or task.status_reason_code != "native_autopilot_dispatch_blocked":
                 raise ValueError("native_result_recovery_transport_review_required")
             phase = "assignment"
             command = native_task_command(task)
-            assignment = ports.assignments.get(tenant_id=task.tenant_id, run_id=command.run_id,
-                                                step_id=command.node.node_id)
+            assignment = ports.assignments.get(
+                tenant_id=task.tenant_id, run_id=command.run_id, step_id=command.node.node_id
+            )
             if assignment is None:
                 raise ValueError("native_result_recovery_assignment_required")
             ports.journal.require_recovery_assignment(task=task, assignment=assignment)
             worker = ports.workers.get_by_url(assignment.worker_url)
-            if (worker is None or worker.name != assignment.worker_id or worker.role != "worker"
-                    or worker.registration_validated is not True
-                    or worker.registration_provenance != STRICT_WORKER_REGISTRATION_PROVENANCE
-                    or "workflow.adapter.native" not in (worker.authorized_capabilities or [])):
+            if (
+                worker is None
+                or worker.name != assignment.worker_id
+                or worker.role != "worker"
+                or worker.registration_validated is not True
+                or worker.registration_provenance != STRICT_WORKER_REGISTRATION_PROVENANCE
+                or "workflow.adapter.native" not in (worker.authorized_capabilities or [])
+            ):
                 raise ValueError("native_result_recovery_worker_denied")
             payload = sign_native_execution_request(
-                task.model_dump(mode="json"), key_ring=ports.signing_keys(),
-                worker_id=assignment.worker_id, worker_url=assignment.worker_url,
+                task.model_dump(mode="json"),
+                key_ring=ports.signing_keys(),
+                worker_id=assignment.worker_id,
+                worker_url=assignment.worker_url,
                 expires_at=min(time.time() + 30, command.authorization.expires_at),
                 evidence_assignment=ports.pi_assignment(task_id=task.id) if pi else None,
             )
@@ -76,22 +82,35 @@ def recover_native_dispatch_results(*, ports, tenant_id: str, limit: int = 1, ta
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise ValueError("native_result_recovery_deadline")
-            response = ports.transport.forward_task(worker.url, "/api/internal/native-tasks/result", payload,
-                                                      token=worker.token, timeout=min(5, remaining))
+            response = ports.transport.forward_task(
+                worker.url, "/api/internal/native-tasks/result", payload, token=worker.token, timeout=min(5, remaining)
+            )
             phase = "admission"
-            ports.accept_result(tid=task.id, response=response, task=task.model_dump(),
-                                request_data=SimpleNamespace(command=None))
+            ports.accept_result(
+                tid=task.id, response=response, task=task.model_dump(), request_data=SimpleNamespace(command=None)
+            )
             if pi:
                 ports.complete_pi(task_id=task.id)
             ports.journal.reconcile(task=ports.repository.get_by_id(task.id))
         except Exception as exc:
-            results.append({"task_id": task_id, "state": "unresolved", "phase": phase,
-                            "reason_code": "native_result_recovery_unresolved", "error_type": type(exc).__name__})
+            results.append(
+                {
+                    "task_id": task_id,
+                    "state": "unresolved",
+                    "phase": phase,
+                    "reason_code": "native_result_recovery_unresolved",
+                    "error_type": type(exc).__name__,
+                }
+            )
         else:
             results.append({"task_id": task_id, "state": "accepted"})
-    return {"schema": "ananta.native-result-recovery.v1", "tenant_id": tenant_id, "results": results,
-            "accepted": sum(item["state"] == "accepted" for item in results),
-            "unresolved": sum(item["state"] == "unresolved" for item in results)}
+    return {
+        "schema": "ananta.native-result-recovery.v1",
+        "tenant_id": tenant_id,
+        "results": results,
+        "accepted": sum(item["state"] == "accepted" for item in results),
+        "unresolved": sum(item["state"] == "unresolved" for item in results),
+    }
 
 
 def production_native_result_recovery_ports():
@@ -111,9 +130,12 @@ def production_native_result_recovery_ports():
 
     pi = get_pi_dispatch_service(current_app)
     return NativeResultRecoveryPorts(
-        repository=registry.task_repo, journal=production_native_dispatch_journal(),
-        assignments=get_workflow_worker_assignment_store(), workers=registry.agent_repo,
-        signing_keys=get_workflow_authorization_key_ring, transport=NativeResultReadTransport(),
+        repository=registry.task_repo,
+        journal=production_native_dispatch_journal(),
+        assignments=get_workflow_worker_assignment_store(),
+        workers=registry.agent_repo,
+        signing_keys=get_workflow_authorization_key_ring,
+        transport=NativeResultReadTransport(),
         accept_result=persist_forwarded_execution,
         pi_assignment=pi.reserved_assignment if pi is not None else None,
         complete_pi=pi.complete_reserved if pi is not None else None,

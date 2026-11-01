@@ -90,15 +90,10 @@ def test_planning_text_quality_is_feature_gated_and_uses_task_text(monkeypatch):
 
     monkeypatch.setattr(runtime_module, "get_text_quality_runtime_service", lambda: Runtime())
     app = Flask(__name__)
-    app.config["AGENT_CONFIG"] = {
-        "text_quality": {"enabled": True, "evaluate_planning_outputs": True}
-    }
+    app.config["AGENT_CONFIG"] = {"text_quality": {"enabled": True, "evaluate_planning_outputs": True}}
     with app.app_context():
-        evaluation = PlanningEvaluationService().evaluate(
-            planning_run_id="run-1", goal_id="goal-1", trace_id="trace-1"
-        )
+        evaluation = PlanningEvaluationService().evaluate(planning_run_id="run-1", goal_id="goal-1", trace_id="trace-1")
     assert captured["content_kind"] == ContentKind.PLANNING_TASK_DESCRIPTION
     assert "Timeout begrenzen" in captured["text"]
     assert evaluation.details["text_quality"]["evaluation_id"] == "eval-1"
     assert "__text_quality__" in run.mode_data
-

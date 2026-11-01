@@ -53,13 +53,29 @@ def test_bitcoin_mining_citation_evidence_rejects_uncited_or_invented_refs() -> 
     uncited = {
         "schema": "grounded_answer.v1",
         "answer": "x",
-        "claims": [{"claim_id": "CLM_0001", "text": "fact", "claim_type": "source_fact", "citation_refs": [], "confidence": "verified"}],
+        "claims": [
+            {
+                "claim_id": "CLM_0001",
+                "text": "fact",
+                "claim_type": "source_fact",
+                "citation_refs": [],
+                "confidence": "verified",
+            }
+        ],
         "unsupported_notes": [],
     }
     invented = {
         "schema": "grounded_answer.v1",
         "answer": "x",
-        "claims": [{"claim_id": "CLM_0002", "text": "fact", "claim_type": "source_fact", "citation_refs": ["SRC_9999"], "confidence": "verified"}],
+        "claims": [
+            {
+                "claim_id": "CLM_0002",
+                "text": "fact",
+                "claim_type": "source_fact",
+                "citation_refs": ["SRC_9999"],
+                "confidence": "verified",
+            }
+        ],
         "unsupported_notes": [],
     }
 

@@ -13,19 +13,20 @@ No model call, tool call, shell call, file write, network access, MCP access, me
 ```python
 # Canonical Pydantic model — see worker/core/execution_envelope.py (EW-T007)
 
+
 class ExecutionEnvelope(BaseModel):
-    task_id: str                          # non-empty; uniquely identifies this execution
-    goal_id: str | None                   # optional linkage to parent goal
-    actor_ref: str                        # Hub identity that signed this envelope
-    capability_grant: CapabilityGrant     # immutable list of allowed capability classes
-    context_envelope_ref: str             # opaque ref to ContextEnvelope; must be non-empty
-    allowed_operations: list[str]         # explicit whitelist of allowed operation ids
-    denied_operations: list[str]          # explicit blacklist (takes precedence over allowed)
-    model_policy: ModelPolicy             # allowed providers, models, cloud flag
-    tool_policy: ToolPolicy               # allowed tool ids, approval overrides
-    approval_refs: list[ApprovalRef]      # pre-obtained approvals for confirm_required ops
-    audit_correlation_id: str             # links all trace events for this execution
-    trace_parent_id: str | None           # W3C traceparent for distributed tracing
+    task_id: str  # non-empty; uniquely identifies this execution
+    goal_id: str | None  # optional linkage to parent goal
+    actor_ref: str  # Hub identity that signed this envelope
+    capability_grant: CapabilityGrant  # immutable list of allowed capability classes
+    context_envelope_ref: str  # opaque ref to ContextEnvelope; must be non-empty
+    allowed_operations: list[str]  # explicit whitelist of allowed operation ids
+    denied_operations: list[str]  # explicit blacklist (takes precedence over allowed)
+    model_policy: ModelPolicy  # allowed providers, models, cloud flag
+    tool_policy: ToolPolicy  # allowed tool ids, approval overrides
+    approval_refs: list[ApprovalRef]  # pre-obtained approvals for confirm_required ops
+    audit_correlation_id: str  # links all trace events for this execution
+    trace_parent_id: str | None  # W3C traceparent for distributed tracing
 ```
 
 ---
@@ -52,17 +53,17 @@ class ExecutionEnvelope(BaseModel):
 
 ```python
 class CapabilityGrant(BaseModel):
-    capabilities: list[str]    # from canonical vocabulary (EW-T005)
-    snapshot_hash: str         # sha256 of sorted capabilities; used in TraceBundle
+    capabilities: list[str]  # from canonical vocabulary (EW-T005)
+    snapshot_hash: str  # sha256 of sorted capabilities; used in TraceBundle
 ```
 
 ### ModelPolicy
 
 ```python
 class ModelPolicy(BaseModel):
-    allowed_providers: list[str]   # e.g. ["ollama", "lmstudio"]
+    allowed_providers: list[str]  # e.g. ["ollama", "lmstudio"]
     preferred_model: str | None
-    cloud_allowed: bool = False    # if False, cloud providers are blocked
+    cloud_allowed: bool = False  # if False, cloud providers are blocked
     max_tokens: int | None
 ```
 
@@ -71,7 +72,7 @@ class ModelPolicy(BaseModel):
 ```python
 class ToolPolicy(BaseModel):
     allowed_tool_ids: list[str]
-    approval_overrides: dict[str, str]   # tool_id → "allow" | "confirm_required" | "deny"
+    approval_overrides: dict[str, str]  # tool_id → "allow" | "confirm_required" | "deny"
 ```
 
 ### ApprovalRef
@@ -79,8 +80,8 @@ class ToolPolicy(BaseModel):
 ```python
 class ApprovalRef(BaseModel):
     ref_id: str
-    operation: str      # capability class or operation id this approval covers
-    granted_at: float   # epoch seconds; stale check is enforcement responsibility of preflight
+    operation: str  # capability class or operation id this approval covers
+    granted_at: float  # epoch seconds; stale check is enforcement responsibility of preflight
     granted_by: str
 ```
 

@@ -6,14 +6,17 @@ from flask import current_app, has_app_context
 
 from agent.common.audit import log_audit
 from agent.governance_modes import resolve_governance_mode
-from agent.services.hub_event_service import build_product_event
 from agent.runtime_profiles import resolve_runtime_profile
+from agent.services.hub_event_service import build_product_event
 
 
 def _classify_usage_context(source: str, mode: str, runtime_profile: str) -> str:
     if source == "demo" or mode in {"guided-first-run", "demo"} or runtime_profile == "demo":
         return "demo"
-    if runtime_profile in {"team-controlled", "secure-enterprise", "distributed-strict", "review-first"} or source == "api":
+    if (
+        runtime_profile in {"team-controlled", "secure-enterprise", "distributed-strict", "review-first"}
+        or source == "api"
+    ):
         return "production"
     return "trial"
 

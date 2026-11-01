@@ -38,15 +38,9 @@ def upgrade() -> None:
             sa.Column("occurred_at", sa.Float(), nullable=False),
             sa.Column("canonical_event", sa.JSON(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "tenant_id", "run_id", "sequence", name="uq_workflow_runtime_event_sequence"
-            ),
-            sa.UniqueConstraint(
-                "tenant_id", "run_id", "dedupe_key", name="uq_workflow_runtime_event_dedupe"
-            ),
-            sa.UniqueConstraint(
-                "tenant_id", "run_id", "event_id", name="uq_workflow_runtime_event_id"
-            ),
+            sa.UniqueConstraint("tenant_id", "run_id", "sequence", name="uq_workflow_runtime_event_sequence"),
+            sa.UniqueConstraint("tenant_id", "run_id", "dedupe_key", name="uq_workflow_runtime_event_dedupe"),
+            sa.UniqueConstraint("tenant_id", "run_id", "event_id", name="uq_workflow_runtime_event_id"),
         )
         _indexes(
             "workflow_runtime_events",
@@ -79,9 +73,7 @@ def upgrade() -> None:
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("signed_checkpoint", sa.JSON(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "tenant_id", "checkpoint_id", name="uq_workflow_runtime_checkpoint_id"
-            ),
+            sa.UniqueConstraint("tenant_id", "checkpoint_id", name="uq_workflow_runtime_checkpoint_id"),
             sa.UniqueConstraint(
                 "tenant_id",
                 "run_id",
@@ -154,9 +146,7 @@ def upgrade() -> None:
             sa.Column("last_heartbeat_at", sa.Float(), nullable=False),
             sa.Column("ownership", sa.JSON(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "tenant_id", "run_id", "step_id", name="uq_workflow_execution_ownership_step"
-            ),
+            sa.UniqueConstraint("tenant_id", "run_id", "step_id", name="uq_workflow_execution_ownership_step"),
         )
         _indexes(
             "workflow_execution_ownership",
@@ -256,9 +246,7 @@ def upgrade() -> None:
             sa.Column("category", sa.String(), nullable=False),
             sa.Column("consumed_at", sa.Float(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "tenant_id", "run_id", "retry_id", name="uq_workflow_retry_consumption_id"
-            ),
+            sa.UniqueConstraint("tenant_id", "run_id", "retry_id", name="uq_workflow_retry_consumption_id"),
         )
         _indexes(
             "workflow_retry_consumptions",
@@ -290,9 +278,7 @@ def upgrade() -> None:
             sa.Column("published_at", sa.Float(), nullable=True),
             sa.Column("payload", sa.JSON(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "tenant_id", "topic", "dedupe_key", name="uq_workflow_runtime_outbox_dedupe"
-            ),
+            sa.UniqueConstraint("tenant_id", "topic", "dedupe_key", name="uq_workflow_runtime_outbox_dedupe"),
         )
         _indexes(
             "workflow_runtime_outbox",

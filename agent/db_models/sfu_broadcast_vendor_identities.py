@@ -5,7 +5,6 @@ import time
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-
 _ACTIVE = sa.text("status = 'active'")
 
 
@@ -14,7 +13,11 @@ class SfuBroadcastVendorIdentityDB(SQLModel, table=True):
     __table_args__ = (
         sa.Index(
             "uq_sfu_vendor_identity_active_membership",
-            "tenant_id", "room_id", "membership_digest", "membership_epoch", "identity_epoch",
+            "tenant_id",
+            "room_id",
+            "membership_digest",
+            "membership_epoch",
+            "identity_epoch",
             unique=True,
             sqlite_where=_ACTIVE,
             postgresql_where=_ACTIVE,
@@ -23,7 +26,9 @@ class SfuBroadcastVendorIdentityDB(SQLModel, table=True):
         sa.CheckConstraint("membership_epoch > 0 AND identity_epoch > 0", name="ck_sfu_vendor_identity_epochs"),
         sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_vendor_identity_fence_version"),
         sa.CheckConstraint("expires_at > issued_at", name="ck_sfu_vendor_identity_ttl"),
-        sa.CheckConstraint("status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_vendor_identity_status"),
+        sa.CheckConstraint(
+            "status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_vendor_identity_status"
+        ),
     )
 
     id: str = Field(primary_key=True)
@@ -54,16 +59,25 @@ class SfuBroadcastDestinationHandleDB(SQLModel, table=True):
     __tablename__ = "sfu_broadcast_destination_handles"
     __table_args__ = (
         sa.ForeignKeyConstraint(
-            ["identity_id"], ["sfu_broadcast_vendor_identities.id"],
-            name="fk_sfu_destination_identity", ondelete="CASCADE",
+            ["identity_id"],
+            ["sfu_broadcast_vendor_identities.id"],
+            name="fk_sfu_destination_identity",
+            ondelete="CASCADE",
         ),
         sa.UniqueConstraint(
-            "identity_id", "route_digest", "publication_digest", "audience_digest",
-            "route_epoch", "key_epoch",
+            "identity_id",
+            "route_digest",
+            "publication_digest",
+            "audience_digest",
+            "route_epoch",
+            "key_epoch",
             name="uq_sfu_destination_authorized_intent",
         ),
         sa.Index("ix_sfu_destination_expiry", "status", "expires_at", "updated_at"),
-        sa.CheckConstraint("membership_epoch > 0 AND identity_epoch > 0 AND route_epoch > 0 AND key_epoch > 0", name="ck_sfu_destination_epochs"),
+        sa.CheckConstraint(
+            "membership_epoch > 0 AND identity_epoch > 0 AND route_epoch > 0 AND key_epoch > 0",
+            name="ck_sfu_destination_epochs",
+        ),
         sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_destination_fence_version"),
         sa.CheckConstraint("status IN ('active','revoked','expired','tombstoned')", name="ck_sfu_destination_status"),
     )

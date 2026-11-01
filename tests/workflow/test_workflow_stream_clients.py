@@ -136,11 +136,7 @@ def test_stream_iteration_deduplicates_replayed_frame_after_reconnect() -> None:
             WorkflowStreamHttpResponse(
                 status=200,
                 headers={"X-Workflow-Next-Cursor": "v1:2", "X-Workflow-Has-More": "false"},
-                body=(
-                    json.dumps(_frame())
-                    + "\n"
-                    + json.dumps(_frame(cursor="v1:2", event_id="event-2"))
-                ).encode(),
+                body=(json.dumps(_frame()) + "\n" + json.dumps(_frame(cursor="v1:2", event_id="event-2"))).encode(),
             ),
         ]
     )
@@ -211,10 +207,7 @@ def test_cli_tui_client_reads_authenticated_shared_capability_projection() -> No
 
     assert client.capabilities(required_capabilities=("durability",)) == projection
     url, headers, body, _timeout = transport.calls[0]
-    assert url == (
-        "https://hub.test/api/workflow-runtime/capabilities"
-        "?required_capability=durability"
-    )
+    assert url == ("https://hub.test/api/workflow-runtime/capabilities?required_capability=durability")
     assert headers["Authorization"] == "Bearer user-token"
     assert body is None
 
@@ -252,9 +245,6 @@ def test_cli_tui_client_reads_fallback_and_degradation_operations_projection() -
 
     assert client.runtime_operations(runtime="langgraph", health="degraded", limit=20) == projection
     url, headers, body, _timeout = transport.calls[0]
-    assert url == (
-        "https://hub.test/api/workflow-runtime/operations"
-        "?runtime=langgraph&health=degraded&limit=20"
-    )
+    assert url == ("https://hub.test/api/workflow-runtime/operations?runtime=langgraph&health=degraded&limit=20")
     assert headers["Authorization"] == "Bearer user-token"
     assert body is None

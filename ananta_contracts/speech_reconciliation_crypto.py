@@ -48,9 +48,8 @@ class SpeechReconciliationEpochKeyring:
             normalized = {int(epoch): bytes(key) for epoch, key in keys.items()}
         except (TypeError, ValueError) as exc:
             raise SpeechReconciliationCryptoError("speech_reconciliation_keyring_invalid") from exc
-        if (
-            not 1 <= len(normalized) <= MAX_KEY_EPOCHS
-            or any(epoch < 1 or len(key) != 32 for epoch, key in normalized.items())
+        if not 1 <= len(normalized) <= MAX_KEY_EPOCHS or any(
+            epoch < 1 or len(key) != 32 for epoch, key in normalized.items()
         ):
             raise SpeechReconciliationCryptoError("speech_reconciliation_keyring_invalid")
         self._keys = normalized
@@ -71,9 +70,7 @@ class SpeechReconciliationEpochKeyring:
             or metadata.st_nlink != 1
             or metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
         ):
-            raise SpeechReconciliationCryptoError(
-                "speech_reconciliation_keyring_boundary_violation"
-            )
+            raise SpeechReconciliationCryptoError("speech_reconciliation_keyring_boundary_violation")
         try:
             raw = json.loads(unresolved.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -142,9 +139,7 @@ def seal_speech_reconciliation_audio(
 
     payload = bytes(plaintext)
     if len(payload) != artifact.plaintext_bytes:
-        raise SpeechReconciliationCryptoError(
-            "speech_reconciliation_artifact_plaintext_size_mismatch"
-        )
+        raise SpeechReconciliationCryptoError("speech_reconciliation_artifact_plaintext_size_mismatch")
     if hashlib.sha256(payload).hexdigest() != artifact.content_digest:
         raise SpeechReconciliationCryptoError("speech_reconciliation_artifact_content_tamper")
     if artifact.key_epoch != job.key_epoch:
@@ -163,9 +158,7 @@ def seal_speech_reconciliation_audio(
         canonical_json(artifact.aad_mapping(job)),
     )
     if len(ciphertext) != artifact.ciphertext_bytes:
-        raise SpeechReconciliationCryptoError(
-            "speech_reconciliation_artifact_ciphertext_size_mismatch"
-        )
+        raise SpeechReconciliationCryptoError("speech_reconciliation_artifact_ciphertext_size_mismatch")
     return ciphertext
 
 
@@ -195,13 +188,8 @@ def open_speech_reconciliation_audio(
             canonical_json(artifact.aad_mapping(job)),
         )
     except InvalidTag as exc:
-        raise SpeechReconciliationCryptoError(
-            "speech_reconciliation_artifact_authentication_failed"
-        ) from exc
-    if (
-        len(plaintext) != artifact.plaintext_bytes
-        or hashlib.sha256(plaintext).hexdigest() != artifact.content_digest
-    ):
+        raise SpeechReconciliationCryptoError("speech_reconciliation_artifact_authentication_failed") from exc
+    if len(plaintext) != artifact.plaintext_bytes or hashlib.sha256(plaintext).hexdigest() != artifact.content_digest:
         raise SpeechReconciliationCryptoError("speech_reconciliation_artifact_content_tamper")
     return plaintext
 

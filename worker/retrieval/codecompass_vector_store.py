@@ -55,11 +55,7 @@ class CodeCompassVectorStore:
         self._uses_legacy_scope = scope is None
         self._backend = JsonVectorStore(
             index_path=self._index_path,
-            legacy_scope=(
-                _LEGACY_CODECOMPASS_SCOPE
-                if self._uses_legacy_scope
-                else None
-            ),
+            legacy_scope=(_LEGACY_CODECOMPASS_SCOPE if self._uses_legacy_scope else None),
         )
 
     @property
@@ -232,8 +228,7 @@ class CodeCompassVectorStore:
         ):
             return "embedding_text_profile_changed"
         stored_encoding = str(
-            state.get("vector_encoding_config_hash")
-            or VectorEncodingProfile.disabled().config_hash()
+            state.get("vector_encoding_config_hash") or VectorEncodingProfile.disabled().config_hash()
         )
         if stored_encoding != str(vector_encoding_config_hash or VectorEncodingProfile.disabled().config_hash()):
             return "vector_encoding_changed"

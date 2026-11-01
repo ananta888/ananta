@@ -41,9 +41,7 @@ class KnowledgeIndexExecutionBindingDB(SQLModel, table=True):
     assigned_worker_id: str = Field(index=True, max_length=160)
     lease_id: str = Field(index=True, max_length=160)
     lease_generation: int = Field(ge=1)
-    lease_expires_epoch_ms: int = Field(
-        sa_column=Column(BigInteger, nullable=False)
-    )
+    lease_expires_epoch_ms: int = Field(sa_column=Column(BigInteger, nullable=False))
     attempt: int = Field(default=1, ge=1)
     state: str = Field(index=True, max_length=32)
     lock_version: int = Field(default=1, ge=1)
@@ -75,12 +73,8 @@ class KnowledgeIndexExecutionBindingDB(SQLModel, table=True):
         default=None,
         sa_column=Column(BigInteger, nullable=True),
     )
-    created_at_epoch_ms: int = Field(
-        sa_column=Column(BigInteger, nullable=False)
-    )
-    updated_at_epoch_ms: int = Field(
-        sa_column=Column(BigInteger, nullable=False)
-    )
+    created_at_epoch_ms: int = Field(sa_column=Column(BigInteger, nullable=False))
+    updated_at_epoch_ms: int = Field(sa_column=Column(BigInteger, nullable=False))
     completed_at_epoch_ms: Optional[int] = Field(
         default=None,
         sa_column=Column(BigInteger, nullable=True),

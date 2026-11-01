@@ -34,9 +34,7 @@ class LocalModelResourceDecision:
 class LocalModelRuntimeProfileLoader:
     def load(self, path: str | Path) -> LocalModelRuntimeProfile:
         try:
-            return LocalModelRuntimeProfile.model_validate_json(
-                Path(path).read_text(encoding="utf-8")
-            )
+            return LocalModelRuntimeProfile.model_validate_json(Path(path).read_text(encoding="utf-8"))
         except Exception as exc:
             raise ValueError("local_model_runtime_profile_invalid") from exc
 

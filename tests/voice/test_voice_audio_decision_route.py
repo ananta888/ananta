@@ -1,4 +1,5 @@
 """``POST /v1/voice/audio-decisions/command``: audio -> provider -> gate -> typed hub action."""
+
 from __future__ import annotations
 
 import http.client
@@ -100,7 +101,9 @@ def test_calibrated_direct_command_acts(client, admin_auth_header):
     assert data["policy"] == {"verdict": "allow", "rule": "P12_direct_low_risk"}
     request_json = transport.calls[0]["body"].split(b'name="request"\r\n\r\n', 1)[1].split(b"\r\n", 1)[0]
     assert json.loads(request_json)["options"] | {"timeout_ms": 0} == {
-        "language": "en", "fallback": "transcribe", "timeout_ms": 0,
+        "language": "en",
+        "fallback": "transcribe",
+        "timeout_ms": 0,
     }
     assert json.loads(request_json)["fields"] == ["command"]
     event, details = audit.call_args.args
@@ -166,8 +169,9 @@ def test_invalid_requests_are_rejected_before_contacting_the_service(client, adm
 def test_missing_audio_is_a_validation_error(client, admin_auth_header):
     transport = FakeTransport(200, {})
     with _with_provider(transport):
-        res = client.post(ROUTE, headers=admin_auth_header, data={"profile": "speech-commands-en"},
-                          content_type="multipart/form-data")
+        res = client.post(
+            ROUTE, headers=admin_auth_header, data={"profile": "speech-commands-en"}, content_type="multipart/form-data"
+        )
     assert res.status_code == 400 and transport.calls == []
 
 

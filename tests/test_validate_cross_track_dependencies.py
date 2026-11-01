@@ -136,4 +136,3 @@ def test_validate_cross_track_dependencies_accepts_valid_nested_group_reference(
     )
     errors = validate_cross_track_dependencies(root_path=tmp_path, track_files=["todo.json", "todo.kritis.json"])
     assert errors == []
-

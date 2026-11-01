@@ -125,9 +125,7 @@ class ChatTransport:
         self._middleware = middleware_provider
         self._http_post = http_post
         self._cancelled = cancellation_probe
-        self._lmstudio_lock = (
-            _LMSTUDIO_INFERENCE_LOCK if lmstudio_inference_lock is None else lmstudio_inference_lock
-        )
+        self._lmstudio_lock = _LMSTUDIO_INFERENCE_LOCK if lmstudio_inference_lock is None else lmstudio_inference_lock
 
     def _enforce_provider_response_limit(
         self,

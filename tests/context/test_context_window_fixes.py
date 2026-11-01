@@ -16,8 +16,10 @@ def test_generate_text_gets_the_configured_or_default_context_window(app, monkey
     monkeypatch.setattr(llm_integration, "resolve_preferred_local_runtime", lambda p, urls, timeout: {"provider": p})
     monkeypatch.setattr(llm_integration, "resolve_ollama_model", lambda m, url, t: m)
     with app.app_context():
-        app.config["AGENT_CONFIG"] = {**(app.config.get("AGENT_CONFIG") or {}),
-                                      "llm_config": {"provider": "llamacpp", "context_limit": 16384}}
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "llm_config": {"provider": "llamacpp", "context_limit": 16384},
+        }
         llm_integration.generate_text("hi", provider="llamacpp", model="m")
         llm_integration.generate_text("hi", provider="ollama", model="m")
         llm_integration.generate_text("hi", provider="openai", model="m")
@@ -50,11 +52,18 @@ def test_cli_prompt_gates_follow_the_context_window(monkeypatch):
 def test_the_tool_loop_condenses_older_results_beyond_its_total_budget():
     from agent.cli_backends.tool_loop import build_tool_loop_prompt, get_tool_loop_config
 
-    results = [{"tool_name": f"repo.read_file_range#{i}", "status": "ok", "data": {"text": str(i) * 7000}}
-               for i in range(6)]
-    prompt = build_tool_loop_prompt(original_prompt="task", instructions="rules", tool_results=results,
-                                    iteration=7, max_iterations=8, max_tool_result_chars=8000,
-                                    max_total_tool_result_chars=20000)
+    results = [
+        {"tool_name": f"repo.read_file_range#{i}", "status": "ok", "data": {"text": str(i) * 7000}} for i in range(6)
+    ]
+    prompt = build_tool_loop_prompt(
+        original_prompt="task",
+        instructions="rules",
+        tool_results=results,
+        iteration=7,
+        max_iterations=8,
+        max_tool_result_chars=8000,
+        max_total_tool_result_chars=20000,
+    )
     assert "5" * 7000 in prompt and "4" * 7000 in prompt  # the newest results stay complete
     assert "0" * 7000 not in prompt and prompt.count('"condensed"') == 4  # older ones are marked, not dropped
     assert "repo.read_file_range#0" in prompt
@@ -66,9 +75,11 @@ def test_context_recovery_segmentation_reaches_the_planner():
 
     scoped = {"planning_policy": {"segmented_planning_enabled": False, "max_segments": 3}}
     assert LLMPlanningStrategy.effective_planning_policy(scoped, {"segment_planning": True}) == {
-        "segmented_planning_enabled": True, "max_segments": 3}
+        "segmented_planning_enabled": True,
+        "max_segments": 3,
+    }
     assert LLMPlanningStrategy.effective_planning_policy(scoped, None)["segmented_planning_enabled"] is False
-    assert LLMPlanningStrategy.effective_planning_policy({}, {})  == {}
+    assert LLMPlanningStrategy.effective_planning_policy({}, {}) == {}
 
 
 def test_the_planning_strategies_can_build_their_german_prompt():

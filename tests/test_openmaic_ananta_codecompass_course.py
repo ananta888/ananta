@@ -89,9 +89,7 @@ def test_automated_quiz_covers_hub_worker_rag_and_tool_authority():
     content = _json("openmaic-content.json")
     assert validator._validate_quiz(content) == 3
     questions = {
-        question["id"]: question
-        for interaction in content["interactions"]
-        for question in interaction["questions"]
+        question["id"]: question for interaction in content["interactions"] for question in interaction["questions"]
     }
     assert questions["delegation-owner"]["answer"] == ["B"]
     assert questions["rag-difference"]["answer"] == ["B"]
@@ -136,9 +134,7 @@ def test_preflight_rejects_sensitive_demo_material(monkeypatch, tmp_path, unsafe
 def test_openmaic_compose_is_pinned_loopback_only_and_separate_from_ananta():
     compose = yaml.safe_load((DEPLOY / "docker-compose.yml").read_text(encoding="utf-8"))
     service = compose["services"]["openmaic-course"]
-    assert service["build"]["context"].endswith(
-        "OpenMAIC.git#aa2bfb3c1d406c47100c6744d90e788abdf1f6d5"
-    )
+    assert service["build"]["context"].endswith("OpenMAIC.git#aa2bfb3c1d406c47100c6744d90e788abdf1f6d5")
     assert service["ports"] == ["127.0.0.1:${OPENMAIC_PORT:-3000}:3000"]
     assert service.get("networks") is None
     assert service["security_opt"] == ["no-new-privileges:true"]

@@ -93,9 +93,7 @@ def _token_payload(token: str) -> dict[str, Any]:
 def _issue_token(username: str, role: str = "admin", ttl_seconds: int = 3600) -> str:
     now = int(time.time())
     header = _b64url(json.dumps({"alg": "none", "typ": "JWT"}).encode("utf-8"))
-    payload = _b64url(
-        json.dumps({"sub": username, "role": role, "iat": now, "exp": now + ttl_seconds}).encode("utf-8")
-    )
+    payload = _b64url(json.dumps({"sub": username, "role": role, "iat": now, "exp": now + ttl_seconds}).encode("utf-8"))
     return f"{header}.{payload}."
 
 
@@ -206,12 +204,18 @@ def _build_handler(role: str):
                     _ALLOW_ANY_PASSWORD or password == _ADMIN_PASSWORD or password in _ADMIN_PASSWORD_FALLBACKS
                 )
                 if not valid_user or not valid_password:
-                    self._write_json(401, _envelope({"error": "invalid_credentials"}, status="error", message="Login fehlgeschlagen"))
+                    self._write_json(
+                        401, _envelope({"error": "invalid_credentials"}, status="error", message="Login fehlgeschlagen")
+                    )
                     return
                 access_token = _issue_token(username=username)
                 refresh_token = _issue_refresh_token(username=username)
                 with _LOCK:
-                    _STATE["tokens"][access_token] = {"username": username, "role": "admin", "issued_at": int(time.time())}
+                    _STATE["tokens"][access_token] = {
+                        "username": username,
+                        "role": "admin",
+                        "issued_at": int(time.time()),
+                    }
                 self._write_json(200, _envelope({"access_token": access_token, "refresh_token": refresh_token}))
                 return
 
@@ -226,7 +230,11 @@ def _build_handler(role: str):
                 username = str(token_entry.get("username") or _ADMIN_USER)
                 access_token = _issue_token(username=username)
                 with _LOCK:
-                    _STATE["tokens"][access_token] = {"username": username, "role": "admin", "issued_at": int(time.time())}
+                    _STATE["tokens"][access_token] = {
+                        "username": username,
+                        "role": "admin",
+                        "issued_at": int(time.time()),
+                    }
                 self._write_json(200, _envelope({"access_token": access_token}))
                 return
 

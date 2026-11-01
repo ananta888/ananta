@@ -7,7 +7,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-
 KANBAN_API_ENABLED = "kanban_api"
 KANBAN_WRITE_ENABLED = "kanban_write"
 
@@ -40,4 +39,3 @@ class KanbanFeatureFlags:
         )
         api_enabled = _strict_bool(api_value)
         return cls(api_enabled, api_enabled and _strict_bool(write_value))
-

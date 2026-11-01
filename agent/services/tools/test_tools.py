@@ -7,6 +7,7 @@ and output limits always apply and the command runs with
 ``cwd=workspace``. Missing allowlist entries reject the request — they
 never fall back to arbitrary execution.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -92,14 +93,22 @@ def resolve_allowlisted_test_command(command: str, allowlist: list[str]) -> str 
     return None
 
 
-def test_run(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+def test_run(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None
+) -> dict[str, Any]:
     cfg = dict(config or {})
-    allowlist = [_normalize_command(item) for item in list(cfg.get("allowlisted_test_commands") or []) if _normalize_command(item)]
+    allowlist = [
+        _normalize_command(item)
+        for item in list(cfg.get("allowlisted_test_commands") or [])
+        if _normalize_command(item)
+    ]
     timeout_seconds = max(5, min(int(cfg.get("test_timeout_seconds") or 120), 1800))
     output_max_chars = max(200, min(int(cfg.get("test_output_max_chars") or 4000), 40000))
     command = _normalize_command(str((arguments or {}).get("command") or ""))
     if not command:
-        return build_tool_result(tool_name="test.run", tool_call_id=tool_call_id, status="error", error="command_required")
+        return build_tool_result(
+            tool_name="test.run", tool_call_id=tool_call_id, status="error", error="command_required"
+        )
     if resolve_allowlisted_test_command(command, allowlist) is None:
         return build_tool_result(
             tool_name="test.run",

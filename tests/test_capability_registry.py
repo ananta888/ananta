@@ -72,4 +72,3 @@ def test_capability_registry_rejects_missing_domain_reference(tmp_path: Path) ->
     registry = CapabilityRegistry(schema_path=SCHEMA_PATH, repository_root=tmp_path)
     with pytest.raises(ValueError, match="unknown domain_id"):
         registry.load_pack(pack_path, known_domains={"example"})
-

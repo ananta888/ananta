@@ -71,7 +71,9 @@ class SfuBroadcastReconcilerScheduler:
         self._owner_id = owner_id or f"hub-sfu-scheduler-{uuid.uuid4().hex}"
         self._clock = clock
         self._tick_seconds = max(0.05, tick_seconds)
-        self._executor = ThreadPoolExecutor(max_workers=max(1, min(max_parallel_jobs, 16)), thread_name_prefix="sfu-hub-job")
+        self._executor = ThreadPoolExecutor(
+            max_workers=max(1, min(max_parallel_jobs, 16)), thread_name_prefix="sfu-hub-job"
+        )
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
@@ -105,10 +107,7 @@ class SfuBroadcastReconcilerScheduler:
             lease = self._repository.claim(spec, owner_id=self._owner_id, now=now)
             if lease is not None:
                 leases.append((lease, job))
-        futures = {
-            self._executor.submit(self._run_job, lease, job): lease
-            for lease, job in leases
-        }
+        futures = {self._executor.submit(self._run_job, lease, job): lease for lease, job in leases}
         if not futures:
             return {"claimed": 0, "completed": 0, "failed": 0}
         max_deadline = max(lease.runtime_deadline_ms for lease in futures.values()) / 1000.0
@@ -135,7 +134,11 @@ class SfuBroadcastReconcilerScheduler:
         except Exception as exc:
             status = "failed"
             candidate = getattr(exc, "reason_code", None)
-            reason = candidate if isinstance(candidate, str) and candidate.startswith("sfu_") else "sfu_background_job_failed"
+            reason = (
+                candidate
+                if isinstance(candidate, str) and candidate.startswith("sfu_")
+                else "sfu_background_job_failed"
+            )
         self._repository.finish(
             lease,
             status=status,

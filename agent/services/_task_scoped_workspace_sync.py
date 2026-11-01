@@ -14,6 +14,7 @@ re-exporting ``_build_workspace_state_sync_record`` for 12 months (see the
 deprecation shim in that file). Tests that import the symbol directly continue
 to work; new code should import from this module.
 """
+
 from __future__ import annotations
 
 from typing import Any

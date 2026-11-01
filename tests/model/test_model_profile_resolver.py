@@ -1,5 +1,7 @@
 """Tests for ModelProfileResolver — AMR-008."""
+
 import pytest
+
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import (
     ModelProfileResolver,
@@ -40,6 +42,7 @@ def _cloud(profile_id: str, **kwargs) -> ModelProfile:
 
 # ── rank 2: blueprint rule ────────────────────────────────────────────────────
 
+
 def test_blueprint_rule_resolves():
     rules = RoutingRules(blueprint_rules={"coding": "local-coder"})
     resolver = ModelProfileResolver(
@@ -55,6 +58,7 @@ def test_blueprint_rule_resolves():
 
 # ── rank 6: model_role rule ───────────────────────────────────────────────────
 
+
 def test_role_rule_resolves():
     rules = RoutingRules(role_rules={"coder": "local-coder"})
     resolver = ModelProfileResolver(
@@ -69,6 +73,7 @@ def test_role_rule_resolves():
 
 
 # ── rank 10: capability match ─────────────────────────────────────────────────
+
 
 def test_capability_match_picks_first_enabled():
     resolver = ModelProfileResolver(profiles=[_local("p1"), _local("p2")])
@@ -111,6 +116,7 @@ def test_capability_match_requires_json():
 
 # ── rank 0: security policy ───────────────────────────────────────────────────
 
+
 def test_security_blocks_cloud_when_secrets_present():
     cloud_p = _cloud("cloud-p")
     resolver = ModelProfileResolver(
@@ -129,15 +135,23 @@ def test_dry_run_security_and_context_facts_do_not_require_raw_prompt():
         profiles=[cloud_p],
         security_policy=SecurityPolicyChecker(block_cloud_with_secrets=True),
     )
-    secret_result = resolver.resolve(RoutingContext(
-        allow_cloud=True, contains_secrets=True, approximate_context_tokens=10,
-    ))
+    secret_result = resolver.resolve(
+        RoutingContext(
+            allow_cloud=True,
+            contains_secrets=True,
+            approximate_context_tokens=10,
+        )
+    )
     assert not secret_result.ok
     assert ("cloud-p", "security_policy:secrets_declared_cloud_blocked") in secret_result.blocked_candidates
 
-    oversized_result = resolver.resolve(RoutingContext(
-        allow_cloud=True, contains_secrets=False, approximate_context_tokens=81,
-    ))
+    oversized_result = resolver.resolve(
+        RoutingContext(
+            allow_cloud=True,
+            contains_secrets=False,
+            approximate_context_tokens=81,
+        )
+    )
     assert not oversized_result.ok
     assert any(item.reason == "capability:context_too_large" for item in oversized_result.decisions)
 
@@ -183,6 +197,7 @@ def test_security_blocks_provider_not_in_allowlist():
 
 # ── rank 1: task_kind override ────────────────────────────────────────────────
 
+
 def test_task_override_takes_precedence_over_role():
     rules = RoutingRules(
         task_overrides={"review": "p-review"},
@@ -226,12 +241,12 @@ def test_explicit_rule_skips_unhealthy_provider():
     assert result.ok
     assert result.profile.profile_id == "p-lmstudio"
     assert any(
-        d.profile_id == "p-ollama" and d.reason == "provider_health:unavailable:ollama"
-        for d in result.decisions
+        d.profile_id == "p-ollama" and d.reason == "provider_health:unavailable:ollama" for d in result.decisions
     )
 
 
 # ── rank 11: fallback chain ───────────────────────────────────────────────────
+
 
 def test_fallback_chain_used_when_capability_match_fails():
     # profile requires tools but ctx doesn't → capability_match blocks it
@@ -321,20 +336,22 @@ def test_fallback_group_returns_local_gemma_qwen_chain():
         fallback_group="local_first_cheap",
         fallback_rank=30,
     )
-    rules = RoutingRules.from_dict({
-        "fallback_groups": {
-            "local_first_cheap": {
-                "ordered_profiles": [local.profile_id, gemma.profile_id, qwen.profile_id]
+    rules = RoutingRules.from_dict(
+        {
+            "fallback_groups": {
+                "local_first_cheap": {"ordered_profiles": [local.profile_id, gemma.profile_id, qwen.profile_id]}
             }
         }
-    })
+    )
     resolver = ModelProfileResolver([local, gemma, qwen], routing_rules=rules)
-    result, chain = resolver.resolve_candidate_chain(RoutingContext(
-        fallback_group_id="local_first_cheap",
-        requires_tools=True,
-        requires_json=True,
-        allow_cloud=True,
-    ))
+    result, chain = resolver.resolve_candidate_chain(
+        RoutingContext(
+            fallback_group_id="local_first_cheap",
+            requires_tools=True,
+            requires_json=True,
+            allow_cloud=True,
+        )
+    )
 
     assert result.ok
     assert [p.profile_id for p in chain] == [
@@ -360,11 +377,13 @@ def test_secret_context_blocks_cloud_candidates_but_keeps_local():
     rules = RoutingRules.from_dict({"fallback_groups": {"g": {"ordered_profiles": ["local", "gemma"]}}})
     resolver = ModelProfileResolver([local, gemma], routing_rules=rules)
 
-    result, chain = resolver.resolve_candidate_chain(RoutingContext(
-        fallback_group_id="g",
-        context_text="OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz",
-        allow_cloud=True,
-    ))
+    result, chain = resolver.resolve_candidate_chain(
+        RoutingContext(
+            fallback_group_id="g",
+            context_text="OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz",
+            allow_cloud=True,
+        )
+    )
 
     assert result.ok
     assert [p.profile_id for p in chain] == ["local"]
@@ -415,8 +434,7 @@ def test_fallback_group_cost_cap_is_the_stricter_routing_context_limit():
     assert result.profile.profile_id == "free"
     assert [profile.profile_id for profile in chain] == ["free"]
     assert any(
-        decision.profile_id == "expensive"
-        and decision.reason == "policy:estimated_cost_per_step_exceeded"
+        decision.profile_id == "expensive" and decision.reason == "policy:estimated_cost_per_step_exceeded"
         for decision in result.decisions
     )
 
@@ -429,35 +447,21 @@ def test_local_phi_gemma_group_budget_matches_profile_retry_budgets():
 
     root = Path(__file__).resolve().parents[2]
     routing = json.loads(
-        (
-            root
-            / "config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"
-        ).read_text(encoding="utf-8")
+        (root / "config/models/local-ollama-phi-gemma-rtx3080.model_routing.json").read_text(encoding="utf-8")
     )
-    profiles = ModelProfileLoader().load_file(
-        root
-        / "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-    )
+    profiles = ModelProfileLoader().load_file(root / "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml")
     rules = RoutingRules.from_dict(routing, strict=True)
 
     assert profiles.ok, profiles.errors
     group_id = "local_phi_to_gemma_reasoning"
     profile_retry_budget = sum(
-        profile.retry_budget
-        for profile in profiles.profiles
-        if profile.fallback_group == group_id
+        profile.retry_budget for profile in profiles.profiles if profile.fallback_group == group_id
     )
     assert profile_retry_budget == 3
     assert rules.fallback_groups[group_id].max_total_retries == profile_retry_budget
-    repeated_failure_rule = next(
-        rule
-        for rule in rules.escalation_rules
-        if rule.trigger == "repeated_failure"
-    )
+    repeated_failure_rule = next(rule for rule in rules.escalation_rules if rule.trigger == "repeated_failure")
     assert repeated_failure_rule.from_profile == "local_ollama_phi4_mini"
-    assert repeated_failure_rule.to_profile == (
-        "local_ollama_gemma4_e4b_reasoning"
-    )
+    assert repeated_failure_rule.to_profile == ("local_ollama_gemma4_e4b_reasoning")
     assert repeated_failure_rule.condition["repeated_failure_count"] == 3
 
     resolver = ModelProfileResolver(
@@ -476,14 +480,8 @@ def test_local_phi_gemma_group_budget_matches_profile_retry_budgets():
         "local_ollama_phi4_mini",
         "local_ollama_gemma4_e4b_reasoning",
     ]
-    gemma = next(
-        profile
-        for profile in profiles.profiles
-        if profile.profile_id == "local_ollama_gemma4_e4b_reasoning"
-    )
-    assert gemma.max_input_tokens() == (
-        8192 - 3072 - gemma.system_prompt_prefix_tokens()
-    )
+    gemma = next(profile for profile in profiles.profiles if profile.profile_id == "local_ollama_gemma4_e4b_reasoning")
+    assert gemma.max_input_tokens() == (8192 - 3072 - gemma.system_prompt_prefix_tokens())
 
 
 def test_profile_context_check_reserves_configured_completion_tokens():
@@ -495,22 +493,16 @@ def test_profile_context_check_reserves_configured_completion_tokens():
     )
     resolver = ModelProfileResolver([profile])
 
-    accepted = resolver.resolve(
-        RoutingContext(context_text="x" * (80 * 4))
-    )
-    rejected = resolver.resolve(
-        RoutingContext(context_text="x" * (80 * 4 + 1))
-    )
+    accepted = resolver.resolve(RoutingContext(context_text="x" * (80 * 4)))
+    rejected = resolver.resolve(RoutingContext(context_text="x" * (80 * 4 + 1)))
 
     assert accepted.ok
     assert not rejected.ok
-    assert any(
-        decision.reason == "capability:context_too_large"
-        for decision in rejected.decisions
-    )
+    assert any(decision.reason == "capability:context_too_large" for decision in rejected.decisions)
 
 
 # ── T02 — Token budget extension fields ──────────────────────────────────────
+
 
 def test_new_fields_safe_defaults_on_local_profile():
     """Legacy profiles without new fields have safe defaults."""
@@ -525,18 +517,25 @@ def test_new_fields_safe_defaults_on_local_profile():
 
 def test_new_fields_loaded_via_loader():
     from agent.services.model_profile_loader import ModelProfileLoader
+
     loader = ModelProfileLoader()
-    result = loader.load_dict({"profiles": [{
-        "profile_id": "budget-test",
-        "provider_id": "ollama",
-        "model": "llama3",
-        "context_window_tokens": 65536,
-        "hard_max_output_tokens": 8192,
-        "tokenizer_strategy": "tiktoken_cl100k",
-        "tokenizer_name": "cl100k_base",
-        "input_cost_per_1m_tokens": 0.0,
-        "output_cost_per_1m_tokens": 0.0,
-    }]})
+    result = loader.load_dict(
+        {
+            "profiles": [
+                {
+                    "profile_id": "budget-test",
+                    "provider_id": "ollama",
+                    "model": "llama3",
+                    "context_window_tokens": 65536,
+                    "hard_max_output_tokens": 8192,
+                    "tokenizer_strategy": "tiktoken_cl100k",
+                    "tokenizer_name": "cl100k_base",
+                    "input_cost_per_1m_tokens": 0.0,
+                    "output_cost_per_1m_tokens": 0.0,
+                }
+            ]
+        }
+    )
     assert not result.errors
     p = result.profiles[0]
     assert p.context_window_tokens == 65536
@@ -547,17 +546,24 @@ def test_new_fields_loaded_via_loader():
 
 def test_new_fields_do_not_break_cloud_profile_validation():
     from agent.services.model_profile_loader import ModelProfileLoader
+
     loader = ModelProfileLoader()
-    result = loader.load_dict({"profiles": [{
-        "profile_id": "cloud-with-budget",
-        "provider_id": "openai",
-        "model": "gpt-4o",
-        "cloud": True,
-        "cloud_allowed": True,
-        "block_secret_context": True,
-        "input_cost_per_1m_tokens": 5.0,
-        "output_cost_per_1m_tokens": 15.0,
-    }]})
+    result = loader.load_dict(
+        {
+            "profiles": [
+                {
+                    "profile_id": "cloud-with-budget",
+                    "provider_id": "openai",
+                    "model": "gpt-4o",
+                    "cloud": True,
+                    "cloud_allowed": True,
+                    "block_secret_context": True,
+                    "input_cost_per_1m_tokens": 5.0,
+                    "output_cost_per_1m_tokens": 15.0,
+                }
+            ]
+        }
+    )
     assert not result.errors
     p = result.profiles[0]
     assert p.input_cost_per_1m_tokens == pytest.approx(5.0)

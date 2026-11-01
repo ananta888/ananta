@@ -1,15 +1,11 @@
 """MDP-018 / MIMG-013: Tests for Mermaid image node generation from document view."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from unittest.mock import patch
-
-import pytest
-
 from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderResult
-from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
-from client_surfaces.operator_tui.visual.views.base_view import ViewContext
 from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
+from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
 
 
 def _region(cols: int = 80, rows: int = 24) -> ViewportRegion:
@@ -40,8 +36,10 @@ def _fake_renderer(success: bool, fmt: str = "png", data: bytes = _FAKE_PNG):
         reason="" if success else "render failed",
         duration_ms=1.0,
     )
+
     def render(source: str) -> MermaidRenderResult:
         return result
+
     return render
 
 
@@ -65,6 +63,7 @@ class FakeMermaidRenderer:
 
 
 # ── Successful PNG render → diagram_image node ────────────────────────────────
+
 
 def test_successful_png_creates_diagram_image_node():
     view = MarkdownMermaidDocumentView()
@@ -93,12 +92,21 @@ def test_diagram_node_has_required_fields():
     scene = view.render(_ctx(_MERMAID_MD))
     node = next((n for n in scene.nodes if n.get("kind") == "diagram_image"), None)
     assert node is not None
-    for field_name in ("diagram_id", "image_format", "image_data", "x", "y",
-                       "requested_width", "requested_height", "alt_text"):
+    for field_name in (
+        "diagram_id",
+        "image_format",
+        "image_data",
+        "x",
+        "y",
+        "requested_width",
+        "requested_height",
+        "alt_text",
+    ):
         assert field_name in node, f"Missing field: {field_name}"
 
 
 # ── Failed render → ANSI fallback ─────────────────────────────────────────────
+
 
 def test_failed_render_creates_no_image_node():
     view = MarkdownMermaidDocumentView()
@@ -118,6 +126,7 @@ def test_failed_render_shows_reason_in_ansi():
 
 
 # ── Multiple Mermaid blocks ───────────────────────────────────────────────────
+
 
 def test_multiple_mermaid_blocks_produce_multiple_nodes():
     md = "```mermaid\ngraph TD\n  A-->B\n```\n\nText.\n\n```mermaid\ngraph LR\n  X-->Y\n```"
@@ -139,6 +148,7 @@ def test_multiple_mermaid_blocks_have_stable_unique_ids():
 
 
 # ── Diagnostics metadata (MIMG-003 / MDP-009) ─────────────────────────────────
+
 
 def test_metadata_counts_mermaid_blocks():
     view = MarkdownMermaidDocumentView()
@@ -167,6 +177,7 @@ def test_metadata_visible_images_count():
 
 # ── Cache (MDP-008 / MIMG-006) ────────────────────────────────────────────────
 
+
 def test_cache_prevents_duplicate_renders():
     view = MarkdownMermaidDocumentView()
     call_count = [0]
@@ -174,9 +185,11 @@ def test_cache_prevents_duplicate_renders():
 
     class CountingRenderer:
         renderer_order = ("counting",)
+
         def render(self, source: str) -> MermaidRenderResult:
             call_count[0] += 1
             return orig_render.render(source)
+
         def capability_status(self):
             return {"counting": (True, "")}
 
@@ -190,18 +203,26 @@ def test_cache_prevents_duplicate_renders():
 
 # ── Graceful fallback (no error for FallbackCodeblock) ────────────────────────
 
+
 def test_graceful_fallback_not_recorded_as_error():
     """FallbackCodeblockBackend sentinel reason must not produce mermaid_fallback_count > 0."""
     from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderResult
+
     view = MarkdownMermaidDocumentView()
 
     class GracefulFallbackRenderer:
         renderer_order = ("fallback_codeblock",)
+
         def render(self, source: str) -> MermaidRenderResult:
             return MermaidRenderResult(
-                success=False, image_data=None, image_format="",
-                fallback_text=source, reason="Mermaid image renderer unavailable", duration_ms=0.0,
+                success=False,
+                image_data=None,
+                image_format="",
+                fallback_text=source,
+                reason="Mermaid image renderer unavailable",
+                duration_ms=0.0,
             )
+
         def capability_status(self):
             return {"fallback_codeblock": (True, "")}
 
@@ -212,6 +233,7 @@ def test_graceful_fallback_not_recorded_as_error():
 
 
 # ── Plain text streaming mode ──────────────────────────────────────────────────
+
 
 def test_streaming_plain_mode_has_no_diagram_nodes():
     view = MarkdownMermaidDocumentView()

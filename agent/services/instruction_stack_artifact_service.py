@@ -101,4 +101,3 @@ _instruction_stack_artifact_service = InstructionStackArtifactService()
 
 def get_instruction_stack_artifact_service() -> InstructionStackArtifactService:
     return _instruction_stack_artifact_service
-

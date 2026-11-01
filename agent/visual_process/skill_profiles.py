@@ -7,21 +7,24 @@ model preference it has.
 VPDF-006: The profile registry is open — external specialty-agent
 profiles can be registered at runtime via ``register_profile()``.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
+
 from pydantic import BaseModel
 
 
 class AgentSkillProfile(BaseModel):
     """Declares an agent's capabilities for use in a visual process step."""
+
     id: str
     name: str
     description: str = ""
     role: str = "default"
-    task_kinds: list[str] = []            # task_kind values this profile handles
-    capabilities: list[str] = []          # semantic capability tags
-    allowed_tools: list[str] = []         # tool names allowed when this profile is active
+    task_kinds: list[str] = []  # task_kind values this profile handles
+    capabilities: list[str] = []  # semantic capability tags
+    allowed_tools: list[str] = []  # tool names allowed when this profile is active
     forbidden_tools: list[str] = []
     model_preference: Optional[str] = None
     max_context_tokens: Optional[int] = None
@@ -108,15 +111,21 @@ _BUILTIN_PROFILES: list[AgentSkillProfile] = [
         role="ml_engineer",
         task_kinds=[
             # Embedding
-            "embed_api", "embed_chunk",
+            "embed_api",
+            "embed_chunk",
             # TurboQuant (TQ-011/012 only — TQ-013 NotImplementedError)
-            "sign_rotation", "turboquant_mse",
+            "sign_rotation",
+            "turboquant_mse",
             # RAG
-            "rag_retrieve", "rerank", "query_rewrite",
+            "rag_retrieve",
+            "rerank",
+            "query_rewrite",
             # Domain clustering (deterministic signal-based)
             "domain_cluster",
             # Legacy aliases
-            "vector_encode", "turboquant_encode", "cluster",
+            "vector_encode",
+            "turboquant_encode",
+            "cluster",
         ],
         capabilities=["ml_inference", "vector_operation", "read_only"],
         allowed_tools=["read_file", "list_files", "grep_search"],
@@ -136,7 +145,8 @@ _BUILTIN_PROFILES: list[AgentSkillProfile] = [
             "codecompass_fts_search",
             "codecompass_graph_expand",
             # May also do RAG retrieval
-            "rag_retrieve", "rerank",
+            "rag_retrieve",
+            "rerank",
         ],
         capabilities=["read_only", "retrieval", "index_write"],
         allowed_tools=["read_file", "list_files", "grep_search"],
@@ -164,8 +174,11 @@ _BUILTIN_PROFILES: list[AgentSkillProfile] = [
         ),
         role="evolver",
         task_kinds=[
-            "evolution_analyze", "evolution_validate", "evolution_apply",
-            "evolve_prompt", "evolve_project",
+            "evolution_analyze",
+            "evolution_validate",
+            "evolution_apply",
+            "evolve_prompt",
+            "evolve_project",
         ],
         capabilities=["self_modifying", "llm_generate", "evolution"],
         allowed_tools=["read_file", "list_files", "grep_search", "git_diff"],
@@ -175,6 +188,7 @@ _BUILTIN_PROFILES: list[AgentSkillProfile] = [
 
 
 # ── Registry (VPDF-006) ───────────────────────────────────────────────────────
+
 
 class SkillProfileRegistry:
     """Open registry for agent skill profiles.

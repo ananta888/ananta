@@ -4,6 +4,7 @@ HCCA-008 — Quality Guard
 Validates that compressed content meets minimum quality thresholds before
 the adapter accepts it. Falls back to passthrough if quality is insufficient.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,14 +23,12 @@ _CRITICAL_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 # Rough secret indicators for the "no_new_secrets" check
-_SECRET_HINT: re.Pattern[str] = re.compile(
-    r"sk-[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9\-_\.=]{20,}|AKIA[0-9A-Z]{10,}"
-)
+_SECRET_HINT: re.Pattern[str] = re.compile(r"sk-[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9\-_\.=]{20,}|AKIA[0-9A-Z]{10,}")
 
 
 @dataclass(frozen=True)
 class QualityResult:
-    score: float          # 0.0–1.0
+    score: float  # 0.0–1.0
     passed: bool
     reason: str
     checks: dict[str, bool]  # individual check results

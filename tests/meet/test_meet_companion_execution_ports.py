@@ -46,15 +46,20 @@ def test_real_child_uses_injected_owner_port_and_resets_sequence_per_answer():
     assert execution._process.poll() is not None
 
 
-@pytest.mark.parametrize("frame", [
-    {"kind": "port", "sequence": 2, "port": "tool", "arguments": {}},
-    {"kind": "port", "sequence": True, "port": "tool", "arguments": {}},
-    {"kind": "port", "sequence": 1, "port": "delegate", "arguments": {}},
-    {"kind": "port", "sequence": 1, "port": "tool", "arguments": {}, "endpoint": "foreign"},
-])
+@pytest.mark.parametrize(
+    "frame",
+    [
+        {"kind": "port", "sequence": 2, "port": "tool", "arguments": {}},
+        {"kind": "port", "sequence": True, "port": "tool", "arguments": {}},
+        {"kind": "port", "sequence": 1, "port": "delegate", "arguments": {}},
+        {"kind": "port", "sequence": 1, "port": "tool", "arguments": {}, "endpoint": "foreign"},
+    ],
+)
 def test_unowned_broadened_or_out_of_sequence_call_never_invokes_port(frame):
-    execution = runner(f"import sys; sys.stdin.readline(); print({json.dumps(frame)!r}, flush=True)",
-                       ports={"tool": lambda *args, **kwargs: pytest.fail("untrusted port executed")})
+    execution = runner(
+        f"import sys; sys.stdin.readline(); print({json.dumps(frame)!r}, flush=True)",
+        ports={"tool": lambda *args, **kwargs: pytest.fail("untrusted port executed")},
+    )
     with pytest.raises(CompanionExecutionError, match="protocol_invalid"):
         execution.call("answer", "synthetic", cooperate=lambda: None)
     assert execution._process.poll() is not None
@@ -131,8 +136,9 @@ def test_deadline_cannot_be_extended_by_owner_port_response():
     assert execution._process.poll() is not None
 
 
-@pytest.mark.parametrize("port,size,accepted", [("model", 40_000, True), ("tool", 40_000, False),
-                                               ("model", 128_000, False)])
+@pytest.mark.parametrize(
+    "port,size,accepted", [("model", 40_000, True), ("tool", 40_000, False), ("model", 128_000, False)]
+)
 def test_larger_model_requests_do_not_broaden_other_ports(port, size, accepted):
     code = f"""
 import json,sys

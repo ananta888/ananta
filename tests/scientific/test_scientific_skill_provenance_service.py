@@ -62,12 +62,14 @@ def test_receipt_binds_skill_catalog_policy_approval_model_tools_sources_and_art
     assert receipt.payload["policy_decision_digest"] == "d" * 64
     assert receipt.payload["approval_digest"] == "e" * 64
     assert receipt.payload["tool_calls"][0]["target_digest"] == "f" * 64
-    assert service.get_verified(
-        tenant_id="tenant-1", project_id="project-1", receipt_digest=receipt.receipt_digest
-    ) == receipt
-    assert service.get_verified(
-        tenant_id="tenant-2", project_id="project-1", receipt_digest=receipt.receipt_digest
-    ) is None
+    assert (
+        service.get_verified(tenant_id="tenant-1", project_id="project-1", receipt_digest=receipt.receipt_digest)
+        == receipt
+    )
+    assert (
+        service.get_verified(tenant_id="tenant-2", project_id="project-1", receipt_digest=receipt.receipt_digest)
+        is None
+    )
 
 
 def test_identical_receipt_is_idempotent_but_append_only_conflicts_are_rejected(service):

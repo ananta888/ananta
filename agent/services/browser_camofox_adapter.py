@@ -145,7 +145,9 @@ class BrowserCamofoxAdapter:
         """Macht einen Screenshot, wenn die Policy es erlaubt."""
         if contract.screenshot_policy == "none":
             return CamofoxActionResult(
-                False, "screenshot", session_id,
+                False,
+                "screenshot",
+                session_id,
                 policy_denial_code="browser_policy_screenshot_denied",
             )
         try:
@@ -170,9 +172,7 @@ class BrowserCamofoxAdapter:
             log_audit(_AUDIT_POLICY_DENIED, {"reason": blocked.reason_code, "action": "download"})
             return CamofoxActionResult(False, "download", session_id, policy_denial_code=blocked.reason_code)
 
-        download_decision = policy.enforce_download_policy(
-            download_url=url, output_path=output_path, contract=contract
-        )
+        download_decision = policy.enforce_download_policy(download_url=url, output_path=output_path, contract=contract)
         if not download_decision.allow:
             log_audit(_AUDIT_POLICY_DENIED, {"reason": download_decision.reason_code, "action": "download"})
             return CamofoxActionResult(False, "download", session_id, policy_denial_code=download_decision.reason_code)

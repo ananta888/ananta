@@ -1,16 +1,17 @@
 """PRD03.02: Tests für die Rendezvous-API."""
+
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch, MagicMock
 
-from agent.services.rendezvous_service import RendezvousService, get_rendezvous_service
+from agent.services.rendezvous_service import RendezvousService
 
 
 @pytest.fixture(autouse=True)
 def reset_rendezvous_state():
     """Setzt den in-memory State vor jedem Test zurück."""
     import agent.services.rendezvous_service as svc
+
     svc._sessions.clear()
     svc._participants.clear()
     svc._invite_codes.clear()
@@ -129,8 +130,12 @@ def test_join_session_idempotent(service):
         oidc_issuer="",
     )
     code = session["invite_code"]
-    r1 = service.join_session(invite_code=code, user_id="b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer="")
-    r2 = service.join_session(invite_code=code, user_id="b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer="")
+    r1 = service.join_session(
+        invite_code=code, user_id="b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer=""
+    )
+    r2 = service.join_session(
+        invite_code=code, user_id="b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer=""
+    )
     assert r1["ok"]
     assert r2["ok"]
     assert r2.get("idempotent")
@@ -144,7 +149,9 @@ def test_get_participants_only_for_members(service):
     )
     sid = session["id"]
     code = session["invite_code"]
-    service.join_session(invite_code=code, user_id="user-b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer="")
+    service.join_session(
+        invite_code=code, user_id="user-b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer=""
+    )
     # Owner darf abrufen
     result = service.get_participants(session_id=sid, requester_user_id="user-a")
     assert result["ok"]
@@ -187,7 +194,9 @@ def test_join_revoked_session_fails(service):
     sid = session["id"]
     code = session["invite_code"]
     service.revoke_session(session_id=sid, actor_user_id="user-a")
-    result = service.join_session(invite_code=code, user_id="user-b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer="")
+    result = service.join_session(
+        invite_code=code, user_id="user-b", user_sub="sb", device_id="d", device_fingerprint="fp", oidc_issuer=""
+    )
     assert not result["ok"]
     # Code wurde entfernt
     assert result["reason"] == "invalid_invite_code"

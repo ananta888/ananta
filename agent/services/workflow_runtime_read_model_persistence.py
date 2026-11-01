@@ -50,10 +50,7 @@ class SQLAlchemyWorkflowRuntimeReadModelRepository:
                     existing = _deserialize(current)
                     if record.source_sequence < current.source_sequence:
                         raise ValueError("runtime_read_model_sequence_regression")
-                    if (
-                        record.source_sequence == current.source_sequence
-                        and record.updated_at < current.updated_at
-                    ):
+                    if record.source_sequence == current.source_sequence and record.updated_at < current.updated_at:
                         return existing
 
                     result = session.exec(
@@ -61,13 +58,10 @@ class SQLAlchemyWorkflowRuntimeReadModelRepository:
                         .where(
                             WorkflowRuntimeReadModelDB.id == row_id,
                             sa.or_(
-                                WorkflowRuntimeReadModelDB.source_sequence
-                                < record.source_sequence,
+                                WorkflowRuntimeReadModelDB.source_sequence < record.source_sequence,
                                 sa.and_(
-                                    WorkflowRuntimeReadModelDB.source_sequence
-                                    == record.source_sequence,
-                                    WorkflowRuntimeReadModelDB.updated_at
-                                    <= record.updated_at,
+                                    WorkflowRuntimeReadModelDB.source_sequence == record.source_sequence,
+                                    WorkflowRuntimeReadModelDB.updated_at <= record.updated_at,
                                 ),
                             ),
                         )

@@ -117,9 +117,7 @@ class SfuBroadcastMetricsService:
         cohort_size: int,
         now_seconds: float,
     ) -> SfuBroadcastMetricRecordResult:
-        return self._record_metric(
-            "counter", metric_name, unit, value, labels, scope_id, cohort_size, now_seconds
-        )
+        return self._record_metric("counter", metric_name, unit, value, labels, scope_id, cohort_size, now_seconds)
 
     def observe(
         self,
@@ -132,9 +130,7 @@ class SfuBroadcastMetricsService:
         cohort_size: int,
         now_seconds: float,
     ) -> SfuBroadcastMetricRecordResult:
-        return self._record_metric(
-            "histogram", metric_name, unit, value, labels, scope_id, cohort_size, now_seconds
-        )
+        return self._record_metric("histogram", metric_name, unit, value, labels, scope_id, cohort_size, now_seconds)
 
     def gauge(
         self,
@@ -147,9 +143,7 @@ class SfuBroadcastMetricsService:
         cohort_size: int,
         now_seconds: float,
     ) -> SfuBroadcastMetricRecordResult:
-        return self._record_metric(
-            "gauge", metric_name, unit, value, labels, scope_id, cohort_size, now_seconds
-        )
+        return self._record_metric("gauge", metric_name, unit, value, labels, scope_id, cohort_size, now_seconds)
 
     def audit(
         self,
@@ -301,18 +295,14 @@ class SfuBroadcastMetricsService:
     ) -> bool:
         now = self._clock()
         self._drop_expired(now)
-        encoded_bytes = len(
-            json.dumps(value.public(), sort_keys=True, separators=(",", ":")).encode("utf-8")
-        )
+        encoded_bytes = len(json.dumps(value.public(), sort_keys=True, separators=(",", ":")).encode("utf-8"))
         if (
             encoded_bytes > self._limits.max_bytes
             or len(self._pending) >= self._limits.max_items
             or self._pending_bytes + encoded_bytes > self._limits.max_bytes
         ):
             return False
-        self._pending.append(
-            _PendingObservation(kind, value, encoded_bytes, now, now + self._limits.max_age_seconds)
-        )
+        self._pending.append(_PendingObservation(kind, value, encoded_bytes, now, now + self._limits.max_age_seconds))
         self._pending_bytes += encoded_bytes
         return True
 

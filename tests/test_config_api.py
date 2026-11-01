@@ -331,7 +331,9 @@ def test_unified_approval_policy_is_normalized_and_merged(client, admin_token):
     response = client.post("/config", json=first, headers=headers)
     assert response.status_code == 200
 
-    second = {"unified_approval_policy": {"governance_overrides": {"safe": {"confirm_required": ["mutation", "read_only"]}}}}
+    second = {
+        "unified_approval_policy": {"governance_overrides": {"safe": {"confirm_required": ["mutation", "read_only"]}}}
+    }
     response = client.post("/config", json=second, headers=headers)
     assert response.status_code == 200
 
@@ -519,9 +521,7 @@ def test_provider_catalog_contains_dynamic_lmstudio_block(client, admin_token):
     assert any(m["id"] == "model-x" and m["selected"] is True for m in (lmstudio.get("models") or []))
 
 
-def test_provider_catalog_discovers_ollama_tags_instead_of_static_defaults(
-    client, admin_token, app
-):
+def test_provider_catalog_discovers_ollama_tags_instead_of_static_defaults(client, admin_token, app):
     from agent.services.ollama_model_discovery_service import OllamaModelDiscoveryService
     from agent.services.service_registry import get_core_services
 
@@ -556,9 +556,7 @@ def test_provider_catalog_discovers_ollama_tags_instead_of_static_defaults(
         res = client.get("/providers/catalog?force_refresh=1", headers=headers)
 
     assert res.status_code == 200
-    ollama = next(
-        item for item in res.json["data"]["providers"] if item["provider"] == "ollama"
-    )
+    ollama = next(item for item in res.json["data"]["providers"] if item["provider"] == "ollama")
     assert calls == [("http://ollama:11434", 5)]
     assert ollama["available"] is True
     assert ollama["model_discovery"] == {
@@ -829,7 +827,14 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     assert (cli_sessions.get("runtime") or {}).get("total") is not None
     routing_split = llm_configuration.get("routing_split") or {}
     assert (routing_split.get("inference") or {}).get("default_provider") is not None
-    assert (routing_split.get("execution") or {}).get("default_backend") in {"sgpt", "codex", "opencode", "aider", "mistral_code", "auto"}
+    assert (routing_split.get("execution") or {}).get("default_backend") in {
+        "sgpt",
+        "codex",
+        "opencode",
+        "aider",
+        "mistral_code",
+        "auto",
+    }
     assert (routing_split.get("decision_chain") or {}).get("policy_version") == "routing-decision-v1"
     assert (routing_split.get("fallback_policy") or {}).get("enabled") is True
     research_backend = llm_configuration.get("research_backend") or {}

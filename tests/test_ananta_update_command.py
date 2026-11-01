@@ -6,7 +6,9 @@ from pathlib import Path
 from agent.cli import update as update_cli
 
 
-def _completed(*, command: list[str], returncode: int = 0, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess[str]:
+def _completed(
+    *, command: list[str], returncode: int = 0, stdout: str = "", stderr: str = ""
+) -> subprocess.CompletedProcess[str]:
     return subprocess.CompletedProcess(args=command, returncode=returncode, stdout=stdout, stderr=stderr)
 
 

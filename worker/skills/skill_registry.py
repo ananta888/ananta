@@ -1,4 +1,5 @@
 """SkillRegistry: disabled-by-default skill loading with hash/version state. AWF-T028."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

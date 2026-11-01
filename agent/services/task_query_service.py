@@ -46,17 +46,12 @@ def _access_filtered_page(
     scan_offset = 0
     scanned_rows = 0
     page: list[dict] = []
-    while (
-        scanned_rows < _TASK_READ_SCAN_MAX_ROWS
-        and len(page) < page_limit
-    ):
+    while scanned_rows < _TASK_READ_SCAN_MAX_ROWS and len(page) < page_limit:
         chunk_limit = min(
             _TASK_READ_SCAN_CHUNK_SIZE,
             _TASK_READ_SCAN_MAX_ROWS - scanned_rows,
         )
-        rows = list(fetch_page(chunk_limit, scan_offset) or [])[
-            :chunk_limit
-        ]
+        rows = list(fetch_page(chunk_limit, scan_offset) or [])[:chunk_limit]
         if not rows:
             break
         scanned_rows += len(rows)
@@ -114,12 +109,10 @@ class TaskQueryService:
             ]
         else:
             payloads = _access_filtered_page(
-                fetch_page=lambda chunk_limit, chunk_offset: (
-                    repos.task_repo.get_paged(
-                        limit=chunk_limit,
-                        offset=chunk_offset,
-                        **query,
-                    )
+                fetch_page=lambda chunk_limit, chunk_offset: repos.task_repo.get_paged(
+                    limit=chunk_limit,
+                    offset=chunk_offset,
+                    **query,
                 ),
                 access=access,
                 limit=limit,
@@ -184,12 +177,10 @@ class TaskQueryService:
         else:
             scope_filters = _repository_scope_filters(access)
             payloads = _access_filtered_page(
-                fetch_page=lambda chunk_limit, chunk_offset: (
-                    repos.archived_task_repo.get_all(
-                        limit=chunk_limit,
-                        offset=chunk_offset,
-                        **scope_filters,
-                    )
+                fetch_page=lambda chunk_limit, chunk_offset: repos.archived_task_repo.get_all(
+                    limit=chunk_limit,
+                    offset=chunk_offset,
+                    **scope_filters,
                 ),
                 access=access,
                 limit=limit,
@@ -251,9 +242,7 @@ class TaskQueryService:
             get_task_admin_service,
         )
 
-        if not get_task_admin_service().delete_archived_task(
-            task_id=task_id
-        ):
+        if not get_task_admin_service().delete_archived_task(task_id=task_id):
             return None
         return {"deleted_count": 1, "deleted_ids": [task_id]}
 

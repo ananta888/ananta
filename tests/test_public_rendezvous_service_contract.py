@@ -1056,12 +1056,14 @@ def test_parallel_guest_leave_revokes_once_and_returns_idempotently(public_servi
     def leave() -> None:
         try:
             ready.wait(timeout=5)
-            results.append(public_service.leave_session(
-                session_id=session_id,
-                actor_user_id=pair["account_id"],
-                actor_peer_id=pair["guest_peer_id"],
-                membership_capability=pair["guest_capability"],
-            ))
+            results.append(
+                public_service.leave_session(
+                    session_id=session_id,
+                    actor_user_id=pair["account_id"],
+                    actor_peer_id=pair["guest_peer_id"],
+                    membership_capability=pair["guest_capability"],
+                )
+            )
         except BaseException as exc:  # pragma: no cover - asserted by parent thread
             failures.append(exc)
 
@@ -2145,14 +2147,10 @@ def test_legacy_sqlite_schema_migrates_additively_and_fails_closed(monkeypatch, 
         confirmation_expiry = conn.execute("SELECT expires_at FROM key_confirmations").fetchone()[0]
 
     with service._db() as conn:
-        signal_epochs_before_restart = conn.execute(
-            "SELECT id, security_epoch FROM signals ORDER BY id"
-        ).fetchall()
+        signal_epochs_before_restart = conn.execute("SELECT id, security_epoch FROM signals ORDER BY id").fetchall()
         conn.execute("UPDATE sessions SET security_epoch = 9 WHERE id = 'legacy-session'")
         service._migrate_database(conn)
-        signal_epochs_after_restart = conn.execute(
-            "SELECT id, security_epoch FROM signals ORDER BY id"
-        ).fetchall()
+        signal_epochs_after_restart = conn.execute("SELECT id, security_epoch FROM signals ORDER BY id").fetchall()
 
     assert "identity_binding_version" in session_columns
     assert "public_media_e2ee_version" in session_columns

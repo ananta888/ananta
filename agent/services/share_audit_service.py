@@ -4,6 +4,7 @@ Events: session_created, participant_joined, participant_revoked,
         permission_changed, chat_sent, view_started, view_delta_sent, view_stopped.
 Enthält keine Chat- oder View-Klartextinhalte.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -49,14 +50,17 @@ def audit_session_created(
     transport: str,
     permissions: dict[str, Any],
 ) -> None:
-    log_audit("share.session_created", {
-        "scope_digest": _digest("session", session_id),
-        "owner_digest": _digest("user", owner_user_id),
-        "device_digest": _digest("device", owner_device_id),
-        "mode": mode,
-        "transport": transport,
-        **_permission_evidence(permissions),
-    })
+    log_audit(
+        "share.session_created",
+        {
+            "scope_digest": _digest("session", session_id),
+            "owner_digest": _digest("user", owner_user_id),
+            "device_digest": _digest("device", owner_device_id),
+            "mode": mode,
+            "transport": transport,
+            **_permission_evidence(permissions),
+        },
+    )
 
 
 def audit_participant_joined(
@@ -68,14 +72,17 @@ def audit_participant_joined(
     public_key_fingerprint: str,
     permissions: dict[str, Any],
 ) -> None:
-    log_audit("share.participant_joined", {
-        "scope_digest": _digest("session", session_id),
-        "participant_digest": _digest("participant", participant_id),
-        "user_digest": _digest("user", user_id),
-        "device_digest": _digest("device", device_id),
-        "public_key_fingerprint_digest": _digest("fingerprint", public_key_fingerprint),
-        **_permission_evidence(permissions),
-    })
+    log_audit(
+        "share.participant_joined",
+        {
+            "scope_digest": _digest("session", session_id),
+            "participant_digest": _digest("participant", participant_id),
+            "user_digest": _digest("user", user_id),
+            "device_digest": _digest("device", device_id),
+            "public_key_fingerprint_digest": _digest("fingerprint", public_key_fingerprint),
+            **_permission_evidence(permissions),
+        },
+    )
 
 
 def audit_participant_revoked(
@@ -84,12 +91,15 @@ def audit_participant_revoked(
     participant_id: str,
     actor_user_id: str,
 ) -> None:
-    log_audit("share.participant_revoked", {
-        "scope_digest": _digest("session", session_id),
-        "participant_digest": _digest("participant", participant_id),
-        "actor_digest": _digest("user", actor_user_id),
-        "revoked_at": time.time(),
-    })
+    log_audit(
+        "share.participant_revoked",
+        {
+            "scope_digest": _digest("session", session_id),
+            "participant_digest": _digest("participant", participant_id),
+            "actor_digest": _digest("user", actor_user_id),
+            "revoked_at": time.time(),
+        },
+    )
 
 
 def audit_permission_changed(
@@ -98,11 +108,14 @@ def audit_permission_changed(
     actor_user_id: str,
     new_permissions: dict[str, Any],
 ) -> None:
-    log_audit("share.permission_changed", {
-        "scope_digest": _digest("session", session_id),
-        "actor_digest": _digest("user", actor_user_id),
-        **_permission_evidence(new_permissions),
-    })
+    log_audit(
+        "share.permission_changed",
+        {
+            "scope_digest": _digest("session", session_id),
+            "actor_digest": _digest("user", actor_user_id),
+            **_permission_evidence(new_permissions),
+        },
+    )
 
 
 def audit_chat_sent(
@@ -113,12 +126,15 @@ def audit_chat_sent(
     is_encrypted: bool,
 ) -> None:
     """Kein Klartext-Inhalt im Audit."""
-    log_audit("share.chat_sent", {
-        "scope_digest": _digest("session", session_id),
-        "sender_digest": _digest("user", sender_user_id),
-        "message_digest": _digest("message", message_id),
-        "is_encrypted": is_encrypted,
-    })
+    log_audit(
+        "share.chat_sent",
+        {
+            "scope_digest": _digest("session", session_id),
+            "sender_digest": _digest("user", sender_user_id),
+            "message_digest": _digest("message", message_id),
+            "is_encrypted": is_encrypted,
+        },
+    )
 
 
 def audit_view_started(
@@ -126,11 +142,14 @@ def audit_view_started(
     session_id: str,
     owner_user_id: str,
 ) -> None:
-    log_audit("share.view_started", {
-        "scope_digest": _digest("session", session_id),
-        "owner_digest": _digest("user", owner_user_id),
-        "started_at": time.time(),
-    })
+    log_audit(
+        "share.view_started",
+        {
+            "scope_digest": _digest("session", session_id),
+            "owner_digest": _digest("user", owner_user_id),
+            "started_at": time.time(),
+        },
+    )
 
 
 def audit_view_delta_sent(
@@ -144,14 +163,17 @@ def audit_view_delta_sent(
 ) -> None:
     """Nur Hash-Metadaten und getrennte Rollen-Digests – kein View-Klartext."""
     effective_sender_user_id = sender_user_id or owner_user_id
-    log_audit("share.view_delta_sent", {
-        "scope_digest": _digest("session", session_id),
-        "owner_digest": _digest("user", owner_user_id),
-        "sender_digest": _digest("user", effective_sender_user_id),
-        "kind": kind,
-        "new_hash": new_hash,
-        "policy_hash": policy_hash,
-    })
+    log_audit(
+        "share.view_delta_sent",
+        {
+            "scope_digest": _digest("session", session_id),
+            "owner_digest": _digest("user", owner_user_id),
+            "sender_digest": _digest("user", effective_sender_user_id),
+            "kind": kind,
+            "new_hash": new_hash,
+            "policy_hash": policy_hash,
+        },
+    )
 
 
 def audit_view_stopped(
@@ -160,12 +182,15 @@ def audit_view_stopped(
     owner_user_id: str,
     reason: str = "",
 ) -> None:
-    log_audit("share.view_stopped", {
-        "scope_digest": _digest("session", session_id),
-        "owner_digest": _digest("user", owner_user_id),
-        "reason": reason,
-        "stopped_at": time.time(),
-    })
+    log_audit(
+        "share.view_stopped",
+        {
+            "scope_digest": _digest("session", session_id),
+            "owner_digest": _digest("user", owner_user_id),
+            "reason": reason,
+            "stopped_at": time.time(),
+        },
+    )
 
 
 def audit_session_revoked(
@@ -173,8 +198,11 @@ def audit_session_revoked(
     session_id: str,
     actor_user_id: str,
 ) -> None:
-    log_audit("share.session_revoked", {
-        "scope_digest": _digest("session", session_id),
-        "actor_digest": _digest("user", actor_user_id),
-        "revoked_at": time.time(),
-    })
+    log_audit(
+        "share.session_revoked",
+        {
+            "scope_digest": _digest("session", session_id),
+            "actor_digest": _digest("user", actor_user_id),
+            "revoked_at": time.time(),
+        },
+    )

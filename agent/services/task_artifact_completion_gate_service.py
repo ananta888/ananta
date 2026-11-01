@@ -3,6 +3,7 @@
 Single source-of-truth facade for evaluating artifact evidence, mapping to final
 status, and applying status transitions with unified event payload.
 """
+
 from __future__ import annotations
 
 from typing import Any

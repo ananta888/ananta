@@ -5,6 +5,7 @@ The helper emits workspace_* audit events with ALWA-DD-006 redaction
 changed_paths are sorted + truncated with a count and a flag, and
 only paths / hashes / IDs / short summaries land in the audit row.
 """
+
 from __future__ import annotations
 
 import pytest

@@ -9,7 +9,6 @@ import re
 from pathlib import Path
 from typing import Sequence
 
-
 EVIDENCE_ID = re.compile(r"^(?:SRC|RUN)_[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$")
 
 
@@ -45,12 +44,9 @@ def evaluate(
         "redis_tls_only": "port 0" in redis_config and "tls-port 6379" in redis_config,
         "redis_acl_required": "aclfile " in redis_config and "protected-mode yes" in redis_config,
         "compose_native_pair": all(
-            name in compose
-            for name in ("sfu-broadcast-livekit-native-a", "sfu-broadcast-livekit-native-b")
+            name in compose for name in ("sfu-broadcast-livekit-native-a", "sfu-broadcast-livekit-native-b")
         ),
-        "compose_extension_pair": all(
-            name in compose for name in ("sfu-runtime-agent-a", "sfu-runtime-agent-b")
-        ),
+        "compose_extension_pair": all(name in compose for name in ("sfu-runtime-agent-a", "sfu-runtime-agent-b")),
         "resource_limits_present": compose.count("pids:") >= 5,
     }
     valid_evidence = sorted({value for value in evidence_ids if EVIDENCE_ID.fullmatch(value)})

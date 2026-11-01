@@ -20,9 +20,7 @@ def authorize_recovery_source_finalization_write(
 
     normalized_task_id = str(task_id or "").strip()
     if not normalized_task_id:
-        raise ValueError(
-            "recovery_source_finalization_task_id_required"
-        )
+        raise ValueError("recovery_source_finalization_task_id_required")
     token = _AUTHORIZED_TASK_ID.set(normalized_task_id)
     try:
         yield
@@ -33,11 +31,7 @@ def authorize_recovery_source_finalization_write(
 def recovery_source_finalization_write_authorized(
     task_id: str,
 ) -> bool:
-    return bool(
-        str(task_id or "").strip()
-        and _AUTHORIZED_TASK_ID.get()
-        == str(task_id or "").strip()
-    )
+    return bool(str(task_id or "").strip() and _AUTHORIZED_TASK_ID.get() == str(task_id or "").strip())
 
 
 __all__ = [

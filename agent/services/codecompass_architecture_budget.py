@@ -82,8 +82,7 @@ def resolve_architecture_budget(
         max_depth=max(0, min(int(raw.get("max_depth") or base["max_depth"]), 4)),
         max_tokens=max_tokens,
         level_caps={
-            level: max(0, int((raw.get("level_caps") or base["level_caps"]).get(level, 0)))
-            for level in LEVELS
+            level: max(0, int((raw.get("level_caps") or base["level_caps"]).get(level, 0))) for level in LEVELS
         },
         parent_max_tokens=parent,
     )

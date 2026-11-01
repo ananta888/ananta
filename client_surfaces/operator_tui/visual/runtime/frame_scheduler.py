@@ -67,4 +67,3 @@ class FrameScheduler:
             skipped_frames=self._skipped_frames,
             dropped_frames=self._dropped_frames,
         )
-

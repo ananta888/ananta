@@ -18,10 +18,7 @@ class TokenizerEvaluator:
     ) -> dict[str, Any]:
         if not splits or set(splits) - {"train", "validation", "test"}:
             raise ValueError("research_tokenizer_eval_splits_invalid")
-        split_reports = {
-            name: self._split(tokenizer, values)
-            for name, values in sorted(splits.items())
-        }
+        split_reports = {name: self._split(tokenizer, values) for name, values in sorted(splits.items())}
         totals = {
             key: sum(int(report[key]) for report in split_reports.values())
             for key in ("bytes", "characters", "tokens", "special_tokens")

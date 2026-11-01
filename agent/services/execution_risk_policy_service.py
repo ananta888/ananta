@@ -32,8 +32,12 @@ def _policy(agent_cfg: dict | None) -> dict[str, Any]:
     return {
         "enabled": bool(cfg.get("enabled", True)),
         "default_action": str(cfg.get("default_action") or "deny").strip().lower(),
-        "deny_risk_levels": [normalize_risk_level(item, "high") for item in (cfg.get("deny_risk_levels") or ["critical"])],
-        "review_risk_levels": [normalize_risk_level(item, "medium") for item in (cfg.get("review_risk_levels") or ["high", "critical"])],
+        "deny_risk_levels": [
+            normalize_risk_level(item, "high") for item in (cfg.get("deny_risk_levels") or ["critical"])
+        ],
+        "review_risk_levels": [
+            normalize_risk_level(item, "medium") for item in (cfg.get("review_risk_levels") or ["high", "critical"])
+        ],
         "task_scoped_only": bool(cfg.get("task_scoped_only", True)),
         "require_terminal_capability_for_command": bool(cfg.get("require_terminal_capability_for_command", False)),
         "terminal_capability_name": str(cfg.get("terminal_capability_name") or "terminal").strip().lower(),
@@ -75,7 +79,11 @@ def evaluate_execution_risk(
     reasons: list[str] = []
     blocked_tools = [str(item.get("name") or "<missing>") for item in (tool_calls or []) if isinstance(item, dict)]
 
-    required_caps = {str(item or "").strip().lower() for item in (task or {}).get("required_capabilities") or [] if str(item or "").strip()}
+    required_caps = {
+        str(item or "").strip().lower()
+        for item in (task or {}).get("required_capabilities") or []
+        if str(item or "").strip()
+    }
     if command and policy["require_terminal_capability_for_command"]:
         terminal_capability = policy["terminal_capability_name"]
         if terminal_capability not in required_caps:

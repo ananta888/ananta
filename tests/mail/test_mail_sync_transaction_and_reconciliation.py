@@ -119,11 +119,14 @@ def test_sync_transaction_rolls_back_metadata_and_checkpoint_together() -> None:
     assert port.metadata_applied is True
     assert port.checkpoint == _checkpoint()
     assert port.transaction_ids[0].startswith("mailsync-")
-    assert store.apply_and_commit(
-        expected_revision=0,
-        checkpoint=_checkpoint(),
-        delta=_delta(),
-    ) is False
+    assert (
+        store.apply_and_commit(
+            expected_revision=0,
+            checkpoint=_checkpoint(),
+            delta=_delta(),
+        )
+        is False
+    )
 
 
 def _session_document() -> JmapSessionDocument:
@@ -248,9 +251,5 @@ def test_ambiguous_mutation_is_read_reconciled_per_object_and_never_retried() ->
     assert result.reason_code == "jmap_mutation_outcome_unknown"
     assert [item.ok for item in result.value.items] == [True, False]
     assert [name for name, _arguments in client.calls] == ["Email/set", "Email/get"]
-    outcomes = [
-        event["outcome"]
-        for event in audit.events
-        if event["outcome"] in {"reconciled", "indeterminate"}
-    ]
+    outcomes = [event["outcome"] for event in audit.events if event["outcome"] in {"reconciled", "indeterminate"}]
     assert outcomes == ["reconciled", "indeterminate"]

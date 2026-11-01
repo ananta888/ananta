@@ -125,9 +125,7 @@ def _job():
                 "artifact_id": ARTIFACT_ID,
                 "sha256": "1" * 64,
                 "size_bytes": 42,
-                "media_type": (
-                    "application/vnd.ananta.knowledge-index-job+json"
-                ),
+                "media_type": ("application/vnd.ananta.knowledge-index-job+json"),
                 "encoding": "json",
             }
         },
@@ -147,9 +145,7 @@ def _manifest():
         "destination_id": authority["destination_id"],
         "destination_digest": authority["destination_digest"],
         "source_access_grant_id": authority["source_access_grant_id"],
-        "source_access_grant_digest": authority[
-            "source_access_grant_digest"
-        ],
+        "source_access_grant_digest": authority["source_access_grant_digest"],
         "policy_digest": authority["policy_snapshot_digest"],
         "content_manifest_id": "manifest-1",
         "content_manifest_digest": "f" * 64,
@@ -176,9 +172,7 @@ class _Bindings:
         assert assignment_id == "assignment-1"
         assert lease_id == "lease-1"
         assert authenticated_worker_id == WORKER_ID
-        return SimpleNamespace(
-            job=SimpleNamespace(to_wire=_job)
-        )
+        return SimpleNamespace(job=SimpleNamespace(to_wire=_job))
 
 
 class _Agents:
@@ -209,9 +203,7 @@ def _configure_registered_worker_auth(
                         "worker_url": WORKER_URL,
                         "registration_token": REGISTRATION_TOKEN,
                         "service_token_sha256": _sha256(WORKER_TOKEN),
-                        "session_signing_key_sha256": _sha256(
-                            SESSION_SIGNING_KEY
-                        ),
+                        "session_signing_key_sha256": _sha256(SESSION_SIGNING_KEY),
                         "allowed_capabilities": [
                             "index_write",
                             "retrieval",
@@ -245,9 +237,7 @@ def _worker_headers(*, capability: bool = False) -> dict[str, str]:
         "X-Ananta-Worker-URL": WORKER_URL,
     }
     if capability:
-        headers[KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER] = (
-            encode_knowledge_index_payload_capability(_manifest())
-        )
+        headers[KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER] = encode_knowledge_index_payload_capability(_manifest())
     return headers
 
 
@@ -265,17 +255,18 @@ def test_capability_codec_and_live_assignment_authorization():
     encoded = encode_knowledge_index_payload_capability(manifest)
 
     assert decode_knowledge_index_payload_capability(encoded) == manifest
-    assert _authorizer().authorize(
-        artifact_id=ARTIFACT_ID,
-        artifact_sha256="1" * 64,
-        artifact_size_bytes=42,
-        artifact_media_type=(
-            "application/vnd.ananta.knowledge-index-job+json"
-        ),
-        manifest=manifest,
-        worker_id=WORKER_ID,
-        worker_url=WORKER_URL,
-    ) == f"knowledge-index-{FINGERPRINT[:32]}"
+    assert (
+        _authorizer().authorize(
+            artifact_id=ARTIFACT_ID,
+            artifact_sha256="1" * 64,
+            artifact_size_bytes=42,
+            artifact_media_type=("application/vnd.ananta.knowledge-index-job+json"),
+            manifest=manifest,
+            worker_id=WORKER_ID,
+            worker_url=WORKER_URL,
+        )
+        == f"knowledge-index-{FINGERPRINT[:32]}"
+    )
 
 
 def test_capability_rejects_artifact_or_assignment_mismatch():
@@ -284,9 +275,7 @@ def test_capability_rejects_artifact_or_assignment_mismatch():
             artifact_id="artifact-other",
             artifact_sha256="1" * 64,
             artifact_size_bytes=42,
-            artifact_media_type=(
-                "application/vnd.ananta.knowledge-index-job+json"
-            ),
+            artifact_media_type=("application/vnd.ananta.knowledge-index-job+json"),
             manifest=_manifest(),
             worker_id=WORKER_ID,
             worker_url=WORKER_URL,
@@ -299,9 +288,7 @@ def test_capability_rejects_artifact_or_assignment_mismatch():
             artifact_id=ARTIFACT_ID,
             artifact_sha256="1" * 64,
             artifact_size_bytes=42,
-            artifact_media_type=(
-                "application/vnd.ananta.knowledge-index-job+json"
-            ),
+            artifact_media_type=("application/vnd.ananta.knowledge-index-job+json"),
             manifest=changed,
             worker_id=WORKER_ID,
             worker_url=WORKER_URL,
@@ -323,14 +310,10 @@ def test_internal_payload_route_rejects_registered_worker_without_capability(
         monkeypatch=monkeypatch,
     )
     with app.test_request_context(headers=_worker_headers()):
-        response, status_code = get_knowledge_index_payload_artifact(
-            ARTIFACT_ID
-        )
+        response, status_code = get_knowledge_index_payload_artifact(ARTIFACT_ID)
 
     assert status_code == 401
-    assert response.get_json()["data"]["reason_code"] == (
-        "knowledge_index_payload_capability_required"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("knowledge_index_payload_capability_required")
 
 
 def test_internal_payload_route_rejects_capability_without_registered_worker(
@@ -350,14 +333,10 @@ def test_internal_payload_route_rejects_capability_without_registered_worker(
     headers = _worker_headers(capability=True)
     headers["Authorization"] = f"Bearer {HUB_TOKEN}"
     with app.test_request_context(headers=headers):
-        response, status_code = get_knowledge_index_payload_artifact(
-            ARTIFACT_ID
-        )
+        response, status_code = get_knowledge_index_payload_artifact(ARTIFACT_ID)
 
     assert status_code == 401
-    assert response.get_json()["data"]["reason_code"] == (
-        "workflow_worker_service_token_invalid"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("workflow_worker_service_token_invalid")
 
 
 def test_internal_payload_route_requires_worker_auth_and_capability(
@@ -374,9 +353,7 @@ def test_internal_payload_route_requires_worker_auth_and_capability(
     storage_path.write_bytes(content)
     artifact = SimpleNamespace(
         latest_version_id="version-1",
-        artifact_metadata={
-            "system_artifact_kind": "knowledge_index_job_payload"
-        },
+        artifact_metadata={"system_artifact_kind": "knowledge_index_job_payload"},
     )
     version = SimpleNamespace(
         sha256=digest,
@@ -408,9 +385,7 @@ def test_internal_payload_route_requires_worker_auth_and_capability(
         artifact_repo=ByIdRepository(ARTIFACT_ID, artifact),
         artifact_version_repo=ByIdRepository("version-1", version),
     )
-    app.extensions[
-        "knowledge_index_payload_capability_authorizer"
-    ] = Authorizer()
+    app.extensions["knowledge_index_payload_capability_authorizer"] = Authorizer()
     replacement = b"y" * len(content)
 
     def swap_path_before_send(source, **kwargs):
@@ -429,9 +404,7 @@ def test_internal_payload_route_requires_worker_auth_and_capability(
         "agent.routes.artifacts.send_file",
         swap_path_before_send,
     )
-    with app.test_request_context(
-        headers=_worker_headers(capability=True)
-    ):
+    with app.test_request_context(headers=_worker_headers(capability=True)):
         response = get_knowledge_index_payload_artifact(ARTIFACT_ID)
 
     assert response.status_code == 200
@@ -543,9 +516,7 @@ def test_governed_payload_loader_rejects_redirect_without_forwarding_capability(
 
     assert len(opener.requests) == 1
     assert opener.requests[0].full_url.startswith("http://hub:5000/")
-    assert opener.requests[0].get_header("Authorization") == (
-        f"Bearer {WORKER_TOKEN}"
-    )
+    assert opener.requests[0].get_header("Authorization") == (f"Bearer {WORKER_TOKEN}")
     assert response.closed is True
 
 
@@ -571,11 +542,14 @@ def test_governed_payload_read_enforces_absolute_slow_drip_deadline() -> None:
         monotonic_clock=lambda: now[0],
     )
 
-    assert HubArtifactKnowledgeIndexPayloadLoader._read_chunk(
-        Response(),
-        1,
-        execution_deadline=deadline,
-    ) == b"x"
+    assert (
+        HubArtifactKnowledgeIndexPayloadLoader._read_chunk(
+            Response(),
+            1,
+            execution_deadline=deadline,
+        )
+        == b"x"
+    )
     with pytest.raises(
         KnowledgeIndexExecutionDeadlineError,
         match="knowledge_index_worker_execution_deadline_exceeded",
@@ -683,23 +657,15 @@ def test_legacy_payload_loader_keeps_local_compatibility(monkeypatch):
     monkeypatch.setattr(
         HubArtifactKnowledgeIndexPayloadLoader,
         "_load_local",
-        staticmethod(
-            lambda _artifact_id, *, expected_size: b"x" * expected_size
-        ),
+        staticmethod(lambda _artifact_id, *, expected_size: b"x" * expected_size),
     )
     monkeypatch.setattr(
         HubArtifactKnowledgeIndexPayloadLoader,
         "_load_from_hub",
-        staticmethod(
-            lambda *_args, **_kwargs: pytest.fail(
-                "legacy local payload should not call Hub"
-            )
-        ),
+        staticmethod(lambda *_args, **_kwargs: pytest.fail("legacy local payload should not call Hub")),
     )
 
-    assert HubArtifactKnowledgeIndexPayloadLoader().load(
-        _job()["payload"]["payload_artifact_ref"]
-    ) == b"x" * 42
+    assert HubArtifactKnowledgeIndexPayloadLoader().load(_job()["payload"]["payload_artifact_ref"]) == b"x" * 42
 
 
 def test_v2_payload_resolution_never_falls_back_to_legacy_loader():
@@ -745,22 +711,21 @@ def test_legacy_payload_authorizer_accepts_exact_assigned_worker() -> None:
             "worker_execution_context": {
                 "knowledge_index_job": {
                     "schema": "ananta.knowledge_index_job.v1",
-                    "payload": {
-                        "payload_artifact_ref": {"artifact_id": ARTIFACT_ID}
-                    },
+                    "payload": {"payload_artifact_ref": {"artifact_id": ARTIFACT_ID}},
                 }
             },
         }
     )
-    service = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(
-        task_repository=SimpleNamespace(get_all=lambda: [task])
-    )
+    service = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(task_repository=SimpleNamespace(get_all=lambda: [task]))
 
-    assert service.authorize(
-        artifact_id=ARTIFACT_ID,
-        worker_id=WORKER_ID,
-        worker_url=WORKER_URL,
-    ) == "knowledge-index-legacy"
+    assert (
+        service.authorize(
+            artifact_id=ARTIFACT_ID,
+            worker_id=WORKER_ID,
+            worker_url=WORKER_URL,
+        )
+        == "knowledge-index-legacy"
+    )
 
 
 def test_legacy_payload_authorizer_rejects_other_worker() -> None:
@@ -771,15 +736,11 @@ def test_legacy_payload_authorizer_rejects_other_worker() -> None:
         "worker_execution_context": {
             "knowledge_index_job": {
                 "schema": "ananta.knowledge_index_job.v1",
-                "payload": {
-                    "payload_artifact_ref": {"artifact_id": ARTIFACT_ID}
-                },
+                "payload": {"payload_artifact_ref": {"artifact_id": ARTIFACT_ID}},
             }
         },
     }
-    service = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(
-        task_repository=SimpleNamespace(get_all=lambda: [task])
-    )
+    service = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(task_repository=SimpleNamespace(get_all=lambda: [task]))
 
     with pytest.raises(
         KnowledgeIndexPayloadAuthorizationError,

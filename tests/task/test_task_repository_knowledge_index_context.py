@@ -243,12 +243,8 @@ def test_bound_index_status_changes_only_through_repository_cas(
     assert result.task is not None
     assert result.task.status == "running"
     assert result.task.assigned_agent_url == "http://worker-a:5001"
-    assert result.task.worker_execution_context["knowledge_index_job"] == (
-        _bound_envelope()
-    )
-    assert result.task.worker_execution_context["parallel_context"] == {
-        "after": True
-    }
+    assert result.task.worker_execution_context["knowledge_index_job"] == (_bound_envelope())
+    assert result.task.worker_execution_context["parallel_context"] == {"after": True}
 
 
 def test_snapshot_upsert_validates_shared_task_without_mutating_it(

@@ -1,10 +1,10 @@
 """Tests for ContextBudgetPolicyService — T03."""
+
 from __future__ import annotations
 
-import pytest
 from agent.services.context_budget_policy_service import (
-    ContextBudgetDecision,
     MODES,
+    ContextBudgetDecision,
     decide_context_budget,
 )
 
@@ -14,6 +14,7 @@ def _decide(**kwargs) -> ContextBudgetDecision:
 
 
 # ── Mode selection ────────────────────────────────────────────────────────────
+
 
 def test_smalltalk_intent_gives_safe_minimal_chat_with_minimal_sources():
     decision = _decide(intent="smalltalk")
@@ -71,6 +72,7 @@ def test_empty_intent_without_model_profile_fail_closed_gives_safe_minimal():
 
 
 # ── Metadata ──────────────────────────────────────────────────────────────────
+
 
 def test_decision_ref_and_fail_closed_flag_are_set():
     decision = _decide(intent="smalltalk", fail_closed=True)

@@ -31,4 +31,3 @@ def test_prompt_adapter_preserves_user_intent_message():
         task_kind="coding",
     )
     assert out[-1]["content"] == "implement endpoint"
-

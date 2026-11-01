@@ -32,6 +32,7 @@ except ImportError:
             max_fps = 0
             terminal_width = 0
             terminal_height = 0
+
         return _Fake()
 
 
@@ -126,9 +127,7 @@ class SplashMachine:
         if current == target:
             return self._context
         if target not in _VALID_TRANSITIONS.get(current, set()):
-            raise SplashTransitionError(
-                f"Invalid splash transition: {current.value} \u2192 {target.value}"
-            )
+            raise SplashTransitionError(f"Invalid splash transition: {current.value} \u2192 {target.value}")
         now = self._now()
         self._context = SplashContext(
             state=target,

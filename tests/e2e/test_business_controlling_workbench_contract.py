@@ -83,33 +83,42 @@ def test_automated_rules_only_api_flow_uses_durable_hub_service(monkeypatch, tmp
     client = app.test_client()
     scope = {"tenant_id": "tenant-a", "project_id": "project-a"}
 
-    assert client.post(
-        "/api/v1/controlling/imports/profile",
-        json={
-            **scope,
-            "source_revision_id": "source-revision-a",
-            "revision_digest": "1" * 64,
-            "source_format": "csv",
-        },
-    ).status_code == 201
-    assert client.post(
-        "/api/v1/controlling/mappings/confirm",
-        json={
-            **scope,
-            "profile_digest": "a" * 64,
-            "column_mapping": {"amount": "amount"},
-        },
-    ).status_code == 201
-    assert client.post(
-        "/api/v1/controlling/runs",
-        json={
-            **scope,
-            "mapping_confirmation_digest": "b" * 64,
-            "statistics_enabled": False,
-            "explanations_enabled": True,
-            "idempotency_key": "rules-run-a",
-        },
-    ).status_code == 202
+    assert (
+        client.post(
+            "/api/v1/controlling/imports/profile",
+            json={
+                **scope,
+                "source_revision_id": "source-revision-a",
+                "revision_digest": "1" * 64,
+                "source_format": "csv",
+            },
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/api/v1/controlling/mappings/confirm",
+            json={
+                **scope,
+                "profile_digest": "a" * 64,
+                "column_mapping": {"amount": "amount"},
+            },
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/api/v1/controlling/runs",
+            json={
+                **scope,
+                "mapping_confirmation_digest": "b" * 64,
+                "statistics_enabled": False,
+                "explanations_enabled": True,
+                "idempotency_key": "rules-run-a",
+            },
+        ).status_code
+        == 202
+    )
     findings = client.get(
         "/api/v1/controlling/findings",
         query_string=scope,

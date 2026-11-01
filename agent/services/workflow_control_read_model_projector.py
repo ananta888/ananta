@@ -63,13 +63,9 @@ class WorkflowControlReadModelProjector:
         capabilities: Sequence[str] = (),
         events: Sequence[Mapping[str, Any]] = (),
     ) -> WorkflowRuntimeOperationRecord:
-        status_events = tuple(
-            item for item in status.get("events") or () if isinstance(item, Mapping)
-        )
+        status_events = tuple(item for item in status.get("events") or () if isinstance(item, Mapping))
         observed = (*status_events, *events)
-        correlation_id = str(
-            getattr(binding.request, "correlation_id", "") or binding.run_id
-        )
+        correlation_id = str(getattr(binding.request, "correlation_id", "") or binding.run_id)
         for raw in observed:
             candidate = self._adapt_event(
                 raw,
@@ -177,11 +173,7 @@ class WorkflowControlReadModelProjector:
         observed_events: Sequence[Mapping[str, Any]],
         correlation_id: str,
     ) -> CanonicalWorkflowEvent:
-        safe_status = {
-            str(key): value
-            for key, value in status.items()
-            if key != "events"
-        }
+        safe_status = {str(key): value for key, value in status.items() if key != "events"}
         observation = _runtime_observation(
             binding=binding,
             status=safe_status,
@@ -198,8 +190,7 @@ class WorkflowControlReadModelProjector:
                 },
                 "observation": observation,
                 "source_event_ids": [
-                    str(item.get("event_id") or sha256_json(redact_json(dict(item))))
-                    for item in observed_events
+                    str(item.get("event_id") or sha256_json(redact_json(dict(item)))) for item in observed_events
                 ],
             }
         )
@@ -238,11 +229,7 @@ class WorkflowControlReadModelProjector:
                 run_id=candidate.run_id,
             )
             duplicate = next(
-                (
-                    event
-                    for event in current
-                    if event.dedupe_key == candidate.dedupe_key
-                ),
+                (event for event in current if event.dedupe_key == candidate.dedupe_key),
                 None,
             )
             if duplicate is not None:
@@ -269,11 +256,7 @@ def _runtime_observation(
     capabilities: Sequence[str],
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "task_id": str(
-            status.get("hub_task_id")
-            or status.get("task_id")
-            or binding.run_id
-        ),
+        "task_id": str(status.get("hub_task_id") or status.get("task_id") or binding.run_id),
         "runtime": str(runtime),
         "mode": str(mode),
         "stale_after_seconds": 300.0,
@@ -315,14 +298,8 @@ def _gates(status: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [
         {
             "gate_id": str(step.get("step_id") or step.get("id")),
-            "label": str(
-                step.get("label") or step.get("step_id") or step.get("id")
-            ),
-            "status": (
-                "open"
-                if str(step.get("status") or "") == "waiting_for_approval"
-                else "closed"
-            ),
+            "label": str(step.get("label") or step.get("step_id") or step.get("id")),
+            "status": ("open" if str(step.get("status") or "") == "waiting_for_approval" else "closed"),
         }
         for step in steps
         if isinstance(step, Mapping)

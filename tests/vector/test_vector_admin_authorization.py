@@ -153,8 +153,7 @@ def test_user_admin_is_never_promoted_to_global_vector_admin() -> None:
         policy.require_global_admin(authorization)
 
 
-def test_auth_disabled_or_anonymous_context_never_gets_system_authority(
-) -> None:
+def test_auth_disabled_or_anonymous_context_never_gets_system_authority() -> None:
     policy = get_vector_store_authorization_policy()
     authorization = policy.from_identity(
         {"auth_mode": "auth_disabled"},
@@ -226,14 +225,9 @@ def test_authenticated_service_identity_gets_explicit_global_authority(
     policy.require_global_admin(authorization)
 
 
-def test_schema_only_vector_envelope_is_not_an_authoritative_binding(
-) -> None:
+def test_schema_only_vector_envelope_is_not_an_authoritative_binding() -> None:
     partial = _vector_task()
-    partial.worker_execution_context = {
-        "vector_index_task": {
-            "schema": "ananta.vector_index_task.v1"
-        }
-    }
+    partial.worker_execution_context = {"vector_index_task": {"schema": "ananta.vector_index_task.v1"}}
 
     with pytest.raises(
         ValueError,
@@ -262,11 +256,7 @@ def test_schema_only_vector_envelope_is_not_an_authoritative_binding(
             "task_kind",
         ),
         (
-            {
-                "worker_execution_context": {
-                    "vector_index_task": {}
-                }
-            },
+            {"worker_execution_context": {"vector_index_task": {}}},
             "worker_execution_context.vector_index_task",
         ),
     ],
@@ -304,40 +294,22 @@ def test_generic_cancel_retry_and_kill_use_the_same_workspace_policy(
     lifecycle_calls: list[tuple[str, dict]] = []
     cancellation_calls: list[dict] = []
     lifecycle = SimpleNamespace(
-        cancel=lambda **kwargs: (
-            lifecycle_calls.append(("cancel", kwargs))
-            or {"status": "cancelled"}
-        ),
-        retry=lambda **kwargs: (
-            lifecycle_calls.append(("retry", kwargs))
-            or {"status": "queued"}
-        ),
+        cancel=lambda **kwargs: lifecycle_calls.append(("cancel", kwargs)) or {"status": "cancelled"},
+        retry=lambda **kwargs: lifecycle_calls.append(("retry", kwargs)) or {"status": "queued"},
     )
     monkeypatch.setattr(
-        (
-            "agent.services.vector_index_task_service."
-            "get_vector_index_task_service"
-        ),
+        ("agent.services.vector_index_task_service.get_vector_index_task_service"),
         lambda: lifecycle,
     )
     cancellation = SimpleNamespace(
-        cancel_task_requests=lambda **kwargs: (
-            cancellation_calls.append(kwargs)
-            or {"status": "ok"}
-        )
+        cancel_task_requests=lambda **kwargs: cancellation_calls.append(kwargs) or {"status": "ok"}
     )
     monkeypatch.setattr(
-        (
-            "agent.services.request_cancellation_service."
-            "get_request_cancellation_service"
-        ),
+        ("agent.services.request_cancellation_service.get_request_cancellation_service"),
         lambda: cancellation,
     )
     monkeypatch.setattr(
-        (
-            "agent.routes.tasks.management."
-            "get_request_cancellation_service"
-        ),
+        ("agent.routes.tasks.management.get_request_cancellation_service"),
         lambda: cancellation,
     )
 
@@ -347,9 +319,7 @@ def test_generic_cancel_retry_and_kill_use_the_same_workspace_policy(
             headers=_headers("workspace-b"),
         )
         assert response.status_code == 403
-        assert response.get_json()["message"] == (
-            "vector_store_workspace_forbidden"
-        )
+        assert response.get_json()["message"] == ("vector_store_workspace_forbidden")
     assert lifecycle_calls == []
     assert cancellation_calls == []
 
@@ -373,10 +343,7 @@ def test_generic_cancel_retry_and_kill_use_the_same_workspace_policy(
         "cancel",
         "retry",
     ]
-    assert all(
-        call["actor"] == "workspace-admin"
-        for _, call in lifecycle_calls
-    )
+    assert all(call["actor"] == "workspace-admin" for _, call in lifecycle_calls)
     assert len(cancellation_calls) == 2
 
 
@@ -393,11 +360,7 @@ def test_generic_cancel_retry_and_kill_use_the_same_workspace_policy(
             ]
         },
         {"task_kind": "vector_index_operation"},
-        {
-            "worker_execution_context": {
-                "vector_index_task": {}
-            }
-        },
+        {"worker_execution_context": {"vector_index_task": {}}},
     ],
 )
 def test_control_center_create_rejects_all_reserved_vector_markers(
@@ -416,9 +379,7 @@ def test_control_center_create_rejects_all_reserved_vector_markers(
 
     assert response.status_code == 403
     body = response.get_json()
-    assert body["message"] == (
-        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
-    )
+    assert body["message"] == (RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON)
 
 
 @pytest.mark.parametrize(
@@ -426,11 +387,7 @@ def test_control_center_create_rejects_all_reserved_vector_markers(
     [
         {"source": "knowledge_index"},
         {"task_kind": "codecompass_index_build"},
-        {
-            "worker_execution_context": {
-                "knowledge_index_job": {}
-            }
-        },
+        {"worker_execution_context": {"knowledge_index_job": {}}},
     ],
 )
 def test_control_center_create_rejects_reserved_knowledge_index_markers(
@@ -448,9 +405,7 @@ def test_control_center_create_rejects_reserved_knowledge_index_markers(
     )
 
     assert response.status_code == 403
-    assert response.get_json()["message"] == (
-        RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON
-    )
+    assert response.get_json()["message"] == (RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON)
 
 
 def test_control_center_patch_rejects_bound_knowledge_index_task(
@@ -466,9 +421,7 @@ def test_control_center_patch_rejects_bound_knowledge_index_task(
             task_kind="codecompass_index_build",
             worker_execution_context={
                 "knowledge_index_job": {
-                    "schema": (
-                        "ananta.knowledge_index_execution_job.v2"
-                    ),
+                    "schema": ("ananta.knowledge_index_execution_job.v2"),
                     "job_id": task_id,
                 }
             },
@@ -484,9 +437,7 @@ def test_control_center_patch_rejects_bound_knowledge_index_task(
     assert response.status_code == 409
     body = response.get_json()
     assert body["message"] == BOUND_KNOWLEDGE_INDEX_MUTATION_REASON
-    assert body["data"]["reason_code"] == (
-        BOUND_KNOWLEDGE_INDEX_MUTATION_REASON
-    )
+    assert body["data"]["reason_code"] == (BOUND_KNOWLEDGE_INDEX_MUTATION_REASON)
     assert body["data"]["task_id"] == task_id
     assert body["data"]["action"] == "control_center_patch"
     with app.app_context():
@@ -516,9 +467,7 @@ def test_control_center_patch_rejects_existing_source_history_marker(
 
     assert response.status_code == 403
     body = response.get_json()
-    assert body["message"] == (
-        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
-    )
+    assert body["message"] == (RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON)
     assert body["data"]["reserved_field"] == "source"
 
 
@@ -546,10 +495,7 @@ def test_control_center_session_rejects_partial_vector_without_side_effects(
     CONTROL_CENTER_ROUTE_DEPENDENCIES.install(
         client.application,
         share_session_service=lambda: SimpleNamespace(
-            create_session=lambda **kwargs: (
-                share_session_calls.append(kwargs)
-                or {"id": "unexpected"}
-            )
+            create_session=lambda **kwargs: share_session_calls.append(kwargs) or {"id": "unexpected"}
         ),
     )
 
@@ -561,9 +507,7 @@ def test_control_center_session_rejects_partial_vector_without_side_effects(
 
     assert response.status_code == 403
     body = response.get_json()
-    assert body["message"] == (
-        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
-    )
+    assert body["message"] == (RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON)
     assert body["data"]["reserved_field"] == "task_kind"
     assert share_session_calls == []
     with app.app_context():
@@ -571,11 +515,7 @@ def test_control_center_session_rejects_partial_vector_without_side_effects(
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .agent_session_repo.get_by_task_id(task_id)
-            == []
-        )
+        assert get_repository_registry().agent_session_repo.get_by_task_id(task_id) == []
 
 
 def test_derivation_backfill_skips_partial_vector_rows(
@@ -627,9 +567,7 @@ def test_claim_rechecks_the_authoritative_row_for_vector_domain_races(
         @staticmethod
         def claim_task(**kwargs):
             claim_calls.append(kwargs)
-            allowed, _reason = kwargs["claim_validator"](
-                vector_payload
-            )
+            allowed, _reason = kwargs["claim_validator"](vector_payload)
             assert allowed is False
             return False
 
@@ -640,17 +578,11 @@ def test_claim_rechecks_the_authoritative_row_for_vector_domain_races(
 
         @staticmethod
         def can_claim_task(*_args, **_kwargs):
-            raise AssertionError(
-                "Vector tasks must be denied before generic claim policy"
-            )
+            raise AssertionError("Vector tasks must be denied before generic claim policy")
 
     monkeypatch.setattr(
         "agent.services.task_claim_service.get_repository_registry",
-        lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: initial
-            )
-        ),
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: initial)),
     )
 
     result = TaskClaimService().claim_task(
@@ -663,14 +595,11 @@ def test_claim_rechecks_the_authoritative_row_for_vector_domain_races(
     )
 
     assert result["code"] == 403
-    assert result["error"] == (
-        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
-    )
+    assert result["error"] == (RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON)
     assert len(claim_calls) == 1
 
 
-def test_orchestration_complete_and_delegate_deny_source_only_vector_rows(
-) -> None:
+def test_orchestration_complete_and_delegate_deny_source_only_vector_rows() -> None:
     vector_history_task = {
         "id": "vector-history-task",
         "status": "todo",
@@ -716,9 +645,7 @@ def test_orchestration_complete_and_delegate_deny_source_only_vector_rows(
 
     assert completed["code"] == 403
     assert delegated["code"] == 403
-    assert completed["error"] == delegated["error"] == (
-        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
-    )
+    assert completed["error"] == delegated["error"] == (RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON)
 
 
 def test_run_control_passes_explicit_system_vector_authority(
@@ -784,22 +711,31 @@ def test_assignment_auto_assignment_and_unassignment_require_scope(
     forbidden = _authorization("workspace-b")
     allowed = _authorization("workspace-a")
 
-    assert service.assign_task(
-        task_id=task["id"],
-        data=assignment,
-        vector_authorization=forbidden,
-    )["code"] == 403
-    assert service.auto_assign_task(
-        task_id=task["id"],
-        payload={},
-        agent_registry_service=SimpleNamespace(),
-        worker_contract_service=SimpleNamespace(),
-        vector_authorization=forbidden,
-    )["code"] == 403
-    assert service.unassign_task(
-        task_id=task["id"],
-        vector_authorization=forbidden,
-    )["code"] == 403
+    assert (
+        service.assign_task(
+            task_id=task["id"],
+            data=assignment,
+            vector_authorization=forbidden,
+        )["code"]
+        == 403
+    )
+    assert (
+        service.auto_assign_task(
+            task_id=task["id"],
+            payload={},
+            agent_registry_service=SimpleNamespace(),
+            worker_contract_service=SimpleNamespace(),
+            vector_authorization=forbidden,
+        )["code"]
+        == 403
+    )
+    assert (
+        service.unassign_task(
+            task_id=task["id"],
+            vector_authorization=forbidden,
+        )["code"]
+        == 403
+    )
     assert updates == []
 
     override = SimpleNamespace(
@@ -812,18 +748,14 @@ def test_assignment_auto_assignment_and_unassignment_require_scope(
         task_id=task["id"],
         data=override,
         vector_authorization=allowed,
-    )["error"] == (
-        "vector_index_task_assignment_override_forbidden"
-    )
+    )["error"] == ("vector_index_task_assignment_override_forbidden")
     assert service.auto_assign_task(
         task_id=task["id"],
         payload={"task_kind": "coding"},
         agent_registry_service=SimpleNamespace(),
         worker_contract_service=SimpleNamespace(),
         vector_authorization=allowed,
-    )["error"] == (
-        "vector_index_task_assignment_override_forbidden"
-    )
+    )["error"] == ("vector_index_task_assignment_override_forbidden")
 
     unassigned = service.unassign_task(
         task_id=task["id"],
@@ -859,9 +791,7 @@ def test_proposal_review_requires_scope_then_stays_fail_closed(
     assert forbidden["code"] == 403
     assert forbidden["error"] == "vector_store_workspace_forbidden"
     assert allowed["code"] == 409
-    assert allowed["error"] == (
-        "vector_index_task_intervention_forbidden"
-    )
+    assert allowed["error"] == ("vector_index_task_intervention_forbidden")
 
 
 def test_archived_delete_and_cleanup_require_scope_and_allow_owner(
@@ -897,20 +827,12 @@ def test_archived_delete_and_cleanup_require_scope_and_allow_owner(
         yield True
 
     monkeypatch.setattr(
-        (
-            "agent.services.task_mutation_lock_service."
-            "get_task_mutation_lock_port"
-        ),
+        ("agent.services.task_mutation_lock_service.get_task_mutation_lock_port"),
         lambda: SimpleNamespace(mutation_locks=mutation_locks),
     )
     monkeypatch.setattr(
-        (
-            "agent.services.recovery_dispatch_gate_service."
-            "get_recovery_dispatch_gate_service"
-        ),
-        lambda: SimpleNamespace(
-            is_recovery_child=lambda _task: False
-        ),
+        ("agent.services.recovery_dispatch_gate_service.get_recovery_dispatch_gate_service"),
+        lambda: SimpleNamespace(is_recovery_child=lambda _task: False),
     )
     service = TaskAdminService()
 
@@ -991,11 +913,7 @@ def test_goal_purge_keeps_every_row_when_partial_vector_cancel_fails(
     )
     monkeypatch.setattr(
         "agent.services.goal_purge_service.get_prompt_trace_service",
-        lambda: SimpleNamespace(
-            delete_by_goal_id=lambda goal_id: (
-                prompt_trace_calls.append(goal_id) or 0
-            )
-        ),
+        lambda: SimpleNamespace(delete_by_goal_id=lambda goal_id: prompt_trace_calls.append(goal_id) or 0),
     )
 
     response = client.delete(
@@ -1005,12 +923,8 @@ def test_goal_purge_keeps_every_row_when_partial_vector_cancel_fails(
 
     assert response.status_code == 409
     body = response.get_json()
-    assert body["message"] == (
-        "vector_index_goal_purge_cancel_required"
-    )
-    assert body["data"]["lifecycle_reason"] == (
-        "vector_index_task_cas_conflict"
-    )
+    assert body["message"] == ("vector_index_goal_purge_cancel_required")
+    assert body["data"]["lifecycle_reason"] == ("vector_index_task_cas_conflict")
     assert goal_repo.get_by_id(goal.id) is not None
     persisted_task = task_repo.get_by_id(task.id)
     assert persisted_task is not None
@@ -1098,20 +1012,11 @@ def test_goal_and_global_request_kill_enforce_vector_scope(
 
     calls: list[tuple[str, dict]] = []
     cancellation = SimpleNamespace(
-        cancel_goal_requests=lambda **kwargs: (
-            calls.append(("goal", kwargs))
-            or {"status": "ok"}
-        ),
-        cancel_all_requests=lambda **kwargs: (
-            calls.append(("all", kwargs))
-            or {"status": "ok"}
-        ),
+        cancel_goal_requests=lambda **kwargs: calls.append(("goal", kwargs)) or {"status": "ok"},
+        cancel_all_requests=lambda **kwargs: calls.append(("all", kwargs)) or {"status": "ok"},
     )
     monkeypatch.setattr(
-        (
-            "agent.services.request_cancellation_service."
-            "get_request_cancellation_service"
-        ),
+        ("agent.services.request_cancellation_service.get_request_cancellation_service"),
         lambda: cancellation,
     )
 
@@ -1178,9 +1083,7 @@ def test_goal_purge_keeps_ordinary_task_compatibility_on_cancel_failure(
     )
     monkeypatch.setattr(
         "agent.services.goal_purge_service.get_prompt_trace_service",
-        lambda: SimpleNamespace(
-            delete_by_goal_id=lambda _goal_id: 0
-        ),
+        lambda: SimpleNamespace(delete_by_goal_id=lambda _goal_id: 0),
     )
 
     response = client.delete(

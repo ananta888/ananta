@@ -69,26 +69,26 @@ Ungültige Übergänge werden hart abgelehnt und als Audit-Event gespeichert.
 ```python
 @dataclass
 class AgentRun:
-    run_id: str           # uuid, unveränderlich
-    goal_id: str          # referenziertes Goal
-    correlation_id: str   # für verteilte Traces / verkettete Runs
-    expert_id: str        # aktiver Expert zur Laufzeit
-    expert_version: str   # gesperrte Version, nicht "latest"
+    run_id: str  # uuid, unveränderlich
+    goal_id: str  # referenziertes Goal
+    correlation_id: str  # für verteilte Traces / verkettete Runs
+    expert_id: str  # aktiver Expert zur Laufzeit
+    expert_version: str  # gesperrte Version, nicht "latest"
     policy_scope_id: str  # aktive Policy-Scope
 
-    state: RunState       # Enum: created | queued | ... | completed
-    created_at: float     # unix timestamp
+    state: RunState  # Enum: created | queued | ... | completed
+    created_at: float  # unix timestamp
     updated_at: float
     started_at: float | None
     completed_at: float | None
 
-    error_reason: str | None      # menschenlesbar
-    failed_at_step: str | None    # Schritt-ID oder Beschreibung
-    error_code: str | None        # maschinenlesbar: "timeout" | "policy_denied" | ...
-    recovery_options: list[str]   # "retry" | "skip" | "abort" | "escalate_to_human"
+    error_reason: str | None  # menschenlesbar
+    failed_at_step: str | None  # Schritt-ID oder Beschreibung
+    error_code: str | None  # maschinenlesbar: "timeout" | "policy_denied" | ...
+    recovery_options: list[str]  # "retry" | "skip" | "abort" | "escalate_to_human"
 
-    artifacts: list[str]          # artifact_id-Liste (nicht Inline-Content)
-    metadata: dict                # erweiterbar, nicht für sensitive Felder
+    artifacts: list[str]  # artifact_id-Liste (nicht Inline-Content)
+    metadata: dict  # erweiterbar, nicht für sensitive Felder
 ```
 
 ---

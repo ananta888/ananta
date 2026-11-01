@@ -151,17 +151,10 @@ class SourceControlApiRuntime:
             if getattr(self, name) is None:
                 object.__setattr__(self, name, build())
 
+    def binding(self, *, resource_kind: str, resource_id: str) -> Mapping[str, object] | None:
+        return self.reads.binding(resource_kind=resource_kind, resource_id=resource_id)
 
-    def binding(
-        self, *, resource_kind: str, resource_id: str
-    ) -> Mapping[str, object] | None:
-        return self.reads.binding(
-            resource_kind=resource_kind, resource_id=resource_id
-        )
-
-    def validate_connection(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def validate_connection(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self.connection_commands.validate_connection(
             principal=principal,
             payload=payload,
@@ -180,9 +173,7 @@ class SourceControlApiRuntime:
             idempotency_key=idempotency_key,
         )
 
-    def validate_content_admission(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def validate_content_admission(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self.connection_commands.validate_content_admission(
             principal=principal,
             payload=payload,
@@ -339,9 +330,7 @@ class SourceControlApiRuntime:
             )
         )
 
-    def get_connection(
-        self, *, principal: object, connection_id: str
-    ) -> tuple[Mapping[str, object], str]:
+    def get_connection(self, *, principal: object, connection_id: str) -> tuple[Mapping[str, object], str]:
         projection = self.projection.get(
             principal=runtime_principal(principal),
             connection_id=connection_id,
@@ -453,9 +442,7 @@ class SourceControlApiRuntime:
             artifact_id=artifact_id,
         )
 
-    def bulk_plan(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def bulk_plan(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self.index_lifecycle.bulk_plan(
             principal=principal,
             payload=payload,
@@ -489,25 +476,19 @@ class SourceControlApiRuntime:
             limit=limit,
         )
 
-    def access_preview(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def access_preview(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self.policy_access.access_preview(
             principal=principal,
             payload=payload,
         )
 
-    def access_matrix(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def access_matrix(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self.policy_access.access_matrix(
             principal=principal,
             payload=payload,
         )
 
-    def context_policy_list(
-        self, *, principal: object, cursor: str | None, limit: int
-    ) -> Mapping[str, object]:
+    def context_policy_list(self, *, principal: object, cursor: str | None, limit: int) -> Mapping[str, object]:
         return self.policy_access.context_policy_list(
             principal=principal,
             cursor=cursor,
@@ -538,9 +519,7 @@ class SourceControlApiRuntime:
             version=version,
         )
 
-    def context_policy_active(
-        self, *, principal: object, policy_id: str
-    ) -> tuple[Mapping[str, object], str]:
+    def context_policy_active(self, *, principal: object, policy_id: str) -> tuple[Mapping[str, object], str]:
         return self.policy_access.context_policy_active(
             principal=principal,
             policy_id=policy_id,
@@ -561,9 +540,7 @@ class SourceControlApiRuntime:
             idempotency_key=idempotency_key,
         )
 
-    def context_policy_lint(
-        self, *, principal: object, policy_id: str, version: int
-    ) -> Mapping[str, object]:
+    def context_policy_lint(self, *, principal: object, policy_id: str, version: int) -> Mapping[str, object]:
         return self.policy_access.context_policy_lint(
             principal=principal,
             policy_id=policy_id,
@@ -668,12 +645,7 @@ def build_source_control_api_runtime(
     projection = SourceControlProjectionService(reads)
     idempotency = SQLSourceControlOperationStore(engine)
     resolved_index_access = index_access
-    if (
-        resolved_index_access is None
-        and destinations is not None
-        and context_policy is not None
-        and grants is not None
-    ):
+    if resolved_index_access is None and destinations is not None and context_policy is not None and grants is not None:
         resolved_index_access = SourceControlPrepareIndexAccessService(
             projections=projection,
             bindings=reads,
@@ -697,9 +669,7 @@ def build_source_control_api_runtime(
             approvals=purge_approvals,
             artifacts=artifact_deletion,
         ),
-        events=SourceControlJobEventService(
-            SQLSourceControlJobEventRepository(engine)
-        ),
+        events=SourceControlJobEventService(SQLSourceControlJobEventRepository(engine)),
         idempotency=idempotency,
         access=access,
         operations=operations,

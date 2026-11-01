@@ -18,7 +18,6 @@ import pytest
 from agent.services.notation_renderer import get_notation_renderer
 from agent.services.pattern_gate_service import get_pattern_gate_service
 
-
 # ---------------------------------------------------------------------------
 # Reuse the same canonical payloads as the renderer tests
 # ---------------------------------------------------------------------------
@@ -28,15 +27,13 @@ MERMAID_CLASS_PARAMS = {
     "diagram_title": "Order Strategy",
     "direction": "LR",
     "classes": [
-        {"name": "OrderStrategy", "stereotype": "interface",
-         "methods": ["calculate(order: Order): Money"]},
+        {"name": "OrderStrategy", "stereotype": "interface", "methods": ["calculate(order: Order): Money"]},
         {"name": "StandardPricing", "methods": ["calculate(order: Order): Money"]},
         {"name": "Order", "fields": ["total: Money"]},
     ],
     "relationships": [
         {"type": "realization", "from": "StandardPricing", "to": "OrderStrategy"},
-        {"type": "association", "from": "Order", "to": "OrderStrategy",
-         "to_label": "1"},
+        {"type": "association", "from": "Order", "to": "OrderStrategy", "to_label": "1"},
     ],
 }
 
@@ -46,8 +43,7 @@ MERMAID_SEQUENCE_PARAMS = {
         {"id": "Service", "kind": "control", "label": "Order Service"},
     ],
     "messages": [
-        {"from": "User", "to": "Service", "text": "place order", "type": "sync",
-         "activate": True},
+        {"from": "User", "to": "Service", "text": "place order", "type": "sync", "activate": True},
         {"from": "Service", "to": "User", "text": "receipt", "type": "return"},
     ],
 }
@@ -108,18 +104,26 @@ BPMN_POOL_LANE_PARAMS = {
 BPMN_COLLABORATION_PARAMS = {
     "definitions_id": "Definitions_1",
     "participants": [
-        {"id": "PA", "name": "A", "process_id": "PA",
-         "elements": [
-             {"type": "startEvent", "id": "SA"},
-             {"type": "endEvent", "id": "EA"},
-         ],
-         "flows": [{"id": "FA", "sourceRef": "SA", "targetRef": "EA"}]},
-        {"id": "PB", "name": "B", "process_id": "PB",
-         "elements": [
-             {"type": "startEvent", "id": "SB"},
-             {"type": "endEvent", "id": "EB"},
-         ],
-         "flows": [{"id": "FB", "sourceRef": "SB", "targetRef": "EB"}]},
+        {
+            "id": "PA",
+            "name": "A",
+            "process_id": "PA",
+            "elements": [
+                {"type": "startEvent", "id": "SA"},
+                {"type": "endEvent", "id": "EA"},
+            ],
+            "flows": [{"id": "FA", "sourceRef": "SA", "targetRef": "EA"}],
+        },
+        {
+            "id": "PB",
+            "name": "B",
+            "process_id": "PB",
+            "elements": [
+                {"type": "startEvent", "id": "SB"},
+                {"type": "endEvent", "id": "EB"},
+            ],
+            "flows": [{"id": "FB", "sourceRef": "SB", "targetRef": "EB"}],
+        },
     ],
     "message_flows": [
         {"id": "MF", "source_ref": "PA", "target_ref": "PB"},
@@ -147,16 +151,19 @@ def _render_and_gate(pid: str, lang: str, params: dict, tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("pid,lang,params", [
-    ("mermaid.class", "mermaid", MERMAID_CLASS_PARAMS),
-    ("mermaid.sequence", "mermaid", MERMAID_SEQUENCE_PARAMS),
-    ("mermaid.state", "mermaid", MERMAID_STATE_PARAMS),
-    ("mermaid.usecase", "mermaid", MERMAID_USECASE_PARAMS),
-    ("mermaid.activity", "mermaid", MERMAID_ACTIVITY_PARAMS),
-    ("bpmn.process", "bpmn", BPMN_PROCESS_PARAMS),
-    ("bpmn.pool_lane", "bpmn", BPMN_POOL_LANE_PARAMS),
-    ("bpmn.collaboration", "bpmn", BPMN_COLLABORATION_PARAMS),
-])
+@pytest.mark.parametrize(
+    "pid,lang,params",
+    [
+        ("mermaid.class", "mermaid", MERMAID_CLASS_PARAMS),
+        ("mermaid.sequence", "mermaid", MERMAID_SEQUENCE_PARAMS),
+        ("mermaid.state", "mermaid", MERMAID_STATE_PARAMS),
+        ("mermaid.usecase", "mermaid", MERMAID_USECASE_PARAMS),
+        ("mermaid.activity", "mermaid", MERMAID_ACTIVITY_PARAMS),
+        ("bpmn.process", "bpmn", BPMN_PROCESS_PARAMS),
+        ("bpmn.pool_lane", "bpmn", BPMN_POOL_LANE_PARAMS),
+        ("bpmn.collaboration", "bpmn", BPMN_COLLABORATION_PARAMS),
+    ],
+)
 def test_gate_passes_for_valid_rendered_output(pid, lang, params, tmp_path):
     result = _render_and_gate(pid, lang, params, tmp_path)
     assert result.passed, (
@@ -173,9 +180,7 @@ def test_gate_passes_for_valid_rendered_output(pid, lang, params, tmp_path):
 
 def test_mermaid_class_gate_fails_for_missing_class_blocks(tmp_path):
     # Write a syntactically-broken mermaid file by hand
-    (tmp_path / "diagram.mmd").write_text(
-        "flowchart LR\n  A --> B\n", encoding="utf-8"
-    )
+    (tmp_path / "diagram.mmd").write_text("flowchart LR\n  A --> B\n", encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
         pattern_id="mermaid.class",
@@ -188,9 +193,7 @@ def test_mermaid_class_gate_fails_for_missing_class_blocks(tmp_path):
 
 
 def test_mermaid_sequence_gate_fails_when_too_few_participants(tmp_path):
-    (tmp_path / "diagram.mmd").write_text(
-        "sequenceDiagram\n  A->>A: self\n", encoding="utf-8"
-    )
+    (tmp_path / "diagram.mmd").write_text("sequenceDiagram\n  A->>A: self\n", encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
         pattern_id="mermaid.sequence",
@@ -203,9 +206,7 @@ def test_mermaid_sequence_gate_fails_when_too_few_participants(tmp_path):
 
 
 def test_mermaid_state_gate_fails_without_initial_pseudostate(tmp_path):
-    (tmp_path / "diagram.mmd").write_text(
-        "stateDiagram-v2\n  A --> B\n", encoding="utf-8"
-    )
+    (tmp_path / "diagram.mmd").write_text("stateDiagram-v2\n  A --> B\n", encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
         pattern_id="mermaid.state",
@@ -218,9 +219,7 @@ def test_mermaid_state_gate_fails_without_initial_pseudostate(tmp_path):
 
 
 def test_mermaid_usecase_gate_fails_without_subgraph(tmp_path):
-    (tmp_path / "diagram.mmd").write_text(
-        "flowchart LR\n  Member([\"Member\"])\n", encoding="utf-8"
-    )
+    (tmp_path / "diagram.mmd").write_text('flowchart LR\n  Member(["Member"])\n', encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
         pattern_id="mermaid.usecase",
@@ -233,9 +232,7 @@ def test_mermaid_usecase_gate_fails_without_subgraph(tmp_path):
 
 
 def test_mermaid_activity_gate_fails_without_final_node(tmp_path):
-    (tmp_path / "diagram.mmd").write_text(
-        "flowchart TB\n  Start(((\"Start\")))\n  Start --> Start\n", encoding="utf-8"
-    )
+    (tmp_path / "diagram.mmd").write_text('flowchart TB\n  Start((("Start")))\n  Start --> Start\n', encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
         pattern_id="mermaid.activity",
@@ -248,9 +245,7 @@ def test_mermaid_activity_gate_fails_without_final_node(tmp_path):
 
 
 def test_bpmn_gate_fails_on_malformed_xml(tmp_path):
-    (tmp_path / "process.bpmn").write_text(
-        "<?xml version=\"1.0\"?>\n<not-closed>", encoding="utf-8"
-    )
+    (tmp_path / "process.bpmn").write_text('<?xml version="1.0"?>\n<not-closed>', encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
         pattern_id="bpmn.process",
@@ -263,11 +258,7 @@ def test_bpmn_gate_fails_on_malformed_xml(tmp_path):
 
 
 def test_bpmn_gate_fails_when_namespace_wrong(tmp_path):
-    bad = (
-        '<?xml version="1.0"?>\n'
-        '<definitions xmlns="http://wrong-namespace">'
-        '<process id="P"/></definitions>'
-    )
+    bad = '<?xml version="1.0"?>\n<definitions xmlns="http://wrong-namespace"><process id="P"/></definitions>'
     (tmp_path / "process.bpmn").write_text(bad, encoding="utf-8")
     g = get_pattern_gate_service()
     result = g.check(
@@ -307,12 +298,16 @@ def test_bpmn_collaboration_gate_fails_with_only_one_participant(tmp_path):
     params = {
         "definitions_id": "D",
         "participants": [
-            {"id": "PA", "name": "A", "process_id": "PA",
-             "elements": [
-                 {"type": "startEvent", "id": "SA"},
-                 {"type": "endEvent", "id": "EA"},
-             ],
-             "flows": [{"id": "FA", "sourceRef": "SA", "targetRef": "EA"}]},
+            {
+                "id": "PA",
+                "name": "A",
+                "process_id": "PA",
+                "elements": [
+                    {"type": "startEvent", "id": "SA"},
+                    {"type": "endEvent", "id": "EA"},
+                ],
+                "flows": [{"id": "FA", "sourceRef": "SA", "targetRef": "EA"}],
+            },
         ],
         "message_flows": [],
     }
@@ -329,9 +324,14 @@ def test_bpmn_collaboration_gate_fails_with_only_one_participant(tmp_path):
 def test_gate_service_dispatches_notation_pattern_ids():
     g = get_pattern_gate_service()
     for pid in [
-        "mermaid.class", "mermaid.sequence", "mermaid.state",
-        "mermaid.usecase", "mermaid.activity",
-        "bpmn.process", "bpmn.pool_lane", "bpmn.collaboration",
+        "mermaid.class",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.usecase",
+        "mermaid.activity",
+        "bpmn.process",
+        "bpmn.pool_lane",
+        "bpmn.collaboration",
     ]:
         result = g.check(
             pattern_id=pid,

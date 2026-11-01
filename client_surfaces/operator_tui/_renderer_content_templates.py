@@ -14,8 +14,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from client_surfaces.operator_tui.theme import DEFAULT_THEME
 from client_surfaces.operator_tui._renderer_utils import _clip, _overlay_at_visible_col
+from client_surfaces.operator_tui.theme import DEFAULT_THEME
 
 if TYPE_CHECKING:
     from client_surfaces.operator_tui.models import OperatorState
@@ -23,9 +23,9 @@ if TYPE_CHECKING:
 
 _TPL_THEME = {
     "blueprint": ("\x1b[38;2;130;200;255m", "\x1b[0m"),
-    "template":  ("\x1b[38;2;180;230;150m", "\x1b[0m"),
-    "seed":      "\x1b[38;2;255;205;100m★\x1b[0m",
-    "header":    ("\x1b[38;2;100;120;150m", "\x1b[0m"),
+    "template": ("\x1b[38;2;180;230;150m", "\x1b[0m"),
+    "seed": "\x1b[38;2;255;205;100m★\x1b[0m",
+    "header": ("\x1b[38;2;100;120;150m", "\x1b[0m"),
 }
 _TPL_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_\.\[\]-]*$")
 _TPL_VAR_COLOR = "\x1b[38;2;130;210;255m"
@@ -36,7 +36,7 @@ _TPL_RESET = "\x1b[0m"
 
 def _templates_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     items: list[dict] = payload.get("items") or []
-    bp_count  = int(payload.get("blueprints_count") or 0)
+    bp_count = int(payload.get("blueprints_count") or 0)
     tpl_count = int(payload.get("templates_count") or 0)
     sys_count = int(payload.get("system_prompts_count") or 0)
 
@@ -49,7 +49,7 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
     sel = state.selected_index
     item_idx = 0
 
-    bp_items  = [it for it in items if it.get("kind") == "blueprint"]
+    bp_items = [it for it in items if it.get("kind") == "blueprint"]
     tpl_items = [it for it in items if it.get("kind") == "template"]
     sys_items = [it for it in items if it.get("kind") == "system_prompt"]
 
@@ -97,7 +97,6 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
         lines.append("  press r to refresh")
 
     return [_clip(line, width) for line in lines]
-
 
 
 def _audit_viewer_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
@@ -150,7 +149,6 @@ def _audit_viewer_content_lines(state: OperatorState, width: int, *, viewport_he
     return [_clip(line, width) for line in lines]
 
 
-
 def _highlight_template_line(line: str) -> tuple[str, int]:
     if not line:
         return "", 0
@@ -184,8 +182,9 @@ def _highlight_template_line(line: str) -> tuple[str, int]:
     return "".join(out), issues
 
 
-
-def _templates_editor_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
+def _templates_editor_content_lines(
+    state: OperatorState, width: int, *, viewport_height: int | None = None
+) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     editor = dict(game.get("template_editor") or {})
     title = str(editor.get("title") or "template")
@@ -205,11 +204,7 @@ def _templates_editor_content_lines(state: OperatorState, width: int, *, viewpor
         f"  Template Editor · {title} ({kind}){' *' if dirty else ''}",
         (
             "  Ctrl+S speichern · Esc schließen · "
-            + (
-                f"{_TPL_ERR_COLOR}Lint: {lint_total} issue(s){_TPL_RESET}"
-                if lint_total
-                else "Lint: ok"
-            )
+            + (f"{_TPL_ERR_COLOR}Lint: {lint_total} issue(s){_TPL_RESET}" if lint_total else "Lint: ok")
         ),
         "",
     ]
@@ -252,6 +247,3 @@ def _templates_editor_content_lines(state: OperatorState, width: int, *, viewpor
     if end_line < len(text_lines):
         lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")
     return [_clip(line, width) for line in lines]
-
-
-

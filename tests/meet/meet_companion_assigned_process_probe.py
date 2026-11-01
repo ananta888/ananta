@@ -19,8 +19,8 @@ def run(client, *, log, progress, hub=None):
             observed = controls.step()
             if observed is not None:
                 progress.report(controls.fresh_until, client.deadline)
-                if sys.argv[1].startswith('observe-'):
-                    hub.call('observe', meet_session_id='ms_' + 'a' * 32)
+                if sys.argv[1].startswith("observe-"):
+                    hub.call("observe", meet_session_id="ms_" + "a" * 32)
                 Path(sys.argv[2]).touch()
                 if sys.argv[1] in {"complete", "observe-complete"}:
                     return

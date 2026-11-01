@@ -3,6 +3,7 @@
 EW-T007: Typed runtime validation for all worker executions.
 Every worker execution must present a valid ExecutionEnvelope before any action occurs.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,74 +14,97 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .runtime_target import WorkerSelectionPolicy, SelectedWorkerRuntimeRef
-
+from .runtime_target import SelectedWorkerRuntimeRef, WorkerSelectionPolicy
 
 # ── Capability vocabulary ──────────────────────────────────────────────────────
 
-KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset({
-    "planning",
-    "research",
-    "research_limited",
-    "code_read",
-    "code_review",
-    "review",
-    "summarize",
-    "patch_propose",
-    "patch_apply",
-    "shell_plan",
-    "shell_execute",
-    "test_run",
-    "verify",
-    "memory_read",
-    "memory_write",
-    "mcp_call",
-    "provider_call",
-    "subworker_spawn",
-    "cron_schedule",
-    "artifact_publish",
-    "skill_execute",
-    "skill_propose",
-    "admin_repair",
-    "deterministic_repair",
-    "repair.detect",
-    "repair.diagnose",
-    "repair.plan",
-    "repair.execute.inspect",
-    "repair.execute.low_risk",
-    "repair.execute.approval_gated",
-    "repair.verify",
-    "repair.rollback",
-    "repair.outcome.persist",
-    "repair.llm_escalate",
-})
+KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset(
+    {
+        "planning",
+        "research",
+        "research_limited",
+        "code_read",
+        "code_review",
+        "review",
+        "summarize",
+        "patch_propose",
+        "patch_apply",
+        "shell_plan",
+        "shell_execute",
+        "test_run",
+        "verify",
+        "memory_read",
+        "memory_write",
+        "mcp_call",
+        "provider_call",
+        "subworker_spawn",
+        "cron_schedule",
+        "artifact_publish",
+        "skill_execute",
+        "skill_propose",
+        "admin_repair",
+        "deterministic_repair",
+        "repair.detect",
+        "repair.diagnose",
+        "repair.plan",
+        "repair.execute.inspect",
+        "repair.execute.low_risk",
+        "repair.execute.approval_gated",
+        "repair.verify",
+        "repair.rollback",
+        "repair.outcome.persist",
+        "repair.llm_escalate",
+    }
+)
 
-CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset({
-    "patch_apply",
-    "shell_execute",
-    "memory_write",
-    "mcp_call",
-    "subworker_spawn",
-    "cron_schedule",
-})
+CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset(
+    {
+        "patch_apply",
+        "shell_execute",
+        "memory_write",
+        "mcp_call",
+        "subworker_spawn",
+        "cron_schedule",
+    }
+)
 
 
 # ── Sub-models ─────────────────────────────────────────────────────────────────
 
-_REPAIR_STEP_TYPES: frozenset[str] = frozenset({
-    "inspect_state", "service_status", "log_read", "port_probe",
-    "path_probe", "package_check", "command_probe",
-    "service_restart", "package_install", "config_update", "file_permission",
-    "verify_health", "verify_service", "verify_command", "rollback",
-})
+_REPAIR_STEP_TYPES: frozenset[str] = frozenset(
+    {
+        "inspect_state",
+        "service_status",
+        "log_read",
+        "port_probe",
+        "path_probe",
+        "package_check",
+        "command_probe",
+        "service_restart",
+        "package_install",
+        "config_update",
+        "file_permission",
+        "verify_health",
+        "verify_service",
+        "verify_command",
+        "rollback",
+    }
+)
 
-_REPAIR_SAFETY_CLASSES: frozenset[str] = frozenset({
-    "inspect_only", "bounded_low_risk", "review_first", "confirm_required", "high_risk",
-})
+_REPAIR_SAFETY_CLASSES: frozenset[str] = frozenset(
+    {
+        "inspect_only",
+        "bounded_low_risk",
+        "review_first",
+        "confirm_required",
+        "high_risk",
+    }
+)
 
 
 class RepairStep(BaseModel):
     """Single executable repair step with full policy metadata. DRR-T001."""
+
     step_id: str
     step_type: str = "inspect_state"
     title: str = ""
@@ -112,6 +136,7 @@ class RepairStep(BaseModel):
 
 class RepairProcedureExecutionPlan(BaseModel):
     """Full Hub-signed repair execution plan. DRR-T001."""
+
     plan_id: str
     goal_id: str = ""
     task_id: str
@@ -151,6 +176,7 @@ class RepairProcedureExecutionPlan(BaseModel):
 
 class RepairProcedure(BaseModel):
     """Compact repair procedure payload embedded in ExecutionEnvelope. DRR-T002."""
+
     procedure_id: str
     safety_class: str = "bounded"
     steps: list[RepairStep] = Field(default_factory=list)
@@ -165,6 +191,7 @@ class RepairProcedure(BaseModel):
 
 class RepairStepExecutionEnvelope(BaseModel):
     """Hub-issued envelope for single-step Hub-driven repair execution. DRR-T003."""
+
     parent_plan_id: str
     parent_plan_hash: str = ""
     step_id: str
@@ -193,6 +220,7 @@ class RepairStepExecutionEnvelope(BaseModel):
 
 
 # ── Repair result contracts (DRR-T004) ─────────────────────────────────────
+
 
 class RepairStepResultStatus(str, Enum):
     success = "success"
@@ -293,9 +321,18 @@ class ModelPolicy(BaseModel):
     legacy_default_allow: bool = False
     max_tokens: int | None = None
 
-    _CLOUD_PROVIDERS: frozenset[str] = frozenset({
-        "openai", "anthropic", "gemini", "groq", "openrouter", "bedrock", "azure",
-    })
+    _CLOUD_PROVIDERS: frozenset[str] = frozenset(
+        {
+            "openai",
+            "anthropic",
+            "gemini",
+            "groq",
+            "openrouter",
+            "bedrock",
+            "azure",
+        }
+    )
+
     def is_provider_allowed(self, provider: str) -> bool:
         p = str(provider or "").strip().lower()
         if p in self._CLOUD_PROVIDERS and not self.cloud_allowed:
@@ -340,11 +377,13 @@ class NetworkScope(BaseModel):
 
 # ── ExecutionEnvelope ──────────────────────────────────────────────────────────
 
+
 class ExecutionEnvelope(BaseModel):
     """Hub-signed delegation contract for one worker execution.
 
     Must be fully validated by PreflightGate before any action is taken.
     """
+
     task_id: str
     goal_id: str | None = None
     actor_ref: str
@@ -390,9 +429,7 @@ class ExecutionEnvelope(BaseModel):
             return True
         return operation in self.allowed_operations
 
-    def repair_approval_for_procedure(
-        self, procedure_id: str, *, target_scope: str = ""
-    ) -> ApprovalRef | None:
+    def repair_approval_for_procedure(self, procedure_id: str, *, target_scope: str = "") -> ApprovalRef | None:
         """Return approval scoped to procedure_id and target_scope. DRR-T018."""
         for ref in self.approval_refs:
             if ref.operation == "deterministic_repair" and procedure_id in ref.ref_id:
@@ -404,8 +441,10 @@ class ExecutionEnvelope(BaseModel):
 
 # ── ToolInvocationEnvelope (DRR-T013) ────────────────────────────────────────
 
+
 class ToolInvocationEnvelope(BaseModel):
     """Per-step tool invocation envelope mapping a repair step to an executable call."""
+
     tool_id: str
     operation: str
     args: dict[str, Any] = Field(default_factory=dict)
@@ -425,6 +464,7 @@ class ToolInvocationEnvelope(BaseModel):
 
 
 # ── WorkerResult ───────────────────────────────────────────────────────────────
+
 
 class WorkerResultStatus(str, Enum):
     success = "success"
@@ -453,6 +493,7 @@ class TraceEvent(BaseModel):
 
 class RepairStepTrace(BaseModel):
     """Per-step trace entry. DRR-T032."""
+
     step_id: str
     step_type: str = ""
     tool_invocation_hash: str = ""
@@ -479,11 +520,13 @@ class TraceBundle(BaseModel):
     escalation_reason: str = ""
 
     def append(self, event_type: str, *, reason_code: str | None = None, **payload: Any) -> None:
-        self.events.append(TraceEvent(
-            event_type=event_type,
-            reason_code=reason_code,
-            payload=payload,
-        ))
+        self.events.append(
+            TraceEvent(
+                event_type=event_type,
+                reason_code=reason_code,
+                payload=payload,
+            )
+        )
 
     def append_step_trace(
         self,
@@ -495,17 +538,20 @@ class TraceBundle(BaseModel):
         started_at: float | None = None,
         ended_at: float | None = None,
     ) -> None:
-        import hashlib as _hl, json as _js
+        import hashlib as _hl
+
         h = _hl.sha256(f"{step_id}:{status}:{reason_code}".encode()).hexdigest()[:12]
-        self.step_trace.append(RepairStepTrace(
-            step_id=step_id,
-            step_type=step_type,
-            tool_invocation_hash=h,
-            started_at=started_at,
-            ended_at=ended_at,
-            status=status,
-            reason_code=reason_code,
-        ))
+        self.step_trace.append(
+            RepairStepTrace(
+                step_id=step_id,
+                step_type=step_type,
+                tool_invocation_hash=h,
+                started_at=started_at,
+                ended_at=ended_at,
+                status=status,
+                reason_code=reason_code,
+            )
+        )
 
 
 class DegradedState(BaseModel):
@@ -573,13 +619,13 @@ class WorkerResult(BaseModel):
 # ── Legacy adapter ─────────────────────────────────────────────────────────────
 
 _LEGACY_MODE_CAPABILITIES: dict[str, list[str]] = {
-    "plan_only":        ["planning"],
-    "patch_propose":    ["code_read", "patch_propose"],
-    "patch_apply":      ["code_read", "patch_propose", "patch_apply"],
-    "command_plan":     ["shell_plan"],
-    "command_execute":  ["shell_plan", "shell_execute"],
-    "test_run":         ["test_run"],
-    "verify":           ["verify"],
+    "plan_only": ["planning"],
+    "patch_propose": ["code_read", "patch_propose"],
+    "patch_apply": ["code_read", "patch_propose", "patch_apply"],
+    "command_plan": ["shell_plan"],
+    "command_execute": ["shell_plan", "shell_execute"],
+    "test_run": ["test_run"],
+    "verify": ["verify"],
 }
 
 
@@ -590,6 +636,7 @@ class LegacyEnvelopeAdapter:
     """
 
     import logging as _logging
+
     _log = _logging.getLogger(__name__)
 
     def wrap(
@@ -608,7 +655,8 @@ class LegacyEnvelopeAdapter:
         else:
             self._log.warning(
                 "LegacyEnvelopeAdapter: deprecated mode %r for task %s — migrate to ExecutionEnvelope",
-                mode, task_id,
+                mode,
+                task_id,
             )
         return ExecutionEnvelope(
             task_id=task_id or "unknown",
@@ -621,6 +669,7 @@ class LegacyEnvelopeAdapter:
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _capability_hash(capabilities: list[str]) -> str:
     normalized = json.dumps(sorted(set(capabilities)), separators=(",", ":"))

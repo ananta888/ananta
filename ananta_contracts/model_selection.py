@@ -12,23 +12,27 @@ from ananta_contracts.model_catalog import ModelInventorySourceStatus
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}$")
 
 FallbackTrigger = Literal[
-    "provider_unavailable", "connection_error", "timeout", "http_5xx",
-    "server_error", "invalid_json_response", "empty_content",
-    "schema_validation_failed", "tool_not_allowed", "tool_args_invalid",
-    "repeated_tool_failure", "context_too_large",
+    "provider_unavailable",
+    "connection_error",
+    "timeout",
+    "http_5xx",
+    "server_error",
+    "invalid_json_response",
+    "empty_content",
+    "schema_validation_failed",
+    "tool_not_allowed",
+    "tool_args_invalid",
+    "repeated_tool_failure",
+    "context_too_large",
 ]
 
 
 class _Closed(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, str_strip_whitespace=True, populate_by_name=True
-    )
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True, populate_by_name=True)
 
 
 class ModelConsumer(_Closed):
-    schema_version: Literal["ananta.model-consumer.v1"] = Field(
-        default="ananta.model-consumer.v1", alias="schema"
-    )
+    schema_version: Literal["ananta.model-consumer.v1"] = Field(default="ananta.model-consumer.v1", alias="schema")
     consumer_id: str
     label: str = Field(min_length=1, max_length=160)
     category: str
@@ -52,9 +56,7 @@ class ModelConsumer(_Closed):
     def routing_boundary(self) -> "ModelConsumer":
         if self.routable and self.non_routable_reason:
             raise ValueError("model_consumer_routable_reason_unexpected")
-        if not self.routable and (
-            not self.non_routable_reason or self.allowed_scopes
-        ):
+        if not self.routable and (not self.non_routable_reason or self.allowed_scopes):
             raise ValueError("model_consumer_non_routable_boundary_invalid")
         return self
 
@@ -70,7 +72,11 @@ class ModelAssignment(_Closed):
     fallback_group_id: str | None = None
 
     @field_validator(
-        "consumer_id", "scope_id", "profile_id", "provider_id", "model_id",
+        "consumer_id",
+        "scope_id",
+        "profile_id",
+        "provider_id",
+        "model_id",
         "fallback_group_id",
     )
     @classmethod
@@ -182,8 +188,15 @@ class ModelRoutingDryRunCommand(_Closed):
     configuration: ModelRoutingConfiguration | None = None
 
     @field_validator(
-        "consumer_id", "organization_id", "project_id", "workflow_id",
-        "agent_id", "role_id", "task_kind", "step_id", "risk_class",
+        "consumer_id",
+        "organization_id",
+        "project_id",
+        "workflow_id",
+        "agent_id",
+        "role_id",
+        "task_kind",
+        "step_id",
+        "risk_class",
     )
     @classmethod
     def routing_identifier(cls, value: str | None) -> str | None:
@@ -257,9 +270,7 @@ class ModelRoutingImportCommand(_Closed):
     )
     expected_revision: int = Field(ge=0)
     configuration: ModelRoutingConfiguration
-    confirmation_digest: str | None = Field(
-        default=None, pattern=r"^sha256:[a-f0-9]{64}$"
-    )
+    confirmation_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
 
 
 class ModelRoutingDiff(_Closed):
@@ -287,9 +298,7 @@ class ModelRoutingTemplate(_Closed):
     schema_version: Literal["ananta.model-routing-template.v1"] = Field(
         default="ananta.model-routing-template.v1", alias="schema"
     )
-    template_id: Literal[
-        "local-only", "local-first-cloud-fallback", "cloud-only", "cli-first"
-    ]
+    template_id: Literal["local-only", "local-first-cloud-fallback", "cloud-only", "cli-first"]
     label: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=500)
     applicable: bool
@@ -311,9 +320,7 @@ class LegacyModelMigrationEntry(_Closed):
     legacy_provider_id: str | None = None
     legacy_model_id: str | None = None
     matched_profile_id: str | None = None
-    status: Literal[
-        "missing", "incomplete", "unresolved", "ambiguous", "proposed", "preserved"
-    ]
+    status: Literal["missing", "incomplete", "unresolved", "ambiguous", "proposed", "preserved"]
     reason_code: str
 
 
@@ -346,7 +353,11 @@ class ModelRoutingShadowEntry(_Closed):
     central_model_id: str | None = None
     central_assignment_source: str | None = None
     status: Literal[
-        "legacy_missing", "central_missing", "central_disabled", "match", "mismatch",
+        "legacy_missing",
+        "central_missing",
+        "central_disabled",
+        "match",
+        "mismatch",
         "central_profile_unknown",
     ]
     matches: bool | None = None
@@ -484,29 +495,43 @@ class RoleStyleTarget(_Closed):
     @field_validator("must_have", "avoid_ranges")
     @classmethod
     def known_style_dimensions(cls, value):
-        known = {
-            "rule_correctness", "truth_exploration", "initiative_assertiveness"
-        }
+        known = {"rule_correctness", "truth_exploration", "initiative_assertiveness"}
         if any(name not in known for name in value):
             raise ValueError("role_style_dimension_unknown")
         return value
 
 
 __all__ = [
-    "AgentStyleProfile", "CognitiveStyleVector", "EffectiveModelRoute",
-    "EffectiveModelRoutingProjection", "ModelAssignment",
-    "ModelConsumer", "ModelFallbackCandidate", "ModelFallbackGroup",
-    "ModelRouteDecision", "ModelRoutingConfiguration", "ModelRoutingDiff",
-    "ModelRoutingDryRunCommand", "ModelRoutingExportBundle",
-    "ModelRoutingImportCommand", "ModelRoutingImportPreview",
-    "ModelRoutingMutationCommand", "ModelRoutingValidationIssue",
-    "ModelRoutingValidationReport", "ModelRoutingTemplate",
+    "AgentStyleProfile",
+    "CognitiveStyleVector",
+    "EffectiveModelRoute",
+    "EffectiveModelRoutingProjection",
+    "ModelAssignment",
+    "ModelConsumer",
+    "ModelFallbackCandidate",
+    "ModelFallbackGroup",
+    "ModelRouteDecision",
+    "ModelRoutingConfiguration",
+    "ModelRoutingDiff",
+    "ModelRoutingDryRunCommand",
+    "ModelRoutingExportBundle",
+    "ModelRoutingImportCommand",
+    "ModelRoutingImportPreview",
+    "ModelRoutingMutationCommand",
+    "ModelRoutingValidationIssue",
+    "ModelRoutingValidationReport",
+    "ModelRoutingTemplate",
     "ModelRoutingTemplateCatalog",
-    "LegacyModelMigrationEntry", "ModelRoutingLegacyMigrationApplyCommand",
-    "ModelRoutingLegacyMigrationPreview", "ModelRoutingReleaseGateCheck",
-    "ModelRoutingReleaseGateReport", "ModelRoutingShadowEntry",
+    "LegacyModelMigrationEntry",
+    "ModelRoutingLegacyMigrationApplyCommand",
+    "ModelRoutingLegacyMigrationPreview",
+    "ModelRoutingReleaseGateCheck",
+    "ModelRoutingReleaseGateReport",
+    "ModelRoutingShadowEntry",
     "ModelRoutingShadowReport",
-    "ModelRoutingDiagnosticIssue", "ModelRoutingDiagnostics",
+    "ModelRoutingDiagnosticIssue",
+    "ModelRoutingDiagnostics",
     "ModelRoutingUsageAggregate",
-    "RoleStyleTarget", "StyleRange",
+    "RoleStyleTarget",
+    "StyleRange",
 ]

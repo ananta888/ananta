@@ -16,7 +16,6 @@ from agent.services.blueprint_migration_service import (  # noqa: E402
     migrate_legacy_blueprint_file,
 )
 
-
 # ---------------------------------------------------------------------------
 # migrate_legacy_blueprint
 # ---------------------------------------------------------------------------
@@ -29,14 +28,10 @@ class TestMigrateLegacyBlueprint:
 
     def test_strict_mode_raises_on_no_artifacts(self):
         with pytest.raises(LegacyBlueprintMigrationError):
-            migrate_legacy_blueprint(
-                blueprint={"name": "X", "artifacts": []}, strict=True
-            )
+            migrate_legacy_blueprint(blueprint={"name": "X", "artifacts": []}, strict=True)
 
     def test_non_strict_returns_warnings(self):
-        result = migrate_legacy_blueprint(
-            blueprint={"name": ""}, strict=False
-        )
+        result = migrate_legacy_blueprint(blueprint={"name": ""}, strict=False)
         assert "warnings" in result["migration_note"]
         assert result["migration_note"]["warnings"]
 
@@ -48,12 +43,9 @@ class TestMigrateLegacyBlueprint:
                 {"name": "Dev", "is_required": True, "config": {"responsibility": "delivery"}},
             ],
             "artifacts": [
-                {"title": "Plan Sprint", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["execution_plan"]}},
-                {"title": "Implement", "kind": "task", "sort_order": 20,
-                 "payload": {"produces": ["code_changes"]}},
-                {"title": "Review", "kind": "task", "sort_order": 30,
-                 "payload": {"produces": ["signoff"]}},
+                {"title": "Plan Sprint", "kind": "task", "sort_order": 10, "payload": {"produces": ["execution_plan"]}},
+                {"title": "Implement", "kind": "task", "sort_order": 20, "payload": {"produces": ["code_changes"]}},
+                {"title": "Review", "kind": "task", "sort_order": 30, "payload": {"produces": ["signoff"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -75,10 +67,8 @@ class TestMigrateLegacyBlueprint:
         bp = {
             "name": "X",
             "artifacts": [
-                {"title": "Default Policy", "kind": "policy", "sort_order": 100,
-                 "payload": {"produces": []}},
-                {"title": "Implement", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["code"]}},
+                {"title": "Default Policy", "kind": "policy", "sort_order": 100, "payload": {"produces": []}},
+                {"title": "Implement", "kind": "task", "sort_order": 10, "payload": {"produces": ["code"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -108,14 +98,10 @@ class TestMigrateLegacyBlueprint:
         bp = {
             "name": "X",
             "artifacts": [
-                {"title": "Plan Sprint", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["plan"]}},
-                {"title": "Fix Bug", "kind": "task", "sort_order": 20,
-                 "payload": {"produces": ["code"]}},
-                {"title": "Verify QA", "kind": "task", "sort_order": 30,
-                 "payload": {"produces": ["qa"]}},
-                {"title": "Review Signoff", "kind": "task", "sort_order": 40,
-                 "payload": {"produces": ["signoff"]}},
+                {"title": "Plan Sprint", "kind": "task", "sort_order": 10, "payload": {"produces": ["plan"]}},
+                {"title": "Fix Bug", "kind": "task", "sort_order": 20, "payload": {"produces": ["code"]}},
+                {"title": "Verify QA", "kind": "task", "sort_order": 30, "payload": {"produces": ["qa"]}},
+                {"title": "Review Signoff", "kind": "task", "sort_order": 40, "payload": {"produces": ["signoff"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -142,8 +128,7 @@ class TestMigrateLegacyBlueprint:
         bp = {
             "name": "Code-Repair",
             "artifacts": [
-                {"title": "Triage", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["repro"]}},
+                {"title": "Triage", "kind": "task", "sort_order": 10, "payload": {"produces": ["repro"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -158,8 +143,7 @@ class TestMigrateLegacyBlueprint:
         bp = {
             "name": "X",
             "artifacts": [
-                {"title": "Do Stuff", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["x"]}},
+                {"title": "Do Stuff", "kind": "task", "sort_order": 10, "payload": {"produces": ["x"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -180,10 +164,8 @@ class TestMigrateLegacyBlueprint:
         bp = {
             "name": "X",
             "artifacts": [
-                {"title": "Plan", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["plan"]}},
-                {"title": "Build", "kind": "task", "sort_order": 20,
-                 "payload": {"produces": ["code"]}},
+                {"title": "Plan", "kind": "task", "sort_order": 10, "payload": {"produces": ["plan"]}},
+                {"title": "Build", "kind": "task", "sort_order": 20, "payload": {"produces": ["code"]}},
             ],
         }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
@@ -193,9 +175,12 @@ class TestMigrateLegacyBlueprint:
         assert build_step["depends_on"] == ["plan"]
 
     def test_migration_note_present(self):
-        bp = {"name": "X", "artifacts": [
-            {"title": "P", "kind": "task", "sort_order": 10, "payload": {"produces": ["p"]}},
-        ]}
+        bp = {
+            "name": "X",
+            "artifacts": [
+                {"title": "P", "kind": "task", "sort_order": 10, "payload": {"produces": ["p"]}},
+            ],
+        }
         result = migrate_legacy_blueprint(blueprint=bp, strict=False)
         note = result["migration_note"]
         assert note["blueprint_name"] == "X"
@@ -225,8 +210,7 @@ class TestMigrateLegacyBlueprintFile:
             "name": "Scrum",
             "roles": [{"name": "PO", "is_required": True, "config": {"responsibility": "backlog"}}],
             "artifacts": [
-                {"title": "Plan", "kind": "task", "sort_order": 10,
-                 "payload": {"produces": ["plan"]}},
+                {"title": "Plan", "kind": "task", "sort_order": 10, "payload": {"produces": ["plan"]}},
             ],
         }
         src = tmp_path / "scrum.json"
@@ -240,9 +224,12 @@ class TestMigrateLegacyBlueprintFile:
         assert "migration_note" in body
 
     def test_source_file_not_mutated(self, tmp_path):
-        bp = {"name": "X", "artifacts": [
-            {"title": "A", "kind": "task", "sort_order": 10, "payload": {"produces": ["a"]}},
-        ]}
+        bp = {
+            "name": "X",
+            "artifacts": [
+                {"title": "A", "kind": "task", "sort_order": 10, "payload": {"produces": ["a"]}},
+            ],
+        }
         src = tmp_path / "x.json"
         src.write_text(json.dumps(bp))
         original = src.read_text()
@@ -250,9 +237,12 @@ class TestMigrateLegacyBlueprintFile:
         assert src.read_text() == original
 
     def test_custom_output_path(self, tmp_path):
-        bp = {"name": "X", "artifacts": [
-            {"title": "A", "kind": "task", "sort_order": 10, "payload": {"produces": ["a"]}},
-        ]}
+        bp = {
+            "name": "X",
+            "artifacts": [
+                {"title": "A", "kind": "task", "sort_order": 10, "payload": {"produces": ["a"]}},
+            ],
+        }
         src = tmp_path / "x.json"
         src.write_text(json.dumps(bp))
         out = tmp_path / "subdir" / "out.json"

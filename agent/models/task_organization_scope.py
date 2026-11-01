@@ -114,11 +114,7 @@ def inherited_organization_scope(
     parent_scope = organization_scope_of(parent)
     if not parent_scope:
         return {}
-    inherited = {
-        field: parent_scope[field]
-        for field in BASE_SCOPE_FIELDS
-        if field in parent_scope
-    }
+    inherited = {field: parent_scope[field] for field in BASE_SCOPE_FIELDS if field in parent_scope}
     if not parent_scope.get("organization_id"):
         return inherited
     for field in ORGANIZATION_SCOPE_FIELDS:

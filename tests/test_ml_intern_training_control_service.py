@@ -267,9 +267,7 @@ def test_idempotent_replay_does_not_enqueue_twice(app, tmp_path, monkeypatch) ->
     assert len(holding.calls) == 1
 
 
-def test_task_materialization_failure_leaves_terminal_auditable_tombstone(
-    app, tmp_path, monkeypatch
-) -> None:
+def test_task_materialization_failure_leaves_terminal_auditable_tombstone(app, tmp_path, monkeypatch) -> None:
     del app
     repository = MlInternTrainingRepository()
     principal = _principal()
@@ -278,9 +276,7 @@ def test_task_materialization_failure_leaves_terminal_auditable_tombstone(
         "agent.services.ml_intern_training_control_service.get_task_queue_service",
         lambda: FailingTaskQueue(),
     )
-    service = MlInternTrainingControlService(
-        {"enabled": True}, repository=repository, executor=HoldingExecutor()
-    )
+    service = MlInternTrainingControlService({"enabled": True}, repository=repository, executor=HoldingExecutor())
 
     with pytest.raises(MlInternTrainingContractError) as failure:
         service.create_job(principal, _payload(dataset.id), idempotency_key="task-failure")
@@ -504,9 +500,7 @@ def test_concurrent_hub_replicas_cannot_double_claim_one_job(app, tmp_path, monk
     assert attempts[0].status == "completed"
 
 
-def test_two_hub_replicas_share_one_execution_slot_for_different_jobs(
-    app, tmp_path, monkeypatch
-) -> None:
+def test_two_hub_replicas_share_one_execution_slot_for_different_jobs(app, tmp_path, monkeypatch) -> None:
     del app
     repository = MlInternTrainingRepository()
     principal = _principal()
@@ -549,11 +543,14 @@ def test_two_hub_replicas_share_one_execution_slot_for_different_jobs(
         threading.Event().wait(0.01)
     with entered_lock:
         assert entered == [first_job["id"]]
-    assert sum(
-        attempt.status in {"claimed", "running"}
-        for job_id in (first_job["id"], second_job["id"])
-        for attempt in repository.list_attempts(job_id)
-    ) == 1
+    assert (
+        sum(
+            attempt.status in {"claimed", "running"}
+            for job_id in (first_job["id"], second_job["id"])
+            for attempt in repository.list_attempts(job_id)
+        )
+        == 1
+    )
 
     release.set()
     for thread in threads:
@@ -571,10 +568,7 @@ def test_capabilities_compose_optional_unsloth_facets_unavailable_by_default() -
     service = MlInternTrainingControlService({"enabled": True})
     capabilities = service.capabilities()
     backend_status = {item["id"]: item for item in capabilities["backends"]}
-    facets = {
-        item["id"]: item
-        for item in capabilities["unsloth_capabilities"]["facets"]
-    }
+    facets = {item["id"]: item for item in capabilities["unsloth_capabilities"]["facets"]}
 
     for backend in ("unsloth_vision", "unsloth_audio", "unsloth_embedding"):
         assert backend_status[backend]["available"] is False
@@ -584,9 +578,7 @@ def test_capabilities_compose_optional_unsloth_facets_unavailable_by_default() -
     assert len(capabilities["unsloth_capabilities"]["snapshot_id"]) == 64
 
 
-def test_create_job_binds_canonical_dataset_and_verified_source_run_provenance(
-    app, tmp_path, monkeypatch
-) -> None:
+def test_create_job_binds_canonical_dataset_and_verified_source_run_provenance(app, tmp_path, monkeypatch) -> None:
     del app
     repository = MlInternTrainingRepository()
     principal = _principal()

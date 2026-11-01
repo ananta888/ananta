@@ -17,11 +17,7 @@ def test_tui_prompt_snapshot_is_stable_and_plain_text():
         selected_index=1,
     )
 
-    assert render_prompt_snapshot(state) == (
-        "Goal Aktion\n"
-        "  Quick Goal - Schnell planen\n"
-        "> Guided Goal - Mehr Kontext"
-    )
+    assert render_prompt_snapshot(state) == ("Goal Aktion\n  Quick Goal - Schnell planen\n> Guided Goal - Mehr Kontext")
 
 
 def test_tui_prompt_navigation_and_cancel_behavior_are_reproducible():

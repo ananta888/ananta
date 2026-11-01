@@ -21,12 +21,9 @@ turn_current_allocations 7
 turn_current_allocations{username=\"sensitive\",realm=\"example\"} 999
 turn_unknown_metric 11
 """
-    collector = CoturnAggregateCollector(
-        CoturnCollectorConfig(), opener=lambda request, timeout: Response(payload)
-    )
+    collector = CoturnAggregateCollector(CoturnCollectorConfig(), opener=lambda request, timeout: Response(payload))
 
     result = collector.collect()
 
     assert result["allocations_active"] == 7
     assert "sensitive" not in repr(result)
-

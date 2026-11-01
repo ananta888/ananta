@@ -22,13 +22,13 @@ _MIN_OUTPUT_CHARS = 1
 # Secret-Pattern (regex; Case-insensitive)
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("api_key", re.compile(r'(?:api[-_]?key|apikey)\s*[:=]\s*["\']?[a-z0-9_\-]{16,}', re.IGNORECASE)),
-    ("bearer_token", re.compile(r'bearer\s+[a-z0-9_\-\.]{20,}', re.IGNORECASE)),
+    ("bearer_token", re.compile(r"bearer\s+[a-z0-9_\-\.]{20,}", re.IGNORECASE)),
     ("password_field", re.compile(r'password\s*[:=]\s*["\']?.{4,}', re.IGNORECASE)),
-    ("private_key_header", re.compile(r'-----BEGIN\s+(RSA\s+)?PRIVATE KEY-----')),
-    ("aws_access_key", re.compile(r'(?:AKIA|ASIA|AROA)[A-Z0-9]{16}')),
-    ("github_token", re.compile(r'gh[pousr]_[A-Za-z0-9]{36}')),
+    ("private_key_header", re.compile(r"-----BEGIN\s+(RSA\s+)?PRIVATE KEY-----")),
+    ("aws_access_key", re.compile(r"(?:AKIA|ASIA|AROA)[A-Z0-9]{16}")),
+    ("github_token", re.compile(r"gh[pousr]_[A-Za-z0-9]{36}")),
     ("generic_secret", re.compile(r'(?:secret|token|credential)\s*[:=]\s*["\']?[a-z0-9_\-\.]{16,}', re.IGNORECASE)),
-    ("openai_key", re.compile(r'sk-[a-zA-Z0-9]{32,}')),
+    ("openai_key", re.compile(r"sk-[a-zA-Z0-9]{32,}")),
 ]
 
 
@@ -86,8 +86,7 @@ class DatasetValidationReport:
                 for w in self.warnings
             ],
             "secret_findings": [
-                {"line": s.line_number, "pattern": s.pattern_name, "excerpt": s.excerpt}
-                for s in self.secret_findings
+                {"line": s.line_number, "pattern": s.pattern_name, "excerpt": s.excerpt} for s in self.secret_findings
             ],
         }
 
@@ -138,7 +137,9 @@ class MlInternDatasetValidationService:
                 lineno = total_lines
 
                 if len(raw_line.encode("utf-8")) > _MAX_LINE_BYTES:
-                    errors.append(ValidationError(lineno, "line_too_large", f"line {lineno} exceeds {_MAX_LINE_BYTES} bytes"))
+                    errors.append(
+                        ValidationError(lineno, "line_too_large", f"line {lineno} exceeds {_MAX_LINE_BYTES} bytes")
+                    )
                     rejected += 1
                     continue
 
@@ -184,19 +185,29 @@ class MlInternDatasetValidationService:
 
         # Format-Konsistenz
         if len(format_types) > 1 and not allow_mixed_formats:
-            warnings.append(ValidationError(0, "mixed_formats", f"dataset contains mixed formats: {sorted(format_types)}"))
+            warnings.append(
+                ValidationError(0, "mixed_formats", f"dataset contains mixed formats: {sorted(format_types)}")
+            )
 
         secret_scan_passed = len(secret_findings) == 0
         # Wenn override gesetzt, trotzdem Secret-Scan dokumentieren aber nicht blockieren
         override_reason = (explicit_override or {}).get("reason", "")
         if secret_findings and explicit_override and override_reason:
-            warnings.append(ValidationError(0, "secret_scan_override",
-                f"secret findings overridden with reason: {override_reason[:200]}"))
+            warnings.append(
+                ValidationError(
+                    0, "secret_scan_override", f"secret findings overridden with reason: {override_reason[:200]}"
+                )
+            )
             secret_scan_passed = True  # Override akzeptiert
         elif secret_findings and not explicit_override:
             for sf in secret_findings:
-                errors.append(ValidationError(sf.line_number, "secret_detected",
-                    f"potential secret at line {sf.line_number} (pattern: {sf.pattern_name}) — training blocked"))
+                errors.append(
+                    ValidationError(
+                        sf.line_number,
+                        "secret_detected",
+                        f"potential secret at line {sf.line_number} (pattern: {sf.pattern_name}) — training blocked",
+                    )
+                )
 
         ok = (
             len([e for e in errors if e.severity == "error"]) == 0
@@ -260,21 +271,32 @@ class MlInternDatasetValidationService:
         if "messages" in record:
             msgs = record["messages"]
             if not isinstance(msgs, list) or len(msgs) < 2:
-                errs.append(ValidationError(lineno, "invalid_chat", f"line {lineno}: 'messages' must be a list with >= 2 items"))
+                errs.append(
+                    ValidationError(lineno, "invalid_chat", f"line {lineno}: 'messages' must be a list with >= 2 items")
+                )
                 return "chat", errs
             has_user = any(m.get("role") == "user" for m in msgs if isinstance(m, dict))
             has_assistant = any(m.get("role") == "assistant" for m in msgs if isinstance(m, dict))
             if not has_user:
-                errs.append(ValidationError(lineno, "missing_user_turn", f"line {lineno}: chat record missing 'user' message"))
+                errs.append(
+                    ValidationError(lineno, "missing_user_turn", f"line {lineno}: chat record missing 'user' message")
+                )
             if not has_assistant:
-                errs.append(ValidationError(lineno, "missing_assistant_turn", f"line {lineno}: chat record missing 'assistant' message"))
+                errs.append(
+                    ValidationError(
+                        lineno, "missing_assistant_turn", f"line {lineno}: chat record missing 'assistant' message"
+                    )
+                )
             for mi, msg in enumerate(msgs):
                 if not isinstance(msg, dict):
                     continue
                 content = str(msg.get("content") or "")
                 if msg.get("role") == "assistant" and len(content.strip()) < _MIN_OUTPUT_CHARS:
-                    errs.append(ValidationError(lineno, "empty_assistant_output",
-                        f"line {lineno}: message[{mi}] assistant content is empty"))
+                    errs.append(
+                        ValidationError(
+                            lineno, "empty_assistant_output", f"line {lineno}: message[{mi}] assistant content is empty"
+                        )
+                    )
             return "chat", errs
 
         if "instruction" in record:
@@ -285,13 +307,24 @@ class MlInternDatasetValidationService:
             if len(output) < _MIN_OUTPUT_CHARS:
                 errs.append(ValidationError(lineno, "empty_output", f"line {lineno}: 'output' is empty — not allowed"))
             if len(instruction) > _MAX_TEXT_CHARS:
-                errs.append(ValidationError(lineno, "text_too_long", f"line {lineno}: 'instruction' exceeds {_MAX_TEXT_CHARS} chars"))
+                errs.append(
+                    ValidationError(
+                        lineno, "text_too_long", f"line {lineno}: 'instruction' exceeds {_MAX_TEXT_CHARS} chars"
+                    )
+                )
             if len(output) > _MAX_TEXT_CHARS:
-                errs.append(ValidationError(lineno, "text_too_long", f"line {lineno}: 'output' exceeds {_MAX_TEXT_CHARS} chars"))
+                errs.append(
+                    ValidationError(lineno, "text_too_long", f"line {lineno}: 'output' exceeds {_MAX_TEXT_CHARS} chars")
+                )
             return "instruction", errs
 
-        errs.append(ValidationError(lineno, "unknown_format",
-            f"line {lineno}: record must have 'instruction' (instruction format) or 'messages' (chat format)"))
+        errs.append(
+            ValidationError(
+                lineno,
+                "unknown_format",
+                f"line {lineno}: record must have 'instruction' (instruction format) or 'messages' (chat format)",
+            )
+        )
         return None, errs
 
     @staticmethod

@@ -12,6 +12,7 @@ _ANSWER_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "answers
 
 class CitationVerificationService:
     """Deterministic claim-to-source verifier for grounded answers."""
+
     _SOURCE_FACT_TYPES = {"rag_chunk", "repo_file", "artifact", "wiki_chunk"}
     _TOOL_RESULT_TYPES = {"tool_run", "test_result", "generated_artifact"}
 
@@ -55,13 +56,13 @@ class CitationVerificationService:
                 "failed_claims": [],
             }
 
-        source_map = {str(s.get("source_id")): dict(s) for s in list(source_catalog.get("sources") or []) if isinstance(s, dict)}
+        source_map = {
+            str(s.get("source_id")): dict(s) for s in list(source_catalog.get("sources") or []) if isinstance(s, dict)
+        }
         run_map = {str(r.get("source_id")): dict(r) for r in list(tool_run_catalog or []) if isinstance(r, dict)}
         all_sources = {**source_map, **run_map}
         allowed_tasks = {
-            str(value or "").strip()
-            for value in list(allowed_source_task_ids or [])
-            if str(value or "").strip()
+            str(value or "").strip() for value in list(allowed_source_task_ids or []) if str(value or "").strip()
         }
         failed_claims: list[dict[str, Any]] = []
         verified = 0
@@ -89,10 +90,7 @@ class CitationVerificationService:
                     claim_failed = True
                     continue
                 source_task_id = str(src.get("task_id") or task_id)
-                if (
-                    source_task_id != str(task_id)
-                    and source_task_id not in allowed_tasks
-                ):
+                if source_task_id != str(task_id) and source_task_id not in allowed_tasks:
                     failed_claims.append({"claim_id": claim_id, "reason": "failed_cross_task_source", "source_id": ref})
                     claim_failed = True
                     continue
@@ -103,13 +101,23 @@ class CitationVerificationService:
                 stype = str(src.get("source_type") or "")
                 if claim_type == "source_fact" and stype not in self._SOURCE_FACT_TYPES:
                     failed_claims.append(
-                        {"claim_id": claim_id, "reason": "failed_source_type_mismatch", "source_id": ref, "source_type": stype}
+                        {
+                            "claim_id": claim_id,
+                            "reason": "failed_source_type_mismatch",
+                            "source_id": ref,
+                            "source_type": stype,
+                        }
                     )
                     claim_failed = True
                     continue
                 if claim_type == "tool_result" and stype not in self._TOOL_RESULT_TYPES:
                     failed_claims.append(
-                        {"claim_id": claim_id, "reason": "failed_source_type_mismatch", "source_id": ref, "source_type": stype}
+                        {
+                            "claim_id": claim_id,
+                            "reason": "failed_source_type_mismatch",
+                            "source_id": ref,
+                            "source_type": stype,
+                        }
                     )
                     claim_failed = True
                     continue
@@ -123,7 +131,9 @@ class CitationVerificationService:
                 claim_type == "tool_result"
                 and isinstance(expected_evidence, dict)
                 and expected_evidence
-                and not any(self._run_entry_matches_expected_evidence(run_entry, expected_evidence) for run_entry in run_entries)
+                and not any(
+                    self._run_entry_matches_expected_evidence(run_entry, expected_evidence) for run_entry in run_entries
+                )
             ):
                 failed_claims.append({"claim_id": claim_id, "reason": "failed_tool_evidence_mismatch"})
                 claim_failed = True

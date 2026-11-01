@@ -10,14 +10,13 @@ from flask import Flask
 
 from agent.bootstrap.sfu_broadcast_services import initialize_sfu_broadcast_hub_composition
 from agent.services.sfu_projection_signing import (
-    EncodedSecretSfuProjectionPrivateKeySource,
     Ed25519SfuProjectionSigner,
+    EncodedSecretSfuProjectionPrivateKeySource,
     FileSfuProjectionPrivateKeySource,
     HmacSfuProjectionSigner,
     SfuProjectionSigningConfigurationError,
     SfuProjectionTrustedKeyset,
 )
-
 
 ENV_NAMES = (
     "ANANTA_SFU_PROJECTION_SIGNING_MODE",

@@ -108,10 +108,7 @@ class VoiceLiveRunCorrectionService:
             allow_nan=False,
         )
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        request_ref = (
-            f"voice-live-correction-spec:{run.id}:{sequence}:"
-            f"{provisional_result_ref}:{digest}"
-        )
+        request_ref = f"voice-live-correction-spec:{run.id}:{sequence}:{provisional_result_ref}:{digest}"
         self._assert_run_identity(principal, run)
         artifact = self._artifacts.find_live_envelope(
             principal,
@@ -222,10 +219,7 @@ class VoiceLiveRunCorrectionService:
             and (
                 (policy == "restricted_choice" and flags.get("restricted_worker") is True)
                 or (policy == "generative_local" and flags.get("generative_judge") is True)
-                or (
-                    policy == "generative_rewrite"
-                    and flags.get("generative_corrector") is True
-                )
+                or (policy == "generative_rewrite" and flags.get("generative_corrector") is True)
             )
         )
 
@@ -276,9 +270,7 @@ class VoiceLiveRunCorrectionService:
                 configuration,
                 task,
                 principal=principal,
-                request_id=(
-                    f"voice-live-correction-{run.id}-{segment.sequence}-{attempt_count}"
-                ),
+                request_id=(f"voice-live-correction-{run.id}-{segment.sequence}-{attempt_count}"),
                 language=run.language,
                 run_id=run.id,
             )
@@ -365,11 +357,7 @@ class VoiceLiveRunCorrectionService:
         sequence: int,
     ) -> None:
         segment = self._repository.get_segment(principal, run_id, sequence)
-        if (
-            segment is None
-            or not segment.provisional_result_ref
-            or not segment.correction_configuration_digest
-        ):
+        if segment is None or not segment.provisional_result_ref or not segment.correction_configuration_digest:
             return
         configuration: dict[str, Any] | None = None
         configuration_error: BaseException | None = None
@@ -485,9 +473,7 @@ class VoiceLiveRunCorrectionService:
             "generative_corrector_model",
             "generative_corrector_max_edit_ratio",
         }
-        projected = {
-            key: value for key, value in dict(configuration).items() if key in allowed
-        }
+        projected = {key: value for key, value in dict(configuration).items() if key in allowed}
         raw_flags = configuration.get("feature_flags")
         if isinstance(raw_flags, Mapping):
             projected["feature_flags"] = {

@@ -60,6 +60,7 @@ def _hub_context_window(loop: Any) -> dict[str, Any]:
     except Exception:  # noqa: BLE001 -- without it the worker uses its own configuration
         return {}
 
+
 def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
     """LCTX-007/008: split a task whose context exceeds the window (only with context_strategy.mode=active)."""
     from agent.common.native_task_result_binding import is_native_task
@@ -81,13 +82,21 @@ def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
     except Exception:  # noqa: BLE001 -- a failed split leaves the normal dispatch path
         import logging
 
-        logging.getLogger(__name__).warning("long-context split failed for %s", getattr(task, "id", "?"),
-                                            exc_info=True)
+        logging.getLogger(__name__).warning("long-context split failed for %s", getattr(task, "id", "?"), exc_info=True)
         return None
 
 
-_OVERFLOW_MARKERS = ("context length", "context window", "context_length", "too many tokens", "n_ctx",
-                     "token_budget_exceeded", "context_too_large", "context_overflow", "maximum context")
+_OVERFLOW_MARKERS = (
+    "context length",
+    "context window",
+    "context_length",
+    "too many tokens",
+    "n_ctx",
+    "token_budget_exceeded",
+    "context_too_large",
+    "context_overflow",
+    "maximum context",
+)
 
 
 def _is_context_overflow(strategy_failures: list[dict[str, Any]]) -> bool:
@@ -112,8 +121,9 @@ def _handle_context_overflow(task: Any, *, app: Any) -> Any:
     except Exception:  # noqa: BLE001 -- falls back to the normal exhaustion handling
         import logging
 
-        logging.getLogger(__name__).warning("context overflow handling failed for %s", getattr(task, "id", "?"),
-                                            exc_info=True)
+        logging.getLogger(__name__).warning(
+            "context overflow handling failed for %s", getattr(task, "id", "?"), exc_info=True
+        )
         return None
 
 
@@ -160,8 +170,13 @@ def _dispatch_one_task_inner(
 
     split = _split_if_beyond_context(current_task or task, app=app_ctx)
     if split is not None:
-        append_trace_event(task.id, "autopilot_long_context_" + ("externalized" if split.dispatch_now else "handled"),
-                           strategy=split.strategy, steps=len(split.step_ids), final_step_id=split.final_step_id)
+        append_trace_event(
+            task.id,
+            "autopilot_long_context_" + ("externalized" if split.dispatch_now else "handled"),
+            strategy=split.strategy,
+            steps=len(split.step_ids),
+            final_step_id=split.final_step_id,
+        )
         if not split.dispatch_now:
             # LCTX: split into Hub step tasks (it waits for them) or paused for a decision -- not a failure
             result.dispatched = True
@@ -219,8 +234,12 @@ def _dispatch_one_task_inner(
             handled = _handle_context_overflow(current_task or task, app=app_ctx)
             if handled is not None:
                 # LCTX-009: the attempts ran out of window -- compact / externalize / split and try again
-                append_trace_event(task.id, "autopilot_context_overflow_handled", strategy=handled.strategy,
-                                   steps=len(handled.step_ids))
+                append_trace_event(
+                    task.id,
+                    "autopilot_context_overflow_handled",
+                    strategy=handled.strategy,
+                    steps=len(handled.step_ids),
+                )
                 result.dispatched = True
                 return result
         if propose_data is None:

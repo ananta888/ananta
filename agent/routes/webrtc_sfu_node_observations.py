@@ -13,7 +13,6 @@ from agent.services.sfu_node_observation_ingestion_service import (
     authenticate_collector_token,
 )
 
-
 webrtc_sfu_node_observations_bp = Blueprint(
     "webrtc_sfu_node_observations",
     __name__,
@@ -53,18 +52,14 @@ def ingest_sfu_node_observation():
 def _authentication() -> SfuNodeObservationAuthentication:
     authorization = str(request.headers.get("Authorization") or "")
     token = authorization[7:].strip() if authorization.startswith("Bearer ") else ""
-    expected_digest = current_app.extensions.get(
-        "sfu_node_observation_collector_token_digest"
-    )
+    expected_digest = current_app.extensions.get("sfu_node_observation_collector_token_digest")
     collector_authenticated = authenticate_collector_token(
         token,
         expected_digest if isinstance(expected_digest, str) else None,
     )
     environ = request.environ
     tls_verified = bool(
-        request.is_secure
-        or environ.get("ananta.tls_verified") is True
-        or environ.get("SSL_CLIENT_VERIFY") == "SUCCESS"
+        request.is_secure or environ.get("ananta.tls_verified") is True or environ.get("SSL_CLIENT_VERIFY") == "SUCCESS"
     )
     certificate = environ.get("SSL_CLIENT_CERT")
     return SfuNodeObservationAuthentication(

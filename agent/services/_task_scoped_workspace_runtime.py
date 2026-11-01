@@ -33,7 +33,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 _UVICORN_TOKEN_PATTERN = re.compile(r"(?<![\\w./-])uvicorn(?![\\w./-])")
 
 

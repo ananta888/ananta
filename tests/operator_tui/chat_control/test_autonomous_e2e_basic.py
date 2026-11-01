@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from unittest.mock import patch
-
-from client_surfaces.operator_tui.chat_control_audit import AuditLog
 from client_surfaces.operator_tui.chat_control_config import ChatControlConfig
 from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
 from client_surfaces.operator_tui.chat_control_policy import evaluate
@@ -17,7 +14,9 @@ def _run_autonomous(cmd: str, tui_state: dict | None = None) -> dict:
         return {"ok": False, "reason": decision.reason, "verdict": decision.verdict}
     dispatcher = TuiActionDispatcher()
     dispatcher.set_tui_state(tui_state or {})
-    result = dispatcher.dispatch(ActionRequest(action_id=decision.action_id, args=decision.normalized_args, source="test"))
+    result = dispatcher.dispatch(
+        ActionRequest(action_id=decision.action_id, args=decision.normalized_args, source="test")
+    )
     return {
         "ok": result.is_ok(),
         "action_id": decision.action_id,

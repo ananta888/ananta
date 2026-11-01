@@ -28,9 +28,7 @@ from agent.services.task_read_access_service import TaskReadAccessError
 
 
 def _parse_status_filters(raw: object) -> set[str]:
-    return get_core_services().task_admin_service.parse_status_filters(
-        raw
-    )
+    return get_core_services().task_admin_service.parse_status_filters(raw)
 
 
 def _filters(
@@ -41,33 +39,16 @@ def _filters(
     statuses = _parse_status_filters(data.get("statuses"))
     team_id = str(data.get("team_id") or "").strip()
     before_timestamp = data.get("before_timestamp")
-    before_ts = (
-        float(before_timestamp)
-        if before_timestamp is not None
-        else None
-    )
-    if (
-        before_ts is None
-        and allow_age
-        and data.get("older_than_seconds") is not None
-    ):
-        before_ts = time.time() - float(
-            data["older_than_seconds"]
-        )
+    before_ts = float(before_timestamp) if before_timestamp is not None else None
+    if before_ts is None and allow_age and data.get("older_than_seconds") is not None:
+        before_ts = time.time() - float(data["older_than_seconds"])
     raw_ids = data.get("task_ids") or []
-    task_ids = {
-        str(item).strip()
-        for item in raw_ids
-        if str(item).strip()
-    }
+    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
     return statuses, team_id, before_ts, task_ids
 
 
 def _conflict_error(
-    exc: (
-        RecoveryChildAdminMutationConflict
-        | KnowledgeIndexTaskMutationConflict
-    ),
+    exc: (RecoveryChildAdminMutationConflict | KnowledgeIndexTaskMutationConflict),
 ):
     return api_response(
         status="error",
@@ -90,18 +71,11 @@ def _uniform_batch_error(
     if allow_conflict:
         candidates += ((409, "task_admin_conflict"),)
     for status_code, default_reason in candidates:
-        matching = [
-            item
-            for item in errors
-            if int(item.get("http_status") or 0) == status_code
-        ]
+        matching = [item for item in errors if int(item.get("http_status") or 0) == status_code]
         if len(matching) == len(errors):
             return api_response(
                 status="error",
-                message=str(
-                    matching[0].get("reason_code")
-                    or default_reason
-                ),
+                message=str(matching[0].get("reason_code") or default_reason),
                 data=response_data,
                 code=status_code,
             )
@@ -113,13 +87,10 @@ def list_archived_tasks():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     try:
-        data = (
-            get_core_services()
-            .task_query_service.list_archived_tasks(
-                limit=limit,
-                offset=offset,
-                access=task_read_access_context(),
-            )
+        data = get_core_services().task_query_service.list_archived_tasks(
+            limit=limit,
+            offset=offset,
+            access=task_read_access_context(),
         )
     except TaskReadAccessError as exc:
         return task_read_error_response(exc)
@@ -129,12 +100,9 @@ def list_archived_tasks():
 @check_auth
 def archive_task_route(tid: str):
     try:
-        archived = (
-            get_core_services()
-            .task_admin_service.archive_task(
-                task_id=tid,
-                vector_authorization=request_vector_authorization(),
-            )
+        archived = get_core_services().task_admin_service.archive_task(
+            task_id=tid,
+            vector_authorization=request_vector_authorization(),
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
@@ -166,15 +134,12 @@ def archive_tasks_batch_route():
             code=400,
         )
     try:
-        archived_ids = (
-            get_core_services()
-            .task_admin_service.archive_tasks(
-                statuses=statuses,
-                team_id=team_id,
-                before_ts=before_ts,
-                task_ids=task_ids,
-                vector_authorization=request_vector_authorization(),
-            )
+        archived_ids = get_core_services().task_admin_service.archive_tasks(
+            statuses=statuses,
+            team_id=team_id,
+            before_ts=before_ts,
+            task_ids=task_ids,
+            vector_authorization=request_vector_authorization(),
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
@@ -194,12 +159,9 @@ def archive_tasks_batch_route():
 @check_auth
 def restore_task_route(tid: str):
     try:
-        restored = (
-            get_core_services()
-            .task_admin_service.restore_task(
-                task_id=tid,
-                vector_authorization=request_vector_authorization(),
-            )
+        restored = get_core_services().task_admin_service.restore_task(
+            task_id=tid,
+            vector_authorization=request_vector_authorization(),
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
@@ -220,12 +182,9 @@ def restore_task_route(tid: str):
 @check_auth
 def delete_archived_task_route(tid: str):
     try:
-        deleted = (
-            get_core_services()
-            .task_admin_service.delete_archived_task(
-                task_id=tid,
-                vector_authorization=request_vector_authorization(),
-            )
+        deleted = get_core_services().task_admin_service.delete_archived_task(
+            task_id=tid,
+            vector_authorization=request_vector_authorization(),
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
@@ -240,9 +199,7 @@ def delete_archived_task_route(tid: str):
             message="not_found",
             code=404,
         )
-    return api_response(
-        data={"deleted_count": 1, "deleted_ids": [tid]}
-    )
+    return api_response(data={"deleted_count": 1, "deleted_ids": [tid]})
 
 
 @check_auth
@@ -259,15 +216,12 @@ def restore_tasks_batch_route():
             code=400,
         )
     try:
-        restored_ids = (
-            get_core_services()
-            .task_admin_service.restore_tasks(
-                statuses=statuses,
-                team_id=team_id,
-                before_ts=before_ts,
-                task_ids=task_ids,
-                vector_authorization=request_vector_authorization(),
-            )
+        restored_ids = get_core_services().task_admin_service.restore_tasks(
+            statuses=statuses,
+            team_id=team_id,
+            before_ts=before_ts,
+            task_ids=task_ids,
+            vector_authorization=request_vector_authorization(),
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
@@ -297,15 +251,12 @@ def cleanup_archived_tasks_route():
             message="cleanup_filter_required",
             code=400,
         )
-    deleted_ids, errors = (
-        get_core_services()
-        .task_admin_service.cleanup_archived_tasks(
-            statuses=statuses,
-            team_id=team_id,
-            before_ts=before_ts,
-            task_ids=task_ids,
-            vector_authorization=request_vector_authorization(),
-        )
+    deleted_ids, errors = get_core_services().task_admin_service.cleanup_archived_tasks(
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+        vector_authorization=request_vector_authorization(),
     )
     response_data = {
         "matched_count": len(deleted_ids) + len(errors),
@@ -335,14 +286,11 @@ def archive_retention_apply_route():
             code=400,
         )
     cutoff = time.time() - retain_seconds
-    deleted_ids, errors = (
-        get_core_services()
-        .task_admin_service.apply_archive_retention_with_errors(
-            team_id=team_id,
-            statuses=statuses,
-            cutoff=cutoff,
-            vector_authorization=request_vector_authorization(),
-        )
+    deleted_ids, errors = get_core_services().task_admin_service.apply_archive_retention_with_errors(
+        team_id=team_id,
+        statuses=statuses,
+        cutoff=cutoff,
+        vector_authorization=request_vector_authorization(),
     )
     response_data = {
         "deleted_count": len(deleted_ids),
@@ -379,16 +327,13 @@ def cleanup_tasks_route():
             message="cleanup_filter_required",
             code=400,
         )
-    matched, archived_ids, deleted_ids, errors = (
-        get_core_services()
-        .task_admin_service.cleanup_active_tasks(
-            mode=mode,
-            statuses=statuses,
-            team_id=team_id,
-            before_ts=before_ts,
-            task_ids=task_ids,
-            vector_authorization=request_vector_authorization(),
-        )
+    matched, archived_ids, deleted_ids, errors = get_core_services().task_admin_service.cleanup_active_tasks(
+        mode=mode,
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+        vector_authorization=request_vector_authorization(),
     )
     response_data = {
         "mode": mode,

@@ -1,8 +1,8 @@
 """Integration tests for snapshot-delta persistence in the ananta-visual
 log session, and the /api/snapshot/diff REST endpoint."""
+
 from __future__ import annotations
 
-import json
 import pytest
 
 
@@ -12,12 +12,15 @@ def _build_session(*, log_deltas_only: bool):
     This goes directly through the manager to avoid the chat_state
     re-sync path (which would re-add the built-in ananta-visual default
     and overwrite our log_deltas_only override on every save)."""
-    from client_surfaces.operator_tui.config.user_config_manager import get_manager
     from client_surfaces.operator_tui.chat_state import make_session
+    from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
     mgr = get_manager()
     sess = make_session(
-        session_id="ananta-visual", name="Visual Snake Log",
-        icon="🐍", group="Konfiguration",
+        session_id="ananta-visual",
+        name="Visual Snake Log",
+        icon="🐍",
+        group="Konfiguration",
         settings={"predictive_guide_log_deltas_only": log_deltas_only},
     )
     mgr.save({"chat_sessions": [sess], "chat_active_session_id": ""})
@@ -39,6 +42,7 @@ def reset_visual_state():
     """Reset module-global state in snakes_execution_routes before AND after
     each test so delta tracking doesn't leak into other test files."""
     import importlib
+
     ser = importlib.import_module("agent.routes.snakes_execution_routes")
     ser._visual_last_snapshot = ""
     ser._visual_last_reply_at = 0.0
@@ -56,6 +60,7 @@ def test_visual_tick_persists_delta_when_log_deltas_only_enabled(app, reset_visu
     in addition to the raw [ui-tick] snapshot."""
     from agent.routes.snakes import _room_messages
     from tests.snake.test_snakes_chat_api import _register
+
     _room_messages.clear()
     _build_session(log_deltas_only=True)
 
@@ -68,18 +73,26 @@ def test_visual_tick_persists_delta_when_log_deltas_only_enabled(app, reset_visu
     snap1 = "/teams | nav:Teams* | h:Teams | list:3"
     client.post(
         f"/snakes/{s1['id']}/chat/messages",
-        json={"channel_type": "room", "text": f"[ui-tick] {snap1}",
-              "visibility": "system", "session_id": "ananta-visual",
-              "ui_context": {"ui_snapshot": snap1}},
+        json={
+            "channel_type": "room",
+            "text": f"[ui-tick] {snap1}",
+            "visibility": "system",
+            "session_id": "ananta-visual",
+            "ui_context": {"ui_snapshot": snap1},
+        },
         headers=headers,
     )
     # Second tick — different snapshot
     snap2 = "/chats | nav:Chats* | h:Chats | list:7"
     client.post(
         f"/snakes/{s1['id']}/chat/messages",
-        json={"channel_type": "room", "text": f"[ui-tick] {snap2}",
-              "visibility": "system", "session_id": "ananta-visual",
-              "ui_context": {"ui_snapshot": snap2}},
+        json={
+            "channel_type": "room",
+            "text": f"[ui-tick] {snap2}",
+            "visibility": "system",
+            "session_id": "ananta-visual",
+            "ui_context": {"ui_snapshot": snap2},
+        },
         headers=headers,
     )
 
@@ -101,6 +114,7 @@ def test_visual_tick_persists_only_raw_when_log_deltas_only_disabled(app, reset_
     only the raw [ui-tick] is persisted, no extra delta message."""
     from agent.routes.snakes import _room_messages
     from tests.snake.test_snakes_chat_api import _register
+
     _room_messages.clear()
     _build_session(log_deltas_only=False)
 
@@ -114,9 +128,13 @@ def test_visual_tick_persists_only_raw_when_log_deltas_only_disabled(app, reset_
     for s in (snap1, snap2):
         client.post(
             f"/snakes/{s1['id']}/chat/messages",
-            json={"channel_type": "room", "text": f"[ui-tick] {s}",
-                  "visibility": "system", "session_id": "ananta-visual",
-                  "ui_context": {"ui_snapshot": s}},
+            json={
+                "channel_type": "room",
+                "text": f"[ui-tick] {s}",
+                "visibility": "system",
+                "session_id": "ananta-visual",
+                "ui_context": {"ui_snapshot": s},
+            },
             headers=headers,
         )
 
@@ -131,16 +149,20 @@ def test_visual_tick_persists_only_raw_when_log_deltas_only_disabled(app, reset_
 def test_snapshot_diff_endpoint_returns_delta():
     """POST /api/snapshot/diff with prev+curr returns a structured delta."""
     from flask import Flask
+
     from agent.routes.snapshot_diff_api import snapshot_diff_bp
 
     a = Flask(__name__)
     a.config["TESTING"] = True
     a.register_blueprint(snapshot_diff_bp)
     c = a.test_client()
-    resp = c.post("/api/snapshot/diff", json={
-        "prev": "/teams | nav:Teams* | list:3",
-        "curr": "/chats | nav:Chats* | list:7",
-    })
+    resp = c.post(
+        "/api/snapshot/diff",
+        json={
+            "prev": "/teams | nav:Teams* | list:3",
+            "curr": "/chats | nav:Chats* | list:7",
+        },
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert "lines" in data
@@ -151,6 +173,7 @@ def test_snapshot_diff_endpoint_returns_delta():
 
 def test_snapshot_diff_endpoint_handles_empty_prev():
     from flask import Flask
+
     from agent.routes.snapshot_diff_api import snapshot_diff_bp
 
     a = Flask(__name__)
@@ -166,6 +189,7 @@ def test_snapshot_diff_endpoint_handles_empty_prev():
 
 def test_snapshot_diff_endpoint_rejects_missing_fields():
     from flask import Flask
+
     from agent.routes.snapshot_diff_api import snapshot_diff_bp
 
     a = Flask(__name__)

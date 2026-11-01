@@ -86,13 +86,17 @@ class GoalService:
             return build_admin_repair_mode_data(mode_data)
         normalized = dict(mode_data or {})
         if mode == "new_software_project":
-            reference_plan = get_reference_profile_service().build_mode_reference_plan(flow="new_project", mode_data=normalized)
+            reference_plan = get_reference_profile_service().build_mode_reference_plan(
+                flow="new_project", mode_data=normalized
+            )
             normalized["reference_profile_plan"] = reference_plan
             selected = dict(((reference_plan.get("selection") or {}).get("selected_profile")) or {})
             if selected:
                 normalized["reference_profile_id"] = selected.get("profile_id")
         if mode == "project_evolution":
-            reference_plan = get_reference_profile_service().build_mode_reference_plan(flow="project_evolution", mode_data=normalized)
+            reference_plan = get_reference_profile_service().build_mode_reference_plan(
+                flow="project_evolution", mode_data=normalized
+            )
             normalized["reference_profile_plan"] = reference_plan
             selected = dict(((reference_plan.get("selection") or {}).get("selected_profile")) or {})
             if selected:
@@ -228,7 +232,9 @@ class GoalService:
             )
             if selected_profile:
                 guidance_lines = list(skeleton_guidance.get("guidance_lines") or [])
-                guidance_text = " ".join(guidance_lines) if guidance_lines else "No profile-specific skeleton hints available."
+                guidance_text = (
+                    " ".join(guidance_lines) if guidance_lines else "No profile-specific skeleton hints available."
+                )
                 parts.append(
                     "\n".join(
                         [
@@ -272,9 +278,7 @@ class GoalService:
                 if hint_lines:
                     lines.append(f"Reference-Evolution-Hinweise: {' '.join(hint_lines)}")
             if mismatch:
-                lines.append(
-                    f"Reference-Fit-Diagnose: {mismatch.get('fit_level', 'partial_fit')}."
-                )
+                lines.append(f"Reference-Fit-Diagnose: {mismatch.get('fit_level', 'partial_fit')}.")
                 mismatch_signals = list(mismatch.get("mismatch_signals") or [])
                 if mismatch_signals:
                     lines.append(f"Mismatch-Signale: {', '.join(mismatch_signals)}.")
@@ -293,7 +297,9 @@ class GoalService:
                 f"Diagnoseklasse: {diagnosis.get('problem_class') or 'service_health'}.",
             ]
             if not bool(detection.get("supported", False)):
-                lines.append("Unbekannte Plattform: degrade to diagnosis_only, keine mutation-capable Repair-Ausfuehrung.")
+                lines.append(
+                    "Unbekannte Plattform: degrade to diagnosis_only, keine mutation-capable Repair-Ausfuehrung."
+                )
             parts.append("\n".join(lines))
         return "\n\n".join(parts) if parts else None
 
@@ -635,9 +641,14 @@ class GoalService:
                 "icon": "code",
                 "fields": [
                     {"name": "issue_description", "label": "Problembeschreibung", "type": "textarea", "required": True},
-                    {"name": "affected_files", "label": "Betroffene Dateien (optional)", "type": "text", "required": False}
+                    {
+                        "name": "affected_files",
+                        "label": "Betroffene Dateien (optional)",
+                        "type": "text",
+                        "required": False,
+                    },
                 ],
-                "recommended_capabilities": ["file_read", "file_write", "file_patch"]
+                "recommended_capabilities": ["file_read", "file_write", "file_patch"],
             },
             {
                 "id": "repo_analysis",
@@ -645,9 +656,15 @@ class GoalService:
                 "description": "Die Struktur und Qualitaet eines Projekts untersuchen.",
                 "icon": "analytics",
                 "fields": [
-                    {"name": "scope", "label": "Analyseschwerpunkt", "type": "text", "placeholder": "z.B. Security, Architektur", "required": False}
+                    {
+                        "name": "scope",
+                        "label": "Analyseschwerpunkt",
+                        "type": "text",
+                        "placeholder": "z.B. Security, Architektur",
+                        "required": False,
+                    }
                 ],
-                "recommended_capabilities": ["file_read"]
+                "recommended_capabilities": ["file_read"],
             },
             {
                 "id": "doc_summary",
@@ -656,9 +673,15 @@ class GoalService:
                 "icon": "description",
                 "fields": [
                     {"name": "files", "label": "Dateien", "type": "text", "required": True},
-                    {"name": "detail_level", "label": "Detailgrad", "type": "select", "options": ["kurz", "mittel", "ausführlich"], "default": "mittel"}
+                    {
+                        "name": "detail_level",
+                        "label": "Detailgrad",
+                        "type": "select",
+                        "options": ["kurz", "mittel", "ausführlich"],
+                        "default": "mittel",
+                    },
                 ],
-                "recommended_capabilities": ["file_read"]
+                "recommended_capabilities": ["file_read"],
             },
             {
                 "id": "sys_diag",
@@ -666,9 +689,15 @@ class GoalService:
                 "description": "Laufzeitprobleme, Logs oder Container-Status prüfen.",
                 "icon": "troubleshoot",
                 "fields": [
-                    {"name": "target", "label": "Diagnoseziel", "type": "text", "placeholder": "z.B. Docker Compose, App Log", "required": True}
+                    {
+                        "name": "target",
+                        "label": "Diagnoseziel",
+                        "type": "text",
+                        "placeholder": "z.B. Docker Compose, App Log",
+                        "required": True,
+                    }
                 ],
-                "recommended_capabilities": ["shell_exec"]
+                "recommended_capabilities": ["shell_exec"],
             },
             {
                 "id": "docker_compose_repair",
@@ -680,7 +709,7 @@ class GoalService:
                     {"name": "compose_file", "label": "Compose-Datei (optional)", "type": "text", "required": False},
                     {"name": "service", "label": "Service-Name (optional)", "type": "text", "required": False},
                 ],
-                "recommended_capabilities": ["shell_exec", "file_read", "file_patch"]
+                "recommended_capabilities": ["shell_exec", "file_read", "file_patch"],
             },
             {
                 "id": "admin_repair",
@@ -705,8 +734,18 @@ class GoalService:
                         "default": "bounded_repair",
                         "required": True,
                     },
-                    {"name": "evidence_sources", "label": "Evidenzquellen (optional, CSV)", "type": "text", "required": False},
-                    {"name": "affected_targets", "label": "Betroffene Ziele (optional, CSV)", "type": "text", "required": False},
+                    {
+                        "name": "evidence_sources",
+                        "label": "Evidenzquellen (optional, CSV)",
+                        "type": "text",
+                        "required": False,
+                    },
+                    {
+                        "name": "affected_targets",
+                        "label": "Betroffene Ziele (optional, CSV)",
+                        "type": "text",
+                        "required": False,
+                    },
                     {
                         "name": "dry_run",
                         "label": "Dry-run default",
@@ -716,7 +755,7 @@ class GoalService:
                         "required": False,
                     },
                 ],
-                "recommended_capabilities": ["shell_exec", "file_read"]
+                "recommended_capabilities": ["shell_exec", "file_read"],
             },
             {
                 "id": "new_software_project",
@@ -726,19 +765,35 @@ class GoalService:
                 "fields": [
                     {"name": "project_idea", "label": "Projektidee", "type": "textarea", "required": True},
                     {"name": "target_users", "label": "Zielgruppe", "type": "text", "required": True},
-                    {"name": "platform", "label": "Plattform", "type": "text", "placeholder": "z.B. Web, CLI, API", "required": True},
-                    {"name": "preferred_stack", "label": "Bevorzugter Stack (optional)", "type": "text", "required": False},
+                    {
+                        "name": "platform",
+                        "label": "Plattform",
+                        "type": "text",
+                        "placeholder": "z.B. Web, CLI, API",
+                        "required": True,
+                    },
+                    {
+                        "name": "preferred_stack",
+                        "label": "Bevorzugter Stack (optional)",
+                        "type": "text",
+                        "required": False,
+                    },
                     {
                         "name": "reference_profile_id",
                         "label": "Referenzprofil (optional)",
                         "type": "select",
-                        "options": ["auto", "ref.python.ananta_backend", "ref.angular.ananta_frontend", "ref.java.keycloak"],
+                        "options": [
+                            "auto",
+                            "ref.python.ananta_backend",
+                            "ref.angular.ananta_frontend",
+                            "ref.java.keycloak",
+                        ],
                         "default": "auto",
                         "required": False,
                     },
                     {"name": "non_goals", "label": "Nicht-Ziele (optional)", "type": "textarea", "required": False},
                 ],
-                "recommended_capabilities": ["file_read", "file_write", "file_patch"]
+                "recommended_capabilities": ["file_read", "file_write", "file_patch"],
             },
             {
                 "id": "project_evolution",
@@ -755,12 +810,22 @@ class GoalService:
                         "default": "kleine_erweiterung",
                         "required": True,
                     },
-                    {"name": "affected_areas", "label": "Betroffene Bereiche (optional)", "type": "text", "required": False},
+                    {
+                        "name": "affected_areas",
+                        "label": "Betroffene Bereiche (optional)",
+                        "type": "text",
+                        "required": False,
+                    },
                     {
                         "name": "reference_profile_id",
                         "label": "Referenzprofil (optional)",
                         "type": "select",
-                        "options": ["auto", "ref.python.ananta_backend", "ref.angular.ananta_frontend", "ref.java.keycloak"],
+                        "options": [
+                            "auto",
+                            "ref.python.ananta_backend",
+                            "ref.angular.ananta_frontend",
+                            "ref.java.keycloak",
+                        ],
                         "default": "auto",
                         "required": False,
                     },
@@ -774,7 +839,7 @@ class GoalService:
                     },
                     {"name": "constraints", "label": "Restriktionen (optional)", "type": "textarea", "required": False},
                 ],
-                "recommended_capabilities": ["file_read", "git_diff", "file_patch"]
+                "recommended_capabilities": ["file_read", "git_diff", "file_patch"],
             },
             {
                 "id": "runtime_repair",
@@ -786,7 +851,7 @@ class GoalService:
                     {"name": "error_signal", "label": "Fehlersignal", "type": "textarea", "required": True},
                     {"name": "log_paths", "label": "Log-Pfade (optional)", "type": "text", "required": False},
                 ],
-                "recommended_capabilities": ["shell_exec", "file_read", "file_patch"]
+                "recommended_capabilities": ["shell_exec", "file_read", "file_patch"],
             },
             {
                 "id": "doc_gen",
@@ -795,9 +860,15 @@ class GoalService:
                 "icon": "auto_stories",
                 "fields": [
                     {"name": "topic", "label": "Thema / Scope", "type": "text", "required": True},
-                    {"name": "format", "label": "Format", "type": "select", "options": ["Markdown", "HTML", "Plain Text"], "default": "Markdown"}
+                    {
+                        "name": "format",
+                        "label": "Format",
+                        "type": "select",
+                        "options": ["Markdown", "HTML", "Plain Text"],
+                        "default": "Markdown",
+                    },
                 ],
-                "recommended_capabilities": ["file_read", "file_write"]
+                "recommended_capabilities": ["file_read", "file_write"],
             },
             {
                 "id": "code_review",
@@ -805,10 +876,16 @@ class GoalService:
                 "description": "Analysiert Code oder Diffs auf Probleme und schlaegt Verbesserungen vor.",
                 "icon": "rate_review",
                 "fields": [
-                    {"name": "scope", "label": "Review Scope", "type": "text", "placeholder": "z.B. letzte Commits, spezifische Datei", "required": True}
+                    {
+                        "name": "scope",
+                        "label": "Review Scope",
+                        "type": "text",
+                        "placeholder": "z.B. letzte Commits, spezifische Datei",
+                        "required": True,
+                    }
                 ],
-                "recommended_capabilities": ["git_diff", "file_read"]
-            }
+                "recommended_capabilities": ["git_diff", "file_read"],
+            },
         ]
 
     def build_goal_from_mode(self, mode: str, mode_data: dict[str, Any]) -> str:

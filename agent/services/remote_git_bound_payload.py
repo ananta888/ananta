@@ -34,18 +34,14 @@ class RemoteGitBoundSourcePayloadAdapter:
         self._payloads = payload_store
         self._registry = registry
 
-    def load_bound_revision_payload(
-        self, revision: BoundSourceRevisionAuthority
-    ) -> BoundSourceRevisionPayload:
+    def load_bound_revision_payload(self, revision: BoundSourceRevisionAuthority) -> BoundSourceRevisionPayload:
         if revision.connector_type not in {
             "git",
             "github",
             "generic_git",
             "github_repository",
         }:
-            raise BoundSourceRevisionPlanningError(
-                "source_revision_payload_connector_unsupported"
-            )
+            raise BoundSourceRevisionPlanningError("source_revision_payload_connector_unsupported")
         with Session(self._engine) as db:
             connection = db.get(SourceConnectionDB, revision.connection_id)
             row = db.get(SourceRevisionDB, revision.source_revision_id)
@@ -79,15 +75,11 @@ class RemoteGitBoundSourcePayloadAdapter:
         except GitConnectorProviderError as exc:
             raise BoundSourceRevisionPlanningError(exc.reason_code) from None
         if (
-            current_authorization_digest
-            != payload.authorization_binding_digest
-            or payload.source_revision_digest
-            != revision.source_revision_digest
+            current_authorization_digest != payload.authorization_binding_digest
+            or payload.source_revision_digest != revision.source_revision_digest
             or payload.manifest_digest != revision.content_manifest_digest
         ):
-            raise BoundSourceRevisionPlanningError(
-                "remote_source_payload_authorization_stale"
-            )
+            raise BoundSourceRevisionPlanningError("remote_source_payload_authorization_stale")
         return BoundSourceRevisionPayload(
             source_revision_id=revision.source_revision_id,
             source_revision_digest=revision.source_revision_digest,

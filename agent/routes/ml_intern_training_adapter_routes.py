@@ -66,7 +66,6 @@ from agent.services.ml_intern_training_repository_provider import (
 )
 
 
-
 def list_adapters():
     services = _services()
     principal = _principal()
@@ -88,6 +87,7 @@ def list_adapters():
             rows.append(_adapter_import_read_model(item))
     limit = _bounded_query_int("limit", 100, minimum=1, maximum=200)
     return api_response(data={"items": rows[:limit], "count": min(len(rows), limit), "total": len(rows)})
+
 
 def import_adapter():
     try:
@@ -167,6 +167,7 @@ def import_adapter():
         return _domain_error(exc)
     except RegistryError as exc:
         return _error("adapter_registry_conflict", str(exc), 409)
+
 
 def evaluate_adapter():
     try:
@@ -286,6 +287,7 @@ def evaluate_adapter():
     except RegistryError as exc:
         return _error("adapter_state_conflict", str(exc), 409)
 
+
 def get_evaluation(evaluation_id: str):
     try:
         services = _services()
@@ -307,6 +309,7 @@ def get_evaluation(evaluation_id: str):
         )
     except MlInternTrainingContractError as exc:
         return _domain_error(exc)
+
 
 def decide_adapter(adapter_id: str, action: str):
     try:
@@ -430,6 +433,7 @@ def decide_adapter(adapter_id: str, action: str):
     except PromotionGateError as exc:
         return _error(exc.code, str(exc), 409)
 
+
 def export_adapter(adapter_id: str):
     try:
         _idempotency_key()
@@ -444,6 +448,7 @@ def export_adapter(adapter_id: str):
         )
     except AdapterExportError as exc:
         return _domain_error(exc)
+
 
 def download_adapter_export(artifact_id: str):
     try:
@@ -464,6 +469,7 @@ def download_adapter_export(artifact_id: str):
         return response
     except AdapterExportError as exc:
         return _domain_error(exc)
+
 
 def _publish_imported_adapter(
     services: _TrainingServices,
@@ -487,9 +493,9 @@ def _publish_imported_adapter(
         adapter_id=adapter_id,
         version=version,
     )
-    inspected = MlInternArtifactSecurityService(
-        storage_root=services.config["artifact_root"]
-    ).validate_adapter_tree(artifact_path)
+    inspected = MlInternArtifactSecurityService(storage_root=services.config["artifact_root"]).validate_adapter_tree(
+        artifact_path
+    )
     artifact_sha256 = str(inspected["tree_sha256"])
     return services.registry.register_trained(
         adapter_id=adapter_id,
@@ -504,6 +510,7 @@ def _publish_imported_adapter(
         tenant_id=tenant_id,
         owner_subject=principal_id,
     )
+
 
 def _adapter_import_publication_error(
     services: _TrainingServices,

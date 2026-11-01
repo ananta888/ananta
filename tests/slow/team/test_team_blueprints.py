@@ -1,9 +1,13 @@
 import pytest
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import AgentInfoDB, BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
+from agent.db_models import (
+    AgentInfoDB,
+    TaskDB,
+    TeamDB,
+    TeamMemberDB,
+)
 from agent.repository import audit_repo
 from tests.support import admin_login_token as _login_admin
 
@@ -56,7 +60,9 @@ def test_seed_blueprints_are_listed(client):
     assert (research_lead.get("config") or {}).get("capability_defaults")
     assert (research_lead.get("config") or {}).get("risk_profile") in {"low", "balanced", "high", "strict"}
     assert isinstance((research_lead.get("config") or {}).get("verification_defaults"), dict)
-    policy_artifact = next((artifact for artifact in research_blueprint["artifacts"] if artifact["kind"] == "policy"), None)
+    policy_artifact = next(
+        (artifact for artifact in research_blueprint["artifacts"] if artifact["kind"] == "policy"), None
+    )
     assert policy_artifact is not None
     assert (policy_artifact.get("payload") or {}).get("security_level") == "balanced"
 
@@ -84,7 +90,11 @@ def test_seed_blueprints_are_listed(client):
     assert (role_by_name["Research Lead"]["config"] or {})["preferred_backend"] == "deerflow"
     assert (role_by_name["Evolution Strategist"]["config"] or {})["preferred_backend"] == "evolver"
     assert (role_by_name["Review Gate Owner"]["config"] or {})["risk_profile"] == "strict"
-    policy = next(artifact for artifact in research_evolution["artifacts"] if artifact["title"] == "Research Evolution Default Policy")
+    policy = next(
+        artifact
+        for artifact in research_evolution["artifacts"]
+        if artifact["title"] == "Research Evolution Default Policy"
+    )
     assert policy["payload"]["standard_case"] == "existing_project_small_feature_extension"
     assert policy["payload"]["handoff_contract"]["from_deerflow"] == [
         "summary",
@@ -100,7 +110,9 @@ def test_seed_blueprints_are_listed(client):
         "Test Driver",
         "Refactor Verifier",
     }
-    tdd_policy = next((artifact for artifact in tdd_blueprint["artifacts"] if artifact["title"] == "TDD Default Policy"), None)
+    tdd_policy = next(
+        (artifact for artifact in tdd_blueprint["artifacts"] if artifact["title"] == "TDD Default Policy"), None
+    )
     assert tdd_policy is not None
     assert (tdd_policy.get("payload") or {}).get("patch_apply_requires_approval") is True
 
@@ -336,7 +348,9 @@ def test_blueprint_work_profile_exposes_operational_modes(client):
 
     blueprints_response = client.get("/teams/blueprints", headers=auth_header)
     assert blueprints_response.status_code == 200
-    opencode_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum-OpenCode")
+    opencode_blueprint = next(
+        blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum-OpenCode"
+    )
 
     response = client.get(f"/teams/blueprints/{opencode_blueprint['id']}/work-profile", headers=auth_header)
     assert response.status_code == 200
@@ -742,7 +756,9 @@ def test_seed_research_blueprint_instantiation_materializes_tasks(client):
 
     blueprints_response = client.get("/teams/blueprints", headers=auth_header)
     assert blueprints_response.status_code == 200
-    research_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Research")
+    research_blueprint = next(
+        blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Research"
+    )
     source_analyst_role = next(role for role in research_blueprint["roles"] if role["name"] == "Source Analyst")
 
     instantiate_response = client.post(
@@ -778,7 +794,9 @@ def test_seed_research_evolution_blueprint_instantiates_standard_path(client):
 
     blueprints_response = client.get("/teams/blueprints", headers=auth_header)
     assert blueprints_response.status_code == 200
-    blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Research-Evolution")
+    blueprint = next(
+        blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Research-Evolution"
+    )
     evolution_role = next(role for role in blueprint["roles"] if role["name"] == "Evolution Strategist")
 
     instantiate_response = client.post(

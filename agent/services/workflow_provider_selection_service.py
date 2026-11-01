@@ -58,9 +58,7 @@ class WorkflowProviderDecision:
 class WorkflowProviderDecisionPort(Protocol):
     """Small Hub-side seam; implementations return data, never runtimes."""
 
-    def decide(
-        self, requirement: WorkflowProviderRequirement
-    ) -> WorkflowProviderDecision: ...
+    def decide(self, requirement: WorkflowProviderRequirement) -> WorkflowProviderDecision: ...
 
 
 class HubConfiguredWorkflowProviderDecisionService:
@@ -79,9 +77,7 @@ class HubConfiguredWorkflowProviderDecisionService:
         self._config_loader = config_loader
         self._routing_configuration_loader = routing_configuration_loader
 
-    def decide(
-        self, requirement: WorkflowProviderRequirement
-    ) -> WorkflowProviderDecision:
+    def decide(self, requirement: WorkflowProviderRequirement) -> WorkflowProviderDecision:
         if not requirement.requires_provider:
             return WorkflowProviderDecision(
                 status="not_required",
@@ -98,11 +94,7 @@ class HubConfiguredWorkflowProviderDecisionService:
                 reason_code="provider_requirement_binding_missing",
             )
         config = dict(self._config_loader() or {})
-        profiles_path = str(
-            config.get("model_profiles_path")
-            or config.get("MODEL_PROFILES_PATH")
-            or ""
-        ).strip()
+        profiles_path = str(config.get("model_profiles_path") or config.get("MODEL_PROFILES_PATH") or "").strip()
         routing_path = str(
             config.get("model_routing_path")
             or config.get("MODEL_ROUTING_PATH")
@@ -122,20 +114,22 @@ class HubConfiguredWorkflowProviderDecisionService:
         config: Mapping[str, Any],
     ) -> WorkflowProviderDecision:
         workflow_runtime = config.get("workflow_runtime")
-        workflow_runtime = (
-            dict(workflow_runtime) if isinstance(workflow_runtime, Mapping) else {}
-        )
+        workflow_runtime = dict(workflow_runtime) if isinstance(workflow_runtime, Mapping) else {}
         configured = workflow_runtime.get("provider_selection")
         configured = dict(configured) if isinstance(configured, Mapping) else {}
         llm_config = config.get("llm_config")
         llm_config = dict(llm_config) if isinstance(llm_config, Mapping) else {}
-        provider_id = str(
-            configured.get("provider_id")
-            or configured.get("provider")
-            or llm_config.get("provider")
-            or config.get("default_provider")
-            or ""
-        ).strip().lower()
+        provider_id = (
+            str(
+                configured.get("provider_id")
+                or configured.get("provider")
+                or llm_config.get("provider")
+                or config.get("default_provider")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
         model_id = str(
             configured.get("model_id")
             or configured.get("model")
@@ -230,20 +224,13 @@ class HubConfiguredWorkflowProviderDecisionService:
                     )
                 from jsonschema import Draft202012Validator
 
-                schema_path = (
-                    Path(__file__).resolve().parents[2]
-                    / "config"
-                    / "schemas"
-                    / "model_routing.schema.json"
-                )
+                schema_path = Path(__file__).resolve().parents[2] / "config" / "schemas" / "model_routing.schema.json"
                 schema = json.loads(schema_path.read_text(encoding="utf-8"))
                 Draft202012Validator(schema).validate(decoded)
                 raw_routing = decoded
 
             raw_security = raw_routing.get("security_policy")
-            raw_security = (
-                dict(raw_security) if isinstance(raw_security, Mapping) else {}
-            )
+            raw_security = dict(raw_security) if isinstance(raw_security, Mapping) else {}
             style_ranking = None
             try:
                 from agent.services.cognitive_style_service import (
@@ -256,15 +243,8 @@ class HubConfiguredWorkflowProviderDecisionService:
             resolver = ModelProfileResolver(
                 profiles=loaded.profiles,
                 security_policy=SecurityPolicyChecker(
-                    block_cloud_with_secrets=bool(
-                        raw_security.get("block_cloud_with_secrets", True)
-                    ),
-                    allowed_cloud_providers=[
-                        str(value)
-                        for value in raw_security.get(
-                            "allowed_cloud_providers", ()
-                        )
-                    ],
+                    block_cloud_with_secrets=bool(raw_security.get("block_cloud_with_secrets", True)),
+                    allowed_cloud_providers=[str(value) for value in raw_security.get("allowed_cloud_providers", ())],
                 ),
                 routing_rules=RoutingRules.from_dict(
                     raw_routing,
@@ -273,9 +253,7 @@ class HubConfiguredWorkflowProviderDecisionService:
                 style_ranking=style_ranking,
             )
             capabilities = {
-                str(value).strip().lower()
-                for value in requirement.required_capabilities
-                if str(value).strip()
+                str(value).strip().lower() for value in requirement.required_capabilities if str(value).strip()
             }
             task_type = str(requirement.task_type or "").strip().lower()
             routing = requirement.model_routing
@@ -287,8 +265,7 @@ class HubConfiguredWorkflowProviderDecisionService:
             if (
                 routing is not None
                 and routing.fallback_group_id
-                and routing.fallback_group_id
-                not in resolver.rules.fallback_groups
+                and routing.fallback_group_id not in resolver.rules.fallback_groups
             ):
                 return WorkflowProviderDecision(
                     status="denied",
@@ -296,76 +273,38 @@ class HubConfiguredWorkflowProviderDecisionService:
                 )
             if routing is not None:
                 capabilities.update(
-                    str(value).strip().lower()
-                    for value in routing.required_capabilities
-                    if str(value).strip()
+                    str(value).strip().lower() for value in routing.required_capabilities if str(value).strip()
                 )
             routing_context = RoutingContext(
                 model_role=(
-                    str(
-                        (
-                            routing.model_role
-                            or routing.default_model_role
-                        )
-                        if routing is not None
-                        else ""
-                    ).strip()
-                    or (
-                        "reasoning"
-                        if "reasoning" in capabilities
-                        or "reasoning" in task_type
-                        else "any"
-                    )
+                    str((routing.model_role or routing.default_model_role) if routing is not None else "").strip()
+                    or ("reasoning" if "reasoning" in capabilities or "reasoning" in task_type else "any")
                 ),
                 task_kind=task_type or None,
-                request_profile_id=(
-                    routing.preferred_profile_id
-                    if routing is not None
-                    else None
-                ),
+                request_profile_id=(routing.preferred_profile_id if routing is not None else None),
                 requires_tools=bool(
-                    capabilities & {"tool_calling", "tools"}
-                    or (routing is not None and routing.requires_tools)
+                    capabilities & {"tool_calling", "tools"} or (routing is not None and routing.requires_tools)
                 ),
                 requires_json=bool(
-                    capabilities & {"json", "structured_output"}
-                    or (routing is not None and routing.requires_json)
+                    capabilities & {"json", "structured_output"} or (routing is not None and routing.requires_json)
                 ),
                 requires_streaming="streaming" in capabilities,
-                fallback_group_id=(
-                    routing.fallback_group_id
-                    if routing is not None
-                    else None
-                ),
+                fallback_group_id=(routing.fallback_group_id if routing is not None else None),
                 # Delegated workflow contexts are local-only unless a
                 # future Hub policy explicitly introduces an egress grant.
                 allow_cloud=False,
-                max_estimated_cost_per_step=(
-                    routing.max_estimated_cost
-                    if routing is not None
-                    else None
-                ),
-                metadata=(
-                    routing.as_metadata()
-                    if routing is not None
-                    else {}
-                ),
+                max_estimated_cost_per_step=(routing.max_estimated_cost if routing is not None else None),
+                metadata=(routing.as_metadata() if routing is not None else {}),
             )
-            result, candidates = resolver.resolve_candidate_chain(
-                routing_context
-            )
+            result, candidates = resolver.resolve_candidate_chain(routing_context)
             central_assignment_mode = "inherit"
             central_max_total_retries: int | None = None
-            primary_profile_id = (
-                str(result.profile.profile_id) if result.profile is not None else ""
-            )
+            primary_profile_id = str(result.profile.profile_id) if result.profile is not None else ""
             consumer_id = self._consumer_id(requirement.task_type)
             if self._routing_configuration_loader is not None and consumer_id:
                 central_configuration = self._routing_configuration_loader()
                 effective_service = EffectiveModelRoutingService(
-                    repository=_ReadOnlyRoutingConfigurationRepository(
-                        central_configuration
-                    ),
+                    repository=_ReadOnlyRoutingConfigurationRepository(central_configuration),
                     consumers=ModelConsumerRegistry.defaults(),
                     resolver=resolver,
                 )
@@ -376,12 +315,8 @@ class HubConfiguredWorkflowProviderDecisionService:
                         workflow_id=requirement.workflow_id,
                         step_id=requirement.step_id,
                         task_kind=requirement.task_type,
-                        requires_tools=bool(
-                            capabilities & {"tool_calling", "tools"}
-                        ),
-                        requires_json=bool(
-                            capabilities & {"json", "structured_output"}
-                        ),
+                        requires_tools=bool(capabilities & {"tool_calling", "tools"}),
+                        requires_json=bool(capabilities & {"json", "structured_output"}),
                         requires_streaming="streaming" in capabilities,
                         allow_cloud=False,
                     ),
@@ -393,12 +328,8 @@ class HubConfiguredWorkflowProviderDecisionService:
                         reason_code="provider_central_route_unavailable",
                     )
                 central_assignment_mode = effective_route.assignment_mode
-                central_max_total_retries = (
-                    effective_route.maximum_total_retries
-                )
-                primary_profile_id = str(
-                    effective_route.resolved_profile_id or ""
-                )
+                central_max_total_retries = effective_route.maximum_total_retries
+                primary_profile_id = str(effective_route.resolved_profile_id or "")
             if not primary_profile_id or not candidates:
                 return WorkflowProviderDecision(
                     status="denied",
@@ -420,9 +351,7 @@ class HubConfiguredWorkflowProviderDecisionService:
                     reason_code="provider_profile_binding_limit_exceeded",
                 )
             candidates = candidates[:8]
-            profile_binding_values: list[
-                ProviderProfileExecutionBinding
-            ] = []
+            profile_binding_values: list[ProviderProfileExecutionBinding] = []
             for profile in candidates:
                 endpoint_identity = (
                     normalize_provider_endpoint_identity(
@@ -448,11 +377,7 @@ class HubConfiguredWorkflowProviderDecisionService:
             for profile_binding in profile_bindings:
                 profile_binding.validate()
             primary = next(
-                (
-                    item.binding
-                    for item in profile_bindings
-                    if item.profile_id == primary_profile_id
-                ),
+                (item.binding for item in profile_bindings if item.profile_id == primary_profile_id),
                 None,
             )
             if primary is None:
@@ -469,18 +394,10 @@ class HubConfiguredWorkflowProviderDecisionService:
                 if central_max_total_retries is not None
                 else max(0, int(fallback_group.max_total_retries))
                 if fallback_group is not None
-                else sum(
-                    max(0, int(profile.retry_budget))
-                    for profile in candidates
-                )
+                else sum(max(0, int(profile.retry_budget)) for profile in candidates)
             )
-            binding_by_profile = {
-                item.profile_id: item
-                for item in profile_bindings
-            }
-            profile_attempt_plan_values: list[
-                ProviderProfileAttemptPlanEntry
-            ] = []
+            binding_by_profile = {item.profile_id: item for item in profile_bindings}
+            profile_attempt_plan_values: list[ProviderProfileAttemptPlanEntry] = []
             for profile in candidates:
                 profile_binding = binding_by_profile[profile.profile_id]
                 retries = min(
@@ -494,18 +411,13 @@ class HubConfiguredWorkflowProviderDecisionService:
                         maximum_attempts=1 + retries,
                         allowed_error_types=tuple(
                             str(value or "").strip()
-                            for value in profile.extra.get(
-                                "central_fallback_triggers", ()
-                            )
+                            for value in profile.extra.get("central_fallback_triggers", ())
                             if str(value or "").strip()
                         ),
                     )
                 )
             profile_attempt_plan = tuple(profile_attempt_plan_values)
-            maximum_provider_attempts = sum(
-                item.maximum_attempts
-                for item in profile_attempt_plan
-            )
+            maximum_provider_attempts = sum(item.maximum_attempts for item in profile_attempt_plan)
             if not 1 <= maximum_provider_attempts <= 33:
                 return WorkflowProviderDecision(
                     status="denied",
@@ -577,11 +489,7 @@ def load_current_hub_provider_config() -> Mapping[str, Any]:
     )
     values.setdefault(
         "model_routing_path",
-        str(
-            os.environ.get("MODEL_ROUTING_PATH")
-            or os.environ.get("ANANTA_MODEL_ROUTING_PATH")
-            or ""
-        ).strip(),
+        str(os.environ.get("MODEL_ROUTING_PATH") or os.environ.get("ANANTA_MODEL_ROUTING_PATH") or "").strip(),
     )
     return values
 

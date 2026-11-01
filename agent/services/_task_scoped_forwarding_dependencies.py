@@ -182,11 +182,7 @@ class TaskScopedForwardingDependencies:
                 (
                     bundle_name
                     for bundle_name in bundle_names
-                    if name
-                    in {
-                        field.name
-                        for field in dataclasses.fields(getattr(self, bundle_name))
-                    }
+                    if name in {field.name for field in dataclasses.fields(getattr(self, bundle_name))}
                 ),
                 None,
             )

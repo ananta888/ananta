@@ -13,7 +13,6 @@ from ananta_contracts.cognitive_style import (
     StyleRetrospectiveSignal,
 )
 
-
 _HYPOTHESES = {
     "rework": "Observed rework may correlate with insufficient rule/correctness fit for the assigned role.",
     "overthinking": "Observed overthinking may correlate with exploration exceeding the role's useful target range.",
@@ -34,9 +33,7 @@ _ALTERNATIVES = {
 class CognitiveStyleRetrospectiveService:
     """Produces correlation hypotheses; it never mutates or reclassifies profiles."""
 
-    def analyze(
-        self, signals: tuple[StyleRetrospectiveSignal, ...]
-    ) -> StyleRetrospectiveAnalysisReport:
+    def analyze(self, signals: tuple[StyleRetrospectiveSignal, ...]) -> StyleRetrospectiveAnalysisReport:
         hypotheses = tuple(self._hypothesis(item) for item in signals)
         return StyleRetrospectiveAnalysisReport(hypotheses=hypotheses)
 
@@ -69,10 +66,16 @@ class CognitiveStyleRetrospectiveService:
     @staticmethod
     def _hypothesis(signal: StyleRetrospectiveSignal) -> StyleMismatchEvidence:
         fingerprint = hashlib.sha256(
-            "|".join((
-                signal.agent_id, signal.role_id, signal.model_profile_id,
-                signal.signal, signal.observed_at, *signal.evidence_refs,
-            )).encode("utf-8")
+            "|".join(
+                (
+                    signal.agent_id,
+                    signal.role_id,
+                    signal.model_profile_id,
+                    signal.signal,
+                    signal.observed_at,
+                    *signal.evidence_refs,
+                )
+            ).encode("utf-8")
         ).hexdigest()[:20]
         return StyleMismatchEvidence(
             evidence_id=f"style-mismatch-{fingerprint}",
@@ -91,9 +94,7 @@ class CognitiveStyleRetrospectiveService:
 class ComplementaryStyleExperimentService:
     """Evaluates a falsifiable paired run without claiming causality."""
 
-    def evaluate(
-        self, command: ComplementaryStyleExperimentCommand
-    ) -> ComplementaryStyleExperimentReport:
+    def evaluate(self, command: ComplementaryStyleExperimentCommand) -> ComplementaryStyleExperimentReport:
         candidate = command.complementary
         control = command.homogeneous_control
         quality_delta = candidate.quality_score - control.quality_score
@@ -101,11 +102,7 @@ class ComplementaryStyleExperimentService:
         gate_delta = self._gate_rate(candidate.gates_passed, candidate.gates_total) - self._gate_rate(
             control.gates_passed, control.gates_total
         )
-        supported = (
-            quality_delta >= command.minimum_quality_delta
-            and rework_delta <= 0
-            and gate_delta >= 0
-        )
+        supported = quality_delta >= command.minimum_quality_delta and rework_delta <= 0 and gate_delta >= 0
         falsified = quality_delta <= -command.minimum_quality_delta or gate_delta < 0
         outcome = "supported" if supported else "falsified" if falsified else "inconclusive"
         reasons = {
@@ -130,5 +127,6 @@ class ComplementaryStyleExperimentService:
 
 
 __all__ = [
-    "CognitiveStyleRetrospectiveService", "ComplementaryStyleExperimentService",
+    "CognitiveStyleRetrospectiveService",
+    "ComplementaryStyleExperimentService",
 ]

@@ -23,7 +23,6 @@ from agent.services.mail_sync_state_store import (
     query_fingerprint,
 )
 
-
 _SYNC_PROPERTIES = (
     "id",
     "threadId",

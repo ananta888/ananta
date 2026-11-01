@@ -21,11 +21,7 @@ from .fusion import CalibrationProfile, CandidateScorer
 
 def stable_candidate_id(backend_id: str, source_audio_id: str, variant: str) -> str:
     digest = hashlib.sha256(
-        backend_id.encode("utf-8")
-        + b"\0"
-        + variant.encode("utf-8")
-        + b"\0"
-        + source_audio_id.encode("utf-8")
+        backend_id.encode("utf-8") + b"\0" + variant.encode("utf-8") + b"\0" + source_audio_id.encode("utf-8")
     ).hexdigest()
     return f"candidate-{backend_id}-{digest[:16]}"
 

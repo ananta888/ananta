@@ -55,9 +55,7 @@ class RestoreService:
 
     VERIFIED_SCHEMA = "ananta.restore-drill.v1"
     WINDOWS_INTEROP_MOUNT = Path("/mnt")
-    _POSTGRES_IMAGE = re.compile(
-        r"^postgres:[A-Za-z0-9_.-]+(?:@sha256:[a-f0-9]{64})?$"
-    )
+    _POSTGRES_IMAGE = re.compile(r"^postgres:[A-Za-z0-9_.-]+(?:@sha256:[a-f0-9]{64})?$")
     _PREFLIGHT_MEMBERS = {
         "backup.json",
         "configuration/compose.rendered.json",
@@ -68,9 +66,7 @@ class RestoreService:
         archive: OpenPgpArchive | None = None,
         *,
         postgres_drill: PostgresRestoreDrill | None = None,
-        postgres_drill_factory: (
-            Callable[[str], PostgresRestoreDrill] | None
-        ) = None,
+        postgres_drill_factory: (Callable[[str], PostgresRestoreDrill] | None) = None,
         bind_verifier: RestoredBindVerifier | None = None,
         forbidden_live_roots: Iterable[Path] = (),
         staging_root: Path = Path("/tmp"),
@@ -79,9 +75,7 @@ class RestoreService:
         self.postgres_drill = postgres_drill
         self.postgres_drill_factory = postgres_drill_factory
         self.bind_verifier = bind_verifier or RestoredBindVerifier()
-        self.forbidden_live_roots = tuple(
-            root.resolve(strict=False) for root in forbidden_live_roots
-        )
+        self.forbidden_live_roots = tuple(root.resolve(strict=False) for root in forbidden_live_roots)
         self.staging_root = staging_root
 
     def run(self, request: RestoreRequest) -> RestoreResult:
@@ -89,17 +83,11 @@ class RestoreService:
             return self._run_private(request)
 
     def _run_private(self, request: RestoreRequest) -> RestoreResult:
-        package = require_absolute_directory(
-            request.package, "Backup package", writable=False
-        )
-        target, target_existed = require_new_or_empty_target(
-            request.target, "Restore target"
-        )
+        package = require_absolute_directory(request.package, "Backup package", writable=False)
+        target, target_existed = require_new_or_empty_target(request.target, "Restore target")
         ensure_disjoint(package, target, ("Backup package", "restore target"))
         self._reject_live_target(target)
-        manifest, encrypted, expected_digest, expected_size = (
-            self._verify_package(package)
-        )
+        manifest, encrypted, expected_digest, expected_size = self._verify_package(package)
         backup_name = self._required_text(manifest, "backup_name")
         staging_parent = require_private_wsl_directory(
             self.staging_root,
@@ -119,9 +107,7 @@ class RestoreService:
                 staged_encrypted,
             )
             if digest != expected_digest or size != expected_size:
-                raise BackupError(
-                    "Encrypted backup checksum or size does not match"
-                )
+                raise BackupError("Encrypted backup checksum or size does not match")
             os.chmod(staged_encrypted, 0o400)
             fsync_directory(staging)
 
@@ -181,15 +167,9 @@ class RestoreService:
                             "ephemeral_postgres_restore": "ok",
                             "volume_archives_safely_extracted": "ok",
                             "worker_sqlite_integrity": "ok",
-                            "workflow_credentials": (
-                                "cryptographic_and_registration_binding_ok"
-                            ),
-                            "ollama_models": (
-                                "ok" if models_verified else "not_included"
-                            ),
-                            "origin_authenticity": (
-                                "not_verified_unsigned_openpgp_v1"
-                            ),
+                            "workflow_credentials": ("cryptographic_and_registration_binding_ok"),
+                            "ollama_models": ("ok" if models_verified else "not_included"),
+                            "origin_authenticity": ("not_verified_unsigned_openpgp_v1"),
                         },
                     },
                 )
@@ -216,22 +196,14 @@ class RestoreService:
             metadata.get("backup.json"),
             "encrypted payload manifest",
         )
-        if (
-            payload.get("schema") != BackupService.PAYLOAD_SCHEMA
-            or payload.get("backup_name") != backup_name
-        ):
-            raise BackupError(
-                "Encrypted payload preflight identity does not match package"
-            )
+        if payload.get("schema") != BackupService.PAYLOAD_SCHEMA or payload.get("backup_name") != backup_name:
+            raise BackupError("Encrypted payload preflight identity does not match package")
         configuration = payload.get("configuration")
         if (
             not isinstance(configuration, dict)
-            or configuration.get("rendered_compose")
-            != "configuration/compose.rendered.json"
+            or configuration.get("rendered_compose") != "configuration/compose.rendered.json"
         ):
-            raise BackupError(
-                "Encrypted payload preflight configuration is invalid"
-            )
+            raise BackupError("Encrypted payload preflight configuration is invalid")
         rendered = self._json_bytes_object(
             metadata.get("configuration/compose.rendered.json"),
             "encrypted rendered Compose configuration",
@@ -254,13 +226,9 @@ class RestoreService:
             except ValueError:
                 continue
             if common == str(live_root):
-                raise BackupError(
-                    f"Restore target is inside a protected live/Windows root: {live_root}"
-                )
+                raise BackupError(f"Restore target is inside a protected live/Windows root: {live_root}")
 
-    def _verify_package(
-        self, package: Path
-    ) -> tuple[dict[str, object], Path, str, int]:
+    def _verify_package(self, package: Path) -> tuple[dict[str, object], Path, str, int]:
         entries = sorted(item.name for item in package.iterdir())
         if "checksum.json" not in entries:
             raise BackupError("Backup package has no checksum.json")
@@ -270,9 +238,7 @@ class RestoreService:
         if manifest.get("encrypted") is not True:
             raise BackupError("Backup package is not marked as encrypted")
         archive_name = self._required_text(manifest, "archive")
-        if Path(archive_name).name != archive_name or not archive_name.endswith(
-            ".tar.zst.gpg"
-        ):
+        if Path(archive_name).name != archive_name or not archive_name.endswith(".tar.zst.gpg"):
             raise BackupError("Checksum manifest contains an unsafe archive name")
         if entries != sorted(["checksum.json", archive_name]):
             raise BackupError("Backup package must contain only ciphertext and checksum")
@@ -285,9 +251,7 @@ class RestoreService:
             or type(size) is not int
             or size < 1
         ):
-            raise BackupError(
-                "Checksum manifest has an invalid digest or size"
-            )
+            raise BackupError("Checksum manifest has an invalid digest or size")
         return manifest, encrypted, digest, size
 
     @staticmethod
@@ -298,9 +262,7 @@ class RestoreService:
     ) -> None:
         digest, size = sha256_file(encrypted)
         if digest != expected_digest or size != expected_size:
-            raise BackupError(
-                "Staged encrypted backup changed during restore"
-            )
+            raise BackupError("Staged encrypted backup changed during restore")
 
     def _verify_payload(
         self,
@@ -384,42 +346,30 @@ class RestoreService:
     ) -> None:
         services = rendered.get("services")
         if not isinstance(services, dict):
-            raise BackupError(
-                "Rendered Compose configuration has no services"
-            )
+            raise BackupError("Rendered Compose configuration has no services")
         live_roots: list[Path] = []
         for service in services.values():
             if not isinstance(service, dict):
-                raise BackupError(
-                    "Rendered Compose service configuration is invalid"
-                )
+                raise BackupError("Rendered Compose service configuration is invalid")
             volumes = service.get("volumes", [])
             if not isinstance(volumes, list):
-                raise BackupError(
-                    "Rendered Compose volume configuration is invalid"
-                )
+                raise BackupError("Rendered Compose volume configuration is invalid")
             for mount in volumes:
                 if not isinstance(mount, dict) or mount.get("type") != "bind":
                     continue
                 source = mount.get("source")
                 if not isinstance(source, str) or not Path(source).is_absolute():
-                    raise BackupError(
-                        "Rendered Compose bind source is invalid"
-                    )
+                    raise BackupError("Rendered Compose bind source is invalid")
                 live_roots.append(Path(source))
         normalized = restore_target.resolve(strict=False)
         for live_root in live_roots:
             protected = live_root.resolve(strict=False)
             try:
-                common = os.path.commonpath(
-                    (str(protected), str(normalized))
-                )
+                common = os.path.commonpath((str(protected), str(normalized)))
             except ValueError:
                 continue
             if common == str(protected):
-                raise BackupError(
-                    "Restore target is inside a bind root recorded by the backup"
-                )
+                raise BackupError("Restore target is inside a bind root recorded by the backup")
 
     @staticmethod
     def _json_bytes_object(
@@ -436,16 +386,12 @@ class RestoreService:
             raise BackupError(f"{label} must be an object")
         return decoded
 
-    def _verify_bind_tree_paths(
-        self, root: Path, payload: dict[str, object]
-    ) -> bool:
+    def _verify_bind_tree_paths(self, root: Path, payload: dict[str, object]) -> bool:
         bind_trees = payload.get("bind_trees")
         if not isinstance(bind_trees, dict):
             raise BackupError("Payload bind-tree map is missing")
         required = {"project_workspaces", "workflow_secrets"}
-        if not required.issubset(bind_trees) or not set(bind_trees).issubset(
-            required | {"ollama_models"}
-        ):
+        if not required.issubset(bind_trees) or not set(bind_trees).issubset(required | {"ollama_models"}):
             raise BackupError("Payload bind-tree map is incomplete")
         restored: dict[str, Path] = {}
         for label, relative in bind_trees.items():
@@ -457,9 +403,7 @@ class RestoreService:
             restored[str(label)] = path
         return self.bind_verifier.verify(restored)
 
-    def _drill_volume_archives(
-        self, root: Path, payload: dict[str, object]
-    ) -> None:
+    def _drill_volume_archives(self, root: Path, payload: dict[str, object]) -> None:
         volumes = payload.get("volumes")
         if not isinstance(volumes, dict):
             raise BackupError("Payload volume map is missing")
@@ -495,9 +439,7 @@ class RestoreService:
         if result != ("ok",):
             raise BackupError(f"{logical_name} SQLite integrity check failed")
 
-    def _verify_postgres_dump(
-        self, root: Path, payload: dict[str, object]
-    ) -> None:
+    def _verify_postgres_dump(self, root: Path, payload: dict[str, object]) -> None:
         database = payload.get("database")
         if not isinstance(database, dict) or database.get("format") != "postgresql-custom":
             raise BackupError("Payload PostgreSQL metadata is invalid")
@@ -506,9 +448,7 @@ class RestoreService:
         if not isinstance(dump_name, str) or not isinstance(catalog_name, str):
             raise BackupError("Payload PostgreSQL paths are invalid")
         image = database.get("image")
-        if not isinstance(image, str) or not self._POSTGRES_IMAGE.fullmatch(
-            image
-        ):
+        if not isinstance(image, str) or not self._POSTGRES_IMAGE.fullmatch(image):
             raise BackupError("Payload PostgreSQL image is invalid")
         dump = self._safe_payload_path(root, dump_name)
         catalog = self._safe_payload_path(root, catalog_name)
@@ -529,18 +469,11 @@ class RestoreService:
     @staticmethod
     def _safe_payload_path(root: Path, relative_name: str) -> Path:
         relative = Path(relative_name)
-        if (
-            not relative_name
-            or relative.is_absolute()
-            or ".." in relative.parts
-            or "\x00" in relative_name
-        ):
+        if not relative_name or relative.is_absolute() or ".." in relative.parts or "\x00" in relative_name:
             raise BackupError(f"Unsafe payload path: {relative_name!r}")
         candidate = root.joinpath(*relative.parts)
         try:
-            common = os.path.commonpath(
-                (str(root.resolve(strict=True)), str(candidate.resolve(strict=True)))
-            )
+            common = os.path.commonpath((str(root.resolve(strict=True)), str(candidate.resolve(strict=True))))
         except (OSError, ValueError) as exc:
             raise BackupError(f"Payload path does not exist: {relative_name}") from exc
         if common != str(root.resolve(strict=True)):

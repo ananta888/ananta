@@ -35,8 +35,17 @@ class ToolSourceAdmissionPort(Protocol):
 
 
 class MeetCompanionTaskTools:
-    def __init__(self, authority, policy: ToolPolicyPort, execution: ToolExecutionPort,
-                 sources: ToolSourceAdmissionPort, registry, *, attempts: ToolAttemptAdmissionPort, synthetic=False):
+    def __init__(
+        self,
+        authority,
+        policy: ToolPolicyPort,
+        execution: ToolExecutionPort,
+        sources: ToolSourceAdmissionPort,
+        registry,
+        *,
+        attempts: ToolAttemptAdmissionPort,
+        synthetic=False,
+    ):
         self.authority, self.policy, self.execution = authority, policy, execution
         self.sources, self.registry, self.synthetic = sources, registry, synthetic
         self.attempts = attempts
@@ -44,10 +53,14 @@ class MeetCompanionTaskTools:
     def _source(self, scope, value, origin, permit):
         content = self.sources.admit(scope.tenant_id, scope.project_id, canonical(value))
         return self.registry.register_source(
-            tenant_id=scope.tenant_id, project_id=scope.project_id,
-            origin_type="meet_companion_task_tool", origin_digest=digest(origin),
-            content_digest=content, policy_digest=permit.fingerprint,
-            evidence_scope="test" if self.synthetic else "local", synthetic=self.synthetic,
+            tenant_id=scope.tenant_id,
+            project_id=scope.project_id,
+            origin_type="meet_companion_task_tool",
+            origin_digest=digest(origin),
+            content_digest=content,
+            policy_digest=permit.fingerprint,
+            evidence_scope="test" if self.synthetic else "local",
+            synthetic=self.synthetic,
         )
 
     def call(self, request):
@@ -61,36 +74,63 @@ class MeetCompanionTaskTools:
         permit = deepcopy(self.policy.authorize(before, value["tool"], value["arguments"]))
         assignment_digest = digest({"tenant_id": before.tenant_id, **closed})
         self.attempts.claim(assignment_digest, value["nonce"])
-        intent = {"assignment": closed, "tool": value["tool"], "arguments": permit.arguments,
-                  "policy": permit.fingerprint, "chat_revision": before.controls.chat.revision}
+        intent = {
+            "assignment": closed,
+            "tool": value["tool"],
+            "arguments": permit.arguments,
+            "policy": permit.fingerprint,
+            "chat_revision": before.controls.chat.revision,
+        }
         source = self._source(before, intent, {"kind": "request", **intent}, permit)
         run = self.registry.reserve_run(
-            tenant_id=before.tenant_id, project_id=before.project_id,
-            task_id=before.task_id, assignment_id=before.runtime_id, dispatch_lease_id=before.lease_id,
-            repository_revision=permit.revision, input_digest=digest(intent),
-            execution_profile_digest=permit.fingerprint, environment_digest=permit.environment_digest,
-            source_ids=[source.source_id], evidence_scope="test" if self.synthetic else "local",
-            synthetic=self.synthetic, idempotency_key=assignment_digest + value["nonce"],
+            tenant_id=before.tenant_id,
+            project_id=before.project_id,
+            task_id=before.task_id,
+            assignment_id=before.runtime_id,
+            dispatch_lease_id=before.lease_id,
+            repository_revision=permit.revision,
+            input_digest=digest(intent),
+            execution_profile_digest=permit.fingerprint,
+            environment_digest=permit.environment_digest,
+            source_ids=[source.source_id],
+            evidence_scope="test" if self.synthetic else "local",
+            synthetic=self.synthetic,
+            idempotency_key=assignment_digest + value["nonce"],
         )
-        identity = {"tenant_id": before.tenant_id, "project_id": before.project_id,
-                    "run_id": run.run_id, "assignment_id": before.runtime_id,
-                    "dispatch_lease_id": before.lease_id}
+        identity = {
+            "tenant_id": before.tenant_id,
+            "project_id": before.project_id,
+            "run_id": run.run_id,
+            "assignment_id": before.runtime_id,
+            "dispatch_lease_id": before.lease_id,
+        }
         try:
-            projection = self.registry.assignment_projection(**identity, task_id=before.task_id,
-                                                            expected_binding_digest=run.binding_digest)
+            projection = self.registry.assignment_projection(
+                **identity, task_id=before.task_id, expected_binding_digest=run.binding_digest
+            )
             self._current(bound, arguments, before, value, permit)
-            result = self.execution.execute(value["tool"], deepcopy(permit),
-                current=lambda: self._current(bound, arguments, before, value, permit))
-            if (not isinstance(result, dict) or set(result) != {"text", "truncated"}
-                    or not isinstance(result["text"], str) or len(result["text"]) > 6000
-                    or type(result["truncated"]) is not bool):
+            result = self.execution.execute(
+                value["tool"], deepcopy(permit), current=lambda: self._current(bound, arguments, before, value, permit)
+            )
+            if (
+                not isinstance(result, dict)
+                or set(result) != {"text", "truncated"}
+                or not isinstance(result["text"], str)
+                or len(result["text"]) > 6000
+                or type(result["truncated"]) is not bool
+            ):
                 raise MeetError("meet_companion_tool_result_invalid", 502)
             self._current(bound, arguments, before, value, permit)
-            output = self._source(before, result, {"kind": "result", "run": run.binding_digest,
-                                                  "revision": permit.revision}, permit)
-            response = {"schema": RESPONSE_SCHEMA, "tool": value["tool"], **result,
-                        "sources": [{"source_id": output.source_id, "binding_digest": output.binding_digest}],
-                        "run": projection}
+            output = self._source(
+                before, result, {"kind": "result", "run": run.binding_digest, "revision": permit.revision}, permit
+            )
+            response = {
+                "schema": RESPONSE_SCHEMA,
+                "tool": value["tool"],
+                **result,
+                "sources": [{"source_id": output.source_id, "binding_digest": output.binding_digest}],
+                "run": projection,
+            }
             # Admission may involve SQL/Registry I/O. Its successful write is
             # not permission to publish after a concurrent Hub withdrawal.
             self._current(bound, arguments, before, value, permit)

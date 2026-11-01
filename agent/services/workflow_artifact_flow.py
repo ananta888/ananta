@@ -59,7 +59,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 WORKFLOW_ARTIFACT_GRAPH_SCHEMA = "workflow_artifact_graph.v1"
 
 # A step's consumes list can be supplied in three shapes:
@@ -163,9 +162,7 @@ def _normalize_artifact_list(raw: Any) -> list[ArtifactRef]:
         if isinstance(info, dict):
             type_ = str(info.get("type") or info.get("artifact_type") or "").strip()
             opt = info.get("optional", False)
-            optional = bool(opt) if isinstance(opt, bool) else (
-                str(opt).strip().lower() in {"1", "true", "yes", "on"}
-            )
+            optional = bool(opt) if isinstance(opt, bool) else (str(opt).strip().lower() in {"1", "true", "yes", "on"})
         elif isinstance(info, str):
             type_ = info.strip()
         elif isinstance(info, bool):
@@ -219,9 +216,7 @@ def validate_workflow_artifact_graph(
     """
     if not isinstance(steps, list):
         return ArtifactFlowReport(violations=())
-    seed_keys = {
-        str(k).strip() for k in list(goal_seed_artifact_keys or []) if str(k).strip()
-    }
+    seed_keys = {str(k).strip() for k in list(goal_seed_artifact_keys or []) if str(k).strip()}
     producer_by_key: dict[str, str] = {}
     producer_type_by_key: dict[str, str] = {}
     type_conflict_by_key: dict[str, str] = {}
@@ -305,9 +300,7 @@ def resolve_required_artifact_refs(
     if not isinstance(step, dict):
         return []
     consumes = step_consumes(step)
-    seed_keys = {
-        str(k).strip() for k in list(goal_seed_artifact_keys or []) if str(k).strip()
-    }
+    seed_keys = {str(k).strip() for k in list(goal_seed_artifact_keys or []) if str(k).strip()}
     if not consumes:
         # No consumes declared: the conservative allowlist is
         # "goal seed only". The author can opt out by setting
@@ -331,10 +324,7 @@ def filter_worker_artifact_refs(
     can JSON-serialize the response directly.
     """
     allowed = {
-        ref.key
-        for ref in resolve_required_artifact_refs(
-            step=step, goal_seed_artifact_keys=goal_seed_artifact_keys
-        )
+        ref.key for ref in resolve_required_artifact_refs(step=step, goal_seed_artifact_keys=goal_seed_artifact_keys)
     }
     if not candidate_refs:
         return []
@@ -387,16 +377,9 @@ def evaluate_artifact_blocker(
             "missing_consumes": [],
             "reason_code": "no_consumes_declared",
         }
-    produced = {
-        str(k).strip() for k in list(produced_artifact_keys or []) if str(k).strip()
-    }
-    seeds = {
-        str(k).strip() for k in list(goal_seed_artifact_keys or []) if str(k).strip()
-    }
-    missing = [
-        ref for ref in consumes
-        if ref.key not in produced and ref.key not in seeds and not ref.optional
-    ]
+    produced = {str(k).strip() for k in list(produced_artifact_keys or []) if str(k).strip()}
+    seeds = {str(k).strip() for k in list(goal_seed_artifact_keys or []) if str(k).strip()}
+    missing = [ref for ref in consumes if ref.key not in produced and ref.key not in seeds and not ref.optional]
     return {
         "blocked": bool(missing),
         "missing_consumes": [ref.to_dict() for ref in missing],

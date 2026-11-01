@@ -46,11 +46,7 @@ def _valid_timeout(value: Any) -> bool:
         return False
     if isinstance(value, (int, float)):
         return math.isfinite(float(value)) and float(value) > 0
-    return bool(
-        isinstance(value, tuple)
-        and len(value) == 2
-        and all(_valid_timeout(item) for item in value)
-    )
+    return bool(isinstance(value, tuple) and len(value) == 2 and all(_valid_timeout(item) for item in value))
 
 
 def _effective_http_timeout(
@@ -73,9 +69,7 @@ def _validate_transport_deadline(
     ):
         raise ValueError("http_transport_deadline_invalid")
     if time.monotonic() >= float(deadline_monotonic):
-        raise HttpTransportDeadlineExceeded(
-            "http_transport_deadline_exceeded"
-        )
+        raise HttpTransportDeadlineExceeded("http_transport_deadline_exceeded")
 
 
 def _post_with_session(
@@ -184,21 +178,14 @@ def _execute_guarded_request(
             if remaining <= 0:
                 _abandon_request()
                 session.close()
-                raise HttpTransportDeadlineExceeded(
-                    "http_transport_deadline_exceeded"
-                )
+                raise HttpTransportDeadlineExceeded("http_transport_deadline_exceeded")
             wait_seconds = min(wait_seconds, max(0.001, remaining))
         completed.wait(timeout=wait_seconds)
 
-    if (
-        deadline_monotonic is not None
-        and time.monotonic() >= float(deadline_monotonic)
-    ):
+    if deadline_monotonic is not None and time.monotonic() >= float(deadline_monotonic):
         _abandon_request()
         session.close()
-        raise HttpTransportDeadlineExceeded(
-            "http_transport_deadline_exceeded"
-        )
+        raise HttpTransportDeadlineExceeded("http_transport_deadline_exceeded")
     if request_box["error"] is not None:
         # Propagate exactly once.  A state-changing POST must never be repeated
         # outside tracking after a genuine transport exception.
@@ -388,22 +375,16 @@ class HttpClient:
                 is_cancelled,
             ) = _request_tracking_context()
 
-            guarded_request = bool(
-                goal_id or task_id or deadline_monotonic is not None
-            )
+            guarded_request = bool(goal_id or task_id or deadline_monotonic is not None)
             if guarded_request:
                 from agent.common.cancellable_session import make_cancellable
 
                 # a cancelled task/goal closes this session: the socket is shut down, the model stops
                 tracked_session = make_cancellable(requests.Session())
                 request_session = tracked_session
-                if callable(register_existing_session) and (
-                    goal_id or task_id
-                ):
+                if callable(register_existing_session) and (goal_id or task_id):
                     try:
-                        tracked_key = register_existing_session(
-                            tracked_session
-                        )
+                        tracked_key = register_existing_session(tracked_session)
                     except Exception:
                         # Registry bookkeeping is best-effort and happens
                         # before the one and only network send.
@@ -452,10 +433,7 @@ class HttpClient:
             return None
         except requests.exceptions.ConnectionError as e:
             # Fallback für host.docker.internal
-            if (
-                deadline_monotonic is None
-                and "host.docker.internal" in url
-            ):
+            if deadline_monotonic is None and "host.docker.internal" in url:
                 from agent.utils import get_host_gateway_ip
 
                 gateway = get_host_gateway_ip()
@@ -477,9 +455,7 @@ class HttpClient:
                         allow_redirects=allow_redirects,
                         stream=stream,
                         deadline_monotonic=deadline_monotonic,
-                        raise_on_transport_error=(
-                            raise_on_transport_error
-                        ),
+                        raise_on_transport_error=(raise_on_transport_error),
                     )
 
             _raise_transport_failure_if_requested(

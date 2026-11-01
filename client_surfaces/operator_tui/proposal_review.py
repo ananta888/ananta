@@ -5,6 +5,7 @@ User actions:
   reject(proposal_id, reason)   → moves to heuristics/rejected/
   request_changes(proposal_id)  → attaches review note, status stays candidate
 """
+
 from __future__ import annotations
 
 import json
@@ -54,10 +55,7 @@ class ProposalReviewView:
     # ── List ──────────────────────────────────────────────────────────────────
 
     def list_open_candidates(self) -> list[dict[str, Any]]:
-        return [
-            p for p in self._service.list_candidates()
-            if p.get("status") == "candidate"
-        ]
+        return [p for p in self._service.list_candidates() if p.get("status") == "candidate"]
 
     def pending_count(self) -> int:
         return len(self.list_open_candidates())
@@ -100,37 +98,41 @@ class ProposalReviewView:
     ) -> ReviewResult:
         data = self._load_candidate(proposal_id)
         if data is None:
-            return ReviewResult(success=False, action="approve", proposal_id=proposal_id,
-                                reason="candidate_not_found")
+            return ReviewResult(success=False, action="approve", proposal_id=proposal_id, reason="candidate_not_found")
 
         proposal = _dict_to_proposal(data)
         validation = self._validator.validate(proposal)
         if not validation.passed:
-            return ReviewResult(success=False, action="approve", proposal_id=proposal_id,
-                                reason=f"validation_failed:{','.join(validation.reason_codes)}")
+            return ReviewResult(
+                success=False,
+                action="approve",
+                proposal_id=proposal_id,
+                reason=f"validation_failed:{','.join(validation.reason_codes)}",
+            )
 
         approval_ref = register_human_approval(proposal_id, approved_by=self._reviewer)
 
-        log_audit("heuristic_proposal_approved", {
-            "proposal_id": proposal_id,
-            "audit_ref": approval_ref,
-            "reviewer": self._reviewer,
-            "domain": data.get("domain"),
-        })
+        log_audit(
+            "heuristic_proposal_approved",
+            {
+                "proposal_id": proposal_id,
+                "audit_ref": approval_ref,
+                "reviewer": self._reviewer,
+                "domain": data.get("domain"),
+            },
+        )
 
         data["status"] = "approved"
         data["human_approval_ref"] = approval_ref
         data["approved_at"] = time.time()
         self._write_candidate(proposal_id, data)
 
-        return ReviewResult(success=True, action="approve", proposal_id=proposal_id,
-                            audit_ref=approval_ref)
+        return ReviewResult(success=True, action="approve", proposal_id=proposal_id, audit_ref=approval_ref)
 
     def reject(self, proposal_id: str, *, reason: str = "") -> ReviewResult:
         data = self._load_candidate(proposal_id)
         if data is None:
-            return ReviewResult(success=False, action="reject", proposal_id=proposal_id,
-                                reason="candidate_not_found")
+            return ReviewResult(success=False, action="reject", proposal_id=proposal_id, reason="candidate_not_found")
 
         base_path = self._service._base_path
         rejected_dir = os.path.join(base_path, "rejected")
@@ -148,36 +150,41 @@ class ProposalReviewView:
             os.remove(src)
 
         audit_ref = str(uuid.uuid4())
-        log_audit("heuristic_proposal_rejected", {
-            "proposal_id": proposal_id,
-            "audit_ref": audit_ref,
-            "reviewer": self._reviewer,
-            "reason": reason,
-        })
+        log_audit(
+            "heuristic_proposal_rejected",
+            {
+                "proposal_id": proposal_id,
+                "audit_ref": audit_ref,
+                "reviewer": self._reviewer,
+                "reason": reason,
+            },
+        )
 
-        return ReviewResult(success=True, action="reject", proposal_id=proposal_id,
-                            reason=reason, audit_ref=audit_ref)
+        return ReviewResult(success=True, action="reject", proposal_id=proposal_id, reason=reason, audit_ref=audit_ref)
 
     def request_changes(self, proposal_id: str, *, notes: str) -> ReviewResult:
         data = self._load_candidate(proposal_id)
         if data is None:
-            return ReviewResult(success=False, action="request_changes",
-                                proposal_id=proposal_id, reason="candidate_not_found")
+            return ReviewResult(
+                success=False, action="request_changes", proposal_id=proposal_id, reason="candidate_not_found"
+            )
 
         data["review_notes"] = notes
         data["review_requested_at"] = time.time()
         self._write_candidate(proposal_id, data)
 
         audit_ref = str(uuid.uuid4())
-        log_audit("heuristic_proposal_changes_requested", {
-            "proposal_id": proposal_id,
-            "audit_ref": audit_ref,
-            "reviewer": self._reviewer,
-            "notes_length": len(notes),
-        })
+        log_audit(
+            "heuristic_proposal_changes_requested",
+            {
+                "proposal_id": proposal_id,
+                "audit_ref": audit_ref,
+                "reviewer": self._reviewer,
+                "notes_length": len(notes),
+            },
+        )
 
-        return ReviewResult(success=True, action="request_changes",
-                            proposal_id=proposal_id, audit_ref=audit_ref)
+        return ReviewResult(success=True, action="request_changes", proposal_id=proposal_id, audit_ref=audit_ref)
 
     # ── Internal ──────────────────────────────────────────────────────────────
 

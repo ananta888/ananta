@@ -1,20 +1,20 @@
 """LLMResponseNormalizer — FA-T010 / AFR-T005: flexible LLM output normalization."""
+
 from __future__ import annotations
 
-import re
 import json
-from typing import List, Dict, Any, Optional
-from worker.core.propose_orchestrator import ProposeContext
+import re
+from typing import Optional
+
 from worker.core.propose import (
-    ProposeStrategyResult,
-    ExecutableProposal,
-    AdvisoryProposalArtifact,
-    PatchProposalArtifact,
-    FileProposalArtifact,
-    PlannerProposalArtifact,
     STATUS_ADVISORY,
-    STATUS_EXECUTABLE,
+    ExecutableProposal,
+    FileProposalArtifact,
+    PatchProposalArtifact,
+    PlannerProposalArtifact,
+    ProposeStrategyResult,
 )
+from worker.core.propose_orchestrator import ProposeContext
 
 # T005: reject absolute paths and traversal in LLM-proposed filenames
 _UNSAFE_PATH_RE = re.compile(r"(?:^|/)\.\./|^/|^[A-Za-z]:[/\\]")
@@ -29,16 +29,22 @@ class LLMResponseNormalizer:
 
     def __init__(self):
         self._tool_calls_re = re.compile(r'"tool_calls"\s*:\s*\[([^\]]+)\]', re.DOTALL)
-        self._fenced_json_re = re.compile(r'```(?:json|JSON)?\s*(\{.*?\})\s*```', re.DOTALL | re.IGNORECASE)
-        self._fenced_shell_re = re.compile(r'```(?:bash|sh|shell)\s*(.*?)\s*```', re.DOTALL | re.IGNORECASE | re.MULTILINE)
-        self._diff_re = re.compile(r'^(?:---|\+\+ +|\@@)', re.MULTILINE)
-        self._file_block_re = re.compile(r'```(\w+\.?\w*)\s*(.*?)\s*```', re.DOTALL | re.IGNORECASE)
-        self._inline_bash_re = re.compile(r'(?:^|\n)\s*(?:>\s*)?((?:npm|pip|python|git|cd |ls |mkdir |touch |echo |cat |chmod |curl |wget |docker |make |mvn |gradle |java |node |npx |yarn |bun )\S.*?)(?=\n|$)', re.IGNORECASE)
-        self._german_suggest_re = re.compile(
-            r'(?:ich\s+(?:werde|kann|würde|würde\s+ich|schlage\s+vor|empfehle))\s*(?::|,)?\s*'
-            r'(.+?)(?:\n\n|\.\s*[A-Z]|$)', re.DOTALL | re.IGNORECASE
+        self._fenced_json_re = re.compile(r"```(?:json|JSON)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE)
+        self._fenced_shell_re = re.compile(
+            r"```(?:bash|sh|shell)\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE | re.MULTILINE
         )
-        self._inline_json_re = re.compile(r'(\{(?:[^{}]|(?:\{[^{}]*\}))*\})', re.DOTALL)
+        self._diff_re = re.compile(r"^(?:---|\+\+ +|\@@)", re.MULTILINE)
+        self._file_block_re = re.compile(r"```(\w+\.?\w*)\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+        self._inline_bash_re = re.compile(
+            r"(?:^|\n)\s*(?:>\s*)?((?:npm|pip|python|git|cd |ls |mkdir |touch |echo |cat |chmod |curl |wget |docker |make |mvn |gradle |java |node |npx |yarn |bun )\S.*?)(?=\n|$)",
+            re.IGNORECASE,
+        )
+        self._german_suggest_re = re.compile(
+            r"(?:ich\s+(?:werde|kann|würde|würde\s+ich|schlage\s+vor|empfehle))\s*(?::|,)?\s*"
+            r"(.+?)(?:\n\n|\.\s*[A-Z]|$)",
+            re.DOTALL | re.IGNORECASE,
+        )
+        self._inline_json_re = re.compile(r"(\{(?:[^{}]|(?:\{[^{}]*\}))*\})", re.DOTALL)
 
     def normalize(
         self,
@@ -47,7 +53,7 @@ class LLMResponseNormalizer:
         *,
         allow_shell_execution: bool = False,
     ) -> ProposeStrategyResult:
-        trimmed = raw_text.strip()[:self.MAX_TEXT_LENGTH]
+        trimmed = raw_text.strip()[: self.MAX_TEXT_LENGTH]
 
         result = self._try_tool_calls(trimmed, context)
         if result:
@@ -90,7 +96,7 @@ class LLMResponseNormalizer:
             advisory_text=trimmed,
             reason="free_text_normalized_to_advisory",
             reason_codes=["source_format:prose"],
-            metadata={"source_format": "natural_language", "confidence": 0.2}
+            metadata={"source_format": "natural_language", "confidence": 0.2},
         )
 
     def _try_tool_calls(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
@@ -137,7 +143,7 @@ class LLMResponseNormalizer:
                     return ProposeStrategyResult.executable(
                         "llm_response_normalizer",
                         proposal,
-                        metadata={"confidence": 0.95, "source_format": "fenced_json"}
+                        metadata={"confidence": 0.95, "source_format": "fenced_json"},
                     )
             except json.JSONDecodeError:
                 pass
@@ -169,9 +175,7 @@ class LLMResponseNormalizer:
                     command=command,
                 )
                 return ProposeStrategyResult.executable(
-                    "llm_response_normalizer",
-                    proposal,
-                    metadata={"confidence": 0.8, "source_format": "fenced_shell"}
+                    "llm_response_normalizer", proposal, metadata={"confidence": 0.8, "source_format": "fenced_shell"}
                 )
         return None
 
@@ -214,11 +218,11 @@ class LLMResponseNormalizer:
     ) -> Optional[ProposeStrategyResult]:
         # Match common command-trigger lines in prose (German/English)
         command_prefix_re = re.compile(
-            r'(?:^|\n)\s*(?:'
-            r'(?:führe|run|exec(?:ute)?|start)\s*(?:d(?:ie|en|as|iesen)|folgenden|folgende|folgendes|this|the|following)?\s*(?:befehl|command|script)?\s*(?::|,)?\s*`([^`]+)`'
-            r'|'
-            r'`([^`]+)`'
-            r')',
+            r"(?:^|\n)\s*(?:"
+            r"(?:führe|run|exec(?:ute)?|start)\s*(?:d(?:ie|en|as|iesen)|folgenden|folgende|folgendes|this|the|following)?\s*(?:befehl|command|script)?\s*(?::|,)?\s*`([^`]+)`"
+            r"|"
+            r"`([^`]+)`"
+            r")",
             re.IGNORECASE | re.MULTILINE,
         )
         for match in command_prefix_re.finditer(text):
@@ -260,7 +264,7 @@ class LLMResponseNormalizer:
                 strategy_id="llm_response_normalizer",
                 proposal=proposal,
                 reason="patch_proposal_extracted",
-                metadata={"confidence": 0.85, "source_format": "unified_diff"}
+                metadata={"confidence": 0.85, "source_format": "unified_diff"},
             )
         return None
 
@@ -287,7 +291,7 @@ class LLMResponseNormalizer:
                 strategy_id="llm_response_normalizer",
                 proposal=proposal,
                 reason="file_proposal_extracted",
-                metadata={"confidence": 0.9, "source_format": "file_blocks"}
+                metadata={"confidence": 0.9, "source_format": "file_blocks"},
             )
         return None
 
@@ -319,6 +323,6 @@ class LLMResponseNormalizer:
                 strategy_id="llm_response_normalizer",
                 proposal=proposal,
                 reason="planner_proposal_extracted",
-                metadata={"confidence": 0.6, "source_format": "planner_text"}
+                metadata={"confidence": 0.6, "source_format": "planner_text"},
             )
         return None

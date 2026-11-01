@@ -37,9 +37,7 @@ EMPTY_RESULT = "codecompass_search: keine passende Stelle im Wissensindex gefund
 FAILED_RESULT = "codecompass_search: der Wissensindex ist gerade nicht erreichbar."
 MISSING_QUERY = "codecompass_search: Aufruf ohne 'query' – bitte mit einem Suchbegriff erneut aufrufen."
 UNKNOWN_TOOL = "unbekanntes Werkzeug – nur die angebotenen CodeCompass-Werkzeuge stehen zur Verfügung."
-BUDGET_EXHAUSTED = (
-    "Werkzeugbudget für diese Antwort erschöpft – antworte jetzt mit den vorliegenden Ergebnissen."
-)
+BUDGET_EXHAUSTED = "Werkzeugbudget für diese Antwort erschöpft – antworte jetzt mit den vorliegenden Ergebnissen."
 
 # Model-facing names use ``_`` (OpenAI function names allow no dots); the
 # dotted MCP names and ``codecompass_retrieve`` are accepted as aliases, so a
@@ -188,9 +186,7 @@ class CodeCompassTool:
         except Exception:  # noqa: BLE001 -- an unreachable index is a tool result, not a lost turn
             self.calls.append({"query": query, "limit": limit, "snippets": 0, "failed": True})
             return FAILED_RESULT
-        self.calls.append(
-            {"query": query, "limit": limit, "snippets": len(snippets), "total": total, "failed": False}
-        )
+        self.calls.append({"query": query, "limit": limit, "snippets": len(snippets), "total": total, "failed": False})
         self.sources.extend(snippets[:MAX_LIMIT])
         from worker.meet_media.companion_dialog import context_block
 
@@ -563,12 +559,12 @@ class ToolMemory:
             if handle in self.handles:
                 self.handles.remove(handle)
             self.handles.insert(0, handle)
-        del self.handles[self.MAX_HANDLES:]
+        del self.handles[self.MAX_HANDLES :]
         for ref in re.findall(r'"snapshot_ref":"([^"]{1,256})"', str(text or "")):
             if ref in self.snapshot_refs:
                 self.snapshot_refs.remove(ref)
             self.snapshot_refs.insert(0, ref)
-        del self.snapshot_refs[self.MAX_SNAPSHOTS:]
+        del self.snapshot_refs[self.MAX_SNAPSHOTS :]
 
 
 class HubTool:

@@ -1,4 +1,5 @@
 """Effective Workflow Explorer API."""
+
 from __future__ import annotations
 
 import json
@@ -40,10 +41,7 @@ def _load_blueprints() -> list[dict[str, Any]]:
 
         ensure_seed_blueprints()
         repos = get_repository_registry()
-        return [
-            _serialize_blueprint(blueprint)
-            for blueprint in repos.team_blueprint_repo.get_all()
-        ]
+        return [_serialize_blueprint(blueprint) for blueprint in repos.team_blueprint_repo.get_all()]
     except Exception:
         return []
 
@@ -52,10 +50,7 @@ def _load_templates() -> list[dict[str, Any]]:
     try:
         from agent.services.repository_registry import get_repository_registry
 
-        return [
-            template.model_dump()
-            for template in get_repository_registry().template_repo.get_all()
-        ]
+        return [template.model_dump() for template in get_repository_registry().template_repo.get_all()]
     except Exception:
         return []
 
@@ -85,11 +80,13 @@ def _resolve_from_body(body: dict[str, Any]) -> dict[str, Any]:
 @effective_workflow_bp.get("/options")
 def effective_workflow_options():
     graph, cfg, blueprints, _templates = _build_graph_and_context()
-    return jsonify(EffectiveWorkflowResolver().options(
-        graph=graph,
-        user_config=cfg,
-        blueprints=blueprints,
-    ))
+    return jsonify(
+        EffectiveWorkflowResolver().options(
+            graph=graph,
+            user_config=cfg,
+            blueprints=blueprints,
+        )
+    )
 
 
 @effective_workflow_bp.post("/resolve")
@@ -126,20 +123,17 @@ def explain_effective_workflow_node():
     node = (result.get("graph") or {}).get("nodes", {}).get(node_id)
     if not node:
         return jsonify({"error": "node not found", "node_id": node_id}), 404
-    return jsonify({
-        "schema": "ananta.effective_workflow.node_explanation.v1",
-        "request": result.get("request"),
-        "node": node,
-        "incoming_edges": [
-            edge for edge in (result.get("graph") or {}).get("edges", [])
-            if edge.get("target") == node_id
-        ],
-        "outgoing_edges": [
-            edge for edge in (result.get("graph") or {}).get("edges", [])
-            if edge.get("source") == node_id
-        ],
-        "source_index": [
-            item for item in result.get("source_index", [])
-            if item.get("node_id") == node_id
-        ],
-    })
+    return jsonify(
+        {
+            "schema": "ananta.effective_workflow.node_explanation.v1",
+            "request": result.get("request"),
+            "node": node,
+            "incoming_edges": [
+                edge for edge in (result.get("graph") or {}).get("edges", []) if edge.get("target") == node_id
+            ],
+            "outgoing_edges": [
+                edge for edge in (result.get("graph") or {}).get("edges", []) if edge.get("source") == node_id
+            ],
+            "source_index": [item for item in result.get("source_index", []) if item.get("node_id") == node_id],
+        }
+    )

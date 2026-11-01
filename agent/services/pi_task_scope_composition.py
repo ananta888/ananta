@@ -13,7 +13,8 @@ class HubPiTaskScopePreparer:
         task = get_repository_registry().task_repo.get_by_id(command.control_task_id)
         with task_repository_session(_engine()) as session:
             return PiTaskScopePreparationService(
-                tasks=_LoadedControlTask(task), projects=ProjectRepository(session),
+                tasks=_LoadedControlTask(task),
+                projects=ProjectRepository(session),
             ).prepare(command=command)
 
 

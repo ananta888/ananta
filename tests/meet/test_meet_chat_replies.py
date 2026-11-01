@@ -32,11 +32,14 @@ def runtime(tmp_path):
     authority, worker, tasks, binding = Mock(), Mock(), Mock(), Mock()
     authority.current.return_value = session()
     tasks.finish.return_value = True
-    worker.execute.side_effect = lambda turn: result() | {
-        "task_id": turn["task_id"],
-        "lease_id": turn["lease_id"],
-        "usage": {"input_tokens": 50, "output_tokens": 8},
-    }
+    worker.execute.side_effect = lambda turn: (
+        result()
+        | {
+            "task_id": turn["task_id"],
+            "lease_id": turn["lease_id"],
+            "usage": {"input_tokens": 50, "output_tokens": 8},
+        }
+    )
     admission = MeetChatAdmissionService(authority, reservations, clock=lambda: NOW / 1000).admit(raw())
     service = MeetChatReplyService(authority, delivery, binding, worker, tasks, clock=lambda: NOW / 1000)
     yield SimpleNamespace(
@@ -204,14 +207,21 @@ def test_real_hub_task_is_content_free_and_cannot_use_legacy_publication_lease(r
         # The synthetic chat authority still needs a real active parent when
         # exercising the actual task adapter; an arbitrary task string is not one.
         with Session(engine) as session:
-            session.add(ProjectDB(
-                tenant_id="tenant", project_id="project", name="Synthetic chat", created_by_subject_id="actor"
-            ))
+            session.add(
+                ProjectDB(
+                    tenant_id="tenant", project_id="project", name="Synthetic chat", created_by_subject_id="actor"
+                )
+            )
             session.commit()
-            session.add(TaskDB(
-                id=runtime.admission.reservation.scope.task_id, tenant_id="tenant", project_id="project",
-                status="in_progress", title="Synthetic chat parent",
-            ))
+            session.add(
+                TaskDB(
+                    id=runtime.admission.reservation.scope.task_id,
+                    tenant_id="tenant",
+                    project_id="project",
+                    status="in_progress",
+                    title="Synthetic chat parent",
+                )
+            )
             session.commit()
         reply = runtime.service.execute(PRINCIPAL, runtime.admission)
         stored = task_repo.get_by_id(reply["media"]["task_id"])

@@ -41,8 +41,17 @@ from typing import Any
 SECTION = "decision_providers"
 PROVIDERS = ("jev", "local_decision", "llm", "jeff", "laya")
 EXTERNAL_PROVIDERS = frozenset({"jev"})
-AREAS = ("tool_routing", "companion_route", "companion_knowledge", "retrieval_intent", "rag_needed",
-         "chat_intent", "hub_direct", "prompt_injection", "context_strategy")
+AREAS = (
+    "tool_routing",
+    "companion_route",
+    "companion_knowledge",
+    "retrieval_intent",
+    "rag_needed",
+    "chat_intent",
+    "hub_direct",
+    "prompt_injection",
+    "context_strategy",
+)
 MODES = ("off", "shadow", "active")
 DEFAULT_THRESHOLD = 0.9
 _SECRET_KEYS = frozenset({"api_key", "key", "token", "secret", "authorization"})
@@ -52,21 +61,49 @@ DEFAULTS: dict[str, Any] = {
     "confidence_threshold": DEFAULT_THRESHOLD,
     "deadline_seconds": 8.0,
     "providers": {
-        "jev": {"enabled": False, "external_calls_allowed": False, "model": "jev-latest",
-                "base_url": "https://api.typesafe.ai", "api_key_env": "TYPESAFE_API_KEY",
-                "timeout_seconds": 5.0, "max_retries": 2, "price_input_per_million": 0.042,
-                "price_output_per_million": 0.0},
-        "local_decision": {"enabled": False, "base_url": "", "base_url_env": "ANANTA_PARALLEL_DECISION_URL",
-                           "timeout_seconds": 5.0, "max_inflight": 4, "require_cache_isolation": False,
-                           "scoped_prefix_cache": False},
+        "jev": {
+            "enabled": False,
+            "external_calls_allowed": False,
+            "model": "jev-latest",
+            "base_url": "https://api.typesafe.ai",
+            "api_key_env": "TYPESAFE_API_KEY",
+            "timeout_seconds": 5.0,
+            "max_retries": 2,
+            "price_input_per_million": 0.042,
+            "price_output_per_million": 0.0,
+        },
+        "local_decision": {
+            "enabled": False,
+            "base_url": "",
+            "base_url_env": "ANANTA_PARALLEL_DECISION_URL",
+            "timeout_seconds": 5.0,
+            "max_inflight": 4,
+            "require_cache_isolation": False,
+            "scoped_prefix_cache": False,
+        },
         "llm": {"enabled": False, "timeout_seconds": 30.0},
-        "jeff": {"enabled": False, "base_url": "http://jeff:8000", "model": "gliformer-large-v1",
-                 "model_revision": "d0a4e53d09cebe6bc963dd9be319d4279084bb2d",
-                 "allowed_hosts": ["jeff", "localhost", "127.0.0.1"], "api_key_env": "JEFF_API_KEY",
-                 "timeout_seconds": 5.0, "max_retries": 1, "max_inflight": 4, "max_state_chars": 8000},
-        "laya": {"enabled": False, "base_url": "http://laya:8080", "model": "",
-                 "allowed_hosts": ["laya", "localhost", "127.0.0.1"], "api_key_env": "LAYA_API_KEY",
-                 "timeout_seconds": 5.0, "max_retries": 1, "max_state_chars": 32000},
+        "jeff": {
+            "enabled": False,
+            "base_url": "http://jeff:8000",
+            "model": "gliformer-large-v1",
+            "model_revision": "d0a4e53d09cebe6bc963dd9be319d4279084bb2d",
+            "allowed_hosts": ["jeff", "localhost", "127.0.0.1"],
+            "api_key_env": "JEFF_API_KEY",
+            "timeout_seconds": 5.0,
+            "max_retries": 1,
+            "max_inflight": 4,
+            "max_state_chars": 8000,
+        },
+        "laya": {
+            "enabled": False,
+            "base_url": "http://laya:8080",
+            "model": "",
+            "allowed_hosts": ["laya", "localhost", "127.0.0.1"],
+            "api_key_env": "LAYA_API_KEY",
+            "timeout_seconds": 5.0,
+            "max_retries": 1,
+            "max_state_chars": 32000,
+        },
     },
     "areas": {},
 }
@@ -184,8 +221,15 @@ def stage_providers(cascade: list[Any]) -> list[str]:
 def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise DecisionConfigError(f"decision_area_invalid:{name}")
-    unknown = set(raw) - {"mode", "provider", "cascade", "confidence_threshold", "question_thresholds",
-                          "text_candidates", "text_min_confidence"}
+    unknown = set(raw) - {
+        "mode",
+        "provider",
+        "cascade",
+        "confidence_threshold",
+        "question_thresholds",
+        "text_candidates",
+        "text_min_confidence",
+    }
     if unknown:
         raise DecisionConfigError(f"decision_area_unknown_keys:{name}:{','.join(sorted(unknown))}")
     mode = str(raw.get("mode") or "off").strip().lower()
@@ -196,8 +240,9 @@ def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
     cascade = [raw["provider"]] if raw.get("provider") else list(raw.get("cascade") or [])
     cascade = [list(item) if isinstance(item, (list, tuple)) else item for item in cascade]
     names = stage_providers(cascade)
-    groups_ok = all(isinstance(item, str) or (2 <= len(item) <= 3 and all(isinstance(m, str) for m in item))
-                    for item in cascade)
+    groups_ok = all(
+        isinstance(item, str) or (2 <= len(item) <= 3 and all(isinstance(m, str) for m in item)) for item in cascade
+    )
     if not groups_ok or not all(n in PROVIDERS for n in names) or len(set(names)) != len(names):
         raise DecisionConfigError(f"decision_area_cascade_invalid:{name}")
     if mode != "off":
@@ -212,13 +257,15 @@ def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
     if raw.get("text_min_confidence") is not None:
         area["text_min_confidence"] = _threshold(raw["text_min_confidence"], f"decision_area_threshold_invalid:{name}")
     if raw.get("confidence_threshold") is not None:
-        area["confidence_threshold"] = _threshold(raw["confidence_threshold"],
-                                                  f"decision_area_threshold_invalid:{name}")
+        area["confidence_threshold"] = _threshold(
+            raw["confidence_threshold"], f"decision_area_threshold_invalid:{name}"
+        )
     thresholds = raw.get("question_thresholds") or {}
     if not isinstance(thresholds, Mapping):
         raise DecisionConfigError(f"decision_area_threshold_invalid:{name}")
-    area["question_thresholds"] = {str(k): _threshold(v, f"decision_area_threshold_invalid:{name}")
-                                   for k, v in thresholds.items()}
+    area["question_thresholds"] = {
+        str(k): _threshold(v, f"decision_area_threshold_invalid:{name}") for k, v in thresholds.items()
+    }
     return area
 
 
@@ -249,10 +296,13 @@ def normalize_decision_config(raw: Any, current: Mapping[str, Any] | None = None
         areas[name] = {**areas.get(name, {}), **dict(value or {})}
     return {
         "enabled": bool(raw.get("enabled", base.get("enabled", DEFAULTS["enabled"]))),
-        "confidence_threshold": _threshold(raw.get("confidence_threshold", base.get(
-            "confidence_threshold", DEFAULT_THRESHOLD)), "decision_providers_threshold_invalid"),
-        "deadline_seconds": _positive(raw.get("deadline_seconds", base.get("deadline_seconds", 8.0)),
-                                      "decision_providers_deadline_invalid", 120),
+        "confidence_threshold": _threshold(
+            raw.get("confidence_threshold", base.get("confidence_threshold", DEFAULT_THRESHOLD)),
+            "decision_providers_threshold_invalid",
+        ),
+        "deadline_seconds": _positive(
+            raw.get("deadline_seconds", base.get("deadline_seconds", 8.0)), "decision_providers_deadline_invalid", 120
+        ),
         "providers": providers,
         "areas": {name: _area(name, value, providers) for name, value in areas.items()},
     }
@@ -267,6 +317,9 @@ def area_settings(section: Mapping[str, Any] | None, area: str) -> dict[str, Any
     settings = cfg["areas"].get(area)
     if not cfg["enabled"] or not settings or settings["mode"] == "off":
         return None
-    return {**settings, "confidence_threshold": settings.get("confidence_threshold", cfg["confidence_threshold"]),
-            "deadline_seconds": cfg["deadline_seconds"],
-            "providers": {name: cfg["providers"][name] for name in stage_providers(settings["cascade"])}}
+    return {
+        **settings,
+        "confidence_threshold": settings.get("confidence_threshold", cfg["confidence_threshold"]),
+        "deadline_seconds": cfg["deadline_seconds"],
+        "providers": {name: cfg["providers"][name] for name in stage_providers(settings["cascade"])},
+    }

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from agent.services.mail_account_service import MailAccountService
 from agent.services.mail_contract_service import MailAccountV2
-from agent.services.mail_protocol_cutover_service import MailProtocolCutoverCommand, MailProtocolCutoverService
 from agent.services.mail_legacy_mapper import MailDedupeSummary
+from agent.services.mail_protocol_cutover_service import MailProtocolCutoverCommand, MailProtocolCutoverService
 from agent.services.mail_provider_ports import MailProviderBinding, MailProviderResult
 from agent.services.mail_provider_router import MailProviderRouter
 
@@ -88,9 +88,7 @@ def test_cutover_requires_checks_and_approval_then_router_uses_resolution(tmp_pa
         sync_preflight=_Sync(),
         matcher=_Matcher(),
     )
-    denied = service.execute(
-        MailProtocolCutoverCommand("cmd", "a", "jmap", expected_resolved_protocol=None)
-    )
+    denied = service.execute(MailProtocolCutoverCommand("cmd", "a", "jmap", expected_resolved_protocol=None))
     assert denied.reason_code == "mail_cutover_approval_required"
     allowed = service.execute(
         MailProtocolCutoverCommand(
@@ -130,22 +128,26 @@ def test_cutover_fails_closed_for_preflight_cas_and_dedupe_and_reports_rollback(
         "operator_approval_ref": "approval",
         "expected_resolved_protocol": None,
     }
-    assert service(discovery=_FailingDiscovery()).execute(
-        MailProtocolCutoverCommand(**approval)
-    ).reason_code == "jmap_discovery_failed"
-    assert service().execute(
-        MailProtocolCutoverCommand(**(approval | {"expected_resolved_protocol": "imap"}))
-    ).reason_code == "mail_cutover_state_conflict"
-    assert service(matcher=_ConfiguredMatcher(MailDedupeSummary(0, 1, 0))).execute(
-        MailProtocolCutoverCommand(**approval)
-    ).reason_code == "mail_cutover_dedupe_ambiguous"
-    unmatched_service = service(matcher=_ConfiguredMatcher(MailDedupeSummary(0, 0, 1)))
-    assert unmatched_service.execute(
-        MailProtocolCutoverCommand(**approval)
-    ).reason_code == "mail_cutover_unmatched_requires_approval"
-    cutover = unmatched_service.execute(
-        MailProtocolCutoverCommand(**approval, allow_unmatched=True)
+    assert (
+        service(discovery=_FailingDiscovery()).execute(MailProtocolCutoverCommand(**approval)).reason_code
+        == "jmap_discovery_failed"
     )
+    assert (
+        service().execute(MailProtocolCutoverCommand(**(approval | {"expected_resolved_protocol": "imap"}))).reason_code
+        == "mail_cutover_state_conflict"
+    )
+    assert (
+        service(matcher=_ConfiguredMatcher(MailDedupeSummary(0, 1, 0)))
+        .execute(MailProtocolCutoverCommand(**approval))
+        .reason_code
+        == "mail_cutover_dedupe_ambiguous"
+    )
+    unmatched_service = service(matcher=_ConfiguredMatcher(MailDedupeSummary(0, 0, 1)))
+    assert (
+        unmatched_service.execute(MailProtocolCutoverCommand(**approval)).reason_code
+        == "mail_cutover_unmatched_requires_approval"
+    )
+    cutover = unmatched_service.execute(MailProtocolCutoverCommand(**approval, allow_unmatched=True))
     assert cutover.ok is True
     rollback = service().execute(
         MailProtocolCutoverCommand(

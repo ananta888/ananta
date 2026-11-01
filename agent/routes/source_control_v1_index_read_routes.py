@@ -1,5 +1,4 @@
-"""Graph, query, artifact and CodeHug mutation routes of the Source Control v1 API.
-"""
+"""Graph, query, artifact and CodeHug mutation routes of the Source Control v1 API."""
 
 from __future__ import annotations
 
@@ -41,7 +40,8 @@ def register_index_read_routes(
     @check_auth
     @boundary
     def graph(connection_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.GRAPH,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -62,20 +62,13 @@ def register_index_read_routes(
         raw_max_edges = request.args.get("max_edges")
         requested_view = request.args.get("view", "default")
         normalized_view = str(requested_view).strip().lower()
-        if (
-            normalized_view == "topology"
-            and request.args.get("cursor") is not None
-        ):
+        if normalized_view == "topology" and request.args.get("cursor") is not None:
             raise SourceControlApiError("graph_topology_cursor_unsupported")
         domain_scope = request.args.get("domain_scope")
-        if domain_scope is not None and not GRAPH_DOMAIN_SCOPE.fullmatch(
-            domain_scope
-        ):
+        if domain_scope is not None and not GRAPH_DOMAIN_SCOPE.fullmatch(domain_scope):
             raise SourceControlApiError("domain_scope_invalid")
         stage = request.args.get("stage")
-        if stage is not None and (
-            normalized_view != "staged" or stage not in {"nodes", "edges"}
-        ):
+        if stage is not None and (normalized_view != "staged" or stage not in {"nodes", "edges"}):
             raise SourceControlApiError("graph_stage_invalid")
         parameters: dict[str, object] = {
             "cursor": request.args.get("cursor"),
@@ -109,10 +102,10 @@ def register_index_read_routes(
             )
         if stage is not None:
             parameters["stage"] = stage
-        if (
-            domain_scope is not None
-            or request.args.get("include_subdomains") is not None
-        ) and normalized_view not in {"topology", "staged"}:
+        if (domain_scope is not None or request.args.get("include_subdomains") is not None) and normalized_view not in {
+            "topology",
+            "staged",
+        }:
             raise SourceControlApiError("graph_domain_parameters_invalid")
         return success_response(
             api.graph(
@@ -133,7 +126,8 @@ def register_index_read_routes(
             required=frozenset({"query"}),
         )
         required_string(payload, "query", maximum=4000)
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.QUERY,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -157,13 +151,12 @@ def register_index_read_routes(
             )
         )
 
-    @blueprint.get(
-        "/connections/<connection_id>/artifacts/<artifact_id>/status"
-    )
+    @blueprint.get("/connections/<connection_id>/artifacts/<artifact_id>/status")
     @check_auth
     @boundary
     def artifact_status(connection_id: str, artifact_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.ARTIFACT,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -188,13 +181,12 @@ def register_artifact_routes(
 ) -> None:
     """Artifact download and CodeHug mutation routes."""
 
-    @blueprint.get(
-        "/connections/<connection_id>/artifacts/<artifact_id>/download"
-    )
+    @blueprint.get("/connections/<connection_id>/artifacts/<artifact_id>/download")
     @check_auth
     @boundary
     def artifact_download(connection_id: str, artifact_id: str):
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.DOWNLOAD,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -208,18 +200,14 @@ def register_artifact_routes(
             range_header=request.headers.get("Range"),
         )
         if not isinstance(stream, SourceControlArtifactStream):
-            raise SourceControlApiError(
-                "artifact_download_result_invalid", status_code=502
-            )
+            raise SourceControlApiError("artifact_download_result_invalid", status_code=502)
         response = Response(
             stream.body,
             status=stream.status_code,
             content_type=stream.media_type,
         )
         response.headers["Content-Length"] = str(stream.content_length)
-        response.headers["Content-Disposition"] = (
-            f'attachment; filename="{stream.filename}"'
-        )
+        response.headers["Content-Disposition"] = f'attachment; filename="{stream.filename}"'
         response.headers["Accept-Ranges"] = "bytes"
         response.headers["ETag"] = stream.etag
         response.headers["X-Content-SHA256"] = stream.sha256
@@ -233,7 +221,8 @@ def register_artifact_routes(
     @check_auth
     @boundary
     def codehug_mutation():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.INDEX,
             resource_kind="source_connection",
             collection=True,
@@ -251,9 +240,7 @@ def register_artifact_routes(
         return success_response(
             api.codehug_mutation(
                 principal=request_guard.principal(),
-                mutation_intent_id=required_string(
-                    payload, "mutation_intent_id"
-                ),
+                mutation_intent_id=required_string(payload, "mutation_intent_id"),
                 idempotency_key=require_idempotency_key(),
             ),
             status=202,

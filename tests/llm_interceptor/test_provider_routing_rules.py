@@ -70,4 +70,3 @@ def test_cloud_rule_selected_only_with_cloud_metadata():
     )
     assert upstream.id == "cloud"
     assert model == "m-cloud"
-

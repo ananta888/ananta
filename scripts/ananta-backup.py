@@ -3,6 +3,5 @@
 
 from ananta_backup.cli import backup_main
 
-
 if __name__ == "__main__":
     raise SystemExit(backup_main())

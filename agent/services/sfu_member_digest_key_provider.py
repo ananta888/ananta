@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Mapping, Protocol, Sequence
 
-
 _DIGEST_DOMAIN = b"ananta:sfu-member-digest:v1"
 
 
@@ -133,13 +132,9 @@ class SfuMemberDigestKeyPolicy:
                 kdf=str(raw["kdf"]),
                 digest_bytes=int(raw["digest_bytes"]),
                 minimum_secret_bytes=int(limits["minimum_secret_bytes"]),
-                maximum_member_identifier_bytes=int(
-                    limits["maximum_member_identifier_bytes"]
-                ),
+                maximum_member_identifier_bytes=int(limits["maximum_member_identifier_bytes"]),
                 maximum_active_seconds=int(rotation["maximum_active_seconds"]),
-                maximum_dual_read_seconds=int(
-                    rotation["maximum_dual_read_seconds"]
-                ),
+                maximum_dual_read_seconds=int(rotation["maximum_dual_read_seconds"]),
                 key_id_pattern=str(identifiers["key_id_pattern"]),
                 scope_pattern=str(identifiers["scope_pattern"]),
             )
@@ -179,9 +174,7 @@ class SfuMemberDigestKeyProvider:
             if state is DigestKeyState.ACTIVE and self._inside_window(record, now):
                 usable.append(record)
         if len(usable) != 1:
-            raise SfuMemberDigestUnavailable(
-                "exactly one bounded active digest key is required"
-            )
+            raise SfuMemberDigestUnavailable("exactly one bounded active digest key is required")
 
         record = usable[0]
         raw_digest = self._compute(record, canonical_member)
@@ -228,9 +221,7 @@ class SfuMemberDigestKeyProvider:
             # clock, and input failures all produce a deny result.
             return False
 
-    def _validate_record(
-        self, record: SfuMemberDigestKeyRecord, *, expected_scope: str
-    ) -> None:
+    def _validate_record(self, record: SfuMemberDigestKeyRecord, *, expected_scope: str) -> None:
         if not isinstance(record, SfuMemberDigestKeyRecord):
             raise SfuMemberDigestUnavailable("invalid secret-store record")
         self._validate_key_id(record.key_id)
@@ -282,9 +273,7 @@ class SfuMemberDigestKeyProvider:
         ).digest()
         pseudorandom_key = hmac.new(salt, record.secret, hashlib.sha256).digest()
         info = _DIGEST_DOMAIN + self._frame(record.scope.encode("ascii"))
-        derived_key = hmac.new(
-            pseudorandom_key, info + b"\x01", hashlib.sha256
-        ).digest()[: self._policy.digest_bytes]
+        derived_key = hmac.new(pseudorandom_key, info + b"\x01", hashlib.sha256).digest()[: self._policy.digest_bytes]
         message = _DIGEST_DOMAIN + self._frame(record.scope.encode("ascii"))
         message += self._frame(member)
         return hmac.new(derived_key, message, hashlib.sha256).digest()
@@ -301,15 +290,11 @@ class SfuMemberDigestKeyProvider:
         return encoded
 
     def _validate_key_id(self, value: str) -> None:
-        if not isinstance(value, str) or re.fullmatch(
-            self._policy.key_id_pattern, value, re.ASCII
-        ) is None:
+        if not isinstance(value, str) or re.fullmatch(self._policy.key_id_pattern, value, re.ASCII) is None:
             raise SfuMemberDigestUnavailable("invalid digest key id")
 
     def _validate_scope(self, value: str) -> None:
-        if not isinstance(value, str) or re.fullmatch(
-            self._policy.scope_pattern, value, re.ASCII
-        ) is None:
+        if not isinstance(value, str) or re.fullmatch(self._policy.scope_pattern, value, re.ASCII) is None:
             raise SfuMemberDigestUnavailable("invalid digest scope")
 
     def _now(self) -> datetime:
@@ -335,9 +320,7 @@ class SfuMemberDigestKeyProvider:
         if not isinstance(value, str) or not value or "=" in value:
             raise SfuMemberDigestUnavailable("invalid digest encoding")
         try:
-            decoded = base64.b64decode(
-                value + "=" * (-len(value) % 4), altchars=b"-_", validate=True
-            )
+            decoded = base64.b64decode(value + "=" * (-len(value) % 4), altchars=b"-_", validate=True)
         except (ValueError, UnicodeEncodeError) as exc:
             raise SfuMemberDigestUnavailable("invalid digest encoding") from exc
         if len(decoded) != self._policy.digest_bytes or self._encode(decoded) != value:

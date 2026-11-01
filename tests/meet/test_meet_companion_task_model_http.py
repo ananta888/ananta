@@ -36,15 +36,23 @@ def http(models):
 
 
 def packet(f, action="reserve", payload=None):
-    return {"schema": REQUEST_SCHEMA, "nonce": "c" * 32, "sent_at": int(time.time()),
-            "assignment": deepcopy(f.request["assignment"]), "action": action,
-            "payload": value() if payload is None else payload}
+    return {
+        "schema": REQUEST_SCHEMA,
+        "nonce": "c" * 32,
+        "sent_at": int(time.time()),
+        "assignment": deepcopy(f.request["assignment"]),
+        "action": action,
+        "payload": value() if payload is None else payload,
+    }
 
 
 def post(f, value=None, *, headers=None, path=PATH):
     raw = encode(packet(f) if value is None else value)
-    return f.app.test_client().post(path, data=raw, headers={"Content-Type": "application/json",
-        SIGNATURE_HEADER: request_signature(KEY, raw), **(headers or {})})
+    return f.app.test_client().post(
+        path,
+        data=raw,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(KEY, raw), **(headers or {})},
+    )
 
 
 def client(f, endpoint):
@@ -57,8 +65,9 @@ def test_actual_worker_http_client_reserves_and_finishes_exact_model_result(http
         worker = client(http, endpoint)
         reserved = worker.call("reserve", value())
         assert state(http, reserved["run"]["run_id"])["state"] == "reserved"
-        finished = worker.call("finish", {"run": reserved["run"], "input_source": reserved["input_source"],
-                                           "result": generated()})
+        finished = worker.call(
+            "finish", {"run": reserved["run"], "input_source": reserved["input_source"], "result": generated()}
+        )
         assert finished["run"] == reserved["run"]
         assert state(http, reserved["run"]["run_id"])["state"] == "succeeded"
 
@@ -109,8 +118,9 @@ def test_worker_rejects_modified_or_unsigned_finish_response(http, bad):
         worker = client(http, endpoint)
         reserved = worker.call("reserve", value())
         with pytest.raises(ValueError, match="unavailable_or_invalid"):
-            worker.call("finish", {"run": reserved["run"], "input_source": reserved["input_source"],
-                                   "result": generated()})
+            worker.call(
+                "finish", {"run": reserved["run"], "input_source": reserved["input_source"], "result": generated()}
+            )
 
 
 def test_withdrawn_task_result_never_passes_actual_http_route(http):
@@ -119,8 +129,9 @@ def test_withdrawn_task_result_never_passes_actual_http_route(http):
         reserved = worker.call("reserve", value())
         http.f.task.status = "cancelled"
         with pytest.raises(ValueError, match="unavailable_or_invalid"):
-            worker.call("finish", {"run": reserved["run"], "input_source": reserved["input_source"],
-                                   "result": generated()})
+            worker.call(
+                "finish", {"run": reserved["run"], "input_source": reserved["input_source"], "result": generated()}
+            )
         assert state(http, reserved["run"]["run_id"])["state"] != "succeeded"
 
 

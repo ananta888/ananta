@@ -6,27 +6,24 @@ All tests are pure unit tests — no network, no LLM calls, no filesystem.
 Covers BAYES-012 (zero/low samples), BAYES-013 (posterior updates),
 BAYES-014 (cumulative attempt estimates), and uncertainty labelling.
 """
+
 import math
+
 import pytest
 
 from agent.services.bayesian_benchmark_estimator import (
-    LOW_CONFIDENCE_DEFAULT,
-    HIGH_CONFIDENCE_DEFAULT,
-    HIGH_VARIANCE_THRESHOLD,
     BayesianEvidence,
     BetaBinomialPosterior,
-    CumulativeSuccessEstimate,
-    UncertaintyLabel,
+    _attempts_for_cumulative_target,
     compute_posterior,
     estimate_bayesian_for_samples,
     estimate_cumulative_success,
     label_uncertainty,
     normalize_sample_to_evidence,
-    _attempts_for_cumulative_target,
 )
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _make_sample(success: bool, quality_passed: bool | None = None, **kwargs) -> dict:
     s = {"ts": 1700000000, "success": success, "latency_ms": 500, "tokens_total": 100, "cost_units": 0.001}
@@ -49,6 +46,7 @@ def _failure_samples(n: int) -> list[dict]:
 
 
 # ── normalize_sample_to_evidence ───────────────────────────────────────────────
+
 
 class TestNormalizeSampleToEvidence:
     def test_success_fields_mapped(self):
@@ -98,6 +96,7 @@ class TestNormalizeSampleToEvidence:
 
 # ── compute_posterior — zero evidence (BAYES-012) ─────────────────────────────
 
+
 class TestComputePosteriorZeroEvidence:
     def test_zero_evidence_returns_prior_mean(self):
         p = compute_posterior(evidence=[], signal_key="success")
@@ -118,10 +117,18 @@ class TestComputePosteriorZeroEvidence:
         assert p["posterior_std"] > 0
         # all posterior keys present (no KeyError)
         required = {
-            "alpha_prior", "beta_prior", "success_count", "failure_count",
-            "posterior_alpha", "posterior_beta", "posterior_mean",
-            "posterior_variance", "posterior_std", "credible_interval_90",
-            "sample_count", "explanation",
+            "alpha_prior",
+            "beta_prior",
+            "success_count",
+            "failure_count",
+            "posterior_alpha",
+            "posterior_beta",
+            "posterior_mean",
+            "posterior_variance",
+            "posterior_std",
+            "credible_interval_90",
+            "sample_count",
+            "explanation",
         }
         assert required.issubset(p.keys())
 
@@ -133,6 +140,7 @@ class TestComputePosteriorZeroEvidence:
 
 
 # ── compute_posterior — posterior updates (BAYES-013) ────────────────────────
+
 
 class TestComputePosteriorUpdates:
     def test_one_success_raises_posterior_above_prior(self):
@@ -201,14 +209,14 @@ class TestComputePosteriorUpdates:
 
 # ── label_uncertainty ──────────────────────────────────────────────────────────
 
+
 class TestLabelUncertainty:
     def _posterior_with_n(self, n: int, successes: int = None) -> BetaBinomialPosterior:
         if successes is None:
             successes = n // 2
-        ev = (
-            [_make_evidence(True, True) for _ in range(successes)]
-            + [_make_evidence(False, False) for _ in range(n - successes)]
-        )
+        ev = [_make_evidence(True, True) for _ in range(successes)] + [
+            _make_evidence(False, False) for _ in range(n - successes)
+        ]
         return compute_posterior(evidence=ev, signal_key="quality_passed")
 
     def test_no_evidence_label_and_required_keys(self):
@@ -217,7 +225,14 @@ class TestLabelUncertainty:
         assert u["label"] == "no_evidence"
         assert u["low_confidence"] is True
         assert "prior_only" in u["warning_flags"]
-        for key in ("label", "confidence_level", "sample_count", "posterior_variance", "low_confidence", "warning_flags"):
+        for key in (
+            "label",
+            "confidence_level",
+            "sample_count",
+            "posterior_variance",
+            "low_confidence",
+            "warning_flags",
+        ):
             assert key in u
 
     def test_very_low_sample_count(self):
@@ -247,16 +262,15 @@ class TestLabelUncertainty:
         assert u["label"] in ("medium", "high")
 
 
-
 # ── estimate_cumulative_success (BAYES-014) ───────────────────────────────────
+
 
 class TestEstimateCumulativeSuccess:
     def _posterior(self, mean: float, n: int = 20) -> BetaBinomialPosterior:
         successes = round(mean * n)
-        ev = (
-            [_make_evidence(True, True) for _ in range(successes)]
-            + [_make_evidence(False, False) for _ in range(n - successes)]
-        )
+        ev = [_make_evidence(True, True) for _ in range(successes)] + [
+            _make_evidence(False, False) for _ in range(n - successes)
+        ]
         return compute_posterior(evidence=ev, signal_key="quality_passed")
 
     def test_zero_attempts_returns_zero_probability(self):
@@ -268,9 +282,7 @@ class TestEstimateCumulativeSuccess:
     def test_n_1_equals_per_attempt_probability(self):
         p = self._posterior(0.7)
         est = estimate_cumulative_success(posterior=p, n_attempts=1, mode="independent")
-        assert math.isclose(
-            est["cumulative_probability"], est["per_attempt_probability"], rel_tol=1e-4
-        )
+        assert math.isclose(est["cumulative_probability"], est["per_attempt_probability"], rel_tol=1e-4)
 
     def test_cumulative_increases_monotonically_neutral(self):
         p = self._posterior(0.4)
@@ -279,13 +291,17 @@ class TestEstimateCumulativeSuccess:
             for n in range(1, 11)
         ]
         for i in range(len(probs) - 1):
-            assert probs[i] <= probs[i + 1], f"not monotonic at n={i+1}"
+            assert probs[i] <= probs[i + 1], f"not monotonic at n={i + 1}"
 
     def test_pessimistic_leq_neutral_for_n_gt_1(self):
         p = self._posterior(0.5)
         for n in [2, 5, 10, 20]:
-            neutral = estimate_cumulative_success(posterior=p, n_attempts=n, mode="independent")["cumulative_probability"]
-            pessimistic = estimate_cumulative_success(posterior=p, n_attempts=n, mode="pessimistic")["cumulative_probability"]
+            neutral = estimate_cumulative_success(posterior=p, n_attempts=n, mode="independent")[
+                "cumulative_probability"
+            ]
+            pessimistic = estimate_cumulative_success(posterior=p, n_attempts=n, mode="pessimistic")[
+                "cumulative_probability"
+            ]
             assert pessimistic <= neutral + 1e-9, f"pessimistic > neutral at n={n}"
 
     def test_optimistic_never_exceeds_cap(self):
@@ -325,6 +341,7 @@ class TestEstimateCumulativeSuccess:
 
 # ── _attempts_for_cumulative_target ───────────────────────────────────────────
 
+
 class TestAttemptsForTarget:
     def test_impossible_when_p_zero(self):
         assert _attempts_for_cumulative_target(0.0, 0.5) is None
@@ -353,6 +370,7 @@ class TestAttemptsForTarget:
 
 
 # ── estimate_bayesian_for_samples ─────────────────────────────────────────────
+
 
 class TestEstimateBayesianForSamples:
     def test_empty_samples_prior_only_with_required_keys(self):

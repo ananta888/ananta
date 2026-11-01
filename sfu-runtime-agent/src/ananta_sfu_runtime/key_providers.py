@@ -79,9 +79,7 @@ class Tpm2KeyProvider:
     def public_key_pem(self) -> str:
         with tempfile.TemporaryDirectory(prefix="ananta-tpm-public-") as directory:
             output = Path(directory) / "public.pem"
-            self._execute(
-                ["tpm2_readpublic", "-Q", "-c", self._key_handle, "-f", "pem", "-o", str(output)]
-            )
+            self._execute(["tpm2_readpublic", "-Q", "-c", self._key_handle, "-f", "pem", "-o", str(output)])
             try:
                 pem = output.read_bytes()
                 key = serialization.load_pem_public_key(pem)

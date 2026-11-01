@@ -4,7 +4,7 @@ import time
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -69,9 +69,7 @@ class SfuRuntimeIdentityMutationDB(SQLModel, table=True):
 
     __tablename__ = "sfu_runtime_identity_mutations"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "actor", "idempotency_key_digest", name="uq_sfu_runtime_mutation_actor_idempotency"
-        ),
+        sa.UniqueConstraint("actor", "idempotency_key_digest", name="uq_sfu_runtime_mutation_actor_idempotency"),
         sa.Index("ix_sfu_runtime_mutation_node_version", "node_id", "result_version"),
     )
 
@@ -95,9 +93,7 @@ class SfuRuntimeEnrollmentRateLimitDB(SQLModel, table=True):
 
     __tablename__ = "sfu_runtime_enrollment_rate_limits"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "actor", "source_digest", "window_started_at", name="uq_sfu_runtime_enrollment_bucket"
-        ),
+        sa.UniqueConstraint("actor", "source_digest", "window_started_at", name="uq_sfu_runtime_enrollment_bucket"),
     )
 
     id: str = Field(primary_key=True)

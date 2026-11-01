@@ -209,9 +209,7 @@ def test_kanban_render_and_regions_are_deterministic_for_terminal_sizes(
 def test_mouse_and_keyboard_share_selection_state() -> None:
     controller, _, _ = _controller()
     payload = asyncio.run(controller.load_kanban()).payload
-    regions = RegionIndex(
-        dashboard_region_rects("kanban", payload, x1=0, x2=79, y1=0, y2=23)
-    )
+    regions = RegionIndex(dashboard_region_rects("kanban", payload, x1=0, x2=79, y1=0, y2=23))
 
     mouse, target, result = asyncio.run(
         controller.handle_mouse(
@@ -269,9 +267,7 @@ def test_model_catalog_strips_transport_data_and_supports_only_safe_actions() ->
 
     assert "url" not in model
     assert "token" not in model
-    assert loaded.payload["provider_errors"] == [
-        {"provider": "broken", "code": "unavailable"}
-    ]
+    assert loaded.payload["provider_errors"] == [{"provider": "broken", "code": "unavailable"}]
     assert "load_model" not in dir(controller)
     assert "unload_model" not in dir(controller)
 
@@ -282,17 +278,13 @@ def test_model_catalog_strips_transport_data_and_supports_only_safe_actions() ->
     assert defaulted.state is PanelState.HEALTHY
     assert ("refresh", {}) in port.calls
     assert any(
-        name == "default"
-        and data["model_id"] == "cloud-model"
-        and "expected_revision" in data
+        name == "default" and data["model_id"] == "cloud-model" and "expected_revision" in data
         for name, data in port.calls
     )
 
 
 def test_model_plugin_is_deterministic_and_provider_errors_are_isolated() -> None:
-    payload = normalise_catalog(
-        asyncio.run(FakeModelCatalogPort().fetch_catalog())
-    )
+    payload = normalise_catalog(asyncio.run(FakeModelCatalogPort().fetch_catalog()))
     plugin = ModelCatalogContentPlugin()
 
     lines = plugin.render(payload, 80, 24, selected=0)

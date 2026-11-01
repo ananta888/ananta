@@ -64,12 +64,8 @@ def test_recovery_dispatch_reuses_strict_registered_worker_identity(
                     worker.name: {
                         "worker_url": worker.url,
                         "registration_token": ALPHA_BOOTSTRAP,
-                        "service_token_sha256": _sha256(
-                            ALPHA_TOKEN
-                        ),
-                        "session_signing_key_sha256": _sha256(
-                            ALPHA_SESSION_KEY
-                        ),
+                        "service_token_sha256": _sha256(ALPHA_TOKEN),
+                        "session_signing_key_sha256": _sha256(ALPHA_SESSION_KEY),
                         "allowed_capabilities": ["coding"],
                     }
                 },
@@ -79,14 +75,10 @@ def test_recovery_dispatch_reuses_strict_registered_worker_identity(
     )
     keyring.chmod(0o440)
     app = Flask(__name__)
-    app.secret_key = (
-        "recovery-user-session-secret-0123456789abcdef"
-    )
+    app.secret_key = "recovery-user-session-secret-0123456789abcdef"
     app.config.update(
         AGENT_TOKEN=HUB_TOKEN,
-        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=(
-            str(keyring)
-        ),
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=(str(keyring)),
     )
 
     class Repo:
@@ -154,9 +146,7 @@ def test_recovery_dispatch_reuses_strict_registered_worker_identity(
         worker_token=ALPHA_TOKEN,
         app=app,
     )
-    worker.registration_provenance = (
-        STRICT_WORKER_REGISTRATION_PROVENANCE
-    )
+    worker.registration_provenance = STRICT_WORKER_REGISTRATION_PROVENANCE
     assert not RecoveryDispatchGateService._worker_identity_valid(
         repos,
         task=task,
@@ -239,14 +229,10 @@ def _strict_app(monkeypatch: pytest.MonkeyPatch, tmp_path) -> Flask:
         TESTING=True,
         AGENT_TOKEN=HUB_TOKEN,
         ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
-        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(
-            registration_keyring
-        ),
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(registration_keyring),
         ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE=str(runtime_keyring),
     )
-    app.extensions["repository_registry"] = SimpleNamespace(
-        agent_repo=_AgentRepo([alpha, beta])
-    )
+    app.extensions["repository_registry"] = SimpleNamespace(agent_repo=_AgentRepo([alpha, beta]))
     monkeypatch.setattr("agent.auth.log_audit", lambda *_args, **_kwargs: None)
 
     @app.post("/workflow-command")
@@ -325,9 +311,7 @@ def test_registered_worker_token_is_identity_bound_scoped_and_never_admin(
     assert admin.get_json()["message"] == "unauthorized"
     assert "admin" not in admin.get_json()
     assert checkpoint.status_code == 403
-    assert checkpoint.get_json()["data"]["reason_code"] == (
-        "workflow_worker_service_scope_forbidden"
-    )
+    assert checkpoint.get_json()["data"]["reason_code"] == ("workflow_worker_service_scope_forbidden")
     # Temporal retains its separate legacy runtime-service boundary. A Native
     # Worker credential still cannot use that endpoint.
     assert temporal.status_code == 401
@@ -369,9 +353,7 @@ def test_knowledge_index_payload_scope_requires_index_worker_capability(
         ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
         ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
     )
-    app.extensions["repository_registry"] = SimpleNamespace(
-        agent_repo=_AgentRepo([worker])
-    )
+    app.extensions["repository_registry"] = SimpleNamespace(agent_repo=_AgentRepo([worker]))
     monkeypatch.setattr("agent.auth.log_audit", lambda *_args, **_kwargs: None)
 
     @app.get("/knowledge-index-payload")
@@ -420,17 +402,11 @@ def test_worker_cannot_claim_another_registered_identity_or_use_hub_admin_token(
     )
 
     assert foreign_claim.status_code == 403
-    assert foreign_claim.get_json()["data"]["reason_code"] == (
-        "workflow_worker_service_identity_mismatch"
-    )
+    assert foreign_claim.get_json()["data"]["reason_code"] == ("workflow_worker_service_identity_mismatch")
     assert hub_token.status_code == 401
-    assert hub_token.get_json()["data"]["reason_code"] == (
-        "workflow_worker_service_token_invalid"
-    )
+    assert hub_token.get_json()["data"]["reason_code"] == ("workflow_worker_service_token_invalid")
     assert missing_claim.status_code == 401
-    assert missing_claim.get_json()["data"]["reason_code"] == (
-        "workflow_worker_service_identity_required"
-    )
+    assert missing_claim.get_json()["data"]["reason_code"] == ("workflow_worker_service_identity_required")
 
 
 def test_registered_langgraph_worker_receives_only_its_declared_scope(
@@ -469,16 +445,10 @@ def test_legacy_or_unproven_agent_rows_are_never_strict_service_identities(
             claimed_worker_url="http://worker-alpha:5000",
             registered_agents=[legacy],
             hub_service_token=HUB_TOKEN,
-            config={
-                "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(
-                    keyring
-                )
-            },
+            config={"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)},
         )
     assert raised.value.status_code == 403
-    assert raised.value.reason_code == (
-        "workflow_worker_registration_not_validated"
-    )
+    assert raised.value.reason_code == ("workflow_worker_registration_not_validated")
 
 
 def test_temporal_runtime_uses_its_own_scope_and_never_hub_admin_identity(
@@ -514,9 +484,7 @@ def test_temporal_runtime_uses_its_own_scope_and_never_hub_admin_identity(
     assert admin.get_json()["message"] == "unauthorized"
     assert "admin" not in admin.get_json()
     assert wrong_identity.status_code == 401
-    assert wrong_identity.get_json()["data"]["reason_code"] == (
-        "workflow_runtime_service_identity_mismatch"
-    )
+    assert wrong_identity.get_json()["data"]["reason_code"] == ("workflow_runtime_service_identity_mismatch")
 
 
 def _write_keyring(
@@ -597,9 +565,7 @@ def test_registration_keyring_binds_bootstrap_to_name_url_and_distinct_service_t
 ) -> None:
     keyring = tmp_path / "worker-registration-keyring.json"
     _write_keyring(keyring)
-    config = {
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)
-    }
+    config = {"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)}
 
     accepted = validate_strict_worker_registration(
         _registration(),
@@ -645,9 +611,7 @@ def test_registration_rejects_capability_escalation_and_invalid_allowlist(
 ) -> None:
     keyring = tmp_path / "worker-registration-keyring.json"
     _write_keyring(keyring)
-    config = {
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)
-    }
+    config = {"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)}
 
     with pytest.raises(WorkflowWorkerAuthDenied) as raised:
         validate_strict_worker_registration(
@@ -661,9 +625,7 @@ def test_registration_rejects_capability_escalation_and_invalid_allowlist(
             hub_service_token=HUB_TOKEN,
             config=config,
         )
-    assert raised.value.reason_code == (
-        "workflow_worker_registration_capability_escalation_denied"
-    )
+    assert raised.value.reason_code == ("workflow_worker_registration_capability_escalation_denied")
 
     invalid = tmp_path / "invalid-worker-registration-keyring.json"
     invalid.write_text(
@@ -686,11 +648,7 @@ def test_registration_rejects_capability_escalation_and_invalid_allowlist(
             _registration(),
             registered_agents=[],
             hub_service_token=HUB_TOKEN,
-            config={
-                "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(
-                    invalid
-                )
-            },
+            config={"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(invalid)},
         )
 
 
@@ -699,9 +657,7 @@ def test_registration_keyring_prevents_cross_worker_overwrite_and_token_reuse(
 ) -> None:
     keyring = tmp_path / "worker-registration-keyring.json"
     _write_keyring(keyring)
-    config = {
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)
-    }
+    config = {"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)}
     existing = _agent(
         name="worker-beta",
         url="http://worker-beta:5000",
@@ -736,9 +692,7 @@ def test_registration_allows_service_token_rotation_for_same_bound_identity(
         _registration(service_token=ALPHA_TOKEN),
         registered_agents=[existing],
         hub_service_token=HUB_TOKEN,
-        config={
-            "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)
-        },
+        config={"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)},
     )
 
     assert credential.worker_id == "worker-alpha"
@@ -760,9 +714,7 @@ def test_registration_refresh_is_idempotent_for_same_bound_identity(
         _registration(),
         registered_agents=[existing],
         hub_service_token=HUB_TOKEN,
-        config={
-            "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)
-        },
+        config={"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)},
     )
 
     assert credential.worker_id == "worker-alpha"
@@ -834,12 +786,8 @@ def test_registration_rejects_cross_keyring_secret_reuse_matrix(tmp_path) -> Non
                 registered_agents=registered_agents,
                 hub_service_token=HUB_TOKEN,
                 config={
-                    "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(
-                        registration_keyring
-                    ),
-                    "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE": str(
-                        runtime_keyring
-                    ),
+                    "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(registration_keyring),
+                    "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE": str(runtime_keyring),
                 },
             )
         assert raised.value.reason_code == reason_code
@@ -887,12 +835,8 @@ def test_runtime_keyring_rejects_any_bootstrap_token_reuse(tmp_path) -> None:
             forbidden_token=HUB_TOKEN,
             forbidden_tokens=[ALPHA_TOKEN, BETA_TOKEN],
             config={
-                "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(
-                    registration_keyring
-                ),
-                "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE": str(
-                    runtime_keyring
-                ),
+                "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(registration_keyring),
+                "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE": str(runtime_keyring),
             },
         )
 
@@ -939,12 +883,8 @@ def test_strict_boundary_rejects_user_session_secret_reuse_in_every_domain(
             worker_service_tokens=[ALPHA_TOKEN, BETA_TOKEN],
             config={
                 "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH": True,
-                "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(
-                    registration_keyring
-                ),
-                "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE": str(
-                    runtime_keyring
-                ),
+                "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(registration_keyring),
+                "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE": str(runtime_keyring),
             },
         )
 

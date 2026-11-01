@@ -366,10 +366,7 @@ def static_hardening_checks() -> dict[str, bool]:
             training_document["networks"]["speech-training-control"].get("internal") is True
             and reconciliation_document["networks"]["speech-reconciliation-control"].get("internal") is True
             and _network_names(training_service) == {"speech-training-control"}
-            and all(
-                _network_names(service) == {"speech-reconciliation-control"}
-                for service in reconciliation_services
-            )
+            and all(_network_names(service) == {"speech-reconciliation-control"} for service in reconciliation_services)
             and all(_network_names(service) == {"semantic-media-edge"} for service in edge_services)
             and _turn_is_loopback_only(turn_service)
         ),
@@ -460,13 +457,11 @@ def _secret_boundaries_present(
     turn_command = " ".join(str(value) for value in turn_service.get("command", ()))
     return (
         "${ANANTA_SPEECH_TRAINING_INTERNAL_TOKEN:?" in str(training_environment.get("ANANTA_SPEECH_TRAINING_TOKEN", ""))
-        and "${ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN:?" in str(
-            training_environment.get("ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN", "")
-        )
+        and "${ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN:?"
+        in str(training_environment.get("ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN", ""))
         and all(
-            "${ANANTA_SPEECH_RECONCILIATION_INTERNAL_TOKEN:?" in str(
-                environment.get("ANANTA_SPEECH_RECONCILIATION_TOKEN", "")
-            )
+            "${ANANTA_SPEECH_RECONCILIATION_INTERNAL_TOKEN:?"
+            in str(environment.get("ANANTA_SPEECH_RECONCILIATION_TOKEN", ""))
             for environment in reconciliation_environments
         )
         and all(service.get("secrets") for service in reconciliation_services)

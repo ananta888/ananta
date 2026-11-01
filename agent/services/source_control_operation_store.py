@@ -1,5 +1,4 @@
-"""Durable idempotency/operation receipts and bulk checkpoints for Source Control mutations.
-"""
+"""Durable idempotency/operation receipts and bulk checkpoints for Source Control mutations."""
 
 from __future__ import annotations
 
@@ -43,9 +42,7 @@ class SQLSourceControlOperationStore:
         self._clock = clock
         self._lease_seconds = float(lease_seconds)
 
-    def claim(
-        self, *, idempotency_key: str, plan_digest: str
-    ) -> BulkIdempotencyClaim:
+    def claim(self, *, idempotency_key: str, plan_digest: str) -> BulkIdempotencyClaim:
         now = float(self._clock())
         token = secrets.token_urlsafe(32)
         with Session(self._engine) as db:
@@ -73,18 +70,12 @@ class SQLSourceControlOperationStore:
                 db.rollback()
                 row = db.get(SourceControlOperationDB, idempotency_key)
                 if row is None:
-                    raise SourceControlApiRuntimeError(
-                        "idempotency_claim_failed", status_code=409
-                    )
+                    raise SourceControlApiRuntimeError("idempotency_claim_failed", status_code=409)
                 if row.request_digest != plan_digest:
-                    raise SourceControlApiRuntimeError(
-                        "idempotency_key_conflict", status_code=409
-                    )
+                    raise SourceControlApiRuntimeError("idempotency_key_conflict", status_code=409)
                 if row.state == "completed":
                     if not row.result_json:
-                        raise SourceControlApiRuntimeError(
-                            "idempotency_result_missing", status_code=500
-                        )
+                        raise SourceControlApiRuntimeError("idempotency_result_missing", status_code=500)
                     return BulkIdempotencyClaim(
                         state="completed",
                         result=json.loads(row.result_json),
@@ -93,18 +84,14 @@ class SQLSourceControlOperationStore:
                     mutation = db.exec(
                         update(SourceControlOperationDB)
                         .where(
-                            SourceControlOperationDB.idempotency_key
-                            == idempotency_key,
-                            SourceControlOperationDB.request_digest
-                            == plan_digest,
+                            SourceControlOperationDB.idempotency_key == idempotency_key,
+                            SourceControlOperationDB.request_digest == plan_digest,
                             SourceControlOperationDB.state == "claimed",
-                            SourceControlOperationDB.lock_version
-                            == row.lock_version,
+                            SourceControlOperationDB.lock_version == row.lock_version,
                         )
                         .values(
                             claim_token=token,
-                            lease_expires_at_epoch=now
-                            + self._lease_seconds,
+                            lease_expires_at_epoch=now + self._lease_seconds,
                             lock_version=row.lock_version + 1,
                             updated_at_epoch=now,
                         )
@@ -114,8 +101,7 @@ class SQLSourceControlOperationStore:
                         return BulkIdempotencyClaim(
                             state="claimed",
                             claim_token=token,
-                            lease_expires_at_epoch=now
-                            + self._lease_seconds,
+                            lease_expires_at_epoch=now + self._lease_seconds,
                             checkpoints=self._checkpoints(
                                 idempotency_key=idempotency_key,
                                 plan_digest=plan_digest,
@@ -135,14 +121,11 @@ class SQLSourceControlOperationStore:
         with Session(self._engine) as db:
             owner_filters = []
             if claim_token is not None:
-                owner_filters.append(
-                    SourceControlOperationDB.claim_token == claim_token
-                )
+                owner_filters.append(SourceControlOperationDB.claim_token == claim_token)
             mutation = db.exec(
                 update(SourceControlOperationDB)
                 .where(
-                    SourceControlOperationDB.idempotency_key
-                    == idempotency_key,
+                    SourceControlOperationDB.idempotency_key == idempotency_key,
                     SourceControlOperationDB.request_digest == plan_digest,
                     SourceControlOperationDB.state == "claimed",
                     *owner_filters,
@@ -161,9 +144,7 @@ class SQLSourceControlOperationStore:
             )
             if mutation.rowcount != 1:
                 db.rollback()
-                raise SourceControlApiRuntimeError(
-                    "idempotency_completion_conflict", status_code=409
-                )
+                raise SourceControlApiRuntimeError("idempotency_completion_conflict", status_code=409)
             db.commit()
 
     def release(
@@ -180,8 +161,7 @@ class SQLSourceControlOperationStore:
             mutation = db.exec(
                 update(SourceControlOperationDB)
                 .where(
-                    SourceControlOperationDB.idempotency_key
-                    == idempotency_key,
+                    SourceControlOperationDB.idempotency_key == idempotency_key,
                     SourceControlOperationDB.request_digest == plan_digest,
                     SourceControlOperationDB.state == "claimed",
                     SourceControlOperationDB.claim_token == claim_token,
@@ -193,9 +173,7 @@ class SQLSourceControlOperationStore:
             )
             if mutation.rowcount != 1:
                 db.rollback()
-                raise SourceControlApiRuntimeError(
-                    "idempotency_release_conflict", status_code=409
-                )
+                raise SourceControlApiRuntimeError("idempotency_release_conflict", status_code=409)
             db.commit()
 
     def begin_target(
@@ -209,11 +187,9 @@ class SQLSourceControlOperationStore:
         target_digest: str,
     ) -> BulkTargetCheckpoint:
         now = float(self._clock())
-        checkpoint_id = "bcp_" + hashlib.sha256(
-            f"{idempotency_key}\0{target_ordinal}\0{target_digest}".encode(
-                "utf-8"
-            )
-        ).hexdigest()
+        checkpoint_id = (
+            "bcp_" + hashlib.sha256(f"{idempotency_key}\0{target_ordinal}\0{target_digest}".encode("utf-8")).hexdigest()
+        )
         with Session(self._engine) as db:
             self._renew_owner(
                 db,
@@ -222,9 +198,7 @@ class SQLSourceControlOperationStore:
                 claim_token=claim_token,
                 now=now,
             )
-            existing = db.get(
-                SourceControlBulkTargetCheckpointDB, checkpoint_id
-            )
+            existing = db.get(SourceControlBulkTargetCheckpointDB, checkpoint_id)
             if existing is None:
                 existing = SourceControlBulkTargetCheckpointDB(
                     checkpoint_id=checkpoint_id,
@@ -246,9 +220,7 @@ class SQLSourceControlOperationStore:
                 or existing.resource_id != resource_id
                 or existing.target_digest != target_digest
             ):
-                raise SourceControlApiRuntimeError(
-                    "bulk_target_checkpoint_conflict", status_code=409
-                )
+                raise SourceControlApiRuntimeError("bulk_target_checkpoint_conflict", status_code=409)
             else:
                 existing.attempt_count += 1
                 existing.updated_at_epoch = now
@@ -284,25 +256,17 @@ class SQLSourceControlOperationStore:
             )
             row = db.exec(
                 select(SourceControlBulkTargetCheckpointDB).where(
-                    SourceControlBulkTargetCheckpointDB.idempotency_key
-                    == idempotency_key,
-                    SourceControlBulkTargetCheckpointDB.plan_digest
-                    == plan_digest,
-                    SourceControlBulkTargetCheckpointDB.target_ordinal
-                    == target_ordinal,
-                    SourceControlBulkTargetCheckpointDB.target_digest
-                    == target_digest,
+                    SourceControlBulkTargetCheckpointDB.idempotency_key == idempotency_key,
+                    SourceControlBulkTargetCheckpointDB.plan_digest == plan_digest,
+                    SourceControlBulkTargetCheckpointDB.target_ordinal == target_ordinal,
+                    SourceControlBulkTargetCheckpointDB.target_digest == target_digest,
                 )
             ).first()
             if row is None:
-                raise SourceControlApiRuntimeError(
-                    "bulk_target_checkpoint_missing", status_code=409
-                )
+                raise SourceControlApiRuntimeError("bulk_target_checkpoint_missing", status_code=409)
             if row.state == "completed":
                 if row.result_json != encoded:
-                    raise SourceControlApiRuntimeError(
-                        "bulk_target_result_conflict", status_code=409
-                    )
+                    raise SourceControlApiRuntimeError("bulk_target_result_conflict", status_code=409)
                 return self._checkpoint(row)
             row.state = "completed"
             row.result_json = encoded
@@ -312,21 +276,15 @@ class SQLSourceControlOperationStore:
             db.refresh(row)
             return self._checkpoint(row)
 
-    def _checkpoints(
-        self, *, idempotency_key: str, plan_digest: str
-    ) -> tuple[BulkTargetCheckpoint, ...]:
+    def _checkpoints(self, *, idempotency_key: str, plan_digest: str) -> tuple[BulkTargetCheckpoint, ...]:
         with Session(self._engine) as db:
             rows = db.exec(
                 select(SourceControlBulkTargetCheckpointDB)
                 .where(
-                    SourceControlBulkTargetCheckpointDB.idempotency_key
-                    == idempotency_key,
-                    SourceControlBulkTargetCheckpointDB.plan_digest
-                    == plan_digest,
+                    SourceControlBulkTargetCheckpointDB.idempotency_key == idempotency_key,
+                    SourceControlBulkTargetCheckpointDB.plan_digest == plan_digest,
                 )
-                .order_by(
-                    SourceControlBulkTargetCheckpointDB.target_ordinal
-                )
+                .order_by(SourceControlBulkTargetCheckpointDB.target_ordinal)
             ).all()
             return tuple(self._checkpoint(row) for row in rows)
 
@@ -355,9 +313,7 @@ class SQLSourceControlOperationStore:
         )
         if mutation.rowcount != 1:
             db.rollback()
-            raise SourceControlApiRuntimeError(
-                "idempotency_claim_lost", status_code=409
-            )
+            raise SourceControlApiRuntimeError("idempotency_claim_lost", status_code=409)
 
     @staticmethod
     def _checkpoint(
@@ -368,9 +324,7 @@ class SQLSourceControlOperationStore:
             resource_id=row.resource_id,
             target_digest=row.target_digest,
             state=row.state,
-            result=(
-                json.loads(row.result_json) if row.result_json else None
-            ),
+            result=(json.loads(row.result_json) if row.result_json else None),
         )
 
 

@@ -1,4 +1,5 @@
 """AFH-T006/T012: WorkspaceDiffService tests."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,15 +25,23 @@ class TestWorkspaceDiffService:
         after_id, after_snap = svc.take_after_snapshot(workspace)
 
         fcs = svc.compute_diff(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot={},
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot={},
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         assert len(fcs.created_files) >= 1
 
         manifest = svc.synthesize_manifest(
-            file_change_set=fcs, workspace_root=workspace,
-            task_id="t1", goal_id="g1", execution_id="e1", trace_id="tr-1",
+            file_change_set=fcs,
+            workspace_root=workspace,
+            task_id="t1",
+            goal_id="g1",
+            execution_id="e1",
+            trace_id="tr-1",
         )
         assert manifest["synthesized"] is True
         assert manifest["schema"] == "artifact_manifest.v1"
@@ -49,9 +58,13 @@ class TestWorkspaceDiffService:
         after_id, after_snap = svc.take_after_snapshot(workspace)
 
         fcs = svc.compute_diff(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id="empty", before_snapshot=before_snap,
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id="empty",
+            before_snapshot=before_snap,
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         # All files appear as created (since before was empty)
         assert len(fcs.created_files) == len(after_snap)
@@ -62,8 +75,12 @@ class TestWorkspaceDiffService:
         before_id, before_snap = svc.take_before_snapshot(workspace)
         after_id, after_snap = svc.take_after_snapshot(workspace)
         fcs = svc.compute_diff(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot={},
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot={},
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         assert fcs.workspace_boundary_status == "ok"

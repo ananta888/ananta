@@ -18,30 +18,79 @@ from agent.services.sfu_group_projection_service import (
 )
 from agent.services.sfu_receiver_group_projector import ProjectedReceiverGroup
 
-
 NOW = 1_000.0
 
 
 def audience():
     return SfuBroadcastAudience(
-        "audience-a", "tenant-a", "room-a", "room-state-a", 3, "active", 100,
-        100, "live", 1_100.0, 1_200.0, None, None, 1, 1, "hub:test", "test",
-        "a" * 64, "0" * 64, NOW, NOW, NOW, "audience-ref", "publication-a",
-        "b" * 64, "c" * 64, "d" * 64, 3, 4, 5,
+        "audience-a",
+        "tenant-a",
+        "room-a",
+        "room-state-a",
+        3,
+        "active",
+        100,
+        100,
+        "live",
+        1_100.0,
+        1_200.0,
+        None,
+        None,
+        1,
+        1,
+        "hub:test",
+        "test",
+        "a" * 64,
+        "0" * 64,
+        NOW,
+        NOW,
+        NOW,
+        "audience-ref",
+        "publication-a",
+        "b" * 64,
+        "c" * 64,
+        "d" * 64,
+        3,
+        4,
+        5,
     )
 
 
 def group(suffix="a"):
     return ProjectedReceiverGroup(
-        f"group-{suffix}", f"subscription-{suffix}", "publication-a", "team", "medium",
-        (f"receiver-{suffix}",), "e" * 64, "f" * 64, "1" * 64, 4, 5, 2,
+        f"group-{suffix}",
+        f"subscription-{suffix}",
+        "publication-a",
+        "team",
+        "medium",
+        (f"receiver-{suffix}",),
+        "e" * 64,
+        "f" * 64,
+        "1" * 64,
+        4,
+        5,
+        2,
     )
 
 
 def command(suffix="a", *, fence=1, key="create", version=0):
     return SfuGroupProjectionCommand(
-        "projection-a", "audience-a", "tenant-a", "room-a", "room-state-a", 3,
-        group(suffix), 3, version, fence, 50, 50, key, "hub:test", "race", NOW,
+        "projection-a",
+        "audience-a",
+        "tenant-a",
+        "room-a",
+        "room-state-a",
+        3,
+        group(suffix),
+        3,
+        version,
+        fence,
+        50,
+        50,
+        key,
+        "hub:test",
+        "race",
+        NOW,
     )
 
 
@@ -55,7 +104,12 @@ def test_two_repository_instances_have_exactly_one_join_race_winner() -> None:
     )
     services = tuple(SfuGroupProjectionService(repository=item) for item in repositories)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        outcomes = tuple(pool.map(lambda pair: pair[0].project(pair[1]), zip(services, (command("a", fence=1, key="hub-a"), command("b", fence=2, key="hub-b")))))
+        outcomes = tuple(
+            pool.map(
+                lambda pair: pair[0].project(pair[1]),
+                zip(services, (command("a", fence=1, key="hub-a"), command("b", fence=2, key="hub-b"))),
+            )
+        )
     assert sum(outcome.committed for outcome in outcomes) == 1
     assert {outcome.status for outcome in outcomes} == {"saved", "conflict"}
 

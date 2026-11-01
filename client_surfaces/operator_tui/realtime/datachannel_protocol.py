@@ -9,6 +9,7 @@ Protocol invariants:
   MAX_ARTIFACT_BYTES = 104857600 (100 MiB)
   CHUNK_SIZE = 32768
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -101,9 +102,7 @@ class DataChannelProtocol:
         """Serialize to UTF-8 bytes. Raises ValueError if too large."""
         raw = msg.to_json().encode("utf-8")
         if len(raw) > self.MAX_MESSAGE_BYTES:
-            raise ValueError(
-                f"Message too large: {len(raw)} bytes > {self.MAX_MESSAGE_BYTES}"
-            )
+            raise ValueError(f"Message too large: {len(raw)} bytes > {self.MAX_MESSAGE_BYTES}")
         return raw
 
     def decode(self, data: bytes) -> DataChannelMessage:
@@ -115,9 +114,7 @@ class DataChannelProtocol:
         - unknown message type
         """
         if len(data) > self.MAX_MESSAGE_BYTES:
-            raise ValueError(
-                f"Incoming message too large: {len(data)} bytes > {self.MAX_MESSAGE_BYTES}"
-            )
+            raise ValueError(f"Incoming message too large: {len(data)} bytes > {self.MAX_MESSAGE_BYTES}")
         try:
             obj = json.loads(data.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -125,9 +122,7 @@ class DataChannelProtocol:
 
         version = int(obj.get("protocol_version", 0))
         if version != self.VERSION:
-            raise ValueError(
-                f"Protocol version mismatch: got {version}, expected {self.VERSION}"
-            )
+            raise ValueError(f"Protocol version mismatch: got {version}, expected {self.VERSION}")
         msg_type = str(obj.get("type", ""))
         if msg_type not in MESSAGE_TYPES:
             raise ValueError(f"Unknown message type: {msg_type!r}")
@@ -165,9 +160,7 @@ class DataChannelProtocol:
         session_nonce: str,
     ) -> DataChannelMessage:
         if size > self.MAX_ARTIFACT_BYTES:
-            raise ValueError(
-                f"Artifact too large: {size} bytes > {self.MAX_ARTIFACT_BYTES}"
-            )
+            raise ValueError(f"Artifact too large: {size} bytes > {self.MAX_ARTIFACT_BYTES}")
         offer_id = str(uuid.uuid4())
         total_chunks = (size + self.CHUNK_SIZE - 1) // self.CHUNK_SIZE
         return DataChannelMessage(

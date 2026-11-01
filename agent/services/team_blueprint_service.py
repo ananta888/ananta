@@ -24,6 +24,7 @@ working. The CI detector script `scripts/check_shim_imports.py`
 monitors usage; once 0 imports remain, this file is removed in a
 cleanup PR.
 """
+
 from __future__ import annotations
 
 import warnings

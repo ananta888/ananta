@@ -90,36 +90,48 @@ def test_expire_revoke_and_ack_are_repeatable_and_content_free() -> None:
     assert repository.expire(now=101, limit=10) == 0
     repository.append(_envelope("message-2"), now=0)
     revoked = event("revoked", "hub_revoked", "message-2")
-    assert repository.revoke(
-        tenant_id="tenant-a",
-        session_id="session-a",
-        audit_event=revoked,
-    ) == 1
-    assert repository.revoke(
-        tenant_id="tenant-a",
-        session_id="session-a",
-        audit_event=revoked,
-    ) == 0
+    assert (
+        repository.revoke(
+            tenant_id="tenant-a",
+            session_id="session-a",
+            audit_event=revoked,
+        )
+        == 1
+    )
+    assert (
+        repository.revoke(
+            tenant_id="tenant-a",
+            session_id="session-a",
+            audit_event=revoked,
+        )
+        == 0
+    )
     repository.append(_envelope("message-3"), now=0)
     acknowledged = event("acknowledged", "audience_confirmed", "peer-a:control:3")
-    assert repository.acknowledge(
-        tenant_id="tenant-a",
-        session_id="session-a",
-        audience_id="peer-a",
-        cursor=3,
-        traffic_class="control",
-        now=1,
-        audit_event=acknowledged,
-    ) == 3
-    assert repository.acknowledge(
-        tenant_id="tenant-a",
-        session_id="session-a",
-        audience_id="peer-a",
-        cursor=3,
-        traffic_class="control",
-        now=1,
-        audit_event=acknowledged,
-    ) == 3
+    assert (
+        repository.acknowledge(
+            tenant_id="tenant-a",
+            session_id="session-a",
+            audience_id="peer-a",
+            cursor=3,
+            traffic_class="control",
+            now=1,
+            audit_event=acknowledged,
+        )
+        == 3
+    )
+    assert (
+        repository.acknowledge(
+            tenant_id="tenant-a",
+            session_id="session-a",
+            audience_id="peer-a",
+            cursor=3,
+            traffic_class="control",
+            now=1,
+            audit_event=acknowledged,
+        )
+        == 3
+    )
     assert repository.snapshot() == {
         "messages": 0,
         "bytes": 0,
@@ -128,19 +140,13 @@ def test_expire_revoke_and_ack_are_repeatable_and_content_free() -> None:
         "audit_events": 3,
     }
     audit_events = repository.audit_events()
-    assert [
-        (item.event_type, item.transition, item.reason_code)
-        for item in audit_events
-    ] == [
+    assert [(item.event_type, item.transition, item.reason_code) for item in audit_events] == [
         ("semantic_relay", "queued", "accepted"),
         ("semantic_relay", "revoked", "hub_revoked"),
         ("semantic_relay", "acknowledged", "audience_confirmed"),
     ]
     rendered_audit = json.dumps([item.public() for item in audit_events], sort_keys=True)
-    assert all(
-        forbidden not in rendered_audit
-        for forbidden in ("tenant-a", "session-a", "peer-a", "sender", "opaque")
-    )
+    assert all(forbidden not in rendered_audit for forbidden in ("tenant-a", "session-a", "peer-a", "sender", "opaque"))
 
 
 def test_saturating_one_session_does_not_consume_another_sessions_reserved_slot() -> None:

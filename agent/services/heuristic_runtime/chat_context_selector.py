@@ -12,9 +12,10 @@ Security-Deny always overrides ranking.
 Budget: max 5 refs, max 10 000 token-equivalent (≈ 40 chars/token).
 no_good_match returned when no ref with confidence > 0.3 found.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from agent.services.heuristic_runtime.chat_query_classifier import IntentKind
@@ -88,48 +89,65 @@ class ChatContextSelector:
 
         # Tier 1 — user-selected artifacts (highest confidence)
         for ref in context.selected_artifacts[:_MAX_REFS]:
-            ranked.append(RankedRef(
-                ref=ref, confidence=1.0, rank=rank,
-                source_tier="artifact",
-                token_estimate=_estimate_tokens(ref),
-            ))
+            ranked.append(
+                RankedRef(
+                    ref=ref,
+                    confidence=1.0,
+                    rank=rank,
+                    source_tier="artifact",
+                    token_estimate=_estimate_tokens(ref),
+                )
+            )
             rank += 1
 
         # Tier 2 — active goal / task refs
         if context.active_goal_id:
             ref = f"goal:{context.active_goal_id}"
-            ranked.append(RankedRef(ref=ref, confidence=0.85, rank=rank, source_tier="goal",
-                                    token_estimate=_estimate_tokens(ref)))
+            ranked.append(
+                RankedRef(ref=ref, confidence=0.85, rank=rank, source_tier="goal", token_estimate=_estimate_tokens(ref))
+            )
             rank += 1
         if context.active_task_id:
             ref = f"task:{context.active_task_id}"
-            ranked.append(RankedRef(ref=ref, confidence=0.8, rank=rank, source_tier="goal",
-                                    token_estimate=_estimate_tokens(ref)))
+            ranked.append(
+                RankedRef(ref=ref, confidence=0.8, rank=rank, source_tier="goal", token_estimate=_estimate_tokens(ref))
+            )
             rank += 1
 
         # Tier 3 — local project sourcepack (intent-driven)
         if intent in (IntentKind.EXPLAIN_FILE, IntentKind.FIND_SYMBOL, IntentKind.GENERAL_PROJECT_QUESTION):
-            ranked.append(RankedRef(ref="sourcepack:local", confidence=0.6, rank=rank,
-                                    source_tier="sourcepack", token_estimate=500))
+            ranked.append(
+                RankedRef(
+                    ref="sourcepack:local", confidence=0.6, rank=rank, source_tier="sourcepack", token_estimate=500
+                )
+            )
             rank += 1
 
         # Tier 4 — helpcenter
         if intent in (IntentKind.HELPCENTER_LOOKUP, IntentKind.EXPLAIN_ERROR, IntentKind.TODO_STATUS):
-            ranked.append(RankedRef(ref="helpcenter:main", confidence=0.5, rank=rank,
-                                    source_tier="helpcenter", token_estimate=200))
+            ranked.append(
+                RankedRef(
+                    ref="helpcenter:main", confidence=0.5, rank=rank, source_tier="helpcenter", token_estimate=200
+                )
+            )
             rank += 1
 
         # Tier 5 — technical sourcepack
         if intent in (IntentKind.FIND_SYMBOL, IntentKind.EXPLAIN_ERROR):
-            ranked.append(RankedRef(ref="sourcepack:technical", confidence=0.45, rank=rank,
-                                    source_tier="tech", token_estimate=300))
+            ranked.append(
+                RankedRef(
+                    ref="sourcepack:technical", confidence=0.45, rank=rank, source_tier="tech", token_estimate=300
+                )
+            )
             rank += 1
 
         # Filter by confidence threshold
         qualified = [r for r in ranked if r.confidence > 0.3]
         if not qualified:
             return SelectedContextResult(
-                selected_refs=[], ranked_refs=ranked, budget_used=0,
+                selected_refs=[],
+                ranked_refs=ranked,
+                budget_used=0,
                 ranking_explanation="no_qualified_refs",
                 is_no_good_match=True,
             )
@@ -147,7 +165,9 @@ class ChatContextSelector:
 
         if not selected:
             return SelectedContextResult(
-                selected_refs=[], ranked_refs=ranked, budget_used=0,
+                selected_refs=[],
+                ranked_refs=ranked,
+                budget_used=0,
                 ranking_explanation="budget_exceeded_before_any_ref",
                 is_no_good_match=True,
             )

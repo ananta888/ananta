@@ -73,8 +73,7 @@ class RestrictedInferenceManagementTaskService:
             payload = callback()
         except Exception as exc:
             failure_reason_code = str(
-                getattr(exc, "reason_code", "restricted_management_failed")
-                or "restricted_management_failed"
+                getattr(exc, "reason_code", "restricted_management_failed") or "restricted_management_failed"
             )[:160]
             retryable = bool(
                 getattr(exc, "status_code", None) == 503

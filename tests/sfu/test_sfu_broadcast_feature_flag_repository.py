@@ -165,9 +165,7 @@ def test_unavailable_stores_fail_closed_even_when_static_environment_is_true(tmp
     assert not memory.snapshot(scope).enabled("semantic_media_broadcast")
 
     missing_parent = tmp_path / "missing" / "flags.db"
-    sql = SqlSfuBroadcastFeatureFlagRepository(
-        db_engine=create_engine(f"sqlite:///{missing_parent}")
-    )
+    sql = SqlSfuBroadcastFeatureFlagRepository(db_engine=create_engine(f"sqlite:///{missing_parent}"))
     snapshot = sql.snapshot(scope)
     assert not snapshot.available
     assert not snapshot.enabled("semantic_media_broadcast")

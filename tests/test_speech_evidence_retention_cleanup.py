@@ -127,9 +127,7 @@ def test_new_active_descendant_at_destructive_boundary_fences_cleanup(
     kind: str,
 ) -> None:
     prefix = f"cleanup-race-{phase}"
-    _consent_service, _store, consent, record = stored_evidence(
-        prefix, f"retention race {phase}".encode()
-    )
+    _consent_service, _store, consent, record = stored_evidence(prefix, f"retention race {phase}".encode())
     artifacts = _PublishDuringArtifactCleanup(
         prefix=prefix,
         record=record,

@@ -77,11 +77,15 @@ class ProjectRepository:
         return list(self._session.exec(statement).all())
 
     def count_active_owners(self, tenant_id: str, project_id: str) -> int:
-        statement = select(sa.func.count()).select_from(ProjectMembershipDB).where(
-            ProjectMembershipDB.tenant_id == tenant_id,
-            ProjectMembershipDB.project_id == project_id,
-            ProjectMembershipDB.role == "owner",
-            ProjectMembershipDB.state == "active",
+        statement = (
+            select(sa.func.count())
+            .select_from(ProjectMembershipDB)
+            .where(
+                ProjectMembershipDB.tenant_id == tenant_id,
+                ProjectMembershipDB.project_id == project_id,
+                ProjectMembershipDB.role == "owner",
+                ProjectMembershipDB.state == "active",
+            )
         )
         return int(self._session.exec(statement).one())
 

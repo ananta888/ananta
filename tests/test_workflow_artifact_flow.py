@@ -5,15 +5,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.services.workflow_artifact_flow import (  # noqa: E402
+    WORKFLOW_ARTIFACT_GRAPH_SCHEMA,
     ArtifactFlowReport,
     ArtifactFlowViolation,
     ArtifactRef,
-    WORKFLOW_ARTIFACT_GRAPH_SCHEMA,
     evaluate_artifact_blocker,
     filter_worker_artifact_refs,
     resolve_required_artifact_refs,
@@ -21,7 +19,6 @@ from agent.services.workflow_artifact_flow import (  # noqa: E402
     step_produces,
     validate_workflow_artifact_graph,
 )
-
 
 # ---------------------------------------------------------------------------
 # Normalisers
@@ -37,20 +34,24 @@ class TestNormalizers:
         assert refs[0].optional is False
 
     def test_step_consumes_accepts_list_of_dicts(self):
-        step = {"consumes": [
-            {"key": "execution_plan", "type": "plan", "optional": False},
-            {"key": "design_doc", "optional": True},
-        ]}
+        step = {
+            "consumes": [
+                {"key": "execution_plan", "type": "plan", "optional": False},
+                {"key": "design_doc", "optional": True},
+            ]
+        }
         refs = step_consumes(step)
         assert [r.key for r in refs] == ["execution_plan", "design_doc"]
         assert refs[0].type == "plan"
         assert refs[1].optional is True
 
     def test_step_consumes_accepts_dict(self):
-        step = {"consumes": {
-            "execution_plan": {"type": "plan"},
-            "design_doc": True,  # truthy = optional
-        }}
+        step = {
+            "consumes": {
+                "execution_plan": {"type": "plan"},
+                "design_doc": True,  # truthy = optional
+            }
+        }
         refs = step_consumes(step)
         keys = {r.key for r in refs}
         assert keys == {"execution_plan", "design_doc"}
@@ -67,9 +68,7 @@ class TestNormalizers:
 
     def test_step_produces_mirrors_consumes(self):
         step = {"produces": ["code_changes", "implementation_notes"]}
-        assert [r.key for r in step_produces(step)] == [
-            "code_changes", "implementation_notes"
-        ]
+        assert [r.key for r in step_produces(step)] == ["code_changes", "implementation_notes"]
 
     def test_step_produces_handles_non_dict_step(self):
         assert step_produces(None) == []
@@ -114,10 +113,13 @@ class TestValidateArtifactGraph:
 
     def test_optional_consume_does_not_block(self):
         steps = [
-            {"id": "impl", "consumes": [
-                {"key": "design_doc", "optional": True},
-                {"key": "execution_plan"},
-            ]},
+            {
+                "id": "impl",
+                "consumes": [
+                    {"key": "design_doc", "optional": True},
+                    {"key": "execution_plan"},
+                ],
+            },
         ]
         report = validate_workflow_artifact_graph(steps=steps)
         assert not report.is_valid
@@ -132,10 +134,7 @@ class TestValidateArtifactGraph:
         ]
         report = validate_workflow_artifact_graph(steps=steps)
         # The conflict is a violation on the FIRST producer
-        assert any(
-            v.reason.startswith("duplicate_key_with_conflicting_type")
-            for v in report.violations
-        )
+        assert any(v.reason.startswith("duplicate_key_with_conflicting_type") for v in report.violations)
 
     def test_duplicate_producer_with_same_type_ok(self):
         steps = [
@@ -188,16 +187,12 @@ class TestValidateArtifactGraph:
 class TestArtifactAllowlist:
     def test_consumes_only(self):
         step = {"consumes": ["execution_plan", "task_breakdown"]}
-        refs = resolve_required_artifact_refs(
-            step=step, goal_seed_artifact_keys=[]
-        )
+        refs = resolve_required_artifact_refs(step=step, goal_seed_artifact_keys=[])
         assert [r.key for r in refs] == ["execution_plan", "task_breakdown"]
 
     def test_consumes_plus_seed(self):
         step = {"consumes": ["execution_plan"]}
-        refs = resolve_required_artifact_refs(
-            step=step, goal_seed_artifact_keys=["goal_brief", "acceptance_criteria"]
-        )
+        refs = resolve_required_artifact_refs(step=step, goal_seed_artifact_keys=["goal_brief", "acceptance_criteria"])
         keys = [r.key for r in refs]
         assert "execution_plan" in keys
         assert "goal_brief" in keys
@@ -205,9 +200,7 @@ class TestArtifactAllowlist:
 
     def test_no_consumes_returns_seed_only(self):
         step = {"id": "a"}  # no consumes
-        refs = resolve_required_artifact_refs(
-            step=step, goal_seed_artifact_keys=["goal_brief"]
-        )
+        refs = resolve_required_artifact_refs(step=step, goal_seed_artifact_keys=["goal_brief"])
         assert [r.key for r in refs] == ["goal_brief"]
 
     def test_no_consumes_no_seed_returns_empty(self):
@@ -220,9 +213,7 @@ class TestArtifactAllowlist:
 
     def test_optional_consume_included_when_no_seed_match(self):
         step = {"consumes": [{"key": "design_doc", "optional": True}]}
-        refs = resolve_required_artifact_refs(
-            step=step, goal_seed_artifact_keys=[]
-        )
+        refs = resolve_required_artifact_refs(step=step, goal_seed_artifact_keys=[])
         # Optional consumes without seed match are filtered out
         assert refs == []
 
@@ -231,7 +222,10 @@ class TestArtifactAllowlist:
         kept = filter_worker_artifact_refs(
             step=step,
             candidate_refs=[
-                "execution_plan", "task_breakdown", "random", "goal_brief",
+                "execution_plan",
+                "task_breakdown",
+                "random",
+                "goal_brief",
             ],
             goal_seed_artifact_keys=["goal_brief"],
         )
@@ -243,16 +237,12 @@ class TestArtifactAllowlist:
 
     def test_filter_worker_artifact_refs_empty_candidates(self):
         step = {"consumes": ["x"]}
-        assert filter_worker_artifact_refs(
-            step=step, candidate_refs=[]
-        ) == []
+        assert filter_worker_artifact_refs(step=step, candidate_refs=[]) == []
         assert filter_worker_artifact_refs(step=step, candidate_refs=None) == []
 
     def test_filter_worker_artifact_refs_drops_whitespace(self):
         step = {"consumes": ["x"]}
-        kept = filter_worker_artifact_refs(
-            step=step, candidate_refs=["x", "  ", ""], goal_seed_artifact_keys=[]
-        )
+        kept = filter_worker_artifact_refs(step=step, candidate_refs=["x", "  ", ""], goal_seed_artifact_keys=[])
         assert kept == ["x"]
 
 
@@ -264,24 +254,21 @@ class TestArtifactAllowlist:
 class TestArtifactBlocker:
     def test_artifact_flow_disabled_short_circuits(self):
         step = {"consumes": ["missing_artifact"]}
-        result = evaluate_artifact_blocker(
-            step=step, produced_artifact_keys=[], artifact_flow_enabled=False
-        )
+        result = evaluate_artifact_blocker(step=step, produced_artifact_keys=[], artifact_flow_enabled=False)
         assert result["blocked"] is False
         assert result["reason_code"] == "artifact_flow_disabled"
 
     def test_step_without_consumes_is_not_blocked(self):
         step = {"id": "a"}
-        result = evaluate_artifact_blocker(
-            step=step, produced_artifact_keys=[], artifact_flow_enabled=True
-        )
+        result = evaluate_artifact_blocker(step=step, produced_artifact_keys=[], artifact_flow_enabled=True)
         assert result["blocked"] is False
         assert result["reason_code"] == "no_consumes_declared"
 
     def test_consumes_satisfied_by_producer(self):
         step = {"consumes": ["execution_plan"]}
         result = evaluate_artifact_blocker(
-            step=step, produced_artifact_keys=["execution_plan"],
+            step=step,
+            produced_artifact_keys=["execution_plan"],
         )
         assert result["blocked"] is False
         assert result["reason_code"] == "ok"
@@ -298,18 +285,14 @@ class TestArtifactBlocker:
 
     def test_missing_required_blocks(self):
         step = {"consumes": ["execution_plan"]}
-        result = evaluate_artifact_blocker(
-            step=step, produced_artifact_keys=[]
-        )
+        result = evaluate_artifact_blocker(step=step, produced_artifact_keys=[])
         assert result["blocked"] is True
         assert result["reason_code"] == "missing_artifacts"
         assert "execution_plan" in [m["key"] for m in result["missing_consumes"]]
 
     def test_optional_consume_missing_does_not_block(self):
         step = {"consumes": [{"key": "design_doc", "optional": True}]}
-        result = evaluate_artifact_blocker(
-            step=step, produced_artifact_keys=[]
-        )
+        result = evaluate_artifact_blocker(step=step, produced_artifact_keys=[])
         assert result["blocked"] is False
 
     def test_non_dict_step_returns_ok(self):
@@ -344,14 +327,11 @@ class TestDataclasses:
     def test_report_is_valid(self):
         empty = ArtifactFlowReport()
         assert empty.is_valid
-        not_empty = ArtifactFlowReport(violations=(
-            ArtifactFlowViolation(step_id="s", missing_key="k", reason="r"),
-        ))
+        not_empty = ArtifactFlowReport(violations=(ArtifactFlowViolation(step_id="s", missing_key="k", reason="r"),))
         assert not not_empty.is_valid
 
     def test_report_to_dict_json_serializable(self):
         import json
-        report = ArtifactFlowReport(violations=(
-            ArtifactFlowViolation(step_id="s", missing_key="k", reason="r"),
-        ))
+
+        report = ArtifactFlowReport(violations=(ArtifactFlowViolation(step_id="s", missing_key="k", reason="r"),))
         json.dumps(report.to_dict())

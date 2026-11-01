@@ -61,7 +61,10 @@ def capture_bounded_scene_context(
         ],
         "objects": bounded,
         "materials": [
-            {"name": _bounded_text((item or {}).get("name"), max_chars=128), "users": int((item or {}).get("users") or 0)}
+            {
+                "name": _bounded_text((item or {}).get("name"), max_chars=128),
+                "users": int((item or {}).get("users") or 0),
+            }
             for item in list(materials or [])[:128]
             if isinstance(item, dict)
         ],
@@ -90,7 +93,10 @@ def capture_context_from_bpy(bpy_module: Any, *, max_objects: int = 128) -> dict
             {
                 "name": getattr(obj, "name", ""),
                 "type": getattr(obj, "type", "UNKNOWN"),
-                "selected": any(obj is selected_obj or getattr(obj, "name", None) == getattr(selected_obj, "name", None) for selected_obj in selected_objects),
+                "selected": any(
+                    obj is selected_obj or getattr(obj, "name", None) == getattr(selected_obj, "name", None)
+                    for selected_obj in selected_objects
+                ),
                 "visible": bool(visible_get()) if callable(visible_get) else True,
                 "materials": [getattr(slot, "name", "") for slot in list(getattr(obj, "material_slots", []) or [])],
                 "modifiers": [

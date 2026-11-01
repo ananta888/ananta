@@ -7,7 +7,6 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-
 _PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
 
 
@@ -47,9 +46,7 @@ class KnowledgeIndexPayloadCapabilityAuthorizer:
     ) -> str:
         if not self._manifest_verifier.verify_manifest(manifest):
             self._deny("knowledge_index_payload_capability_signature_invalid")
-        if int(manifest.get("grant_expires_at_epoch_ms") or 0) <= int(
-            self._clock_ms()
-        ):
+        if int(manifest.get("grant_expires_at_epoch_ms") or 0) <= int(self._clock_ms()):
             self._deny(
                 "knowledge_index_payload_capability_expired",
                 status_code=403,
@@ -64,11 +61,9 @@ class KnowledgeIndexPayloadCapabilityAuthorizer:
                 str(getattr(agent, "name", "") or ""),
                 normalized_worker_id,
             )
-            or str(getattr(agent, "role", "") or "").strip().lower()
-            != "worker"
+            or str(getattr(agent, "role", "") or "").strip().lower() != "worker"
             or not bool(getattr(agent, "registration_validated", False))
-            or str(getattr(agent, "status", "") or "").strip().lower()
-            not in {"online", "degraded", "busy"}
+            or str(getattr(agent, "status", "") or "").strip().lower() not in {"online", "degraded", "busy"}
         ):
             self._deny(
                 "knowledge_index_payload_worker_identity_invalid",
@@ -93,9 +88,7 @@ class KnowledgeIndexPayloadCapabilityAuthorizer:
 
         job = record.job.to_wire()
         job_id = str(job.get("job_id") or "")
-        payload_reference = dict(
-            (job.get("payload") or {}).get("payload_artifact_ref") or {}
-        )
+        payload_reference = dict((job.get("payload") or {}).get("payload_artifact_ref") or {})
         supplied_reference = {
             "artifact_id": str(artifact_id or ""),
             "sha256": str(artifact_sha256 or "").lower(),
@@ -106,14 +99,9 @@ class KnowledgeIndexPayloadCapabilityAuthorizer:
             "artifact_id": str(payload_reference.get("artifact_id") or ""),
             "sha256": str(payload_reference.get("sha256") or "").lower(),
             "size_bytes": int(payload_reference.get("size_bytes") or -1),
-            "media_type": str(
-                payload_reference.get("media_type") or ""
-            ).lower(),
+            "media_type": str(payload_reference.get("media_type") or "").lower(),
         }
-        if (
-            supplied_reference != expected_reference
-            or supplied_reference["media_type"] != _PAYLOAD_MEDIA_TYPE
-        ):
+        if supplied_reference != expected_reference or supplied_reference["media_type"] != _PAYLOAD_MEDIA_TYPE:
             self._deny("knowledge_index_payload_artifact_binding_mismatch")
 
         authority = dict(job.get("authority_binding") or {})
@@ -123,22 +111,14 @@ class KnowledgeIndexPayloadCapabilityAuthorizer:
             "tenant_id": authority.get("tenant_id"),
             "project_id": authority.get("project_id"),
             "source_revision_id": authority.get("source_revision_id"),
-            "source_revision_digest": authority.get(
-                "source_revision_digest"
-            ),
+            "source_revision_digest": authority.get("source_revision_digest"),
             "destination_id": authority.get("destination_id"),
             "destination_digest": authority.get("destination_digest"),
-            "source_access_grant_id": authority.get(
-                "source_access_grant_id"
-            ),
-            "source_access_grant_digest": authority.get(
-                "source_access_grant_digest"
-            ),
+            "source_access_grant_id": authority.get("source_access_grant_id"),
+            "source_access_grant_digest": authority.get("source_access_grant_digest"),
             "policy_digest": authority.get("policy_snapshot_digest"),
             "content_manifest_id": content_manifest.get("manifest_id"),
-            "content_manifest_digest": content_manifest.get(
-                "manifest_digest"
-            ),
+            "content_manifest_digest": content_manifest.get("manifest_digest"),
             "assignment_id": assignment.get("assignment_id"),
             "lease_id": assignment.get("lease_id"),
         }
@@ -180,41 +160,21 @@ class LegacyKnowledgeIndexPayloadAssignmentAuthorizer:
         if not normalized_artifact or not normalized_worker:
             self._deny()
         for task in self._tasks.get_all() or ():
-            task_payload = (
-                task.model_dump() if hasattr(task, "model_dump") else dict(task)
-            )
+            task_payload = task.model_dump() if hasattr(task, "model_dump") else dict(task)
             if (
-                str(task_payload.get("task_kind") or "").strip().lower()
-                != "codecompass_index_build"
-                or str(task_payload.get("assigned_agent_url") or "")
-                .strip()
-                .rstrip("/")
-                != normalized_worker_url
+                str(task_payload.get("task_kind") or "").strip().lower() != "codecompass_index_build"
+                or str(task_payload.get("assigned_agent_url") or "").strip().rstrip("/") != normalized_worker_url
             ):
                 continue
             context = task_payload.get("worker_execution_context")
-            job = (
-                context.get("knowledge_index_job")
-                if isinstance(context, Mapping)
-                else None
-            )
-            if (
-                not isinstance(job, Mapping)
-                or job.get("schema") != "ananta.knowledge_index_job.v1"
-            ):
+            job = context.get("knowledge_index_job") if isinstance(context, Mapping) else None
+            if not isinstance(job, Mapping) or job.get("schema") != "ananta.knowledge_index_job.v1":
                 continue
             payload = job.get("payload")
-            reference = (
-                payload.get("payload_artifact_ref")
-                if isinstance(payload, Mapping)
-                else None
-            )
-            if (
-                isinstance(reference, Mapping)
-                and hmac.compare_digest(
-                    str(reference.get("artifact_id") or ""),
-                    normalized_artifact,
-                )
+            reference = payload.get("payload_artifact_ref") if isinstance(payload, Mapping) else None
+            if isinstance(reference, Mapping) and hmac.compare_digest(
+                str(reference.get("artifact_id") or ""),
+                normalized_artifact,
             ):
                 return str(task_payload.get("id") or "")
         self._deny()

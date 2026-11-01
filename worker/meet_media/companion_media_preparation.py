@@ -26,11 +26,17 @@ def pcm_bytes(encoded):
 
 
 def validate_clip(clip, *, repeat):
-    if (not isinstance(clip, dict) or set(clip) != CLIP_FIELDS
-            or not isinstance(clip["mp4"], str) or not 0 < len(clip["mp4"]) <= MAX_MP4_BASE64_CHARS
-            or type(clip["frames"]) is not int or not 1 <= clip["frames"] <= 120
-            or clip["repeatMode"] != repeat or clip["originKind"] != "generated"
-            or clip["classification"] != "synthetic"):
+    if (
+        not isinstance(clip, dict)
+        or set(clip) != CLIP_FIELDS
+        or not isinstance(clip["mp4"], str)
+        or not 0 < len(clip["mp4"]) <= MAX_MP4_BASE64_CHARS
+        or type(clip["frames"]) is not int
+        or not 1 <= clip["frames"] <= 120
+        or clip["repeatMode"] != repeat
+        or clip["originKind"] != "generated"
+        or clip["classification"] != "synthetic"
+    ):
         raise ValueError("meet_companion_media_clip_invalid")
     try:
         data = base64.b64decode(clip["mp4"], validate=True)

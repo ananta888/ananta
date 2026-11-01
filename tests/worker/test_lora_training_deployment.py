@@ -37,12 +37,12 @@ def test_compose_is_internal_non_root_read_only_and_profile_scoped() -> None:
     assert services["lora-training-worker-nvidia"]["deploy"]["resources"]["reservations"]["devices"][0][
         "capabilities"
     ] == ["gpu"]
-    assert services["lora-training-worker-nvidia"]["environment"][
-        "ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION"
-    ] == "${ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION:-0.90}"
+    assert (
+        services["lora-training-worker-nvidia"]["environment"]["ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION"]
+        == "${ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION:-0.90}"
+    )
     assert any(
-        value.startswith("/tmp:") and ",exec," in value
-        for value in services["lora-training-worker-nvidia"]["tmpfs"]
+        value.startswith("/tmp:") and ",exec," in value for value in services["lora-training-worker-nvidia"]["tmpfs"]
     )
     assert "ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION" not in services["lora-training-worker-cpu"]["environment"]
     assert "ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION" not in services["lora-training-worker-mock"]["environment"]
@@ -190,9 +190,7 @@ def test_supported_stack_entrypoint_renders_hardened_real_compose_profiles(tmp_p
         assert worker["environment"]["HF_HUB_OFFLINE"] == "1"
         assert worker["environment"]["TRANSFORMERS_OFFLINE"] == "1"
         if resource_profile == "nvidia":
-            assert worker["environment"][
-                "ANANTA_LORA_TRAINING_GPU_PROFILE"
-            ] == "rtx3080-safe"
+            assert worker["environment"]["ANANTA_LORA_TRAINING_GPU_PROFILE"] == "rtx3080-safe"
         assert "Authorization" in " ".join(worker["healthcheck"]["test"])
         assert payload["networks"]["lora-training-control"]["internal"] is True
         assert not any(volume.get("target") == "/models/base" for volume in hub.get("volumes", []))
@@ -212,22 +210,46 @@ def test_built_minimal_worker_is_non_root_read_only_offline_and_auth_ready(tmp_p
     name = f"ananta-lora-verification-{uuid.uuid4().hex[:12]}"
     token = "test-only-container-token-0123456789"
     command = [
-        "docker", "run", "--detach", "--name", name,
-        "--read-only", "--user", "10005:10005",
-        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-        "--pids-limit", "128", "--network", "none",
-        "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,uid=10005,gid=10005",
-        "--tmpfs", "/run:rw,noexec,nosuid,nodev,uid=10005,gid=10005",
-        "--tmpfs", "/var/lib/ananta-lora:rw,nosuid,nodev,uid=10005,gid=10005",
-        "--volume", f"{model_root}:/models/base:ro",
-        "--volume", f"{workspace_root}:/project-workspaces:ro",
-        "--env", f"ANANTA_LORA_TRAINING_TOKEN={token}",
-        "--env", "ANANTA_LORA_TRAINING_BACKENDS=mock",
-        "--env", "ANANTA_LORA_TRAINING_RESOURCE_PROFILE=mock",
-        "--env", "ANANTA_LORA_TRAINING_STATE_ROOT=/var/lib/ananta-lora",
-        "--env", "ANANTA_LORA_TRAINING_WORKSPACE_ROOT=/project-workspaces",
-        "--env", "ANANTA_LORA_TRAINING_DATASET_ROOT=/project-workspaces",
-        "--env", "ANANTA_LORA_TRAINING_MODEL_ROOT=/models/base",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        name,
+        "--read-only",
+        "--user",
+        "10005:10005",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--pids-limit",
+        "128",
+        "--network",
+        "none",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,nodev,uid=10005,gid=10005",
+        "--tmpfs",
+        "/run:rw,noexec,nosuid,nodev,uid=10005,gid=10005",
+        "--tmpfs",
+        "/var/lib/ananta-lora:rw,nosuid,nodev,uid=10005,gid=10005",
+        "--volume",
+        f"{model_root}:/models/base:ro",
+        "--volume",
+        f"{workspace_root}:/project-workspaces:ro",
+        "--env",
+        f"ANANTA_LORA_TRAINING_TOKEN={token}",
+        "--env",
+        "ANANTA_LORA_TRAINING_BACKENDS=mock",
+        "--env",
+        "ANANTA_LORA_TRAINING_RESOURCE_PROFILE=mock",
+        "--env",
+        "ANANTA_LORA_TRAINING_STATE_ROOT=/var/lib/ananta-lora",
+        "--env",
+        "ANANTA_LORA_TRAINING_WORKSPACE_ROOT=/project-workspaces",
+        "--env",
+        "ANANTA_LORA_TRAINING_DATASET_ROOT=/project-workspaces",
+        "--env",
+        "ANANTA_LORA_TRAINING_MODEL_ROOT=/models/base",
         image,
     ]
     try:
@@ -237,7 +259,11 @@ def test_built_minimal_worker_is_non_root_read_only_offline_and_auth_ready(tmp_p
         while time.monotonic() < deadline:
             probe = subprocess.run(
                 [
-                    "docker", "exec", name, "python", "-c",
+                    "docker",
+                    "exec",
+                    name,
+                    "python",
+                    "-c",
                     "import json,os,urllib.request; "
                     "r=urllib.request.Request('http://127.0.0.1:8095/health',"
                     "headers={'Authorization':'Bearer '+os.environ['ANANTA_LORA_TRAINING_TOKEN']}); "
@@ -265,7 +291,11 @@ def test_built_minimal_worker_is_non_root_read_only_offline_and_auth_ready(tmp_p
         assert identity.stdout.strip() == "10005"
         import_audit = subprocess.run(
             [
-                "docker", "exec", name, "python", "-c",
+                "docker",
+                "exec",
+                name,
+                "python",
+                "-c",
                 "import importlib.util,json; "
                 "print(json.dumps({name: importlib.util.find_spec(name) is not None "
                 "for name in ('agent','torch','transformers','worker')}))",

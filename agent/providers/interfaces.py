@@ -26,11 +26,7 @@ class ProviderDescriptor:
             raise ValueError("provider_family_required")
         if risk_class not in _ALLOWED_RISK_CLASSES:
             raise ValueError(f"invalid_risk_class:{risk_class}")
-        normalized_capabilities = tuple(
-            str(item).strip().lower()
-            for item in self.capabilities
-            if str(item).strip()
-        )
+        normalized_capabilities = tuple(str(item).strip().lower() for item in self.capabilities if str(item).strip())
         object.__setattr__(self, "provider_id", provider_id)
         object.__setattr__(self, "provider_family", provider_family)
         object.__setattr__(self, "risk_class", risk_class)

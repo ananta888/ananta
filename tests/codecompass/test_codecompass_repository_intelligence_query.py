@@ -1,4 +1,5 @@
 """RIG-005: Repository Intelligence Query tests."""
+
 from __future__ import annotations
 
 import json
@@ -19,32 +20,59 @@ def _seed_rig_store(tmp_path: Path) -> CodeCompassGraphStore:
     s.rebuild_from_output_records(
         manifest_hash="m1",
         records=[
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "bc:hello", "kind": "buildable_component",
-             "attrs": {"name": "hello", "source_files": ["src/hello.cpp"]}},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "ep:fmt", "kind": "external_package",
-             "attrs": {"name": "fmt"}},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "rn:ctest", "kind": "runner",
-             "attrs": {"kind": "ctest"}},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "t:hello_test", "kind": "test",
-             "attrs": {"name": "hello_test"}},
-            {"_provenance": {"output_kind": "rig_edges"},
-             "from_id": "bc:hello", "to_id": "ep:fmt", "kind": "depends_on",
-             "evidence": {"source_file": "/ws/CMakeLists.txt",
-                          "source_kind": "spade_cmake_reply",
-                          "source_record_id": "target:hello"}},
-            {"_provenance": {"output_kind": "rig_edges"},
-             "from_id": "bc:hello", "to_id": "rn:ctest", "kind": "tested_by",
-             "evidence": {"source_file": "/ws/CMakeLists.txt",
-                          "source_kind": "spade_cmake_reply"}},
-            {"_provenance": {"output_kind": "rig_edges"},
-             "from_id": "rn:ctest", "to_id": "t:hello_test", "kind": "runs",
-             "evidence": {"source_file": "/ws/CTestTestfile.cmake",
-                          "source_kind": "spade_ctest_record",
-                          "source_record_id": "hello_test"}},
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "bc:hello",
+                "kind": "buildable_component",
+                "attrs": {"name": "hello", "source_files": ["src/hello.cpp"]},
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "ep:fmt",
+                "kind": "external_package",
+                "attrs": {"name": "fmt"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "rn:ctest",
+                "kind": "runner",
+                "attrs": {"kind": "ctest"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "t:hello_test",
+                "kind": "test",
+                "attrs": {"name": "hello_test"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_edges"},
+                "from_id": "bc:hello",
+                "to_id": "ep:fmt",
+                "kind": "depends_on",
+                "evidence": {
+                    "source_file": "/ws/CMakeLists.txt",
+                    "source_kind": "spade_cmake_reply",
+                    "source_record_id": "target:hello",
+                },
+            },
+            {
+                "_provenance": {"output_kind": "rig_edges"},
+                "from_id": "bc:hello",
+                "to_id": "rn:ctest",
+                "kind": "tested_by",
+                "evidence": {"source_file": "/ws/CMakeLists.txt", "source_kind": "spade_cmake_reply"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_edges"},
+                "from_id": "rn:ctest",
+                "to_id": "t:hello_test",
+                "kind": "runs",
+                "evidence": {
+                    "source_file": "/ws/CTestTestfile.cmake",
+                    "source_kind": "spade_ctest_record",
+                    "source_record_id": "hello_test",
+                },
+            },
         ],
     )
     s._cached_payload = None
@@ -78,8 +106,7 @@ def test_component_tests_query(tmp_path):
 def test_package_dependents_query(tmp_path):
     s = _seed_rig_store(tmp_path / "p")
     res = run_query(graph_store=s, query_type="package-dependents", seed="ep:fmt")
-    assert any(r.get("from") == "bc:hello" and r.get("edge_kind") == "depends_on"
-               for r in res.results)
+    assert any(r.get("from") == "bc:hello" and r.get("edge_kind") == "depends_on" for r in res.results)
 
 
 def test_runner_coverage_query(tmp_path):
@@ -98,8 +125,7 @@ def test_build_target_chain_query(tmp_path):
 def test_external_package_impact_query(tmp_path):
     s = _seed_rig_store(tmp_path / "i")
     res = run_query(graph_store=s, query_type="external-package-impact", seed="ep:fmt")
-    assert any(r.get("component") == "bc:hello" and r.get("package") == "ep:fmt"
-               for r in res.results)
+    assert any(r.get("component") == "bc:hello" and r.get("package") == "ep:fmt" for r in res.results)
 
 
 def test_seed_resolution_by_name(tmp_path):

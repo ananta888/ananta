@@ -352,9 +352,7 @@ def test_completed_delegated_refresh_advances_wiki_read_state_without_restart(
         if "verification_status" in kwargs:
             row.verification_status = kwargs["verification_status"]
         if "worker_execution_context" in kwargs:
-            row.worker_execution_context = kwargs[
-                "worker_execution_context"
-            ]
+            row.worker_execution_context = kwargs["worker_execution_context"]
 
     tasks = VectorIndexTaskService(
         task_queue=queue,
@@ -400,9 +398,7 @@ def test_completed_delegated_refresh_advances_wiki_read_state_without_restart(
 
     assert resolver.cache_signature() == original_signature
     worker_audience = "http://worker-a:5000"
-    repository.rows[
-        queued["job_id"]
-    ].assigned_agent_url = worker_audience
+    repository.rows[queued["job_id"]].assigned_agent_url = worker_audience
     dispatched = tasks.issue_dispatch_attempt(
         job_id=queued["job_id"],
         worker_audience=worker_audience,

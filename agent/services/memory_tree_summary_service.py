@@ -9,12 +9,13 @@ Implements the OpenHuman-inspired 3-level tree:
 LLM summarisation is optional and policy-gated; deterministic fallback is
 always available so tree building never stalls on LLM unavailability.
 """
+
 from __future__ import annotations
 
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from agent.services.memory_tree_store_service import (
     MemoryTreeStoreService,
@@ -30,13 +31,14 @@ _SUMMARY_VERSION = "1"
 # Result types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TreeBuildResult:
-    scope: str          # "source" | "topic" | "global"
+    scope: str  # "source" | "topic" | "global"
     node_label: str
     node_id: str
     leaf_count: int
-    summary_method: str     # "deterministic" | "llm" | "passthrough"
+    summary_method: str  # "deterministic" | "llm" | "passthrough"
     created: bool
     elapsed_s: float = 0.0
     error: Optional[str] = None
@@ -46,6 +48,7 @@ class TreeBuildResult:
 # ---------------------------------------------------------------------------
 # Deterministic summarisation helpers
 # ---------------------------------------------------------------------------
+
 
 def _deterministic_source_summary(labels: list[str], source_id: str, leaf_count: int) -> str:
     """Build a compact summary without LLM."""
@@ -74,6 +77,7 @@ def _deterministic_global_summary(scope_label: str, topic_labels: list[str], lea
 # ---------------------------------------------------------------------------
 # MemoryTreeSummaryService
 # ---------------------------------------------------------------------------
+
 
 class MemoryTreeSummaryService:
     """Builds and updates L1/L2/L3 summary nodes in the Memory Tree."""
@@ -111,10 +115,13 @@ class MemoryTreeSummaryService:
 
         if not chunks:
             return TreeBuildResult(
-                scope="source", node_label=label,
+                scope="source",
+                node_label=label,
                 node_id=node_id("source", label),
-                leaf_count=0, summary_method="passthrough",
-                created=False, elapsed_s=time.monotonic() - t0,
+                leaf_count=0,
+                summary_method="passthrough",
+                created=False,
+                elapsed_s=time.monotonic() - t0,
                 error="no_chunks",
             )
 
@@ -140,9 +147,12 @@ class MemoryTreeSummaryService:
         )
 
         return TreeBuildResult(
-            scope="source", node_label=label,
-            node_id=node.id, leaf_count=len(chunks),
-            summary_method=method, created=True,
+            scope="source",
+            node_label=label,
+            node_id=node.id,
+            leaf_count=len(chunks),
+            summary_method=method,
+            created=True,
             elapsed_s=time.monotonic() - t0,
         )
 
@@ -168,10 +178,13 @@ class MemoryTreeSummaryService:
 
         if hotness < 0.5 and not source_ids:
             return TreeBuildResult(
-                scope="topic", node_label=label,
+                scope="topic",
+                node_label=label,
                 node_id=node_id("topic", label),
-                leaf_count=0, summary_method="passthrough",
-                created=False, elapsed_s=time.monotonic() - t0,
+                leaf_count=0,
+                summary_method="passthrough",
+                created=False,
+                elapsed_s=time.monotonic() - t0,
                 meta={"reason": "cold_topic"},
             )
 
@@ -201,9 +214,12 @@ class MemoryTreeSummaryService:
         )
 
         return TreeBuildResult(
-            scope="topic", node_label=label,
-            node_id=node.id, leaf_count=leaf_count,
-            summary_method="deterministic", created=True,
+            scope="topic",
+            node_label=label,
+            node_id=node.id,
+            leaf_count=leaf_count,
+            summary_method="deterministic",
+            created=True,
             elapsed_s=time.monotonic() - t0,
         )
 
@@ -253,9 +269,12 @@ class MemoryTreeSummaryService:
         )
 
         return TreeBuildResult(
-            scope="global", node_label=label,
-            node_id=node.id, leaf_count=total_leaves,
-            summary_method="deterministic", created=True,
+            scope="global",
+            node_label=label,
+            node_id=node.id,
+            leaf_count=total_leaves,
+            summary_method="deterministic",
+            created=True,
             elapsed_s=time.monotonic() - t0,
             meta={"topic_count": len(resolved_topics)},
         )

@@ -66,9 +66,17 @@ class HubSpecialistEvaluation:
             raise ValueError("specialist_evaluation_job_changed")
         if not current.active_attempt_id or not current.dataset_id:
             raise ValueError("specialist_evaluation_receipt_binding_missing")
-        return SpecialistEvaluationResult(outputs, SpecialistEvaluationReceipt(
-            job_id=current.id, job_version=current.version, attempt_id=current.active_attempt_id,
-            dataset_id=current.dataset_id, dataset_version=spec["expected_dataset_version"],
-            adapter_id=current.adapter_id, adapter_sha256=spec["expected_adapter_sha256"],
-            base_model_sha256=spec.get("expected_base_model_sha256"), request_digest=current.request_digest,
-        ))
+        return SpecialistEvaluationResult(
+            outputs,
+            SpecialistEvaluationReceipt(
+                job_id=current.id,
+                job_version=current.version,
+                attempt_id=current.active_attempt_id,
+                dataset_id=current.dataset_id,
+                dataset_version=spec["expected_dataset_version"],
+                adapter_id=current.adapter_id,
+                adapter_sha256=spec["expected_adapter_sha256"],
+                base_model_sha256=spec.get("expected_base_model_sha256"),
+                request_digest=current.request_digest,
+            ),
+        )

@@ -28,8 +28,9 @@ def _user_jwt(username: str, tenant_id: str | None = None) -> str:
 @pytest.fixture()
 def app():
     from flask import Flask
-    from agent.routes.snakes import snakes_bp, _snakes, _messages, _chat_messages, _room_messages
+
     import agent.routes.snakes_execution_routes  # noqa: F401 — registers routes on snakes_bp
+    from agent.routes.snakes import _chat_messages, _messages, _room_messages, _snakes, snakes_bp
 
     a = Flask(__name__)
     a.config["TESTING"] = True
@@ -42,6 +43,7 @@ def app():
 
     # Reset trace store
     import agent.routes.ai_snake_trace_store as _ts
+
     _ts.reset_store_for_testing()
 
     return a
@@ -104,6 +106,7 @@ def test_list_traces_empty_for_new_snake(client):
 
 def test_list_traces_returns_existing_trace(client):
     import agent.routes.ai_snake_trace_store as _ts
+
     snake = _register(client)
     store = _ts.get_trace_store()
     trace_id = store.new_trace(snake_id=snake["id"])
@@ -117,6 +120,7 @@ def test_list_traces_returns_existing_trace(client):
 
 def test_list_traces_only_returns_own_snake(client):
     import agent.routes.ai_snake_trace_store as _ts
+
     s1 = _register(client, "Snake1")
     s2 = _register(client, "Snake2")
     store = _ts.get_trace_store()
@@ -135,6 +139,7 @@ def test_list_traces_only_returns_own_snake(client):
 
 def test_trace_detail_returns_correct_trace(client):
     import agent.routes.ai_snake_trace_store as _ts
+
     snake = _register(client)
     store = _ts.get_trace_store()
     trace_id = store.new_trace(snake_id=snake["id"])
@@ -149,6 +154,7 @@ def test_trace_detail_returns_correct_trace(client):
 
 def test_trace_detail_wrong_snake_returns_non_oracular_404(client):
     import agent.routes.ai_snake_trace_store as _ts
+
     s1 = _register(client, "OwnerSnake")
     s2 = _register(client, "OtherSnake")
     store = _ts.get_trace_store()
@@ -164,6 +170,7 @@ def test_trace_detail_wrong_snake_returns_non_oracular_404(client):
 def test_trace_events_returns_all_events(client):
     import agent.routes.ai_snake_trace_store as _ts
     from agent.routes.ai_snake_trace_store import TraceRecorder
+
     snake = _register(client)
     store = _ts.get_trace_store()
     trace_id = store.new_trace(snake_id=snake["id"])
@@ -183,6 +190,7 @@ def test_trace_events_returns_all_events(client):
 def test_trace_events_since_seq_incremental(client):
     import agent.routes.ai_snake_trace_store as _ts
     from agent.routes.ai_snake_trace_store import TraceRecorder
+
     snake = _register(client)
     store = _ts.get_trace_store()
     trace_id = store.new_trace(snake_id=snake["id"])
@@ -199,6 +207,7 @@ def test_trace_events_since_seq_incremental(client):
 def test_trace_events_completed_trace(client):
     import agent.routes.ai_snake_trace_store as _ts
     from agent.routes.ai_snake_trace_store import TraceRecorder
+
     snake = _register(client)
     store = _ts.get_trace_store()
     trace_id = store.new_trace(snake_id=snake["id"])
@@ -213,6 +222,7 @@ def test_trace_events_completed_trace(client):
 
 def test_trace_events_wrong_snake_returns_non_oracular_404(client):
     import agent.routes.ai_snake_trace_store as _ts
+
     s1 = _register(client, "Owner")
     s2 = _register(client, "Other")
     store = _ts.get_trace_store()

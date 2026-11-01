@@ -38,7 +38,6 @@ class SpeechReconciliationJobMutations:
         self._states = states
         self._audit = audit
 
-
     def transition(
         self,
         *,
@@ -173,10 +172,7 @@ class SpeechReconciliationJobMutations:
                 self._audit.prepare(
                     tenant_id=tenant_id,
                     job_id=job_id,
-                    idempotency_key=(
-                        f"speech-reconciliation:mutation:{job_id}:{operation}:"
-                        f"{idempotency_key_digest}"
-                    ),
+                    idempotency_key=(f"speech-reconciliation:mutation:{job_id}:{operation}:{idempotency_key_digest}"),
                     event_type="semantic_job",
                     transition=target_state,
                     reason_code=reason_code,
@@ -314,10 +310,7 @@ class SpeechReconciliationJobMutations:
                 self._audit.prepare(
                     tenant_id=tenant_id,
                     job_id=job_id,
-                    idempotency_key=(
-                        f"speech-reconciliation:mutation:{job_id}:reduce:"
-                        f"{idempotency_key_digest}"
-                    ),
+                    idempotency_key=(f"speech-reconciliation:mutation:{job_id}:reduce:{idempotency_key_digest}"),
                     event_type="semantic_budget",
                     transition="factor_reduced",
                     reason_code=reason,

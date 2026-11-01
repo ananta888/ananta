@@ -6,6 +6,7 @@ Loop logic:
        → any failed: feed failure context back into next plan iteration
        → user can abort at any point with q
 """
+
 from __future__ import annotations
 
 import re
@@ -21,8 +22,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-
 # ── Data model ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class RepairCommand:
@@ -58,9 +59,7 @@ class RepairTuiResult:
 
 # ── Command extraction ───────────────────────────────────────────────────────
 
-_SCRIPT_BLOCK_RE = re.compile(
-    r"```(?:bash|sh|shell|zsh|cmd)?\s*\n(.*?)```", re.DOTALL
-)
+_SCRIPT_BLOCK_RE = re.compile(r"```(?:bash|sh|shell|zsh|cmd)?\s*\n(.*?)```", re.DOTALL)
 _COMMAND_LINE_RE = re.compile(r"^command=(.+)$", re.MULTILINE)
 
 
@@ -110,6 +109,7 @@ def build_retry_context(history: list[RepairTuiResult]) -> str:
 
 # ── Raw keyboard input ───────────────────────────────────────────────────────
 
+
 def _getch() -> str:
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -127,6 +127,7 @@ def _getch() -> str:
 def _getch_nonblock(timeout_s: float = 3.0) -> str | None:
     """Read one keypress, return None if timeout_s passes with no input."""
     import select
+
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
@@ -144,6 +145,7 @@ def _getch_nonblock(timeout_s: float = 3.0) -> str | None:
 
 
 # ── TUI rendering ────────────────────────────────────────────────────────────
+
 
 def _header(console: Console, title: str, iteration: int, max_iterations: int) -> None:
     iter_tag = f"[dim]Versuch {iteration}/{max_iterations}[/dim]  " if max_iterations > 1 else ""
@@ -234,10 +236,7 @@ def _render_execution(
                 console.print("      [green]✓[/green]")
             else:
                 err = (cmd.stderr or "")[:200]
-                console.print(
-                    f"      [red]✗ exit {cmd.exit_code}[/red]"
-                    + (f" — {err}" if err else "")
-                )
+                console.print(f"      [red]✗ exit {cmd.exit_code}[/red]" + (f" — {err}" if err else ""))
         except subprocess.TimeoutExpired:
             cmd.exit_code = -1
             cmd.stderr = "timeout after 60s"
@@ -297,9 +296,7 @@ def _render_result_screen(
     )
 
     if iteration >= max_iterations:
-        console.print(
-            f"  [yellow]Letzter Versuch ({iteration}/{max_iterations}) abgeschlossen.[/yellow]\n"
-        )
+        console.print(f"  [yellow]Letzter Versuch ({iteration}/{max_iterations}) abgeschlossen.[/yellow]\n")
         console.print("  [dim]Beliebige Taste zum Beenden...[/dim]")
         _getch()
         return "abort"
@@ -307,8 +304,7 @@ def _render_result_screen(
     # Auto-retry mit Abbruch-Option
     wait_s = 4
     console.print(
-        f"  [yellow]Starte Versuch {iteration + 1}/{max_iterations} automatisch...[/yellow]  "
-        f"[dim][q] Abbrechen[/dim]\n"
+        f"  [yellow]Starte Versuch {iteration + 1}/{max_iterations} automatisch...[/yellow]  [dim][q] Abbrechen[/dim]\n"
     )
 
     for remaining in range(wait_s, 0, -1):
@@ -333,6 +329,7 @@ def _build_failure_summary(executed: list[RepairCommand]) -> str:
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
+
 
 def run_repair_tui(
     outputs: list[tuple[str, str]],
@@ -361,9 +358,7 @@ def run_repair_tui(
         _header(console, goal_title, iteration, max_iterations)
         console.print("\n[yellow]Keine Shell-Befehle in den Task-Outputs gefunden.[/yellow]")
         if iteration < max_iterations:
-            console.print(
-                f"  [dim]Starte Versuch {iteration + 1} automatisch... [q] Abbrechen[/dim]"
-            )
+            console.print(f"  [dim]Starte Versuch {iteration + 1} automatisch... [q] Abbrechen[/dim]")
             key = _getch_nonblock(3.0)
             if key and key.lower() in ("q", "\x03", "\x04"):
                 return RepairTuiResult(verdict="abort")
@@ -409,9 +404,7 @@ def run_repair_tui(
     if not approved:
         console.print("\n[yellow]Keine Befehle freigegeben.[/yellow]")
         if iteration < max_iterations:
-            console.print(
-                f"  [dim]Starte Versuch {iteration + 1} ohne Ausführung... [q] Abbrechen[/dim]"
-            )
+            console.print(f"  [dim]Starte Versuch {iteration + 1} ohne Ausführung... [q] Abbrechen[/dim]")
             key = _getch_nonblock(3.0)
             if key and key.lower() in ("q", "\x03", "\x04"):
                 return RepairTuiResult(verdict="abort")
@@ -427,10 +420,7 @@ def run_repair_tui(
         table.add_row(str(i), cmd.command, cmd.source_task[:50])
 
     console.print(table)
-    console.print(
-        f"\n[bold]{len(approved)}[/bold] Befehl(e) werden auf dem "
-        "[bold]Host-System[/bold] ausgeführt.\n"
-    )
+    console.print(f"\n[bold]{len(approved)}[/bold] Befehl(e) werden auf dem [bold]Host-System[/bold] ausgeführt.\n")
     console.print("  [bold]Enter[/bold]/[bold]y[/bold] Ausführen   [bold]q[/bold] Abbrechen\n")
 
     key = _getch()
@@ -442,8 +432,6 @@ def run_repair_tui(
     _render_execution(console, approved, goal_title, iteration, max_iterations)
 
     # ── Phase 4: Auto-verdict from exit codes ─────────────────────────
-    verdict = _render_result_screen(
-        console, approved, goal_title, iteration, max_iterations
-    )
+    verdict = _render_result_screen(console, approved, goal_title, iteration, max_iterations)
     failure_summary = _build_failure_summary(approved) if verdict == "retry" else ""
     return RepairTuiResult(executed=approved, verdict=verdict, failure_summary=failure_summary)

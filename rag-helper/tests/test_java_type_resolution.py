@@ -12,11 +12,13 @@ from rag_helper.extractors.java_type_resolution import (
 
 class JavaTypeResolutionTests(unittest.TestCase):
     def test_parse_wildcard_imports_keeps_non_static_packages(self) -> None:
-        wildcard_imports = parse_wildcard_imports([
-            "java.util.*",
-            "static:java.util.Collections.*",
-            "demo.shared.*",
-        ])
+        wildcard_imports = parse_wildcard_imports(
+            [
+                "java.util.*",
+                "static:java.util.Collections.*",
+                "demo.shared.*",
+            ]
+        )
 
         self.assertEqual(wildcard_imports, ["java.util", "demo.shared"])
 

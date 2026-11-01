@@ -34,30 +34,60 @@ def executions(app, tmp_path, monkeypatch):
     service, registry, principal, winner, adapter = _candidate.__wrapped__(app, tmp_path, monkeypatch)
     repo = service._outcomes._repository
     report = {
-        "training_job_id": winner.outcome.job_id, "adapter_id": winner.outcome.adapter_id,
-        "artifact_sha256": winner.outcome.adapter_digest, "lineage": winner.lineage.to_mapping(), "evaluations": {},
+        "training_job_id": winner.outcome.job_id,
+        "adapter_id": winner.outcome.adapter_id,
+        "artifact_sha256": winner.outcome.adapter_digest,
+        "lineage": winner.lineage.to_mapping(),
+        "evaluations": {},
     }
     jobs = []
     for role in ("validation", "holdout"):
-        job, _replayed = repo.create_job(MlInternTrainingJobDB(
-            tenant_id=principal.tenant_id, owner_subject=principal.subject,
-            task_id=f"synthetic-{role}-task", dataset_id=winner.job.dataset_id,
-            job_type="evaluate_lora", status="completed", base_model=winner.job.base_model,
-            idempotency_key_digest=canonical_digest({"role": role}), request_digest="d" * 64,
-            request_spec={}, result_summary={"synthetic": True, "role": role},
-            adapter_id=winner.outcome.adapter_id, worker_job_id=f"synthetic-{role}-assignment",
-        ))
-        attempt = repo.create_attempt(MlInternTrainingAttemptDB(
-            job_id=job.id, tenant_id=principal.tenant_id, owner_subject=principal.subject,
-            attempt_number=1, status="completed", worker_id="synthetic-worker", worker_url="http://synthetic.invalid",
-            fencing_token_digest="e" * 64, lease_expires_at=1, deadline_at=2,
-        ))
+        job, _replayed = repo.create_job(
+            MlInternTrainingJobDB(
+                tenant_id=principal.tenant_id,
+                owner_subject=principal.subject,
+                task_id=f"synthetic-{role}-task",
+                dataset_id=winner.job.dataset_id,
+                job_type="evaluate_lora",
+                status="completed",
+                base_model=winner.job.base_model,
+                idempotency_key_digest=canonical_digest({"role": role}),
+                request_digest="d" * 64,
+                request_spec={},
+                result_summary={"synthetic": True, "role": role},
+                adapter_id=winner.outcome.adapter_id,
+                worker_job_id=f"synthetic-{role}-assignment",
+            )
+        )
+        attempt = repo.create_attempt(
+            MlInternTrainingAttemptDB(
+                job_id=job.id,
+                tenant_id=principal.tenant_id,
+                owner_subject=principal.subject,
+                attempt_number=1,
+                status="completed",
+                worker_id="synthetic-worker",
+                worker_url="http://synthetic.invalid",
+                fencing_token_digest="e" * 64,
+                lease_expires_at=1,
+                deadline_at=2,
+            )
+        )
         job.active_attempt_id = attempt.id
         job = repo.save_job(job, expected_version=job.version)
-        report["evaluations"][role] = asdict(SpecialistEvaluationReceipt(
-            job.id, job.version, attempt.id, job.dataset_id, 1, job.adapter_id,
-            winner.outcome.adapter_digest, winner.outcome.base_model_digest, job.request_digest,
-        ))
+        report["evaluations"][role] = asdict(
+            SpecialistEvaluationReceipt(
+                job.id,
+                job.version,
+                attempt.id,
+                job.dataset_id,
+                1,
+                job.adapter_id,
+                winner.outcome.adapter_digest,
+                winner.outcome.base_model_digest,
+                job.request_digest,
+            )
+        )
         jobs.append(job)
     evidence = {"source_ids": (), "run_ids": (), "job_id": jobs[-1].id, "fencing_token_digest": "e" * 64}
     policy = CapturedExecutionPolicyFixture()

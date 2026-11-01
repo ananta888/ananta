@@ -1,4 +1,5 @@
 """ananta hub — hub lifecycle commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -23,12 +24,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="ananta hub",
         description="Manage the Ananta hub process.",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog=(
-            "Examples:\n"
-            "  ananta hub status\n"
-            "  ananta hub status --json\n"
-            "  ananta hub logs\n"
-        ),
+        epilog=("Examples:\n  ananta hub status\n  ananta hub status --json\n  ananta hub logs\n"),
     )
     _configure_subparsers(p)
     return p
@@ -102,22 +98,22 @@ def register(subparsers: Any) -> None:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _cmd_not_implemented(name: str) -> int:
     import sys
+
     print(f"Error: 'ananta {name}' is not yet implemented.", file=sys.stderr)
-    print(f"       Use Docker Compose directly: docker compose up/down", file=sys.stderr)
+    print("       Use Docker Compose directly: docker compose up/down", file=sys.stderr)
     return 1
 
 
 def _cmd_status(parsed) -> int:
     import sys
-    base = (
-        getattr(parsed, "base_url", None)
-        or os.environ.get("ANANTA_BASE_URL", "")
-        or _DEFAULT_BASE_URL
-    )
+
+    base = getattr(parsed, "base_url", None) or os.environ.get("ANANTA_BASE_URL", "") or _DEFAULT_BASE_URL
     try:
         import requests
+
         r = requests.get(f"{base}/health", timeout=8)
         ok = r.status_code == 200
         data = r.json() if ok else {}

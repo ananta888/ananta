@@ -188,7 +188,9 @@ def recover_stale(*, dry_run: bool = True, deps: CliGoalsDependencies = DEFAULT_
     rec_response = deps.request("POST", "/goals/planning/recover-stale", timeout=30)
     if rec_response.status_code == 404:
         # Endpoint not yet available — inform operator.
-        print(f"Server-side recover endpoint not available. Use --goal-purge or direct DB cleanup for {stale} stale goal(s).")
+        print(
+            f"Server-side recover endpoint not available. Use --goal-purge or direct DB cleanup for {stale} stale goal(s)."
+        )
         return 1
     if rec_response.status_code != 200:
         print_error(rec_response)

@@ -54,9 +54,7 @@ class Record(SimpleNamespace):
 
 class MemoryRepository:
     def __init__(self, rows: list[Record] | None = None) -> None:
-        self.rows = {
-            str(row.id): row for row in list(rows or [])
-        }
+        self.rows = {str(row.id): row for row in list(rows or [])}
         self.save_calls: list[Record] = []
 
     def get_by_id(self, row_id: str) -> Record | None:
@@ -76,11 +74,7 @@ class FailingSaveRepository(MemoryRepository):
 class PlanNodeRepository(MemoryRepository):
     def get_by_plan_id(self, plan_id: str) -> list[Record]:
         return sorted(
-            [
-                row
-                for row in self.rows.values()
-                if str(row.plan_id) == str(plan_id)
-            ],
+            [row for row in self.rows.values() if str(row.plan_id) == str(plan_id)],
             key=lambda row: (int(row.position), str(row.id)),
         )
 
@@ -102,9 +96,7 @@ def test_dispatch_abort_preserves_an_already_terminal_result() -> None:
         derivation_reason="goal_task_recovery",
         status="completed",
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "recovery-source"
-            },
+            "model_recovery_release": {"source_task_id": "recovery-source"},
             "recovery_dispatch_lease": {
                 "state": "result_accepted",
                 "revision": 4,
@@ -117,9 +109,9 @@ def test_dispatch_abort_preserves_an_already_terminal_result() -> None:
         last_output="accepted",
         last_exit_code=0,
     )
-    task.status_reason_details["recovery_dispatch_lease"][
-        "accepted_result_digest"
-    ] = recovery_accepted_result_digest(task)
+    task.status_reason_details["recovery_dispatch_lease"]["accepted_result_digest"] = recovery_accepted_result_digest(
+        task
+    )
     repos = Record(task_repo=MemoryRepository([task]))
     service = RecoveryDispatchGateService(
         repository_provider=lambda: repos,
@@ -134,9 +126,7 @@ def test_dispatch_abort_preserves_an_already_terminal_result() -> None:
     )
 
     assert status == "completed"
-    assert task.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["state"] == "result_accepted"
+    assert task.status_reason_details["recovery_dispatch_lease"]["state"] == "result_accepted"
 
 
 def test_dispatch_abort_revokes_lease_before_status_transition() -> None:
@@ -150,9 +140,7 @@ def test_dispatch_abort_revokes_lease_before_status_transition() -> None:
         status="in_progress",
         status_reason_code=None,
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "recovery-source"
-            },
+            "model_recovery_release": {"source_task_id": "recovery-source"},
             "recovery_dispatch_lease": {
                 "state": "worker_admitted",
                 "phase": "execute",
@@ -180,16 +168,12 @@ def test_dispatch_abort_revokes_lease_before_status_transition() -> None:
     )
 
     persisted = repos.task_repo.get_by_id(task.id)
-    lease = persisted.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    lease = persisted.status_reason_details["recovery_dispatch_lease"]
     assert status == "paused"
     assert persisted.status == "paused"
     assert lease["state"] == "revoked"
     assert lease["revision"] == 5
-    assert lease["revocation_reason"] == (
-        "recovery_dispatch_timeout"
-    )
+    assert lease["revocation_reason"] == ("recovery_dispatch_timeout")
 
 
 def test_dispatch_abort_rejects_unproven_terminal_result() -> None:
@@ -203,9 +187,7 @@ def test_dispatch_abort_rejects_unproven_terminal_result() -> None:
         status="completed",
         status_reason_code=None,
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "recovery-source"
-            },
+            "model_recovery_release": {"source_task_id": "recovery-source"},
             "recovery_dispatch_lease": {
                 "state": "worker_admitted",
                 "phase": "execute",
@@ -235,20 +217,12 @@ def test_dispatch_abort_rejects_unproven_terminal_result() -> None:
     )
 
     persisted = repos.task_repo.get_by_id(task.id)
-    lease = persisted.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    lease = persisted.status_reason_details["recovery_dispatch_lease"]
     assert status == "verification_failed"
     assert persisted.status == "verification_failed"
-    assert (
-        persisted.status_reason_code
-        == "recovery_result_verification_failed"
-    )
+    assert persisted.status_reason_code == "recovery_result_verification_failed"
     assert lease["state"] == "revoked"
-    assert (
-        lease["revocation_reason"]
-        == "recovery_terminal_without_accepted_result"
-    )
+    assert lease["revocation_reason"] == "recovery_terminal_without_accepted_result"
 
 
 def test_revoke_reports_false_when_terminal_acceptance_wins_save_race() -> None:
@@ -258,9 +232,7 @@ def test_revoke_reports_false_when_terminal_acceptance_wins_save_race() -> None:
         derivation_reason="goal_task_recovery",
         status="in_progress",
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "recovery-source"
-            },
+            "model_recovery_release": {"source_task_id": "recovery-source"},
             "recovery_dispatch_lease": {
                 "schema": "ananta.recovery_dispatch_lease.v1",
                 "state": "worker_admitted",
@@ -288,9 +260,7 @@ def test_revoke_reports_false_when_terminal_acceptance_wins_save_race() -> None:
             "status_reason_details": {
                 **task.status_reason_details,
                 "recovery_dispatch_lease": {
-                    **task.status_reason_details[
-                        "recovery_dispatch_lease"
-                    ],
+                    **task.status_reason_details["recovery_dispatch_lease"],
                     "state": "result_accepted",
                     "accepted_result_phase": "execute",
                     "accepted_result_status": "completed",
@@ -299,9 +269,7 @@ def test_revoke_reports_false_when_terminal_acceptance_wins_save_race() -> None:
             },
         }
     )
-    winner.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["accepted_result_digest"] = recovery_accepted_result_digest(
+    winner.status_reason_details["recovery_dispatch_lease"]["accepted_result_digest"] = recovery_accepted_result_digest(
         winner
     )
 
@@ -312,19 +280,18 @@ def test_revoke_reports_false_when_terminal_acceptance_wins_save_race() -> None:
 
     repository = RacingRepository([task])
     service = RecoveryDispatchGateService(
-        repository_provider=lambda: Record(
-            task_repo=repository
-        ),
+        repository_provider=lambda: Record(task_repo=repository),
         mutation_lock_provider=LockPort,
     )
 
-    assert service.revoke_dispatch_lease(
-        task.id,
-        reason_code="late_transport_timeout",
-    ) is False
-    assert repository.get_by_id(task.id).status_reason_details[
-        "recovery_dispatch_lease"
-    ]["state"] == "result_accepted"
+    assert (
+        service.revoke_dispatch_lease(
+            task.id,
+            reason_code="late_transport_timeout",
+        )
+        is False
+    )
+    assert repository.get_by_id(task.id).status_reason_details["recovery_dispatch_lease"]["state"] == "result_accepted"
 
 
 def test_worker_result_boundary_suppresses_all_authoritative_write_paths(
@@ -337,11 +304,7 @@ def test_worker_result_boundary_suppresses_all_authoritative_write_paths(
     monkeypatch.setattr(
         repository,
         "get_by_id",
-        lambda task_id: (
-            authoritative
-            if task_id == authoritative.id
-            else None
-        ),
+        lambda task_id: authoritative if task_id == authoritative.id else None,
     )
 
     with defer_recovery_task_writes(
@@ -353,49 +316,43 @@ def test_worker_result_boundary_suppresses_all_authoritative_write_paths(
             "completed",
             last_output="worker result must stay staged",
         )
-        cas_result = (
-            task_runtime_service.compare_and_set_local_task_status(
-                authoritative.id,
-                "completed",
-                expected_statuses={"in_progress"},
-                last_exit_code=0,
-            )
+        cas_result = task_runtime_service.compare_and_set_local_task_status(
+            authoritative.id,
+            "completed",
+            expected_statuses={"in_progress"},
+            last_exit_code=0,
         )
-        repository_result = repository.save(
-            Record(id=authoritative.id, status="completed")
-        )
-        verification_result = (
-            VerificationService().create_or_update_record(
-                authoritative.id,
-                trace_id="trace-worker",
-                output="worker verification",
-                exit_code=0,
-                gate_results={"passed": True},
-            )
+        repository_result = repository.save(Record(id=authoritative.id, status="completed"))
+        verification_result = VerificationService().create_or_update_record(
+            authoritative.id,
+            trace_id="trace-worker",
+            output="worker verification",
+            exit_code=0,
+            gate_results={"passed": True},
         )
 
     assert authoritative.status == "todo"
     assert cas_result is True
     assert repository_result is authoritative
     assert verification_result is None
-    assert [
-        mutation["operation"]
-        for mutation in boundary.mutations
-    ] == [
+    assert [mutation["operation"] for mutation in boundary.mutations] == [
         "status_update",
         "compare_and_set",
         "repository_save",
         "verification_record",
     ]
-    assert defer_task_status_mutation(
-        authoritative.id,
-        "failed",
-        event_type=None,
-        event_actor="worker",
-        event_details=None,
-        force=False,
-        values={},
-    ) is False
+    assert (
+        defer_task_status_mutation(
+            authoritative.id,
+            "failed",
+            event_type=None,
+            event_actor="worker",
+            event_details=None,
+            force=False,
+            values={},
+        )
+        is False
+    )
 
 
 def test_worker_result_projection_is_typed_bounded_and_digest_bound() -> None:
@@ -416,9 +373,7 @@ def test_worker_result_projection_is_typed_bounded_and_digest_bound() -> None:
                         "schema": "source_catalog.v2",
                         "sources": [{"source_id": "SRC_1"}],
                     },
-                    "answer_verification": {
-                        "citation_verification_status": "pending"
-                    },
+                    "answer_verification": {"citation_verification_status": "pending"},
                     "status": "passed",
                     "record_id": "worker-forged-authority",
                 }
@@ -450,9 +405,7 @@ def test_worker_result_projection_is_typed_bounded_and_digest_bound() -> None:
         **envelope,
         "verification_projection": {
             **projection,
-            "answer_verification": {
-                "citation_verification_status": "verified"
-            },
+            "answer_verification": {"citation_verification_status": "verified"},
         },
     }
     with pytest.raises(
@@ -499,12 +452,8 @@ def test_proposal_projection_is_execution_context_not_hub_authority() -> None:
     verification = local_task["verification_status"]
     assert verification["status"] == "pending"
     assert verification["record_id"] == "hub-record"
-    assert verification["source_catalog"]["sources"][0][
-        "source_id"
-    ] == "SRC_1"
-    assert verification["recovery_worker_results"][
-        "propose"
-    ] == envelope
+    assert verification["source_catalog"]["sources"][0]["source_id"] == "SRC_1"
+    assert verification["recovery_worker_results"]["propose"] == envelope
 
 
 def test_invalid_proposal_envelope_has_no_hub_mutation(
@@ -539,11 +488,7 @@ def test_invalid_proposal_envelope_has_no_hub_mutation(
                 "status": "proposing",
                 "derivation_reason": "goal_task_recovery",
                 "verification_status": {},
-                "status_reason_details": {
-                    "model_recovery_release": {
-                        "source_task_id": "source-task"
-                    }
-                },
+                "status_reason_details": {"model_recovery_release": {"source_task_id": "source-task"}},
             },
             allow_synthetic_llm_profile_fallback=lambda: False,
             hub_state=dependencies.hub_state,
@@ -576,9 +521,7 @@ def test_execute_result_stays_nonterminal_until_result_guard(
         status="in_progress",
         derivation_reason="goal_task_recovery",
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "source-task"
-            },
+            "model_recovery_release": {"source_task_id": "source-task"},
             "recovery_dispatch_lease": {
                 "state": "worker_admitted",
                 "revision": 2,
@@ -586,11 +529,7 @@ def test_execute_result_stays_nonterminal_until_result_guard(
                 "request_fingerprint": "b" * 64,
             },
         },
-        verification_status={
-            "recovery_worker_results": {
-                "propose": proposal_envelope
-            }
-        },
+        verification_status={"recovery_worker_results": {"propose": proposal_envelope}},
         history=[],
         last_output=None,
         last_exit_code=None,
@@ -667,15 +606,9 @@ def test_execute_result_stays_nonterminal_until_result_guard(
     persisted = repository.get_by_id(task.id)
     assert observed_statuses == ["in_progress"]
     assert persisted.status == "in_progress"
-    assert persisted.status_reason_details[
-        "recovery_result_candidate"
-    ]["status"] == "completed"
-    assert persisted.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["state"] == "worker_admitted"
-    assert persisted.verification_status[
-        "recovery_worker_results"
-    ] == {
+    assert persisted.status_reason_details["recovery_result_candidate"]["status"] == "completed"
+    assert persisted.status_reason_details["recovery_dispatch_lease"]["state"] == "worker_admitted"
+    assert persisted.verification_status["recovery_worker_results"] == {
         "propose": proposal_envelope,
         "execute": execute_envelope,
     }
@@ -730,20 +663,14 @@ def _forwarded_recovery_receipt(
         "kind": "workspace_file",
         "task_id": task_id,
         "artifact_id": f"recovery-artifact-{identity}",
-        "artifact_version_id": (
-            f"recovery-artifact-version-{identity}"
-        ),
+        "artifact_version_id": (f"recovery-artifact-version-{identity}"),
         "filename": f"result-{source_index}.txt",
         "media_type": "text/plain",
-        "workspace_relative_path": (
-            f"result-{source_index}.txt"
-        ),
+        "workspace_relative_path": (f"result-{source_index}.txt"),
         "content_hash": f"{source_index + 1:064x}",
         "size_bytes": 1,
         "provenance_summary": {
-            "schema": (
-                "ananta.recovery_artifact_provenance.v1"
-            ),
+            "schema": ("ananta.recovery_artifact_provenance.v1"),
             "authority": "hub",
             "ingress": "workspace",
             "worker_url": "http://worker-alpha:5000",
@@ -769,9 +696,7 @@ def _forwarded_recovery_receipt(
         (
             lambda task_id: [
                 {
-                    **_forwarded_recovery_receipt(
-                        task_id=task_id
-                    ),
+                    **_forwarded_recovery_receipt(task_id=task_id),
                     "untrusted_padding": "x" * 262_145,
                 }
             ],
@@ -780,9 +705,7 @@ def _forwarded_recovery_receipt(
         (
             lambda task_id: [
                 {
-                    **_forwarded_recovery_receipt(
-                        task_id=task_id
-                    ),
+                    **_forwarded_recovery_receipt(task_id=task_id),
                     "worker_verdict": "passed",
                 }
             ],
@@ -802,11 +725,7 @@ def test_forwarded_recovery_artifacts_are_bounded_before_persistence(
         status="in_progress",
         derivation_reason="goal_task_recovery",
         assigned_agent_url="http://worker-alpha:5000",
-        status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "source-task"
-            }
-        },
+        status_reason_details={"model_recovery_release": {"source_task_id": "source-task"}},
         history=[],
         last_proposal={},
         verification_status={},
@@ -818,18 +737,14 @@ def test_forwarded_recovery_artifacts_are_bounded_before_persistence(
         repositories=lambda *_args, **_kwargs: repos,
     )
     dependencies = forwarding_dependencies(
-        update_task_status=lambda *args, **kwargs: status_calls.append(
-            (*args, kwargs)
-        ),
+        update_task_status=lambda *args, **kwargs: status_calls.append((*args, kwargs)),
     )
     task = {
         "id": task_id,
         "status": "in_progress",
         "derivation_reason": "goal_task_recovery",
         "assigned_agent_url": "http://worker-alpha:5000",
-        "status_reason_details": (
-            authoritative.status_reason_details
-        ),
+        "status_reason_details": (authoritative.status_reason_details),
         "history": [],
         "last_proposal": {},
         "verification_status": {},
@@ -868,9 +783,7 @@ def test_execute_result_status_and_lease_commit_as_one_aggregate(
         derivation_reason="goal_task_recovery",
         status="in_progress",
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": "source-task"
-            },
+            "model_recovery_release": {"source_task_id": "source-task"},
             "recovery_dispatch_lease": {
                 "state": "worker_admitted",
                 "phase": "execute",
@@ -899,11 +812,7 @@ def test_execute_result_status_and_lease_commit_as_one_aggregate(
         history=[],
         updated_at=0.0,
     )
-    repository: MemoryRepository = (
-        FailingSaveRepository([task])
-        if save_fails
-        else MemoryRepository([task])
-    )
+    repository: MemoryRepository = FailingSaveRepository([task]) if save_fails else MemoryRepository([task])
     repos = Record(task_repo=repository)
     service = RecoveryDispatchGateService(
         repository_provider=lambda: repos,
@@ -955,26 +864,20 @@ def test_execute_result_status_and_lease_commit_as_one_aggregate(
                 assert decision.allowed is True
         persisted = repository.get_by_id(task.id)
         assert persisted.status == "in_progress"
-        assert persisted.status_reason_details[
-            "recovery_dispatch_lease"
-        ]["state"] == "worker_admitted"
+        assert persisted.status_reason_details["recovery_dispatch_lease"]["state"] == "worker_admitted"
         return
 
     with result_context as decision:
         assert decision.allowed is True
 
     persisted = repository.get_by_id(task.id)
-    lease = persisted.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    lease = persisted.status_reason_details["recovery_dispatch_lease"]
     assert persisted.status == "completed"
     assert lease["state"] == "result_accepted"
     assert lease["accepted_result_phase"] == "execute"
     assert lease["accepted_result_status"] == "completed"
     assert lease["accepted_result_terminal"] is True
-    assert lease["accepted_result_digest"] == (
-        recovery_accepted_result_digest(persisted)
-    )
+    assert lease["accepted_result_digest"] == (recovery_accepted_result_digest(persisted))
 
 
 def _build_recovery_fixture(
@@ -1099,24 +1002,18 @@ def _build_recovery_fixture(
             "recovery_key": "recovery-key",
             "materialization_release_state": "committed",
             "materialization_release_epoch": release_epoch,
-            "materialization_release_approval_id": (
-                "approval-recovery"
-            ),
+            "materialization_release_approval_id": ("approval-recovery"),
             "materialization_release_source_task_id": source.id,
             "materialization_release_goal_id": goal.id,
             "materialization_release_team_id": goal.team_id,
         },
     )
-    plan.rationale["materialization_inputs_digest"] = (
-        calculate_recovery_materialization_inputs_digest(goal)
-    )
+    plan.rationale["materialization_inputs_digest"] = calculate_recovery_materialization_inputs_digest(goal)
     plan.rationale["plan_digest"] = calculate_recovery_plan_digest(
         plan,
         [node],
     )
-    child.status_reason_details[
-        "model_recovery_release"
-    ]["task_payload_digest"] = (
+    child.status_reason_details["model_recovery_release"]["task_payload_digest"] = (
         calculate_recovery_task_payload_digest(child)
     )
     child.status_reason_details["recovery_dispatch_lease"] = {
@@ -1127,9 +1024,7 @@ def _build_recovery_fixture(
         "accepted_result_status": "completed",
         "accepted_result_terminal": True,
     }
-    child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["accepted_result_digest"] = recovery_accepted_result_digest(
+    child.status_reason_details["recovery_dispatch_lease"]["accepted_result_digest"] = recovery_accepted_result_digest(
         child
     )
 
@@ -1144,17 +1039,11 @@ def _build_recovery_fixture(
         tasks.append(external)
     dependency_binding = build_recovery_dependency_binding(
         source_task_id=source.id,
-        preexisting_dependency_ids=(
-            [external.id] if external is not None else []
-        ),
+        preexisting_dependency_ids=([external.id] if external is not None else []),
         child_task_ids=[child.id],
     )
-    source.status_reason_details["model_recovery"][
-        "dependency_binding"
-    ] = dependency_binding
-    plan.rationale[
-        "materialization_dependency_binding_digest"
-    ] = dependency_binding["digest"]
+    source.status_reason_details["model_recovery"]["dependency_binding"] = dependency_binding
+    plan.rationale["materialization_dependency_binding_digest"] = dependency_binding["digest"]
     plan.rationale["plan_digest"] = calculate_recovery_plan_digest(
         plan,
         [node],
@@ -1197,17 +1086,11 @@ def test_finalizer_uses_exact_approved_plan_nodes_and_accepts_completed_external
     assert decision.child_ids == (fixture.child.id,)
     assert fixture.external.status == "completed"
     assert fixture.source.status == "completed"
-    evidence = fixture.source.verification_status[
-        "model_recovery_result"
-    ]
+    evidence = fixture.source.verification_status["model_recovery_result"]
     assert evidence["status"] == "passed"
     assert evidence["child_ids"] == [fixture.child.id]
-    assert evidence["accepted_results"][fixture.child.id][
-        "verification_record_id"
-    ] == "verification-record-1"
-    assert fixture.source.status_reason_details[
-        "recovery_source_post_commit"
-    ]["state"] == "pending"
+    assert evidence["accepted_results"][fixture.child.id]["verification_record_id"] == "verification-record-1"
+    assert fixture.source.status_reason_details["recovery_source_post_commit"]["state"] == "pending"
 
 
 def test_finalizer_uses_task_bound_hub_write_authority() -> None:
@@ -1220,21 +1103,11 @@ def test_finalizer_uses_task_bound_hub_write_authority() -> None:
 
     class AuthorityCheckingTaskRepository(MemoryRepository):
         def save(self, row: Record) -> Record:
-            if (
-                row.id == fixture.source.id
-                and row.status
-                in {"completed", "verification_failed"}
-            ):
-                authority_checks.append(
-                    recovery_source_finalization_write_authorized(
-                        row.id
-                    )
-                )
+            if row.id == fixture.source.id and row.status in {"completed", "verification_failed"}:
+                authority_checks.append(recovery_source_finalization_write_authorized(row.id))
             return super().save(row)
 
-    fixture.repos.task_repo = AuthorityCheckingTaskRepository(
-        list(fixture.repos.task_repo.rows.values())
-    )
+    fixture.repos.task_repo = AuthorityCheckingTaskRepository(list(fixture.repos.task_repo.rows.values()))
     service = RecoverySourceFinalizationService(
         repository_provider=lambda: fixture.repos,
         mutation_lock_provider=LockPort,
@@ -1246,12 +1119,7 @@ def test_finalizer_uses_task_bound_hub_write_authority() -> None:
 
     assert decision.transitioned is True
     assert authority_checks == [True]
-    assert (
-        recovery_source_finalization_write_authorized(
-            fixture.source.id
-        )
-        is False
-    )
+    assert recovery_source_finalization_write_authorized(fixture.source.id) is False
 
 
 def _capture_task_callback(
@@ -1485,14 +1353,10 @@ def _hub_verified_callback_artifact(
         "kind": "task_output",
         "task_id": "recovery-child",
         "artifact_id": f"recovery-artifact-{identity}",
-        "artifact_version_id": (
-            f"recovery-artifact-version-{identity}"
-        ),
+        "artifact_version_id": (f"recovery-artifact-version-{identity}"),
         "filename": f"result-{index}.txt",
         "media_type": "text/plain",
-        "workspace_relative_path": (
-            f"reports/result-{index}.txt"
-        ),
+        "workspace_relative_path": (f"reports/result-{index}.txt"),
         "relative_path": f"reports/result-{index}.txt",
         "content_hash": f"{index + 1:064x}",
         "size_bytes": 12,
@@ -1514,13 +1378,9 @@ def _finalized_source_with_artifacts(
     artifacts: list[dict[str, Any]],
 ) -> Record:
     fixture = _build_recovery_fixture()
-    fixture.child.verification_status[
-        "execution_artifacts"
-    ] = artifacts
-    fixture.child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["accepted_result_digest"] = recovery_accepted_result_digest(
-        fixture.child
+    fixture.child.verification_status["execution_artifacts"] = artifacts
+    fixture.child.status_reason_details["recovery_dispatch_lease"]["accepted_result_digest"] = (
+        recovery_accepted_result_digest(fixture.child)
     )
     decision = fixture.service.finalize_if_ready(
         source_task_id=fixture.source.id,
@@ -1531,99 +1391,58 @@ def _finalized_source_with_artifacts(
 
 def test_finalizer_rejects_multi_child_artifact_aggregate_over_global_bound() -> None:
     fixture = _build_recovery_fixture()
-    second_child = Record(
-        **{
-            key: value
-            for key, value in vars(fixture.child).items()
-        }
-    )
+    second_child = Record(**{key: value for key, value in vars(fixture.child).items()})
     second_child.id = "recovery-child-2"
     second_child.plan_node_id = "recovery-node-2"
     second_child.title = "Approved recovery task 2"
     second_child.status_reason_details = {
-        key: (
-            dict(value)
-            if isinstance(value, dict)
-            else value
-        )
+        key: (dict(value) if isinstance(value, dict) else value)
         for key, value in fixture.child.status_reason_details.items()
     }
     second_child.verification_status = {
-        key: (
-            dict(value)
-            if isinstance(value, dict)
-            else list(value)
-            if isinstance(value, list)
-            else value
-        )
+        key: (dict(value) if isinstance(value, dict) else list(value) if isinstance(value, list) else value)
         for key, value in fixture.child.verification_status.items()
     }
-    second_node = Record(
-        **{
-            key: value
-            for key, value in vars(fixture.node).items()
-        }
-    )
+    second_node = Record(**{key: value for key, value in vars(fixture.node).items()})
     second_node.id = second_child.plan_node_id
     second_node.node_key = "recovery-node-key-2"
     second_node.title = second_child.title
     second_node.position = 1
     second_node.materialized_task_id = second_child.id
 
-    first_receipts = [
-        _hub_verified_callback_artifact(index=index)
-        for index in range(32)
-    ]
+    first_receipts = [_hub_verified_callback_artifact(index=index) for index in range(32)]
     second_receipt = _hub_verified_callback_artifact(index=32)
     second_receipt["task_id"] = second_child.id
     second_receipt["provenance_summary"] = {
         **second_receipt["provenance_summary"],
         "source_index": 0,
     }
-    fixture.child.verification_status[
-        "execution_artifacts"
-    ] = first_receipts
-    second_child.verification_status[
-        "execution_artifacts"
-    ] = [second_receipt]
+    fixture.child.verification_status["execution_artifacts"] = first_receipts
+    second_child.verification_status["execution_artifacts"] = [second_receipt]
 
     child_ids = [fixture.child.id, second_child.id]
     fixture.source.depends_on = child_ids
-    fixture.source.status_reason_details["model_recovery"][
-        "created_task_ids"
-    ] = child_ids
+    fixture.source.status_reason_details["model_recovery"]["created_task_ids"] = child_ids
     dependency_binding = build_recovery_dependency_binding(
         source_task_id=fixture.source.id,
         preexisting_dependency_ids=[],
         child_task_ids=child_ids,
     )
-    fixture.source.status_reason_details["model_recovery"][
-        "dependency_binding"
-    ] = dependency_binding
-    fixture.plan.rationale[
-        "materialization_dependency_binding_digest"
-    ] = dependency_binding["digest"]
-    fixture.plan.rationale["plan_digest"] = (
-        calculate_recovery_plan_digest(
-            fixture.plan,
-            [fixture.node, second_node],
-        )
+    fixture.source.status_reason_details["model_recovery"]["dependency_binding"] = dependency_binding
+    fixture.plan.rationale["materialization_dependency_binding_digest"] = dependency_binding["digest"]
+    fixture.plan.rationale["plan_digest"] = calculate_recovery_plan_digest(
+        fixture.plan,
+        [fixture.node, second_node],
     )
-    second_child.status_reason_details[
-        "model_recovery_release"
-    ]["task_payload_digest"] = (
+    second_child.status_reason_details["model_recovery_release"]["task_payload_digest"] = (
         calculate_recovery_task_payload_digest(second_child)
     )
     for child in (fixture.child, second_child):
-        child.status_reason_details[
-            "recovery_dispatch_lease"
-        ]["accepted_result_digest"] = (
+        child.status_reason_details["recovery_dispatch_lease"]["accepted_result_digest"] = (
             recovery_accepted_result_digest(child)
         )
     fixture.repos.task_repo.rows[second_child.id] = second_child
-    fixture.repos.plan_node_repo.rows[
-        second_node.id
-    ] = second_node
+    fixture.repos.plan_node_repo.rows[second_node.id] = second_node
 
     decision = fixture.service.finalize_if_ready(
         source_task_id=fixture.source.id,
@@ -1631,39 +1450,29 @@ def test_finalizer_rejects_multi_child_artifact_aggregate_over_global_bound() ->
 
     assert decision.transitioned is True
     assert decision.status == "verification_failed"
-    assert decision.reason_code == (
-        "recovery_source_artifact_aggregate_invalid"
-    )
+    assert decision.reason_code == ("recovery_source_artifact_aggregate_invalid")
     assert fixture.source.status == "verification_failed"
-    result = fixture.source.verification_status[
-        "model_recovery_result"
-    ]
+    result = fixture.source.verification_status["model_recovery_result"]
     assert result["artifact_count"] == 0
     assert result["artifacts"] == []
     from agent.services.recovery_source_result_projection import (
         project_recovery_source_callback_artifacts,
     )
 
-    assert project_recovery_source_callback_artifacts(
-        fixture.source
-    ) == []
+    assert project_recovery_source_callback_artifacts(fixture.source) == []
 
 
 def test_callback_projects_hub_aggregated_recovery_artifacts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fixture = _finalized_source_with_artifacts(
-        [_hub_verified_callback_artifact()]
-    )
+    fixture = _finalized_source_with_artifacts([_hub_verified_callback_artifact()])
     fixture.source.callback_url = "https://callback.invalid/task"
     fixture.source.callback_token = "callback-secret"
     fixture.source.parent_task_id = "parent-task"
     fixture.source.current_worker_job_id = "worker-job-1"
     # A legacy/foreign projection on the source must not override the
     # Hub-finalized aggregate.
-    fixture.source.verification_status[
-        "execution_artifacts"
-    ] = [{"artifact_id": "foreign-artifact"}]
+    fixture.source.verification_status["execution_artifacts"] = [{"artifact_id": "foreign-artifact"}]
 
     payload = _capture_task_callback(
         monkeypatch,
@@ -1675,13 +1484,9 @@ def test_callback_projects_hub_aggregated_recovery_artifacts(
         {
             "kind": "task_output",
             "task_id": fixture.child.id,
-            "artifact_id": (
-                "recovery-artifact-" + f"{1:032x}"
-            ),
+            "artifact_id": ("recovery-artifact-" + f"{1:032x}"),
             "id": "recovery-artifact-" + f"{1:032x}",
-            "artifact_version_id": (
-                "recovery-artifact-version-" + f"{1:032x}"
-            ),
+            "artifact_version_id": ("recovery-artifact-version-" + f"{1:032x}"),
             "filename": "result-0.txt",
             "media_type": "text/plain",
             "workspace_relative_path": "reports/result-0.txt",
@@ -1690,9 +1495,7 @@ def test_callback_projects_hub_aggregated_recovery_artifacts(
             "content_hash": f"{1:064x}",
             "size_bytes": 12,
             "provenance_summary": {
-                "schema": (
-                    "ananta.recovery_artifact_provenance.v1"
-                ),
+                "schema": ("ananta.recovery_artifact_provenance.v1"),
                 "authority": "hub",
                 "ingress": "workspace",
                 "worker_url": "http://worker:5000",
@@ -1704,9 +1507,7 @@ def test_callback_projects_hub_aggregated_recovery_artifacts(
             "required": True,
         }
     ]
-    assert payload["status_transition_id"] == payload[
-        "idempotency_key"
-    ]
+    assert payload["status_transition_id"] == payload["idempotency_key"]
 
 
 def test_callback_keeps_legacy_execution_artifact_projection(
@@ -1759,21 +1560,10 @@ def test_owner_terminal_recovery_source_never_uses_legacy_artifact_fallback(
                 "status": "failed",
             },
             "recovery_owner_terminal_invalidation": {
-                "schema": (
-                    "ananta.recovery_owner_terminal_"
-                    "invalidation.v1"
-                ),
+                "schema": ("ananta.recovery_owner_terminal_invalidation.v1"),
             },
         },
-        verification_status={
-            "execution_artifacts": [
-                {
-                    "artifact_id": (
-                        "legacy-or-attacker-controlled"
-                    )
-                }
-            ]
-        },
+        verification_status={"execution_artifacts": [{"artifact_id": ("legacy-or-attacker-controlled")}]},
     )
 
     payload = _capture_task_callback(monkeypatch, task)
@@ -1813,16 +1603,12 @@ def test_recovery_callback_projection_rejects_unclosed_or_oversize_receipts(
     elif mutation == "oversize_media_type":
         artifact["media_type"] = "x" * 128
     elif mutation == "oversize_worker_url":
-        artifact["provenance_summary"]["worker_url"] = (
-            "http://worker/" + "x" * 300_000
-        )
+        artifact["provenance_summary"]["worker_url"] = "http://worker/" + "x" * 300_000
     else:
         artifact["untrusted_extra"] = "not-in-receipt-contract"
     fixture = _finalized_source_with_artifacts([artifact])
 
-    assert project_recovery_source_callback_artifacts(
-        fixture.source
-    ) == []
+    assert project_recovery_source_callback_artifacts(fixture.source) == []
 
 
 def test_recovery_callback_projection_rejects_aggregate_count_over_bound() -> None:
@@ -1833,22 +1619,15 @@ def test_recovery_callback_projection_rejects_aggregate_count_over_bound() -> No
         MAX_RECOVERY_ARTIFACT_COUNT,
     )
 
-    artifacts = [
-        _hub_verified_callback_artifact(index=index)
-        for index in range(MAX_RECOVERY_ARTIFACT_COUNT + 1)
-    ]
+    artifacts = [_hub_verified_callback_artifact(index=index) for index in range(MAX_RECOVERY_ARTIFACT_COUNT + 1)]
     fixture = _finalized_source_with_artifacts(artifacts)
 
-    assert project_recovery_source_callback_artifacts(
-        fixture.source
-    ) == []
+    assert project_recovery_source_callback_artifacts(fixture.source) == []
 
 
 def test_finalizer_rejects_child_set_not_matching_approved_plan_nodes() -> None:
     fixture = _build_recovery_fixture()
-    fixture.source.status_reason_details["model_recovery"][
-        "created_task_ids"
-    ] = [fixture.child.id, "unapproved-child"]
+    fixture.source.status_reason_details["model_recovery"]["created_task_ids"] = [fixture.child.id, "unapproved-child"]
 
     decision = fixture.service.finalize_if_ready(
         source_task_id=fixture.source.id,
@@ -1856,10 +1635,7 @@ def test_finalizer_rejects_child_set_not_matching_approved_plan_nodes() -> None:
 
     assert decision.transitioned is True
     assert decision.status == "verification_failed"
-    assert (
-        decision.reason_code
-        == "recovery_source_child_set_mismatch"
-    )
+    assert decision.reason_code == "recovery_source_child_set_mismatch"
     assert fixture.source.status == "verification_failed"
 
 
@@ -1881,10 +1657,7 @@ def test_finalizer_rejects_dependency_mutation_after_materialization(
 
     assert decision.transitioned is True
     assert decision.status == "verification_failed"
-    assert (
-        decision.reason_code
-        == "recovery_source_dependency_binding_mismatch"
-    )
+    assert decision.reason_code == "recovery_source_dependency_binding_mismatch"
 
 
 @pytest.mark.parametrize(
@@ -1913,9 +1686,7 @@ def test_finalizer_fails_closed_for_unaccepted_or_unbound_child_results(
     reason_code: str,
 ) -> None:
     fixture = _build_recovery_fixture()
-    lease = fixture.child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    lease = fixture.child.status_reason_details["recovery_dispatch_lease"]
     if mutation == "propose_phase":
         lease["accepted_result_phase"] = "propose"
     elif mutation == "missing_result":
@@ -1948,9 +1719,9 @@ def test_finalizer_routes_failed_child_to_source_verification_failure() -> None:
     assert decision.status == "verification_failed"
     assert decision.reason_code == "recovery_child_failed"
     assert fixture.source.status == "verification_failed"
-    assert fixture.source.verification_status[
-        "model_recovery_result"
-    ]["quality_gate_reason"] == "child_terminal_failure"
+    assert (
+        fixture.source.verification_status["model_recovery_result"]["quality_gate_reason"] == "child_terminal_failure"
+    )
 
 
 def _post_commit_task(
@@ -2008,6 +1779,7 @@ def test_source_post_commit_delivers_pending_and_retries_stale_processing(
         "time",
         lambda: 100.0,
     )
+
     def successful_delivery(
         task_id: str,
         **values: Any,
@@ -2016,9 +1788,7 @@ def test_source_post_commit_delivers_pending_and_retries_stale_processing(
         return RecoverySourceCallbackDelivery(
             delivered=True,
             callback_required=False,
-            reason_code=(
-                "recovery_source_callback_not_configured"
-            ),
+            reason_code=("recovery_source_callback_not_configured"),
         )
 
     monkeypatch.setattr(
@@ -2035,10 +1805,7 @@ def test_source_post_commit_delivers_pending_and_retries_stale_processing(
     decision = service.deliver_if_pending(task.id)
 
     assert decision.delivered is True
-    assert (
-        decision.reason_code
-        == "recovery_source_post_commit_delivered"
-    )
+    assert decision.reason_code == "recovery_source_post_commit_delivered"
     assert calls == [
         (
             task.id,
@@ -2051,9 +1818,7 @@ def test_source_post_commit_delivers_pending_and_retries_stale_processing(
             },
         )
     ]
-    marker = task.status_reason_details[
-        "recovery_source_post_commit"
-    ]
+    marker = task.status_reason_details["recovery_source_post_commit"]
     assert marker["state"] == "completed"
     assert marker["attempt_count"] == expected_attempts
     assert marker["completed_at"] == 100.0
@@ -2091,14 +1856,9 @@ def test_source_post_commit_retries_failed_synchronous_delivery(
     decision = service.deliver_if_pending(task.id)
 
     assert decision.delivered is False
-    assert (
-        decision.reason_code
-        == "recovery_source_post_commit_failed"
-    )
+    assert decision.reason_code == "recovery_source_post_commit_failed"
     assert observed_values[0]["synchronous_delivery"] is True
-    marker = task.status_reason_details[
-        "recovery_source_post_commit"
-    ]
+    marker = task.status_reason_details["recovery_source_post_commit"]
     assert marker["state"] == "pending"
     assert marker["attempt_count"] == 1
     assert marker["last_error"] == "callback unavailable"
@@ -2140,25 +1900,17 @@ def test_source_post_commit_stale_attempt_cannot_overwrite_newer_success(
             return RecoverySourceCallbackDelivery(
                 delivered=True,
                 callback_required=False,
-                reason_code=(
-                    "recovery_source_callback_not_configured"
-                ),
+                reason_code=("recovery_source_callback_not_configured"),
             )
-        marker = task.status_reason_details[
-            "recovery_source_post_commit"
-        ]
+        marker = task.status_reason_details["recovery_source_post_commit"]
         marker["processing_at"] = 0.0
-        nested_decisions.append(
-            service.deliver_if_pending(task.id)
-        )
+        nested_decisions.append(service.deliver_if_pending(task.id))
         if outer_raises:
             raise RuntimeError("stale attempt failed late")
         return RecoverySourceCallbackDelivery(
             delivered=True,
             callback_required=False,
-            reason_code=(
-                "recovery_source_callback_not_configured"
-            ),
+            reason_code=("recovery_source_callback_not_configured"),
         )
 
     monkeypatch.setattr(
@@ -2171,13 +1923,8 @@ def test_source_post_commit_stale_attempt_cannot_overwrite_newer_success(
 
     assert nested_decisions[0].delivered is True
     assert outer_decision.delivered is False
-    assert (
-        outer_decision.reason_code
-        == "recovery_source_post_commit_superseded"
-    )
-    marker = task.status_reason_details[
-        "recovery_source_post_commit"
-    ]
+    assert outer_decision.reason_code == "recovery_source_post_commit_superseded"
+    marker = task.status_reason_details["recovery_source_post_commit"]
     assert marker["state"] == "completed"
     assert marker["attempt_id"] == "attempt-new"
     assert marker["attempt_count"] == 2
@@ -2190,9 +1937,7 @@ def test_source_post_commit_rejects_reused_attempt_id() -> None:
         processing_at=0.0,
         attempt_count=1,
     )
-    task.status_reason_details["recovery_source_post_commit"][
-        "attempt_id"
-    ] = "attempt-reused"
+    task.status_reason_details["recovery_source_post_commit"]["attempt_id"] = "attempt-reused"
     repo = MemoryRepository([task])
     service = RecoverySourcePostCommitService(
         repository_provider=lambda: Record(task_repo=repo),
@@ -2204,12 +1949,8 @@ def test_source_post_commit_rejects_reused_attempt_id() -> None:
     decision = service.deliver_if_pending(task.id)
 
     assert decision.delivered is False
-    assert decision.reason_code == (
-        "recovery_source_post_commit_attempt_id_invalid"
-    )
-    marker = task.status_reason_details[
-        "recovery_source_post_commit"
-    ]
+    assert decision.reason_code == ("recovery_source_post_commit_attempt_id_invalid")
+    marker = task.status_reason_details["recovery_source_post_commit"]
     assert marker["state"] == "processing"
     assert marker["attempt_count"] == 1
 
@@ -2226,9 +1967,7 @@ class CapturingVerification:
         task_id: str,
         **values: Any,
     ) -> Record:
-        self.record_calls.append(
-            {"task_id": task_id, **values}
-        )
+        self.record_calls.append({"task_id": task_id, **values})
         return Record(id="hub-verification-record", status="failed")
 
 
@@ -2273,9 +2012,7 @@ def test_result_verifier_rejects_worker_forged_artifact_metadata(
     monkeypatch.setattr(
         task_runtime_service,
         "update_local_task_status",
-        lambda task_id, status, **values: status_calls.append(
-            (task_id, status, values)
-        ),
+        lambda task_id, status, **values: status_calls.append((task_id, status, values)),
     )
     service = RecoveryResultVerificationService(
         repository_provider=lambda: repos,
@@ -2309,13 +2046,9 @@ def test_result_verifier_rejects_worker_forged_artifact_metadata(
     assert result["artifacts"][0]["_exists"] is False
     assert result["artifacts"][0]["_hash_verified"] is False
     assert result["artifacts"][0]["required"] is True
-    assert verification.record_calls[0]["gate_results"][
-        "passed"
-    ] is False
+    assert verification.record_calls[0]["gate_results"]["passed"] is False
     assert status_calls[0][:2] == (
         child.id,
         "verification_failed",
     )
-    assert child.verification_status[
-        "execution_artifacts"
-    ][0]["_hash_verified"] is False
+    assert child.verification_status["execution_artifacts"][0]["_hash_verified"] is False

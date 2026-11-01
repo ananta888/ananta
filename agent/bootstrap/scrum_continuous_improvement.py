@@ -32,21 +32,14 @@ def initialize_scrum_continuous_improvement(app: Flask) -> ScrumContinuousImprov
     else:
         try:
             store = ScrumStateStore(
-                Path(
-                    str(
-                        app.config.get("ANANTA_SCRUM_IMPROVEMENT_STATE")
-                        or settings.scrum_improvement_state
-                    )
-                )
+                Path(str(app.config.get("ANANTA_SCRUM_IMPROVEMENT_STATE") or settings.scrum_improvement_state))
             )
             architecture = ScrumArchitectureLoopService(store)
             sprints = ScrumSprintControlService(store, architecture)
             core_services = app.extensions.get("core_services")
             evolution_service = getattr(core_services, "evolution_service", None)
             analysis = (
-                EvolutionRetrospectiveAnalysisAdapter(evolution_service)
-                if evolution_service is not None
-                else None
+                EvolutionRetrospectiveAnalysisAdapter(evolution_service) if evolution_service is not None else None
             )
             retrospectives = ScrumRetrospectiveService(store, sprints, analysis=analysis)
             query = ScrumContinuousImprovementQueryService(store)

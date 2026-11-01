@@ -137,12 +137,7 @@ class TextFileExtractorTests(unittest.TestCase):
         )
         hook_index, hook_details, _, _ = self.extractor.parse(
             "src/ui/useWidget.ts",
-            (
-                "import { useEffect } from 'react';\n\n"
-                "export function useWidget() {\n"
-                "  useEffect(() => {}, []);\n"
-                "}\n"
-            ),
+            ("import { useEffect } from 'react';\n\nexport function useWidget() {\n  useEffect(() => {}, []);\n}\n"),
         )
 
         app_record = next(record for record in component_details if record["kind"] == "typescript_function")

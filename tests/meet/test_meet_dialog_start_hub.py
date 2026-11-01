@@ -9,9 +9,9 @@ from sqlmodel import Session, select
 from agent.db_models import TaskDB
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_starts import MeetDialogStarts
-from tests.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_dialog_starts import start_store as start_store
+from tests.meet_dialog_lifecycle_fixture import seed_parent
 
 pytestmark = pytest.mark.timeout(45)
 

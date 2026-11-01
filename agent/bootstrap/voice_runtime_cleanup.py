@@ -16,9 +16,7 @@ def recover_voice_runtime_cleanup() -> None:
     # previous Hub process. No in-memory mapping can survive this restart, so
     # they must be deleted before the Hub accepts new Voice work.
     get_voice_runtime_cleanup_service().retry_all_pending(include_provisional=True)
-    lost_streams = VoiceIdempotencyService().invalidate_completed_operation(
-        "voice_stream.create"
-    )
+    lost_streams = VoiceIdempotencyService().invalidate_completed_operation("voice_stream.create")
     if lost_streams:
         from agent.repository import task_repo
         from agent.services.voice_delegation_task_service import (

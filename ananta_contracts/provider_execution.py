@@ -44,9 +44,7 @@ class ProviderExecutionBinding:
         )
         if self.endpoint_identity:
             values = (*values, self.endpoint_identity)
-        digest = hashlib.sha256(
-            "\x00".join(values).encode("utf-8")
-        ).hexdigest()
+        digest = hashlib.sha256("\x00".join(values).encode("utf-8")).hexdigest()
         return f"provider-binding:{digest}"
 
     def validate(self) -> None:
@@ -69,13 +67,9 @@ class ProviderExecutionBinding:
                     endpoint_url=self.endpoint_identity,
                 )
             except ValueError as exc:
-                raise ProviderExecutionBindingError(
-                    "provider_endpoint_identity_invalid"
-                ) from exc
+                raise ProviderExecutionBindingError("provider_endpoint_identity_invalid") from exc
             if normalized != self.endpoint_identity:
-                raise ProviderExecutionBindingError(
-                    "provider_endpoint_identity_not_canonical"
-                )
+                raise ProviderExecutionBindingError("provider_endpoint_identity_not_canonical")
 
     @classmethod
     def from_mapping(cls, raw: object) -> "ProviderExecutionBinding":
@@ -87,9 +81,7 @@ class ProviderExecutionBinding:
             model_id=str(raw.get("model_id") or "").strip(),
             source=str(raw.get("source") or "").strip(),
             reason_code=str(raw.get("reason_code") or "").strip(),
-            endpoint_identity=str(
-                raw.get("endpoint_identity") or ""
-            ).strip(),
+            endpoint_identity=str(raw.get("endpoint_identity") or "").strip(),
         )
         value.validate()
         supplied_id = str(raw.get("binding_id") or "").strip()
@@ -127,9 +119,7 @@ class ProviderProfileExecutionBinding:
     @classmethod
     def from_mapping(cls, raw: object) -> "ProviderProfileExecutionBinding":
         if not isinstance(raw, Mapping):
-            raise ProviderExecutionBindingError(
-                "provider_profile_binding_required"
-            )
+            raise ProviderExecutionBindingError("provider_profile_binding_required")
         value = cls(
             profile_id=str(raw.get("profile_id") or "").strip(),
             binding=ProviderExecutionBinding.from_mapping(raw.get("binding")),
@@ -156,20 +146,13 @@ class ProviderBindingAuthorization:
 
     def validate(self) -> None:
         if not _BINDING_ID.fullmatch(str(self.binding_id or "")):
-            raise ProviderExecutionBindingError(
-                "provider_authorization_binding_id_invalid"
-            )
-        if (
-            not _IDENTIFIER.fullmatch(str(self.provider_id or ""))
-            or not _IDENTIFIER.fullmatch(str(self.model_id or ""))
+            raise ProviderExecutionBindingError("provider_authorization_binding_id_invalid")
+        if not _IDENTIFIER.fullmatch(str(self.provider_id or "")) or not _IDENTIFIER.fullmatch(
+            str(self.model_id or "")
         ):
-            raise ProviderExecutionBindingError(
-                "provider_authorization_binding_invalid"
-            )
+            raise ProviderExecutionBindingError("provider_authorization_binding_invalid")
         if self.provider_id != self.provider_id.lower():
-            raise ProviderExecutionBindingError(
-                "provider_authorization_provider_not_canonical"
-            )
+            raise ProviderExecutionBindingError("provider_authorization_provider_not_canonical")
         if self.endpoint_identity:
             try:
                 normalized = normalize_provider_endpoint_identity(
@@ -177,13 +160,9 @@ class ProviderBindingAuthorization:
                     endpoint_url=self.endpoint_identity,
                 )
             except ValueError as exc:
-                raise ProviderExecutionBindingError(
-                    "provider_authorization_endpoint_invalid"
-                ) from exc
+                raise ProviderExecutionBindingError("provider_authorization_endpoint_invalid") from exc
             if normalized != self.endpoint_identity:
-                raise ProviderExecutionBindingError(
-                    "provider_authorization_endpoint_not_canonical"
-                )
+                raise ProviderExecutionBindingError("provider_authorization_endpoint_not_canonical")
 
     @classmethod
     def from_binding(
@@ -203,16 +182,12 @@ class ProviderBindingAuthorization:
     @classmethod
     def from_mapping(cls, raw: object) -> "ProviderBindingAuthorization":
         if not isinstance(raw, Mapping):
-            raise ProviderExecutionBindingError(
-                "provider_authorization_binding_required"
-            )
+            raise ProviderExecutionBindingError("provider_authorization_binding_required")
         value = cls(
             binding_id=str(raw.get("binding_id") or "").strip(),
             provider_id=str(raw.get("provider_id") or "").strip(),
             model_id=str(raw.get("model_id") or "").strip(),
-            endpoint_identity=str(
-                raw.get("endpoint_identity") or ""
-            ).strip(),
+            endpoint_identity=str(raw.get("endpoint_identity") or "").strip(),
         )
         value.validate()
         return value
@@ -252,21 +227,14 @@ class ProviderProfileAttemptPlanEntry:
 
     def validate(self) -> None:
         if not _IDENTIFIER.fullmatch(str(self.profile_id or "")):
-            raise ProviderExecutionBindingError(
-                "provider_attempt_plan_profile_invalid"
-            )
+            raise ProviderExecutionBindingError("provider_attempt_plan_profile_invalid")
         self.binding_authorization.validate()
         if not 1 <= self.maximum_attempts <= 33:
-            raise ProviderExecutionBindingError(
-                "provider_attempt_plan_limit_invalid"
-            )
+            raise ProviderExecutionBindingError("provider_attempt_plan_limit_invalid")
         if len(self.allowed_error_types) > 16 or any(
-            not _IDENTIFIER.fullmatch(str(value or ""))
-            for value in self.allowed_error_types
+            not _IDENTIFIER.fullmatch(str(value or "")) for value in self.allowed_error_types
         ):
-            raise ProviderExecutionBindingError(
-                "provider_attempt_plan_error_types_invalid"
-            )
+            raise ProviderExecutionBindingError("provider_attempt_plan_error_types_invalid")
 
     @classmethod
     def from_profile_binding(
@@ -292,9 +260,7 @@ class ProviderProfileAttemptPlanEntry:
     @classmethod
     def from_mapping(cls, raw: object) -> "ProviderProfileAttemptPlanEntry":
         if not isinstance(raw, Mapping):
-            raise ProviderExecutionBindingError(
-                "provider_attempt_plan_entry_required"
-            )
+            raise ProviderExecutionBindingError("provider_attempt_plan_entry_required")
         try:
             value = cls(
                 profile_id=str(raw.get("profile_id") or "").strip(),
@@ -302,18 +268,11 @@ class ProviderProfileAttemptPlanEntry:
                 provider_id=str(raw.get("provider_id") or "").strip(),
                 model_id=str(raw.get("model_id") or "").strip(),
                 maximum_attempts=int(raw.get("maximum_attempts")),
-                endpoint_identity=str(
-                    raw.get("endpoint_identity") or ""
-                ).strip(),
-                allowed_error_types=tuple(
-                    str(item or "").strip()
-                    for item in (raw.get("allowed_error_types") or ())
-                ),
+                endpoint_identity=str(raw.get("endpoint_identity") or "").strip(),
+                allowed_error_types=tuple(str(item or "").strip() for item in (raw.get("allowed_error_types") or ())),
             )
         except (TypeError, ValueError) as exc:
-            raise ProviderExecutionBindingError(
-                "provider_attempt_plan_entry_invalid"
-            ) from exc
+            raise ProviderExecutionBindingError("provider_attempt_plan_entry_invalid") from exc
         value.validate()
         return value
 

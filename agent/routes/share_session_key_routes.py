@@ -15,6 +15,16 @@ from agent.config import settings
 from agent.models.webrtc_peer_key_confirmation import (
     WebrtcPeerKeyRepositoryError,
 )
+from agent.routes.share_session_route_support import (
+    _current_tenant_id,
+    _current_user_id,
+    _expected_peer_package_id,
+    _is_active_participant,
+    _is_session_active,
+    _peer_key_repository,
+    _strict_e2ee_enabled,
+    _strict_security_contract,
+)
 from agent.services.semantic_media_audit_service import SemanticMediaAuditError
 from agent.services.share_security_negotiation_service import (
     ShareSecurityNegotiationError,
@@ -27,16 +37,6 @@ from agent.services.webrtc_peer_identity_service import (
     PeerMembership,
     WebrtcPeerIdentityService,
     derive_hub_identity_key,
-)
-from agent.routes.share_session_route_support import (
-    _current_tenant_id,
-    _current_user_id,
-    _expected_peer_package_id,
-    _is_active_participant,
-    _is_session_active,
-    _peer_key_repository,
-    _strict_e2ee_enabled,
-    _strict_security_contract,
 )
 
 
@@ -101,9 +101,7 @@ def list_share_session_key_packages(session_id: str):
     if tenant_id != _current_tenant_id():
         return jsonify({"error": "cross_tenant_denied"}), 403
     identity = _peer_identity_service(session_id=session_id, tenant_id=tenant_id, memberships=memberships)
-    remote_members = [
-        member for member in memberships if member.get("active") and member.get("peer_id") != user_id
-    ]
+    remote_members = [member for member in memberships if member.get("active") and member.get("peer_id") != user_id]
     if not remote_members:
         return jsonify(
             {
@@ -195,9 +193,7 @@ def put_share_session_key_confirmation(session_id: str):
     memberships = service.get_security_memberships(session_id)
     active_memberships = [item for item in memberships if item.get("active")]
     local_members = [item for item in active_memberships if str(item.get("peer_id") or "") == user_id]
-    remote_members = [
-        item for item in active_memberships if str(item.get("peer_id") or "") == recipient_peer_id
-    ]
+    remote_members = [item for item in active_memberships if str(item.get("peer_id") or "") == recipient_peer_id]
     if len(local_members) != 1 or len(remote_members) != 1 or recipient_peer_id == user_id:
         return jsonify({"error": "recipient_mismatch"}), 403
     if len(package_id) != 64 or any(char not in "0123456789abcdef" for char in package_id):
@@ -233,8 +229,7 @@ def put_share_session_key_confirmation(session_id: str):
     try:
         audit_event = audit.prepare_transition(
             idempotency_key=(
-                f"pair-key-confirm:{session_id}:{epoch}:{user_id}:{recipient_peer_id}:"
-                f"{package_id}:{int(now // 120)}"
+                f"pair-key-confirm:{session_id}:{epoch}:{user_id}:{recipient_peer_id}:{package_id}:{int(now // 120)}"
             ),
             tenant_id=str(session_item.get("tenant_id") or "default"),
             scope=f"session:{session_id}",
@@ -277,9 +272,7 @@ def get_share_session_key_confirmation(session_id: str):
     if epoch is None:
         return jsonify({"error": "security_epoch_unavailable"}), 409
     active_peers = {
-        str(item.get("peer_id") or "")
-        for item in service.get_security_memberships(session_id)
-        if item.get("active")
+        str(item.get("peer_id") or "") for item in service.get_security_memberships(session_id) if item.get("active")
     }
     if sender_peer_id == user_id or sender_peer_id not in active_peers:
         return jsonify({"error": "sender_mismatch"}), 403

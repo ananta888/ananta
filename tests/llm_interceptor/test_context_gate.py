@@ -25,4 +25,3 @@ def test_context_gate_cloud_blocks_repo_and_high_sensitivity():
     assert len(allowed) == 1
     assert allowed[0]["content"] == "ok"
     assert meta["denied_count"] == 2
-

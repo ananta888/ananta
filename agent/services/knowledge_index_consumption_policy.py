@@ -10,20 +10,12 @@ from typing import Any
 # Mirrors agent.services.codecompass_layer_record_source (kept import-free here).
 CODECOMPASS_LAYER_POINTER_KEY = "codecompass_layer_head"
 CODECOMPASS_LAYER_POINTER_SCHEMA = "ananta.codecompass_layer_pointer.v1"
-KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY = (
-    "knowledge_index_execution_binding"
-)
-KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA = (
-    "ananta.knowledge_index.materialization-binding.v1"
-)
+KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY = "knowledge_index_execution_binding"
+KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA = "ananta.knowledge_index.materialization-binding.v1"
 KNOWLEDGE_INDEX_PROJECTED_STATE = "projected"
 KNOWLEDGE_INDEX_LEGACY_JOB_SCHEMA = "ananta.knowledge_index_job.v1"
-KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = (
-    "ananta.knowledge_index_execution_job.v2"
-)
-_KNOWLEDGE_INDEX_JOB_ID = re.compile(
-    r"^knowledge-index-[0-9a-f]{32}$"
-)
+KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
+_KNOWLEDGE_INDEX_JOB_ID = re.compile(r"^knowledge-index-[0-9a-f]{32}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,20 +63,12 @@ class KnowledgeIndexConsumptionPolicy:
         if KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY not in metadata:
             return self._allow("knowledge_index_legacy_compatible", bound_v2=False)
 
-        binding = metadata.get(
-            KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY
-        )
+        binding = metadata.get(KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY)
         if not isinstance(binding, Mapping):
             return self._deny("knowledge_index_binding_invalid")
-        if (
-            str(binding.get("schema") or "")
-            != KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA
-        ):
+        if str(binding.get("schema") or "") != KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA:
             return self._deny("knowledge_index_binding_invalid")
-        if (
-            str(binding.get("projection_state") or "")
-            != KNOWLEDGE_INDEX_PROJECTED_STATE
-        ):
+        if str(binding.get("projection_state") or "") != KNOWLEDGE_INDEX_PROJECTED_STATE:
             return self._deny("knowledge_index_projection_not_projected")
         if str(getattr(knowledge_index, "status", "") or "") != "completed":
             return self._deny("knowledge_index_not_completed")
@@ -93,16 +77,11 @@ class KnowledgeIndexConsumptionPolicy:
         if (
             not index_id
             or str(binding.get("knowledge_index_id") or "") != index_id
-            or _KNOWLEDGE_INDEX_JOB_ID.fullmatch(
-                str(binding.get("job_id") or "")
-            )
-            is None
+            or _KNOWLEDGE_INDEX_JOB_ID.fullmatch(str(binding.get("job_id") or "")) is None
         ):
             return self._deny("knowledge_index_binding_invalid")
 
-        execution_job_schema = str(
-            binding.get("execution_job_schema") or ""
-        )
+        execution_job_schema = str(binding.get("execution_job_schema") or "")
         if execution_job_schema == KNOWLEDGE_INDEX_LEGACY_JOB_SCHEMA:
             return self._allow(
                 "knowledge_index_legacy_materialization_compatible",
@@ -110,25 +89,17 @@ class KnowledgeIndexConsumptionPolicy:
             )
         if execution_job_schema != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA:
             return self._deny("knowledge_index_binding_invalid")
-        authority_binding_digest = str(
-            binding.get("authority_binding_digest") or ""
-        )
+        authority_binding_digest = str(binding.get("authority_binding_digest") or "")
         assignment_id = str(binding.get("assignment_id") or "").strip()
         if (
             len(authority_binding_digest) != 64
-            or any(
-                character not in "0123456789abcdef"
-                for character in authority_binding_digest
-            )
+            or any(character not in "0123456789abcdef" for character in authority_binding_digest)
             or not assignment_id
         ):
             return self._deny("knowledge_index_binding_invalid")
 
         source_scope = (
-            str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
-            .strip()
-            .lower()
-            or "artifact"
+            str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
         )
         if source_scope != "artifact":
             if allowed_index_ids is None or isinstance(
@@ -137,9 +108,7 @@ class KnowledgeIndexConsumptionPolicy:
             ):
                 return self._deny("knowledge_index_authorized_scope_required")
             normalized_allowed_ids = {
-                str(candidate).strip()
-                for candidate in allowed_index_ids
-                if str(candidate).strip()
+                str(candidate).strip() for candidate in allowed_index_ids if str(candidate).strip()
             }
             if not index_id or index_id not in normalized_allowed_ids:
                 return self._deny("knowledge_index_not_authorized")

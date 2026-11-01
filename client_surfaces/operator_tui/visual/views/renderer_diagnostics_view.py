@@ -53,22 +53,45 @@ class RendererDiagnosticsView:
 
         # Image output capabilities (TGFX-004)
         try:
-            from client_surfaces.operator_tui.visual.capabilities.terminal_detector import detect_image_output_capabilities
+            from client_surfaces.operator_tui.visual.capabilities.terminal_detector import (
+                detect_image_output_capabilities,
+            )
+
             caps = detect_image_output_capabilities()
             lines += [
                 "── Image Output Capabilities ───────────────",
-                _cap_line("mmdc (mermaid-cli)", caps.mermaid_renderer.mmdc_available,
-                          "install: npm install -g @mermaid-js/mermaid-cli" if not caps.mermaid_renderer.mmdc_available else ""),
-                _cap_line("playwright", caps.mermaid_renderer.playwright_available,
-                          "pip install playwright" if not caps.mermaid_renderer.playwright_available else ""),
-                _cap_line("Pillow (raster)", caps.raster_renderer.pillow_available,
-                          "pip install Pillow" if not caps.raster_renderer.pillow_available else ""),
-                _cap_line("cairosvg (SVG→PNG)", caps.raster_renderer.cairosvg_available,
-                          "pip install cairosvg" if not caps.raster_renderer.cairosvg_available else ""),
-                _cap_line("Kitty protocol", caps.kitty_supported,
-                          "use Kitty/WezTerm or ANANTA_FORCE_KITTY=1" if not caps.kitty_supported else ""),
-                _cap_line("Sixel protocol", caps.sixel_supported,
-                          "SIXEL_SUPPORTED=1 or ANANTA_FORCE_SIXEL=1" if not caps.sixel_supported else ""),
+                _cap_line(
+                    "mmdc (mermaid-cli)",
+                    caps.mermaid_renderer.mmdc_available,
+                    "install: npm install -g @mermaid-js/mermaid-cli"
+                    if not caps.mermaid_renderer.mmdc_available
+                    else "",
+                ),
+                _cap_line(
+                    "playwright",
+                    caps.mermaid_renderer.playwright_available,
+                    "pip install playwright" if not caps.mermaid_renderer.playwright_available else "",
+                ),
+                _cap_line(
+                    "Pillow (raster)",
+                    caps.raster_renderer.pillow_available,
+                    "pip install Pillow" if not caps.raster_renderer.pillow_available else "",
+                ),
+                _cap_line(
+                    "cairosvg (SVG→PNG)",
+                    caps.raster_renderer.cairosvg_available,
+                    "pip install cairosvg" if not caps.raster_renderer.cairosvg_available else "",
+                ),
+                _cap_line(
+                    "Kitty protocol",
+                    caps.kitty_supported,
+                    "use Kitty/WezTerm or ANANTA_FORCE_KITTY=1" if not caps.kitty_supported else "",
+                ),
+                _cap_line(
+                    "Sixel protocol",
+                    caps.sixel_supported,
+                    "SIXEL_SUPPORTED=1 or ANANTA_FORCE_SIXEL=1" if not caps.sixel_supported else "",
+                ),
                 "",
                 f"  can_show_mermaid_image: {_ok(caps.can_show_mermaid_image())}",
             ]
@@ -116,8 +139,7 @@ class RendererDiagnosticsView:
             lines.append(f"  chat_backend={backend} {latency}ms")
 
         nodes: list[dict[str, object]] = [
-            {"kind": "label", "text": line, "x": 0, "y": y}
-            for y, line in enumerate(lines)
+            {"kind": "label", "text": line, "x": 0, "y": y} for y, line in enumerate(lines)
         ]
         return RenderScene(
             scene_type="renderer_diagnostics",

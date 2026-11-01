@@ -24,12 +24,12 @@ try:
         read_bounded_json,
     )
 except ModuleNotFoundError:
-    from sfu_broadcast_harness import DEFAULT_PROFILE, build_manifest, load_acceptance_profile  # type: ignore[no-redef]
     from sfu_broadcast_gate_common import (  # type: ignore[no-redef]
         SfuBroadcastGateError,
         atomic_write_report,
         read_bounded_json,
     )
+    from sfu_broadcast_harness import DEFAULT_PROFILE, build_manifest, load_acceptance_profile  # type: ignore[no-redef]
 
 DEFAULT_MATRIX = ROOT / "config/test-profiles/sfu-broadcast/browser-matrix.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/sfu-broadcast-cross-browser.json"
@@ -77,9 +77,9 @@ def main() -> int:
             "status": "passed" if not reasons else ("blocked" if external is None and not matrix_reasons else "failed"),
             "release_blocking": bool(reasons),
             "reason_codes": reasons,
-            "browser_matrix_sha256": __import__("hashlib").sha256(
-                json.dumps(matrix, sort_keys=True, separators=(",", ":")).encode()
-            ).hexdigest(),
+            "browser_matrix_sha256": __import__("hashlib")
+            .sha256(json.dumps(matrix, sort_keys=True, separators=(",", ":")).encode())
+            .hexdigest(),
         }
         atomic_write_report(args.output, report)
     except SfuBroadcastGateError as exc:

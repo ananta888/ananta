@@ -20,6 +20,7 @@ The detector excludes:
 - ``.venv``, ``node_modules``, ``__pycache__``, ``.git``, etc.
 - ``tests/fixtures/`` (deterministic test fixtures)
 """
+
 from __future__ import annotations
 
 import os

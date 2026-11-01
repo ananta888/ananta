@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import json
-import os
+
 import pytest
 
 from agent.services.tui_tool_registry import (
+    _GLOBAL_DEFAULT_CONFIG,
     TuiConfigValidationError,
     TuiToolRegistry,
-    _GLOBAL_DEFAULT_CONFIG,
     _parse_config,
 )
 
-
 # ── _parse_config unit tests ──────────────────────────────────────────────────
+
 
 def test_parse_global_defaults():
     cfg = _parse_config(dict(_GLOBAL_DEFAULT_CONFIG))
@@ -80,6 +80,7 @@ def test_parse_global_defaults_editor_profiles_and_readonly_support():
 
 
 # ── TuiToolRegistry integration tests ────────────────────────────────────────
+
 
 def test_registry_loads_global_defaults_when_no_files(tmp_path):
     registry = TuiToolRegistry(

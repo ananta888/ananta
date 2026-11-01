@@ -38,16 +38,10 @@ def initialize_turn_accounting(
         )
         service = TurnAccountingService(
             repository,
-            pseudonym_secret=hashlib.sha256(
-                b"ananta:turn-accounting:v1\0" + secret.encode("utf-8")
-            ).digest(),
+            pseudonym_secret=hashlib.sha256(b"ananta:turn-accounting:v1\0" + secret.encode("utf-8")).digest(),
             window_seconds=_integer_setting("ANANTA_TURN_ACCOUNTING_WINDOW_SECONDS", 60),
-            retention_seconds=_integer_setting(
-                "ANANTA_TURN_ACCOUNTING_RETENTION_SECONDS", 86_400
-            ),
-            late_window_seconds=_integer_setting(
-                "ANANTA_TURN_ACCOUNTING_LATE_WINDOW_SECONDS", 300
-            ),
+            retention_seconds=_integer_setting("ANANTA_TURN_ACCOUNTING_RETENTION_SECONDS", 86_400),
+            late_window_seconds=_integer_setting("ANANTA_TURN_ACCOUNTING_LATE_WINDOW_SECONDS", 300),
             max_sources=_integer_setting("ANANTA_TURN_ACCOUNTING_MAX_SOURCES", 4096),
             max_records=_integer_setting("ANANTA_TURN_ACCOUNTING_MAX_RECORDS", 262_144),
             control_observer=app.extensions.get("sfu_broadcast_control_observer"),

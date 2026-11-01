@@ -3,6 +3,7 @@
 DRR-T047 foundation: validate and expose concrete runtime targets separately
 from worker/backend selection.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -52,7 +53,8 @@ class WorkerRuntimeTargetService:
             os_family="linux",
             containerized=False,
             network_zone="local",
-            allowed_capabilities=allowed_capabilities or ["planning", "code_read", "repair.execute.inspect", "repair.verify"],
+            allowed_capabilities=allowed_capabilities
+            or ["planning", "code_read", "repair.execute.inspect", "repair.verify"],
             available_tools=["file.read", "command.probe"],
             data_boundary=RuntimeDataBoundary.local_only,
             secret_access_policy=SecretAccessPolicy.deny,
@@ -74,7 +76,8 @@ class WorkerRuntimeTargetService:
             os_family="linux",
             containerized=True,
             network_zone="local",
-            allowed_capabilities=allowed_capabilities or [
+            allowed_capabilities=allowed_capabilities
+            or [
                 "planning",
                 "code_read",
                 "repair.execute.inspect",

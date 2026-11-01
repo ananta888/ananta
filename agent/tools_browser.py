@@ -16,6 +16,7 @@ from agent.tools_registry import registry
 )
 def web_fetch_tool(url: str):
     from agent.services.platform_governance_service import get_platform_governance_service
+
     gov = get_platform_governance_service()
     cfg = current_app.config.get("AGENT_CONFIG")
 
@@ -24,8 +25,10 @@ def web_fetch_tool(url: str):
 
     import requests
     from lxml import html
+
     try:
         from agent.common.audit import log_audit
+
         log_audit("web_fetch", {"url": url})
 
         headers = {"User-Agent": "AnantaAgent/1.0"}
@@ -40,11 +43,7 @@ def web_fetch_tool(url: str):
         text = tree.text_content()
         cleaned_text = " ".join(text.split())
 
-        return {
-            "content": cleaned_text[:12000],
-            "url": url,
-            "status_code": res.status_code
-        }
+        return {"content": cleaned_text[:12000], "url": url, "status_code": res.status_code}
     except Exception as e:
         return {"error": f"Fehler beim Abrufen von {url}: {e}"}
 
@@ -62,6 +61,7 @@ def web_fetch_tool(url: str):
 )
 def web_search_tool(query: str):
     from agent.services.platform_governance_service import get_platform_governance_service
+
     gov = get_platform_governance_service()
     cfg = current_app.config.get("AGENT_CONFIG")
 
@@ -69,10 +69,11 @@ def web_search_tool(query: str):
         return {"error": "Action Pack 'browser' ist deaktiviert."}
 
     from agent.common.audit import log_audit
+
     log_audit("web_search", {"query": query})
 
     return {
         "message": "Websuche ist derzeit im Mock-Modus. Bitte konfigurieren Sie ein Research-Backend (z.B. DeerFlow).",
         "query": query,
-        "results": []
+        "results": [],
     }

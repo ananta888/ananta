@@ -1,4 +1,5 @@
 """Salvaging finished workspace runs whose dispatch response was lost."""
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,8 +11,13 @@ from agent.services.self_development.execution_recovery import completed_run_art
 
 
 def _report(outcome: str = "final_answer") -> dict:
-    return {"schema": "ananta_worker_mutation_report.v1", "task_id": "t", "outcome": outcome,
-            "iterations": [], "code_analysis": {"required": True, "status": "accepted"}}
+    return {
+        "schema": "ananta_worker_mutation_report.v1",
+        "task_id": "t",
+        "outcome": outcome,
+        "iterations": [],
+        "code_analysis": {"required": True, "status": "accepted"},
+    }
 
 
 def _answer() -> dict:
@@ -45,19 +51,26 @@ def test_a_missing_answer_or_report_is_never_salvaged(tmp_path):
     (broken / ".ananta" / "mutation-report.json").write_text("not json", encoding="utf-8")
     assert completed_run_artifacts(broken) is None
     (broken / ".ananta" / "mutation-report.json").write_text(
-        json.dumps({"schema": "other.v1", "outcome": "final_answer"}), encoding="utf-8")
+        json.dumps({"schema": "other.v1", "outcome": "final_answer"}), encoding="utf-8"
+    )
     assert completed_run_artifacts(broken) is None
 
 
 def test_the_recovery_replays_the_verification_and_completes_the_bookkeeping(tmp_path, monkeypatch):
     recorded = []
-    monkeypatch.setattr("agent.services.self_development.coordinator.update_local_task_status",
-                        lambda *a, **kw: recorded.append((a, kw)))
+    monkeypatch.setattr(
+        "agent.services.self_development.coordinator.update_local_task_status",
+        lambda *a, **kw: recorded.append((a, kw)),
+    )
     workspace = _workspace(tmp_path)
     profile = {"command": "python3 -c 'raise SystemExit(0)'", "timeout_seconds": 30}
 
-    assert DevelopmentCoordinator._recover_lost_dispatch(
-        SimpleNamespace(), "task-1", "http://ai-agent-alpha:5000", profile, workspace) is True
+    assert (
+        DevelopmentCoordinator._recover_lost_dispatch(
+            SimpleNamespace(), "task-1", "http://ai-agent-alpha:5000", profile, workspace
+        )
+        is True
+    )
 
     args, kwargs = recorded[0]
     assert args[:2] == ("task-1", "completed")
@@ -68,17 +81,30 @@ def test_the_recovery_replays_the_verification_and_completes_the_bookkeeping(tmp
 
 def test_the_recovery_refuses_a_workspace_that_does_not_verify(tmp_path, monkeypatch):
     recorded = []
-    monkeypatch.setattr("agent.services.self_development.coordinator.update_local_task_status",
-                        lambda *a, **kw: recorded.append((a, kw)))
+    monkeypatch.setattr(
+        "agent.services.self_development.coordinator.update_local_task_status",
+        lambda *a, **kw: recorded.append((a, kw)),
+    )
     workspace = _workspace(tmp_path)
     failing = {"command": "python3 -c 'raise SystemExit(3)'", "timeout_seconds": 30}
 
-    assert DevelopmentCoordinator._recover_lost_dispatch(
-        SimpleNamespace(), "task-1", "http://ai-agent-alpha:5000", failing, workspace) is False
+    assert (
+        DevelopmentCoordinator._recover_lost_dispatch(
+            SimpleNamespace(), "task-1", "http://ai-agent-alpha:5000", failing, workspace
+        )
+        is False
+    )
     assert recorded == []
     empty = tmp_path / "empty"
     empty.mkdir()
-    assert DevelopmentCoordinator._recover_lost_dispatch(
-        SimpleNamespace(), "task-1", "http://ai-agent-alpha:5000",
-        {"command": "python3 -c 'raise SystemExit(0)'", "timeout_seconds": 30}, empty) is False
+    assert (
+        DevelopmentCoordinator._recover_lost_dispatch(
+            SimpleNamespace(),
+            "task-1",
+            "http://ai-agent-alpha:5000",
+            {"command": "python3 -c 'raise SystemExit(0)'", "timeout_seconds": 30},
+            empty,
+        )
+        is False
+    )
     assert recorded == []

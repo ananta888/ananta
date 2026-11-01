@@ -4,7 +4,6 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-
 _ALLOWED_USAGES = frozenset({"read", "summarize", "quote", "transform", "use_as_context"})
 _KNOWN_SENSITIVITY = frozenset({"public", "internal", "internal_high", "secret", "credential", "security_sensitive"})
 _KNOWN_BOUNDARY = frozenset({"local_only", "project_private", "approved_cloud", "public"})
@@ -58,7 +57,9 @@ class ArtifactAccessPolicy:
             return self._deny("approved_cloud_requires_explicit_policy", goal_id=normalized_goal, requested_usage=usage)
 
         if sensitivity in {"credential", "secret"} and location in {"cloud", "external"}:
-            return self._deny("sensitivity_forbidden_for_remote_provider", goal_id=normalized_goal, requested_usage=usage)
+            return self._deny(
+                "sensitivity_forbidden_for_remote_provider", goal_id=normalized_goal, requested_usage=usage
+            )
 
         _ = str(worker_kind or "").strip().lower()
         return self._allow(goal_id=normalized_goal, requested_usage=usage)
@@ -67,14 +68,18 @@ class ArtifactAccessPolicy:
         return ArtifactAccessPolicyDecision(
             decision="allow",
             reason_code="allowed",
-            policy_decision_ref=self._decision_ref(goal_id=goal_id, requested_usage=requested_usage, reason_code="allowed"),
+            policy_decision_ref=self._decision_ref(
+                goal_id=goal_id, requested_usage=requested_usage, reason_code="allowed"
+            ),
         )
 
     def _deny(self, reason_code: str, *, goal_id: str, requested_usage: str) -> ArtifactAccessPolicyDecision:
         return ArtifactAccessPolicyDecision(
             decision="deny",
             reason_code=reason_code,
-            policy_decision_ref=self._decision_ref(goal_id=goal_id, requested_usage=requested_usage, reason_code=reason_code),
+            policy_decision_ref=self._decision_ref(
+                goal_id=goal_id, requested_usage=requested_usage, reason_code=reason_code
+            ),
         )
 
     @staticmethod

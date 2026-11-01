@@ -21,12 +21,8 @@ from ananta_contracts.knowledge_index_execution import (
 
 KNOWLEDGE_INDEX_JOB_SCHEMA = "ananta.knowledge_index_job.v1"
 KNOWLEDGE_INDEX_RESULT_SCHEMA = "ananta.knowledge_index_job_result.v1"
-KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = (
-    "ananta.knowledge_index_execution_job.v2"
-)
-KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA = (
-    "ananta.knowledge_index_execution_result.v2"
-)
+KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
+KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA = "ananta.knowledge_index_execution_result.v2"
 INLINE_JOB_PAYLOAD_BYTES = 128 * 1024
 MAX_JOB_PAYLOAD_BYTES = MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES
 PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
@@ -167,8 +163,7 @@ def validate_legacy_worker_result(
             raise ValueError(f"knowledge_index_result_{field}_invalid")
     results = payload.get("results")
     if results is not None and (
-        not isinstance(results, list)
-        or any(not isinstance(item, Mapping) for item in results)
+        not isinstance(results, list) or any(not isinstance(item, Mapping) for item in results)
     ):
         raise ValueError("knowledge_index_result_results_invalid")
     artifact_refs = payload.get("artifact_refs")
@@ -280,21 +275,11 @@ def project_job_view(
         "idempotency_fingerprint": envelope.get("idempotency_fingerprint"),
         "task_kind": raw.get("task_kind"),
         "reason_code": raw.get("status_reason_code"),
-        "tenant_id": (envelope.get("authority_binding") or {}).get(
-            "tenant_id"
-        ),
-        "project_id": (envelope.get("authority_binding") or {}).get(
-            "project_id"
-        ),
-        "source_revision_id": (
-            envelope.get("authority_binding") or {}
-        ).get("source_revision_id"),
-        "file_manifest_digest": (
-            envelope.get("file_manifest") or {}
-        ).get("manifest_digest"),
-        "assignment_id": (envelope.get("assignment") or {}).get(
-            "assignment_id"
-        ),
+        "tenant_id": (envelope.get("authority_binding") or {}).get("tenant_id"),
+        "project_id": (envelope.get("authority_binding") or {}).get("project_id"),
+        "source_revision_id": (envelope.get("authority_binding") or {}).get("source_revision_id"),
+        "file_manifest_digest": (envelope.get("file_manifest") or {}).get("manifest_digest"),
+        "assignment_id": (envelope.get("assignment") or {}).get("assignment_id"),
     }
 
 

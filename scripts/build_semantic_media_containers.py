@@ -50,9 +50,7 @@ BUILD_SOURCE_FILES = (
     "scripts/build_semantic_media_containers.py",
     "scripts/generate_semantic_media_supply_chain_reports.py",
 )
-_IGNORED_BUILD_PARTS = frozenset(
-    {"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", "node_modules", "dist"}
-)
+_IGNORED_BUILD_PARTS = frozenset({"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", "node_modules", "dist"})
 
 
 class ContainerBuildError(RuntimeError):

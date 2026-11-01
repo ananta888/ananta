@@ -30,13 +30,13 @@ from agent.services.workflow_runtime import (
     InMemoryReplayNonceStore,
     RuntimeAuthorizationEnvelope,
 )
-from ananta_contracts.provider_execution import ProviderExecutionBinding
 from ananta_contracts.model_selection import (
     ModelAssignment,
     ModelFallbackCandidate,
     ModelFallbackGroup,
     ModelRoutingConfiguration,
 )
+from ananta_contracts.provider_execution import ProviderExecutionBinding
 from ananta_contracts.workflow_adapter_task import (
     WORKFLOW_ADAPTER_TASK_RESULT_SCHEMA,
     WorkflowAdapterTask,
@@ -156,9 +156,7 @@ def test_hub_queue_persists_one_signed_fenced_and_routable_contract() -> None:
     duplicate = service.submit(_submission())
     task = repository.values[receipt.hub_task_id]
     contract = WorkflowAdapterTask.from_mapping(task.worker_execution_context)
-    envelope = RuntimeAuthorizationEnvelope.from_mapping(
-        contract.authorization_envelope.to_dict()
-    )
+    envelope = RuntimeAuthorizationEnvelope.from_mapping(contract.authorization_envelope.to_dict())
     AuthorizationVerifier(keys, InMemoryReplayNonceStore()).authorize(
         envelope,
         tenant_id="tenant-a",
@@ -206,22 +204,14 @@ def test_hub_queue_persists_one_signed_fenced_and_routable_contract() -> None:
     assert contract.provider_binding is not None
     assert contract.provider_binding.provider_id == "lmstudio"
     assert receipt.to_dict()["provider_binding"]["model_id"] == "model-a"
-    assert ownership.get(
-        tenant_id="tenant-a", run_id="run-a", step_id="step-a"
-    ).status == "active"
+    assert ownership.get(tenant_id="tenant-a", run_id="run-a", step_id="step-a").status == "active"
 
 
 def test_hub_builds_and_transports_phi_gemma_profile_contexts_with_route_budget() -> None:
     decision = HubConfiguredWorkflowProviderDecisionService(
         lambda: {
-            "model_profiles_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-            ),
-            "model_routing_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_routing.json"
-            ),
+            "model_profiles_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"),
+            "model_routing_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"),
         }
     ).decide(
         WorkflowProviderRequirement(
@@ -246,9 +236,7 @@ def test_hub_builds_and_transports_phi_gemma_profile_contexts_with_route_budget(
             provider_maximum_attempts=decision.maximum_provider_attempts,
             payload={
                 "graph_id": "graph-a",
-                "provider_contexts_by_profile_id": {
-                    "attacker": {"selected_model_id": "unbound"}
-                },
+                "provider_contexts_by_profile_id": {"attacker": {"selected_model_id": "unbound"}},
             },
         )
     )
@@ -256,9 +244,7 @@ def test_hub_builds_and_transports_phi_gemma_profile_contexts_with_route_budget(
     contract = WorkflowAdapterTask.from_mapping(task.worker_execution_context)
     contexts = contract.payload["provider_contexts_by_profile_id"]
     primary = contract.payload["provider_context"]
-    envelope = RuntimeAuthorizationEnvelope.from_mapping(
-        contract.authorization_envelope.to_dict()
-    )
+    envelope = RuntimeAuthorizationEnvelope.from_mapping(contract.authorization_envelope.to_dict())
 
     assert decision.maximum_provider_attempts == 5
     assert contract.provider_maximum_attempts == 5
@@ -266,16 +252,11 @@ def test_hub_builds_and_transports_phi_gemma_profile_contexts_with_route_budget(
     assert primary["combined_retry_maximum"] == 0
     assert primary["require_hub_retry_budget"] is False
     assert primary["require_hub_provider_attempt_budget"] is True
-    assert primary["provider_endpoint_identity"] == (
-        "http://ollama:11434/v1/chat/completions"
-    )
+    assert primary["provider_endpoint_identity"] == ("http://ollama:11434/v1/chat/completions")
     assert envelope.budgets["attempts"] == 1
     assert envelope.budgets["retries"] == 0
     assert envelope.budgets["provider_attempts"] == 5
-    assert [
-        (item.profile_id, item.maximum_attempts)
-        for item in envelope.provider_attempt_plan
-    ] == [
+    assert [(item.profile_id, item.maximum_attempts) for item in envelope.provider_attempt_plan] == [
         ("local_ollama_phi4_mini", 3),
         ("local_ollama_gemma4_e4b_reasoning", 2),
     ]
@@ -301,31 +282,21 @@ def test_hub_builds_and_transports_phi_gemma_profile_contexts_with_route_budget(
         "local_ollama_gemma4_e4b_reasoning",
     }
     assert contexts["local_ollama_phi4_mini"] == primary
-    assert contexts["local_ollama_gemma4_e4b_reasoning"][
-        "selected_model_id"
-    ] == "ananta-gemma4-reasoning-8k"
-    assert contexts["local_ollama_gemma4_e4b_reasoning"][
-        "provider_endpoint_identity"
-    ] == "http://ollama:11434/v1/chat/completions"
-    assert contract.worker_payload()[
-        "provider_contexts_by_profile_id"
-    ] == contexts
+    assert contexts["local_ollama_gemma4_e4b_reasoning"]["selected_model_id"] == "ananta-gemma4-reasoning-8k"
+    assert (
+        contexts["local_ollama_gemma4_e4b_reasoning"]["provider_endpoint_identity"]
+        == "http://ollama:11434/v1/chat/completions"
+    )
+    assert contract.worker_payload()["provider_contexts_by_profile_id"] == contexts
     assert "attacker" not in contexts
 
     tampered = dict(task.worker_execution_context)
     tampered["payload"] = dict(tampered["payload"])
     tampered_contexts = {
-        key: dict(value)
-        for key, value in tampered["payload"][
-            "provider_contexts_by_profile_id"
-        ].items()
+        key: dict(value) for key, value in tampered["payload"]["provider_contexts_by_profile_id"].items()
     }
-    tampered_contexts["local_ollama_gemma4_e4b_reasoning"][
-        "selected_model_id"
-    ] = "attacker-model"
-    tampered["payload"]["provider_contexts_by_profile_id"] = (
-        tampered_contexts
-    )
+    tampered_contexts["local_ollama_gemma4_e4b_reasoning"]["selected_model_id"] = "attacker-model"
+    tampered["payload"]["provider_contexts_by_profile_id"] = tampered_contexts
     with pytest.raises(
         ValueError,
         match="provider_profile_binding_mismatch",
@@ -351,14 +322,8 @@ def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
 
     decision = HubConfiguredWorkflowProviderDecisionService(
         lambda: {
-            "model_profiles_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-            ),
-            "model_routing_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_routing.json"
-            ),
+            "model_profiles_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"),
+            "model_routing_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"),
         }
     ).decide(
         WorkflowProviderRequirement(
@@ -382,9 +347,7 @@ def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
             provider_maximum_attempts=decision.maximum_provider_attempts,
         )
     )
-    contract = WorkflowAdapterTask.from_mapping(
-        repository.values[receipt.hub_task_id].worker_execution_context
-    )
+    contract = WorkflowAdapterTask.from_mapping(repository.values[receipt.hub_task_id].worker_execution_context)
     payload = contract.worker_payload()
 
     # Deliberately reverse local routing and invert retry budgets. These are
@@ -467,9 +430,7 @@ def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
     )
     worker = HubProfileRoutedWorkerTextGeneration(
         direct=SimpleNamespace(
-            generate_text=lambda **values: pytest.fail(
-                "signed profile route must not use direct provider path"
-            )
+            generate_text=lambda **values: pytest.fail("signed profile route must not use direct provider path")
         ),
         model_routing=invocation_service,
     )
@@ -481,17 +442,10 @@ def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
         model=primary["selected_model_id"],
     )
 
-    expected_profiles = (
-        ["local_ollama_phi4_mini"] * 3
-        + ["local_ollama_gemma4_e4b_reasoning"] * 2
-    )
+    expected_profiles = ["local_ollama_phi4_mini"] * 3 + ["local_ollama_gemma4_e4b_reasoning"] * 2
     assert result["text"] == "gemma ok"
-    assert [profile for profile, _context_profile in calls] == (
-        expected_profiles
-    )
-    assert [
-        context_profile for _profile, context_profile in calls
-    ] == expected_profiles
+    assert [profile for profile, _context_profile in calls] == (expected_profiles)
+    assert [context_profile for _profile, context_profile in calls] == expected_profiles
 
 
 def test_queue_enforces_idempotency_and_principal_tenant_binding() -> None:
@@ -624,24 +578,16 @@ def test_langgraph_execution_trace_is_losslessly_projected_as_canonical_events()
         hub_task_id=receipt.hub_task_id,
     )
 
-    projected = [
-        event for event in history if event["causation_id"] == f"hub-task:{receipt.hub_task_id}"
-    ]
-    assert [event["event_type"] for event in projected] == [
-        item["event"] for item in trace
-    ]
-    step = next(
-        event for event in projected if event["event_type"] == "workflow.step.completed"
-    )
+    projected = [event for event in history if event["causation_id"] == f"hub-task:{receipt.hub_task_id}"]
+    assert [event["event_type"] for event in projected] == [item["event"] for item in trace]
+    step = next(event for event in projected if event["event_type"] == "workflow.step.completed")
     assert step["tenant_id"] == "tenant-a"
     assert step["workflow_id"] == "workflow-a"
     assert step["run_id"] == "run-a"
     assert step["step_id"] == "step-a"
     assert step["attempt"] == 1
     assert step["payload"]["node_result"]["value"] == {"answer": 42}
-    assert step["payload"]["node_result"]["artifacts"] == {
-        "report": "artifact://report-a"
-    }
+    assert step["payload"]["node_result"]["artifacts"] == {"report": "artifact://report-a"}
 
 
 def test_invalid_or_unpersisted_submission_never_leaves_active_ownership() -> None:
@@ -655,9 +601,7 @@ def test_invalid_or_unpersisted_submission_never_leaves_active_ownership() -> No
     failing, _repository, _queue, failed_ownership, _keys = _service(fail_queue=True)
     with pytest.raises(WorkflowAdapterQueueError, match="queue_persistence_failed"):
         failing.submit(_submission())
-    assert failed_ownership.get(
-        tenant_id="tenant-a", run_id="run-a", step_id="step-a"
-    ).status == "failed"
+    assert failed_ownership.get(tenant_id="tenant-a", run_id="run-a", step_id="step-a").status == "failed"
 
 
 class _FacadeQueue:
@@ -705,9 +649,7 @@ def test_control_facade_derives_plan_budget_and_principal_binding() -> None:
     control = WorkflowAdapterControlFacade(
         queue,
         provider_decisions=decisions,
-    ).bind(
-        WorkflowRoutePrincipal(tenant_id="tenant-a", subject="user-a")
-    )
+    ).bind(WorkflowRoutePrincipal(tenant_id="tenant-a", subject="user-a"))
 
     response = control.submit(
         kind="langgraph",
@@ -720,9 +662,7 @@ def test_control_facade_derives_plan_budget_and_principal_binding() -> None:
             "maximum_retries": 1,
             "max_total_tokens": 1_000,
             "max_cost_micros": 2_000,
-            "model_routing": {
-                "preferred_profile_id": "trusted-profile"
-            },
+            "model_routing": {"preferred_profile_id": "trusted-profile"},
             "payload": {"graph_id": "graph-a"},
         },
     )
@@ -737,12 +677,8 @@ def test_control_facade_derives_plan_budget_and_principal_binding() -> None:
     assert queue.submission.max_cost_micros == 2_000
     assert queue.submission.provider_binding == binding
     assert decisions.requirement.runtime_kind == "langgraph"
-    assert decisions.requirement.model_routing.preferred_profile_id == (
-        "trusted-profile"
-    )
-    assert queue.submission.model_routing == {
-        "preferred_profile_id": "trusted-profile"
-    }
+    assert decisions.requirement.model_routing.preferred_profile_id == ("trusted-profile")
+    assert queue.submission.model_routing == {"preferred_profile_id": "trusted-profile"}
 
 
 def test_control_facade_rejects_invalid_routing_and_ignores_payload_routing() -> None:
@@ -756,9 +692,7 @@ def test_control_facade_rejects_invalid_routing_and_ignores_payload_routing() ->
     control = WorkflowAdapterControlFacade(
         queue,
         provider_decisions=decisions,
-    ).bind(
-        WorkflowRoutePrincipal(tenant_id="tenant-a", subject="user-a")
-    )
+    ).bind(WorkflowRoutePrincipal(tenant_id="tenant-a", subject="user-a"))
 
     with pytest.raises(
         WorkflowAdapterQueueError,
@@ -778,11 +712,7 @@ def test_control_facade_rejects_invalid_routing_and_ignores_payload_routing() ->
         command="dry_run",
         body={
             "task_type": "agent_workflow",
-            "payload": {
-                "model_routing": {
-                    "preferred_profile_id": "payload-smuggling"
-                }
-            },
+            "payload": {"model_routing": {"preferred_profile_id": "payload-smuggling"}},
         },
     )
     assert decisions.requirement.model_routing is None
@@ -854,14 +784,8 @@ def test_configured_decision_is_identical_for_native_langchain_and_langgraph() -
 def test_profile_decision_honors_trusted_gemma_primary_and_fallback_group() -> None:
     subject = HubConfiguredWorkflowProviderDecisionService(
         lambda: {
-            "model_profiles_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-            ),
-            "model_routing_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_routing.json"
-            ),
+            "model_profiles_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"),
+            "model_routing_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"),
         }
     )
     decision = subject.decide(
@@ -874,18 +798,14 @@ def test_profile_decision_honors_trusted_gemma_primary_and_fallback_group() -> N
             requires_provider=True,
             model_routing=ModelRoutingConfig(
                 model_role="reasoning",
-                preferred_profile_id=(
-                    "local_ollama_gemma4_e4b_reasoning"
-                ),
+                preferred_profile_id=("local_ollama_gemma4_e4b_reasoning"),
                 fallback_group_id="local_phi_to_gemma_reasoning",
             ),
         )
     )
 
     assert decision.status == "selected"
-    assert decision.primary_profile_id == (
-        "local_ollama_gemma4_e4b_reasoning"
-    )
+    assert decision.primary_profile_id == ("local_ollama_gemma4_e4b_reasoning")
     assert decision.binding is not None
     assert decision.binding.model_id == "ananta-gemma4-reasoning-8k"
     assert [item.profile_id for item in decision.profile_bindings] == [
@@ -902,9 +822,7 @@ def test_profile_decision_honors_trusted_gemma_primary_and_fallback_group() -> N
             task_type="reasoning",
             runtime_kind="langgraph",
             requires_provider=True,
-            model_routing=ModelRoutingConfig(
-                fallback_group_id="unconfigured-group"
-            ),
+            model_routing=ModelRoutingConfig(fallback_group_id="unconfigured-group"),
         )
     )
     assert denied.status == "denied"
@@ -914,51 +832,51 @@ def test_profile_decision_honors_trusted_gemma_primary_and_fallback_group() -> N
 def test_central_routing_is_compiled_into_hub_signed_attempt_plan() -> None:
     configuration = ModelRoutingConfiguration(
         revision=7,
-        assignments=(ModelAssignment(
-            consumer_id="task.coding",
-            scope="global",
-            mode="profile",
-            profile_id="local_ollama_gemma4_e4b_reasoning",
-            fallback_group_id="central-code",
-        ),),
-        fallback_groups=(ModelFallbackGroup(
-            group_id="central-code",
-            max_total_retries=1,
-            candidates=(
-                ModelFallbackCandidate(
-                    profile_id="local_ollama_gemma4_e4b_reasoning",
-                    retry_budget=1,
-                    triggers=("timeout",),
-                ),
-                ModelFallbackCandidate(
-                    profile_id="local_ollama_phi4_mini",
-                    retry_budget=2,
+        assignments=(
+            ModelAssignment(
+                consumer_id="task.coding",
+                scope="global",
+                mode="profile",
+                profile_id="local_ollama_gemma4_e4b_reasoning",
+                fallback_group_id="central-code",
+            ),
+        ),
+        fallback_groups=(
+            ModelFallbackGroup(
+                group_id="central-code",
+                max_total_retries=1,
+                candidates=(
+                    ModelFallbackCandidate(
+                        profile_id="local_ollama_gemma4_e4b_reasoning",
+                        retry_budget=1,
+                        triggers=("timeout",),
+                    ),
+                    ModelFallbackCandidate(
+                        profile_id="local_ollama_phi4_mini",
+                        retry_budget=2,
+                    ),
                 ),
             ),
-        ),),
+        ),
     )
     subject = HubConfiguredWorkflowProviderDecisionService(
         lambda: {
-            "model_profiles_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-            ),
-            "model_routing_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_routing.json"
-            ),
+            "model_profiles_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"),
+            "model_routing_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"),
         },
         lambda: configuration,
     )
 
-    decision = subject.decide(WorkflowProviderRequirement(
-        tenant_id="tenant-a",
-        workflow_id="workflow-a",
-        step_id="step-a",
-        task_type="coding",
-        runtime_kind="native",
-        requires_provider=True,
-    ))
+    decision = subject.decide(
+        WorkflowProviderRequirement(
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            step_id="step-a",
+            task_type="coding",
+            runtime_kind="native",
+            requires_provider=True,
+        )
+    )
 
     assert decision.status == "selected"
     assert decision.primary_profile_id == "local_ollama_gemma4_e4b_reasoning"

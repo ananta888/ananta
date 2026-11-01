@@ -35,9 +35,7 @@ class SfuBroadcastCommandPolicyEvaluator:
 
     production_component = True
     _ROLES = frozenset({"user", "operator", "admin"})
-    _KILL_REASONS = frozenset(
-        {"immediate_security_fence", "stop_admission", "graceful_drain"}
-    )
+    _KILL_REASONS = frozenset({"immediate_security_fence", "stop_admission", "graceful_drain"})
 
     def __init__(self, *, feature_policy, room_authority) -> None:
         self._feature_policy = feature_policy
@@ -87,12 +85,8 @@ class SfuBroadcastCommandPolicyEvaluator:
             authorization_reason="sfu_broadcast_command_authorized",
             execution_reason="sfu_broadcast_command_noop",
             policy_version=version,
-            admission_epoch=self._integer_or_none(
-                getattr(scope, "admission_epoch", None)
-            ),
-            membership_epoch=self._integer_or_none(
-                getattr(scope, "membership_epoch", None)
-            ),
+            admission_epoch=self._integer_or_none(getattr(scope, "admission_epoch", None)),
+            membership_epoch=self._integer_or_none(getattr(scope, "membership_epoch", None)),
         )
 
     @staticmethod
@@ -104,9 +98,7 @@ class SfuBroadcastCommandPolicyEvaluator:
         return int(value) if isinstance(value, int) and not isinstance(value, bool) else None
 
     @staticmethod
-    def _deny(
-        execution_reason: str, policy_version: int = 0
-    ) -> SfuBroadcastCommandPolicyDecision:
+    def _deny(execution_reason: str, policy_version: int = 0) -> SfuBroadcastCommandPolicyDecision:
         return SfuBroadcastCommandPolicyDecision(
             allowed=False,
             authorization_reason="sfu_command_permission_denied",
@@ -187,9 +179,7 @@ class SfuBroadcastPolicyCommandExecutor:
         )
 
     def _diagnostic(self, label: str, value: str) -> str:
-        return hmac.new(
-            self._secret, (label + "\0" + value).encode("utf-8"), hashlib.sha256
-        ).hexdigest()[:24]
+        return hmac.new(self._secret, (label + "\0" + value).encode("utf-8"), hashlib.sha256).hexdigest()[:24]
 
     @staticmethod
     def _request_digest(command: SfuBroadcastCommand) -> str:

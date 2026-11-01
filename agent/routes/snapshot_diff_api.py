@@ -1,9 +1,11 @@
 """POST /api/snapshot/diff — stateless endpoint that diffs two compact DOM
 snapshots. Used by the Angular UiSnapshotService when it wants to render
 delta-only log entries without computing the diff locally."""
+
 from __future__ import annotations
 
 from typing import Any
+
 from flask import Blueprint, jsonify, request
 
 from agent.services.snapshot_delta import diff_snapshots
@@ -25,8 +27,10 @@ def diff_snapshots_endpoint():
     if not body or "prev" not in body or "curr" not in body:
         return jsonify({"error": "prev and curr required"}), 400
     delta = diff_snapshots(prev, curr)
-    return jsonify({
-        "lines": delta.lines,
-        "changed_paths": delta.changed_paths,
-        "is_empty": delta.is_empty(),
-    })
+    return jsonify(
+        {
+            "lines": delta.lines,
+            "changed_paths": delta.changed_paths,
+            "is_empty": delta.is_empty(),
+        }
+    )

@@ -174,11 +174,7 @@ def activate_joined_v2_membership_locked(
     if int(session.get("identity_binding_version") or 0) != 2:
         return session
     member = next(
-        (
-            candidate
-            for candidate in session_memberships(conn, session)
-            if str(candidate["peer_id"]) == peer_id
-        ),
+        (candidate for candidate in session_memberships(conn, session) if str(candidate["peer_id"]) == peer_id),
         None,
     )
     if member is None:
@@ -200,10 +196,7 @@ def retired_guest_peer_for_capability(
 ) -> str:
     """Resolve only an exact, already-revoked guest for DELETE idempotency."""
     identity_binding_version = int(session.get("identity_binding_version") or 0)
-    if (
-        session.get("security_mode") != "strict_e2ee"
-        or int(session.get("security_contract_version") or 0) != 1
-    ):
+    if session.get("security_mode") != "strict_e2ee" or int(session.get("security_contract_version") or 0) != 1:
         return ""
     requested_peer_id = str(requested_peer_id or "").strip()
     if identity_binding_version == 2:
@@ -354,10 +347,7 @@ def resolve_authenticated_membership(
 
 
 def pair_runtime_active(members: list[dict[str, Any]]) -> bool:
-    return len(members) == 2 and all(
-        str(member.get("runtime_state") or "active") == "active"
-        for member in members
-    )
+    return len(members) == 2 and all(str(member.get("runtime_state") or "active") == "active" for member in members)
 
 
 def require_pair_runtime_active(
@@ -390,9 +380,7 @@ def mutual_confirmations_ready_locked(
         if str(row["sender_peer_id"]) in peer_ids and str(row["recipient_peer_id"]) in peer_ids
     }
     return len(directions) == 2 and all(
-        sender != recipient
-        and (recipient, sender) in directions
-        for sender, recipient in directions
+        sender != recipient and (recipient, sender) in directions for sender, recipient in directions
     )
 
 

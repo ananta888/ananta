@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from agent.services.sfu_broadcast_data_port import (
-    AuthorizedSfuDataAudienceV1,
     DEFAULT_SFU_BROADCAST_DATA_LIMITS_V1,
+    AuthorizedSfuDataAudienceV1,
     EncryptedSfuDataCommandV1,
     SfuBroadcastDataPortV1,
     SfuDataReliabilityV1,
@@ -45,9 +45,7 @@ def test_rejects_empty_noncanonical_or_oversized_ciphertext_boundaries() -> None
     with pytest.raises(ValueError, match="audience_not_canonical"):
         _audience(("receiver-02", "receiver-01"))
     with pytest.raises(ValueError, match="encrypted_packet_invalid"):
-        EncryptedSfuDataCommandV1(
-            "command-a", "ananta.sfu-data.v1", SfuDataReliabilityV1.RELIABLE, b"", _audience(), 1
-        )
+        EncryptedSfuDataCommandV1("command-a", "ananta.sfu-data.v1", SfuDataReliabilityV1.RELIABLE, b"", _audience(), 1)
     with pytest.raises(ValueError, match="encrypted_packet_oversize"):
         EncryptedSfuDataCommandV1(
             "command-a", "ananta.sfu-data.v1", SfuDataReliabilityV1.LOSSY, b"x" * 1_301, _audience(), 1

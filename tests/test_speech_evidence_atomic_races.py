@@ -89,9 +89,7 @@ def test_revoke_winning_before_store_claim_blocks_row_and_destroys_precreated_de
     prefix = "atomic-revoke-store"
     consent_service = SpeechEvidenceConsentService()
     consent = consent_service.grant(principal(prefix), consent_payload(prefix))
-    encryption = _BlockingEncryption(
-        AesGcmSpeechEvidenceEncryption(SpeechEvidenceKeyService(master_key=b"r" * 32))
-    )
+    encryption = _BlockingEncryption(AesGcmSpeechEvidenceEncryption(SpeechEvidenceKeyService(master_key=b"r" * 32)))
     store = SpeechEvidenceStoreService(
         consent=consent_service,
         encryption=encryption,
@@ -138,9 +136,12 @@ def test_revoke_winning_before_store_claim_blocks_row_and_destroys_precreated_de
 
     assert len(encryption.destroyed) == 1
     with Session(concurrent_engine) as session:
-        assert session.exec(
-            select(SpeechEvidenceDB).where(SpeechEvidenceDB.tenant_id == principal(prefix).tenant_id)
-        ).all() == []
+        assert (
+            session.exec(
+                select(SpeechEvidenceDB).where(SpeechEvidenceDB.tenant_id == principal(prefix).tenant_id)
+            ).all()
+            == []
+        )
 
 
 def _admitted(prefix: str):
@@ -272,9 +273,7 @@ def test_publish_winning_database_fence_is_immediately_included_in_revocation_im
         revoked = revoking.result(timeout=5)
 
     result_node = next(
-        node
-        for node in revoked.impacted
-        if node["kind"] == "reconciliation" and node["digest"] == artifact_digest
+        node for node in revoked.impacted if node["kind"] == "reconciliation" and node["digest"] == artifact_digest
     )
     assert result_node["status"] == "active"
     from agent.repositories.speech_evidence_lineage import SpeechEvidenceLineageRepository

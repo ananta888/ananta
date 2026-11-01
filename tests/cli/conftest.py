@@ -1,10 +1,9 @@
 """Shared fixtures for CLI tests."""
+
 from __future__ import annotations
 
 import io
-import sys
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
-from typing import Any
 
 import pytest
 

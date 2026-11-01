@@ -15,6 +15,4 @@ class RenderContext:
 class Renderer(Protocol):
     renderer_id: str
 
-    def render(self, scene: RenderScene, *, width: int, height: int, context: RenderContext) -> RenderFrame:
-        ...
-
+    def render(self, scene: RenderScene, *, width: int, height: int, context: RenderContext) -> RenderFrame: ...

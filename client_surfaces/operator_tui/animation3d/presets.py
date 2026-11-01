@@ -14,7 +14,7 @@ class AnimationPreset:
     snake_phase_offset: float = 1.0
     scale_curve: Callable[[float], float] = field(default=lambda t: 1.0)
     color_mode: str = "truecolor"
-    a_color: str = "4,62,98"        # SVG dark blue  #043E62
+    a_color: str = "4,62,98"  # SVG dark blue  #043E62
     snake_color: str = "71,166,56"  # SVG green       #47A638
 
     def scale_at(self, t: float) -> float:

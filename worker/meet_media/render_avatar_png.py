@@ -28,5 +28,7 @@ image.save(buffer, format="PNG")
 png = buffer.getvalue()
 Path("/state/ananta-avatar.png").write_bytes(png)
 print("bytes=%d sha256=%s" % (len(png), hashlib.sha256(png).hexdigest()))
-print("png_color_type=%d width=%d height=%d" % (
-    png[25], int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")))
+print(
+    "png_color_type=%d width=%d height=%d"
+    % (png[25], int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big"))
+)

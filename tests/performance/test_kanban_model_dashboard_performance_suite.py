@@ -20,13 +20,7 @@ from scripts.performance.run_kanban_model_dashboard_performance_suite import (
     validate_profile,
 )
 
-PROFILE_PATH = (
-    ROOT
-    / "config"
-    / "test-profiles"
-    / "kanban-model-dashboard"
-    / "formal-performance.v1.json"
-)
+PROFILE_PATH = ROOT / "config" / "test-profiles" / "kanban-model-dashboard" / "formal-performance.v1.json"
 
 
 def _profile() -> tuple[dict, str]:
@@ -352,9 +346,7 @@ def test_approved_baseline_allows_exactly_fifteen_percent_regression() -> None:
         approved_at="2026-07-24T12:30:00+00:00",
     )
     at_limit = dict(measurements)
-    at_limit["backend.snapshot_p95_ms"] = (
-        measurements["backend.snapshot_p95_ms"] * 1.15
-    )
+    at_limit["backend.snapshot_p95_ms"] = measurements["backend.snapshot_p95_ms"] * 1.15
 
     accepted = build_gate_report(
         profile=profile,
@@ -369,9 +361,7 @@ def test_approved_baseline_allows_exactly_fifteen_percent_regression() -> None:
         approval_policy_sha256=policy_hash,
     )
     outside = dict(at_limit)
-    outside["backend.snapshot_p95_ms"] = (
-        measurements["backend.snapshot_p95_ms"] * 1.1501
-    )
+    outside["backend.snapshot_p95_ms"] = measurements["backend.snapshot_p95_ms"] * 1.1501
     rejected = build_gate_report(
         profile=profile,
         profile_sha256=profile_hash,

@@ -15,7 +15,6 @@ from ananta_contracts.source_control import (
     ProviderLocation,
 )
 
-
 SOURCE = EffectiveSourceRevision(
     source_revision_id="revision-example",
     tenant_id="tenant-example",
@@ -47,11 +46,7 @@ class _Sources:
 
 class _Destinations:
     def get_destination(self, **kwargs):
-        return (
-            DESTINATION
-            if kwargs["destination_id"] == DESTINATION.destination_id
-            else None
-        )
+        return DESTINATION if kwargs["destination_id"] == DESTINATION.destination_id else None
 
     def list_destinations(self, **kwargs):
         return [DESTINATION], None
@@ -66,9 +61,7 @@ class _Policy:
         self.calls.append(kwargs)
         return EffectivePolicyEvaluation(
             decision=self.decision,
-            reason_codes=("cloud_blocked",)
-            if self.decision == "deny"
-            else ("explicit_allow",),
+            reason_codes=("cloud_blocked",) if self.decision == "deny" else ("explicit_allow",),
             matched_rule_path=("project-rule",),
             default_applied=False,
             approval_requirement=None,

@@ -5,32 +5,37 @@ import re
 import sys
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
-_GREEN = '\x1b[38;2;71;166;56m'
-_RESET_C = '\x1b[0m'
-_SNAKE_CHARS = '~sSoOcC'
+_GREEN = "\x1b[38;2;71;166;56m"
+_RESET_C = "\x1b[0m"
+_SNAKE_CHARS = "~sSoOcC"
 
 
 def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
     import tempfile
-    scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
+
+    scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     try:
         from render_terminal_logo import (
-            ASCII_PALETTES, RenderConfig, load_image,
-            render_ascii, render_ascii_color, svg_to_png,
+            ASCII_PALETTES,
+            RenderConfig,
+            load_image,
+            render_ascii,
+            render_ascii_color,
+            svg_to_png,
         )
     except ImportError:
         return []
 
-    svg_path = os.path.abspath(os.path.join(scripts_dir, '..', 'ananta.svg'))
+    svg_path = os.path.abspath(os.path.join(scripts_dir, "..", "ananta.svg"))
     if not os.path.isfile(svg_path):
         return []
 
     cfg = RenderConfig()
-    chars = ASCII_PALETTES['clean']
+    chars = ASCII_PALETTES["clean"]
 
-    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         png = f.name
     try:
         svg_to_png(svg_path, png, width=800)
@@ -44,27 +49,31 @@ def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
         except OSError:
             pass
 
-    return art.split('\n')
+    return art.split("\n")
 
 
 def _pad_line(line: str, width: int) -> str:
-    visible = len(_ANSI_RE.sub('', line))
+    visible = len(_ANSI_RE.sub("", line))
     if visible < width:
-        return line + ' ' * (width - visible)
+        return line + " " * (width - visible)
     return line
 
 
 def _orbit_path(top: int, bottom: int, left: int, right: int) -> list[tuple[int, int]]:
     p: list[tuple[int, int]] = []
-    for c in range(left, right + 1):          p.append((top, c))
-    for r in range(top + 1, bottom + 1):      p.append((r, right))
-    for c in range(right - 1, left - 1, -1):  p.append((bottom, c))
-    for r in range(bottom - 1, top, -1):       p.append((r, left))
+    for c in range(left, right + 1):
+        p.append((top, c))
+    for r in range(top + 1, bottom + 1):
+        p.append((r, right))
+    for c in range(right - 1, left - 1, -1):
+        p.append((bottom, c))
+    for r in range(bottom - 1, top, -1):
+        p.append((r, left))
     return p
 
 
 def _colorize_region(chars_list: list[str], snake_set: dict[int, str], col_offset: int) -> str:
-    out, in_g = '', False
+    out, in_g = "", False
     for i, ch in enumerate(chars_list):
         col = i + col_offset
         if col in snake_set:
@@ -91,23 +100,23 @@ def _insert_snake_on_row(
     if not snake_cols:
         return base.ljust(canvas_w)
 
-    left_snakes  = {c: ch for c, ch in snake_cols.items() if c < logo_col_start}
+    left_snakes = {c: ch for c, ch in snake_cols.items() if c < logo_col_start}
     right_snakes = {c: ch for c, ch in snake_cols.items() if c >= logo_col_start + 70}
 
     if not left_snakes and not right_snakes:
         return base.ljust(canvas_w)
 
-    left_part = list(' ' * logo_col_start)
+    left_part = list(" " * logo_col_start)
     for c, ch in left_snakes.items():
         if 0 <= c < logo_col_start:
             left_part[c] = ch
 
     left_str = _colorize_region(left_part, left_snakes, 0)
-    logo_str = base[logo_col_start:] if len(base) > logo_col_start else ''
+    logo_str = base[logo_col_start:] if len(base) > logo_col_start else ""
 
     logo_end = logo_col_start + 70
     right_len = canvas_w - logo_end
-    right_part = list(' ' * right_len)
+    right_part = list(" " * right_len)
     for c, ch in right_snakes.items():
         idx = c - logo_end
         if 0 <= idx < right_len:
@@ -135,16 +144,16 @@ def _frame_from_logo(
 
     for row in range(canvas_h):
         if row < logo_h:
-            base = ' ' * logo_col + logo_lines[row]
+            base = " " * logo_col + logo_lines[row]
         else:
-            base = ''
+            base = ""
 
         row_snakes = {c: ch for (r, c), ch in snake_map.items() if r == row}
 
         if not row_snakes:
-            rows_out.append(_pad_line(base, canvas_w) if base else ' ' * canvas_w)
+            rows_out.append(_pad_line(base, canvas_w) if base else " " * canvas_w)
         elif row >= logo_h:
-            parts, in_g = '', False
+            parts, in_g = "", False
             for ci in range(canvas_w):
                 if ci in row_snakes:
                     if not in_g:
@@ -155,14 +164,14 @@ def _frame_from_logo(
                     if in_g:
                         parts += _RESET_C
                         in_g = False
-                    parts += ' '
+                    parts += " "
             if in_g:
                 parts += _RESET_C
             rows_out.append(parts)
         else:
             rows_out.append(_insert_snake_on_row(base, row_snakes, logo_col, canvas_w))
 
-    return '\n'.join(rows_out)
+    return "\n".join(rows_out)
 
 
 def build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
@@ -179,16 +188,16 @@ def build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     logo_w = 70
     col0 = (w - logo_w) // 2
 
-    content_rows = [i for i, ln in enumerate(logo_lg) if _ANSI_RE.sub('', ln).strip()]
+    content_rows = [i for i, ln in enumerate(logo_lg) if _ANSI_RE.sub("", ln).strip()]
     if not content_rows:
         content_rows = list(range(len(logo_lg)))
     ct, cb = content_rows[0], content_rows[-1]
 
     pad_r, pad_c = 2, 3
-    orbit_top    = max(0,     ct - pad_r)
+    orbit_top = max(0, ct - pad_r)
     orbit_bottom = min(h - 1, cb + pad_r)
-    orbit_left   = max(0,     col0 - pad_c)
-    orbit_right  = min(w - 1, col0 + logo_w + pad_c)
+    orbit_left = max(0, col0 - pad_c)
+    orbit_right = min(w - 1, col0 + logo_w + pad_c)
     path = _orbit_path(orbit_top, orbit_bottom, orbit_left, orbit_right)
     plen = len(path)
 
@@ -209,8 +218,7 @@ def build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     # phase 3: full snake orbits slowly (1 s)
     for fi in range(fps):
         off = fi * 2
-        snake_map = {path[(off + k) % plen]: _SNAKE_CHARS[(k + off) % len(_SNAKE_CHARS)]
-                     for k in range(plen)}
+        snake_map = {path[(off + k) % plen]: _SNAKE_CHARS[(k + off) % len(_SNAKE_CHARS)] for k in range(plen)}
         frames.append(_frame_from_logo(logo_lg, col0, w, h, len(logo_lg), snake_map))
 
     # phase 4: shrink toward top-left (1 s)
@@ -224,8 +232,9 @@ def build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
             art, a_col = (logo_sm if logo_sm else logo_lg), (col_sm if logo_sm else col0)
         target_col = max(0, a_col - int(a_col * t * 2))
         snake_visible = int(plen * max(0.0, 1.0 - t * 2))
-        snake_map = {path[(last_off + k) % plen]: _SNAKE_CHARS[(k + last_off) % len(_SNAKE_CHARS)]
-                     for k in range(snake_visible)}
+        snake_map = {
+            path[(last_off + k) % plen]: _SNAKE_CHARS[(k + last_off) % len(_SNAKE_CHARS)] for k in range(snake_visible)
+        }
         frames.append(_frame_from_logo(art, target_col, w, h, len(art), snake_map))
 
     return frames

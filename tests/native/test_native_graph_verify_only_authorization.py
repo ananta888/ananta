@@ -95,9 +95,7 @@ def test_worker_loads_public_ed25519_verifier_without_signing_capability(
         encoding="utf-8",
     )
     path.chmod(0o600)
-    verifier = load_ed25519_native_authorization_verifier(
-        {"ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(path)}
-    )
+    verifier = load_ed25519_native_authorization_verifier({"ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(path)})
     assert verifier is not None
     assert not hasattr(verifier, "sign")
     now = time.time()
@@ -138,6 +136,4 @@ def test_worker_public_key_loader_rejects_private_key_fields(tmp_path) -> None:
     path.chmod(0o600)
 
     with pytest.raises(ValueError, match="authorization_keyring_unknown_field"):
-        load_ed25519_native_authorization_verifier(
-            {"ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(path)}
-        )
+        load_ed25519_native_authorization_verifier({"ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(path)})

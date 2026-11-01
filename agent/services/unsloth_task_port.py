@@ -88,9 +88,7 @@ def derive_unsloth_task_id(
 ) -> str:
     """Derive the stable Hub queue identity used by an Unsloth submission."""
     key = str(idempotency_key or "").strip()
-    return "unsloth-" + hashlib.sha256(
-        f"{tenant_id}\0{task_type}\0{key}".encode("utf-8")
-    ).hexdigest()[:32]
+    return "unsloth-" + hashlib.sha256(f"{tenant_id}\0{task_type}\0{key}".encode("utf-8")).hexdigest()[:32]
 
 
 class HubUnslothTaskSubmissionAdapter:
@@ -175,20 +173,12 @@ class HubUnslothTaskSubmissionAdapter:
             created_by="system:unsloth-control-plane",
             source="unsloth_platform",
             tags=["unsloth", "hub-orchestration", task_type],
-            event_type=(
-                "unsloth_task_reserved"
-                if _initial_status == "reserved"
-                else "unsloth_task_admitted"
-            ),
+            event_type=("unsloth_task_reserved" if _initial_status == "reserved" else "unsloth_task_admitted"),
             event_details={
                 "task_type": task_type,
                 "tenant_id_sha256": hashlib.sha256(tenant_id.encode("utf-8")).hexdigest(),
                 "payload_sha256": payload_sha256,
-                "admission_state": (
-                    "reserved"
-                    if _initial_status == "reserved"
-                    else "activated"
-                ),
+                "admission_state": ("reserved" if _initial_status == "reserved" else "activated"),
             },
             extra_fields={
                 "task_kind": task_type,
@@ -231,37 +221,21 @@ class HubUnslothTaskSubmissionAdapter:
         task = self._repository().get_by_id(str(task_id or ""))
         if task is None:
             return None
-        context = dict(
-            getattr(task, "worker_execution_context", None) or {}
-        )
+        context = dict(getattr(task, "worker_execution_context", None) or {})
         envelope = context.get("unsloth_task")
-        if (
-            not isinstance(envelope, Mapping)
-            or not isinstance(envelope.get("payload"), Mapping)
-        ):
+        if not isinstance(envelope, Mapping) or not isinstance(envelope.get("payload"), Mapping):
             return None
         return {
             "task_id": str(getattr(task, "id", "") or ""),
             "status": str(getattr(task, "status", "") or ""),
-            "created_at": float(
-                getattr(task, "created_at", 0.0) or 0.0
-            ),
-            "updated_at": float(
-                getattr(task, "updated_at", 0.0) or 0.0
-            ),
+            "created_at": float(getattr(task, "created_at", 0.0) or 0.0),
+            "updated_at": float(getattr(task, "updated_at", 0.0) or 0.0),
             "task_type": str(envelope.get("task_type") or ""),
             "tenant_id": str(envelope.get("tenant_id") or ""),
             "payload": dict(envelope["payload"]),
-            "payload_sha256": str(
-                envelope.get("payload_sha256") or ""
-            ),
-            "result_handler": str(
-                envelope.get("result_handler") or ""
-            ),
-            "status_reason_details": dict(
-                getattr(task, "status_reason_details", None)
-                or {}
-            ),
+            "payload_sha256": str(envelope.get("payload_sha256") or ""),
+            "result_handler": str(envelope.get("result_handler") or ""),
+            "status_reason_details": dict(getattr(task, "status_reason_details", None) or {}),
         }
 
     def list_stale_reserved_cleanup(
@@ -276,9 +250,7 @@ class HubUnslothTaskSubmissionAdapter:
         )
         submissions = []
         for row in rows:
-            submission = self.get_submission(
-                str(getattr(row, "id", "") or "")
-            )
+            submission = self.get_submission(str(getattr(row, "id", "") or ""))
             if submission is not None:
                 submissions.append(submission)
         return tuple(submissions)

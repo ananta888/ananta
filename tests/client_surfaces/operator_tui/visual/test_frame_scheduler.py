@@ -29,4 +29,3 @@ def test_frame_scheduler_pause_resume() -> None:
     assert scheduler.should_render(now=0.0) is False
     scheduler.resume(now=0.0)
     assert scheduler.should_render(now=0.1) is True
-

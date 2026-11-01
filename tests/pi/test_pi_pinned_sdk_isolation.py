@@ -48,8 +48,15 @@ def test_pinned_sdk_runs_one_no_tools_turn_inside_private_store_boundary(tmp_pat
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
             chunks = [
-                {"choices": [{"index": 0, "delta": {"role": "assistant", "content": "bounded SDK answer"},
-                              "finish_reason": None}]},
+                {
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"role": "assistant", "content": "bounded SDK answer"},
+                            "finish_reason": None,
+                        }
+                    ]
+                },
                 {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
             ]
             for chunk in chunks:
@@ -63,18 +70,30 @@ def test_pinned_sdk_runs_one_no_tools_turn_inside_private_store_boundary(tmp_pat
     project = tmp_path / "project"
     project.mkdir()
     target = CodingAgentInferenceTarget(
-        client_id="pi", provider_id="ollama", model="synthetic-selected", cli_model="synthetic-selected",
-        base_url=f"http://127.0.0.1:{server.server_port}/v1", target_kind="local_openai",
+        client_id="pi",
+        provider_id="ollama",
+        model="synthetic-selected",
+        cli_model="synthetic-selected",
+        base_url=f"http://127.0.0.1:{server.server_port}/v1",
+        target_kind="local_openai",
         api_key="synthetic-selected-key",
     )
     try:
         with isolated_pi_configuration(target, project=project, runtime_root=tmp_path, max_tokens=64) as invocation:
             result = BoundedCodingAgentProcess(launch_context=pi_execution_launch).run(
-                (*command, str(invocation.config_directory)), cwd=invocation.cwd,
-                environment={"PATH": str(node.parent), "PI_CODING_AGENT_DIR": str(invocation.config_directory),
-                             "ANANTA_PI_API_KEY": target.api_key, "AGENT_TOKEN": "synthetic-hub-token"},
-                input_text="Complete the delegated synthetic turn.\n", timeout_seconds=15,
-                cancellation=Event(), maximum_output_chars=32_768, secret_values=(target.api_key,),
+                (*command, str(invocation.config_directory)),
+                cwd=invocation.cwd,
+                environment={
+                    "PATH": str(node.parent),
+                    "PI_CODING_AGENT_DIR": str(invocation.config_directory),
+                    "ANANTA_PI_API_KEY": target.api_key,
+                    "AGENT_TOKEN": "synthetic-hub-token",
+                },
+                input_text="Complete the delegated synthetic turn.\n",
+                timeout_seconds=15,
+                cancellation=Event(),
+                maximum_output_chars=32_768,
+                secret_values=(target.api_key,),
             )
             assert result.return_code == 0, result.stderr
             assert "bounded SDK answer" in result.stdout

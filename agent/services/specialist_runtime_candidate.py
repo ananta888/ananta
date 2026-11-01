@@ -12,7 +12,10 @@ from agent.services.specialist_training_outcome import SpecialistTrainingOutcome
 
 class SpecialistBenchmarkReportPort(Protocol):
     def save(
-        self, principal: MlInternTrainingPrincipal, winner: CandidateOutcome, decision: PromotionDecision,
+        self,
+        principal: MlInternTrainingPrincipal,
+        winner: CandidateOutcome,
+        decision: PromotionDecision,
     ) -> str: ...
     def bind(self, principal: MlInternTrainingPrincipal, record: AdapterRecord, reference: str) -> None: ...
 
@@ -21,7 +24,10 @@ class SpecialistRuntimeCandidateService:
     """Prepare an evaluated candidate; productive promotion needs separate Evidence admission."""
 
     def __init__(
-        self, *, registry: MlInternAdapterRegistryService, outcomes: SpecialistTrainingOutcomeService,
+        self,
+        *,
+        registry: MlInternAdapterRegistryService,
+        outcomes: SpecialistTrainingOutcomeService,
         evaluation_receipts: SpecialistEvaluationReceiptReader | None = None,
     ):
         self._registry = registry
@@ -31,7 +37,8 @@ class SpecialistRuntimeCandidateService:
     def prepare(self, principal: MlInternTrainingPrincipal, winner: CandidateOutcome) -> AdapterRecord:
         if winner.evaluations:
             if self._evaluation_receipts is None or tuple(role for role, _ in winner.evaluations) != (
-                "validation", "holdout"
+                "validation",
+                "holdout",
             ):
                 raise ValueError("specialist_runtime_candidate_evaluation_receipts_required")
             for role, receipt in winner.evaluations:
@@ -41,16 +48,20 @@ class SpecialistRuntimeCandidateService:
                 ):
                     raise ValueError("specialist_runtime_candidate_evaluation_receipt_mismatch")
                 self._evaluation_receipts.read(
-                    principal, receipt, partition=role, manifest_digest=winner.split_manifest_digest,
+                    principal,
+                    receipt,
+                    partition=role,
+                    manifest_digest=winner.split_manifest_digest,
                     holdout_digest=winner.lineage.holdout_digest,
                 )
         specialist = winner.job.request_spec.get("specialist") or {}
         lineage = winner.lineage
         digest = winner.result.to_mapping()["result_digest"]
         if (
-            any(getattr(lineage, key) != specialist.get(key) for key in (
-                "specialist_id", "contract_version", "dataset_digest", "holdout_digest"
-            ))
+            any(
+                getattr(lineage, key) != specialist.get(key)
+                for key in ("specialist_id", "contract_version", "dataset_digest", "holdout_digest")
+            )
             or not lineage.evaluated
             or lineage.benchmark_result_digest != digest
             or winner.result.holdout_digest != lineage.holdout_digest
@@ -75,16 +86,22 @@ class SpecialistRuntimeCandidateService:
             raise ValueError("specialist_runtime_candidate_registry_changed")
         record = self._registry.register_trained(
             adapter_id=f"specialist-{lineage.specialist_id}-{lineage.version}",
-            display_name=f"{lineage.specialist_id} {lineage.version}", version=lineage.version,
-            base_model=original.base_model, method=original.method,
-            artifact_paths=dict(original.artifact_paths), config_hash=original.config_hash,
-            artifact_sha256=original.artifact_sha256, dataset_hash=original.dataset_hash,
-            source_ids=list(original.source_ids), run_ids=list(original.run_ids),
+            display_name=f"{lineage.specialist_id} {lineage.version}",
+            version=lineage.version,
+            base_model=original.base_model,
+            method=original.method,
+            artifact_paths=dict(original.artifact_paths),
+            config_hash=original.config_hash,
+            artifact_sha256=original.artifact_sha256,
+            dataset_hash=original.dataset_hash,
+            source_ids=list(original.source_ids),
+            run_ids=list(original.run_ids),
             provenance_verified=original.provenance_verified,
             task_kinds=[f"specialist:{lineage.specialist_id}"],
             notes=f"training_job={checked.job_id} lineage={lineage.lineage_digest}",
             release_target=original.release_target,
-            tenant_id=principal.tenant_id, owner_subject=principal.subject,
+            tenant_id=principal.tenant_id,
+            owner_subject=principal.subject,
         )
         if record.status not in {"trained", "evaluated"}:
             raise ValueError("specialist_runtime_candidate_lifecycle_conflict")
@@ -94,8 +111,11 @@ class SpecialistRuntimeCandidateService:
                 raise ValueError("specialist_runtime_candidate_evaluation_changed")
             return record
         return self._registry.set_eval_report(
-            record.adapter_id, eval_report_ref=digest, eval_score=score,
-            tenant_id=principal.tenant_id, owner_subject=principal.subject,
+            record.adapter_id,
+            eval_report_ref=digest,
+            eval_score=score,
+            tenant_id=principal.tenant_id,
+            owner_subject=principal.subject,
             expected_version=record.registry_version,
         )
 
@@ -104,8 +124,11 @@ class HubSpecialistCandidateRegistration:
     """Prepare scoped real candidates; approval remains a separate Hub Evidence gate."""
 
     def __init__(
-        self, *, principal: MlInternTrainingPrincipal,
-        candidates: SpecialistRuntimeCandidateService, registry: MlInternAdapterRegistryService,
+        self,
+        *,
+        principal: MlInternTrainingPrincipal,
+        candidates: SpecialistRuntimeCandidateService,
+        registry: MlInternAdapterRegistryService,
         reports: SpecialistBenchmarkReportPort | None = None,
     ):
         self._principal = principal
@@ -122,8 +145,10 @@ class HubSpecialistCandidateRegistration:
             self._reports.bind(self._principal, record, reference)
         if not decision.allowed:
             record = self._registry.reject(
-                record.adapter_id, reason=",".join(decision.reason_codes),
-                tenant_id=self._principal.tenant_id, owner_subject=self._principal.subject,
+                record.adapter_id,
+                reason=",".join(decision.reason_codes),
+                tenant_id=self._principal.tenant_id,
+                owner_subject=self._principal.subject,
                 expected_version=record.registry_version,
             )
         return record.adapter_id, record.status

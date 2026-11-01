@@ -13,6 +13,7 @@ from agent.services.sfu_broadcast_feature_policy import (
     SFB_BROADCAST_FEATURE_DEFINITIONS,
 )
 
+
 @dataclass(frozen=True, slots=True)
 class SemanticMediaFeatureDefinition:
     key: str

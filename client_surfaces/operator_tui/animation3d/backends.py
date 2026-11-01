@@ -37,8 +37,12 @@ def _apply_perspective(v: Vertex, d: float) -> tuple[float, float, float]:
 
 
 def _bresenham_line(
-    x0: float, y0: float, z0: float,
-    x1: float, y1: float, z1: float,
+    x0: float,
+    y0: float,
+    z0: float,
+    x1: float,
+    y1: float,
+    z1: float,
 ) -> list[tuple[int, int, float]]:
     ix0, iy0 = int(round(x0)), int(round(y0))
     ix1, iy1 = int(round(x1)), int(round(y1))
@@ -49,7 +53,6 @@ def _bresenham_line(
     err = dx + dy
 
     x, y = ix0, iy0
-    total_len = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2) or 1.0
     dist_to_point = 0.0
     total_dist = math.sqrt((ix1 - ix0) ** 2 + (iy1 - iy0) ** 2)
     points: list[tuple[int, int, float]] = []
@@ -83,10 +86,12 @@ class BuiltinBackend:
         svg_model = None
         if svg_path is None:
             from client_surfaces.operator_tui.animation3d.svg_geometry import _find_svg
+
             svg_path = _find_svg(os.path.dirname(os.path.abspath(__file__)))
         if svg_path:
             try:
                 from client_surfaces.operator_tui.animation3d.svg_geometry import build_geometry_from_svg
+
                 svg_model = build_geometry_from_svg(svg_path)
             except Exception:
                 pass
@@ -144,22 +149,34 @@ class BuiltinBackend:
 
         projected_a = self._project_model(
             self._a_model,
-            angle_x, angle_y, angle_z,
-            scale_factor, perspective_dist,
-            view_center_x, view_center_y, char_aspect,
+            angle_x,
+            angle_y,
+            angle_z,
+            scale_factor,
+            perspective_dist,
+            view_center_x,
+            view_center_y,
+            char_aspect,
         )
 
         snake_phase = preset.snake_phase_offset * t
         projected_snake = self._project_model(
             self._snake_model,
-            angle_x, angle_y + snake_phase, angle_z,
-            scale_factor, perspective_dist,
-            view_center_x, view_center_y, char_aspect,
+            angle_x,
+            angle_y + snake_phase,
+            angle_z,
+            scale_factor,
+            perspective_dist,
+            view_center_x,
+            view_center_y,
+            char_aspect,
         )
 
         frame = self._rasterize(
-            projected_a, projected_snake,
-            width, height,
+            projected_a,
+            projected_snake,
+            width,
+            height,
             no_color=no_color,
             no_ansi=no_ansi,
             snake_color=preset.snake_color,
@@ -176,10 +193,13 @@ class BuiltinBackend:
     def _project_model(
         self,
         model: GeometryModel,
-        ax: float, ay: float, az: float,
+        ax: float,
+        ay: float,
+        az: float,
         scale: float,
         perspective_dist: float,
-        cx: float, cy: float,
+        cx: float,
+        cy: float,
         aspect: float,
     ) -> list[dict]:
         rotated: list[Vertex] = []
@@ -195,11 +215,17 @@ class BuiltinBackend:
         for edge in model.edges:
             s = rotated[edge.start]
             e = rotated[edge.end]
-            results.append({
-                "sx": s.x, "sy": s.y, "sz": s.z,
-                "ex": e.x, "ey": e.y, "ez": e.z,
-                "part_id": edge.part_id,
-            })
+            results.append(
+                {
+                    "sx": s.x,
+                    "sy": s.y,
+                    "sz": s.z,
+                    "ex": e.x,
+                    "ey": e.y,
+                    "ez": e.z,
+                    "part_id": edge.part_id,
+                }
+            )
         return results
 
     def _rasterize(
@@ -214,8 +240,7 @@ class BuiltinBackend:
         a_color: str = "",
     ) -> str:
         grid: list[list[dict]] = [
-            [{"z": -1e9, "part": "", "edge_angle": 0.0} for _ in range(width)]
-            for _ in range(height)
+            [{"z": -1e9, "part": "", "edge_angle": 0.0} for _ in range(width)] for _ in range(height)
         ]
 
         a_edge_angle = 0.0
@@ -231,10 +256,7 @@ class BuiltinBackend:
             angle = math.atan2(dy, dx) if (dx != 0 or dy != 0) else 0.0
             self._draw_edge_bresenham(grid, edge, "snake", angle)
 
-        filled_cells = sum(
-            1 for y in range(height) for x in range(width)
-            if grid[y][x]["z"] >= -1e8
-        )
+        filled_cells = sum(1 for y in range(height) for x in range(width) if grid[y][x]["z"] >= -1e8)
 
         if filled_cells < 4:
             return "\n".join(" " * width for _ in range(height))

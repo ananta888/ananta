@@ -9,24 +9,20 @@ Each test mocks a distinct LLM output format and proves:
 
 All executable paths still require artifact collection and verification.
 """
+
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch, Mock
 
+from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from worker.core.propose import (
-    ExecutableProposal,
-    ProposeStrategyResult,
-    STATUS_EXECUTABLE,
     STATUS_ADVISORY,
-)
-from worker.core.propose import (
+    STATUS_EXECUTABLE,
+    ExecutableProposal,
     FileProposalArtifact,
     PatchProposalArtifact,
-    PlannerProposalArtifact,
 )
 from worker.core.propose_orchestrator import ProposeContext
-from agent.services.llm_response_normalizer import LLMResponseNormalizer
 
 
 @pytest.fixture
@@ -201,24 +197,25 @@ class TestPlainProseAdvisory:
 class TestNormalizationPolicyEnforcement:
     """Cross-cutting: normalization never promotes advisory to executable."""
 
-    @pytest.mark.parametrize("raw,expected_status", [
-        # Prose — always advisory
-        ("Write app.py with FastAPI", STATUS_ADVISORY),
-        # Only metadata JSON — advisory
-        ('```json\n{"description": "metadata"}\n```', STATUS_ADVISORY),
-        # Invalid fenced JSON — advisory
-        ('```json\n{ bad json\n```', STATUS_ADVISORY),
-        # Valid command fenced JSON — executable
-        ('```json\n{"command": "echo hello"}\n```', STATUS_EXECUTABLE),
-        # Valid tool_calls — executable
-        ('{"tool_calls": [{"name": "write_file", "args": {}}]}', STATUS_EXECUTABLE),
-    ])
+    @pytest.mark.parametrize(
+        "raw,expected_status",
+        [
+            # Prose — always advisory
+            ("Write app.py with FastAPI", STATUS_ADVISORY),
+            # Only metadata JSON — advisory
+            ('```json\n{"description": "metadata"}\n```', STATUS_ADVISORY),
+            # Invalid fenced JSON — advisory
+            ("```json\n{ bad json\n```", STATUS_ADVISORY),
+            # Valid command fenced JSON — executable
+            ('```json\n{"command": "echo hello"}\n```', STATUS_EXECUTABLE),
+            # Valid tool_calls — executable
+            ('{"tool_calls": [{"name": "write_file", "args": {}}]}', STATUS_EXECUTABLE),
+        ],
+    )
     def test_status_per_format(self, normalizer, context, raw, expected_status):
         result = normalizer.normalize(raw, context)
         snippet = repr(raw[:40])
-        assert result.status == expected_status, (
-            f"Format {snippet} → expected {expected_status}, got {result.status}"
-        )
+        assert result.status == expected_status, f"Format {snippet} → expected {expected_status}, got {result.status}"
 
     def test_all_executable_paths_produce_executable_proposal(self, normalizer, context):
         """Any STATUS_EXECUTABLE result must carry an ExecutableProposal, never prose."""

@@ -1,10 +1,11 @@
 """Tests for DecisionTrace, DomainMetrics, DecisionTraceRepository — T08.01."""
+
 from __future__ import annotations
 
 import time
 
 import pytest
-from sqlmodel import SQLModel, Session, delete
+from sqlmodel import Session, SQLModel, delete
 
 from agent.database import engine
 from agent.db_models import DecisionTraceDB
@@ -27,6 +28,7 @@ def _fresh_db():
 
 
 # ── DecisionTrace ─────────────────────────────────────────────────────────────
+
 
 def test_trace_to_dict():
     trace = DecisionTrace(surface="tui_snake", context_hash="abc", source="heuristic", action_kind="follow")
@@ -53,9 +55,7 @@ def test_trace_duration_ms_computed():
 def test_trace_from_decision_result():
     result = DecisionResult.heuristic_follow(dx=1, dy=0, strategy_id="my-strat")
     result.fallback_reason = "ai_timeout"
-    trace = DecisionTrace.from_decision_result(
-        result, surface="tui_snake", context_hash="hash1", lease_id="lease-1"
-    )
+    trace = DecisionTrace.from_decision_result(result, surface="tui_snake", context_hash="hash1", lease_id="lease-1")
     assert trace.surface == "tui_snake"
     assert trace.strategy_id == "my-strat"
     assert trace.fallback_reason == "ai_timeout"
@@ -71,6 +71,7 @@ def test_trace_no_sensitive_data():
 
 
 # ── DomainMetrics ─────────────────────────────────────────────────────────────
+
 
 def test_metrics_records_ai_success():
     m = DomainMetrics(surface="tui_snake")
@@ -106,6 +107,7 @@ def test_metrics_to_dict():
 
 # ── DecisionMetricsAccumulator ────────────────────────────────────────────────
 
+
 def test_accumulator_creates_domain_on_first_record():
     acc = DecisionMetricsAccumulator()
     trace = DecisionTrace(surface="tui_snake", source="ai", action_kind="follow")
@@ -138,6 +140,7 @@ def test_accumulator_reset_all():
 
 
 # ── DecisionTraceRepository ───────────────────────────────────────────────────
+
 
 def test_repo_save_and_get():
     repo = DecisionTraceRepository()

@@ -69,5 +69,7 @@ def test_relative_js_imports_are_deepened() -> None:
 def test_hashed_sources_are_the_named_repository_files_outside_tests_and_the_pinning_dirs() -> None:
     from scripts.migrate_test_domain import ROOT, hashed_sources
 
-    text = '"docs/testing.md", tests/test_x.py, scripts/migrate_test_domain.py, docs/does-not-exist.md, xdocs/testing.md'
+    text = (
+        '"docs/testing.md", tests/test_x.py, scripts/migrate_test_domain.py, docs/does-not-exist.md, xdocs/testing.md'
+    )
     assert hashed_sources(text) == {ROOT / "docs/testing.md"}

@@ -15,9 +15,10 @@ def test_acoustic_residual_attack_gate_is_current_content_free_and_fail_closed()
         "ordinary_and_transcript_fallback_required": True,
         "production_policy_verdict": "no_go",
     }
-    assert expected["measurements"]["membership_inference_score"] > expected["thresholds"][
-        "maximum_membership_inference_score"
-    ]
+    assert (
+        expected["measurements"]["membership_inference_score"]
+        > expected["thresholds"]["maximum_membership_inference_score"]
+    )
     serialized = json.dumps(expected).lower()
     assert "/home/" not in serialized
     assert "source_identifier" not in serialized

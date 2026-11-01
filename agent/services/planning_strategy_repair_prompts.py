@@ -68,9 +68,7 @@ def format_adaptive_repair_guidance(*, output_shape: str | None, preferred_outpu
     shape = str(output_shape or "").strip().lower()
     preferred = str(preferred_output_format or "json").strip().lower() or "json"
     if shape == "partial_json":
-        return (
-            "The previous answer was truncated. Return a shorter, complete plan with fewer words per task and no extra commentary."
-        )
+        return "The previous answer was truncated. Return a shorter, complete plan with fewer words per task and no extra commentary."
     if shape in {"json_in_markdown_fence", "json_extracted"}:
         return (
             "The previous answer already used markdown-wrapped JSON or embedded JSON. "
@@ -89,12 +87,8 @@ def format_adaptive_repair_guidance(*, output_shape: str | None, preferred_outpu
             "as long as each task stays concrete and can be normalized back into structured tasks."
         )
     if preferred == "yaml":
-        return (
-            "The model may prefer YAML. Keep keys short and avoid nested prose so the output can be normalized reliably."
-        )
-    return (
-        f"Prefer {preferred.upper()} if that is your natural format, but keep the response structured and parseable."
-    )
+        return "The model may prefer YAML. Keep keys short and avoid nested prose so the output can be normalized reliably."
+    return f"Prefer {preferred.upper()} if that is your natural format, but keep the response structured and parseable."
 
 
 def build_planning_repair_prompt(
@@ -124,7 +118,7 @@ def build_planning_repair_prompt(
         "3. Fuelle die Pflichtphasen setup, implementation, execution, verification und summary ab, wenn es sich um ein neues Softwareprojekt handelt.\n"
         "4. Jede description muss einen konkreten Output nennen (Dateipfad, Endpoint, Command oder Artifact).\n"
         "5. priority nur: High, Medium, Low.\n"
-        "6. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
+        '6. depends_on als Liste von Schrittnummern als Strings (z.B. ["1"]).\n'
         "7. Keine Erklaerungen oder Meta-Kommentare.\n\n"
         f"FORMAT-HINWEIS: {format_adaptive_repair_guidance(output_shape=output_shape, preferred_output_format=preferred_output_format)}\n\n"
         "AUSGABEFORMAT (nur JSON-Array):\n"
@@ -166,7 +160,7 @@ def build_new_project_execution_repair_prompt(
         "5. Fuelle die Pflichtphasen setup, implementation, execution, verification und summary ab.\n"
         "6. Jede Teilaufgabe muss title, description, priority enthalten.\n"
         "7. priority nur: High, Medium, Low.\n"
-        "8. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
+        '8. depends_on als Liste von Schrittnummern als Strings (z.B. ["1"]).\n'
         "9. Keine Erklaerungen oder Meta-Kommentare.\n\n"
         f"FORMAT-HINWEIS: {format_adaptive_repair_guidance(output_shape=output_shape, preferred_output_format=preferred_output_format)}\n\n"
         "AUSGABEFORMAT (nur JSON-Array):\n"

@@ -90,6 +90,7 @@ class SemanticMediaCapabilityGrantRepository(Protocol):
         limit: int,
     ) -> tuple[PersistedSemanticMediaCapabilityGrant, ...]: ...
 
+
 class InMemorySemanticMediaCapabilityGrantRepository:
     """Deterministic test adapter; production composition always uses SQL."""
 
@@ -168,6 +169,7 @@ class InMemorySemanticMediaCapabilityGrantRepository:
         matches.sort(key=lambda item: (item.grant.issued_at, item.grant.grant_id), reverse=True)
         return tuple(matches[:limit])
 
+
 class SqlSemanticMediaCapabilityGrantRepository:
     """Cross-process SQL source of truth with an atomic revocation CAS."""
 
@@ -188,9 +190,7 @@ class SqlSemanticMediaCapabilityGrantRepository:
             if existing is not None:
                 persisted = self._from_row(existing)
                 if not same_idempotent_grant_request(persisted.grant, grant):
-                    raise SemanticMediaCapabilityGrantRepositoryError(
-                        "capability_grant_id_conflict"
-                    )
+                    raise SemanticMediaCapabilityGrantRepositoryError("capability_grant_id_conflict")
                 SqlSemanticMediaAuditOutbox.enqueue_in_session(db, audit_event)
                 db.commit()
                 return persisted
@@ -205,9 +205,7 @@ class SqlSemanticMediaCapabilityGrantRepository:
                     self._from_row(existing).grant,
                     grant,
                 ):
-                    raise SemanticMediaCapabilityGrantRepositoryError(
-                        "capability_grant_id_conflict"
-                    ) from exc
+                    raise SemanticMediaCapabilityGrantRepositoryError("capability_grant_id_conflict") from exc
                 SqlSemanticMediaAuditOutbox.enqueue_in_session(db, audit_event)
                 db.commit()
                 return self._from_row(existing)

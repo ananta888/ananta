@@ -9,21 +9,11 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-from rag_helper.application.generated_code import detect_generated_code
-from rag_helper.application.gem_partitions import build_gem_partition_records
-from rag_helper.application.importance_scoring import compute_importance_score
 from rag_helper.application.incremental_cache import load_incremental_cache
-from rag_helper.application.manifest_stats import (
-    collect_error_entries,
-    collect_extension_stats,
-    collect_skip_reason_counts,
-    count_records_by_kind,
-)
 from rag_helper.application.output_compaction import compact_output_records
 from rag_helper.application.output_formats import build_context_records, build_embedding_records
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.project_processor import process_project
-from rag_helper.application.xml_overview import build_xml_overview_records
 
 try:
     from rag_helper.extractors.xml_extractor import XmlExtractor
@@ -39,18 +29,27 @@ class _StubJavaExtractor:
         return {"file": rel_path, "package": None, "imports": [], "type_names": []}
 
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [{
-            "kind": "java_file",
-            "file": rel_path,
-            "id": "java_file:1",
-            "embedding_text": "java file",
-        }], [{
-            "kind": "java_method_detail",
-            "file": rel_path,
-            "id": "java_method_detail:1",
-            "embedding_text": "detail",
-            "code_snippet": "return 1;",
-        }], [], {"kind": "java", "file": rel_path}
+        return (
+            [
+                {
+                    "kind": "java_file",
+                    "file": rel_path,
+                    "id": "java_file:1",
+                    "embedding_text": "java file",
+                }
+            ],
+            [
+                {
+                    "kind": "java_method_detail",
+                    "file": rel_path,
+                    "id": "java_method_detail:1",
+                    "embedding_text": "detail",
+                    "code_snippet": "return 1;",
+                }
+            ],
+            [],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class _StubAdocExtractor:
@@ -66,10 +65,15 @@ class _StubXmlExtractor:
 
     def parse(self, rel_path: str, text: str):
         type(self).parse_calls += 1
-        return [{"kind": "xml_file", "file": rel_path}], [{"kind": "xml_detail"}], [{"kind": "relation"}], {
-            "kind": "xml",
-            "file": rel_path,
-        }
+        return (
+            [{"kind": "xml_file", "file": rel_path}],
+            [{"kind": "xml_detail"}],
+            [{"kind": "relation"}],
+            {
+                "kind": "xml",
+                "file": rel_path,
+            },
+        )
 
 
 class _StubXsdExtractor:
@@ -85,16 +89,57 @@ class _RichStubXsdExtractor:
         self.kwargs = kwargs
 
     def parse(self, rel_path: str, text: str):
-        return [
-            {"kind": "xsd_file", "file": rel_path, "id": "xsd_file:1", "embedding_text": "xsd file"},
-            {"kind": "xsd_complex_type", "file": rel_path, "id": "xsd_complex_type:1", "parent_id": "xsd_file:1", "name": "OrderType", "embedding_text": "complex"},
-            {"kind": "xsd_simple_type", "file": rel_path, "id": "xsd_simple_type:1", "parent_id": "xsd_file:1", "name": "OrderCode", "embedding_text": "simple"},
-            {"kind": "xsd_root_element", "file": rel_path, "id": "xsd_root_element:1", "parent_id": "xsd_file:1", "name": "order", "embedding_text": "root"},
-        ], [
-            {"kind": "xsd_complex_type_detail", "file": rel_path, "id": "xsd_complex_type_detail:1", "parent_id": "xsd_complex_type:1", "name": "OrderType"},
-        ], [
-            {"kind": "relation", "file": rel_path, "id": "relation:1", "source_id": "xsd_file:1", "source_kind": "xsd_file", "relation": "contains_complex_type", "target": "OrderType", "target_resolved": "xsd_complex_type:1"},
-        ], {"kind": "xsd", "file": rel_path}
+        return (
+            [
+                {"kind": "xsd_file", "file": rel_path, "id": "xsd_file:1", "embedding_text": "xsd file"},
+                {
+                    "kind": "xsd_complex_type",
+                    "file": rel_path,
+                    "id": "xsd_complex_type:1",
+                    "parent_id": "xsd_file:1",
+                    "name": "OrderType",
+                    "embedding_text": "complex",
+                },
+                {
+                    "kind": "xsd_simple_type",
+                    "file": rel_path,
+                    "id": "xsd_simple_type:1",
+                    "parent_id": "xsd_file:1",
+                    "name": "OrderCode",
+                    "embedding_text": "simple",
+                },
+                {
+                    "kind": "xsd_root_element",
+                    "file": rel_path,
+                    "id": "xsd_root_element:1",
+                    "parent_id": "xsd_file:1",
+                    "name": "order",
+                    "embedding_text": "root",
+                },
+            ],
+            [
+                {
+                    "kind": "xsd_complex_type_detail",
+                    "file": rel_path,
+                    "id": "xsd_complex_type_detail:1",
+                    "parent_id": "xsd_complex_type:1",
+                    "name": "OrderType",
+                },
+            ],
+            [
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": "relation:1",
+                    "source_id": "xsd_file:1",
+                    "source_kind": "xsd_file",
+                    "relation": "contains_complex_type",
+                    "target": "OrderType",
+                    "target_resolved": "xsd_complex_type:1",
+                },
+            ],
+            {"kind": "xsd", "file": rel_path},
+        )
 
 
 class _ParallelXmlExtractor:
@@ -106,20 +151,29 @@ class _ParallelXmlExtractor:
         self.kwargs = kwargs
 
     def parse(self, rel_path: str, text: str):
-        time.sleep({
-            "a.xml": 0.06,
-            "b.xml": 0.03,
-            "c.xml": 0.01,
-        }.get(rel_path, 0.0))
+        time.sleep(
+            {
+                "a.xml": 0.06,
+                "b.xml": 0.03,
+                "c.xml": 0.01,
+            }.get(rel_path, 0.0)
+        )
         with type(self).lock:
             type(self).parse_calls += 1
             type(self).thread_ids.add(threading.get_ident())
-        return [{
-            "kind": "xml_file",
-            "file": rel_path,
-            "id": f"xml_file:{rel_path}",
-            "embedding_text": rel_path,
-        }], [], [], {"kind": "xml", "file": rel_path}
+        return (
+            [
+                {
+                    "kind": "xml_file",
+                    "file": rel_path,
+                    "id": f"xml_file:{rel_path}",
+                    "embedding_text": rel_path,
+                }
+            ],
+            [],
+            [],
+            {"kind": "xml", "file": rel_path},
+        )
 
 
 class _FailingXmlExtractor:
@@ -149,15 +203,24 @@ class _HeavyRelationXmlExtractor:
 
     def parse(self, rel_path: str, text: str):
         relations = [
-            {"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": f"xml_tag:{index}", "type": "contains_child_tag"}
+            {
+                "kind": "relation",
+                "file": rel_path,
+                "from": "xml_file:1",
+                "to": f"xml_tag:{index}",
+                "type": "contains_child_tag",
+            }
             for index in range(10)
-        ] + [
-            {"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": "xml_tag:important", "type": "extends"}
-        ]
-        return [{"kind": "xml_file", "file": rel_path, "id": "xml_file:1", "embedding_text": rel_path}], [], relations, {
-            "kind": "xml",
-            "file": rel_path,
-        }
+        ] + [{"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": "xml_tag:important", "type": "extends"}]
+        return (
+            [{"kind": "xml_file", "file": rel_path, "id": "xml_file:1", "embedding_text": rel_path}],
+            [],
+            relations,
+            {
+                "kind": "xml",
+                "file": rel_path,
+            },
+        )
 
 
 class _OversizedXmlExtractor:
@@ -494,9 +557,7 @@ class ProcessingLimitsTests(unittest.TestCase):
 
             manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             error_rows = [
-                json.loads(line)
-                for line in error_log.read_text(encoding="utf-8").splitlines()
-                if line.strip()
+                json.loads(line) for line in error_log.read_text(encoding="utf-8").splitlines() if line.strip()
             ]
 
             self.assertEqual(manifest["error_count"], 1)
@@ -708,22 +769,30 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertTrue(manifest["cache_rebuilt"])
 
     def test_build_split_output_records(self) -> None:
-        embedding_records = build_embedding_records([{
-            "id": "java_file:1",
-            "kind": "java_file",
-            "file": "User.java",
-            "embedding_text": "java file",
-            "summary": {"type_count": 1},
-            "role_labels": ["service"],
-            "importance_score": 3.0,
-        }])
-        context_records = build_context_records([{
-            "id": "java_method_detail:1",
-            "kind": "java_method_detail",
-            "file": "User.java",
-            "embedding_text": "detail",
-            "code_snippet": "return 1;",
-        }])
+        embedding_records = build_embedding_records(
+            [
+                {
+                    "id": "java_file:1",
+                    "kind": "java_file",
+                    "file": "User.java",
+                    "embedding_text": "java file",
+                    "summary": {"type_count": 1},
+                    "role_labels": ["service"],
+                    "importance_score": 3.0,
+                }
+            ]
+        )
+        context_records = build_context_records(
+            [
+                {
+                    "id": "java_method_detail:1",
+                    "kind": "java_method_detail",
+                    "file": "User.java",
+                    "embedding_text": "detail",
+                    "code_snippet": "return 1;",
+                }
+            ]
+        )
 
         self.assertEqual(embedding_records[0]["embedding_text"], "java file")
         self.assertEqual(embedding_records[0]["importance_score"], 3.0)
@@ -731,16 +800,21 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertEqual(context_records[0]["code_snippet"], "return 1;")
 
     def test_build_compact_context_records_drops_bulky_fields(self) -> None:
-        context_records = build_context_records([{
-            "id": "java_method_detail:1",
-            "kind": "java_method_detail",
-            "file": "User.java",
-            "embedding_text": "detail",
-            "code_snippet": "return 1;",
-            "text": "x" * 500,
-            "calls": [f"call{i}" for i in range(20)],
-            "fields": [{"name": "field", "description": "d" * 400}],
-        }], mode="compact")
+        context_records = build_context_records(
+            [
+                {
+                    "id": "java_method_detail:1",
+                    "kind": "java_method_detail",
+                    "file": "User.java",
+                    "embedding_text": "detail",
+                    "code_snippet": "return 1;",
+                    "text": "x" * 500,
+                    "calls": [f"call{i}" for i in range(20)],
+                    "fields": [{"name": "field", "description": "d" * 400}],
+                }
+            ],
+            mode="compact",
+        )
 
         record = context_records[0]
         self.assertNotIn("embedding_text", record)
@@ -756,7 +830,9 @@ class ProcessingLimitsTests(unittest.TestCase):
                 "id": "java_type:1",
                 "file": "UserService.java",
                 "imports": [f"demo.Type{i}" for i in range(20)],
-                "fields": [{"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"]} for i in range(20)],
+                "fields": [
+                    {"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"]} for i in range(20)
+                ],
                 "methods": [f"m{i}()" for i in range(30)],
                 "constructors": [f"ctor{i}()" for i in range(10)],
                 "used_types": [f"demo.Type{i}" for i in range(20)],
@@ -771,11 +847,30 @@ class ProcessingLimitsTests(unittest.TestCase):
         ]
         detail_records = [
             {"kind": "java_method", "id": "java_method:1", "file": "UserService.java"},
-            {"kind": "jpa_entity_chunk", "id": "jpa_entity_chunk:1", "file": "UserService.java", "attributes": {"a": "b" * 100}},
+            {
+                "kind": "jpa_entity_chunk",
+                "id": "jpa_entity_chunk:1",
+                "file": "UserService.java",
+                "attributes": {"a": "b" * 100},
+            },
         ]
         relation_records = [
-            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "extends", "target": "Base", "target_resolved": "java_type:base"},
-            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "uses_type", "target": "Helper", "target_resolved": "java_type:helper"},
+            {
+                "kind": "relation",
+                "file": "UserService.java",
+                "source_id": "java_type:1",
+                "relation": "extends",
+                "target": "Base",
+                "target_resolved": "java_type:base",
+            },
+            {
+                "kind": "relation",
+                "file": "UserService.java",
+                "source_id": "java_type:1",
+                "relation": "uses_type",
+                "target": "Helper",
+                "target_resolved": "java_type:helper",
+            },
         ]
 
         compact_index, compact_details, compact_relations = compact_output_records(

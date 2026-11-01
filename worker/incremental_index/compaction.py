@@ -55,7 +55,9 @@ class CompactionPlanner:
     def __init__(self, layer_store_path: str | None = None) -> None:
         self.layer_store_path = layer_store_path
 
-    def create_plan(self, profile_name: str, strategy: str = "balanced", delta_ids: list[str] | None = None) -> CompactionPlan:
+    def create_plan(
+        self, profile_name: str, strategy: str = "balanced", delta_ids: list[str] | None = None
+    ) -> CompactionPlan:
         layers = list(delta_ids or [])
         candidate = CompactionCandidate(
             layer_ids=layers,

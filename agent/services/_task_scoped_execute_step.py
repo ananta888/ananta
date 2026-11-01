@@ -61,22 +61,13 @@ def _publish_recovery_artifact_receipts(
     from agent.config import settings
 
     data = getattr(outcome, "data", None)
-    artifacts = (
-        data.get("artifacts")
-        if isinstance(data, dict)
-        else None
-    )
+    artifacts = data.get("artifacts") if isinstance(data, dict) else None
     if not isinstance(artifacts, list) or not artifacts:
         return outcome
     already_materialized = all(
         isinstance(value, dict)
-        and str(value.get("artifact_id") or "").startswith(
-            "recovery-artifact-"
-        )
-        and dict(value.get("provenance_summary") or {}).get(
-            "authority"
-        )
-        == "hub"
+        and str(value.get("artifact_id") or "").startswith("recovery-artifact-")
+        and dict(value.get("provenance_summary") or {}).get("authority") == "hub"
         for value in artifacts
     )
     if already_materialized:
@@ -87,30 +78,22 @@ def _publish_recovery_artifact_receipts(
             get_recovery_trusted_local_artifact_adapter,
         )
 
-        data["artifacts"] = (
-            get_recovery_trusted_local_artifact_adapter().materialize(
-                task=task,
-                artifacts=list(artifacts),
-                lease_token=str(token or ""),
-                request_fingerprint=str(
-                    request_fingerprint or ""
-                ),
-            )
+        data["artifacts"] = get_recovery_trusted_local_artifact_adapter().materialize(
+            task=task,
+            artifacts=list(artifacts),
+            lease_token=str(token or ""),
+            request_fingerprint=str(request_fingerprint or ""),
         )
         return outcome
     from agent.services.recovery_worker_artifact_publisher import (
         get_recovery_worker_artifact_publisher,
     )
 
-    data["artifacts"] = (
-        get_recovery_worker_artifact_publisher().publish(
-            task=task,
-            artifacts=list(artifacts),
-            lease_token=str(token or ""),
-            request_fingerprint=str(
-                request_fingerprint or ""
-            ),
-        )
+    data["artifacts"] = get_recovery_worker_artifact_publisher().publish(
+        task=task,
+        artifacts=list(artifacts),
+        lease_token=str(token or ""),
+        request_fingerprint=str(request_fingerprint or ""),
     )
     return outcome
 
@@ -143,32 +126,22 @@ def run_execute_step(
         phase="execute",
     ):
         return guard
-    if (
-        vector_binding_error := _vector_index_domain_binding_error(task)
-    ) is not None:
+    if (vector_binding_error := _vector_index_domain_binding_error(task)) is not None:
         return vector_binding_error
     from agent.services.recovery_dispatch_gate_service import (
         get_recovery_dispatch_gate_service,
     )
 
-    if (
-        get_recovery_dispatch_gate_service().is_recovery_child(
-            task
-        )
-        and not getattr(
-            request_data,
-            "recovery_proposal_context",
-            None,
-        )
+    if get_recovery_dispatch_gate_service().is_recovery_child(task) and not getattr(
+        request_data,
+        "recovery_proposal_context",
+        None,
     ):
         from agent.services.recovery_worker_result_service import (
             get_recovery_worker_result_service,
         )
 
-        request_data.recovery_proposal_context = (
-            get_recovery_worker_result_service()
-            .proposal_context_for_task(tid)
-        )
+        request_data.recovery_proposal_context = get_recovery_worker_result_service().proposal_context_for_task(tid)
     admission = ports.admit_dispatch(
         tid=tid,
         task=task,
@@ -180,11 +153,9 @@ def run_execute_step(
             recovery_dispatch_request_fingerprint,
         )
 
-        admission["request_fingerprint"] = (
-            recovery_dispatch_request_fingerprint(
-                "execute",
-                request_data,
-            )
+        admission["request_fingerprint"] = recovery_dispatch_request_fingerprint(
+            "execute",
+            request_data,
         )
     if admission["error"] is not None:
         return admission["error"]
@@ -193,27 +164,21 @@ def run_execute_step(
             getattr(request_data, "dispatch_lease_token", None),
             task_id=tid,
             phase="execute",
-            request_fingerprint=admission[
-                "request_fingerprint"
-            ],
+            request_fingerprint=admission["request_fingerprint"],
         )
         if cached is not None:
             cached = _publish_recovery_artifact_receipts(
                 task=task,
                 outcome=cached,
                 token=admission["token"],
-                request_fingerprint=admission[
-                    "request_fingerprint"
-                ],
+                request_fingerprint=admission["request_fingerprint"],
             )
             _cache_recovery_outcome(
                 admission["token"],
                 cached,
                 task_id=tid,
                 phase="execute",
-                request_fingerprint=admission[
-                    "request_fingerprint"
-                ],
+                request_fingerprint=admission["request_fingerprint"],
             )
             return cached
         from agent.services.recovery_dispatch_gate_service import (
@@ -231,8 +196,7 @@ def run_execute_step(
     from agent.config import settings
 
     defer_local_writes = bool(admission["token"]) and (
-        admission["guard_local_result"]
-        or str(settings.role or "").strip().lower() != "hub"
+        admission["guard_local_result"] or str(settings.role or "").strip().lower() != "hub"
     )
     boundary = contextlib.nullcontext()
     if defer_local_writes:
@@ -270,17 +234,13 @@ def run_execute_step(
             outcome,
             task_id=tid,
             phase="execute",
-            request_fingerprint=admission[
-                "request_fingerprint"
-            ],
+            request_fingerprint=admission["request_fingerprint"],
         )
         outcome = _publish_recovery_artifact_receipts(
             task=task,
             outcome=outcome,
             token=admission["token"],
-            request_fingerprint=admission[
-                "request_fingerprint"
-            ],
+            request_fingerprint=admission["request_fingerprint"],
         )
     if admission["guard_local_result"]:
         from agent.services.recovery_dispatch_gate_service import (
@@ -341,9 +301,7 @@ def _run_execute_step_admitted(
         phase="execute",
     ):
         return guard
-    if (
-        vector_binding_error := _vector_index_domain_binding_error(task)
-    ) is not None:
+    if (vector_binding_error := _vector_index_domain_binding_error(task)) is not None:
         return vector_binding_error
     _apply_request_run_evidence_context(
         task=task,
@@ -361,11 +319,7 @@ def _run_execute_step_admitted(
         "recovery_proposal_context",
         None,
     )
-    recovery_child = (
-        get_recovery_dispatch_gate_service().is_recovery_child(
-            task
-        )
-    )
+    recovery_child = get_recovery_dispatch_gate_service().is_recovery_child(task)
     if proposal_context is not None and not recovery_child:
         raise ValueError("recovery_proposal_context_unexpected")
     if recovery_child:
@@ -404,21 +358,11 @@ def _run_execute_step_admitted(
         if delegated_workflow_result is not None:
             return TaskScopedRouteResponse(data=delegated_workflow_result)
 
-    authoritative_task_kind = str(
-        task.get("task_kind") or ""
-    ).strip().lower()
-    requested_task_kind = str(
-        getattr(request_data, "task_kind", None) or ""
-    ).strip().lower()
-    routed_task_kind = str(
-        (
-            (task.get("last_proposal", {}) or {}).get(
-                "routing"
-            )
-            or {}
-        ).get("task_kind")
-        or ""
-    ).strip().lower()
+    authoritative_task_kind = str(task.get("task_kind") or "").strip().lower()
+    requested_task_kind = str(getattr(request_data, "task_kind", None) or "").strip().lower()
+    routed_task_kind = (
+        str(((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind") or "").strip().lower()
+    )
     if authoritative_task_kind == "vector_index_operation":
         for candidate in (
             requested_task_kind,
@@ -428,22 +372,14 @@ def _run_execute_step_admitted(
                 return TaskScopedRouteResponse(
                     data={
                         "status": "denied",
-                        "reason_code": (
-                            "vector_index_task_kind_override_forbidden"
-                        ),
+                        "reason_code": ("vector_index_task_kind_override_forbidden"),
                         "task_id": tid,
                     },
                     status="denied",
-                    message=(
-                        "Vector index task kind is Hub-authoritative"
-                    ),
+                    message=("Vector index task kind is Hub-authoritative"),
                     code=403,
                 )
-    explicit_task_kind = (
-        authoritative_task_kind
-        or requested_task_kind
-        or routed_task_kind
-    )
+    explicit_task_kind = authoritative_task_kind or requested_task_kind or routed_task_kind
     task_kind = explicit_task_kind or normalize_task_kind(
         None,
         request_data.command or task.get("description") or task.get("prompt") or "",
@@ -500,17 +436,24 @@ def _run_execute_step_admitted(
     worker_profile = normalize_worker_execution_profile(
         proposal_worker_context.get("worker_profile") or proposal_routing.get("worker_profile")
     )
-    profile_source = str(
-        proposal_worker_context.get("profile_source") or proposal_routing.get("profile_source") or "agent_default"
-    ).strip().lower() or "agent_default"
-    policy_classification_summary = str(
-        proposal_routing.get("policy_classification_summary") or proposal_routing.get("reason") or ""
-    ).strip().lower() or None
+    profile_source = (
+        str(proposal_worker_context.get("profile_source") or proposal_routing.get("profile_source") or "agent_default")
+        .strip()
+        .lower()
+        or "agent_default"
+    )
+    policy_classification_summary = (
+        str(proposal_routing.get("policy_classification_summary") or proposal_routing.get("reason") or "")
+        .strip()
+        .lower()
+        or None
+    )
 
     if not command and not tool_calls:
         proposal = task.get("last_proposal")
         if not proposal:
             from agent.common.errors import TaskConflictError
+
             raise TaskConflictError("no_proposal")
         research_artifact = proposal.get("research_artifact") if isinstance(proposal, dict) else None
         if isinstance(research_artifact, dict):
@@ -523,6 +466,7 @@ def _run_execute_step_admitted(
             )
         try:
             from worker.core.propose import validate_executable_proposal
+
             command, tool_calls, _reason = validate_executable_proposal(proposal)
             reason = _reason or proposal.get("reason", "ExecutableProposal executed")
         except (ValueError, TypeError) as ve:

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _ALLOWED_ACTIONS = frozenset(
     {
         "snake.pause",

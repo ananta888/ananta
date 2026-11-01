@@ -47,9 +47,7 @@ def _path_allowed(path, allow_path):
         return True
     if not allow_path or len(path) > MAX_PATH_BYTES:
         return False
-    return all(
-        _PATH_SEGMENT.match(segment) and segment not in {".", ".."} for segment in path.strip("/").split("/")
-    )
+    return all(_PATH_SEGMENT.match(segment) and segment not in {".", ".."} for segment in path.strip("/").split("/"))
 
 
 def endpoint(value, *, allow_path=False):

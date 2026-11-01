@@ -133,11 +133,7 @@ class VoiceLiveRunFinalizer:
 
     def _cancel_lease_expired_tasks(self, segments: tuple[VoiceLiveRunSegmentDB, ...]) -> None:
         for segment in segments:
-            if (
-                segment.status == "failed"
-                and segment.failure_code == "processing_lease_expired"
-                and segment.task_id
-            ):
+            if segment.status == "failed" and segment.failure_code == "processing_lease_expired" and segment.task_id:
                 self._tasks.cancel_child(
                     segment.task_id,
                     reason_code="voice_live_segment_lease_expired",

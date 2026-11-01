@@ -62,8 +62,7 @@ class ScientificSkillCatalogRollbackService:
         matches = tuple(
             entry
             for entry in target.entries
-            if entry.skill_name == skill_name
-            and entry.status is ScientificSkillCatalogEntryStatus.APPROVED
+            if entry.skill_name == skill_name and entry.status is ScientificSkillCatalogEntryStatus.APPROVED
         )
         if len(matches) != 1:
             raise ScientificSkillCatalogError("scientific_skill_catalog_rollback_pin_not_approved")

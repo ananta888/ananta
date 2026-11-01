@@ -10,6 +10,7 @@ Auth follows the existing route pattern (``@check_auth``). Errors:
 400 invalid decision/expires_at, 404 unknown request, 409 already
 decided/expired.
 """
+
 from __future__ import annotations
 
 import base64
@@ -111,14 +112,8 @@ def _has_project_access(
         not normalized_tenant
         or not normalized_project
         or not authenticated.subject_id
-        or (
-            authenticated.tenant_id
-            and str(authenticated.tenant_id) != normalized_tenant
-        )
-        or (
-            authenticated.project_id
-            and str(authenticated.project_id) != normalized_project
-        )
+        or (authenticated.tenant_id and str(authenticated.tenant_id) != normalized_tenant)
+        or (authenticated.project_id and str(authenticated.project_id) != normalized_project)
     ):
         return False
     authority = current_app.extensions.get("project_access_authority")
@@ -211,10 +206,7 @@ def _can_view_approval(row: Any) -> bool:
             )
         user = getattr(g, "user", {}) or {}
         principal_team_id = str(user.get("team_id") or "").strip()
-        return bool(
-            principal_team_id
-            and principal_team_id == str(getattr(task, "team_id", "") or "")
-        )
+        return bool(principal_team_id and principal_team_id == str(getattr(task, "team_id", "") or ""))
     except Exception:
         return False
 
@@ -241,10 +233,7 @@ def _can_decide_approval(row: Any) -> bool:
             OrganizationMembershipService,
         )
 
-        operation = str(
-            dict(getattr(row, "scope", {}) or {}).get("operation")
-            or getattr(row, "tool_name", "")
-        ).strip()
+        operation = str(dict(getattr(row, "scope", {}) or {}).get("operation") or getattr(row, "tool_name", "")).strip()
         return OrganizationMembershipService().can_mutate(
             principal=_organization_principal(),
             tenant_id=tenant_id,
@@ -379,11 +368,7 @@ def list_approvals():
     visible_rows = [row for row in rows if _can_view_approval(row)]
     page = visible_rows[:page_size]
     has_more = len(rows) > page_size and len(page) == page_size
-    next_cursor = (
-        _encode_approval_cursor(page[-1], cursor_scope)
-        if has_more and page
-        else None
-    )
+    next_cursor = _encode_approval_cursor(page[-1], cursor_scope) if has_more and page else None
     return jsonify(
         {
             "requests": [_request_to_payload(row) for row in page],
@@ -469,9 +454,7 @@ def decide_approval(request_id: str):
     reason = str(body.get("reason") or "").strip() or None
     expires_at = body.get("expires_at")
     user = getattr(g, "user", {}) or {}
-    decided_by = str(
-        user.get("sub") or user.get("username") or "operator"
-    )
+    decided_by = str(user.get("sub") or user.get("username") or "operator")
     service = get_approval_request_service()
     pending_request = service.get_request(request_id)
     if pending_request is None or not _can_view_approval(pending_request):

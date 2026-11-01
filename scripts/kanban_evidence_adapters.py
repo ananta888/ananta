@@ -53,11 +53,7 @@ class SubprocessCommandExecutor:
         env_overrides: Mapping[str, str],
         timeout_seconds: int,
     ) -> ExecutionResult:
-        environment = {
-            name: os.environ[name]
-            for name in self._PASSTHROUGH
-            if name in os.environ
-        }
+        environment = {name: os.environ[name] for name in self._PASSTHROUGH if name in os.environ}
         environment.update(
             {
                 "CI": "true",
@@ -121,10 +117,14 @@ class GitCandidateSource:
         return completed
 
     def current_commit(self) -> str:
-        value = self._run("rev-parse", "--verify", "HEAD").stdout.decode(
-            "ascii",
-            errors="strict",
-        ).strip()
+        value = (
+            self._run("rev-parse", "--verify", "HEAD")
+            .stdout.decode(
+                "ascii",
+                errors="strict",
+            )
+            .strip()
+        )
         if not SHA_PATTERN.fullmatch(value):
             raise EvidenceBlocked("candidate_checkout_sha_invalid")
         return value

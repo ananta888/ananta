@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from tests.support import admin_login_token as _login_admin
 
 

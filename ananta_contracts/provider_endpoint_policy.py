@@ -33,9 +33,7 @@ _PROVIDER_SERVICE_HOSTS: dict[str, frozenset[str]] = {
     "local_mock": frozenset({"local-mock", "local_mock"}),
     "mock": frozenset({"mock"}),
     "ollama": frozenset({"ollama"}),
-    "openai_compatible": frozenset(
-        {"openai-compatible", "openai_compatible"}
-    ),
+    "openai_compatible": frozenset({"openai-compatible", "openai_compatible"}),
     "textgen_webui": frozenset({"textgen-webui", "textgen_webui"}),
 }
 _METADATA_ADDRESSES = frozenset(
@@ -51,9 +49,7 @@ _ALLOWED_PRIVATE_NETWORKS = (
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("fc00::/7"),
 )
-ProviderEndpointResolver = Callable[
-    ..., Sequence[tuple[Any, ...]]
-]
+ProviderEndpointResolver = Callable[..., Sequence[tuple[Any, ...]]]
 
 
 def normalize_provider_endpoint_identity(
@@ -144,14 +140,8 @@ def build_provider_request_url(
     except ValueError:
         authority_host = host
     else:
-        authority_host = (
-            f"[{address.compressed}]"
-            if address.version == 6
-            else address.compressed
-        )
-    authority = (
-        f"{authority_host}:{port}" if port is not None else authority_host
-    )
+        authority_host = f"[{address.compressed}]" if address.version == 6 else address.compressed
+    authority = f"{authority_host}:{port}" if port is not None else authority_host
     identity = f"{scheme}://{authority}{path}"
     if len(identity) > 1024:
         raise ValueError("provider_endpoint_identity_invalid")
@@ -192,9 +182,7 @@ def is_forbidden_provider_endpoint_target(endpoint_url: str) -> bool:
             address.is_private
             and not address.is_loopback
             and not any(
-                address in network
-                for network in _ALLOWED_PRIVATE_NETWORKS
-                if address.version == network.version
+                address in network for network in _ALLOWED_PRIVATE_NETWORKS if address.version == network.version
             )
         )
     )
@@ -307,9 +295,7 @@ def validate_provider_endpoint_resolution(
             and (
                 address.is_loopback
                 or any(
-                    address in network
-                    for network in _ALLOWED_PRIVATE_NETWORKS
-                    if address.version == network.version
+                    address in network for network in _ALLOWED_PRIVATE_NETWORKS if address.version == network.version
                 )
             )
         )
@@ -320,13 +306,8 @@ def validate_provider_endpoint_resolution(
                 endpoint_url=identity,
             )
         )
-        if not address.is_global and not (
-            explicitly_local
-            and (endpoint_bound or legacy_local)
-        ):
-            raise ValueError(
-                "provider_endpoint_non_global_literal_denied"
-            )
+        if not address.is_global and not (explicitly_local and (endpoint_bound or legacy_local)):
+            raise ValueError("provider_endpoint_non_global_literal_denied")
         return (address.compressed,)
     if _is_known_local_alias(provider, host):
         return ()
@@ -342,22 +323,16 @@ def validate_provider_endpoint_resolution(
             type=socket.SOCK_STREAM,
         )
     except (OSError, UnicodeError) as exc:
-        raise ValueError(
-            "provider_endpoint_resolution_failed"
-        ) from exc
+        raise ValueError("provider_endpoint_resolution_failed") from exc
     resolved: set[str] = set()
     for answer in answers:
         try:
             sockaddr = answer[4]
             candidate = ipaddress.ip_address(str(sockaddr[0]))
         except (IndexError, TypeError, ValueError):
-            raise ValueError(
-                "provider_endpoint_resolution_invalid"
-            ) from None
+            raise ValueError("provider_endpoint_resolution_invalid") from None
         if not candidate.is_global:
-            raise ValueError(
-                "provider_endpoint_resolution_denied"
-            )
+            raise ValueError("provider_endpoint_resolution_denied")
         resolved.add(candidate.compressed)
     if not resolved:
         raise ValueError("provider_endpoint_resolution_failed")
@@ -367,19 +342,12 @@ def validate_provider_endpoint_resolution(
 def _is_known_local_alias(provider: str, host: str) -> bool:
     if provider not in LOCAL_PROVIDER_IDS:
         return False
-    return bool(
-        host in _SHARED_LOCAL_HOSTS
-        or host in _PROVIDER_SERVICE_HOSTS.get(provider, frozenset())
-    )
+    return bool(host in _SHARED_LOCAL_HOSTS or host in _PROVIDER_SERVICE_HOSTS.get(provider, frozenset()))
 
 
 def _canonical_host(raw_host: str | None) -> str:
     host = str(raw_host or "").strip().lower().rstrip(".")
-    if (
-        not host
-        or any(ord(value) <= 32 for value in host)
-        or any(value in host for value in "/\\?#")
-    ):
+    if not host or any(ord(value) <= 32 for value in host) or any(value in host for value in "/\\?#"):
         raise ValueError("provider_endpoint_identity_invalid")
     try:
         address = ipaddress.ip_address(host)
@@ -396,13 +364,8 @@ def _canonical_host(raw_host: str | None) -> str:
         try:
             return host.encode("idna").decode("ascii")
         except UnicodeError as exc:
-            raise ValueError(
-                "provider_endpoint_identity_invalid"
-            ) from exc
-    if "%" in host or (
-        isinstance(address, ipaddress.IPv6Address)
-        and address.ipv4_mapped is not None
-    ):
+            raise ValueError("provider_endpoint_identity_invalid") from exc
+    if "%" in host or (isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None):
         raise ValueError("provider_endpoint_identity_invalid")
     return address.compressed
 

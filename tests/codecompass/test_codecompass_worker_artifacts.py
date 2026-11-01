@@ -25,13 +25,28 @@ M_SHA = hashlib.sha256(METRICS).hexdigest()
 
 
 def _index(graph_path: Path, metrics_path: Path):
-    return SimpleNamespace(id="idx-1", output_dir=None, index_metadata={"graph_artifacts": {
-        "schema": "codecompass_graph_artifact_binding.v1", "graph_revision": "sha256:" + "a" * 64,
-        "graph_index": {"artifact_schema": "codecompass_graph_index.v1", "filename": "cc_graph_index.json",
-                        "sha256": G_SHA, "local_path": str(graph_path)},
-        "visual_metrics": {"artifact_schema": "graph_visual_metrics.v1",
-                           "filename": "cc_graph_index.visual_metrics.json", "sha256": M_SHA,
-                           "local_path": str(metrics_path)}}})
+    return SimpleNamespace(
+        id="idx-1",
+        output_dir=None,
+        index_metadata={
+            "graph_artifacts": {
+                "schema": "codecompass_graph_artifact_binding.v1",
+                "graph_revision": "sha256:" + "a" * 64,
+                "graph_index": {
+                    "artifact_schema": "codecompass_graph_index.v1",
+                    "filename": "cc_graph_index.json",
+                    "sha256": G_SHA,
+                    "local_path": str(graph_path),
+                },
+                "visual_metrics": {
+                    "artifact_schema": "graph_visual_metrics.v1",
+                    "filename": "cc_graph_index.visual_metrics.json",
+                    "sha256": M_SHA,
+                    "local_path": str(metrics_path),
+                },
+            }
+        },
+    )
 
 
 @pytest.fixture
@@ -42,17 +57,24 @@ def hub(tmp_path):
     graph.parent.mkdir(parents=True)
     graph.write_bytes(GRAPH)
     metrics.write_bytes(METRICS)
-    return SimpleNamespace(root=root, index=_index(graph, metrics),
-                           resolver=CodeCompassGraphArtifactResolver(artifact_root=root, allow_legacy=False))
+    return SimpleNamespace(
+        root=root,
+        index=_index(graph, metrics),
+        resolver=CodeCompassGraphArtifactResolver(artifact_root=root, allow_legacy=False),
+    )
 
 
 def test_the_hub_serves_only_artifacts_of_granted_indices(hub):
     indices = {"idx-1": hub.index}.get
     granted = {"allowed_index_ids": ["idx-1"]}
-    assert wa.locate_admitted_artifact(granted, G_SHA, get_index=indices, resolver=hub.resolver).name == \
-        "cc_graph_index.json"
-    assert wa.locate_admitted_artifact(granted, M_SHA, get_index=indices, resolver=hub.resolver).name == \
-        "cc_graph_index.visual_metrics.json"
+    assert (
+        wa.locate_admitted_artifact(granted, G_SHA, get_index=indices, resolver=hub.resolver).name
+        == "cc_graph_index.json"
+    )
+    assert (
+        wa.locate_admitted_artifact(granted, M_SHA, get_index=indices, resolver=hub.resolver).name
+        == "cc_graph_index.visual_metrics.json"
+    )
     with pytest.raises(wa.ArtifactAccessError, match="artifact_not_granted"):
         wa.locate_admitted_artifact({"allowed_index_ids": ["other"]}, G_SHA, get_index=indices, resolver=hub.resolver)
     with pytest.raises(wa.ArtifactAccessError, match="artifact_not_granted"):
@@ -73,9 +95,13 @@ class _Opener:
 
 
 def _materializer(tmp_path, opener):
-    return wa.WorkerArtifactMaterializer(hub_url="http://hub:5000/", headers={"Authorization": "Bearer t"},
-                                         capability={"audience": "http://w"}, artifact_root=tmp_path,
-                                         opener=opener)
+    return wa.WorkerArtifactMaterializer(
+        hub_url="http://hub:5000/",
+        headers={"Authorization": "Bearer t"},
+        capability={"audience": "http://w"},
+        artifact_root=tmp_path,
+        opener=opener,
+    )
 
 
 def _admitted(tmp_path) -> Path:
@@ -93,10 +119,14 @@ def test_the_worker_fetches_once_to_the_admitted_path(tmp_path):
     assert len(opener.requests) == 1
 
 
-@pytest.mark.parametrize("opener, reason", [
-    (_Opener(body=b"forged"), "digest_mismatch"),
-    (_Opener(error=urllib.error.HTTPError("u", 403, "no", {}, None)), "artifact_fetch_http_403"),
-    (_Opener(error=OSError("down")), "artifact_fetch_failed")])
+@pytest.mark.parametrize(
+    "opener, reason",
+    [
+        (_Opener(body=b"forged"), "digest_mismatch"),
+        (_Opener(error=urllib.error.HTTPError("u", 403, "no", {}, None)), "artifact_fetch_http_403"),
+        (_Opener(error=OSError("down")), "artifact_fetch_failed"),
+    ],
+)
 def test_a_failed_or_forged_fetch_leaves_nothing_behind(tmp_path, opener, reason):
     with pytest.raises(wa.ArtifactAccessError, match=reason):
         _materializer(tmp_path, opener).materialize(G_SHA, _admitted(tmp_path))
@@ -108,14 +138,16 @@ def test_references_cannot_escape_the_artifact_root(tmp_path):
     (root / "elsewhere").mkdir()
     (root / "inside").mkdir()
     (root / "inside" / "link").symlink_to(root / "elsewhere")
-    materializer = wa.WorkerArtifactMaterializer(hub_url="http://hub", headers={}, capability={},
-                                                 artifact_root=root / "inside", opener=_Opener())
+    materializer = wa.WorkerArtifactMaterializer(
+        hub_url="http://hub", headers={}, capability={}, artifact_root=root / "inside", opener=_Opener()
+    )
     for sha, path, reason in (
-            ("../x", root / "inside" / "cc_graph_index.json", "reference_invalid"),
-            (G_SHA, Path("inside/cc_graph_index.json"), "reference_invalid"),
-            (G_SHA, root / "inside" / ".." / "cc_graph_index.json", "reference_invalid"),
-            (G_SHA, root / "elsewhere" / "cc_graph_index.json", "outside_root"),
-            (G_SHA, root / "inside" / "link" / "cc_graph_index.json", "outside_root")):
+        ("../x", root / "inside" / "cc_graph_index.json", "reference_invalid"),
+        (G_SHA, Path("inside/cc_graph_index.json"), "reference_invalid"),
+        (G_SHA, root / "inside" / ".." / "cc_graph_index.json", "reference_invalid"),
+        (G_SHA, root / "elsewhere" / "cc_graph_index.json", "outside_root"),
+        (G_SHA, root / "inside" / "link" / "cc_graph_index.json", "outside_root"),
+    ):
         with pytest.raises(wa.ArtifactAccessError, match=reason):
             materializer.materialize(sha, path)
     assert not any((root / "elsewhere").iterdir())
@@ -132,17 +164,20 @@ def test_the_worker_resolver_materializes_and_still_verifies(tmp_path):
         return io.BytesIO(bodies[request.full_url.rsplit("/", 1)[1]])
 
     resolver = CodeCompassGraphArtifactResolver(
-        artifact_root=worker_root, allow_legacy=False,
-        materializer=wa.WorkerArtifactMaterializer(hub_url="http://hub", headers={}, capability={},
-                                                   artifact_root=worker_root.resolve(), opener=opener))
+        artifact_root=worker_root,
+        allow_legacy=False,
+        materializer=wa.WorkerArtifactMaterializer(
+            hub_url="http://hub", headers={}, capability={}, artifact_root=worker_root.resolve(), opener=opener
+        ),
+    )
     graph, metrics = resolver.resolve_artifacts(index)
     assert graph.read_bytes() == GRAPH and metrics.read_bytes() == METRICS
     assert graph.is_relative_to(worker_root.resolve())
     # without a materializer a worker keeps failing closed as before
     with pytest.raises(ValueError, match="not_materialized"):
         CodeCompassGraphArtifactResolver(artifact_root=worker_root, allow_legacy=False).resolve_artifacts(
-            _index(hub_run / "gone" / "cc_graph_index.json",
-                   hub_run / "gone" / "cc_graph_index.visual_metrics.json"))
+            _index(hub_run / "gone" / "cc_graph_index.json", hub_run / "gone" / "cc_graph_index.visual_metrics.json")
+        )
 
 
 def test_only_a_worker_with_a_received_capability_gets_a_materializer(tmp_path, monkeypatch):
@@ -173,11 +208,14 @@ def client(hub, monkeypatch):
 
     monkeypatch.setattr(auth, "_strict_registered_worker_bearer_error", registered)
     monkeypatch.setattr("agent.services.codecompass_capability_issuer.capability_key", lambda: KEY)
-    monkeypatch.setattr("agent.services.codecompass_graph_artifact_resolver.get_codecompass_graph_artifact_resolver",
-                        lambda: hub.resolver)
-    monkeypatch.setattr("agent.services.repository_registry.get_repository_registry",
-                        lambda: SimpleNamespace(knowledge_index_repo=SimpleNamespace(
-                            get_by_id={"idx-1": hub.index}.get)))
+    monkeypatch.setattr(
+        "agent.services.codecompass_graph_artifact_resolver.get_codecompass_graph_artifact_resolver",
+        lambda: hub.resolver,
+    )
+    monkeypatch.setattr(
+        "agent.services.repository_registry.get_repository_registry",
+        lambda: SimpleNamespace(knowledge_index_repo=SimpleNamespace(get_by_id={"idx-1": hub.index}.get)),
+    )
     app = Flask(__name__)
     app.register_blueprint(route.codecompass_worker_artifacts_bp)
     return app.test_client()
@@ -187,9 +225,19 @@ def _capability(audience="http://worker-a:5000/", **overrides):
     from agent.services.codecompass_retrieval_capability_service import bind_retrieval_capability
 
     sealed = bind_retrieval_capability(
-        {"workspace_id": "tenant:t", "repository_id": "r", "source_scope": "repo_path", "revision": "1",
-         "allowed_paths": ["agent"], "allowed_index_ids": ["idx-1"], "allowed_signals": ["graph"]},
-        subject_id="anna", tenant_id="t", ttl_seconds=300)
+        {
+            "workspace_id": "tenant:t",
+            "repository_id": "r",
+            "source_scope": "repo_path",
+            "revision": "1",
+            "allowed_paths": ["agent"],
+            "allowed_index_ids": ["idx-1"],
+            "allowed_signals": ["graph"],
+        },
+        subject_id="anna",
+        tenant_id="t",
+        ttl_seconds=300,
+    )
     sealed.update(task_id="t1", audience=audience, allowed_operations=[], **overrides)
     return {wa.CAPABILITY_HEADER: wa.encode_capability(sign_capability(sealed, KEY))}
 
@@ -219,15 +267,20 @@ def test_each_codecompass_tool_call_runs_under_its_trusted_capability(monkeypatc
     from agent.services.codecompass_task_capability import current_task_capability
 
     seen = []
-    monkeypatch.setattr(tools, "_dispatch_ananta_tool", lambda name, *rest: seen.append(
-        (name, current_task_capability())) or {})
+    monkeypatch.setattr(
+        tools, "_dispatch_ananta_tool", lambda name, *rest: seen.append((name, current_task_capability())) or {}
+    )
     trusted = {"allowed_index_ids": ["idx-1"]}
     for name in ("codecompass.architecture_overview", "repo.grep"):
-        tools.execute_ananta_tool(tool_name=name, arguments={}, workspace_dir="/w", tool_call_id="c",
-                                  config={"codecompass_capability": trusted})
+        tools.execute_ananta_tool(
+            tool_name=name,
+            arguments={},
+            workspace_dir="/w",
+            tool_call_id="c",
+            config={"codecompass_capability": trusted},
+        )
     tools.execute_ananta_tool(tool_name="codecompass.search", arguments={}, workspace_dir="/w", tool_call_id="c")
-    assert seen == [("codecompass.architecture_overview", trusted), ("repo.grep", None),
-                    ("codecompass.search", None)]
+    assert seen == [("codecompass.architecture_overview", trusted), ("repo.grep", None), ("codecompass.search", None)]
     assert current_task_capability() is None
 
 
@@ -297,9 +350,13 @@ def test_the_hub_serves_only_granted_index_outputs(hub_index):
 
 
 def _index_materializer(tmp_path, opener):
-    return wa.WorkerIndexArtifactMaterializer(hub_url="http://hub:5000/", headers={"Authorization": "Bearer t"},
-                                              capability={"audience": "http://w"}, artifact_root=tmp_path,
-                                              opener=opener)
+    return wa.WorkerIndexArtifactMaterializer(
+        hub_url="http://hub:5000/",
+        headers={"Authorization": "Bearer t"},
+        capability={"audience": "http://w"},
+        artifact_root=tmp_path,
+        opener=opener,
+    )
 
 
 def _index_target(tmp_path) -> Path:
@@ -311,15 +368,21 @@ def test_the_worker_fetches_an_index_output_once_to_the_admitted_path(tmp_path):
     path = _index_materializer(tmp_path, opener).materialize("idx-1", "index", _index_target(tmp_path))
     assert path == _index_target(tmp_path) and path.read_bytes() == INDEX_RECORDS
     assert opener.requests[0].full_url == "http://hub:5000/api/codecompass/worker-index-artifacts/idx-1/index"
-    assert wa.decode_capability(opener.requests[0].get_header("X-ananta-codecompass-capability")) == {"audience": "http://w"}
+    assert wa.decode_capability(opener.requests[0].get_header("X-ananta-codecompass-capability")) == {
+        "audience": "http://w"
+    }
     _index_materializer(tmp_path, opener).materialize("idx-1", "index", _index_target(tmp_path))
     assert len(opener.requests) == 1
 
 
-@pytest.mark.parametrize("opener, reason", [
-    (_IndexOpener(headers={"X-Artifact-SHA256": "a" * 64}), "digest_header_mismatch"),
-    (_IndexOpener(error=urllib.error.HTTPError("u", 404, "no", {}, None)), "artifact_fetch_http_404"),
-    (_IndexOpener(error=OSError("down")), "artifact_fetch_failed")])
+@pytest.mark.parametrize(
+    "opener, reason",
+    [
+        (_IndexOpener(headers={"X-Artifact-SHA256": "a" * 64}), "digest_header_mismatch"),
+        (_IndexOpener(error=urllib.error.HTTPError("u", 404, "no", {}, None)), "artifact_fetch_http_404"),
+        (_IndexOpener(error=OSError("down")), "artifact_fetch_failed"),
+    ],
+)
 def test_a_failed_index_fetch_leaves_nothing_behind(tmp_path, opener, reason):
     with pytest.raises(wa.ArtifactAccessError, match=reason):
         _index_materializer(tmp_path, opener).materialize("idx-1", "index", _index_target(tmp_path))
@@ -329,12 +392,14 @@ def test_a_failed_index_fetch_leaves_nothing_behind(tmp_path, opener, reason):
 def test_index_references_cannot_escape_the_artifact_root(tmp_path):
     root = tmp_path.resolve()
     (root / "inside").mkdir()
-    materializer = wa.WorkerIndexArtifactMaterializer(hub_url="http://hub", headers={}, capability={},
-                                                      artifact_root=root / "inside", opener=_IndexOpener())
+    materializer = wa.WorkerIndexArtifactMaterializer(
+        hub_url="http://hub", headers={}, capability={}, artifact_root=root / "inside", opener=_IndexOpener()
+    )
     for index_id, path, reason in (
-            ("../x", root / "inside" / "index.jsonl", "artifact_index_id_invalid"),
-            ("idx-1", root / "inside" / "details.jsonl", "artifact_reference_invalid"),
-            ("idx-1", root / "index.jsonl", "artifact_reference_outside_root")):
+        ("../x", root / "inside" / "index.jsonl", "artifact_index_id_invalid"),
+        ("idx-1", root / "inside" / "details.jsonl", "artifact_reference_invalid"),
+        ("idx-1", root / "index.jsonl", "artifact_reference_outside_root"),
+    ):
         with pytest.raises(wa.ArtifactAccessError, match=reason):
             materializer.materialize(index_id, "index", path)
 
@@ -361,8 +426,13 @@ def test_try_materialize_fetches_the_granted_index_outputs(tmp_path, monkeypatch
             return _Response(INDEX_RECORDS, {"X-Artifact-SHA256": I_SHA})
         raise urllib.error.HTTPError("u", 404, "no", {}, None)
 
-    monkeypatch.setattr(wa, "index_output_materializer", lambda root: wa.WorkerIndexArtifactMaterializer(
-        hub_url="http://hub:5000", headers={}, capability={"audience": "w"}, artifact_root=root, opener=opener))
+    monkeypatch.setattr(
+        wa,
+        "index_output_materializer",
+        lambda root: wa.WorkerIndexArtifactMaterializer(
+            hub_url="http://hub:5000", headers={}, capability={"audience": "w"}, artifact_root=root, opener=opener
+        ),
+    )
     with task_capability_scope({"allowed_index_ids": ["idx-1"]}):
         assert wa.try_materialize_index_outputs(index) is True
         assert (out / "index.jsonl").read_bytes() == INDEX_RECORDS
@@ -382,9 +452,10 @@ def client_index(hub_index, monkeypatch):
 
     monkeypatch.setattr(auth, "_strict_registered_worker_bearer_error", registered)
     monkeypatch.setattr("agent.services.codecompass_capability_issuer.capability_key", lambda: KEY)
-    monkeypatch.setattr("agent.services.repository_registry.get_repository_registry",
-                        lambda: SimpleNamespace(knowledge_index_repo=SimpleNamespace(
-                            get_by_id={"idx-1": hub_index.index}.get)))
+    monkeypatch.setattr(
+        "agent.services.repository_registry.get_repository_registry",
+        lambda: SimpleNamespace(knowledge_index_repo=SimpleNamespace(get_by_id={"idx-1": hub_index.index}.get)),
+    )
     app = Flask(__name__)
     app.register_blueprint(route.codecompass_worker_artifacts_bp)
     return app.test_client()
@@ -400,21 +471,33 @@ def test_the_route_refuses_foreign_indices_roles_and_audiences(client_index):
     url = "/api/codecompass/worker-index-artifacts/idx-1/index"
     assert client_index.get(url).status_code == 403
     assert client_index.get(url, headers=_capability(audience="http://worker-b:5000")).status_code == 403
-    assert client_index.get("/api/codecompass/worker-index-artifacts/idx-2/index",
-                            headers=_capability()).status_code == 403
-    assert client_index.get("/api/codecompass/worker-index-artifacts/idx-1/graph_index",
-                            headers=_capability()).status_code == 403
-    assert client_index.get("/api/codecompass/worker-index-artifacts/idx-1/details",
-                            headers=_capability()).status_code == 404
+    assert (
+        client_index.get("/api/codecompass/worker-index-artifacts/idx-2/index", headers=_capability()).status_code
+        == 403
+    )
+    assert (
+        client_index.get("/api/codecompass/worker-index-artifacts/idx-1/graph_index", headers=_capability()).status_code
+        == 403
+    )
+    assert (
+        client_index.get("/api/codecompass/worker-index-artifacts/idx-1/details", headers=_capability()).status_code
+        == 404
+    )
 
 
 def test_the_retrieval_service_fetches_a_missing_index_output(tmp_path, monkeypatch):
     from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 
     out = tmp_path / "knowledge_indices" / "repo_path" / "idx-1" / "run"
-    index = SimpleNamespace(id="idx-1", status="completed", source_scope="repo_path", output_dir=str(out),
-                            index_metadata={"codecompass_snapshot_revision": "a" * 64}, updated_at=1.0,
-                            artifact_id="")
+    index = SimpleNamespace(
+        id="idx-1",
+        status="completed",
+        source_scope="repo_path",
+        output_dir=str(out),
+        index_metadata={"codecompass_snapshot_revision": "a" * 64},
+        updated_at=1.0,
+        artifact_id="",
+    )
     calls: list[str] = []
 
     def fake_materialize(candidate):
@@ -423,11 +506,10 @@ def test_the_retrieval_service_fetches_a_missing_index_output(tmp_path, monkeypa
         calls.append(candidate.id)
         return True
 
-    monkeypatch.setattr("agent.services.codecompass_worker_artifacts.try_materialize_index_outputs",
-                        fake_materialize)
+    monkeypatch.setattr("agent.services.codecompass_worker_artifacts.try_materialize_index_outputs", fake_materialize)
     service = KnowledgeIndexRetrievalService(
         knowledge_index_repository=SimpleNamespace(list_completed=lambda: [index]),
-        knowledge_link_repository=SimpleNamespace())
+        knowledge_link_repository=SimpleNamespace(),
+    )
     hits = service.search_records("hello world", limit=5)
     assert calls == ["idx-1"] and hits
-

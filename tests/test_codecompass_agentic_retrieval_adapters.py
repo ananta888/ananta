@@ -23,14 +23,19 @@ def _hits():
 
 
 def _capability():
-    return bind_retrieval_capability({
-        "tenant_id": "tenant-1",
-        "workspace_id": "workspace-1",
-        "repository_id": "repo-1",
-        "source_scope": "repo-1",
-        "revision": "rev-1",
-        "allowed_paths": ["src"],
-    }, subject_id="principal-1", now_epoch=1_700_000_000, ttl_seconds=2_000_000_000)
+    return bind_retrieval_capability(
+        {
+            "tenant_id": "tenant-1",
+            "workspace_id": "workspace-1",
+            "repository_id": "repo-1",
+            "source_scope": "repo-1",
+            "revision": "rev-1",
+            "allowed_paths": ["src"],
+        },
+        subject_id="principal-1",
+        now_epoch=1_700_000_000,
+        ttl_seconds=2_000_000_000,
+    )
 
 
 class _CapabilityResolver:
@@ -123,9 +128,7 @@ def test_mcp_capability_cannot_be_widened_by_client_args(monkeypatch):
     result = MCPRegistryService().call_tool(
         name="codecompass.retrieve",
         arguments={"query": "x", "allowed_paths": ["secret"], "workspace_id": "other"},
-        context={
-            "codecompass_capability": _capability()
-        },
+        context={"codecompass_capability": _capability()},
     )
     payload = result["content"][0]["json"]
     assert seen["capability"]["allowed_paths"] == ["src"]
@@ -148,9 +151,7 @@ def test_http_retrieve_returns_contract(client, admin_auth_header, monkeypatch):
         "agent.services.codecompass_agentic_retrieval_service.get_codecompass_agentic_retrieval_service",
         _service_with_hits,
     )
-    client.application.extensions["codecompass_retrieval_capability_resolver"] = (
-        _CapabilityResolver()
-    )
+    client.application.extensions["codecompass_retrieval_capability_resolver"] = _CapabilityResolver()
     response = client.post(
         "/api/codecompass/retrieve",
         headers=admin_auth_header,

@@ -26,25 +26,44 @@ def reservation(admission):
         session.add(task)
         session.commit()
     manifest = PiRuntimeManifest(
-        tenant_id=admission.command.tenant_id, project_id="synthetic-project", worker_id="worker-1",
-        worker_url="http://worker-1:5000", repository_revision="a" * 40, image_digest="sha256:" + "b" * 64,
-        node_version="24.18.0", pi_version="0.85.1", evidence_scope="test", synthetic=True,
+        tenant_id=admission.command.tenant_id,
+        project_id="synthetic-project",
+        worker_id="worker-1",
+        worker_url="http://worker-1:5000",
+        repository_revision="a" * 40,
+        image_digest="sha256:" + "b" * 64,
+        node_version="24.18.0",
+        pi_version="0.85.1",
+        evidence_scope="test",
+        synthetic=True,
     )
     registry = HubEvidenceRegistryService(
-        SqlEvidenceIdentityRepository(admission.engine), clock=lambda: admission.clock.now,
+        SqlEvidenceIdentityRepository(admission.engine),
+        clock=lambda: admission.clock.now,
     )
     manifests = PiRuntimeManifestAdmissionService(
-        deployments=SimpleNamespace(require_manifest=lambda **identity: manifest), registry=registry,
+        deployments=SimpleNamespace(require_manifest=lambda **identity: manifest),
+        registry=registry,
     )
     source = manifests.admit(manifest=manifest, policy_digest="c" * 64).source
     service = PiRunEvidenceReservationService(
-        manifests=manifests, registry=registry,
-        authority=SQLAlchemyPiResultAuthority(key_ring=lambda: admission.keys), clock=lambda: admission.clock.now,
+        manifests=manifests,
+        registry=registry,
+        authority=SQLAlchemyPiResultAuthority(key_ring=lambda: admission.keys),
+        clock=lambda: admission.clock.now,
     )
-    return SimpleNamespace(admission=admission, registry=registry, service=service, values={
-        "task_id": admission.task_id, "manifest": manifest, "source_id": source.source_id,
-        "source_binding_digest": source.binding_digest, "policy_digest": "c" * 64,
-    })
+    return SimpleNamespace(
+        admission=admission,
+        registry=registry,
+        service=service,
+        values={
+            "task_id": admission.task_id,
+            "manifest": manifest,
+            "source_id": source.source_id,
+            "source_binding_digest": source.binding_digest,
+            "policy_digest": "c" * 64,
+        },
+    )
 
 
 def reserve(value):
@@ -58,10 +77,17 @@ def test_registry_reserves_exact_task_dispatch_before_execution_and_replays(rese
     assert run.run_id.startswith("RUN_") and run.state == "reserved"
     assert run.task_id == reservation.admission.task_id
     assert run.synthetic and run.evidence_scope == "test" and len(run.source_ids) == 2
-    assert reservation.registry.assignment_projection(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id, task_id=run.task_id,
-        assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
-    )["run_id"] == run.run_id
+    assert (
+        reservation.registry.assignment_projection(
+            tenant_id=run.tenant_id,
+            project_id=run.project_id,
+            run_id=run.run_id,
+            task_id=run.task_id,
+            assignment_id=run.assignment_id,
+            dispatch_lease_id=run.dispatch_lease_id,
+        )["run_id"]
+        == run.run_id
+    )
 
 
 @pytest.mark.parametrize("change", ["expired", "worker", "project", "policy", "terminal", "started"])
@@ -98,10 +124,12 @@ def test_dispatch_projection_revalidates_current_task_and_reserved_input(reserva
         reservation.service._manifests._deployments.require_manifest = lambda **identity: changed
     elif change == "manifest-source":
         source = reservation.service._manifests.admit(
-            manifest=reservation.values["manifest"], policy_digest="d" * 64,
+            manifest=reservation.values["manifest"],
+            policy_digest="d" * 64,
         ).source
-        reservation.values.update(source_id=source.source_id, source_binding_digest=source.binding_digest,
-                                  policy_digest="d" * 64)
+        reservation.values.update(
+            source_id=source.source_id, source_binding_digest=source.binding_digest, policy_digest="d" * 64
+        )
     elif change in {"context", "started"}:
         with Session(reservation.admission.engine) as session:
             task = session.get(TaskDB, reservation.admission.task_id)
@@ -112,8 +140,13 @@ def test_dispatch_projection_revalidates_current_task_and_reserved_input(reserva
             session.add(task)
             session.commit()
     with Session(reservation.admission.engine) as session:
-        values = {**reservation.values, "session": session, "task_id": run.task_id, "run_id": run.run_id,
-                  "expected_binding_digest": digest}
+        values = {
+            **reservation.values,
+            "session": session,
+            "task_id": run.task_id,
+            "run_id": run.run_id,
+            "expected_binding_digest": digest,
+        }
         if change == "none":
             projection = reservation.service.assignment_projection(**values)
             assert projection["run_id"] == run.run_id

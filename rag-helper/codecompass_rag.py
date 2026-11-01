@@ -40,18 +40,74 @@ from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
 DEFAULT_EXTENSIONS = {
-    "", "java", "cs", "xml", "xsd", "drawio", "adoc", "md", "mdx", "rst",
-    "properties", "yaml", "yml", "toml", "ini", "cfg", "conf",
-    "html", "css", "scss", "sass", "less",
-    "dockerfile", "makefile", "jenkinsfile", "mk",
-    "sh", "bash", "zsh", "fish", "ps1", "psm1",
-    "json", "sql", "proto", "graphql", "gql", "tf", "tfvars", "csv", "tsv", "ipynb",
-    "mmd", "mermaid", "puml", "plantuml", "dot", "gv",
-    "py", "ts", "tsx", "gradle", "kts",
+    "",
+    "java",
+    "cs",
+    "xml",
+    "xsd",
+    "drawio",
+    "adoc",
+    "md",
+    "mdx",
+    "rst",
+    "properties",
+    "yaml",
+    "yml",
+    "toml",
+    "ini",
+    "cfg",
+    "conf",
+    "html",
+    "css",
+    "scss",
+    "sass",
+    "less",
+    "dockerfile",
+    "makefile",
+    "jenkinsfile",
+    "mk",
+    "sh",
+    "bash",
+    "zsh",
+    "fish",
+    "ps1",
+    "psm1",
+    "json",
+    "sql",
+    "proto",
+    "graphql",
+    "gql",
+    "tf",
+    "tfvars",
+    "csv",
+    "tsv",
+    "ipynb",
+    "mmd",
+    "mermaid",
+    "puml",
+    "plantuml",
+    "dot",
+    "gv",
+    "py",
+    "ts",
+    "tsx",
+    "gradle",
+    "kts",
 }
 DEFAULT_EXCLUDES = {
-    ".git", ".idea", ".vscode", "target", "build", "dist", "out",
-    "node_modules", ".gradle", ".settings", ".mvn", ".venv", "venv",
+    ".git",
+    ".idea",
+    ".vscode",
+    "target",
+    "build",
+    "dist",
+    "out",
+    "node_modules",
+    ".gradle",
+    ".settings",
+    ".mvn",
+    ".venv",
+    "venv",
 }
 
 
@@ -174,14 +230,16 @@ class JavaExtractor:
                 detail_records.extend(t_detail)
                 relation_records.extend(t_relations)
 
-                type_records.append({
-                    "name": t_index["name"],
-                    "type_kind": t_index["type_kind"],
-                    "method_count": t_stats["method_count"],
-                    "constructor_count": t_stats["constructor_count"],
-                    "field_count": t_stats["field_count"],
-                    "role_labels": t_index["role_labels"],
-                })
+                type_records.append(
+                    {
+                        "name": t_index["name"],
+                        "type_kind": t_index["type_kind"],
+                        "method_count": t_stats["method_count"],
+                        "constructor_count": t_stats["constructor_count"],
+                        "field_count": t_stats["field_count"],
+                        "role_labels": t_index["role_labels"],
+                    }
+                )
                 type_names.append(t_index["name"])
                 method_count += t_stats["method_count"]
                 constructor_count += t_stats["constructor_count"]
@@ -189,11 +247,11 @@ class JavaExtractor:
         file_embedding = build_embedding_text(
             self.embedding_text_mode,
             (
-            f"Java file {rel_path}. "
-            f"Package {package_name or 'default'}. "
-            f"Contains types: {', '.join(type_names[:20]) or 'none'}. "
-            f"Imports count {len(imports)}. Method count {method_count}. "
-            f"Constructor count {constructor_count}."
+                f"Java file {rel_path}. "
+                f"Package {package_name or 'default'}. "
+                f"Contains types: {', '.join(type_names[:20]) or 'none'}. "
+                f"Imports count {len(imports)}. Method count {method_count}. "
+                f"Constructor count {constructor_count}."
             ),
             (
                 f"Java file {rel_path}. "
@@ -350,15 +408,17 @@ class CSharpExtractor:
                 detail_records.extend(t_detail)
                 relation_records.extend(t_relations)
 
-                type_records.append({
-                    "name": t_index["name"],
-                    "type_kind": t_index["type_kind"],
-                    "property_count": t_stats["property_count"],
-                    "method_count": t_stats["method_count"],
-                    "constructor_count": t_stats["constructor_count"],
-                    "field_count": t_stats["field_count"],
-                    "role_labels": t_index["role_labels"],
-                })
+                type_records.append(
+                    {
+                        "name": t_index["name"],
+                        "type_kind": t_index["type_kind"],
+                        "property_count": t_stats["property_count"],
+                        "method_count": t_stats["method_count"],
+                        "constructor_count": t_stats["constructor_count"],
+                        "field_count": t_stats["field_count"],
+                        "role_labels": t_index["role_labels"],
+                    }
+                )
                 type_names.append(t_index["name"])
                 property_count += t_stats["property_count"]
                 method_count += t_stats["method_count"]

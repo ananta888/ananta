@@ -4,6 +4,7 @@ Extracted from agent.common.sgpt_workspace_mutation as part of the
 SGDEC Welle-2 4-split (T04). Owns the small hashing helpers that
 identify unique evidence blocks and change sets.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -14,9 +15,7 @@ from typing import Any
 
 def evidence_signature(entry: dict[str, Any]) -> str:
     """Stable hash of an evidence entry (deterministic, JSON-canonical)."""
-    return hashlib.sha256(
-        json.dumps(entry, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(entry, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")).hexdigest()
 
 
 def changes_signature(workspace: pathlib.Path, changed: list[str]) -> str:

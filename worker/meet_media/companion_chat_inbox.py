@@ -14,8 +14,17 @@ MAX_EVENTS = 32
 MAX_BYTES = 131_072
 MAX_EVENT_BYTES = 8192
 MAX_BATCH_EVENTS = 8
-_CONTINUITY = ("origin", "tenant_id", "project_id", "task_id", "session_id", "runtime_id",
-               "lease_id", "room_id", "own_peer_id")
+_CONTINUITY = (
+    "origin",
+    "tenant_id",
+    "project_id",
+    "task_id",
+    "session_id",
+    "runtime_id",
+    "lease_id",
+    "room_id",
+    "own_peer_id",
+)
 _REVISIONS = ("generation", "membership_epoch", "policy_revision")
 _SCOPE_FIELDS = frozenset((*_CONTINUITY, *_REVISIONS, "deadline_ms"))
 
@@ -56,13 +65,19 @@ class CompanionChatInbox:
         Reopening resets delivery cursors. Held content belongs to the exact
         continuing conversation; current browser reply checks remain mandatory.
         """
-        valid = (isinstance(scope, dict) and set(scope) == _SCOPE_FIELDS
-                 and all(isinstance(scope[key], str) and 0 < len(scope[key]) <= 2048 for key in _CONTINUITY)
-                 and all(type(scope[key]) is int and 0 < scope[key] <= 2**53 - 1
-                         for key in (*_REVISIONS, "deadline_ms")))
-        if not valid or (self._scope is not None and (
+        valid = (
+            isinstance(scope, dict)
+            and set(scope) == _SCOPE_FIELDS
+            and all(isinstance(scope[key], str) and 0 < len(scope[key]) <= 2048 for key in _CONTINUITY)
+            and all(type(scope[key]) is int and 0 < scope[key] <= 2**53 - 1 for key in (*_REVISIONS, "deadline_ms"))
+        )
+        if not valid or (
+            self._scope is not None
+            and (
                 any(scope[key] != self._scope[key] for key in _CONTINUITY)
-                or any(scope[key] < self._scope[key] for key in _REVISIONS))):
+                or any(scope[key] < self._scope[key] for key in _REVISIONS)
+            )
+        ):
             self.clear()
             raise ChatInboxError("meet_chat_inbox_scope_changed")
         self._scope = deepcopy(scope)
@@ -72,8 +87,12 @@ class CompanionChatInbox:
 
     def accept(self, batch):
         """Atomically retain one bounded page from the current trusted poll port."""
-        if (not isinstance(batch, dict) or batch.get("schema") != "ananta.meet-chat-batch.draft1"
-                or not isinstance(batch.get("events"), list) or len(batch["events"]) > MAX_BATCH_EVENTS):
+        if (
+            not isinstance(batch, dict)
+            or batch.get("schema") != "ananta.meet-chat-batch.draft1"
+            or not isinstance(batch.get("events"), list)
+            or len(batch["events"]) > MAX_BATCH_EVENTS
+        ):
             raise ChatInboxError("meet_chat_inbox_batch_invalid")
         additions = OrderedDict()
         cursor = self.cursor
@@ -87,8 +106,9 @@ class CompanionChatInbox:
             if not isinstance(identity, str) or not MESSAGE_ID.fullmatch(identity):
                 raise ChatInboxError("meet_chat_inbox_identity_invalid")
             if self._scope is not None and any(
-                    type(event.get(key)) is not type(self._scope[key]) or event.get(key) != self._scope[key]
-                    for key in ("session_id", "room_id", "generation", "membership_epoch")):
+                type(event.get(key)) is not type(self._scope[key]) or event.get(key) != self._scope[key]
+                for key in ("session_id", "room_id", "generation", "membership_epoch")
+            ):
                 raise ChatInboxError("meet_chat_inbox_event_scope_invalid")
             try:
                 encoded = json.dumps(event, ensure_ascii=False, allow_nan=False, sort_keys=True).encode("utf-8")
@@ -115,8 +135,9 @@ class CompanionChatInbox:
                     raise ChatInboxError("meet_chat_inbox_cursor_invalid")
                 additions[identity] = (deepcopy(item), encoded)
             cursor = max(cursor, position)
-        added_bytes = sum(len(value[1]) - (len(self._items[key][1]) if key in self._items else 0)
-                          for key, value in additions.items())
+        added_bytes = sum(
+            len(value[1]) - (len(self._items[key][1]) if key in self._items else 0) for key, value in additions.items()
+        )
         added_events = sum(key not in self._items for key in additions)
         if len(self._items) + added_events > MAX_EVENTS or self._bytes + added_bytes > MAX_BYTES:
             raise ChatInboxError("meet_chat_inbox_exhausted")
@@ -126,15 +147,20 @@ class CompanionChatInbox:
 
     def batch(self):
         """Read pending work without deleting it or advancing the browser ACK."""
-        return {"schema": "ananta.meet-chat-batch.draft1",
-                "events": [deepcopy(value[0]) for value in list(self._items.values())[:MAX_BATCH_EVENTS]]}
+        return {
+            "schema": "ananta.meet-chat-batch.draft1",
+            "events": [deepcopy(value[0]) for value in list(self._items.values())[:MAX_BATCH_EVENTS]],
+        }
 
     def completed(self, identities):
         """Discard only locally processed inputs; the owner controls browser ACK."""
-        if (not isinstance(identities, (list, tuple)) or len(identities) > MAX_BATCH_EVENTS
-                or any(not isinstance(identity, str) or not MESSAGE_ID.fullmatch(identity) for identity in identities)):
+        if (
+            not isinstance(identities, (list, tuple))
+            or len(identities) > MAX_BATCH_EVENTS
+            or any(not isinstance(identity, str) or not MESSAGE_ID.fullmatch(identity) for identity in identities)
+        ):
             raise ChatInboxError("meet_chat_inbox_completion_invalid")
-        if list(self._items)[:len(identities)] != list(identities):
+        if list(self._items)[: len(identities)] != list(identities):
             raise ChatInboxError("meet_chat_inbox_completion_order_invalid")
         completed_cursor = None
         for identity in identities:

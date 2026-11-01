@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 SECTION_PATTERN = re.compile(r"(?m)^==+\s*([^=\n]+?)\s*==+\s*$")
 
 
@@ -26,4 +25,3 @@ def extract_wiki_sections(*, text: str, fallback_title: str = "Overview") -> lis
         section_title = str(match.group(1) or "").strip() or fallback_title
         sections.append({"section_title": section_title, "content": section_text})
     return sections or [{"section_title": fallback_title, "content": normalized}]
-

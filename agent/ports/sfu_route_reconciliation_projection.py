@@ -9,9 +9,7 @@ from agent.models.sfu_route_reconciliation import SfuRouteReconciliationProjecti
 
 
 class SfuRouteReconciliationProjectionPort(Protocol):
-    def resolve(
-        self, *, route: SfuFanoutRoute, now_ms: int
-    ) -> SfuRouteReconciliationProjectionState: ...
+    def resolve(self, *, route: SfuFanoutRoute, now_ms: int) -> SfuRouteReconciliationProjectionState: ...
 
 
 __all__ = [

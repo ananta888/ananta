@@ -119,18 +119,14 @@ class VoxtralBackend(VoiceBackend):
                     timeout_seconds=(
                         max(
                             0.001,
-                            cancellation_token.remaining_seconds(
-                                maximum=float(self._timeout_sec)
-                            ),
+                            cancellation_token.remaining_seconds(maximum=float(self._timeout_sec)),
                         )
                         if cancellation_token is not None
                         else self._timeout_sec
                     ),
                     cwd=workspace.root,
                     cancellation_check=(
-                        cancellation_token.raise_if_cancelled
-                        if cancellation_token is not None
-                        else None
+                        cancellation_token.raise_if_cancelled if cancellation_token is not None else None
                     ),
                 )
             except ProcessOutputLimitError as exc:

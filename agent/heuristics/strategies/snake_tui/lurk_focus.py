@@ -1,4 +1,5 @@
 """TuiLurkFocusStrategy — implements snake_tui_lurk_focus_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, UiMotionPort
@@ -27,12 +28,9 @@ class TuiLurkFocusStrategy(HeuristicStrategyBase):
     ) -> DecisionResult:
         ui = UiMotionPort.from_context(context)
         params = definition.parameters or {}
-        idle_threshold = float(params.get("idle_threshold_seconds") or _DEFAULT_IDLE_THRESHOLD)
+        float(params.get("idle_threshold_seconds") or _DEFAULT_IDLE_THRESHOLD)
 
-        is_idle = (
-            _POINTER_IDLE_EVENT in ui.recent_event_types
-            or context.ai_status in ("offline", "timeout")
-        )
+        is_idle = _POINTER_IDLE_EVENT in ui.recent_event_types or context.ai_status in ("offline", "timeout")
 
         if not is_idle:
             # Fall back to follow if not in idle state

@@ -113,9 +113,7 @@ def test_producer_writes_verified_commit_bound_evidence(
     _install_contract_spec(monkeypatch)
     source = b"print('candidate')\n"
     (tmp_path / "source.py").write_bytes(source)
-    executor = _Executor(
-        [ExecutionResult(exit_code=0, stdout=b"1 passed in 0.01s\n")]
-    )
+    executor = _Executor([ExecutionResult(exit_code=0, stdout=b"1 passed in 0.01s\n")])
 
     evidence = _producer(
         tmp_path,
@@ -127,9 +125,7 @@ def test_producer_writes_verified_commit_bound_evidence(
     assert evidence["status"] == "passed"
     assert evidence["commit_sha"] == COMMIT
     assert evidence["candidate"]["input_blobs_verified"] is True
-    assert evidence["input_hashes"]["source.py"] == hashlib.sha256(
-        source
-    ).hexdigest()
+    assert evidence["input_hashes"]["source.py"] == hashlib.sha256(source).hexdigest()
     assert evidence["commands"][0]["argv"] == [
         "/trusted/python3",
         "-m",
@@ -139,10 +135,7 @@ def test_producer_writes_verified_commit_bound_evidence(
     ]
     assert evidence["commands"][0]["exit_code"] == 0
     assert output.is_file()
-    assert not any(
-        text.startswith(("RUN_", "SRC_"))
-        for text in json.dumps(evidence).replace('"', " ").split()
-    )
+    assert not any(text.startswith(("RUN_", "SRC_")) for text in json.dumps(evidence).replace('"', " ").split())
 
 
 @pytest.mark.parametrize(
@@ -279,9 +272,7 @@ def test_allowlist_contains_exactly_the_seven_release_suites() -> None:
     assert tuple(SUITE_SPECS) == REQUIRED_SUITES
     assert len(REQUIRED_SUITES) == 7
     accessibility = SUITE_SPECS["accessibility"].commands[0]
-    assert dict(accessibility.env)["E2E_RESULTS_DIR"] == (
-        "/tmp/ananta-kanban-model-dashboard-accessibility-v1"
-    )
+    assert dict(accessibility.env)["E2E_RESULTS_DIR"] == ("/tmp/ananta-kanban-model-dashboard-accessibility-v1")
     assert dict(accessibility.env)["E2E_PORT"] == "4217"
 
 
@@ -324,11 +315,7 @@ def test_playwright_validator_extracts_one_report_from_harness_logs() -> None:
         "suites": [],
         "stats": {"expected": 4, "unexpected": 0, "skipped": 0},
     }
-    stdout = (
-        "hub startup log {not-json}\n"
-        + json.dumps(report)
-        + "\nworker shutdown log\n"
-    ).encode()
+    stdout = ("hub startup log {not-json}\n" + json.dumps(report) + "\nworker shutdown log\n").encode()
 
     result = _validate_playwright(spec, stdout, b"")
 

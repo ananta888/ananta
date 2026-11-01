@@ -62,11 +62,7 @@ def _record_digest(record: object) -> str:
 
 
 def _is_sha256(value: str | None) -> bool:
-    return bool(
-        value
-        and len(value) == 64
-        and all(character in "0123456789abcdef" for character in value)
-    )
+    return bool(value and len(value) == 64 and all(character in "0123456789abcdef" for character in value))
 
 
 def _scope_matches(
@@ -74,21 +70,16 @@ def _scope_matches(
     record: object,
 ) -> bool:
     return (
-        getattr(record, "tenant_id", inventory.tenant_id)
-        == inventory.tenant_id
-        and getattr(record, "project_id", inventory.project_id)
-        == inventory.project_id
-        and getattr(record, "owner_id", inventory.owner_id)
-        == inventory.owner_id
+        getattr(record, "tenant_id", inventory.tenant_id) == inventory.tenant_id
+        and getattr(record, "project_id", inventory.project_id) == inventory.project_id
+        and getattr(record, "owner_id", inventory.owner_id) == inventory.owner_id
     )
 
 
 class SourceControlLegacyMigrationPlanner:
     """Pure deterministic planner; it performs no writes or policy decisions."""
 
-    def plan(
-        self, inventory: LegacyMigrationInventory
-    ) -> LegacyMigrationPlan:
+    def plan(self, inventory: LegacyMigrationInventory) -> LegacyMigrationPlan:
         inventory_digest = _canonical_digest(asdict(inventory))
         migration_id = _derived_id(
             "scmig",
@@ -101,9 +92,7 @@ class SourceControlLegacyMigrationPlanner:
         )
         issues: list[MigrationIssue] = []
         entries: list[LegacyMigrationEntry] = []
-        snapshots: dict[
-            str, tuple[SourceConnection, SourceRevision]
-        ] = {}
+        snapshots: dict[str, tuple[SourceConnection, SourceRevision]] = {}
         policies: dict[str, LegacyContextPolicyVersion] = {}
         indexes: dict[str, KnowledgeIndexBindingRecord] = {}
         seen: set[tuple[str, str]] = set()
@@ -177,9 +166,7 @@ class SourceControlLegacyMigrationPlanner:
                     project_id=source.project_id,
                     owner_id=source.owner_id,
                     connector_type=source.connector_type,
-                    connection_identity_digest=(
-                        source.connection_identity_digest
-                    ),
+                    connection_identity_digest=(source.connection_identity_digest),
                     display_name=source.display_name,
                     sensitivity=source.sensitivity,
                     state="active" if source.enabled else "disabled",
@@ -198,9 +185,7 @@ class SourceControlLegacyMigrationPlanner:
                     revision_token=source.revision_token,
                     revision_digest=source.revision_digest,
                     content_manifest_id=source.content_manifest_id,
-                    content_manifest_digest=(
-                        source.content_manifest_digest
-                    ),
+                    content_manifest_digest=(source.content_manifest_digest),
                     admission_state=source.admission_state,
                     captured_at=datetime.fromtimestamp(
                         source.captured_at_epoch,
@@ -277,11 +262,8 @@ class SourceControlLegacyMigrationPlanner:
                     )
                 )
                 continue
-            if (
-                legacy_index.artifact_manifest_digest is not None
-                and not _is_sha256(
-                    legacy_index.artifact_manifest_digest
-                )
+            if legacy_index.artifact_manifest_digest is not None and not _is_sha256(
+                legacy_index.artifact_manifest_digest
             ):
                 issues.append(
                     MigrationIssue(
@@ -301,13 +283,9 @@ class SourceControlLegacyMigrationPlanner:
                 source_revision_id=revision.source_revision_id,
                 policy_snapshot_id=policy.policy_snapshot_id,
                 policy_snapshot_digest=policy.policy_snapshot_digest,
-                index_contract_version=(
-                    legacy_index.index_contract_version
-                ),
+                index_contract_version=(legacy_index.index_contract_version),
                 status=legacy_index.status,
-                artifact_manifest_digest=(
-                    legacy_index.artifact_manifest_digest
-                ),
+                artifact_manifest_digest=(legacy_index.artifact_manifest_digest),
                 activation_requested=False,
                 lock_version=1,
                 created_at_epoch=legacy_index.created_at_epoch,
@@ -342,10 +320,7 @@ class SourceControlLegacyMigrationPlanner:
                     )
                 )
                 continue
-            if (
-                legacy_run.artifacts_verified
-                and not legacy_run.artifact_manifest_digest
-            ):
+            if legacy_run.artifacts_verified and not legacy_run.artifact_manifest_digest:
                 issues.append(
                     MigrationIssue(
                         "legacy_run_artifact_evidence_missing",
@@ -354,12 +329,7 @@ class SourceControlLegacyMigrationPlanner:
                     )
                 )
                 continue
-            if (
-                legacy_run.artifact_manifest_digest is not None
-                and not _is_sha256(
-                    legacy_run.artifact_manifest_digest
-                )
-            ):
+            if legacy_run.artifact_manifest_digest is not None and not _is_sha256(legacy_run.artifact_manifest_digest):
                 issues.append(
                     MigrationIssue(
                         "legacy_run_artifact_digest_invalid",
@@ -378,9 +348,7 @@ class SourceControlLegacyMigrationPlanner:
                 policy_snapshot_id=index.policy_snapshot_id,
                 policy_snapshot_digest=index.policy_snapshot_digest,
                 status=legacy_run.status,
-                artifact_manifest_digest=(
-                    legacy_run.artifact_manifest_digest
-                ),
+                artifact_manifest_digest=(legacy_run.artifact_manifest_digest),
                 artifacts_verified=legacy_run.artifacts_verified,
                 lock_version=1,
                 created_at_epoch=legacy_run.created_at_epoch,
@@ -471,9 +439,7 @@ class SourceControlLegacyMigrationService:
         self._planner = planner or SourceControlLegacyMigrationPlanner()
         self._clock = clock
 
-    def plan(
-        self, inventory: LegacyMigrationInventory
-    ) -> LegacyMigrationPlan:
+    def plan(self, inventory: LegacyMigrationInventory) -> LegacyMigrationPlan:
         return self._planner.plan(inventory)
 
     def migrate(
@@ -497,9 +463,7 @@ class SourceControlLegacyMigrationService:
                 issues=plan.issues,
             )
         if not plan.can_apply:
-            raise SourceControlMigrationError(
-                "source_control_migration_plan_blocked"
-            )
+            raise SourceControlMigrationError("source_control_migration_plan_blocked")
         run = self._repository.begin(plan, resume=resume)
         if run.state == "applied":
             return self._report(plan, run)

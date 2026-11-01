@@ -61,11 +61,7 @@ class CodeCompassHardeningMigrationService:
         operations: list[dict[str, Any]] = []
         for source_kind, inventory in sorted(self._inventories.items()):
             for raw in inventory.inventory():
-                sanitized = {
-                    key: raw.get(key)
-                    for key in sorted(_SAFE_FIELDS)
-                    if raw.get(key) not in (None, "")
-                }
+                sanitized = {key: raw.get(key) for key in sorted(_SAFE_FIELDS) if raw.get(key) not in (None, "")}
                 sanitized["kind"] = str(sanitized.get("kind") or source_kind)
                 sanitized["operation_id"] = _digest({"source_kind": source_kind, "resource": sanitized})
                 operations.append(sanitized)

@@ -9,10 +9,6 @@ from typing import Any, Callable
 from agent.config import settings
 from agent.metrics import DISPATCH_WAIT_SECONDS, TASK_QUEUE_WAIT_SECONDS
 from agent.routes.tasks.autopilot_async_dispatch import AsyncDispatchState, async_dispatch_enabled
-from agent.services.repository_registry import get_repository_registry
-from agent.services.recovery_dispatch_gate_service import (
-    get_recovery_dispatch_gate_service,
-)
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
     classify_no_candidate_reason,
@@ -20,11 +16,6 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
     resolve_dispatch_hard_timeout,
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
-)
-from agent.routes.tasks.autopilot_stale_task_recovery import (
-    StaleTaskRecovery,
-    is_hub_managed_model_recovery_task,
-    refresh_approval_lifecycle,
 )
 from agent.routes.tasks.autopilot_model_selector import (
     _normalize_model_candidate,
@@ -34,6 +25,11 @@ from agent.routes.tasks.autopilot_model_selector import (
     _normalize_temperature_value,
     _preferred_benchmark_provider,
     _select_model_for_task,
+)
+from agent.routes.tasks.autopilot_stale_task_recovery import (
+    StaleTaskRecovery,
+    is_hub_managed_model_recovery_task,
+    refresh_approval_lifecycle,
 )
 from agent.routes.tasks.autopilot_strategy_candidates import (
     _extract_strategy_state,
@@ -59,7 +55,10 @@ from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
     _should_terminalize_no_executable_strategy,
     _task_log,
 )
-
+from agent.services.recovery_dispatch_gate_service import (
+    get_recovery_dispatch_gate_service,
+)
+from agent.services.repository_registry import get_repository_registry
 
 _is_hub_managed_model_recovery_task = is_hub_managed_model_recovery_task
 
@@ -131,6 +130,7 @@ def _no_candidates_result(
         stalled_goal = get_repository_registry(loop._app).goal_repo.get_by_id(goal_scope)
         if stalled_goal and str(getattr(stalled_goal, "status", "") or "").strip().lower() == "planning":
             from agent.services.lifecycle_service import get_goal_lifecycle_service
+
             get_goal_lifecycle_service().recover_stalled_planning_goal(stalled_goal)
     recovered = _maybe_recover_planned_goal_without_candidates(
         loop=loop,
@@ -200,7 +200,9 @@ def _ollama_capacity(loop: Any, runtime_caps: dict) -> int | None:
 def _capacity_factors(loop: Any, workers: list[Any], runtime_caps: dict) -> tuple[int, int, int | None]:
     """Return ``(online_worker_capacity, runtime_capacity, ollama_capacity)``."""
     worker_parallel_cfg = ((loop._agent_config() or {}).get("worker_parallelism") or {}).get("ollama") or {}
-    worker_parallelism = max(1, int((worker_parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 1))
+    worker_parallelism = max(
+        1, int((worker_parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 1)
+    )
     online_worker_capacity = max(1, len(workers)) * worker_parallelism
     runtime_capacity = max(1, int((loop._agent_config() or {}).get("runtime_capacity_cap") or online_worker_capacity))
     return online_worker_capacity, runtime_capacity, _ollama_capacity(loop, runtime_caps)
@@ -333,14 +335,17 @@ def _abort_pending_dispatch(
         )
     logging.warning(
         "[tick][task_id=%s] dispatch aborted (%s), marking %s",
-        tid, reason, "todo" if recoverable else "failed",
+        tid,
+        reason,
+        "todo" if recoverable else "failed",
     )
     # the abandoned thread keeps waiting on its model call; stop that call on the Hub and the
     # workers, otherwise the model server keeps generating for nobody and blocks a slot
     try:
         cancelled = _cancel_task_requests(tid)
-        append_trace_event(tid, "dispatch_requests_cancelled", reason=reason,
-                           result=cancelled if isinstance(cancelled, dict) else None)
+        append_trace_event(
+            tid, "dispatch_requests_cancelled", reason=reason, result=cancelled if isinstance(cancelled, dict) else None
+        )
     except Exception:
         logging.exception("Dispatch cancellation failed for %s", tid)
     update_local_task_status(tid, "todo" if recoverable else "failed", error=f"dispatch_{reason}", force=True)
@@ -369,7 +374,8 @@ def _await_dispatches(
         if loop._stop_event.is_set():
             break
         done, pending = concurrent.futures.wait(
-            pending, timeout=_DISPATCH_POLL_SECONDS,
+            pending,
+            timeout=_DISPATCH_POLL_SECONDS,
             return_when=concurrent.futures.FIRST_COMPLETED,
         )
         for future in done:
@@ -463,12 +469,12 @@ def execute_autopilot_tick(
         services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies),
         append_trace_event,
     )
-    dispatch_queue = services.task_queue_service.get_scoped_dispatch_queue(team_id=loop.team_id or None, now=time.time())
+    dispatch_queue = services.task_queue_service.get_scoped_dispatch_queue(
+        team_id=loop.team_id or None, now=time.time()
+    )
     if goal_scope:
         dispatch_queue = [
-            item
-            for item in dispatch_queue
-            if str(getattr(item.get("task"), "goal_id", "") or "").strip() == goal_scope
+            item for item in dispatch_queue if str(getattr(item.get("task"), "goal_id", "") or "").strip() == goal_scope
         ]
     candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
     if not candidates:
@@ -538,16 +544,25 @@ def execute_autopilot_tick(
         for task_id, result_or_error in async_state.reap():
             if isinstance(result_or_error, Exception):
                 update_local_task_status(task_id, "failed", error=str(result_or_error), force=True)
-                result_or_error = TaskDispatchResult(task_id=task_id, failed=True,
-                                                     failure_type="thread_exception")
+                result_or_error = TaskDispatchResult(task_id=task_id, failed=True, failure_type="thread_exception")
             _aggregate_results(loop, [result_or_error])
         submitted_ids: list[str] = []
         for task, target_worker, was_assigned in task_assignments:
             async_state.submit(
-                _dispatch_one_task, task_id=task.id, task=task, target_worker=target_worker,
-                was_assigned=was_assigned, loop=loop, services=services, policy=policy,
-                fallback_policy=fallback_policy, runtime_caps=runtime_caps, queue_positions=queue_positions,
-                local_worker_url=local_worker_url, app=app, append_trace_event=append_trace_event,
+                _dispatch_one_task,
+                task_id=task.id,
+                task=task,
+                target_worker=target_worker,
+                was_assigned=was_assigned,
+                loop=loop,
+                services=services,
+                policy=policy,
+                fallback_policy=fallback_policy,
+                runtime_caps=runtime_caps,
+                queue_positions=queue_positions,
+                local_worker_url=local_worker_url,
+                app=app,
+                append_trace_event=append_trace_event,
                 update_local_task_status=update_local_task_status,
             )
             submitted_ids.append(task.id)

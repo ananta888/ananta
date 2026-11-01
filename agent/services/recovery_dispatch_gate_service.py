@@ -122,12 +122,8 @@ class RecoveryDispatchGateService:
 
     _is_recovery_child = staticmethod(_gate_policy.is_recovery_child)
     _is_recovery_source = staticmethod(_gate_policy.is_recovery_source)
-    _accepted_terminal_result_is_proven = staticmethod(
-        _gate_policy.accepted_terminal_result_is_proven
-    )
-    _validated_result_candidate = staticmethod(
-        _gate_policy.validated_result_candidate
-    )
+    _accepted_terminal_result_is_proven = staticmethod(_gate_policy.accepted_terminal_result_is_proven)
+    _validated_result_candidate = staticmethod(_gate_policy.validated_result_candidate)
     _normalize_phase = staticmethod(_gate_policy.normalize_dispatch_phase)
     _token_digest = staticmethod(_gate_policy.dispatch_token_digest)
     _worker_identity_valid = staticmethod(_recovery_worker_identity_valid)
@@ -199,9 +195,7 @@ class RecoveryDispatchGateService:
                 allow_terminal_task=allow_terminal_task,
             )
             return
-        source_task_id = str(
-            _value(task, "source_task_id") or ""
-        ).strip()
+        source_task_id = str(_value(task, "source_task_id") or "").strip()
         if not source_task_id:
             yield self.evaluate_task(
                 task,
@@ -210,13 +204,7 @@ class RecoveryDispatchGateService:
                 allow_terminal_task=allow_terminal_task,
             )
             return
-        dependency_ids = {
-            str(value).strip()
-            for value in list(
-                _value(task, "depends_on") or []
-            )
-            if str(value).strip()
-        }
+        dependency_ids = {str(value).strip() for value in list(_value(task, "depends_on") or []) if str(value).strip()}
         with self._lock_port().mutation_locks(
             {
                 source_task_id,
@@ -229,15 +217,10 @@ class RecoveryDispatchGateService:
                     False,
                     "recovery_source_lock_unavailable",
                     source_task_id=source_task_id,
-                    plan_id=str(
-                        _value(task, "plan_id") or ""
-                    )
-                    or None,
+                    plan_id=str(_value(task, "plan_id") or "") or None,
                 )
                 return
-            authoritative_task = repos.task_repo.get_by_id(
-                str(task_id or "")
-            )
+            authoritative_task = repos.task_repo.get_by_id(str(task_id or ""))
             yield self.evaluate_task(
                 authoritative_task,
                 app=app,
@@ -275,9 +258,7 @@ class RecoveryDispatchGateService:
             task = repos.task_repo.get_by_id(str(task_id or ""))
             if not self._is_recovery_child(task):
                 return RecoveryDispatchLease(decision, phase=normalized_phase)
-            normalized_fingerprint = str(
-                request_fingerprint or ""
-            ).strip()
+            normalized_fingerprint = str(request_fingerprint or "").strip()
             if not normalized_fingerprint:
                 return RecoveryDispatchLease(
                     denied_like(
@@ -286,9 +267,7 @@ class RecoveryDispatchGateService:
                     ),
                     phase=normalized_phase,
                 )
-            with self._lock_port().mutation_lock(
-                str(task_id or "")
-            ) as acquired:
+            with self._lock_port().mutation_lock(str(task_id or "")) as acquired:
                 if not acquired:
                     return RecoveryDispatchLease(
                         denied_like(
@@ -297,9 +276,7 @@ class RecoveryDispatchGateService:
                         ),
                         phase=normalized_phase,
                     )
-                authoritative = repos.task_repo.get_by_id(
-                    str(task_id or "")
-                )
+                authoritative = repos.task_repo.get_by_id(str(task_id or ""))
                 refreshed = self.evaluate_task(
                     authoritative,
                     app=app,
@@ -316,17 +293,11 @@ class RecoveryDispatchGateService:
                     15.0,
                     min(float(ttl_seconds or 600.0), 1800.0),
                 )
-                details = _mapping(
-                    _value(authoritative, "status_reason_details")
-                )
-                previous = _mapping(
-                    details.get("recovery_dispatch_lease")
-                )
+                details = _mapping(_value(authoritative, "status_reason_details"))
+                previous = _mapping(details.get("recovery_dispatch_lease"))
                 if (
-                    str(previous.get("state") or "")
-                    in IN_FLIGHT_LEASE_STATES
-                    and float(previous.get("expires_at") or 0.0)
-                    > now
+                    str(previous.get("state") or "") in IN_FLIGHT_LEASE_STATES
+                    and float(previous.get("expires_at") or 0.0) > now
                 ):
                     return RecoveryDispatchLease(
                         denied_like(
@@ -356,14 +327,11 @@ class RecoveryDispatchGateService:
                         get_recovery_hub_run_evidence_service,
                     )
 
-                    details = (
-                        get_recovery_hub_run_evidence_service()
-                        .prepare_for_dispatch_lease(
-                            task_id=str(task_id or ""),
-                            details=details,
-                            phase=normalized_phase,
-                            lease=dispatch_lease,
-                        )
+                    details = get_recovery_hub_run_evidence_service().prepare_for_dispatch_lease(
+                        task_id=str(task_id or ""),
+                        details=details,
+                        phase=normalized_phase,
+                        lease=dispatch_lease,
                     )
                 setattr(authoritative, "status_reason_details", details)
                 if hasattr(authoritative, "updated_at"):
@@ -393,16 +361,10 @@ class RecoveryDispatchGateService:
         with self.dispatch_guard(task_id, app=app) as decision:
             if not decision.allowed:
                 raise RuntimeError(decision.reason_code)
-            with self._lock_port().mutation_lock(
-                str(task_id or "")
-            ) as acquired:
+            with self._lock_port().mutation_lock(str(task_id or "")) as acquired:
                 if not acquired:
-                    raise RuntimeError(
-                        "recovery_dispatch_task_lock_unavailable"
-                    )
-                authoritative = repos.task_repo.get_by_id(
-                    str(task_id or "")
-                )
+                    raise RuntimeError("recovery_dispatch_task_lock_unavailable")
+                authoritative = repos.task_repo.get_by_id(str(task_id or ""))
                 refreshed = self.evaluate_task(
                     authoritative,
                     app=app,
@@ -416,42 +378,28 @@ class RecoveryDispatchGateService:
                         "status_reason_details",
                     )
                 )
-                current_lease = _mapping(
-                    current_details.get(
-                        "recovery_dispatch_lease"
-                    )
-                )
+                current_lease = _mapping(current_details.get("recovery_dispatch_lease"))
                 try:
-                    current_lease_expires_at = float(
-                        current_lease.get("expires_at") or 0.0
-                    )
+                    current_lease_expires_at = float(current_lease.get("expires_at") or 0.0)
                 except (TypeError, ValueError) as exc:
-                    raise RuntimeError(
-                        "recovery_dispatch_lease_invalid"
-                    ) from exc
+                    raise RuntimeError("recovery_dispatch_lease_invalid") from exc
                 if (
-                    str(current_lease.get("state") or "")
-                    in IN_FLIGHT_LEASE_STATES
+                    str(current_lease.get("state") or "") in IN_FLIGHT_LEASE_STATES
                     and current_lease_expires_at > time.time()
                 ):
                     # Do not replace authority carried by an in-flight
                     # request; its eventual result must retain the exact
                     # record/lease/fingerprint binding.
-                    raise RuntimeError(
-                        "recovery_dispatch_inflight"
-                    )
+                    raise RuntimeError("recovery_dispatch_inflight")
                 from agent.services.recovery_hub_run_evidence_service import (
                     get_recovery_hub_run_evidence_service,
                 )
 
-                details = (
-                    get_recovery_hub_run_evidence_service()
-                        .reserve_context(
-                        task_id=str(task_id or ""),
-                        details=current_details,
-                        worker_url=worker_url,
-                        replace=replace,
-                    )
+                details = get_recovery_hub_run_evidence_service().reserve_context(
+                    task_id=str(task_id or ""),
+                    details=current_details,
+                    worker_url=worker_url,
+                    replace=replace,
                 )
                 setattr(
                     authoritative,
@@ -465,13 +413,7 @@ class RecoveryDispatchGateService:
                         time.time(),
                     )
                 repos.task_repo.save(authoritative)
-                return copy.deepcopy(
-                    _mapping(
-                        details.get(
-                            "recovery_tool_run_context"
-                        )
-                    )
-                )
+                return copy.deepcopy(_mapping(details.get("recovery_tool_run_context")))
 
     def validate_dispatch_lease(
         self,
@@ -492,17 +434,13 @@ class RecoveryDispatchGateService:
             task = repos.task_repo.get_by_id(str(task_id or ""))
             if not self._is_recovery_child(task):
                 return decision
-            with self._lock_port().mutation_lock(
-                str(task_id or "")
-            ) as acquired:
+            with self._lock_port().mutation_lock(str(task_id or "")) as acquired:
                 if not acquired:
                     return denied_like(
                         decision,
                         "recovery_dispatch_task_lock_unavailable",
                     )
-                authoritative = repos.task_repo.get_by_id(
-                    str(task_id or "")
-                )
+                authoritative = repos.task_repo.get_by_id(str(task_id or ""))
                 refreshed = self.evaluate_task(
                     authoritative,
                     app=app,
@@ -542,17 +480,13 @@ class RecoveryDispatchGateService:
             task = repos.task_repo.get_by_id(str(task_id or ""))
             if not self._is_recovery_child(task):
                 return decision
-            with self._lock_port().mutation_lock(
-                str(task_id or "")
-            ) as acquired:
+            with self._lock_port().mutation_lock(str(task_id or "")) as acquired:
                 if not acquired:
                     return denied_like(
                         decision,
                         "recovery_dispatch_task_lock_unavailable",
                     )
-                authoritative = repos.task_repo.get_by_id(
-                    str(task_id or "")
-                )
+                authoritative = repos.task_repo.get_by_id(str(task_id or ""))
                 refreshed = self.evaluate_task(
                     authoritative,
                     app=app,
@@ -560,25 +494,15 @@ class RecoveryDispatchGateService:
                 )
                 if not refreshed.allowed:
                     return refreshed
-                details = _mapping(
-                    _value(authoritative, "status_reason_details")
-                )
-                lease = _mapping(
-                    details.get("recovery_dispatch_lease")
-                )
-                lease_state = str(
-                    lease.get("state") or ""
-                )
+                details = _mapping(_value(authoritative, "status_reason_details"))
+                lease = _mapping(details.get("recovery_dispatch_lease"))
+                lease_state = str(lease.get("state") or "")
                 bound = self._evaluate_lease_binding(
                     authoritative,
                     token=token,
                     phase=normalized_phase,
                     decision=refreshed,
-                    allowed_states=(
-                        {"worker_admitted"}
-                        if lease_state == "worker_admitted"
-                        else {"active"}
-                    ),
+                    allowed_states=({"worker_admitted"} if lease_state == "worker_admitted" else {"active"}),
                     worker_url=normalized_worker_url,
                     request_fingerprint=request_fingerprint,
                 )
@@ -634,11 +558,7 @@ class RecoveryDispatchGateService:
         repos = self._repos(app)
         result_accepted = False
         accepted_status_transition: tuple[str, str] | None = None
-        normalized_worker_url = (
-            str(worker_url or "").strip().rstrip("/")
-            if worker_url is not None
-            else None
-        )
+        normalized_worker_url = str(worker_url or "").strip().rstrip("/") if worker_url is not None else None
         with self.dispatch_guard(
             task_id,
             app=app,
@@ -648,27 +568,21 @@ class RecoveryDispatchGateService:
             if not decision.allowed or not self._is_recovery_child(task):
                 yield decision
                 return
-            with self._lock_port().mutation_lock(
-                str(task_id or "")
-            ) as acquired:
+            with self._lock_port().mutation_lock(str(task_id or "")) as acquired:
                 if not acquired:
                     yield denied_like(
                         decision,
                         "recovery_dispatch_task_lock_unavailable",
                     )
                     return
-                authoritative = repos.task_repo.get_by_id(
-                    str(task_id or "")
-                )
+                authoritative = repos.task_repo.get_by_id(str(task_id or ""))
                 refreshed = self.evaluate_task(
                     authoritative,
                     app=app,
                     repos=repos,
                     allow_terminal_task=True,
                 )
-                task_status = str(
-                    _value(authoritative, "status") or ""
-                ).strip().lower()
+                task_status = str(_value(authoritative, "status") or "").strip().lower()
                 if task_status in {
                     "cancelled",
                     "aborted",
@@ -701,17 +615,15 @@ class RecoveryDispatchGateService:
                 except BaseException:
                     raise
                 else:
-                    accepted_status_transition = (
-                        self._lease_settlement.commit_accepted_result(
-                            task_id,
-                            repos=repos,
-                            phase=normalized_phase,
-                            token=token,
-                            bound=bound,
-                            worker_url=worker_url,
-                            request_fingerprint=request_fingerprint,
-                            lease_binding=self._evaluate_lease_binding,
-                        )
+                    accepted_status_transition = self._lease_settlement.commit_accepted_result(
+                        task_id,
+                        repos=repos,
+                        phase=normalized_phase,
+                        token=token,
+                        bound=bound,
+                        worker_url=worker_url,
+                        request_fingerprint=request_fingerprint,
+                        lease_binding=self._evaluate_lease_binding,
                     )
                     result_accepted = True
         if result_accepted:
@@ -792,7 +704,5 @@ class RecoveryDispatchGateService:
 _service = RecoveryDispatchGateService()
 
 
-def get_recovery_dispatch_gate_service() -> (
-    RecoveryDispatchGateService
-):
+def get_recovery_dispatch_gate_service() -> RecoveryDispatchGateService:
     return _service

@@ -168,8 +168,7 @@ def test_consent_post_commit_crash_replays_without_version_increment() -> None:
             select(VoiceGovernanceIdempotencyDB).where(
                 VoiceGovernanceIdempotencyDB.tenant_id == principal.tenant_id,
                 VoiceGovernanceIdempotencyDB.owner_subject == principal.subject,
-                VoiceGovernanceIdempotencyDB.operation
-                == "voice_consent.set:consent-crash-profile",
+                VoiceGovernanceIdempotencyDB.operation == "voice_consent.set:consent-crash-profile",
             )
         ).one()
     assert len(consents) == 1

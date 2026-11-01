@@ -11,6 +11,7 @@ Tests cover:
   - Audit events fired (non-fatal on failure)
   - TaskAdminService wiring (pause/resume/cancel/retry)
 """
+
 from __future__ import annotations
 
 import time
@@ -33,6 +34,7 @@ from agent.services.run_control_service import (
 )
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def svc() -> RunControlService:
@@ -72,15 +74,23 @@ def _mock_approval_decide(*, raises=None, result_status="granted"):
 
 # ── COMMAND_TYPES completeness ─────────────────────────────────────────────────
 
+
 def test_all_command_types_defined():
     expected = {
-        "pause_run", "resume_run", "cancel_run", "retry_run_or_task",
-        "inject_instruction", "select_branch", "approve_gate", "deny_gate",
+        "pause_run",
+        "resume_run",
+        "cancel_run",
+        "retry_run_or_task",
+        "inject_instruction",
+        "select_branch",
+        "approve_gate",
+        "deny_gate",
     }
     assert COMMAND_TYPES == expected
 
 
 # ── Unknown command type ───────────────────────────────────────────────────────
+
 
 def test_unknown_command_type_rejected(svc):
     cmd = svc.send_command(command_type="fly_to_moon", task_id="t1")
@@ -90,6 +100,7 @@ def test_unknown_command_type_rejected(svc):
 
 
 # ── Pause/Resume/Cancel/Retry ─────────────────────────────────────────────────
+
 
 def test_pause_no_task_id(svc):
     cmd = svc.send_command(command_type="pause_run")
@@ -170,6 +181,7 @@ def test_resume_with_instruction_persists(svc):
 
 
 # ── Idempotency ───────────────────────────────────────────────────────────────
+
 
 def test_idempotency_key_prevents_duplicate(svc):
     payload = {
@@ -323,19 +335,14 @@ def test_idempotency_key_reuse_with_changed_request_is_auditable_conflict(
     assert len(svc._commands) == 1
     assert core_services.return_value.task_admin_service.intervene_task.call_count == 1
     conflict_audits = [
-        call.args[1]
-        for call in audit.call_args_list
-        if call.args[0] == "run_command_idempotency_conflict"
+        call.args[1] for call in audit.call_args_list if call.args[0] == "run_command_idempotency_conflict"
     ]
     assert len(conflict_audits) == 1
     assert expected_mismatch in conflict_audits[0]["mismatched_fields"]
     assert "payload" not in conflict_audits[0]
     assert "idempotency_key" not in conflict_audits[0]
     assert conflict_audits[0]["idempotency_key_ref"] == conflict.idempotency_key_ref
-    assert all(
-        first_request["idempotency_key"] not in repr(call.args[1])
-        for call in audit.call_args_list
-    )
+    assert all(first_request["idempotency_key"] not in repr(call.args[1]) for call in audit.call_args_list)
 
 
 def test_different_idempotency_keys_create_separate_commands(svc):
@@ -407,10 +414,7 @@ def test_run_control_routes_return_stable_409_without_duplicate_effect(
 
     assert accepted.status_code == 200
     assert replayed.status_code == 200
-    assert (
-        accepted.get_json()["command"]["command_id"]
-        == replayed.get_json()["command"]["command_id"]
-    )
+    assert accepted.get_json()["command"]["command_id"] == replayed.get_json()["command"]["command_id"]
     assert conflict.status_code == 409
     assert conflict.get_json() == {
         "status": "error",
@@ -576,6 +580,7 @@ def test_run_control_route_hides_foreign_resource(client, monkeypatch, svc):
 
 # ── Instruction injection ─────────────────────────────────────────────────────
 
+
 def test_inject_instruction_empty_text(svc):
     cmd = svc.send_command(command_type="inject_instruction", task_id="t1", payload={"text": "  "})
     assert cmd.status == "rejected_by_policy"
@@ -653,6 +658,7 @@ def test_mark_instruction_applied(svc):
 
 # ── Branch management ─────────────────────────────────────────────────────────
 
+
 def test_branch_create_and_list(svc):
     b = svc.create_branch(task_id="t1", label="Option A", branch_type="implementation_strategy")
     branches = svc.list_branches(task_id="t1")
@@ -700,6 +706,7 @@ def test_select_already_selected_branch(svc):
 
 # ── Approval gates ────────────────────────────────────────────────────────────
 
+
 def test_approve_gate_no_approval_id(svc):
     cmd = svc.send_command(command_type="approve_gate", task_id="t1", payload={})
     assert cmd.status == "rejected_by_policy"
@@ -730,6 +737,7 @@ def test_deny_gate_success(svc):
 
 def test_approve_gate_expired(svc):
     from agent.services.approval_request_service import ApprovalDecisionError
+
     with _mock_approval_decide(raises=ApprovalDecisionError("request_expired", 409)):
         cmd = svc.send_command(
             command_type="approve_gate",
@@ -783,14 +791,12 @@ def test_approve_gate_cannot_bypass_admin_only_recovery_approval(svc):
         )
 
     assert cmd.status == "rejected_by_policy"
-    assert (
-        cmd.result["error"]
-        == "recovery_approval_requires_admin_endpoint"
-    )
+    assert cmd.result["error"] == "recovery_approval_requires_admin_endpoint"
     approval_service.decide_request.assert_not_called()
 
 
 # ── Control-state read model ──────────────────────────────────────────────────
+
 
 def test_control_state_no_task(svc):
     with patch("agent.services.approval_request_service.get_approval_request_service") as mock_svc:
@@ -857,6 +863,7 @@ def test_control_state_run_status_paused(svc):
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 
+
 def test_get_run_control_service_singleton():
     svc1 = get_run_control_service()
     svc2 = get_run_control_service()
@@ -864,6 +871,7 @@ def test_get_run_control_service_singleton():
 
 
 # ── Regression: existing task interventions not broken ─────────────────────────
+
 
 def test_pause_result_contains_task_id(svc):
     with _mock_intervene(ok=True, data={"id": "t999", "action": "pause", "status": "paused"}):

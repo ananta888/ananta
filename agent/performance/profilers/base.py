@@ -22,5 +22,4 @@ class ProfileObservation:
 
 
 class ProfilerParser(Protocol):
-    def parse(self, text: str) -> ProfileObservation:
-        ...
+    def parse(self, text: str) -> ProfileObservation: ...

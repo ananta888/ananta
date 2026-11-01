@@ -15,8 +15,9 @@ def _resolve(name, allowed, arguments=None):
 
 
 def test_retired_search_tools_become_codecompass_search_with_compatible_arguments():
-    tool, arguments, aliased = _resolve("codecompass.retrieve", WORKER_TOOLS,
-                                        {"query": "CircuitBreaker", "mode": "hybrid", "budget": {"x": 1}})
+    tool, arguments, aliased = _resolve(
+        "codecompass.retrieve", WORKER_TOOLS, {"query": "CircuitBreaker", "mode": "hybrid", "budget": {"x": 1}}
+    )
     assert (tool, aliased) == ("codecompass.search", "codecompass.retrieve")
     assert arguments["query"] == "CircuitBreaker" and "budget" not in arguments  # search has no budget
     assert _resolve("codecompass.resolve_context", WORKER_TOOLS, {"query": "q"})[0] == "codecompass.search"

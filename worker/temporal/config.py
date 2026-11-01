@@ -144,9 +144,7 @@ class TemporalWorkerConfig:
         if bool(self.hub_url) != bool(self.hub_token_file):
             raise TemporalWorkerConfigError("hub URL and token-file reference must be configured together")
         if self.hub_url and not self.workflow_service_id:
-            raise TemporalWorkerConfigError(
-                "workflow service identity is required with the Hub gateway"
-            )
+            raise TemporalWorkerConfigError("workflow service identity is required with the Hub gateway")
         if (
             len(self.workflow_service_id.encode("utf-8")) > 256
             or "\x00" in self.workflow_service_id
@@ -159,11 +157,7 @@ class TemporalWorkerConfig:
 
     @property
     def productive_gateway_configured(self) -> bool:
-        return bool(
-            self.hub_url
-            and self.hub_token_file
-            and self.workflow_service_id
-        )
+        return bool(self.hub_url and self.hub_token_file and self.workflow_service_id)
 
     def read_api_key(self) -> str | None:
         return _read_token_secret_file(self.api_key_file, "Temporal API key")

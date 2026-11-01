@@ -19,9 +19,7 @@ def test_rollout_capabilities_are_monotonic() -> None:
             SourceControlRolloutConfiguration(
                 stage=stage,
                 shadow_compare_enabled=True,
-                legacy_aliases_enabled=(
-                    stage is not SourceControlRolloutStage.LEGACY_DISABLED
-                ),
+                legacy_aliases_enabled=(stage is not SourceControlRolloutStage.LEGACY_DISABLED),
                 production_release_allowed=release_allowed,
             )
         )

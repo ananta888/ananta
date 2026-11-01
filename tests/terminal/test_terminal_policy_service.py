@@ -47,12 +47,16 @@ def test_hub_as_worker_list_visibility_is_not_blocked_by_sandbox_defaults():
 
 def test_denied_and_allowed_decisions_include_stable_metadata():
     svc = TerminalPolicyService()
-    denied = svc.evaluate(user_ctx={"sub": "u1", "role": "viewer"}, operation="write", target_type="worker", target_id="w1", cfg={})
+    denied = svc.evaluate(
+        user_ctx={"sub": "u1", "role": "viewer"}, operation="write", target_type="worker", target_id="w1", cfg={}
+    )
     assert denied.decision_id.startswith("term-dec-")
     assert denied.policy_version
     assert denied.reason_code == "terminal_permission_denied"
 
-    allowed = svc.evaluate(user_ctx={"sub": "u1", "role": "admin"}, operation="read", target_type="worker", target_id="w1", cfg={})
+    allowed = svc.evaluate(
+        user_ctx={"sub": "u1", "role": "admin"}, operation="read", target_type="worker", target_id="w1", cfg={}
+    )
     assert allowed.allow is True
     assert allowed.policy_version
     assert allowed.matched_rule_id == "worker.read.allow"

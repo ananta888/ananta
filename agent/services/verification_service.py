@@ -7,19 +7,19 @@ from agent.common.audit import log_audit
 from agent.common.governance_codes import GovernanceReasonCode
 from agent.db_models import TaskDB, VerificationRecordDB
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
+from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 from agent.services.hub_event_service import (
     build_hub_event_catalog,
     build_policy_governance_event,
     build_task_history_event,
     build_verification_governance_event,
 )
-from agent.services.repository_registry import get_repository_registry
 from agent.services.recovery_task_mutation_policy import (
     recovery_task_role,
 )
+from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import notify_task_update
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
-from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 
 
 def _engine():
@@ -60,7 +60,9 @@ class VerificationService:
         }
         return {
             "failure_classification": failure_classification,
-            "next_action": "escalate_to_human" if exhausted else action_map.get(failure_classification, "manual_review"),
+            "next_action": "escalate_to_human"
+            if exhausted
+            else action_map.get(failure_classification, "manual_review"),
             "retry_budget_remaining": max(0, 3 - attempts),
             "repair_required": True,
         }
@@ -117,7 +119,9 @@ class VerificationService:
                 spec = default_verification_spec(task.model_dump())
 
             existing = session.exec(
-                select(VerificationRecordDB).where(VerificationRecordDB.task_id == task_id).order_by(VerificationRecordDB.created_at.desc())
+                select(VerificationRecordDB)
+                .where(VerificationRecordDB.task_id == task_id)
+                .order_by(VerificationRecordDB.created_at.desc())
             ).first()
             record = existing or VerificationRecordDB(task_id=task_id, goal_id=task.goal_id, trace_id=trace_id)
 
@@ -158,7 +162,9 @@ class VerificationService:
                 "repair_workflow": repair_workflow,
                 "verification_critique": verification_critique,
             }
-            record.results = get_cost_aggregation_service().attach_cost_to_verification_results(task=task, results=record.results)
+            record.results = get_cost_aggregation_service().attach_cost_to_verification_results(
+                task=task, results=record.results
+            )
             if status == "failed":
                 record.retry_count = int(record.retry_count or 0) + 1
                 record.repair_attempts = min(record.retry_count, 3)
@@ -187,14 +193,10 @@ class VerificationService:
             session.refresh(merged_record)
             saved = merged_record
 
-        authoritative_task = (
-            get_repository_registry().task_repo.get_by_id(task_id)
-        )
+        authoritative_task = get_repository_registry().task_repo.get_by_id(task_id)
         if authoritative_task is not None:
             authoritative_task.verification_spec = spec
-            authoritative_task.verification_status = (
-                verification_status
-            )
+            authoritative_task.verification_status = verification_status
             authoritative_task.updated_at = time.time()
             history = list(authoritative_task.history or [])
             history.append(
@@ -203,20 +205,14 @@ class VerificationService:
                     "task_verification_updated",
                     actor="verification_service",
                     details={
-                        "verification_status": (
-                            verification_status.get("status")
-                        ),
-                        "record_id": verification_status.get(
-                            "record_id"
-                        ),
+                        "verification_status": (verification_status.get("status")),
+                        "record_id": verification_status.get("record_id"),
                     },
                     timestamp=time.time(),
                 )
             )
             authoritative_task.history = history[-200:]
-            get_repository_registry().task_repo.save(
-                authoritative_task
-            )
+            get_repository_registry().task_repo.save(authoritative_task)
         notify_task_update(task_id)
         log_audit(
             "verification_record_updated",
@@ -247,12 +243,14 @@ class VerificationService:
 
         Returns verification result with artifact_ids, evidence_refs, status.
         """
-        from pathlib import Path
+
         results: list[dict[str, Any]] = []
         passed_count = 0
         failed_reasons: list[str] = []
 
-        expected_paths = {str(e.get("relative_path") or "") for e in (expected_artifacts or []) if e.get("relative_path")}
+        expected_paths = {
+            str(e.get("relative_path") or "") for e in (expected_artifacts or []) if e.get("relative_path")
+        }
         present_paths = {str(a.get("relative_path") or "") for a in artifacts if a.get("_exists")}
         missing = expected_paths - present_paths
 
@@ -286,8 +284,12 @@ class VerificationService:
         expects_backend = any(path == "backend" or path.startswith("backend/") for path in expected_paths)
         expects_frontend = any(path == "frontend" or path.startswith("frontend/") for path in expected_paths)
         if expects_backend or expects_frontend:
-            backend_ok = (not expects_backend) or any(path == "backend" or path.startswith("backend/") for path in present_paths)
-            frontend_ok = (not expects_frontend) or any(path == "frontend" or path.startswith("frontend/") for path in present_paths)
+            backend_ok = (not expects_backend) or any(
+                path == "backend" or path.startswith("backend/") for path in present_paths
+            )
+            frontend_ok = (not expects_frontend) or any(
+                path == "frontend" or path.startswith("frontend/") for path in present_paths
+            )
             gate_results.append({"gate": "backend_structure", "passed": backend_ok, "required": expects_backend})
             gate_results.append({"gate": "frontend_structure", "passed": frontend_ok, "required": expects_frontend})
             if not backend_ok:
@@ -346,7 +348,9 @@ class VerificationService:
                 **(
                     {
                         "latest": [item.model_dump() for item in verification_records[:10]],
-                        "latest_events": [build_verification_governance_event(item) for item in verification_records[:10]],
+                        "latest_events": [
+                            build_verification_governance_event(item) for item in verification_records[:10]
+                        ],
                     }
                     if include_sensitive
                     else {}

@@ -49,9 +49,12 @@ def svc():
 
 
 def test_dry_run_eval(svc, tmp_path):
-    p = _write_eval_dataset(tmp_path, [
-        {"instruction": "Was ist 2+2?", "output": "4"},
-    ])
+    p = _write_eval_dataset(
+        tmp_path,
+        [
+            {"instruction": "Was ist 2+2?", "output": "4"},
+        ],
+    )
     report = svc.evaluate(
         base_model="qwen2.5-coder-7b",
         eval_dataset_path=p,
@@ -63,10 +66,13 @@ def test_dry_run_eval(svc, tmp_path):
 
 
 def test_eval_with_dummy_outputs(svc, tmp_path):
-    p = _write_eval_dataset(tmp_path, [
-        {"instruction": "Erstelle Todo", "output": "{}"},
-        {"instruction": "Erklaere Status", "output": "done"},
-    ])
+    p = _write_eval_dataset(
+        tmp_path,
+        [
+            {"instruction": "Erstelle Todo", "output": "{}"},
+            {"instruction": "Erklaere Status", "output": "done"},
+        ],
+    )
     report = svc.evaluate(
         base_model="qwen2.5-coder-7b",
         eval_dataset_path=p,
@@ -98,16 +104,23 @@ def test_invalid_json_output_scored_zero(svc, tmp_path):
 
 
 def test_valid_todo_json_scored_high():
-    output = json.dumps({
-        "track": "test",
-        "milestones": [{"id": "M1", "title": "M1", "task_ids": ["T1"], "status": "todo"}],
-        "tasks": [{
-            "id": "T1", "title": "Task 1", "status": "todo",
-            "priority": "P0", "risk": "low",
-            "acceptance_criteria": ["AC1", "AC2"],
-            "test_expectations": ["TE1"],
-        }]
-    })
+    output = json.dumps(
+        {
+            "track": "test",
+            "milestones": [{"id": "M1", "title": "M1", "task_ids": ["T1"], "status": "todo"}],
+            "tasks": [
+                {
+                    "id": "T1",
+                    "title": "Task 1",
+                    "status": "todo",
+                    "priority": "P0",
+                    "risk": "low",
+                    "acceptance_criteria": ["AC1", "AC2"],
+                    "test_expectations": ["TE1"],
+                }
+            ],
+        }
+    )
     score = _score_todo_json(output)
     assert score["json_valid"] is True
     assert score["has_track"] is True
@@ -116,18 +129,44 @@ def test_valid_todo_json_scored_high():
 
 
 def test_missing_acceptance_criteria_lowers_score():
-    full = _score_todo_json(json.dumps({
-        "track": "t", "milestones": [], "tasks": [{
-            "id": "T1", "title": "X", "status": "todo", "priority": "P0", "risk": "low",
-            "acceptance_criteria": ["AC1"], "test_expectations": ["TE1"]
-        }]
-    }))
-    no_ac = _score_todo_json(json.dumps({
-        "track": "t", "milestones": [], "tasks": [{
-            "id": "T1", "title": "X", "status": "todo", "priority": "P0", "risk": "low",
-            "acceptance_criteria": [], "test_expectations": []
-        }]
-    }))
+    full = _score_todo_json(
+        json.dumps(
+            {
+                "track": "t",
+                "milestones": [],
+                "tasks": [
+                    {
+                        "id": "T1",
+                        "title": "X",
+                        "status": "todo",
+                        "priority": "P0",
+                        "risk": "low",
+                        "acceptance_criteria": ["AC1"],
+                        "test_expectations": ["TE1"],
+                    }
+                ],
+            }
+        )
+    )
+    no_ac = _score_todo_json(
+        json.dumps(
+            {
+                "track": "t",
+                "milestones": [],
+                "tasks": [
+                    {
+                        "id": "T1",
+                        "title": "X",
+                        "status": "todo",
+                        "priority": "P0",
+                        "risk": "low",
+                        "acceptance_criteria": [],
+                        "test_expectations": [],
+                    }
+                ],
+            }
+        )
+    )
     assert full["total"] > no_ac["total"]
 
 
@@ -140,9 +179,7 @@ def test_current_todo_track_schema_scores_owner_scales_and_cross_references():
                 "status_scale": ["todo", "done"],
                 "priority_scale": ["P0", "P1"],
                 "risk_scale": ["low", "high"],
-                "milestones": [
-                    {"id": "M1", "title": "Runtime", "task_ids": ["T1"], "status": "todo"}
-                ],
+                "milestones": [{"id": "M1", "title": "Runtime", "task_ids": ["T1"], "status": "todo"}],
                 "tasks": [
                     {
                         "id": "T1",

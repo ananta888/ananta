@@ -33,10 +33,22 @@ class FakeClientChat:
         self.sent = []
 
     def human(self, message_id, text="Frage"):
-        self.chat.append({"id": len(self.chat) + 1, "author": "Mensch", "text": text, "system": False,
-                          "messageId": message_id, "replyTo": ""})
-        self.pending.append({"cursor": 0, "event": {"message_id": message_id, "sender_peer_id": "1" * 16,
-                                                     "sender_kind": "human", "text": text}})
+        self.chat.append(
+            {
+                "id": len(self.chat) + 1,
+                "author": "Mensch",
+                "text": text,
+                "system": False,
+                "messageId": message_id,
+                "replyTo": "",
+            }
+        )
+        self.pending.append(
+            {
+                "cursor": 0,
+                "event": {"message_id": message_id, "sender_peer_id": "1" * 16, "sender_kind": "human", "text": text},
+            }
+        )
 
     def fence(self):
         self.open_ = False
@@ -71,8 +83,17 @@ class FakeClientChat:
             raise RuntimeError("Error: meet_chat_reply_denied")
         self.replied.add(message_id)
         self.sent.append(message_id)
-        self.chat.append({"id": len(self.chat) + 1, "author": "ai-snake", "text": text, "system": False,
-                          "machine": True, "messageId": "f" * 32, "replyTo": message_id})
+        self.chat.append(
+            {
+                "id": len(self.chat) + 1,
+                "author": "ai-snake",
+                "text": text,
+                "system": False,
+                "machine": True,
+                "messageId": "f" * 32,
+                "replyTo": message_id,
+            }
+        )
 
 
 class Companion:
@@ -105,8 +126,9 @@ class Companion:
             assert port_closed(error)
             self.client.reopen()
             return
-        serve_batch(batch, self.ledger, send=self.client.reply, ack=self.client.ack,
-                    answer=self.answer, log=self.logs.append)
+        serve_batch(
+            batch, self.ledger, send=self.client.reply, ack=self.client.ack, answer=self.answer, log=self.logs.append
+        )
 
 
 def test_a_message_arriving_in_the_renewal_gap_is_answered_once_after_the_reopen():
@@ -259,22 +281,29 @@ def test_ack_cursor_uses_the_highest_delivered_cursor():
     assert ack_cursor({"events": [{"cursor": True}, {"cursor": "9"}]}) is None
 
 
-@pytest.mark.parametrize("message", [
-    "meet_chat_closed", "Error: meet_chat_authority_changed",
-    "Page.evaluate: Error: meet_chat_closed\n    at chat.poll (synthetic)",
-    "JSHandle.evaluate: Error: meet_chat_authority_changed\n    at synthetic",
-])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "meet_chat_closed",
+        "Error: meet_chat_authority_changed",
+        "Page.evaluate: Error: meet_chat_closed\n    at chat.poll (synthetic)",
+        "JSHandle.evaluate: Error: meet_chat_authority_changed\n    at synthetic",
+    ],
+)
 def test_only_recognized_port_error_authorizes_resend(message):
     assert port_closed(RuntimeError(message))
 
 
-@pytest.mark.parametrize("message", [
-    "provider failed while quoting meet_chat_closed",
-    "Error: meet_chat_reply_denied: meet_chat_closed",
-    "Page.evaluate: Error: meet_chat_closed_extra",
-    "Error: meet_chat_closed synthetic-secret",
-    "unknown failure\nError: meet_chat_closed",
-])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "provider failed while quoting meet_chat_closed",
+        "Error: meet_chat_reply_denied: meet_chat_closed",
+        "Page.evaluate: Error: meet_chat_closed_extra",
+        "Error: meet_chat_closed synthetic-secret",
+        "unknown failure\nError: meet_chat_closed",
+    ],
+)
 def test_error_payload_cannot_authorize_cached_reply_resend(message):
     ledger = ChatLedger()
     event = {"message_id": mid("a"), "sender_kind": "human", "text": "private question"}
@@ -301,8 +330,11 @@ def test_chat_errors_never_log_exception_text_or_credentials(failure):
 
     serve_batch(
         {"events": [{"cursor": 1, "event": {"message_id": mid("b"), "text": "private question"}}]},
-        ledger, send=reject if failure == "send" else lambda *args: None,
-        ack=reject if failure == "ack" else lambda *args: None, answer=answer, log=logs.append,
+        ledger,
+        send=reject if failure == "send" else lambda *args: None,
+        ack=reject if failure == "ack" else lambda *args: None,
+        answer=answer,
+        log=logs.append,
     )
     assert logs and all(secret not in message for message in logs)
     assert all("private question" not in message and "private answer" not in message for message in logs)
@@ -320,10 +352,10 @@ def test_newline_id_is_not_admitted_or_imported_from_chat_state():
 def test_queued_delivered_input_is_not_a_gap_and_remains_new_for_execution():
     now = [0.0]
     ledger = ChatLedger(clock=lambda: now[0], grace_seconds=1)
-    identity = 'a' * 32
-    chat = [{'messageId': identity, 'text': 'synthetic', 'machine': False}]
+    identity = "a" * 32
+    chat = [{"messageId": identity, "text": "synthetic", "machine": False}]
     ledger.observe(chat)
     now[0] = 2
     ledger.observe(chat, delivered_message_ids=[identity])
     assert ledger.gaps() == []
-    assert ledger.admit({'message_id': identity, 'text': 'synthetic', 'sender_kind': 'human'}) == NEW
+    assert ledger.admit({"message_id": identity, "text": "synthetic", "sender_kind": "human"}) == NEW

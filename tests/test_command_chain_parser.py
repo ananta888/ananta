@@ -41,7 +41,7 @@ def test_parse_rejects_pipe_but_allows_redirect():
 
 def test_parse_opencode_python_semicolon_chain():
     """python hello.py; python -c "..." must split into exactly two segments."""
-    cmd = 'python hello.py; python -c "from hello import greet; print(greet(\'World\'))"'
+    cmd = "python hello.py; python -c \"from hello import greet; print(greet('World'))\""
     plan = CommandChainParser().parse(cmd)
     assert plan.allowed is True
     assert len(plan.segments) == 2

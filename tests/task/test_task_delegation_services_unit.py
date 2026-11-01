@@ -23,14 +23,10 @@ from ananta_contracts.runtime_authorization_crypto import (
     Ed25519SigningKeyRing,
 )
 
-_RESEARCH_DISPATCH_ISSUER = (
-    OrganizationResearchDispatchCapabilityIssuer(
-        Ed25519SigningKeyRing(
-            {
-                "hub-research-test": base64.b64encode(b"h" * 32)
-            },
-            active_key_id="hub-research-test",
-        )
+_RESEARCH_DISPATCH_ISSUER = OrganizationResearchDispatchCapabilityIssuer(
+    Ed25519SigningKeyRing(
+        {"hub-research-test": base64.b64encode(b"h" * 32)},
+        active_key_id="hub-research-test",
     )
 )
 
@@ -233,16 +229,8 @@ def _isolate_result_writer_repositories(monkeypatch):
         repository_registry,
         "get_repository_registry",
         lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda task_id: (
-                    parent if task_id == parent.id else None
-                )
-            ),
-            agent_repo=SimpleNamespace(
-                get_by_url=lambda worker_url: (
-                    worker if worker_url == worker.url else None
-                )
-            ),
+            task_repo=SimpleNamespace(get_by_id=lambda task_id: parent if task_id == parent.id else None),
+            agent_repo=SimpleNamespace(get_by_url=lambda worker_url: worker if worker_url == worker.url else None),
         ),
     )
 
@@ -303,11 +291,7 @@ def test_organization_track_delegation_uses_only_persisted_dispatch_binding():
             "organization_id": "org-1",
             "unit_id": "unit-1",
             "role_slot_id": "slot-1",
-            "worker_execution_context": {
-                "planning_lineage": {
-                    "schema": "organization_planning_lineage.v1"
-                }
-            },
+            "worker_execution_context": {"planning_lineage": {"schema": "organization_planning_lineage.v1"}},
         },
     )
     resolver = SimpleNamespace(resolve=lambda _task: "http://hub-routed:5000")
@@ -330,11 +314,7 @@ def test_organization_track_delegation_fails_closed_without_outbox_binding():
             "organization_id": "org-1",
             "unit_id": "unit-1",
             "role_slot_id": "slot-1",
-            "worker_execution_context": {
-                "planning_lineage": {
-                    "schema": "organization_planning_lineage.v1"
-                }
-            },
+            "worker_execution_context": {"planning_lineage": {"schema": "organization_planning_lineage.v1"}},
         },
     )
     resolver = SimpleNamespace(resolve=lambda _task: None)
@@ -365,9 +345,7 @@ def test_every_organization_task_requires_authoritative_dispatch_binding():
 
     result = TaskDelegationPlanner(
         _Dependencies(workers=[]),
-        organization_binding_resolver=SimpleNamespace(
-            resolve=lambda _task: None
-        ),
+        organization_binding_resolver=SimpleNamespace(resolve=lambda _task: None),
     ).plan(request=request, agent_registry_service=_AgentRegistry())
 
     assert result == {
@@ -396,9 +374,7 @@ def test_organization_category_research_routing_keeps_hub_required_capabilities(
             ],
         },
     )
-    resolver = SimpleNamespace(
-        resolve=lambda _task: "http://hub-routed:5000"
-    )
+    resolver = SimpleNamespace(resolve=lambda _task: "http://hub-routed:5000")
 
     plan = TaskDelegationPlanner(
         _Dependencies(workers=[]),
@@ -536,26 +512,24 @@ def test_category_research_factory_reuses_authoritative_bundle_without_generic_r
                 "source_analysis",
             ],
             "context_bundle_id": authoritative_bundle.id,
-                "worker_execution_context": {
+            "worker_execution_context": {
+                "context_bundle_id": authoritative_bundle.id,
+                "llm_scope": "local_only",
+                "source_context_policy": {
+                    "schema": "organization_research_source_context_policy.v1",
+                    "authority": "hub",
+                    "mode": "authoritative_source_catalog_bundle",
                     "context_bundle_id": authoritative_bundle.id,
+                    "context_bundle_digest": "c" * 64,
                     "llm_scope": "local_only",
-                    "source_context_policy": {
-                        "schema": "organization_research_source_context_policy.v1",
-                        "authority": "hub",
-                        "mode": "authoritative_source_catalog_bundle",
-                        "context_bundle_id": authoritative_bundle.id,
-                        "context_bundle_digest": "c" * 64,
-                        "llm_scope": "local_only",
-                    },
-                    "planning_research_assignment": {
-                        "schema": "organization_category_research_assignment_binding.v1",
-                        "assignment_id": "assignment-1",
-                        "agent_url": "http://planner:5000",
-                    },
-                "allowed_tools": [],
-                "expected_output_schema": {
-                    "schema_ref": "todos/todo.schema.json"
                 },
+                "planning_research_assignment": {
+                    "schema": "organization_category_research_assignment_binding.v1",
+                    "assignment_id": "assignment-1",
+                    "agent_url": "http://planner:5000",
+                },
+                "allowed_tools": [],
+                "expected_output_schema": {"schema_ref": "todos/todo.schema.json"},
             },
         }
     )
@@ -586,9 +560,7 @@ def test_category_research_factory_reuses_authoritative_bundle_without_generic_r
     assert worker_jobs.context_calls == []
     assert worker_jobs.job_calls[0]["context_bundle_id"] == authoritative_bundle.id
     assert bundle.allowed_tools == []
-    assert bundle.expected_output_schema == {
-        "schema_ref": "todos/todo.schema.json"
-    }
+    assert bundle.expected_output_schema == {"schema_ref": "todos/todo.schema.json"}
     assert worker_jobs.job_calls[0]["selection_decision"] == {
         "selected_worker_id": "http://planner:5000",
         "selected_worker_kind": "worker",
@@ -609,13 +581,8 @@ def test_category_research_factory_reuses_authoritative_bundle_without_generic_r
         == bundle.context_policy["research_destination_binding"]
     )
     assert bundle.delegation_payload["context_bundle_id"] == authoritative_bundle.id
-    assert (
-        bundle.delegation_payload["context_bundle_policy"]["llm_scope"]
-        == "local_only"
-    )
-    assert bundle.delegation_payload["hub_dispatch_capability"].startswith(
-        "ord2."
-    )
+    assert bundle.delegation_payload["context_bundle_policy"]["llm_scope"] == "local_only"
+    assert bundle.delegation_payload["hub_dispatch_capability"].startswith("ord2.")
 
 
 def test_task_delegation_result_writer_forwards_then_updates_parent_and_returns_stable_model(
@@ -775,9 +742,7 @@ def test_category_research_requires_positive_worker_acknowledgement(
     monkeypatch,
 ):
     _isolate_result_writer_repositories(monkeypatch)
-    deps = _Dependencies(
-        forward_result={"status": "success", "data": {}}
-    )
+    deps = _Dependencies(forward_result={"status": "success", "data": {}})
     request = _request()
     plan = TaskDelegationPlan(
         agent_url="http://planner:5000",
@@ -821,9 +786,7 @@ def test_category_research_requires_positive_worker_acknowledgement(
 
     assert response["error"] == "delegation_failed"
     assert response["code"] == 502
-    assert worker_jobs.failed_dispatches[0]["reason_code"] == (
-        "worker_transport_failed"
-    )
+    assert worker_jobs.failed_dispatches[0]["reason_code"] == ("worker_transport_failed")
     assert deps.update_calls == []
 
 
@@ -880,9 +843,7 @@ def test_category_research_acknowledgement_requires_exact_task_id(
 
     assert response["error"] == "delegation_failed"
     assert response["code"] == 502
-    assert worker_jobs.failed_dispatches[0]["reason_code"] == (
-        "worker_transport_failed"
-    )
+    assert worker_jobs.failed_dispatches[0]["reason_code"] == ("worker_transport_failed")
     assert deps.update_calls == []
 
 
@@ -949,9 +910,7 @@ def test_category_research_redirect_is_not_followed_or_committed(
         delegation_payload={
             "id": "sub-1",
             "hub_dispatch_capability": "ord2.payload.signature",
-            "worker_execution_context": {
-                "context": {"context_text": "sensitive local context"}
-            },
+            "worker_execution_context": {"context": {"context_text": "sensitive local context"}},
         },
     )
     worker_jobs = _WorkerJobService()
@@ -1080,11 +1039,7 @@ def test_category_research_result_writer_rechecks_destination_immediately_before
     bundle = WorkerExecutionBundle(
         subtask_id="sub-1",
         context_bundle=SimpleNamespace(id="ctx-1"),
-        context_policy={
-            "research_destination_binding": {
-                "destination_id": "dst-current"
-            }
-        },
+        context_policy={"research_destination_binding": {"destination_id": "dst-current"}},
         retrieval_hints={},
         task_neighborhood={},
         expected_output_schema={},
@@ -1106,9 +1061,7 @@ def test_category_research_result_writer_rechecks_destination_immediately_before
 
     assert response["data"]["status"] == "delegated"
     assert sequence == ["verify", "forward"]
-    assert deps.forward_calls[0]["endpoint"] == (
-        "/internal/tasks/organization-planning-research"
-    )
+    assert deps.forward_calls[0]["endpoint"] == ("/internal/tasks/organization-planning-research")
 
 
 def test_result_writer_rechecks_organization_binding_immediately_before_forward(
@@ -1132,19 +1085,13 @@ def test_result_writer_rechecks_organization_binding_immediately_before_forward(
         repository_registry,
         "get_repository_registry",
         lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: authoritative
-            ),
-            agent_repo=SimpleNamespace(
-                get_by_url=lambda _worker_url: worker
-            ),
+            task_repo=SimpleNamespace(get_by_id=lambda _task_id: authoritative),
+            agent_repo=SimpleNamespace(get_by_url=lambda _worker_url: worker),
         ),
     )
     deps = _Dependencies()
     worker_jobs = _WorkerJobService()
-    request = _request(
-        parent_overrides={"organization_id": "org-1"}
-    )
+    request = _request(parent_overrides={"organization_id": "org-1"})
     plan = TaskDelegationPlan(
         agent_url="http://planner:5000",
         selected_by_policy=True,
@@ -1172,9 +1119,7 @@ def test_result_writer_rechecks_organization_binding_immediately_before_forward(
 
     response = TaskDelegationResultWriter(
         deps,
-        organization_binding_resolver=SimpleNamespace(
-            resolve=lambda _task: None
-        ),
+        organization_binding_resolver=SimpleNamespace(resolve=lambda _task: None),
     ).forward_and_write(
         request=request,
         plan=plan,
@@ -1182,16 +1127,12 @@ def test_result_writer_rechecks_organization_binding_immediately_before_forward(
         worker_job_service=worker_jobs,
     )
 
-    assert response["error"] == (
-        "organization_planning_dispatch_binding_required"
-    )
+    assert response["error"] == ("organization_planning_dispatch_binding_required")
     assert deps.forward_calls == []
     assert worker_jobs.failed_dispatches == [
         {
             "worker_job_id": "job-1",
-            "reason_code": (
-                "organization_planning_dispatch_binding_required"
-            ),
+            "reason_code": ("organization_planning_dispatch_binding_required"),
             "rejected": True,
         }
     ]
@@ -1252,14 +1193,10 @@ def test_manual_recovery_delegation_fails_closed_without_worker_transport(
         repository_registry,
         "get_repository_registry",
         lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: recovery_task
-            ),
+            task_repo=SimpleNamespace(get_by_id=lambda _task_id: recovery_task),
             agent_repo=SimpleNamespace(
                 get_by_url=lambda _url: (_ for _ in ()).throw(
-                    AssertionError(
-                        "worker lookup must not run for manual recovery"
-                    )
+                    AssertionError("worker lookup must not run for manual recovery")
                 )
             ),
         ),
@@ -1270,17 +1207,13 @@ def test_manual_recovery_delegation_fails_closed_without_worker_transport(
         lambda: Gate(),
     )
 
-    response = TaskDelegationResultWriter(
-        deps
-    ).forward_and_write(
+    response = TaskDelegationResultWriter(deps).forward_and_write(
         request=request,
         plan=plan,
         bundle=bundle,
     )
 
-    assert response["error"] == (
-        "recovery_child_delegation_not_supported"
-    )
+    assert response["error"] == ("recovery_child_delegation_not_supported")
     assert response["code"] == 409
     assert response["data"] == {
         "source_task_id": "source-recovery",

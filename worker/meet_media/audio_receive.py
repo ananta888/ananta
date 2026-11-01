@@ -6,9 +6,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from ananta_contracts.meet_dialog_audio import PUBLICATION_ID
 from voice_runtime.context import VoiceRecognitionContext
 from voice_runtime.streaming import PCM_S16LE_MEDIA_TYPE, BufferedPipelineRecognizer, StreamSession
-from ananta_contracts.meet_dialog_audio import PUBLICATION_ID
 
 
 @dataclass(frozen=True)

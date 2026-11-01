@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "sfu-runtime-agent/src"))
 
@@ -14,7 +13,6 @@ from ananta_sfu_runtime.command_guard import (  # noqa: E402
     RuntimeCommandGuardConfig,
     RuntimeCommandGuardError,
 )
-
 
 NOW = 1_700_000_000_000
 DIGEST_A = "sha256:" + "a" * 64
@@ -107,4 +105,3 @@ def test_policy_or_orchestration_fields_are_forbidden(tmp_path):
             envelope=command(payload={"task": "start-worker"}),
             action=lambda payload: {"accepted": True},
         )
-

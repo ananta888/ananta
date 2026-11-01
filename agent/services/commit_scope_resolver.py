@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 FILE_TO_SCOPE_MAP: tuple[tuple[str, Optional[str]], ...] = (

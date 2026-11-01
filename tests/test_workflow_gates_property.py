@@ -63,20 +63,22 @@ class TestArtifactFlowProperties:
         steps = []
         # Step i produces "k_i" and consumes "k_{i-1}".
         # The chain has a producer for every consume.
-        steps.append({
-            "id": "s_0",
-            "produces": [_random_key(rng)],
-            "consumes": ["goal_brief"],
-        })
-        for i in range(1, n):
-            steps.append({
-                "id": f"s_{i}",
+        steps.append(
+            {
+                "id": "s_0",
                 "produces": [_random_key(rng)],
-                "consumes": list(steps[-1]["produces"]),
-            })
-        report = validate_workflow_artifact_graph(
-            steps=steps, goal_seed_artifact_keys=["goal_brief"]
+                "consumes": ["goal_brief"],
+            }
         )
+        for i in range(1, n):
+            steps.append(
+                {
+                    "id": f"s_{i}",
+                    "produces": [_random_key(rng)],
+                    "consumes": list(steps[-1]["produces"]),
+                }
+            )
+        report = validate_workflow_artifact_graph(steps=steps, goal_seed_artifact_keys=["goal_brief"])
         assert report.is_valid, [v.to_dict() for v in report.violations]
 
     def test_orphan_consume_always_rejected(self):
@@ -87,19 +89,12 @@ class TestArtifactFlowProperties:
                 {"id": "a", "produces": [], "consumes": ["goal_brief"]},
                 {"id": "b", "produces": [], "consumes": [orphan]},
             ]
-            report = validate_workflow_artifact_graph(
-                steps=steps, goal_seed_artifact_keys=["goal_brief"]
-            )
+            report = validate_workflow_artifact_graph(steps=steps, goal_seed_artifact_keys=["goal_brief"])
             assert not report.is_valid
-            assert any(
-                v.reason == "no_producer" and v.missing_key == orphan
-                for v in report.violations
-            )
+            assert any(v.reason == "no_producer" and v.missing_key == orphan for v in report.violations)
 
     def test_empty_steps_always_valid(self):
-        report = validate_workflow_artifact_graph(
-            steps=[], goal_seed_artifact_keys=["goal_brief"]
-        )
+        report = validate_workflow_artifact_graph(steps=[], goal_seed_artifact_keys=["goal_brief"])
         assert report.is_valid
 
     def test_self_referential_consume_is_valid(self):
@@ -110,9 +105,7 @@ class TestArtifactFlowProperties:
         steps = [
             {"id": "a", "produces": ["x"], "consumes": ["x", "goal_brief"]},
         ]
-        report = validate_workflow_artifact_graph(
-            steps=steps, goal_seed_artifact_keys=["goal_brief"]
-        )
+        report = validate_workflow_artifact_graph(steps=steps, goal_seed_artifact_keys=["goal_brief"])
         assert report.is_valid, [v.to_dict() for v in report.violations]
 
 
@@ -132,12 +125,14 @@ class TestBlueprintMigrationProperties:
         artifacts = []
         for i in range(n_artifacts):
             produces = [_random_key(rng)] if rng.random() < 0.8 else []
-            artifacts.append({
-                "title": f"Step {i}",
-                "kind": "task",
-                "sort_order": 10 * (i + 1),
-                "payload": {"produces": produces},
-            })
+            artifacts.append(
+                {
+                    "title": f"Step {i}",
+                    "kind": "task",
+                    "sort_order": 10 * (i + 1),
+                    "payload": {"produces": produces},
+                }
+            )
         bp = {
             "name": f"RandomBlueprint-{seed}",
             "description": f"Random blueprint seed={seed}",
@@ -178,15 +173,9 @@ class TestHumanApprovalProperties:
         task = {
             "id": "t",
             "goal_id": "g",
-            "verification_status": {
-                "gate_decision": build_pending_approval_record(
-                    goal_id="g", gate_task_id="t"
-                )
-            },
+            "verification_status": {"gate_decision": build_pending_approval_record(goal_id="g", gate_task_id="t")},
         }
-        block = apply_human_decision(
-            task=task, operator="op", outcome=outcome
-        )
+        block = apply_human_decision(task=task, operator="op", outcome=outcome)
         assert block["status"] == outcome
 
     @pytest.mark.parametrize(
@@ -197,11 +186,7 @@ class TestHumanApprovalProperties:
         task = {
             "id": "t",
             "goal_id": "g",
-            "verification_status": {
-                "gate_decision": build_pending_approval_record(
-                    goal_id="g", gate_task_id="t"
-                )
-            },
+            "verification_status": {"gate_decision": build_pending_approval_record(goal_id="g", gate_task_id="t")},
         }
         if outcome in OPERATOR_DECISIONS:
             return  # skip if it happens to be valid
@@ -217,18 +202,12 @@ class TestHumanApprovalProperties:
         task = {
             "id": "t",
             "goal_id": "g",
-            "verification_status": {
-                "gate_decision": build_pending_approval_record(
-                    goal_id="g", gate_task_id="t"
-                )
-            },
+            "verification_status": {"gate_decision": build_pending_approval_record(goal_id="g", gate_task_id="t")},
         }
         current = current_decision(task) or {}
         original = current["decision_id"]
         for outcome in [DECISION_APPROVED, DECISION_REJECTED, DECISION_DEFERRED]:
-            block = apply_human_decision(
-                task=task, operator="op", outcome=outcome
-            )
+            block = apply_human_decision(task=task, operator="op", outcome=outcome)
             assert block["decision_id"] == original
 
     def test_is_pending_approval_reflects_state(self):
@@ -236,36 +215,22 @@ class TestHumanApprovalProperties:
         task = {
             "id": "t",
             "goal_id": "g",
-            "verification_status": {
-                "gate_decision": build_pending_approval_record(
-                    goal_id="g", gate_task_id="t"
-                )
-            },
+            "verification_status": {"gate_decision": build_pending_approval_record(goal_id="g", gate_task_id="t")},
         }
         assert is_pending_approval(task) is True
         # Approved => not pending
-        apply_human_decision(
-            task=task, operator="op", outcome=DECISION_APPROVED
-        )
+        apply_human_decision(task=task, operator="op", outcome=DECISION_APPROVED)
         assert is_pending_approval(task) is False
         # Rejected => not pending
-        task["verification_status"]["gate_decision"] = (
-            build_pending_approval_record(goal_id="g", gate_task_id="t")
-        )
-        apply_human_decision(
-            task=task, operator="op", outcome=DECISION_REJECTED
-        )
+        task["verification_status"]["gate_decision"] = build_pending_approval_record(goal_id="g", gate_task_id="t")
+        apply_human_decision(task=task, operator="op", outcome=DECISION_REJECTED)
         assert is_pending_approval(task) is False
         # Deferred => not pending; deferred is a
         # terminal state from the gate engine's
         # perspective. (The queue will re-trigger the
         # gate later, not hold it pending.)
-        task["verification_status"]["gate_decision"] = (
-            build_pending_approval_record(goal_id="g", gate_task_id="t")
-        )
-        apply_human_decision(
-            task=task, operator="op", outcome=DECISION_DEFERRED
-        )
+        task["verification_status"]["gate_decision"] = build_pending_approval_record(goal_id="g", gate_task_id="t")
+        apply_human_decision(task=task, operator="op", outcome=DECISION_DEFERRED)
         assert is_pending_approval(task) is False
 
 
@@ -281,18 +246,20 @@ class TestTuiViewProperties:
         n_steps = rng.randint(0, 6)
         steps = []
         for i in range(n_steps):
-            steps.append({
-                "step_id": f"s_{i}",
-                "role": f"Role {i}",
-                "task_id": f"t_{i}",
-                "task_status": "todo",
-                "task_blocker_reason": "",
-                "gate": bool(rng.random() < 0.3),
-                "gate_decision": "",
-                "is_blocker": bool(rng.random() < 0.2),
-                "blocked_reasons": [],
-                "missing_consumes": [],
-            })
+            steps.append(
+                {
+                    "step_id": f"s_{i}",
+                    "role": f"Role {i}",
+                    "task_id": f"t_{i}",
+                    "task_status": "todo",
+                    "task_blocker_reason": "",
+                    "gate": bool(rng.random() < 0.3),
+                    "gate_decision": "",
+                    "is_blocker": bool(rng.random() < 0.2),
+                    "blocked_reasons": [],
+                    "missing_consumes": [],
+                }
+            )
         view = render_workflow_status({"goal_id": "g", "steps": steps})
         assert view.text
         # The view never raises on random payloads.
@@ -309,11 +276,13 @@ class TestTuiViewProperties:
             }
             for i in range(n_handoffs)
         ]
-        view = render_workflow_status({
-            "goal_id": "g",
-            "steps": [],
-            "handoff_events": handoffs,
-        })
+        view = render_workflow_status(
+            {
+                "goal_id": "g",
+                "steps": [],
+                "handoff_events": handoffs,
+            }
+        )
         assert view.text
         if n_handoffs > 10:
             assert "and" in view.text and "more" in view.text

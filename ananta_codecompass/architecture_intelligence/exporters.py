@@ -21,9 +21,7 @@ def export_graphml(projection: Mapping[str, Any]) -> str:
     for node in projection.get("nodes") or []:
         lines.append(f'<node id="{_esc(node["id"])}"/>')
     for index, edge in enumerate(projection.get("edges") or []):
-        lines.append(
-            f'<edge id="e{index}" source="{_esc(edge["source"])}" target="{_esc(edge["target"])}"/>'
-        )
+        lines.append(f'<edge id="e{index}" source="{_esc(edge["source"])}" target="{_esc(edge["target"])}"/>')
     lines.append("</graph></graphml>")
     return "\n".join(lines)
 

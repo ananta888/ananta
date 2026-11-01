@@ -7,6 +7,7 @@ These tests verify that:
 - refresh correctly detects encoding-config changes and triggers rebuild
 - save/load round-trips are lossless
 """
+
 from __future__ import annotations
 
 import json
@@ -26,6 +27,7 @@ from worker.retrieval.vector_encoding import (
 # Fake embedding provider — deterministic, no external calls
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class FakeEmbeddingProvider:
     provider_id: str = "fake"
@@ -36,15 +38,13 @@ class FakeEmbeddingProvider:
         return "fakehash"
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        return [
-            [0.1 * i + 0.01 * j for j in range(self.dimensions)]
-            for i, _ in enumerate(texts)
-        ]
+        return [[0.1 * i + 0.01 * j for j in range(self.dimensions)] for i, _ in enumerate(texts)]
 
 
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _minimal_documents(n: int = 2) -> list[dict[str, Any]]:
     return [
@@ -83,6 +83,7 @@ def _legacy_state(provider: FakeEmbeddingProvider) -> dict[str, Any]:
 # TQ-026-001  old index with only `vector` field (no encoded_vector) loads
 # ---------------------------------------------------------------------------
 
+
 def test_load_old_index_without_encoded_vector(tmp_path):
     """An index written without encoded_vector (pre-v2 schema) must load cleanly."""
     index_path = tmp_path / "cc_vector_index.json"
@@ -106,6 +107,7 @@ def test_load_old_index_without_encoded_vector(tmp_path):
 # TQ-026-002  index without schema field still loads (degraded state)
 # ---------------------------------------------------------------------------
 
+
 def test_load_v1_schema_falls_back_to_degraded(tmp_path):
     """An index with no schema in state must not crash; entries are preserved."""
     index_path = tmp_path / "cc_vector_index.json"
@@ -113,9 +115,7 @@ def test_load_v1_schema_falls_back_to_degraded(tmp_path):
         index_path,
         {
             "state": {"manifest_hash": "mh-legacy"},
-            "entries": [
-                {"record_id": "r1", "kind": "function", "file": "a.py", "vector": [0.5, 0.5]}
-            ],
+            "entries": [{"record_id": "r1", "kind": "function", "file": "a.py", "vector": [0.5, 0.5]}],
         },
     )
     store = CodeCompassVectorStore(index_path=index_path)
@@ -127,6 +127,7 @@ def test_load_v1_schema_falls_back_to_degraded(tmp_path):
 # ---------------------------------------------------------------------------
 # TQ-026-003  rebuild with mode=off writes `vector` key
 # ---------------------------------------------------------------------------
+
 
 def test_rebuild_with_encoding_off_writes_vector_field(tmp_path):
     """mode=off (disabled) must write `vector` directly onto each entry."""
@@ -150,6 +151,7 @@ def test_rebuild_with_encoding_off_writes_vector_field(tmp_path):
 # TQ-026-004  rebuild with mode=int8 writes `encoded_vector` key
 # ---------------------------------------------------------------------------
 
+
 def test_rebuild_with_encoding_int8_writes_encoded_vector(tmp_path):
     """mode=int8 must write `encoded_vector` and omit the raw `vector` float list."""
     store = CodeCompassVectorStore(index_path=tmp_path / "index.json")
@@ -172,6 +174,7 @@ def test_rebuild_with_encoding_int8_writes_encoded_vector(tmp_path):
 # ---------------------------------------------------------------------------
 # TQ-026-005  refresh detects encoding change and rebuilds
 # ---------------------------------------------------------------------------
+
 
 def test_refresh_detects_encoding_change_and_rebuilds(tmp_path):
     """Switching from mode=off to mode=int8 must trigger a rebuild."""
@@ -200,6 +203,7 @@ def test_refresh_detects_encoding_change_and_rebuilds(tmp_path):
 # ---------------------------------------------------------------------------
 # TQ-026-006  refresh with unchanged config returns no rebuild
 # ---------------------------------------------------------------------------
+
 
 def test_refresh_unchanged_returns_no_rebuild(tmp_path):
     """Calling refresh with identical config after rebuild must return 'unchanged'."""
@@ -230,6 +234,7 @@ def test_refresh_unchanged_returns_no_rebuild(tmp_path):
 # TQ-026-007  save then load round-trip returns same entries
 # ---------------------------------------------------------------------------
 
+
 def test_store_save_load_roundtrip(tmp_path):
     """save() followed by load() must return exactly the same entries."""
     store = CodeCompassVectorStore(index_path=tmp_path / "index.json")
@@ -252,16 +257,13 @@ def test_store_save_load_roundtrip(tmp_path):
 # TQ-026-008  index with only entries (no state field) loads without crash
 # ---------------------------------------------------------------------------
 
+
 def test_old_index_missing_state_field(tmp_path):
     """An index JSON with no 'state' key at all must load without crash."""
     index_path = tmp_path / "cc_vector_index.json"
     _write_raw_index(
         index_path,
-        {
-            "entries": [
-                {"record_id": "r1", "kind": "function", "file": "x.py", "vector": [0.1, 0.9]}
-            ]
-        },
+        {"entries": [{"record_id": "r1", "kind": "function", "file": "x.py", "vector": [0.1, 0.9]}]},
     )
     store = CodeCompassVectorStore(index_path=index_path)
     loaded = store.load()

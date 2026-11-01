@@ -19,6 +19,7 @@ This module turns those observations into the same report:
   untouched, so a missing or mismatched report fails the gate honestly instead of
   being papered over.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -135,7 +136,7 @@ def baseline_from_description(description: Any) -> dict[str, str]:
         return {}
     start += len(_SOURCE_CONTEXT_MARKER)
     end = text.find(_SOURCE_CONTEXT_END_MARKER, start)
-    raw = text[start: end if end > start else None].strip()
+    raw = text[start : end if end > start else None].strip()
     try:
         bundle = json.loads(raw)
     except (json.JSONDecodeError, ValueError):

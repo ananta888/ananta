@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 
 from agent.db_models import PlanningEvaluationDB
-from agent.services.repository_registry import get_repository_registry
 from agent.services.planning_semantic_behavior_analyzer import analyze_semantic_behavior
+from agent.services.repository_registry import get_repository_registry
 
 
 class PlanningEvaluationService:
@@ -28,7 +28,14 @@ class PlanningEvaluationService:
         verification_score = 1.0 if (run.verification_spec_count or 0) > 0 else 0.0
         execution_score = 1.0 if run.status in {"materialized", "completed"} else 0.0
         total = round(
-            (parse_score + validation_score + materialization_score + execution_score + artifact_score + verification_score)
+            (
+                parse_score
+                + validation_score
+                + materialization_score
+                + execution_score
+                + artifact_score
+                + verification_score
+            )
             / 6.0,
             4,
         )
@@ -36,7 +43,9 @@ class PlanningEvaluationService:
         completion_status = "completed" if total >= 0.7 else "partial"
         failure_reason = None if completion_status == "completed" else (run.error_classification or "low_total_score")
 
-        evaluation = get_repository_registry().planning_evaluation_repo.get_by_run_id(planning_run_id) or PlanningEvaluationDB(
+        evaluation = get_repository_registry().planning_evaluation_repo.get_by_run_id(
+            planning_run_id
+        ) or PlanningEvaluationDB(
             planning_run_id=planning_run_id,
             goal_id=goal_id,
             trace_id=trace_id,
@@ -65,9 +74,7 @@ class PlanningEvaluationService:
                     subtasks = []
                     for n in nodes:
                         quality_texts.extend(
-                            value
-                            for value in (str(n.title or ""), str(n.description or ""))
-                            if value.strip()
+                            value for value in (str(n.title or ""), str(n.description or "")) if value.strip()
                         )
                         subtasks.append(
                             {

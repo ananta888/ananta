@@ -74,8 +74,15 @@ def sign_capability(capability: Mapping[str, Any], key: bytes) -> dict[str, Any]
     return signed
 
 
-def verify_signed_capability(value: Any, *, key: bytes, task_id: str | None = None, audience: str | None = None,
-                             operation_id: str | None = None, now_epoch: float | None = None) -> dict[str, Any]:
+def verify_signed_capability(
+    value: Any,
+    *,
+    key: bytes,
+    task_id: str | None = None,
+    audience: str | None = None,
+    operation_id: str | None = None,
+    now_epoch: float | None = None,
+) -> dict[str, Any]:
     """Scope, expiry, digest and signature; plus the task, worker and operation it must be bound to."""
     if not isinstance(value, Mapping):
         raise CapabilityError("capability_required")
@@ -102,8 +109,11 @@ def verify_signed_capability(value: Any, *, key: bytes, task_id: str | None = No
 def repository_top_level(root: Path = _REPO_ROOT) -> list[str]:
     """Every visible top-level entry of the repository: the unconstrained path scope."""
     try:
-        return sorted(entry.name for entry in root.iterdir()
-                      if not entry.name.startswith(".") and entry.name not in _SKIPPED_TOP_LEVEL)
+        return sorted(
+            entry.name
+            for entry in root.iterdir()
+            if not entry.name.startswith(".") and entry.name not in _SKIPPED_TOP_LEVEL
+        )
     except OSError:
         return []
 
@@ -131,18 +141,30 @@ def allowed_codecompass_operations(grants: Any) -> list[str]:
     from agent.services.operation_registry_service import get_operation_registry_service
 
     registry = get_operation_registry_service()
-    operations = [descriptor.operation_id for descriptor in registry.list_descriptors()
-                  if descriptor.operation_id.startswith(_CODECOMPASS_PREFIX)]
+    operations = [
+        descriptor.operation_id
+        for descriptor in registry.list_descriptors()
+        if descriptor.operation_id.startswith(_CODECOMPASS_PREFIX)
+    ]
     if grants is None or not getattr(grants, "roles", None):
         return sorted(operations)
-    return sorted(operation for operation in operations
-                  if grants.allows(operation, registry.groups_for(operation))[0])
+    return sorted(operation for operation in operations if grants.allows(operation, registry.groups_for(operation))[0])
 
 
-def issue_capability(*, subject_id: str, tenant_id: str | None, task_id: str | None, audience: str | None,
-                     grants: Any = None, workspace_id: str | None = None, ttl_seconds: int = DEFAULT_TTL_SECONDS,
-                     key: bytes | None = None, binding: tuple[str, str, str] | None = None,
-                     top_level: list[str] | None = None, now_epoch: float | None = None) -> dict[str, Any]:
+def issue_capability(
+    *,
+    subject_id: str,
+    tenant_id: str | None,
+    task_id: str | None,
+    audience: str | None,
+    grants: Any = None,
+    workspace_id: str | None = None,
+    ttl_seconds: int = DEFAULT_TTL_SECONDS,
+    key: bytes | None = None,
+    binding: tuple[str, str, str] | None = None,
+    top_level: list[str] | None = None,
+    now_epoch: float | None = None,
+) -> dict[str, Any]:
     """A signed capability for ``subject_id``'s grants, bound to ``task_id`` and ``audience``."""
     binding = binding or resolve_index_binding()
     if binding is None:
@@ -150,8 +172,9 @@ def issue_capability(*, subject_id: str, tenant_id: str | None, task_id: str | N
     index_id, repository_id, revision = binding
     constraints = dict(getattr(grants, "constraints", None) or {})
     paths = constraints.get("paths")
-    allowed_paths = sorted(paths) if paths is not None else (top_level if top_level is not None
-                                                              else repository_top_level())
+    allowed_paths = (
+        sorted(paths) if paths is not None else (top_level if top_level is not None else repository_top_level())
+    )
     index_ids = constraints.get("index_ids")
     if index_ids is not None and index_id not in index_ids:
         raise CapabilityError("capability_index_not_granted")
@@ -159,14 +182,25 @@ def issue_capability(*, subject_id: str, tenant_id: str | None, task_id: str | N
         raise CapabilityError("capability_paths_empty")
     tenant = str(tenant_id or "local").strip() or "local"
     sealed = bind_retrieval_capability(
-        {"workspace_id": workspace_id or f"tenant:{tenant}", "repository_id": repository_id,
-         "source_scope": "repo_path", "revision": revision, "allowed_paths": allowed_paths,
-         "allowed_index_ids": [index_id], "allowed_signals": ["exact", "graph", "vector"]},
-        subject_id=subject_id, tenant_id=tenant, ttl_seconds=ttl_seconds,
+        {
+            "workspace_id": workspace_id or f"tenant:{tenant}",
+            "repository_id": repository_id,
+            "source_scope": "repo_path",
+            "revision": revision,
+            "allowed_paths": allowed_paths,
+            "allowed_index_ids": [index_id],
+            "allowed_signals": ["exact", "graph", "vector"],
+        },
+        subject_id=subject_id,
+        tenant_id=tenant,
+        ttl_seconds=ttl_seconds,
         now_epoch=time.time() if now_epoch is None else now_epoch,
     )
-    sealed.update(task_id=str(task_id or ""), audience=str(audience or ""),
-                  allowed_operations=allowed_codecompass_operations(grants))
+    sealed.update(
+        task_id=str(task_id or ""),
+        audience=str(audience or ""),
+        allowed_operations=allowed_codecompass_operations(grants),
+    )
     return sign_capability(sealed, key or capability_key())
 
 
@@ -180,13 +214,21 @@ class HubRetrievalCapabilityResolver:
         subject = str(getattr(principal, "subject_id", "") or "").strip()
         if not subject:
             return None
-        grants = get_access_role_admin_service().grants_for(IdentityClaims(
-            username=subject, tenant_id=getattr(principal, "tenant_id", None),
-            project_id=getattr(principal, "project_id", None)))
+        grants = get_access_role_admin_service().grants_for(
+            IdentityClaims(
+                username=subject,
+                tenant_id=getattr(principal, "tenant_id", None),
+                project_id=getattr(principal, "project_id", None),
+            )
+        )
         try:
-            capability = issue_capability(subject_id=subject, tenant_id=getattr(principal, "tenant_id", None),
-                                          task_id=str(requested_scope.get("task_id") or ""),
-                                          audience=str(requested_scope.get("audience") or "hub"), grants=grants)
+            capability = issue_capability(
+                subject_id=subject,
+                tenant_id=getattr(principal, "tenant_id", None),
+                task_id=str(requested_scope.get("task_id") or ""),
+                audience=str(requested_scope.get("audience") or "hub"),
+                grants=grants,
+            )
         except CapabilityError:
             return None
         return capability

@@ -1,8 +1,9 @@
 """WSM-T004: Hermes-like proposal/review-first strategy."""
+
 from __future__ import annotations
 
+from worker.core.propose import PlannerProposalArtifact, ProposeStrategyResult
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult, PlannerProposalArtifact
 
 
 class HermesProposalStrategy(ProposeStrategy):

@@ -80,9 +80,7 @@ def test_issue_revoke_and_replays_share_one_domain_and_audit_transaction() -> No
     engine, recorder, repository, service = _stack()
     grant = _issue(service)
     assert len(_rows(engine, SemanticMediaCapabilityGrantDB)) == 1
-    assert [row.transition for row in _rows(engine, SemanticMediaAuditOutboxDB)] == [
-        "capability_granted"
-    ]
+    assert [row.transition for row in _rows(engine, SemanticMediaAuditOutboxDB)] == ["capability_granted"]
 
     replay_event = recorder.prepare_transition(
         idempotency_key=f"semantic-capability:{grant.grant_id}:granted",

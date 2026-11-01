@@ -4,14 +4,6 @@ This package splits persistence concerns by domain while keeping the existing
 `agent.repository` facade available for backward compatibility.
 """
 
-from .auth import (
-    BannedIPRepository,
-    LoginAttemptRepository,
-    OidcIdentityLinkRepository,
-    PasswordHistoryRepository,
-    RefreshTokenRepository,
-    UserRepository,
-)
 from .artifacts import (
     ArtifactRepository,
     ArtifactVersionRepository,
@@ -21,9 +13,24 @@ from .artifacts import (
     KnowledgeIndexRunRepository,
     KnowledgeLinkRepository,
 )
+from .auth import (
+    BannedIPRepository,
+    LoginAttemptRepository,
+    OidcIdentityLinkRepository,
+    PasswordHistoryRepository,
+    RefreshTokenRepository,
+    UserRepository,
+)
 from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobRepository, WorkerResultRepository
 from .context_access_policy_repo import ContextAccessPolicyRepository
-from .core import AgentRepository, ConfigRepository, PlaybookRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
+from .core import (
+    AgentRepository,
+    ConfigRepository,
+    PlaybookRepository,
+    ScheduledTaskRepository,
+    TeamRepository,
+    TemplateRepository,
+)
 from .evolution import EvolutionProposalRepository, EvolutionRunRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import ActionPackRepository, AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
@@ -41,13 +48,6 @@ from .organization import (
     TeamTypeRepository,
     TeamTypeRoleLinkRepository,
 )
-from .tasks import AgentSessionRepository, ArchivedTaskRepository, PolicySnapshotRepository, TaskRepository, ToolCallRepository
-from .worker_slot_lease import WorkerSlotLeaseRepository
-from .terminal import TerminalSessionRepository, TerminalEventRepository
-from .text_quality import (
-    TextQualityCriteriaSetRepository,
-    TextQualityEvaluationRepository,
-)
 from .planning_learning import (
     PlanningEvaluationRepository,
     PlanningModelProfileRepository,
@@ -59,13 +59,26 @@ from .planning_learning import (
 )
 from .projects import ProjectRepository
 from .source_admission_receipt_repository import (
-    SQLSourceAdmissionReceiptRepository,
     SourceAdmissionCounters,
     SourceAdmissionReceiptDraft,
     SourceAdmissionReceiptPersistenceError,
     SourceAdmissionReceiptPort,
     SourceAdmissionReceiptRecord,
+    SQLSourceAdmissionReceiptRepository,
 )
+from .tasks import (
+    AgentSessionRepository,
+    ArchivedTaskRepository,
+    PolicySnapshotRepository,
+    TaskRepository,
+    ToolCallRepository,
+)
+from .terminal import TerminalEventRepository, TerminalSessionRepository
+from .text_quality import (
+    TextQualityCriteriaSetRepository,
+    TextQualityEvaluationRepository,
+)
+from .worker_slot_lease import WorkerSlotLeaseRepository
 
 __all__ = [
     "SQLSourceAdmissionReceiptRepository",

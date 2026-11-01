@@ -1,4 +1,5 @@
 """Artifact-first task status endpoints. AFH-T021/T022."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -42,7 +43,9 @@ def get_task_artifact_status(tid: str):
     artifact_completion = None
     for evt in reversed(list(task_dict.get("history") or [])):
         if isinstance(evt, dict) and evt.get("event_type") in (
-            "artifact_first_completion", "artifact_first_finalization", "artifact_reconciliation_applied"
+            "artifact_first_completion",
+            "artifact_first_finalization",
+            "artifact_reconciliation_applied",
         ):
             artifact_completion = dict(evt.get("details") or {})
             break
@@ -107,12 +110,14 @@ def get_task_artifact_preview(tid: str):
     expected_artifacts: list[dict] = []
     for t in todo_tasks:
         for a in list(t.get("expected_artifacts") or []):
-            expected_artifacts.append({
-                "kind": str(a.get("kind") or ""),
-                "relative_path": str(a.get("relative_path") or a.get("description") or ""),
-                "required": bool(a.get("required", False)),
-                "description": str(a.get("description") or ""),
-            })
+            expected_artifacts.append(
+                {
+                    "kind": str(a.get("kind") or ""),
+                    "relative_path": str(a.get("relative_path") or a.get("description") or ""),
+                    "required": bool(a.get("required", False)),
+                    "description": str(a.get("description") or ""),
+                }
+            )
 
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
     runtime_cfg = (agent_cfg or {}).get("worker_runtime") or {}
@@ -162,11 +167,7 @@ def reconcile_task_from_artifacts(tid: str):
 
     execution_id = str(body.get("execution_id") or task_dict.get("current_worker_job_id") or tid)
     manifest_path = str(
-        body.get("manifest_relative_path")
-        or (
-            f".ananta/handoff/{execution_id}/"
-            "artifact_manifest.v1.json"
-        )
+        body.get("manifest_relative_path") or (f".ananta/handoff/{execution_id}/artifact_manifest.v1.json")
     )
 
     dry_run = bool(body.get("dry_run", False))

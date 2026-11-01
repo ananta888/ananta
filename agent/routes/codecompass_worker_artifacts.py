@@ -60,9 +60,12 @@ def get_worker_artifact(sha256: str):
 
     try:
         capability = _verified_capability()
-        path = locate_admitted_artifact(capability, sha256,
-                                        get_index=get_repository_registry().knowledge_index_repo.get_by_id,
-                                        resolver=get_codecompass_graph_artifact_resolver())
+        path = locate_admitted_artifact(
+            capability,
+            sha256,
+            get_index=get_repository_registry().knowledge_index_repo.get_by_id,
+            resolver=get_codecompass_graph_artifact_resolver(),
+        )
     except (CapabilityError, ArtifactAccessError) as error:
         reason = str(error)
         return _denied(reason, 404 if reason == "artifact_not_granted" else 403)
@@ -89,7 +92,9 @@ def get_worker_index_artifact(knowledge_index_id: str, role: str):
     try:
         capability = _verified_capability()
         path, digest = locate_admitted_index_output(
-            capability, knowledge_index_id, role,
+            capability,
+            knowledge_index_id,
+            role,
             get_index=get_repository_registry().knowledge_index_repo.get_by_id,
         )
     except CapabilityError as error:
@@ -98,7 +103,11 @@ def get_worker_index_artifact(knowledge_index_id: str, role: str):
         reason = str(error)
         code = 404 if reason in {"artifact_not_found", "artifact_output_dir_missing"} else 403
         return _denied(reason, code)
-    response = send_file(path, mimetype="application/x-ndjson" if path.suffix == ".jsonl" else "application/json",
-                         as_attachment=True, download_name=path.name)
+    response = send_file(
+        path,
+        mimetype="application/x-ndjson" if path.suffix == ".jsonl" else "application/json",
+        as_attachment=True,
+        download_name=path.name,
+    )
     response.headers[ARTIFACT_DIGEST_HEADER] = digest
     return response

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -9,8 +9,8 @@ class TuiAction:
     action_id: str
     label: str
     description: str
-    risk: str           # "safe" | "medium" | "high"
-    category: str       # "view" | "overlay" | "focus" | "artifact" | "snake" | "help"
+    risk: str  # "safe" | "medium" | "high"
+    category: str  # "view" | "overlay" | "focus" | "artifact" | "snake" | "help"
     allowed_modes: frozenset[str]
 
 
@@ -18,12 +18,12 @@ class TuiAction:
 class ActionRequest:
     action_id: str
     args: dict[str, Any]
-    source: str         # "chat" | "test" | "keyboard"
+    source: str  # "chat" | "test" | "keyboard"
 
 
 @dataclass(frozen=True)
 class DispatchResult:
-    status: str         # "ok" | "error" | "denied" | "not_found"
+    status: str  # "ok" | "error" | "denied" | "not_found"
     action_id: str
     message: str
     changed_state_summary: dict[str, Any]
@@ -37,35 +37,96 @@ _INITIAL_ACTIONS: tuple[TuiAction, ...] = (
     TuiAction("help.tui", "TUI Help", "Show available TUI control commands", "safe", "help", frozenset({"any"})),
     TuiAction("view.list", "View List", "List all center viewport views", "safe", "view", frozenset({"any"})),
     TuiAction("view.next", "Next View", "Switch to next available center view", "safe", "view", frozenset({"any"})),
-    TuiAction("view.previous", "Previous View", "Switch to previous available center view", "safe", "view", frozenset({"any"})),
+    TuiAction(
+        "view.previous", "Previous View", "Switch to previous available center view", "safe", "view", frozenset({"any"})
+    ),
     TuiAction("view.select", "Select View", "Switch to named center view", "safe", "view", frozenset({"any"})),
-    TuiAction("overlay.views.on", "Show View Overlay", "Show the two-line view switcher overlay", "safe", "overlay", frozenset({"any"})),
-    TuiAction("overlay.views.off", "Hide View Overlay", "Hide the two-line view switcher overlay", "safe", "overlay", frozenset({"any"})),
-    TuiAction("overlay.views.toggle", "Toggle View Overlay", "Toggle the view switcher overlay visibility", "safe", "overlay", frozenset({"any"})),
+    TuiAction(
+        "overlay.views.on",
+        "Show View Overlay",
+        "Show the two-line view switcher overlay",
+        "safe",
+        "overlay",
+        frozenset({"any"}),
+    ),
+    TuiAction(
+        "overlay.views.off",
+        "Hide View Overlay",
+        "Hide the two-line view switcher overlay",
+        "safe",
+        "overlay",
+        frozenset({"any"}),
+    ),
+    TuiAction(
+        "overlay.views.toggle",
+        "Toggle View Overlay",
+        "Toggle the view switcher overlay visibility",
+        "safe",
+        "overlay",
+        frozenset({"any"}),
+    ),
     TuiAction("focus.chat", "Focus Chat", "Move input focus to chat panel", "safe", "focus", frozenset({"any"})),
-    TuiAction("focus.artifacts", "Focus Artifacts", "Move focus to artifacts panel", "safe", "focus", frozenset({"any"})),
+    TuiAction(
+        "focus.artifacts", "Focus Artifacts", "Move focus to artifacts panel", "safe", "focus", frozenset({"any"})
+    ),
     TuiAction("focus.main", "Focus Main", "Move focus to main content area", "safe", "focus", frozenset({"any"})),
-    TuiAction("focus.diagnostics", "Focus Diagnostics", "Move focus to diagnostics view", "safe", "focus", frozenset({"any"})),
+    TuiAction(
+        "focus.diagnostics", "Focus Diagnostics", "Move focus to diagnostics view", "safe", "focus", frozenset({"any"})
+    ),
     TuiAction("artifact.open", "Open Artifact", "Open artifact by index or id", "safe", "artifact", frozenset({"any"})),
     TuiAction("snake.pause", "Snake Pause", "Pause/resume snake game", "safe", "snake", frozenset({"any"})),
     TuiAction("snake.resume", "Snake Resume", "Resume snake game", "safe", "snake", frozenset({"any"})),
     TuiAction("snake.follow.on", "Snake Follow On", "Enable mouse follow mode", "safe", "snake", frozenset({"any"})),
     TuiAction("snake.follow.off", "Snake Follow Off", "Disable mouse follow mode", "safe", "snake", frozenset({"any"})),
-    TuiAction("scroll.page_up", "Scroll Page Up", "Scroll active panel one page up", "safe", "scroll", frozenset({"any"})),
-    TuiAction("scroll.page_down", "Scroll Page Down", "Scroll active panel one page down", "safe", "scroll", frozenset({"any"})),
-    TuiAction("scroll.line_up", "Scroll Line Up", "Scroll active panel one line up", "safe", "scroll", frozenset({"any"})),
-    TuiAction("scroll.line_down", "Scroll Line Down", "Scroll active panel one line down", "safe", "scroll", frozenset({"any"})),
+    TuiAction(
+        "scroll.page_up", "Scroll Page Up", "Scroll active panel one page up", "safe", "scroll", frozenset({"any"})
+    ),
+    TuiAction(
+        "scroll.page_down",
+        "Scroll Page Down",
+        "Scroll active panel one page down",
+        "safe",
+        "scroll",
+        frozenset({"any"}),
+    ),
+    TuiAction(
+        "scroll.line_up", "Scroll Line Up", "Scroll active panel one line up", "safe", "scroll", frozenset({"any"})
+    ),
+    TuiAction(
+        "scroll.line_down",
+        "Scroll Line Down",
+        "Scroll active panel one line down",
+        "safe",
+        "scroll",
+        frozenset({"any"}),
+    ),
     TuiAction("scroll.home", "Scroll To Top", "Scroll active panel to top", "safe", "scroll", frozenset({"any"})),
     TuiAction("scroll.end", "Scroll To Bottom", "Scroll active panel to bottom", "safe", "scroll", frozenset({"any"})),
     TuiAction("focus.center", "Focus Center", "Move focus to center viewport", "safe", "focus", frozenset({"any"})),
     TuiAction("focus.logs", "Focus Logs", "Move focus to log panel", "safe", "focus", frozenset({"any"})),
     TuiAction("focus.nav", "Focus Nav", "Move focus to navigation panel", "safe", "focus", frozenset({"any"})),
     TuiAction("session.list", "Session List", "List all AI chat sessions", "safe", "session", frozenset({"any"})),
-    TuiAction("session.switch", "Session Switch", "Switch to a named AI chat session", "safe", "session", frozenset({"any"})),
+    TuiAction(
+        "session.switch", "Session Switch", "Switch to a named AI chat session", "safe", "session", frozenset({"any"})
+    ),
     TuiAction("session.new", "Session New", "Create a new AI chat session", "safe", "session", frozenset({"any"})),
-    TuiAction("session.delete", "Session Delete", "Delete an AI chat session and its history", "medium", "session", frozenset({"any"})),
+    TuiAction(
+        "session.delete",
+        "Session Delete",
+        "Delete an AI chat session and its history",
+        "medium",
+        "session",
+        frozenset({"any"}),
+    ),
     TuiAction("session.rename", "Session Rename", "Rename an AI chat session", "safe", "session", frozenset({"any"})),
-    TuiAction("session.clear", "Session Clear", "Clear the message history of a session", "medium", "session", frozenset({"any"})),
+    TuiAction(
+        "session.clear",
+        "Session Clear",
+        "Clear the message history of a session",
+        "medium",
+        "session",
+        frozenset({"any"}),
+    ),
 )
 
 _FORBIDDEN_CATEGORIES: frozenset[str] = frozenset({"shell", "file_write", "file_delete", "network", "destructive"})
@@ -132,7 +193,11 @@ class TuiActionDispatcher:
                 action_id=request.action_id,
                 message=f"Action category {action.category!r} is forbidden.",
                 changed_state_summary={},
-                control_result_marker={"status": "denied", "action_id": request.action_id, "reason_code": "forbidden_category"},
+                control_result_marker={
+                    "status": "denied",
+                    "action_id": request.action_id,
+                    "reason_code": "forbidden_category",
+                },
             )
         try:
             return self._execute(action, request)
@@ -151,7 +216,8 @@ class TuiActionDispatcher:
 
         if action.action_id == "help.tui":
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=self._registry.help_text(),
                 changed_state_summary={},
                 control_result_marker={"status": "ok", "action_id": action.action_id},
@@ -162,7 +228,8 @@ class TuiActionDispatcher:
             active = state.get("active_view") or state.get("visual_viewport_active_view") or ""
             view_list = ", ".join(str(v) for v in views) or "(none)"
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Available views: {view_list}. Active: {active or '(none)'}",
                 changed_state_summary={},
                 control_result_marker={"status": "ok", "action_id": action.action_id, "views": views, "active": active},
@@ -172,7 +239,8 @@ class TuiActionDispatcher:
             direction = "next" if action.action_id == "view.next" else "previous"
             changed[f"visual_viewport_cycle_{direction}"] = True
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Switching to {direction} view",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "direction": direction},
@@ -182,13 +250,20 @@ class TuiActionDispatcher:
             view_id = str(request.args.get("view_id") or "")
             if not view_id:
                 return DispatchResult(
-                    status="error", action_id=action.action_id, message="view_id argument required",
+                    status="error",
+                    action_id=action.action_id,
+                    message="view_id argument required",
                     changed_state_summary={},
-                    control_result_marker={"status": "error", "action_id": action.action_id, "reason_code": "missing_arg"},
+                    control_result_marker={
+                        "status": "error",
+                        "action_id": action.action_id,
+                        "reason_code": "missing_arg",
+                    },
                 )
             changed["visual_viewport_active_view_request"] = view_id
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"View switched to {view_id}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "view_id": view_id},
@@ -204,17 +279,19 @@ class TuiActionDispatcher:
                 new_val = not current
             changed["visual_view_switcher_overlay_visible"] = new_val
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"View overlay {'shown' if new_val else 'hidden'}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "overlay_visible": new_val},
             )
 
         if action.action_id.startswith("focus."):
-            target = action.action_id[len("focus."):]
+            target = action.action_id[len("focus.") :]
             changed["focus_target_request"] = target
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Focus moved to: {target}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "focus": target},
@@ -224,13 +301,20 @@ class TuiActionDispatcher:
             ref = str(request.args.get("ref") or "")
             if not ref:
                 return DispatchResult(
-                    status="error", action_id=action.action_id, message="artifact ref required",
+                    status="error",
+                    action_id=action.action_id,
+                    message="artifact ref required",
                     changed_state_summary={},
-                    control_result_marker={"status": "error", "action_id": action.action_id, "reason_code": "missing_arg"},
+                    control_result_marker={
+                        "status": "error",
+                        "action_id": action.action_id,
+                        "reason_code": "missing_arg",
+                    },
                 )
             changed["open_artifact_request"] = ref
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Opening artifact: {ref}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "ref": ref},
@@ -240,7 +324,8 @@ class TuiActionDispatcher:
             paused = action.action_id == "snake.pause"
             changed["snake_paused_request"] = paused
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message="Snake paused" if paused else "Snake resumed",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "paused": paused},
@@ -250,34 +335,38 @@ class TuiActionDispatcher:
             follow_on = action.action_id == "snake.follow.on"
             changed["snake_mouse_follow_request"] = follow_on
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Snake mouse follow {'enabled' if follow_on else 'disabled'}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "follow": follow_on},
             )
 
         if action.action_id.startswith("scroll."):
-            sub = action.action_id[len("scroll."):]
+            sub = action.action_id[len("scroll.") :]
             changed["scroll_command_request"] = sub
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Scroll: {sub}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "scroll_command": sub},
             )
 
         if action.action_id in ("focus.center", "focus.logs", "focus.nav"):
-            target = action.action_id[len("focus."):]
+            target = action.action_id[len("focus.") :]
             changed["focus_target_request"] = target
             return DispatchResult(
-                status="ok", action_id=action.action_id,
+                status="ok",
+                action_id=action.action_id,
                 message=f"Focus moved to: {target}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "focus": target},
             )
 
         return DispatchResult(
-            status="error", action_id=action.action_id,
+            status="error",
+            action_id=action.action_id,
             message=f"No handler for action {action.action_id!r}",
             changed_state_summary={},
             control_result_marker={"status": "error", "action_id": action.action_id, "reason_code": "no_handler"},

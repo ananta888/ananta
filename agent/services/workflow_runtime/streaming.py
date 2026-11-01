@@ -172,9 +172,7 @@ class WorkflowStreamService:
         self._clock = clock
         self._monotonic = monotonic
         self._sleeper = sleeper
-        self._poll_interval_seconds = max(
-            0.01, min(float(poll_interval_seconds), 1.0)
-        )
+        self._poll_interval_seconds = max(0.01, min(float(poll_interval_seconds), 1.0))
 
     def read(
         self,

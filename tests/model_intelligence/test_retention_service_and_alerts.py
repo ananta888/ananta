@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 
-from ananta_contracts.model_intelligence import ArtifactRef
 from agent.services.model_intelligence_alerts import (
     ModelIntelligenceAlertEvaluator,
     ModelIntelligenceOperationalSnapshot,
@@ -24,6 +23,7 @@ from agent.services.model_intelligence_security_policy import (
     RetentionClass,
     RetentionState,
 )
+from ananta_contracts.model_intelligence import ArtifactRef
 
 
 def _artifact() -> ArtifactRef:
@@ -113,12 +113,8 @@ def test_alert_evaluator_is_deterministic_and_content_free() -> None:
     second = evaluator.evaluate(snapshot)
 
     assert first == second
-    assert [alert.alert_id for alert in first] == sorted(
-        alert.alert_id for alert in first
-    )
-    assert {
-        alert.alert_id for alert in first
-    } == {
+    assert [alert.alert_id for alert in first] == sorted(alert.alert_id for alert in first)
+    assert {alert.alert_id for alert in first} == {
         "model_intelligence_disk_pressure",
         "model_intelligence_failure_rate",
         "model_intelligence_queue_pressure",

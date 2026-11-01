@@ -158,9 +158,7 @@ class CliCodingAgentProvider:
             input_text=input_text,
             event_sink=event_sink,
             secret_values=tuple(
-                value
-                for name in self.profile.auth_environment
-                if (value := environment.get(name, ""))
+                value for name in self.profile.auth_environment if (value := environment.get(name, ""))
             ),
         )
         reason_code = execution.reason_code

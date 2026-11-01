@@ -283,9 +283,7 @@ class TrainingGovernanceBindings:
         )
         data = _closed_mapping(value, "governance", fields)
         bindings = {
-            field: _sha256(data.get(field), f"governance.{field}")
-            for field in fields
-            if field != "governance_digest"
+            field: _sha256(data.get(field), f"governance.{field}") for field in fields if field != "governance_digest"
         }
         supplied = _sha256(data.get("governance_digest"), "governance.governance_digest")
         if canonical_sha256(bindings) != supplied:
@@ -699,13 +697,13 @@ class TrainingJobRequest:
             exports=_training_exports(data.get("exports")),
             resume_checkpoint=ResumeCheckpoint.from_mapping(resume_value) if resume_value is not None else None,
             tenant_storage_key=_sha256(
-                data.get("tenant_storage_key")
-                or data.get("tenant_scope_digest"),
+                data.get("tenant_storage_key") or data.get("tenant_scope_digest"),
                 "tenant_storage_key",
             ),
             hub_evidence_assignment=(
                 _hub_evidence(data["hub_evidence_assignment"], str(data.get("attempt_id")))
-                if "hub_evidence_assignment" in data else None
+                if "hub_evidence_assignment" in data
+                else None
             ),
         )
 
@@ -817,13 +815,13 @@ class AdapterEvaluationJobRequest:
             validation_dataset=ValidationDatasetManifest.from_mapping(data.get("validation_dataset")),
             configuration=AdapterEvaluationConfiguration.from_mapping(data.get("configuration")),
             tenant_storage_key=_sha256(
-                data.get("tenant_storage_key")
-                or data.get("tenant_scope_digest"),
+                data.get("tenant_storage_key") or data.get("tenant_scope_digest"),
                 "tenant_storage_key",
             ),
             hub_evidence_assignment=(
                 _hub_evidence(data["hub_evidence_assignment"], str(data.get("attempt_id")))
-                if "hub_evidence_assignment" in data else None
+                if "hub_evidence_assignment" in data
+                else None
             ),
         )
 

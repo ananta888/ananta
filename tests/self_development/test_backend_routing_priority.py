@@ -5,6 +5,7 @@
 therefore keeps running `coding` tasks on the mapped backend — the regression
 that made an `opencode` worker execute the `ananta-worker` loop.
 """
+
 from __future__ import annotations
 
 from agent.runtime_policy import resolve_cli_backend

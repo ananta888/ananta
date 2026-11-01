@@ -9,6 +9,7 @@ TQ-012  TurboQuantMseEncoder        — PoC encoder class (formalization)
 TQ-013  TurboQuantProdStub          — research-track stub, raises NotImplementedError
 TQ-014  QuantizationFallbackPolicy  — structured fallback when quantized decode fails
 """
+
 from __future__ import annotations
 
 import base64
@@ -17,7 +18,7 @@ import logging
 import math
 import struct
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from worker.retrieval.vector_encoding import EncodedVector, VectorEncodingError
@@ -28,6 +29,7 @@ log = logging.getLogger(__name__)
 # Internal helpers (replicated from vector_encoding private scope so this
 # module is self-contained without reaching into private symbols).
 # ---------------------------------------------------------------------------
+
 
 def _pack_floats(vector: list[float], fmt: str) -> bytes:
     if not vector:
@@ -88,6 +90,7 @@ def _clean_vector(vector: list[float]) -> list[float]:
 # TQ-011: DeterministicSignRotation
 # ---------------------------------------------------------------------------
 
+
 class DeterministicSignRotation:
     """Deterministic per-dimension sign flip using a SHA-256-derived mask.
 
@@ -139,6 +142,7 @@ class DeterministicSignRotation:
 # ---------------------------------------------------------------------------
 # TQ-012: TurboQuantMseEncoder (formalization of turboquant_mse_experimental)
 # ---------------------------------------------------------------------------
+
 
 class TurboQuantMseEncoder:
     """PoC encoder: deterministic sign-rotation + symmetric 4-bit scalar quant.
@@ -241,11 +245,7 @@ class TurboQuantMseEncoder:
 
     def decode(self, encoded: EncodedVector | dict[str, Any]) -> list[float]:
         """Decode a turboquant_mse_experimental payload back to float32 values."""
-        item = (
-            encoded
-            if isinstance(encoded, EncodedVector)
-            else EncodedVector.from_dict(dict(encoded or {}))
-        )
+        item = encoded if isinstance(encoded, EncodedVector) else EncodedVector.from_dict(dict(encoded or {}))
         if item.mode != self._MODE:
             raise VectorEncodingError(
                 f"turboquant_mse_encoder_mode_mismatch: expected {self._MODE!r}, got {item.mode!r}"
@@ -265,6 +265,7 @@ class TurboQuantMseEncoder:
 # ---------------------------------------------------------------------------
 # TQ-013: TurboQuantProdStub
 # ---------------------------------------------------------------------------
+
 
 class TurboQuantProdStub:
     """Research-track stub for a future full TurboQuant production encoder.
@@ -350,8 +351,7 @@ class QuantizationFallbackPolicy:
         mode = str(self.mode or "block").strip().lower()
         if mode not in _VALID_MODES:
             raise VectorEncodingError(
-                f"invalid_quantization_fallback_mode:{mode!r}; "
-                f"valid modes are {sorted(_VALID_MODES)}"
+                f"invalid_quantization_fallback_mode:{mode!r}; valid modes are {sorted(_VALID_MODES)}"
             )
         object.__setattr__(self, "mode", mode)
 
@@ -432,16 +432,14 @@ class QuantizationFallbackPolicy:
 
         if mode_str == "warn_only":
             log.warning(
-                "%sQuantizationFallbackPolicy(warn_only): decode failed for mode=%r — "
-                "continuing with %s. exc=%s",
+                "%sQuantizationFallbackPolicy(warn_only): decode failed for mode=%r — continuing with %s. exc=%s",
                 label_prefix,
                 _mode_tag,
                 "fallback vector" if fallback_float32_vector else "empty list",
                 exc,
             )
             warnings.warn(
-                f"{label_prefix}quantization decode failed (warn_only mode), "
-                f"mode={_mode_tag!r}: {exc}",
+                f"{label_prefix}quantization decode failed (warn_only mode), mode={_mode_tag!r}: {exc}",
                 stacklevel=3,
             )
             return list(fallback_float32_vector) if fallback_float32_vector else []

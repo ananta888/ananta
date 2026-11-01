@@ -1,24 +1,23 @@
 from __future__ import annotations
 
-import json
-import pytest
-
-from agent.cli.commands.tui_editor import dispatch as tui_dispatch
 from agent.cli.commands.tmux import dispatch as tmux_dispatch
-from agent.services.tui_tool_registry import TuiToolRegistry, _GLOBAL_DEFAULT_CONFIG
-
+from agent.cli.commands.tui_editor import dispatch as tui_dispatch
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _capture_exec():
     """Return a list that records exec calls instead of actually exec'ing."""
     calls = []
+
     def _fake_exec(argv):
         calls.append(argv)
+
     return calls, _fake_exec
 
 
 # ── ananta tui --open ─────────────────────────────────────────────────────────
+
 
 def test_tui_open_resolves_default_editor(tmp_path):
     target = tmp_path / "README.md"
@@ -75,6 +74,7 @@ def test_tui_open_relative_path_resolved(tmp_path, monkeypatch):
 
 # ── ananta tui --tool ─────────────────────────────────────────────────────────
 
+
 def test_tui_tool_known_tool_executes(tmp_path):
     calls, fake_exec = _capture_exec()
     rc = tui_dispatch(["--tool", "git_ui", "--workspace", str(tmp_path)], _exec_fn=fake_exec)
@@ -104,6 +104,7 @@ def test_tui_tool_unknown_tool_returns_error(tmp_path):
 
 # ── ananta tui: argument errors ───────────────────────────────────────────────
 
+
 def test_tui_no_args_prints_help(capsys):
     rc = tui_dispatch([], _exec_fn=lambda argv: None)
     assert rc == 0
@@ -123,6 +124,7 @@ def test_tui_open_and_tool_mutually_exclusive(tmp_path):
 
 
 # ── ananta tmux edit ─────────────────────────────────────────────────────────
+
 
 def test_tmux_edit_resolves_editor(tmp_path):
     target = tmp_path / "README.md"
@@ -160,6 +162,7 @@ def test_tmux_edit_outside_workspace_rejected(tmp_path):
 
 # ── ananta tmux tool ─────────────────────────────────────────────────────────
 
+
 def test_tmux_tool_lazygit(tmp_path):
     calls, fake_exec = _capture_exec()
     rc = tmux_dispatch(["tool", "git_ui", "--workspace", str(tmp_path)], _exec_fn=fake_exec)
@@ -187,6 +190,7 @@ def test_tmux_invalid_subcommand_returns_error():
 
 # ── cli/main.py integration ───────────────────────────────────────────────────
 
+
 def test_main_tui_open_dispatches_to_tui_editor(tmp_path, monkeypatch):
     """Verify cli/main.py routes ananta tui --open to tui_editor.dispatch."""
     target = tmp_path / "f.py"
@@ -194,10 +198,12 @@ def test_main_tui_open_dispatches_to_tui_editor(tmp_path, monkeypatch):
     calls = []
 
     import agent.cli.commands.tui_editor as tui_editor_mod
+
     original = tui_editor_mod._default_exec
 
     monkeypatch.setattr(tui_editor_mod, "_default_exec", lambda argv: calls.append(argv))
     from agent.cli.main import main
+
     rc = main(["tui", "--open", str(target), "--workspace", str(tmp_path)])
     monkeypatch.setattr(tui_editor_mod, "_default_exec", original)
 
@@ -210,9 +216,11 @@ def test_main_tmux_dispatches(tmp_path, monkeypatch):
     """Verify cli/main.py routes ananta tmux tool to tmux.dispatch."""
     calls = []
     import agent.cli.commands.tmux as tmux_mod
+
     original = tmux_mod._default_exec
     monkeypatch.setattr(tmux_mod, "_default_exec", lambda argv: calls.append(argv))
     from agent.cli.main import main
+
     rc = main(["tmux", "tool", "git_ui", "--workspace", str(tmp_path)])
     monkeypatch.setattr(tmux_mod, "_default_exec", original)
     assert rc == 0

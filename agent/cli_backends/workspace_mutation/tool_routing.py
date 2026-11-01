@@ -8,6 +8,7 @@ decision can upgrade a blind read to the best inspection tool
 (``codecompass.plan_context`` first). The existing tool policy stays the hard
 gate; any abstention, deferral or error keeps today's path.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,8 +36,15 @@ INSTRUCTIONS = (
 DEFAULT_MIN_CONFIDENCE = 0.6
 
 
-_READ_ONLY_PREFIXES = ("repo.list_files", "repo.read_file_range", "repo.grep", "codecompass.",
-                       "git.status", "git.diff_readonly", "workspace.diff")
+_READ_ONLY_PREFIXES = (
+    "repo.list_files",
+    "repo.read_file_range",
+    "repo.grep",
+    "codecompass.",
+    "git.status",
+    "git.diff_readonly",
+    "workspace.diff",
+)
 
 ACTION_NUDGE = (
     "You have enough context. Do not read more files: emit a `patch_request` (or `workspace_write`) "
@@ -85,8 +93,15 @@ def is_read_only_tool(tool_name: str) -> bool:
     return any(str(tool_name or "").startswith(prefix) for prefix in _READ_ONLY_PREFIXES)
 
 
-def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mutation_mode: str = "read_only",
-                    config: Mapping[str, Any] | None = None, service: Any | None = None) -> dict[str, Any] | None:
+def route_read_tool(
+    *,
+    query: str,
+    state: str,
+    allowed_tools: Sequence[str],
+    mutation_mode: str = "read_only",
+    config: Mapping[str, Any] | None = None,
+    service: Any | None = None,
+) -> dict[str, Any] | None:
     """A confident inspection-tool candidate (``{tool_name, arguments}``) or ``None`` (keep today's path)."""
     config = config if isinstance(config, Mapping) else {}
     if str(config.get("mode") or "disabled").strip().lower() == "disabled":
@@ -104,12 +119,19 @@ def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mut
             return None
         from agent.services.decision_providers.types import DecisionQuestion, DecisionRequest
 
-        threshold = float(service.area_option("tool_routing", "inspection_min_confidence",
-                                              DEFAULT_MIN_CONFIDENCE) or DEFAULT_MIN_CONFIDENCE)
-        options = {chosen_tool: CODECOMPASS_READ_TOOLS[chosen_tool],
-                   KEEP_CURRENT: "Keep the current blind read; no inspection tool is clearly better."}
-        request = DecisionRequest(state=str(state or "")[:4000], purpose="tool_routing", questions=(
-            DecisionQuestion.choice(QUESTION_KEY, INSTRUCTIONS, options),))
+        threshold = float(
+            service.area_option("tool_routing", "inspection_min_confidence", DEFAULT_MIN_CONFIDENCE)
+            or DEFAULT_MIN_CONFIDENCE
+        )
+        options = {
+            chosen_tool: CODECOMPASS_READ_TOOLS[chosen_tool],
+            KEEP_CURRENT: "Keep the current blind read; no inspection tool is clearly better.",
+        }
+        request = DecisionRequest(
+            state=str(state or "")[:4000],
+            purpose="tool_routing",
+            questions=(DecisionQuestion.choice(QUESTION_KEY, INSTRUCTIONS, options),),
+        )
         decision = service.decide("tool_routing", request, question_thresholds={QUESTION_KEY: threshold})
         if decision is None or not decision.usable:
             log.info("tool_routing: defer (decision unusable)")
@@ -119,14 +141,16 @@ def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mut
         log.info("tool_routing: defer (decision error: %s)", type(exc).__name__)
         return None
     if answer.choice != chosen_tool or float(answer.confidence) < threshold:
-        log.info("tool_routing: keep read (choice=%s conf=%.2f thr=%.2f)",
-                 answer.choice, float(answer.confidence), threshold)
+        log.info(
+            "tool_routing: keep read (choice=%s conf=%.2f thr=%.2f)", answer.choice, float(answer.confidence), threshold
+        )
         return None
     return {"tool_name": chosen_tool, "arguments": {"query": str(query or "")[:1000]}}
 
 
-def prefer_read_tool(*, session: Any, tool_name: str, arguments: dict[str, Any],
-                     service: Any | None = None) -> tuple[str, dict[str, Any]]:
+def prefer_read_tool(
+    *, session: Any, tool_name: str, arguments: dict[str, Any], service: Any | None = None
+) -> tuple[str, dict[str, Any]]:
     """Upgrade a blind read to the routed inspection tool; otherwise return the call unchanged."""
     if not is_blind_read_tool(tool_name, arguments):
         return tool_name, arguments
@@ -141,11 +165,19 @@ def prefer_read_tool(*, session: Any, tool_name: str, arguments: dict[str, Any],
     if not allowed:
         return tool_name, arguments
     query = str(getattr(session, "task_prompt", "") or "")
-    state = (query + "\n\nBlind read the worker is about to perform: "
-             + json.dumps({"tool_name": tool_name, "arguments": arguments}, ensure_ascii=False,
-                          default=str))[:4000]
-    routed = route_read_tool(query=query, state=state, allowed_tools=allowed, mutation_mode=str(session.mode),
-                             config=routing_cfg, service=service)
+    state = (
+        query
+        + "\n\nBlind read the worker is about to perform: "
+        + json.dumps({"tool_name": tool_name, "arguments": arguments}, ensure_ascii=False, default=str)
+    )[:4000]
+    routed = route_read_tool(
+        query=query,
+        state=state,
+        allowed_tools=allowed,
+        mutation_mode=str(session.mode),
+        config=routing_cfg,
+        service=service,
+    )
     if not routed or routed["tool_name"] == tool_name:
         log.info("tool_routing: keep %s (no accepted upgrade)", tool_name)
         return tool_name, arguments

@@ -27,12 +27,10 @@ HybridHintGenerator
     Runs DeterministicHintGenerator first, then optionally enriches with
     LLM or RTI, and marks the result as ``kind = "hybrid"``.
 """
+
 from __future__ import annotations
 
 import ast
-import hashlib
-import os
-import time
 from pathlib import Path
 from typing import Any
 
@@ -42,15 +40,11 @@ from agent.services.referenced_context_hint_schema import (
     GEN_LLM,
     GEN_MANUAL,
     GEN_RESTRICTED_TRANSFORMER_INFERENCE,
-    KIND_ARCHITECTURE_HINT,
     KIND_DOMAIN_SUMMARY,
     KIND_FILE_SUMMARY,
-    KIND_MANUAL_NOTE,
-    KIND_RISK_HINT,
     KIND_SYMBOL_HINT,
     KIND_TEST_HINT,
     STALENESS_FRESH,
-    CodeCompassRef,
     ConfidenceMetadata,
     GeneratorMetadata,
     HashMetadata,
@@ -69,6 +63,7 @@ from agent.services.referenced_context_hint_schema import (
 _TOOL_VERSION = "rchcs.generators.v1"
 
 # ── Deterministic generator ───────────────────────────────────────────────────
+
 
 class DeterministicHintGenerator:
     """Analyse a Python/TypeScript/Markdown file statically and produce hints.
@@ -232,9 +227,7 @@ class DeterministicHintGenerator:
         src_hash = hash_file(str(fp))
         rel_path = str(fp.relative_to(workspace_root)) if workspace_root else str(fp)
         tests = self._count_tests(content)
-        summary = (
-            f"Test file `{fp.name}` — {tests} test function(s) found."
-        )
+        summary = f"Test file `{fp.name}` — {tests} test function(s) found."
         if target_path:
             summary += f" Covers: {target_path}."
 
@@ -316,13 +309,15 @@ class DeterministicHintGenerator:
         for node in ast.walk(tree):
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 doc = ast.get_docstring(node) or ""
-                symbols.append({
-                    "name": node.name,
-                    "type": "class" if isinstance(node, ast.ClassDef) else "function",
-                    "line_start": node.lineno,
-                    "line_end": getattr(node, "end_lineno", None),
-                    "docstring": doc[:400] if doc else "",
-                })
+                symbols.append(
+                    {
+                        "name": node.name,
+                        "type": "class" if isinstance(node, ast.ClassDef) else "function",
+                        "line_start": node.lineno,
+                        "line_end": getattr(node, "end_lineno", None),
+                        "docstring": doc[:400] if doc else "",
+                    }
+                )
             if len(symbols) >= max_symbols:
                 break
         return symbols
@@ -356,8 +351,17 @@ class DeterministicHintGenerator:
 
     def _estimate_sensitivity(self, path: str, content: str) -> str:
         _SENSITIVE_PATTERNS = (
-            "secret", "password", "token", "auth", "security", "credential",
-            "private_key", "api_key", "vault", "payment", "billing",
+            "secret",
+            "password",
+            "token",
+            "auth",
+            "security",
+            "credential",
+            "private_key",
+            "api_key",
+            "vault",
+            "payment",
+            "billing",
         )
         path_lower = path.lower()
         content_lower = (content or "")[:500].lower()
@@ -368,6 +372,7 @@ class DeterministicHintGenerator:
 
 
 # ── Manual hint importer ──────────────────────────────────────────────────────
+
 
 class ManualHintImporter:
     """Import manually authored hint dicts.
@@ -427,6 +432,7 @@ class ManualHintImporter:
 
 # ── LLM hint generator (optional, policy-gated) ───────────────────────────────
 
+
 class LlmHintGenerator:
     """Generate hints via the configured LLM.
 
@@ -469,7 +475,7 @@ class LlmHintGenerator:
         )
         try:
             summary = str(self._generate(prompt) or "").strip()
-        except Exception as exc:
+        except Exception:
             return None
 
         if not summary:
@@ -524,6 +530,7 @@ class LlmHintGenerator:
 
 # ── Restricted inference hint generator ───────────────────────────────────────
 
+
 class RestrictedInferenceHintGenerator:
     """Use RestrictedModelInferenceService for label/score-based hints.
 
@@ -551,8 +558,18 @@ class RestrictedInferenceHintGenerator:
         if not fp.exists():
             return None
 
-        labels = domain_labels or ["auth", "billing", "rag", "security", "config",
-                                    "worker", "testing", "frontend", "api", "db"]
+        labels = domain_labels or [
+            "auth",
+            "billing",
+            "rag",
+            "security",
+            "config",
+            "worker",
+            "testing",
+            "frontend",
+            "api",
+            "db",
+        ]
         rel_path = str(fp.relative_to(workspace_root)) if workspace_root else str(fp)
         src_hash = hash_file(str(fp))
 
@@ -614,6 +631,7 @@ class RestrictedInferenceHintGenerator:
 
 # ── Hybrid generator ──────────────────────────────────────────────────────────
 
+
 class HybridHintGenerator:
     """Combine DeterministicHintGenerator + optional LLM enrichment.
 
@@ -651,9 +669,7 @@ class HybridHintGenerator:
             )
 
         if llm_hint is not None:
-            combined_summary = (
-                f"{base.summary} | LLM: {llm_hint.summary}"
-            )
+            combined_summary = f"{base.summary} | LLM: {llm_hint.summary}"
             base.summary = combined_summary[:1200]
             base.generator = GeneratorMetadata(
                 kind=GEN_HYBRID,

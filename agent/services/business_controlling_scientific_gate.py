@@ -40,10 +40,7 @@ class ScientificPilotStatisticalCapabilityGate:
         skill_name: str,
         catalog_entry_id: str,
     ) -> StatisticalCapabilityDecision:
-        if (
-            self._principal.tenant_id != tenant_id
-            or self._principal.project_id != project_id
-        ):
+        if self._principal.tenant_id != tenant_id or self._principal.project_id != project_id:
             return _denied(
                 skill_name,
                 catalog_entry_id,
@@ -55,12 +52,7 @@ class ScientificPilotStatisticalCapabilityGate:
             binding=self._binding,
         )
         card = next(
-            (
-                item
-                for item in cards
-                if item.skill_name == skill_name
-                and item.entry_id == catalog_entry_id
-            ),
+            (item for item in cards if item.skill_name == skill_name and item.entry_id == catalog_entry_id),
             None,
         )
         if card is None:

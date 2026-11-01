@@ -53,8 +53,14 @@ _ACTION_TRANSITIONS = {
     "request_review": {
         # Hub admission can stop a task before execution. That refusal must be
         # persistable without pretending execution began or using force=True.
-        "from": {TaskStatus.TODO.value, TaskStatus.CREATED.value, TaskStatus.ASSIGNED.value,
-                 TaskStatus.PROPOSING.value, TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value},
+        "from": {
+            TaskStatus.TODO.value,
+            TaskStatus.CREATED.value,
+            TaskStatus.ASSIGNED.value,
+            TaskStatus.PROPOSING.value,
+            TaskStatus.IN_PROGRESS.value,
+            TaskStatus.DELEGATED.value,
+        },
         "to": TaskStatus.WAITING_FOR_REVIEW.value,
     },
     "fail_verification": {
@@ -68,13 +74,9 @@ _ACTION_TRANSITIONS = {
     "resolve_dependency": {"from": {TaskStatus.BLOCKED_BY_DEPENDENCY.value}, "to": TaskStatus.TODO.value},
 }
 
-_ASSIGNMENT_PROMOTION_ACTIONS = frozenset(
-    {"resume", "retry", "approve", "resolve_dependency"}
-)
+_ASSIGNMENT_PROMOTION_ACTIONS = frozenset({"resume", "retry", "approve", "resolve_dependency"})
 _ASSIGNMENT_PROMOTION_FROM_STATUSES = frozenset(
-    status
-    for action in _ASSIGNMENT_PROMOTION_ACTIONS
-    for status in _ACTION_TRANSITIONS[action]["from"]
+    status for action in _ASSIGNMENT_PROMOTION_ACTIONS for status in _ACTION_TRANSITIONS[action]["from"]
 )
 
 
@@ -95,10 +97,7 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
     if current == target:
         return True, ""
 
-    if (
-        current == TaskStatus.RESERVED.value
-        and target == TaskStatus.CREATED.value
-    ):
+    if current == TaskStatus.RESERVED.value and target == TaskStatus.CREATED.value:
         return True, ""
 
     # Planning-track gates used the legacy ``blocked`` value before the
@@ -117,13 +116,17 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
 
     # Spezialfall: Von beliebigem aktivem Zustand nach ASSIGNED, IN_PROGRESS oder DELEGATED
     if target in {TaskStatus.ASSIGNED.value, TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value}:
-        if current in {
-            TaskStatus.TODO.value,
-            TaskStatus.CREATED.value,
-            TaskStatus.ASSIGNED.value,
-            TaskStatus.PROPOSING.value,
-            TaskStatus.UPDATED.value,
-        } | _ASSIGNMENT_PROMOTION_FROM_STATUSES:
+        if (
+            current
+            in {
+                TaskStatus.TODO.value,
+                TaskStatus.CREATED.value,
+                TaskStatus.ASSIGNED.value,
+                TaskStatus.PROPOSING.value,
+                TaskStatus.UPDATED.value,
+            }
+            | _ASSIGNMENT_PROMOTION_FROM_STATUSES
+        ):
             return True, ""
 
     # Spezialfall: Abschluss/Fehler (Großzügiger für Legacy/Tests)

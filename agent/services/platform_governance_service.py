@@ -330,9 +330,7 @@ class PlatformGovernanceService:
             "allow_interactive": bool(raw.get("allow_interactive", False)),
             "require_authenticated": bool(raw.get("require_authenticated", False)),
             "require_admin": require_admin,
-            "require_admin_for_interactive": bool(
-                raw.get("require_admin_for_interactive", require_admin)
-            ),
+            "require_admin_for_interactive": bool(raw.get("require_admin_for_interactive", require_admin)),
             "emit_audit_events": bool(raw.get("emit_audit_events", True)),
             "max_session_seconds": _positive_int(raw.get("max_session_seconds"), 1800, minimum=30, maximum=86400),
             "idle_timeout_seconds": _positive_int(raw.get("idle_timeout_seconds"), 300, minimum=10, maximum=86400),
@@ -360,16 +358,10 @@ class PlatformGovernanceService:
             return TerminalAccessDecision(False, "terminal_authentication_required", mode, platform_mode, policy)
         if bool(policy.get("require_admin", True)) and not is_admin:
             return TerminalAccessDecision(False, "terminal_admin_required", mode, platform_mode, policy)
-        if (
-            mode == "interactive"
-            and bool(policy.get("require_admin_for_interactive", False))
-            and not is_admin
-        ):
+        if mode == "interactive" and bool(policy.get("require_admin_for_interactive", False)) and not is_admin:
             return TerminalAccessDecision(False, "terminal_interactive_admin_required", mode, platform_mode, policy)
         allowed_roles = {
-            str(item or "").strip().lower()
-            for item in policy.get("allowed_roles", [])
-            if str(item or "").strip()
+            str(item or "").strip().lower() for item in policy.get("allowed_roles", []) if str(item or "").strip()
         }
         if allowed_roles:
             actual_roles = {str(item or "").strip().lower() for item in (roles or []) if str(item or "").strip()}
@@ -420,11 +412,9 @@ class PlatformGovernanceService:
                     "reason": "configured_by_platform_mode",
                 },
                 **{
-                    f"action_pack_{p['name']}": {
-                        "allowed": p["enabled"],
-                        "reason": "configured_by_action_pack_policy"
-                    } for p in action_packs
-                }
+                    f"action_pack_{p['name']}": {"allowed": p["enabled"], "reason": "configured_by_action_pack_policy"}
+                    for p in action_packs
+                },
             },
         }
 
@@ -436,13 +426,15 @@ class PlatformGovernanceService:
         for name, defaults in _DEFAULT_ACTION_PACKS.items():
             override = action_packs_cfg.get(name) or {}
             enabled = bool(override.get("enabled", defaults["enabled_by_default"]))
-            resolved.append({
-                "name": name,
-                "description": defaults["description"],
-                "capabilities": defaults["capabilities"],
-                "enabled": enabled,
-                "source": "default" if not override else "config"
-            })
+            resolved.append(
+                {
+                    "name": name,
+                    "description": defaults["description"],
+                    "capabilities": defaults["capabilities"],
+                    "enabled": enabled,
+                    "source": "default" if not override else "config",
+                }
+            )
         return resolved
 
     def evaluate_action_pack_access(self, action_pack_name: str, cfg: dict[str, Any] | None) -> bool:

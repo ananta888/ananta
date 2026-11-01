@@ -69,11 +69,7 @@ def _write_snapshot(root) -> None:
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
-    (root / "model.safetensors").write_bytes(
-        len(encoded_header).to_bytes(8, "little")
-        + encoded_header
-        + b"\0" * 8
-    )
+    (root / "model.safetensors").write_bytes(len(encoded_header).to_bytes(8, "little") + encoded_header + b"\0" * 8)
     (root / "tokenizer.json").write_text(
         json.dumps(
             {
@@ -144,9 +140,7 @@ def test_import_ref_submit_execute_complete_artifact_and_report_roundtrip(
             ),
         )
     )
-    store = FileSystemModelIntelligenceArtifactStore(
-        root=tmp_path / "artifacts"
-    )
+    store = FileSystemModelIntelligenceArtifactStore(root=tmp_path / "artifacts")
     publisher = ModelAnalysisArtifactPublisher(store)
     executor = ModelAnalysisWorkerExecutor(
         handlers=build_static_analysis_handlers(
@@ -162,9 +156,7 @@ def test_import_ref_submit_execute_complete_artifact_and_report_roundtrip(
     )
     tasks = _HubTasks()
     jobs = ModelAnalysisJobService(
-        repository=SQLiteModelAnalysisJobRepository(
-            tmp_path / "model-analysis.sqlite3"
-        ),
+        repository=SQLiteModelAnalysisJobRepository(tmp_path / "model-analysis.sqlite3"),
         tasks=tasks,
         epoch_ms=lambda: 1_000,
     )

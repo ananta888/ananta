@@ -11,16 +11,14 @@ Covers:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from agent.codecompass.x86.fixture_adapter import FixtureAdapter
 from agent.codecompass.x86.graph_extensions import (
-    X86CFGTraversal,
     X86CallGraphTraversal,
-    X86GraphIndex,
+    X86CFGTraversal,
     build_x86_index,
 )
 from agent.codecompass.x86.index_builder import X86IndexBuilder
@@ -28,7 +26,6 @@ from agent.codecompass.x86.input_taxonomy import (
     INPUT_KIND_DISASSEMBLER_JSON,
     X86InputRecord,
 )
-from agent.codecompass.x86.models import X86EdgeType, X86NodeKind
 from agent.codecompass.x86.query import (
     VALID_QUERY_KINDS,
     X86Query,
@@ -45,7 +42,9 @@ def _build_x86_index_for(fixture: Path) -> tuple[list[dict], list[dict], dict[st
     """Helper: end-to-end x86 build via FixtureAdapter -> X86IndexBuilder."""
     builder = X86IndexBuilder()
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
         abi="x86_64_sysv",
     )
     adapter = FixtureAdapter(fixture_path=fixture)
@@ -57,6 +56,7 @@ def _build_x86_index_for(fixture: Path) -> tuple[list[dict], list[dict], dict[st
 
 
 # ===== X86CC-017: Graph index =====
+
 
 def test_build_x86_index_indexes_by_address():
     nodes, _, _ = _build_x86_index_for(SIMPLE_ADD)
@@ -84,8 +84,11 @@ def test_build_x86_index_handles_empty_node_list():
 
 def test_build_x86_index_deduplicates_node_ids_per_key():
     node = {
-        "id": "abc", "kind": "instruction", "source_type": "fixture",
-        "address": 0x401014, "attributes": {"mnemonic": "mov"},
+        "id": "abc",
+        "kind": "instruction",
+        "source_type": "fixture",
+        "address": 0x401014,
+        "attributes": {"mnemonic": "mov"},
     }
     idx = build_x86_index([node, node, node])
     assert len(idx.by_address[hex(0x401014)]) == 1
@@ -93,6 +96,7 @@ def test_build_x86_index_deduplicates_node_ids_per_key():
 
 
 # ===== X86CC-018: CFG + call graph traversal =====
+
 
 def test_cfg_traversal_returns_seed_node():
     nodes, edges, nodes_by_id = _build_x86_index_for(CALL_RET)
@@ -130,7 +134,7 @@ def test_cfg_traversal_respects_max_depth():
     """Linear chain A->B->C->D->E with max_depth=2 must stop at depth 2."""
     chain = {f"n{i}": {"id": f"n{i}", "kind": "basic_block", "source_type": "fixture"} for i in range(5)}
     edges_by_source = {
-        f"n{i}": [{"source": f"n{i}", "target": f"n{i+1}", "edge_type": "cfg_fallthrough", "confidence": 1.0}]
+        f"n{i}": [{"source": f"n{i}", "target": f"n{i + 1}", "edge_type": "cfg_fallthrough", "confidence": 1.0}]
         for i in range(4)
     }
     idx = build_x86_index(list(chain.values()))
@@ -154,7 +158,9 @@ def test_cfg_traversal_respects_max_nodes():
         ]
     }
     idx = build_x86_index([center, *leaves.values()])
-    result = X86CFGTraversal().traverse(idx, {**leaves, "center": center}, edges_by_source, "center", max_depth=10, max_nodes=2)
+    result = X86CFGTraversal().traverse(
+        idx, {**leaves, "center": center}, edges_by_source, "center", max_depth=10, max_nodes=2
+    )
     # We must have hit the bound; result includes center + 1 leaf
     assert len(result["nodes"]) <= 2
 
@@ -179,10 +185,18 @@ def test_call_graph_traversal_distinguishes_direct_indirect_import():
 
 # ===== X86CC-019: X86QueryEngine =====
 
+
 def test_query_kinds_complete():
     expected = {
-        "address", "symbol", "function", "mnemonic", "import", "string",
-        "section", "basic_block", "diagnostics",
+        "address",
+        "symbol",
+        "function",
+        "mnemonic",
+        "import",
+        "string",
+        "section",
+        "basic_block",
+        "diagnostics",
     }
     assert VALID_QUERY_KINDS == expected
 
@@ -273,6 +287,7 @@ def test_query_engine_truncation_warning_when_many_results():
 
 # ===== X86CC-021: parse_address =====
 
+
 @pytest.mark.parametrize(
     "raw,expected",
     [
@@ -295,6 +310,7 @@ def test_parse_address_invalid_returns_none(raw):
 
 # ===== X86CC-022: arch-query includes x86 kinds =====
 
+
 def test_arch_query_includes_x86_node_kinds_after_indexing():
     """After building an x86 index, the kinds present in the graph must include
     x86-specific node kinds (function, instruction, section)."""
@@ -309,6 +325,7 @@ def test_codemapgraph_store_rebuilds_x86_records(tmp_path):
     """CodeCompassGraphStore.rebuild_from_output_records must accept x86 records
     (output_kind 'x86_nodes' / 'x86_edges') and surface them in the resulting graph."""
     from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+
     nodes, edges, _ = _build_x86_index_for(SIMPLE_ADD)
     output_records = []
     for n in nodes:

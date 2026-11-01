@@ -83,9 +83,7 @@ def test_route_accepts_only_retrieval_intent_and_returns_readiness_selectors(
         },
     ):
         g.user = {"sub": "operator-1"}
-        response, status = routes.publish_organization_source_catalog.__wrapped__(
-            "org-1"
-        )
+        response, status = routes.publish_organization_source_catalog.__wrapped__("org-1")
 
     assert status == 201
     data = response.get_json()["data"]
@@ -131,9 +129,7 @@ def test_route_rejects_caller_supplied_evidence_identity_before_service(
         },
     ):
         g.user = {"sub": "operator-1"}
-        response, status = routes.publish_organization_source_catalog.__wrapped__(
-            "org-1"
-        )
+        response, status = routes.publish_organization_source_catalog.__wrapped__("org-1")
 
     assert status == 400
     assert response.get_json()["message"] == "organization_payload_fields_invalid"

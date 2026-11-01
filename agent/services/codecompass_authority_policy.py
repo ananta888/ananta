@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-
 FORBIDDEN_CLIENT_AUTHORITY_FIELDS = frozenset(
     {
         "api_key",

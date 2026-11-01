@@ -307,9 +307,7 @@ def test_enhancement_variants_preserve_request_lineage_without_double_weighting(
         assert sum(not candidate.parent_candidate_ids for candidate in related) == 1
         assert sum(bool(candidate.parent_candidate_ids) for candidate in related) == 1
     assert first.text == second.text
-    assert [candidate.text for candidate in first.candidates] == [
-        candidate.text for candidate in second.candidates
-    ]
+    assert [candidate.text for candidate in first.candidates] == [candidate.text for candidate in second.candidates]
     assert first.decision_trace["result_hash"] != second.decision_trace["result_hash"]
     enhancement = next(stage for stage in first.stages if stage["stage"] == "audio_enhancement")
     assert enhancement["profiles"] == ["original", "normalized"]

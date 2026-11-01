@@ -58,7 +58,7 @@ def run_smoke(
         (workspace / "README.md").write_text("# Isolated Qwen Code live smoke\n", encoding="utf-8")
         request = CodingAgentRunRequest(
             prompt=(
-                f"Create { _RESULT_FILE } in the current repository with exactly this single line: "
+                f"Create {_RESULT_FILE} in the current repository with exactly this single line: "
                 "ananta-qwen-headless-smoke-ok. Do not modify any other file."
             ),
             workspace=workspace,

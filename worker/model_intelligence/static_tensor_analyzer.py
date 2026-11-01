@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import math
 import os
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Mapping
 
 from worker.model_intelligence.common import (
@@ -15,7 +15,6 @@ from worker.model_intelligence.common import (
     canonical_digest,
     open_bounded_file,
 )
-
 
 _DTYPE_BITS: Mapping[str, int] = {
     "BOOL": 8,
@@ -36,9 +35,7 @@ _DTYPE_BITS: Mapping[str, int] = {
     "F32": 32,
     "F64": 64,
 }
-_LAYER_PATTERN = re.compile(
-    r"(?:^|\\.)(?:layers?|blocks?|h)\\.(?P<index>[0-9]+)(?:\\.|$)"
-)
+_LAYER_PATTERN = re.compile(r"(?:^|\\.)(?:layers?|blocks?|h)\\.(?P<index>[0-9]+)(?:\\.|$)")
 
 
 @dataclass(frozen=True)
@@ -99,12 +96,15 @@ class StaticTensorAnalysisPolicy:
     max_parameters: int = 10_000_000_000_000
 
     def __post_init__(self) -> None:
-        if min(
-            self.max_header_bytes,
-            self.max_tensors,
-            self.max_rank,
-            self.max_parameters,
-        ) <= 0:
+        if (
+            min(
+                self.max_header_bytes,
+                self.max_tensors,
+                self.max_rank,
+                self.max_parameters,
+            )
+            <= 0
+        ):
             raise ValueError("static tensor analysis limits must be positive")
 
 
@@ -134,18 +134,14 @@ class StaticTensorAnalyzer:
                     "Static tensor inspection currently supports Safetensors.",
                     relative_path=relative_path,
                 )
-            tensors.extend(
-                self._inspect_safetensors(snapshot_root, relative_path)
-            )
+            tensors.extend(self._inspect_safetensors(snapshot_root, relative_path))
             if len(tensors) > self._policy.max_tensors:
                 raise ModelAnalysisError(
                     "static_analysis_tensor_count_exceeded",
                     "Tensor count exceeds the configured limit.",
                 )
 
-        ordered = tuple(
-            sorted(tensors, key=lambda item: (item.name, item.relative_path))
-        )
+        ordered = tuple(sorted(tensors, key=lambda item: (item.name, item.relative_path)))
         parameter_count = sum(item.parameter_count for item in ordered)
         if parameter_count > self._policy.max_parameters:
             raise ModelAnalysisError(
@@ -229,11 +225,7 @@ class StaticTensorAnalyzer:
                         relative_path=relative_path,
                     )
                 continue
-            if (
-                not isinstance(name, str)
-                or not name
-                or not isinstance(raw, Mapping)
-            ):
+            if not isinstance(name, str) or not name or not isinstance(raw, Mapping):
                 raise ModelAnalysisError(
                     "safetensors_tensor_entry_invalid",
                     "Safetensors tensor entries must be named objects.",
@@ -251,12 +243,7 @@ class StaticTensorAnalyzer:
             if (
                 not isinstance(raw_shape, list)
                 or len(raw_shape) > self._policy.max_rank
-                or any(
-                    isinstance(item, bool)
-                    or not isinstance(item, int)
-                    or item < 0
-                    for item in raw_shape
-                )
+                or any(isinstance(item, bool) or not isinstance(item, int) or item < 0 for item in raw_shape)
             ):
                 raise ModelAnalysisError(
                     "safetensors_shape_invalid",
@@ -266,12 +253,7 @@ class StaticTensorAnalyzer:
             if (
                 not isinstance(offsets, list)
                 or len(offsets) != 2
-                or any(
-                    isinstance(item, bool)
-                    or not isinstance(item, int)
-                    or item < 0
-                    for item in offsets
-                )
+                or any(isinstance(item, bool) or not isinstance(item, int) or item < 0 for item in offsets)
             ):
                 raise ModelAnalysisError(
                     "safetensors_offsets_invalid",
@@ -287,9 +269,7 @@ class StaticTensorAnalyzer:
                 )
             parameter_count = math.prod(raw_shape)
             size_bytes = end - start
-            expected_bytes = (
-                parameter_count * _DTYPE_BITS[dtype] + 7
-            ) // 8
+            expected_bytes = (parameter_count * _DTYPE_BITS[dtype] + 7) // 8
             if size_bytes != expected_bytes:
                 raise ModelAnalysisError(
                     "safetensors_tensor_size_mismatch",
@@ -303,11 +283,7 @@ class StaticTensorAnalyzer:
                 TensorFact(
                     name=name,
                     module=module,
-                    layer_index=(
-                        int(layer_match.group("index"))
-                        if layer_match is not None
-                        else None
-                    ),
+                    layer_index=(int(layer_match.group("index")) if layer_match is not None else None),
                     dtype=dtype,
                     shape=tuple(raw_shape),
                     parameter_count=parameter_count,

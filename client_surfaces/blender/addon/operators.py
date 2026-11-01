@@ -8,7 +8,9 @@ def submit_blender_goal(goal: str, context: dict, capability: str, *, client: An
     if not goal_text:
         return {"status": "degraded", "reason": "goal_missing"}
     if client is not None and hasattr(client, "submit_goal"):
-        return client.submit_goal(goal=goal_text, context=dict(context or {}), capability_id=str(capability or "").strip())
+        return client.submit_goal(
+            goal=goal_text, context=dict(context or {}), capability_id=str(capability or "").strip()
+        )
     return {
         "status": "accepted",
         "goal": goal_text,

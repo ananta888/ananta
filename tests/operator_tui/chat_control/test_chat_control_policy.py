@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import pytest
-
-from client_surfaces.operator_tui.chat_control_config import ChatControlConfig, _DEFAULT_E2E_ALLOWLIST
+from client_surfaces.operator_tui.chat_control_config import _DEFAULT_E2E_ALLOWLIST, ChatControlConfig
 from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
 from client_surfaces.operator_tui.chat_control_policy import evaluate
-
 
 _INTERACTIVE = ChatControlConfig(mode="interactive_safe")
 _AUTONOMOUS = ChatControlConfig(mode="autonomous_e2e")
@@ -41,6 +38,7 @@ def test_unknown_command_denied():
 
 def test_unknown_action_id_denied():
     from client_surfaces.operator_tui.chat_control_parser import ParsedCommand
+
     fake = ParsedCommand(raw_text="/foo bar", command="foo", subcommand="bar", args=(), error="", action_id="foo.bar")
     decision = evaluate(fake, config=_INTERACTIVE)
     assert not decision.allowed()
@@ -48,6 +46,7 @@ def test_unknown_action_id_denied():
 
 def test_parse_error_denied():
     from client_surfaces.operator_tui.chat_control_parser import ParsedCommand
+
     broken = ParsedCommand(raw_text="/bad", command="", subcommand="", args=(), error="unknown", action_id="")
     decision = evaluate(broken, config=_INTERACTIVE)
     assert not decision.allowed()
@@ -82,6 +81,7 @@ def test_policy_includes_mode():
 
 def test_all_default_e2e_allowlist_actions_pass_autonomous():
     from client_surfaces.operator_tui.tui_action_dispatcher import get_registry
+
     reg = get_registry()
     for action_id in _DEFAULT_E2E_ALLOWLIST:
         action = reg.get(action_id)

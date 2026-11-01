@@ -1,5 +1,5 @@
-from agent.services.strategy_mode_service import StrategyModeService
 from agent.services.propose_policy_service import ProposePolicyService
+from agent.services.strategy_mode_service import StrategyModeService
 
 
 def test_strategy_mode_service_lists_presets():

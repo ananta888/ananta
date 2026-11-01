@@ -4,6 +4,7 @@ Extracted from agent.common.sgpt_workspace_mutation as part of the
 SGDEC Welle-2 4-split (T04). Owns the prompt-template and JSON-parsing
 logic for the mutation-loop model output.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,7 @@ from agent.cli_backends.tool_loop import _extract_json_candidate
 # already imports from this sub-module.
 KIND_WORKSPACE_WRITE = "workspace_write"
 KIND_PATCH_REQUEST = "patch_request"
+
 
 # KIND_TOOL_REQUEST and the other tool-loop kinds are pulled lazily
 # because importing them at top would create a cycle (tool_loop → wm).
@@ -198,15 +200,15 @@ VERIFICATION_CORRECTION_NUDGE = (
 def required_analysis_instructions() -> str:
     """Describe the source-bound action consumed by the runtime prerequisite."""
     return (
-        '\nVor jeder Aenderung ist Quellcodeanalyse erforderlich: zuerst einen erfolgreichen '
-        'CodeCompass-Aufruf ausfuehren, dann relevante Quellcodebereiche mit repo.read_file_range lesen '
-        '(codecompass.plan_context materialisiert Bereiche automatisch). Danach explizit antworten: '
+        "\nVor jeder Aenderung ist Quellcodeanalyse erforderlich: zuerst einen erfolgreichen "
+        "CodeCompass-Aufruf ausfuehren, dann relevante Quellcodebereiche mit repo.read_file_range lesen "
+        "(codecompass.plan_context materialisiert Bereiche automatisch). Danach explizit antworten: "
         '{"kind":"code_analysis","sources":[{"path":"app.py","file_sha256":"HASH_AUS_READ_RESULT",'
         '"line_start":1,"line_end":20}],"findings":"Beobachtetes Verhalten und Aufrufbeziehungen",'
         '"change_reasoning":"Aenderungsansatz und Architekturfolgen",'
         '"test_reasoning":"Konkrete Verifikation und relevante Regressionen"}. '
-        'Quellen muessen erfolgreich gelesenen aktuellen Bereichen entsprechen. '
-        'Ohne bestaetigte Analyse sind Schreibaktionen und final_answer gesperrt.'
+        "Quellen muessen erfolgreich gelesenen aktuellen Bereichen entsprechen. "
+        "Ohne bestaetigte Analyse sind Schreibaktionen und final_answer gesperrt."
     )
 
 

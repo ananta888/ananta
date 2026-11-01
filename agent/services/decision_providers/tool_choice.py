@@ -57,33 +57,43 @@ def argument_key(index: int, argument: str) -> str:
     return ("arg_" + _KEY.sub("_", f"{index}_{argument}".lower()))[:64]
 
 
-def _text_question(index: int, tool: str, argument: str, prompt: str,
-                   source: ArgumentCandidateSource) -> tuple[str, DecisionQuestion, dict[str, str]] | None:
+def _text_question(
+    index: int, tool: str, argument: str, prompt: str, source: ArgumentCandidateSource
+) -> tuple[str, DecisionQuestion, dict[str, str]] | None:
     candidates = source.candidates(prompt, tool=tool, argument=argument)
     if not candidates:
         return None
     labels: dict[str, str] = {}
     for position, candidate in enumerate(candidates):
         label = _label(candidate.value, position)
-        labels[label if label not in labels and label not in (WHOLE_REQUEST, NONE_FITS) else f"v{position}"] = \
+        labels[label if label not in labels and label not in (WHOLE_REQUEST, NONE_FITS) else f"v{position}"] = (
             candidate.value
+        )
     options = {label: value for label, value in labels.items()}
     options[WHOLE_REQUEST] = "Use the complete request as the value."
     options[NONE_FITS] = "None of the candidates is right."
     key = ("text_" + _KEY.sub("_", f"{index}_{argument}".lower()))[:64]
     question = DecisionQuestion.choice(
-        key, f"If the tool {tool} is used: which candidate is the best value for its '{argument}' argument "
-        f"(the specific name or term to use)?", options)
+        key,
+        f"If the tool {tool} is used: which candidate is the best value for its '{argument}' argument "
+        f"(the specific name or term to use)?",
+        options,
+    )
     return key, question, labels
 
 
-def tool_questions(tools: Sequence[Mapping[str, Any]], prompt: str, *, purpose: str = "tool_routing",
-                   candidates: ArgumentCandidateSource | None = None,
-                   ) -> tuple[ToolDecisionSchema, DecisionRequest, dict[str, Any]]:
+def tool_questions(
+    tools: Sequence[Mapping[str, Any]],
+    prompt: str,
+    *,
+    purpose: str = "tool_routing",
+    candidates: ArgumentCandidateSource | None = None,
+) -> tuple[ToolDecisionSchema, DecisionRequest, dict[str, Any]]:
     """``(schema, request, value maps)`` for choosing among ``tools`` for ``prompt``."""
     schema = build_tool_decision_schema(tools, open_field=True)  # knows each tool's text argument
-    descriptions = {str(_function(t).get("name") or ""): str(_function(t).get("description") or "").strip()
-                    for t in tools}
+    descriptions = {
+        str(_function(t).get("name") or ""): str(_function(t).get("description") or "").strip() for t in tools
+    }
     options = {name: (descriptions.get(name) or name)[:400] for name in schema.tools}
     options[NO_TOOL] = "No tool is needed: answer directly (small talk, general knowledge, or nothing to look up)."
     questions = [DecisionQuestion.choice(TOOL_KEY, "Which tool should handle the user's request?", options)]
@@ -92,9 +102,13 @@ def tool_questions(tools: Sequence[Mapping[str, Any]], prompt: str, *, purpose: 
         key = argument_key(index, item.argument)
         labels = {_label(value, position): value for position, value in enumerate(item.values)}
         values[key] = (item, labels)
-        questions.append(DecisionQuestion.choice(
-            key, f"If the tool {item.tool} is used: which value fits its argument '{item.argument}'?",
-            {label: str(value) for label, value in labels.items()}))
+        questions.append(
+            DecisionQuestion.choice(
+                key,
+                f"If the tool {item.tool} is used: which value fits its argument '{item.argument}'?",
+                {label: str(value) for label, value in labels.items()},
+            )
+        )
     if candidates is not None:
         for index, text in enumerate(schema.text_arguments):
             built = _text_question(index, text.tool, text.argument, prompt, candidates)
@@ -109,8 +123,15 @@ def tool_questions(tools: Sequence[Mapping[str, Any]], prompt: str, *, purpose: 
 TEXT_MIN_CONFIDENCE = 0.5  # benchmark 2026-09-27: every wrongly chosen span was below 0.5
 
 
-def read_tool_choice(schema: ToolDecisionSchema, result: DecisionResult, values: Mapping[str, Any], prompt: str, *,
-                     min_confidence: float, text_min_confidence: float = TEXT_MIN_CONFIDENCE) -> ToolDecision:
+def read_tool_choice(
+    schema: ToolDecisionSchema,
+    result: DecisionResult,
+    values: Mapping[str, Any],
+    prompt: str,
+    *,
+    min_confidence: float,
+    text_min_confidence: float = TEXT_MIN_CONFIDENCE,
+) -> ToolDecision:
     """The ``ToolDecision`` a decision result stands for.
 
     A text candidate is used only when chosen with at least ``text_min_confidence``; otherwise (and for

@@ -1,4 +1,5 @@
 """SummaryRecomputeStrategy — planning_summary_recompute_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, HeuristicStrategyBase, TodoReadPort
@@ -8,8 +9,16 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _SUMMARY_KEYWORDS = [
-    "summary", "summarize", "recompute", "update", "refresh", "overview",
-    "status", "progress", "recap", "report",
+    "summary",
+    "summarize",
+    "recompute",
+    "update",
+    "refresh",
+    "overview",
+    "status",
+    "progress",
+    "recap",
+    "report",
 ]
 _MIN_SCORE = 0.1
 

@@ -86,18 +86,14 @@ def test_system_managed_artifacts_are_hidden_from_generic_routes(
     upload_res = client.post(
         "/artifacts/upload",
         headers=admin_auth_header,
-        data={
-            "file": (BytesIO(b"internal capability data"), "internal.bin")
-        },
+        data={"file": (BytesIO(b"internal capability data"), "internal.bin")},
         content_type="multipart/form-data",
     )
     artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
     with app.app_context():
         repository = get_repository_registry().artifact_repo
         artifact = repository.get_by_id(artifact_id)
-        artifact.artifact_metadata = {
-            "system_artifact_kind": system_artifact_kind
-        }
+        artifact.artifact_metadata = {"system_artifact_kind": system_artifact_kind}
         repository.save(artifact)
 
     class _ForbiddenService:
@@ -119,9 +115,7 @@ def test_system_managed_artifacts_are_hidden_from_generic_routes(
 
     listed = client.get("/artifacts", headers=admin_auth_header)
     assert listed.status_code == 200
-    assert artifact_id not in {
-        item["id"] for item in listed.get_json()["data"]
-    }
+    assert artifact_id not in {item["id"] for item in listed.get_json()["data"]}
 
     requests = [
         ("get", f"/artifacts/{artifact_id}", None),
@@ -321,17 +315,21 @@ def test_artifact_rag_index_route_returns_index_and_run(client, admin_auth_heade
             captured["profile_name"] = profile_name
             captured["profile_overrides"] = profile_overrides
             return (
-                SimpleNamespace(model_dump=lambda: {
-                    "id": "idx-1",
-                    "artifact_id": artifact_id,
-                    "status": "completed",
-                    "profile_name": profile_name or "default",
-                }),
-                SimpleNamespace(model_dump=lambda: {
-                    "id": "run-1",
-                    "artifact_id": artifact_id,
-                    "status": "completed",
-                }),
+                SimpleNamespace(
+                    model_dump=lambda: {
+                        "id": "idx-1",
+                        "artifact_id": artifact_id,
+                        "status": "completed",
+                        "profile_name": profile_name or "default",
+                    }
+                ),
+                SimpleNamespace(
+                    model_dump=lambda: {
+                        "id": "run-1",
+                        "artifact_id": artifact_id,
+                        "status": "completed",
+                    }
+                ),
             )
 
         def get_artifact_status(self, artifact_id: str):
@@ -368,17 +366,21 @@ def test_artifact_rag_status_route_returns_runs(client, admin_auth_header, monke
 
         def get_artifact_status(self, artifact_id: str):
             return (
-                SimpleNamespace(model_dump=lambda: {
-                    "id": "idx-1",
-                    "artifact_id": artifact_id,
-                    "status": "completed",
-                }),
-                [
-                    SimpleNamespace(model_dump=lambda: {
-                        "id": "run-1",
+                SimpleNamespace(
+                    model_dump=lambda: {
+                        "id": "idx-1",
                         "artifact_id": artifact_id,
                         "status": "completed",
-                    })
+                    }
+                ),
+                [
+                    SimpleNamespace(
+                        model_dump=lambda: {
+                            "id": "run-1",
+                            "artifact_id": artifact_id,
+                            "status": "completed",
+                        }
+                    )
                 ],
             )
 

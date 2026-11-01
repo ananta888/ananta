@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # Uses only the repository-owned, provider-neutral JMAP contract adapter.
-
 from pathlib import Path
 
 import pytest
@@ -15,7 +14,6 @@ from tests.e2e.mail_ananta_composition_harness import (
     run_fixture_migration_and_restore,
 )
 from worker import mail_task_composition
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -84,9 +82,7 @@ def test_real_hub_and_production_provider_composition_contract(
         "completed",
         "completed",
     ]
-    assert {item["provider"] for item in (discovery, sync, body, mutation)} == {
-        "jmap"
-    }
+    assert {item["provider"] for item in (discovery, sync, body, mutation)} == {"jmap"}
     assert sync["counters"]["created_count"] == 2
     assert body["counters"] == {"content_ref_count": 1}
     assert mutation["counters"] == {"failed_count": 0, "succeeded_count": 1}

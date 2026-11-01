@@ -153,12 +153,8 @@ class TaskAdminService(
         )
 
         task_id = str(getattr(task, "id", "") or "").strip()
-        source_task_id = str(
-            getattr(task, "source_task_id", "") or ""
-        ).strip()
-        goal_id = str(
-            getattr(task, "goal_id", "") or ""
-        ).strip()
+        source_task_id = str(getattr(task, "source_task_id", "") or "").strip()
+        goal_id = str(getattr(task, "goal_id", "") or "").strip()
         lock_ids = {task_id} if task_id else set()
         if source_task_id:
             lock_ids.add(source_task_id)
@@ -198,23 +194,14 @@ class TaskAdminService(
             "event_details": {"archive": bool(archive)},
             "status_reason_code": f"task_{action}d",
         }
-        details = dict(
-            getattr(task, "status_reason_details", None) or {}
-        )
+        details = dict(getattr(task, "status_reason_details", None) or {})
         is_recovery_child = bool(
-            str(
-                getattr(task, "derivation_reason", "") or ""
-            ).strip()
-            == "goal_task_recovery"
+            str(getattr(task, "derivation_reason", "") or "").strip() == "goal_task_recovery"
             or details.get("model_recovery_release")
             or details.get("recovery_dispatch_lease")
         )
         is_recovery_source = bool(
-            not is_recovery_child
-            and (
-                details.get("model_recovery")
-                or details.get("model_recovery_strategy")
-            )
+            not is_recovery_child and (details.get("model_recovery") or details.get("model_recovery_strategy"))
         )
         if not (archive and is_recovery_source):
             update_local_task_status(
@@ -247,9 +234,7 @@ class TaskAdminService(
         *,
         task_id: str,
         action: str,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> bool:
         """Restore or purge one archived row under its lineage fences."""
 
@@ -275,17 +260,10 @@ class TaskAdminService(
             )
             lock_ids = self._admin_mutation_lock_ids(initial)
             retry_fence = False
-            with get_task_mutation_lock_port().mutation_locks(
-                lock_ids
-            ) as acquired:
+            with get_task_mutation_lock_port().mutation_locks(lock_ids) as acquired:
                 if not acquired:
-                    raise RuntimeError(
-                        "task_admin_archive_mutation_lock_unavailable:"
-                        + task_id
-                    )
-                archived = repos.archived_task_repo.get_by_id(
-                    task_id
-                )
+                    raise RuntimeError("task_admin_archive_mutation_lock_unavailable:" + task_id)
+                archived = repos.archived_task_repo.get_by_id(task_id)
                 if archived is None:
                     return False
                 ensure_generic_knowledge_index_mutation_allowed(
@@ -296,9 +274,7 @@ class TaskAdminService(
                     archived,
                     authorization=vector_authorization,
                 )
-                authoritative_lock_ids = (
-                    self._admin_mutation_lock_ids(archived)
-                )
+                authoritative_lock_ids = self._admin_mutation_lock_ids(archived)
                 if not authoritative_lock_ids.issubset(lock_ids):
                     retry_fence = True
                 else:
@@ -306,9 +282,7 @@ class TaskAdminService(
                         archived,
                         action=action,
                         repos=repos,
-                        recovery_gate=(
-                            get_recovery_dispatch_gate_service()
-                        ),
+                        recovery_gate=(get_recovery_dispatch_gate_service()),
                         archived_target=True,
                     )
                     if action == "restore":
@@ -323,18 +297,14 @@ class TaskAdminService(
                     return True
             if not retry_fence:
                 break
-        raise RuntimeError(
-            "task_admin_archive_fence_snapshot_unstable:" + task_id
-        )
+        raise RuntimeError("task_admin_archive_fence_snapshot_unstable:" + task_id)
 
     def _remove_active_task(
         self,
         *,
         task_id: str,
         archive: bool,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
         _fence_attempt: int = 0,
     ) -> tuple[bool, dict[str, Any] | None]:
         """Terminalize, cascade, and cancel before archive/delete."""
@@ -357,11 +327,9 @@ class TaskAdminService(
             initial,
             action="archive" if archive else "delete",
         )
-        is_vector_index_task = (
-            self._require_authorized_vector_index_task(
-                initial,
-                authorization=vector_authorization,
-            )
+        is_vector_index_task = self._require_authorized_vector_index_task(
+            initial,
+            authorization=vector_authorization,
         )
         if (
             is_vector_index_task
@@ -386,28 +354,17 @@ class TaskAdminService(
         initial_children = [
             child
             for child in list(repos.task_repo.get_all() or [])
-            if str(
-                getattr(child, "source_task_id", "") or ""
-            ).strip()
-            == str(task_id)
-            and get_recovery_dispatch_gate_service().is_recovery_child(
-                child
-            )
+            if str(getattr(child, "source_task_id", "") or "").strip() == str(task_id)
+            and get_recovery_dispatch_gate_service().is_recovery_child(child)
         ]
         lock_ids.update(
-            str(getattr(child, "id", "") or "")
-            for child in initial_children
-            if str(getattr(child, "id", "") or "")
+            str(getattr(child, "id", "") or "") for child in initial_children if str(getattr(child, "id", "") or "")
         )
         cancellation_ids: set[str] = {str(task_id)}
         try:
-            with get_task_mutation_lock_port().mutation_locks(
-                lock_ids
-            ) as acquired:
+            with get_task_mutation_lock_port().mutation_locks(lock_ids) as acquired:
                 if not acquired:
-                    raise RuntimeError(
-                        f"task_admin_mutation_lock_unavailable:{task_id}"
-                    )
+                    raise RuntimeError(f"task_admin_mutation_lock_unavailable:{task_id}")
                 task = repos.task_repo.get_by_id(task_id)
                 if task is None:
                     return False, None
@@ -419,24 +376,15 @@ class TaskAdminService(
                     task,
                     authorization=vector_authorization,
                 )
-                authoritative_lock_ids = (
-                    self._admin_mutation_lock_ids(task)
-                )
+                authoritative_lock_ids = self._admin_mutation_lock_ids(task)
                 children = [
                     child
                     for child in list(repos.task_repo.get_all() or [])
-                    if str(
-                        getattr(child, "source_task_id", "") or ""
-                    ).strip()
-                    == str(task_id)
-                    and get_recovery_dispatch_gate_service().is_recovery_child(
-                        child
-                    )
+                    if str(getattr(child, "source_task_id", "") or "").strip() == str(task_id)
+                    and get_recovery_dispatch_gate_service().is_recovery_child(child)
                 ]
                 child_ids = {
-                    str(getattr(child, "id", "") or "")
-                    for child in children
-                    if str(getattr(child, "id", "") or "")
+                    str(getattr(child, "id", "") or "") for child in children if str(getattr(child, "id", "") or "")
                 }
                 required_ids = set(child_ids)
                 required_ids.update(authoritative_lock_ids)
@@ -447,9 +395,7 @@ class TaskAdminService(
                     task,
                     action="archive" if archive else "delete",
                     repos=repos,
-                    recovery_gate=(
-                        get_recovery_dispatch_gate_service()
-                    ),
+                    recovery_gate=(get_recovery_dispatch_gate_service()),
                 )
                 self._terminalize_active_task(
                     task,
@@ -469,9 +415,7 @@ class TaskAdminService(
                 repos.task_repo.delete(task_id)
         except _RetryTaskAdminFence:
             if _fence_attempt >= 7:
-                raise RuntimeError(
-                    f"task_admin_fence_snapshot_unstable:{task_id}"
-                )
+                raise RuntimeError(f"task_admin_fence_snapshot_unstable:{task_id}")
             return self._remove_active_task(
                 task_id=task_id,
                 archive=archive,
@@ -480,9 +424,7 @@ class TaskAdminService(
             )
 
         cancellation = get_request_cancellation_service()
-        for cancellation_id in sorted(
-            value for value in cancellation_ids if value
-        ):
+        for cancellation_id in sorted(value for value in cancellation_ids if value):
             try:
                 cancellation.cancel_task_requests(
                     task_id=cancellation_id,
@@ -505,9 +447,7 @@ class TaskAdminService(
         task_id: str,
         action: str,
         actor: str,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> tuple[bool, str, dict]:
         from agent.services.recovery_dispatch_gate_service import (
             get_recovery_dispatch_gate_service,
@@ -536,25 +476,19 @@ class TaskAdminService(
                         "http_status": 409,
                     },
                 )
-            vector_intervention = (
-                self._intervene_vector_index_task(
-                    task=initial,
-                    action=action,
-                    actor=actor,
-                    authorization=vector_authorization,
-                )
+            vector_intervention = self._intervene_vector_index_task(
+                task=initial,
+                action=action,
+                actor=actor,
+                authorization=vector_authorization,
             )
             if vector_intervention is not None:
                 return vector_intervention
             lock_ids = self._admin_mutation_lock_ids(initial)
             retry_fence = False
-            with get_task_mutation_lock_port().mutation_locks(
-                lock_ids
-            ) as acquired:
+            with get_task_mutation_lock_port().mutation_locks(lock_ids) as acquired:
                 if not acquired:
-                    return False, (
-                        "task_admin_mutation_lock_unavailable"
-                    ), {"task_id": task_id}
+                    return False, ("task_admin_mutation_lock_unavailable"), {"task_id": task_id}
                 task = repos.task_repo.get_by_id(task_id)
                 if not task:
                     return False, "not_found", {}
@@ -571,9 +505,7 @@ class TaskAdminService(
                             "http_status": 409,
                         },
                     )
-                authoritative_lock_ids = (
-                    self._admin_mutation_lock_ids(task)
-                )
+                authoritative_lock_ids = self._admin_mutation_lock_ids(task)
                 if not authoritative_lock_ids.issubset(lock_ids):
                     retry_fence = True
                 elif self._vector_index_task_marker(task):
@@ -586,9 +518,7 @@ class TaskAdminService(
                             task,
                             action=action,
                             repos=repos,
-                            recovery_gate=(
-                                get_recovery_dispatch_gate_service()
-                            ),
+                            recovery_gate=(get_recovery_dispatch_gate_service()),
                         )
                     except RecoveryChildAdminMutationConflict as exc:
                         return (
@@ -603,9 +533,7 @@ class TaskAdminService(
                     )
                     ok, reason = can_transition(action, current)
                     if not ok:
-                        return False, reason, {
-                            "current_status": current
-                        }
+                        return False, reason, {"current_status": current}
                     new_status = resolve_next_status(
                         action,
                         current,
@@ -634,43 +562,35 @@ class TaskAdminService(
                         default="",
                     )
                     if confirmed_status != new_status:
-                        return False, (
-                            "task_admin_status_commit_conflict"
-                        ), {
-                            "reason_code": (
-                                "task_admin_status_commit_conflict"
-                            ),
-                            "task_id": task_id,
-                            "source_task_id": (
-                                str(
-                                    getattr(
-                                        task,
-                                        "source_task_id",
-                                        "",
-                                    )
-                                    or ""
-                                ).strip()
-                                or None
-                            ),
-                            "plan_id": (
-                                str(
-                                    getattr(task, "plan_id", "")
-                                    or ""
-                                ).strip()
-                                or None
-                            ),
-                            "action": action,
-                            "expected_status": new_status,
-                            "current_status": confirmed_status,
-                            "http_status": 409,
-                        }
+                        return (
+                            False,
+                            ("task_admin_status_commit_conflict"),
+                            {
+                                "reason_code": ("task_admin_status_commit_conflict"),
+                                "task_id": task_id,
+                                "source_task_id": (
+                                    str(
+                                        getattr(
+                                            task,
+                                            "source_task_id",
+                                            "",
+                                        )
+                                        or ""
+                                    ).strip()
+                                    or None
+                                ),
+                                "plan_id": (str(getattr(task, "plan_id", "") or "").strip() or None),
+                                "action": action,
+                                "expected_status": new_status,
+                                "current_status": confirmed_status,
+                                "http_status": 409,
+                            },
+                        )
             if retry_fence:
                 continue
             break
         else:
-            return False, "task_admin_fence_snapshot_unstable", {
-                "task_id": task_id
-            }
+            return False, "task_admin_fence_snapshot_unstable", {"task_id": task_id}
 
         worker_cancel_forward = None
         if action == "cancel":
@@ -678,12 +598,9 @@ class TaskAdminService(
                 get_request_cancellation_service,
             )
 
-            worker_cancel_forward = (
-                get_request_cancellation_service()
-                .cancel_task_requests(
-                    task_id=task_id,
-                    include_workers=True,
-                )
+            worker_cancel_forward = get_request_cancellation_service().cancel_task_requests(
+                task_id=task_id,
+                include_workers=True,
             )
         log_audit(
             "task_intervention",
@@ -696,12 +613,16 @@ class TaskAdminService(
                 **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
             },
         )
-        return True, "ok", {
-            "id": task_id,
-            "action": action,
-            "status": new_status,
-            **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
-        }
+        return (
+            True,
+            "ok",
+            {
+                "id": task_id,
+                "action": action,
+                "status": new_status,
+                **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
+            },
+        )
 
 
 task_admin_service = TaskAdminService()

@@ -25,9 +25,7 @@ def _stop(_signum: int, _frame: Any) -> None:
 
 def serve() -> None:
     runner = build_environment_runner()
-    socket_path = Path(
-        os.environ.get("ANANTA_HRM_RUNNER_SOCKET", "/run/ananta-hrm/runner.sock")
-    )
+    socket_path = Path(os.environ.get("ANANTA_HRM_RUNNER_SOCKET", "/run/ananta-hrm/runner.sock"))
     if not socket_path.is_absolute():
         raise HrmRunnerError("hrm.runner_socket_must_be_absolute")
     socket_path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)

@@ -10,19 +10,10 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 log = logging.getLogger(__name__)
-
-
 
 
 def build_golden_path_examples() -> dict[str, Any]:
@@ -46,9 +37,6 @@ def build_golden_path_examples() -> dict[str, Any]:
             },
         ],
     }
-
-
-
 
 
 def build_rollout_plan() -> dict[str, Any]:
@@ -75,9 +63,6 @@ def build_rollout_plan() -> dict[str, Any]:
     }
 
 
-
-
-
 def build_test_coverage_manifest() -> dict[str, Any]:
     return {
         "schema": "deterministic_repair_test_coverage_manifest_v1",
@@ -99,6 +84,3 @@ def build_test_coverage_manifest() -> dict[str, Any]:
             },
         ],
     }
-
-
-

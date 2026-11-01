@@ -31,7 +31,9 @@ class KeycloakDocsFetcher:
         fetch_source = dict(descriptor.get("fetch_source") or {})
         source_id = str(descriptor.get("source_id") or "keycloak-official-docs")
         primary_url = str(fetch_source.get("url") or "").strip()
-        additional = [str(item).strip() for item in list(fetch_source.get("additional_urls") or []) if str(item).strip()]
+        additional = [
+            str(item).strip() for item in list(fetch_source.get("additional_urls") or []) if str(item).strip()
+        ]
         urls = [primary_url, *additional]
         pages: list[dict[str, Any]] = []
         for url in urls:
@@ -52,7 +54,10 @@ class KeycloakDocsFetcher:
                     "extracted_text": _extract_text_from_html(payload),
                 }
             )
-        descriptor_hash = str((descriptor.get("extensions") or {}).get("descriptor_hash") or hashlib.sha256(repr(descriptor).encode("utf-8")).hexdigest())
+        descriptor_hash = str(
+            (descriptor.get("extensions") or {}).get("descriptor_hash")
+            or hashlib.sha256(repr(descriptor).encode("utf-8")).hexdigest()
+        )
         snapshot = self.snapshot_store.build_snapshot(
             source_id=source_id,
             descriptor_hash=descriptor_hash,
@@ -64,4 +69,3 @@ class KeycloakDocsFetcher:
         if not dry_run:
             self.snapshot_store.save_snapshot(snapshot)
         return {"source_id": source_id, "snapshot": snapshot, "pages": pages, "dry_run": bool(dry_run)}
-

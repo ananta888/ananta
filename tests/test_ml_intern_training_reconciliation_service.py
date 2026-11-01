@@ -11,7 +11,6 @@ from typing import Any, Callable, Mapping
 import pytest
 from sqlmodel import Session, select
 
-from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 from agent.database import engine
 from agent.db_models import (
     AuditLogDB,
@@ -26,6 +25,7 @@ from agent.services.ml_intern_training_reconciliation_service import (
     MlInternTrainingReconciliationService,
 )
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 
 
 @pytest.fixture(autouse=True)

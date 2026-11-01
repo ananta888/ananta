@@ -8,8 +8,8 @@ from agent.repositories.meet_dialog_phases import TaskDialogPhases
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_phases import MeetDialogPhases
 from agent.services.source_control_access_policy import HubSourcePrincipal
-from tests.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.meet_publication_observation_wait import wait_for_publications
+from tests.meet_dialog_lifecycle_fixture import seed_parent
 
 
 class PhaseScenario:

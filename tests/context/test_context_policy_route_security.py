@@ -82,9 +82,13 @@ def test_admin_can_read_context_policy_projection(monkeypatch) -> None:
         SimpleNamespace(list_policies=lambda **_kwargs: [record]),
     )
 
-    response = _app().test_client().get(
-        "/api/context-policy/policies?project_id=project-a",
-        headers=_headers("admin"),
+    response = (
+        _app()
+        .test_client()
+        .get(
+            "/api/context-policy/policies?project_id=project-a",
+            headers=_headers("admin"),
+        )
     )
 
     assert response.status_code == 200
@@ -97,16 +101,18 @@ def test_invalid_payload_never_leaks_exception_details(monkeypatch) -> None:
         "agent.routes.context_policy.policy_service",
         SimpleNamespace(
             validate_policy=lambda _policy: [],
-            create_policy_record=lambda **_kwargs: (_ for _ in ()).throw(
-                ValueError(secret_detail)
-            ),
+            create_policy_record=lambda **_kwargs: (_ for _ in ()).throw(ValueError(secret_detail)),
         ),
     )
 
-    response = _app().test_client().post(
-        "/api/context-policy/policies",
-        json={"policy_id": "policy-a", "rules": []},
-        headers=_headers("admin"),
+    response = (
+        _app()
+        .test_client()
+        .post(
+            "/api/context-policy/policies",
+            json={"policy_id": "policy-a", "rules": []},
+            headers=_headers("admin"),
+        )
     )
 
     assert response.status_code == 400

@@ -5,14 +5,13 @@ import logging
 import time
 from typing import Any, Callable
 
-from agent.config import settings
-from agent.ports.task_dispatch import TaskDispatchResult
 from agent.metrics import (
     TASK_FAILURE_REASON_COUNT,
     TASK_SUCCESS_RATE,
     WORKER_BUSY_SECONDS,
     WORKSPACE_WRITE_CONFLICT_COUNT,
 )
+from agent.ports.task_dispatch import TaskDispatchResult
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.repository_registry import get_repository_registry
 
@@ -25,6 +24,7 @@ def _hub_context_window() -> dict[str, Any]:
         return hub_assignment()
     except Exception:  # noqa: BLE001
         return {}
+
 
 def _current_task_status(task_id: str, *, app: Any) -> str:
     try:
@@ -221,7 +221,9 @@ def _fallback_policy(loop: Any) -> dict[str, Any]:
     }
 
 
-def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, all_tasks: list[Any], goal_scope: str | None) -> bool:
+def _maybe_recover_planned_goal_without_candidates(
+    *, loop: Any, services: Any, all_tasks: list[Any], goal_scope: str | None
+) -> bool:
     goal_id = str(goal_scope or "").strip()
     if not goal_id:
         return False
@@ -233,26 +235,26 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     if goal_status not in {"planning", "planned"}:
         return False
     goal_tasks_global = [
-        task
-        for task in repos.task_repo.get_all()
-        if str(getattr(task, "goal_id", "") or "").strip() == goal_id
+        task for task in repos.task_repo.get_all() if str(getattr(task, "goal_id", "") or "").strip() == goal_id
     ]
     task_view = list(all_tasks or [])
     if not task_view and goal_tasks_global:
         task_view = list(goal_tasks_global)
     non_terminal = [
-        task
-        for task in task_view
-        if not _is_terminal_status(str(getattr(task, "status", "") or "").strip().lower())
+        task for task in task_view if not _is_terminal_status(str(getattr(task, "status", "") or "").strip().lower())
     ]
     active_statuses = {"assigned", "proposing", "in_progress"}
     has_active = any(str(getattr(task, "status", "") or "").strip().lower() in active_statuses for task in non_terminal)
     if has_active:
         return False
-    has_blocked = any(str(getattr(task, "status", "") or "").strip().lower() == "blocked_by_dependency" for task in non_terminal)
+    has_blocked = any(
+        str(getattr(task, "status", "") or "").strip().lower() == "blocked_by_dependency" for task in non_terminal
+    )
     if has_blocked:
         return False
-    has_todo = any(str(getattr(task, "status", "") or "").strip().lower() in {"todo", "created"} for task in non_terminal)
+    has_todo = any(
+        str(getattr(task, "status", "") or "").strip().lower() in {"todo", "created"} for task in non_terminal
+    )
     if has_todo:
         return False
     has_review_pending = any(
@@ -262,13 +264,13 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     if has_review_pending:
         return False
     if task_view and not non_terminal:
-        all_failed = all(
-            str(getattr(t, "status", "") or "").strip().lower() == "failed" for t in task_view
-        )
+        all_failed = all(str(getattr(t, "status", "") or "").strip().lower() == "failed" for t in task_view)
         if all_failed:
             try:
                 services.goal_lifecycle_service.transition_goal(
-                    goal, target_status="failed", reason="all_tasks_failed_no_recovery",
+                    goal,
+                    target_status="failed",
+                    reason="all_tasks_failed_no_recovery",
                 )
             except Exception:
                 pass
@@ -288,16 +290,30 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
         if attempts >= max_attempts and stalled_for >= stale_threshold_seconds:
             try:
                 services.goal_lifecycle_service.transition_goal(
-                    goal, target_status="failed", reason="planned_stall_no_dispatchable_candidates",
+                    goal,
+                    target_status="failed",
+                    reason="planned_stall_no_dispatchable_candidates",
                 )
-                recovery.update({"last_attempt_at": now_ts, "last_reason": "planned_stall_no_dispatchable_candidates", "stalled_for_seconds": int(stalled_for)})
+                recovery.update(
+                    {
+                        "last_attempt_at": now_ts,
+                        "last_reason": "planned_stall_no_dispatchable_candidates",
+                        "stalled_for_seconds": int(stalled_for),
+                    }
+                )
                 execution_preferences["autopilot_recovery"] = recovery
                 goal.execution_preferences = execution_preferences
                 repos.goal_repo.save(goal)
             except Exception:
                 pass
         else:
-            recovery.update({"last_attempt_at": now_ts, "last_reason": "recovery_cooldown_or_exhausted", "stalled_for_seconds": int(stalled_for)})
+            recovery.update(
+                {
+                    "last_attempt_at": now_ts,
+                    "last_reason": "recovery_cooldown_or_exhausted",
+                    "stalled_for_seconds": int(stalled_for),
+                }
+            )
             execution_preferences["autopilot_recovery"] = recovery
             goal.execution_preferences = execution_preferences
             repos.goal_repo.save(goal)
@@ -306,18 +322,31 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     recovery.setdefault("stall_since", now_ts)
     try:
         from agent.routes.tasks.auto_planner import auto_planner
+
         team_id = str(getattr(goal, "team_id", "") or "").strip() or None
         context = getattr(goal, "context", None)
         plan_result = auto_planner.plan_goal(
             goal=str(getattr(goal, "goal", "") or ""),
             context=context if isinstance(context, str) else None,
-            team_id=team_id, create_tasks=True, use_template=True, use_repo_context=True,
-            goal_id=goal.id, goal_trace_id=str(getattr(goal, "trace_id", "") or ""),
+            team_id=team_id,
+            create_tasks=True,
+            use_template=True,
+            use_repo_context=True,
+            goal_id=goal.id,
+            goal_trace_id=str(getattr(goal, "trace_id", "") or ""),
             mode=str(getattr(goal, "mode", "") or "generic"),
             mode_data=dict(getattr(goal, "mode_data", None) or {}),
         )
         created_ids = list((plan_result or {}).get("created_task_ids") or [])
-        recovery.update({"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": recovery_reason, "last_created_task_count": len(created_ids), "last_plan_id": (plan_result or {}).get("plan_id")})
+        recovery.update(
+            {
+                "attempts": attempts + 1,
+                "last_attempt_at": now_ts,
+                "last_reason": recovery_reason,
+                "last_created_task_count": len(created_ids),
+                "last_plan_id": (plan_result or {}).get("plan_id"),
+            }
+        )
         execution_preferences["autopilot_recovery"] = recovery
         goal.execution_preferences = execution_preferences
         repos.goal_repo.save(goal)
@@ -327,7 +356,14 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
                 loop.wake()
             return True
     except Exception as exc:
-        recovery.update({"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": f"{recovery_reason}:error", "last_error": str(exc)[:240]})
+        recovery.update(
+            {
+                "attempts": attempts + 1,
+                "last_attempt_at": now_ts,
+                "last_reason": f"{recovery_reason}:error",
+                "last_error": str(exc)[:240],
+            }
+        )
         execution_preferences["autopilot_recovery"] = recovery
         goal.execution_preferences = execution_preferences
         repos.goal_repo.save(goal)
@@ -373,32 +409,23 @@ def _execute_proposed_step(
         get_recovery_worker_result_service,
     )
 
-    recovery_proposal_context = (
-        get_recovery_worker_result_service()
-        .proposal_context_for_task(task.id)
-    )
+    recovery_proposal_context = get_recovery_worker_result_service().proposal_context_for_task(task.id)
     if recovery_proposal_context is not None:
-        execute_payload["recovery_proposal_context"] = (
-            recovery_proposal_context
-        )
+        execute_payload["recovery_proposal_context"] = recovery_proposal_context
     from agent.services.recovery_task_mutation_policy import (
         recovery_task_role,
     )
 
     run_evidence_context = None
     if recovery_task_role(task) == "child":
-        run_evidence_context = (
-            recovery_gate.reserve_run_evidence_context(
-                task.id,
-                worker_url=target_worker.url,
-                replace=False,
-                app=app_ctx,
-            )
+        run_evidence_context = recovery_gate.reserve_run_evidence_context(
+            task.id,
+            worker_url=target_worker.url,
+            replace=False,
+            app=app_ctx,
         )
     if run_evidence_context is not None:
-        execute_payload["recovery_run_evidence_context"] = (
-            run_evidence_context
-        )
+        execute_payload["recovery_run_evidence_context"] = run_evidence_context
     dispatch_lease = recovery_gate.acquire_dispatch_lease(
         task.id,
         phase="execute",
@@ -415,9 +442,7 @@ def _execute_proposed_step(
             "autopilot_execute_skipped_recovery_lease",
             delegated_to=target_worker.url,
             reason_code=dispatch_lease.decision.reason_code,
-            source_task_id=(
-                dispatch_lease.decision.source_task_id
-            ),
+            source_task_id=(dispatch_lease.decision.source_task_id),
             plan_id=dispatch_lease.decision.plan_id,
         )
         result.dispatched = True
@@ -425,9 +450,7 @@ def _execute_proposed_step(
         result.failure_type = dispatch_lease.decision.reason_code
         return result
     if dispatch_lease.token:
-        execute_payload["dispatch_lease_token"] = (
-            dispatch_lease.token
-        )
+        execute_payload["dispatch_lease_token"] = dispatch_lease.token
         execute_payload["dispatch_lease_phase"] = "execute"
     try:
         latest_status = _current_task_status(task.id, app=app_ctx)
@@ -455,9 +478,7 @@ def _execute_proposed_step(
         if dispatch_lease.token:
             recovery_gate.revoke_dispatch_lease(
                 task.id,
-                reason_code=(
-                    "recovery_dispatch_transport_outcome_unknown"
-                ),
+                reason_code=("recovery_dispatch_transport_outcome_unknown"),
                 app=app_ctx,
             )
             append_trace_event(
@@ -465,15 +486,11 @@ def _execute_proposed_step(
                 "autopilot_execute_transport_fenced",
                 delegated_to=target_worker.url,
                 reason=str(e),
-                reason_code=(
-                    "recovery_dispatch_transport_outcome_unknown"
-                ),
+                reason_code=("recovery_dispatch_transport_outcome_unknown"),
             )
             result.dispatched = True
             result.failed = True
-            result.failure_type = (
-                "recovery_dispatch_transport_outcome_unknown"
-            )
+            result.failure_type = "recovery_dispatch_transport_outcome_unknown"
             return result
         if _is_transient_worker_transport_error(e):
             defer_until = time.time() + 30
@@ -558,10 +575,7 @@ def _execute_proposed_step(
         else contextlib.nullcontext(None)
     )
     with result_guard as result_decision:
-        if (
-            result_decision is not None
-            and not result_decision.allowed
-        ):
+        if result_decision is not None and not result_decision.allowed:
             append_trace_event(
                 task.id,
                 "autopilot_execute_result_rejected",
@@ -613,19 +627,13 @@ def _execute_proposed_step(
                     "exit_code": exit_code,
                 }
             )
-            task_payload = (
-                task.model_dump()
-                if hasattr(task, "model_dump")
-                else dict(task)
-            )
+            task_payload = task.model_dump() if hasattr(task, "model_dump") else dict(task)
             task_payload["last_proposal"] = merged_proposal
             persist_forwarded_execution(
                 tid=task.id,
                 response=accepted_response,
                 task=task_payload,
-                request_data=TaskStepExecuteRequest(
-                    **execute_payload
-                ),
+                request_data=TaskStepExecuteRequest(**execute_payload),
                 last_proposal=merged_proposal,
             )
             task_status = _current_task_status(
@@ -680,6 +688,7 @@ def _execute_proposed_step(
     if result.completed:
         try:
             from agent.routes.tasks.auto_planner import auto_planner
+
             if auto_planner.auto_followup_enabled:
                 auto_planner.analyze_and_create_followups(
                     task_id=task.id,
@@ -708,7 +717,8 @@ def _dispatch_one_task(
     append_trace_event: Callable[..., None],
     update_local_task_status: Callable[..., None],
 ) -> TaskDispatchResult:
-    from agent.services.lmstudio_request_registry import set_thread_context, clear_thread_context
+    from agent.services.lmstudio_request_registry import clear_thread_context, set_thread_context
+
     _goal_id = str(getattr(task, "goal_id", "") or "").strip() or None
     _task_id = str(getattr(task, "id", "") or "").strip() or None
     set_thread_context(_goal_id, _task_id)
@@ -716,15 +726,25 @@ def _dispatch_one_task(
         _ctx = app.app_context() if app is not None else contextlib.nullcontext()
         with _ctx:
             from agent.routes.tasks.autopilot_task_dispatcher import _dispatch_one_task_inner
+
             def execute():
                 return _dispatch_one_task_inner(
-                    task=task, target_worker=target_worker, was_assigned=was_assigned,
-                    loop=loop, services=services, policy=policy, fallback_policy=fallback_policy,
-                    runtime_caps=runtime_caps, queue_positions=queue_positions, local_worker_url=local_worker_url,
-                    append_trace_event=append_trace_event, update_local_task_status=update_local_task_status,
+                    task=task,
+                    target_worker=target_worker,
+                    was_assigned=was_assigned,
+                    loop=loop,
+                    services=services,
+                    policy=policy,
+                    fallback_policy=fallback_policy,
+                    runtime_caps=runtime_caps,
+                    queue_positions=queue_positions,
+                    local_worker_url=local_worker_url,
+                    append_trace_event=append_trace_event,
+                    update_local_task_status=update_local_task_status,
                 )
 
             from agent.services.self_development.runtime import get_development_coordinator
+
             development = get_development_coordinator()
             if development is not None and development.manages(task.id):
                 return development.dispatch(task, target_worker, execute)

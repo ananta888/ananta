@@ -3,13 +3,14 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from agent.services.terminal_cleanup_service import TerminalCleanupService
 
 
-def _make_session(session_id: str, status: str = "running", expires_at: float | None = None, idle_expires_at: float | None = None):
+def _make_session(
+    session_id: str, status: str = "running", expires_at: float | None = None, idle_expires_at: float | None = None
+):
     from agent.db_models import TerminalSessionDB
+
     return TerminalSessionDB(
         id=session_id,
         created_by_user_id="u1",
@@ -88,8 +89,8 @@ def test_cleanup_does_not_kill_unrelated_tmux():
 
 
 def test_cleanup_expired_session_cannot_receive_input():
-    from agent.services.terminal_session_service import TerminalSessionService
     from agent.db_models import TerminalSessionDB
+    from agent.services.terminal_session_service import TerminalSessionService
 
     svc = TerminalSessionService.__new__(TerminalSessionService)
     expired_sess = TerminalSessionDB(
