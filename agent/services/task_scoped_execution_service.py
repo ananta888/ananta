@@ -217,53 +217,6 @@ class TaskScopedExecutionService:
         return resolve_interactive_retry_timeout(agent_cfg, fallback=fallback)
 
     @staticmethod
-    def _build_flow_metrics_payload(
-        *,
-        run_id: str | None,
-        phase: str,
-        propose_ok: bool | None,
-        execute_ok: bool | None,
-        artifact_created: bool | None,
-        worker_profile: str | None = None,
-        profile_source: str | None = None,
-        policy_classification: str | None = None,
-        retrieval_cache_hit: bool | None = None,
-        retrieval_latency_ms: int | None = None,
-        retrieval_quality_score: float | None = None,
-    ) -> dict:
-        # SPLIT-001j: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_citation.build_flow_metrics_payload
-        from agent.services._task_scoped_citation import build_flow_metrics_payload
-
-        return build_flow_metrics_payload(
-            run_id=run_id,
-            phase=phase,
-            propose_ok=propose_ok,
-            execute_ok=execute_ok,
-            artifact_created=artifact_created,
-            worker_profile=worker_profile,
-            profile_source=profile_source,
-            policy_classification=policy_classification,
-            retrieval_cache_hit=retrieval_cache_hit,
-            retrieval_latency_ms=retrieval_latency_ms,
-            retrieval_quality_score=retrieval_quality_score,
-        )
-
-    @staticmethod
-    def _build_planner_observability_payload(
-        *,
-        trigger: str | None,
-        policy_decision_ref: str | None,
-        plan_diff: dict | None,
-    ) -> dict:
-        # SPLIT-001j: delegating wrapper.
-        from agent.services._task_scoped_citation import build_planner_observability_payload
-
-        return build_planner_observability_payload(
-            trigger=trigger, policy_decision_ref=policy_decision_ref, plan_diff=plan_diff
-        )
-
-    @staticmethod
     def _extract_retrieval_trace_link(context_payload: dict | None) -> dict[str, str | None]:
         # SPLIT-001j: delegating wrapper.
         from agent.services._task_scoped_citation import extract_retrieval_trace_link
@@ -303,18 +256,6 @@ class TaskScopedExecutionService:
         from agent.services._task_scoped_citation import extract_grounded_answer_payload
 
         return extract_grounded_answer_payload(output)
-
-    @staticmethod
-    def _update_task_flow_metrics(
-        *,
-        tid: str,
-        task: dict,
-        flow_metrics: dict,
-    ) -> None:
-        # SPLIT-001j: delegating wrapper.
-        from agent.services._task_scoped_citation import update_task_flow_metrics
-
-        return update_task_flow_metrics(tid=tid, task=task, flow_metrics=flow_metrics)
 
     @staticmethod
     def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
@@ -425,37 +366,6 @@ class TaskScopedExecutionService:
             execution_policy=execution_policy,
         )
 
-    def _propose_task_with_comparisons(
-        self,
-        *,
-        tid: str,
-        task: dict,
-        request_data,
-        prompt: str,
-        base_prompt: str,
-        worker_context_meta: dict,
-        research_context: dict | None,
-        cli_runner: Callable,
-        cfg: dict,
-    ) -> TaskScopedRouteResponse:
-        from agent.services._task_scoped_domain_action import propose_task_with_comparisons
-
-        return propose_task_with_comparisons(
-            tid=tid,
-            task=task,
-            request_data=request_data,
-            prompt=prompt,
-            base_prompt=base_prompt,
-            worker_context_meta=worker_context_meta,
-            research_context=research_context,
-            cli_runner=cli_runner,
-            cfg=cfg,
-            resolve_requested_model=self._resolve_requested_model,
-            invoke_cli_runner=self._invoke_cli_runner,
-            coalesce_cli_output=self._coalesce_cli_output,
-            resolve_task_propose_timeout=self._resolve_task_propose_timeout,
-        )
-
     def _propose_single_task_step(
         self,
         *,
@@ -484,39 +394,6 @@ class TaskScopedExecutionService:
             resolve_requested_model=self._resolve_requested_model,
             invoke_cli_runner=self._invoke_cli_runner,
             coalesce_cli_output=self._coalesce_cli_output,
-        )
-
-    def _finalize_interactive_terminal_execution(
-        self,
-        *,
-        tid: str,
-        task: dict,
-        reason: str,
-        execution_policy,
-    ) -> TaskScopedRouteResponse:
-        from agent.services._task_scoped_domain_action import finalize_interactive_terminal_execution
-
-        return finalize_interactive_terminal_execution(
-            tid=tid, task=task, reason=reason, execution_policy=execution_policy
-        )
-
-    def _execute_research_artifact(
-        self,
-        *,
-        tid: str,
-        task: dict,
-        proposal: dict,
-        research_artifact: dict,
-        execution_policy,
-    ) -> TaskScopedRouteResponse:
-        from agent.services._task_scoped_domain_action import execute_research_artifact
-
-        return execute_research_artifact(
-            tid=tid,
-            task=task,
-            proposal=proposal,
-            research_artifact=research_artifact,
-            execution_policy=execution_policy,
         )
 
     # --- cluster: forwarding_hub (remote forward, persist proposal/execution) ---
@@ -574,12 +451,6 @@ class TaskScopedExecutionService:
             dependencies=self.forwarding_dependencies,
         )
 
-    @staticmethod
-    def _normalize_forwarded_artifacts(*, task_id: str, artifacts: list[dict] | None) -> list[dict] | None:
-        from agent.services._task_scoped_forwarding import normalize_forwarded_artifacts
-
-        return normalize_forwarded_artifacts(task_id=task_id, artifacts=artifacts)
-
     # ── HF-T019: Hermes propose path ─────────────────────────────────────────
 
     # --- cluster: adapters (hermes, handler) ---
@@ -603,27 +474,6 @@ class TaskScopedExecutionService:
             request_data=request_data,
             research_context=research_context,
             cfg=cfg,
-        )
-
-    def _invoke_hermes_adapter(
-        self,
-        *,
-        tid: str,
-        task: dict,
-        task_kind: str,
-        request_data,
-        research_context: object,
-        hermes_cfg_raw: dict,
-    ) -> dict | None:
-        from agent.services._task_scoped_adapters import invoke_hermes_adapter
-
-        return invoke_hermes_adapter(
-            tid=tid,
-            task=task,
-            task_kind=task_kind,
-            request_data=request_data,
-            research_context=research_context,
-            hermes_cfg_raw=hermes_cfg_raw,
         )
 
     def _try_handler_propose(
@@ -652,26 +502,6 @@ class TaskScopedExecutionService:
             service=self,
             build_review_state=self._build_review_state,
         )
-
-    def _try_handler_execute(
-        self,
-        *,
-        tid: str,
-        task: dict,
-        task_kind: str,
-        request_data,
-        forwarder: Callable,
-    ) -> TaskScopedRouteResponse | None:
-        from agent.services._task_scoped_adapters import try_handler_execute
-
-        return try_handler_execute(
-            tid=tid, task=task, task_kind=task_kind, request_data=request_data, forwarder=forwarder, service=self
-        )
-
-    def _coerce_handler_response(self, response: object | None) -> TaskScopedRouteResponse | None:
-        from agent.services._task_scoped_adapters import coerce_handler_response
-
-        return coerce_handler_response(response)
 
     def _require_task(self, tid: str) -> dict:
         # SPLIT-001s: delegating wrapper. Implementation lives in
@@ -714,10 +544,6 @@ class TaskScopedExecutionService:
 
         return coalesce_cli_output(stdout, stderr)
 
-    @classmethod
-    def _sanitize_structured_output_text(cls, raw_text: str) -> str:
-        return sanitize_structured_output_text(raw_text)
-
     @staticmethod
     def _normalize_tool_calls(tool_calls: object) -> list[dict] | None:
         # SPLIT-001u: delegating wrapper. Implementation lives in
@@ -725,15 +551,6 @@ class TaskScopedExecutionService:
         from agent.services._task_scoped_cli_invocation import normalize_tool_calls
 
         return normalize_tool_calls(tool_calls)
-
-    @classmethod
-    def _normalize_structured_action_payload(cls, data: object) -> dict | None:
-        return normalize_structured_action_payload(data)
-
-    @classmethod
-    # --- cluster: repair (structured-action parse, repair, shell-meta-block) ---
-    def _parse_structured_action_payload(cls, raw_text: str) -> dict | None:
-        return parse_structured_action_payload(raw_text)
 
     @classmethod
     def _locally_repair_structured_action_output(cls, raw_text: str) -> str | None:
@@ -784,61 +601,10 @@ class TaskScopedExecutionService:
         )
 
     @staticmethod
-    def _is_timeout_like_repair_failure(*, validation_error: str, bad_output: str) -> bool:
-        from agent.services._task_scoped_repair import is_timeout_like_repair_failure
-
-        return is_timeout_like_repair_failure(validation_error=validation_error, bad_output=bad_output)
-
-    @staticmethod
-    def _is_shell_meta_blocked_failure(output: str | None, failure_type: str | None) -> bool:
-        from agent.services._task_scoped_repair import is_shell_meta_blocked_failure
-
-        return is_shell_meta_blocked_failure(output, failure_type)
-
-    @staticmethod
-    def _is_command_not_found_failure(output: str | None, failure_type: str | None) -> bool:
-        from agent.services._task_scoped_repair import is_command_not_found_failure
-
-        return is_command_not_found_failure(output, failure_type)
-
-    @staticmethod
     def _estimate_tokens(value: str | None) -> int:
         from agent.services._task_scoped_repair import estimate_tokens
 
         return estimate_tokens(value)
-
-    def _build_llm_call_profile_entries(
-        self,
-        *,
-        backend_used: str,
-        model: str | None,
-        prompt: str,
-        raw_output: str,
-        latency_ms: int,
-        rc: int,
-        repair_attempted: bool,
-        repair_backend: str | None,
-        repair_model: str | None,
-    ) -> list[dict]:
-        from agent.services._task_scoped_repair import build_llm_call_profile_entries
-
-        return build_llm_call_profile_entries(
-            backend_used=backend_used,
-            model=model,
-            prompt=prompt,
-            raw_output=raw_output,
-            latency_ms=latency_ms,
-            rc=rc,
-            repair_attempted=repair_attempted,
-            repair_backend=repair_backend,
-            repair_model=repair_model,
-        )
-
-    @staticmethod
-    def _build_repair_prompt(*, prompt: str, bad_output: str, validation_error: str) -> str:
-        from agent.services._task_scoped_repair import build_repair_prompt
-
-        return build_repair_prompt(prompt=prompt, bad_output=bad_output, validation_error=validation_error)
 
     def _attempt_repaired_execute_after_meta_block(
         self,
@@ -880,35 +646,6 @@ class TaskScopedExecutionService:
             coalesce_cli_output=self._coalesce_cli_output,
         )
 
-    def _build_research_result(
-        self,
-        raw_res: str,
-        backend_used: str,
-        tid: str | None,
-        rc: int,
-        cli_err: str,
-        latency_ms: int,
-        output_source: str = "stdout",
-        research_context: dict | None = None,
-    ) -> dict:
-        from agent.services._task_scoped_runtime import build_research_result
-
-        return build_research_result(
-            raw_res=raw_res,
-            backend_used=backend_used,
-            tid=tid,
-            rc=rc,
-            cli_err=cli_err,
-            latency_ms=latency_ms,
-            output_source=output_source,
-            research_context=research_context,
-        )
-
-    def _verify_research_artifact(self, research_artifact: dict | None) -> dict:
-        from agent.services._task_scoped_runtime import verify_research_artifact
-
-        return verify_research_artifact(research_artifact)
-
     def _build_review_state(
         self,
         agent_cfg: dict,
@@ -921,30 +658,6 @@ class TaskScopedExecutionService:
         from agent.services._task_scoped_runtime import build_review_state
 
         return build_review_state(agent_cfg, backend, task_kind, command=command, tool_calls=tool_calls)
-
-    def _get_worker_execution_context(
-        self,
-        task: dict | None,
-        *,
-        tid: str | None = None,
-        base_prompt: str | None = None,
-    ) -> dict:
-        from agent.services._task_scoped_runtime import get_worker_execution_context
-
-        return get_worker_execution_context(task, tid=tid, base_prompt=base_prompt)
-
-    def _tool_definitions_for_task(
-        self,
-        task: dict | None,
-        *,
-        tool_definitions_resolver: Callable,
-        execution_context: dict | None = None,
-    ) -> list[dict]:
-        from agent.services._task_scoped_runtime import tool_definitions_for_task
-
-        return tool_definitions_for_task(
-            task, tool_definitions_resolver=tool_definitions_resolver, execution_context=execution_context
-        )
 
     @staticmethod
     def _cli_session_policy(agent_cfg: dict | None) -> dict:
@@ -998,11 +711,6 @@ class TaskScopedExecutionService:
             agent_cfg=agent_cfg,
             command=command,
         )
-
-    def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
-        from agent.services._task_scoped_runtime import resolve_task_role_identity
-
-        return resolve_task_role_identity(tid, task)
 
     def _resolve_task_session_scope(self, *, tid: str, task: dict, policy: dict) -> tuple[str, str, str | None]:
         from agent.services._task_scoped_runtime import resolve_task_session_scope

@@ -776,7 +776,7 @@
       "title": "agent/services/di.py tote Factories streichen",
       "description": "di.py (961 LOC) deklariert 59 get_*_repository-Factories; 58 haben 0 Referenzen ausserhalb. Einziger Prod-Konsument: result_memory_service.py:141 (get_memory_entry_repository). 58 tote Factories + __getattr__-Machinery entfernen; get_memory_entry_repository hinter get_repository_registry() migrieren; DI-Seam dokumentieren.",
       "type": "deadcode",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M5",
@@ -787,14 +787,14 @@
         "Dokumentation benennt get_repository_registry() als kanonischen DI-Seam (keine zwei konkurrierenden Inversionen)."
       ],
       "implementation_notes": "Hoechster Dead-Code-Hebel (D1). ISP: zwei DI-Schichten entfernen, eine behalten.",
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CLN-031",
       "title": "Tote Blueprints entfernen (task_engine, artifact_status, agent_templates)",
       "description": "3 Blueprints werden nie in Prod registriert: task_engine_bp (agent/routes/task_engine.py), artifact_status_bp (agent/routes/tasks/artifact_status.py), admin_agent_templates_bp (agent/routes/admin/agent_templates.py). Getestete Helper extrahieren (z.B. get_task_artifact_status, _validate_context_policy) in services; Blueprint-Files loeschen oder ueber test_support registrieren.",
       "type": "deadcode",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M5",
@@ -805,14 +805,14 @@
         "Keine toten HTTP-Endpunkte in der API-Oberflaeche."
       ],
       "implementation_notes": "Tote HTTP-Flaeche lockt falsche API-Doku und Pen-Test-Rauschen.",
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CLN-032",
       "title": "Vollstaendig verwaiste Service- und Worker-Module loeschen",
       "description": "11 verwaiste agent/services-Module (416 LOC) mit 0 Referenzen inkl. Tests: adaptive_growth_decision_service, task_source_security_projection_service, prompt_improvement_service, codecompass_claim_extraction_service, blender_*, rag_index_embedding (leer), expert_registry, sfu_fleet_reconciliation_ports, deterministic_repair_path_service_original (Tombstone), task_finalization_service. Plus 10 worker-Orphans (548 LOC). task_finalization_service vorher gegen goal_task_finalization diffen.",
       "type": "deadcode",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M5",
@@ -823,7 +823,7 @@
         "det_command_handler.py-Staledocstring (worker) korrigiert oder Modul entfernt."
       ],
       "implementation_notes": "Vor dem Loeschen von task_finalization_service Diff gegen goal_task_finalization (5621 B) - moeglicherweise verlorenes Verhalten.",
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CLN-033",
@@ -1698,13 +1698,13 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 73,
+      "todo": 69,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 5
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 6.67,
     "by_priority": {
       "P0": 5,
       "P1": 37,
@@ -1712,9 +1712,9 @@
       "P3": 1
     },
     "by_risk": {
-      "low": 30,
+      "high": 17,
       "medium": 28,
-      "high": 17
+      "low": 30
     },
     "critical_path": {
       "total": 18,
@@ -1731,11 +1731,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 73,
+    "todo_remaining": 69,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 0
+    "done": 5
   },
   "summary_notes": [
     "Planungsartefakt auf Basis der Saustall-Analyse 2026-11-01; keine Implementierung beansprucht (alle status=todo).",
