@@ -29,3 +29,23 @@ from .snakes_execution_routes import (  # noqa: F401, E402
     _spawn_ai_chat_reply,
     _worker_chat_full_scan,
 )
+from .snakes_state import (  # re-export the historical route-state API
+    _MAX_CHAT_MSGS,
+    _MAX_ROOM_MSGS,
+    _MAX_SNAKES,
+    _SCAN_CANCELS,
+    _VALID_CHANNEL_TYPES,
+    _VALID_COLORS,
+    _VALID_ROLES,
+    _VALID_VISIBILITY,
+    _chat_messages,
+    _is_local_request,
+    _messages,
+    _next_free_color,
+    _optional_user_auth,
+    _request_device_id,
+    _room_messages,
+    _snake_bound_to_auth,
+    _snakes,
+    snakes_bp,
+)

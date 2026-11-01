@@ -29,7 +29,7 @@ from agent.services.self_development.contracts import form
 from agent.services.self_development.coordinator import DevelopmentCoordinator
 from agent.services.self_development.policy import DevelopmentPolicy
 from agent.services.self_development.workspace import git
-from tests.self_development.test_execution import execute
+from tests.self_development.test_execution import execute, runtime  # noqa: F401  (pytest fixture import)
 
 
 @pytest.fixture

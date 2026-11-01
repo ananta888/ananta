@@ -316,6 +316,8 @@ max-complexity = 30
 "agent/routes/tasks/triggers.py" = ["F401"]
 # Tool registration aggregator: imports are registration side effects (CLN-040).
 "agent/tools.py" = ["F401"]
+# Route-state re-export shim (snakes demo state API).
+"agent/routes/snakes.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.10"
