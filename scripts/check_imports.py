@@ -53,22 +53,17 @@ FORBIDDEN_DIRECT = [("agent.routes", "agent.repositories")]
 EXCEPTIONS = [
     ("agent.common.audit", "agent.services.hub_event_service"),
     ("agent.common.error_handler", "agent.services.log_service"),
-    ("agent.common.sgpt", "agent.services.opencode_runtime_service"),
-    ("agent.common.sgpt", "agent.services.live_terminal_session_service"),
     ("agent.common.signals", "agent.services.scheduler_service"),
     ("agent.services.agent_registry_service", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.app_runtime_service", "agent.routes.system"),
     ("agent.services.automation_snapshot_service", "agent.routes.tasks.auto_planner"),
     ("agent.services.autopilot_runtime_service", "agent.routes.tasks.autopilot"),
-    ("agent.services.planning_service", "agent.routes.tasks.dependency_policy"),
     ("agent.services.task_claim_service", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.task_delegation_services", "agent.routes.tasks.orchestration_policy"),
-    ("agent.services.task_management_service", "agent.routes.tasks.dependency_policy"),
     ("agent.services.task_management_service", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.task_orchestration_service", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.task_query_service", "agent.routes.tasks.timeline_utils"),
     ("agent.services.task_queue_service", "agent.routes.tasks.orchestration_policy.routing"),
-    ("agent.services.task_scoped_execution_service", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.trigger_runtime_service", "agent.routes.tasks.triggers"),
 ]
 

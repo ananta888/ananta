@@ -908,7 +908,7 @@
       "title": "Stale Import-Exceptions und check_shim-Residue bereinigen",
       "description": "check_imports.py:44-46 traegt noch agent.common.sgpt EXCEPTIONS fuer Module die es nicht mehr gibt (Migration vollstaendig). Stale Exception-Rows loeschen; aehnlich veraltete Allow-List-Eintraege pruefen.",
       "type": "hygiene",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M5",
@@ -918,14 +918,14 @@
         "Allow-Lists reflektieren aktuellen Stand (nicht kodierte Schuld ohne Begruendung)."
       ],
       "implementation_notes": "Klein; aber stale Exceptions verstecken echte Verstoesse.",
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CLN-038",
       "title": "Tote Methoden in task_scoped_execution_service.py entfernen",
       "description": "task_scoped_execution_service.py (965 LOC, 89 Import-Zeilen) enthaelt 32 zero-ref-Methoden (AST-Scan). Pro Name verifizieren dann entfernen; reduziert den God-Service-Footprint vor CLN-057.",
       "type": "deadcode",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M5",
@@ -935,8 +935,8 @@
         "Verbleibende 3 oeffentliche Einstiegspunkte sind klar.",
         "Testlauf gruen."
       ],
-      "implementation_notes": "Vorbereitung fuer CLN-057 (Zerlegung); erst totes Volumen raus, dann strukturieren.",
-      "progress_percent": 0
+      "implementation_notes": "23 statt 32 Methoden (frische Ableitung): null Referenzen inkl. String-Treffer und intra-File-Nutzung; 1097->819 Zeilen; 3 oeffentliche Einstiegspunkte (propose_task_step, execute_task_step, forwarding_dependencies) verifiziert; 164 Tests gruen.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-039",
@@ -1698,7 +1698,7 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 74,
+      "todo": 73,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
@@ -1731,7 +1731,7 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 74,
+    "todo_remaining": 73,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
