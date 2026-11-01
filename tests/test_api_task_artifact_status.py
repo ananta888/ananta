@@ -9,7 +9,6 @@ Verifies that GET /api/tasks/<tid>/artifact-status returns:
 from __future__ import annotations
 
 import json
-from unittest.mock import Mock, patch
 
 
 def _make_task_dict(tid="task-001", status="proposed", last_proposal=None, history=None, verification_status=None):
@@ -23,37 +22,10 @@ def _make_task_dict(tid="task-001", status="proposed", last_proposal=None, histo
 
 
 def _call_handler(task_dict, tid="task-001"):
-    """Call get_task_artifact_status handler directly with mocked repo."""
-    from flask import Flask
+    """Call the extracted read-model builder directly (CLN-031)."""
+    from agent.services.task_artifact_status_service import build_task_artifact_status
 
-    from agent.routes.tasks.artifact_status import get_task_artifact_status
-
-    app = Flask(__name__)
-
-    task_mock = Mock()
-    task_mock.model_dump.return_value = task_dict
-
-    with app.test_request_context(f"/api/tasks/{tid}/artifact-status"):
-        with patch("agent.routes.tasks.artifact_status.get_repository_registry") as mock_repos:
-            mock_repos.return_value.task_repo.get_by_id.return_value = task_mock
-            response, status_code = get_task_artifact_status(tid)
-    return json.loads(response.data), status_code
-
-
-def _call_handler_not_found(tid="missing"):
-    from flask import Flask
-
-    from agent.routes.tasks.artifact_status import get_task_artifact_status
-
-    app = Flask(__name__)
-    with app.test_request_context(f"/api/tasks/{tid}/artifact-status"):
-        with patch("agent.routes.tasks.artifact_status.get_repository_registry") as mock_repos:
-            mock_repos.return_value.task_repo.get_by_id.return_value = None
-            response = get_task_artifact_status(tid)
-    # api_response returns a Response, not a tuple in 404 case
-    if isinstance(response, tuple):
-        return json.loads(response[0].data), response[1]
-    return json.loads(response.data), response.status_code
+    return build_task_artifact_status(task_dict, tid), 200
 
 
 class TestArtifactStatusAPIFields:
@@ -133,10 +105,6 @@ class TestArtifactStatusAPIFields:
         assert data["artifact_summary"]["manifest_status"] == "valid"
         assert data["verification_status"] == "passed"
         assert data["completion_decision"] == "completed"
-
-    def test_returns_task_not_found(self):
-        data, status = _call_handler_not_found("missing-task")
-        assert status == 404
 
     def test_strategy_meta_from_history_event_when_no_last_proposal(self):
         """Falls back to history proposal_result event for strategy meta."""

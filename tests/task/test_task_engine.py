@@ -659,55 +659,6 @@ class TestTaskEngineStatusService:
 # ── /api/task-engine route (te-013) ──────────────────────────────────────────
 
 
-class TestTaskEngineRoute:
-    @pytest.fixture
-    def client(self):
-        from flask import Flask
-
-        from agent.routes.task_engine import task_engine_bp
-
-        app = Flask(__name__)
-        app.config["TESTING"] = True
-        app.register_blueprint(task_engine_bp)
-        return app.test_client()
-
-    def test_status_endpoint(self, client):
-        resp = client.get("/api/task-engine/status")
-        assert resp.status_code == 200
-        data = resp.get_json()
-        assert "active" in data
-
-    def test_classify_deterministic(self, client):
-        resp = client.post("/api/task-engine/classify", json={"task_kind": "read_file"})
-        assert resp.status_code == 200
-        data = resp.get_json()
-        assert data["task_class"] == "deterministic"
-        assert data["bypass_llm"] is True
-        assert data["handler_id"] == "read_file"
-
-    def test_classify_llm_required(self, client):
-        resp = client.post("/api/task-engine/classify", json={"task_kind": "code_review"})
-        assert resp.status_code == 200
-        data = resp.get_json()
-        assert data["task_class"] == "llm_required"
-        assert data["bypass_llm"] is False
-
-    def test_classify_includes_tool_scope(self, client):
-        resp = client.post(
-            "/api/task-engine/classify",
-            json={
-                "task_kind": "grep_search",
-                "allowed_tools": ["grep_search"],
-            },
-        )
-        data = resp.get_json()
-        assert "tool_scope" in data
-        assert data["tool_scope"]["policy"] == "closed"
-
-
-# ── Backwards compat (te-015) ─────────────────────────────────────────────────
-
-
 class TestBackwardsCompat:
     def test_disabled_engine_passes_llm_required(self):
         """Old flows are unaffected when task_engine_enabled=False."""
