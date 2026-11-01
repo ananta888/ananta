@@ -3,37 +3,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
 
-from agent.services.propose_policy import LLM_STRATEGY_IDS, ProposePolicy
 from ananta_contracts.model_recovery import aggregate_model_recovery_signals
+from ananta_contracts.propose_context import ProposeContext  # noqa: F401
+from ananta_contracts.propose_policy import LLM_STRATEGY_IDS, ProposePolicy
 from worker.core.propose import (
     STATUS_DECLINED,
     ProposeStrategyResult,
 )
-
-
-@dataclass
-class ProposeContext:
-    """Context passed to every propose strategy."""
-
-    goal_id: str
-    task_id: str
-    task: dict[str, Any]
-    base_prompt: str
-    research_context: dict[str, Any] | None = None
-    cli_runner: "Callable" = None
-    tool_definitions_resolver: "Callable" = None
-    policy: ProposePolicy | None = None  # T003: strategies may read policy
-    effective_config: dict[str, Any] | None = None  # CPR-003: goal-scoped config passed through
-    instruction_stack: dict[str, Any] | None = None
-    rendered_system_prompt: str | None = None
-    instruction_diagnostics: dict[str, Any] | None = None
-    planning_context_compaction: dict[str, Any] | None = None
-    planning_context_compaction_meta: dict[str, Any] | None = None
-    # APRL-011: active agent profile metadata; non-overridable by strategies
-    active_agent_profile: dict[str, Any] | None = None
 
 
 class ProposeStrategy(ABC):

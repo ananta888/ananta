@@ -167,7 +167,7 @@
         "CLN-060",
         "CLN-061"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CLN-M9",
@@ -1254,7 +1254,7 @@
       "title": "check_worker_boundaries.py neu erstellen (worker->agent Import-Gate)",
       "description": "check_imports.py deckt worker/ nicht ab. Neuer Check: worker/ darf nur ananta_contracts.*, *_ports, *_contract, agent.config, agent.auth importieren - alles andere (agent.services Konkrete) faelscht. Verankert CLN-054. Auch Temporal-Workflow-Invariante (nur Hub-Delegation) pruefen.",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M8",
@@ -1266,15 +1266,15 @@
         "Whitelist nur erlaubte Contracts; Negativ-Test (absichtlicher Verstoss) gemeldet.",
         "In CI verankert; meet_worker_boundaries bleibt gruen (bereits sauber)."
       ],
-      "implementation_notes": "Muster von check_meet_worker_boundaries.py (funktioniert bereits fuer worker/meet_media).",
-      "progress_percent": 0
+      "implementation_notes": "Bereits in M4 geliefert (CLN-029): scripts/check_worker_boundaries.py mit Rule A/B, Baseline reports/worker-boundary-baseline.txt (aktuell 90 Dateien), 6 Negativ-Tests, in check_pipeline verankert.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-056",
       "title": "Import-Zyklus agent.services<->worker.core aufbrechen",
       "description": "Echter Modulgraph-Zyklus: llm_response_normalizer:7->worker.core.propose_orchestrator->agent.services.propose_policy; worker.core.tool_calling_llm_strategy:8-19->agent.services->worker.core.propose_orchestrator. Aktuell nur per Import-Reihenfolge entdramatisiert. Reine Datentypen (ProposeContext, ProposeStrategyResult, Status-Konstanten) nach ananta_contracts/.",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
@@ -1287,8 +1287,8 @@
         "Geteilte Datentypen liegen in ananta_contracts/ (beide Seiten importieren dort).",
         "Import-Reihenfolge-Tricks nicht mehr noetig."
       ],
-      "implementation_notes": "Voraussetzung: check_cycles lauffaehig (CLN-027). Beide Seiten importieren ananta_contracts bereits - natuerliche Ablage.",
-      "progress_percent": 0
+      "implementation_notes": "Teil 1 (kein Modulzyklus) via check_cycles bestaetigt. Teil 2: ProposePolicy/LLM_STRATEGY_IDS -> ananta_contracts/propose_policy.py, ProposeStrategyResult/Proposal-ABCs/STATUS_* -> ananta_contracts/propose.py, ProposeContext -> ananta_contracts/propose_context.py; Compat-Shims an den Alt-Pfaden. Kante worker.core.propose_orchestrator->agent.services.propose_policy eliminiert (Baseline geprunt: 90->89 Dateien).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-057",
@@ -1698,11 +1698,11 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 52,
+      "todo": 50,
       "in_progress": 0,
       "partial": 9,
       "blocked": 0,
-      "done": 14
+      "done": 16
     },
     "progress_percent_done": 18.67,
     "by_priority": {
@@ -1723,15 +1723,15 @@
     },
     "milestones": {
       "total": 10,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 6,
+      "in_progress": 1,
       "blocked": 0,
       "done": 3
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 52,
+    "todo_remaining": 50,
     "in_progress": 0,
     "partial": 9,
     "blocked": 0,

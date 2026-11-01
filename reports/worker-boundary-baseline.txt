@@ -53,7 +53,6 @@ worker/adapters/langgraph_execution_plan_adapter.py  # rule A
 worker/core/deterministic_handler_strategy.py  # rule A
 worker/core/hermes_adapter.py  # rule A
 worker/core/json_schema_llm_strategy.py  # rule A
-worker/core/propose_orchestrator.py  # rule A
 worker/core/tool_calling_llm_strategy.py  # rule A
 worker/core/worker_strategy.py  # rule A
 worker/hrm_experiments/runner.py  # rule A
