@@ -28,6 +28,7 @@ Fehler oder fehlende Argumente.
 | `check_memory_legacy_access.py` | gruen (langsam, ~20-60 s) | dito |
 | `check_memory_channels.py` | 2 Befunde | `worker/harness/sandbox.py`, `worker/training/growth/checkpoint.py` |
 | `check_cycles.py` | gruen | CLN-027: pure-stdlib Tarjan-SCC; Baseline `reports/import-cycle-baseline.txt` |
+| `check_worker_boundaries.py` | gruen (mit Baseline) | CLN-029/CLN-055: worker->agent.* und agent/services->worker.* Kopplung; Baseline `reports/worker-boundary-baseline.txt` (91 Dateien, CLN-054 räumt ab) |
 | `check_complexity_suppressions.py` | gruen | verbietet `# noqa: C901` |
 | `check_hotspot_guardrails.py` | gruen (mit Allowlist) | CLN-026: `--fail-on-over-budget`, Ausnahmen in `reports/hotspot-budget-allowlist.json` |
 | `check_output_boundary.py` | gruen | CLN-014: Runtime-Artefakte duerfen nicht getrackt sein |
@@ -71,8 +72,9 @@ Fehler oder fehlende Argumente.
 ## CI-Anbindung (Stand)
 
 - `check_pipeline.py --mode standard` (CI): format, lint, mypy (skip-types aktiv),
-  check_imports, check_cycles, check_duplicates, check_dead_code,
-  check_complexity_suppressions, check_hotspot_budgets, fast tests
+  check_imports, check_cycles, check_worker_boundaries, check_duplicates,
+  check_dead_code, check_complexity_suppressions, check_hotspot_budgets,
+  fast tests
 - zusaetzlich in Workflows einzeln: `check_cli_backend_shim_imports.py` (Release-Gate),
   Release-Gates der Subtracks, `check_output_boundary` ueber Release-Regel
 - Nach CLN-047/CLN-051 werden `check_imports` und `check_service_boundaries`

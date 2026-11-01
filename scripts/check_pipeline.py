@@ -66,6 +66,11 @@ def check_complexity_suppressions():
     return run_command([sys.executable, "scripts/check_complexity_suppressions.py"])
 
 
+def check_worker_boundaries():
+    print("\n--- Checking Hub/Worker Boundaries (CLN-029/CLN-055) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_worker_boundaries.py"])
+
+
 def check_hotspot_budgets():
     print("\n--- Checking Hotspot Size Budgets (CLN-026) ---", flush=True)
     return run_command(
@@ -147,6 +152,8 @@ def main():
         if not check_arch():
             success = False
         if not check_cycles():
+            success = False
+        if not check_worker_boundaries():
             success = False
         if not check_duplicates():
             success = False
