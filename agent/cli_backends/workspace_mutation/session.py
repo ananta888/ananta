@@ -16,6 +16,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from agent.cli_backends.context import default_context
 from agent.cli_backends.workspace_mutation.analysis import CodeAnalysisGate
 from agent.cli_backends.workspace_mutation.audit_events import emit_evaluation_events
 from agent.cli_backends.workspace_mutation.signatures import changes_signature, evidence_signature
@@ -235,7 +236,7 @@ class MutationSession:
         The artifact shape lives in one builder shared with the opencode path, so the
         schema ``collect_review`` parses cannot drift between the two producers.
         """
-        from agent.services.self_development.final_answer_artifact import build_final_answer_artifact
+        build_final_answer_artifact = default_context.final_answer_artifact_builder
 
         artifact = build_final_answer_artifact(
             task_id=self.task_id, answer=str(answer or ""), session_id=self.session_id

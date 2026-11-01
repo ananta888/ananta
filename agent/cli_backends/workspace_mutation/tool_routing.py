@@ -15,6 +15,8 @@ import json
 import logging
 from typing import Any, Mapping, Sequence
 
+from agent.cli_backends.context import default_context
+
 log = logging.getLogger(__name__)
 
 # Only *blind* inspection picks are re-routed; a model that already chose a
@@ -117,7 +119,8 @@ def route_read_tool(
         if service.area_mode("tool_routing") == "off":
             log.info("tool_routing: skip (decision area off)")
             return None
-        from agent.services.decision_providers.types import DecisionQuestion, DecisionRequest
+        DecisionQuestion = default_context.decision_types.DecisionQuestion
+        DecisionRequest = default_context.decision_types.DecisionRequest
 
         threshold = float(
             service.area_option("tool_routing", "inspection_min_confidence", DEFAULT_MIN_CONFIDENCE)
@@ -186,6 +189,6 @@ def prefer_read_tool(
 
 
 def _service() -> Any:
-    from agent.services.decision_providers.service import get_decision_service
+    get_decision_service = default_context.decision_service
 
     return get_decision_service()

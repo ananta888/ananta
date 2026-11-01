@@ -76,6 +76,11 @@ def check_singleton_freeze():
     return run_command([sys.executable, "scripts/check_singleton_freeze.py"])
 
 
+def check_cli_backend_context_seam():
+    print("\n--- Checking CLI Backend DI Seam (CLN-052) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_cli_backend_context_seam.py"])
+
+
 def check_worker_boundaries():
     print("\n--- Checking Hub/Worker Boundaries (CLN-029/CLN-055) ---", flush=True)
     return run_command([sys.executable, "scripts/check_worker_boundaries.py"])
@@ -164,6 +169,8 @@ def main():
         if not check_cycles():
             success = False
         if not check_worker_boundaries():
+            success = False
+        if not check_cli_backend_context_seam():
             success = False
         if not check_singleton_freeze():
             success = False

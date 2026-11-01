@@ -23,7 +23,7 @@ def _record_observation(result: dict, *, task_id: str, workspace: str) -> None:
     if not task_id or not isinstance(result, dict):
         return
     try:
-        from agent.services.self_development.analysis_report import record_tool_result
+        record_tool_result = _ctx.self_development_record_tool_result
 
         record_tool_result(result, task_id=task_id, workspace=workspace)
     except Exception:  # pragma: no cover - observation is advisory for the MCP path

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.cli_backends.context import default_context
 from agent.cli_backends.workspace_mutation.analysis_reads import annotate_analysis_read, prioritize_source_refs
 from agent.cli_backends.workspace_mutation.session import LoopResult, LoopTurn, MutationSession
 from agent.cli_backends.workspace_mutation.tool_routing import is_read_only_tool
@@ -278,7 +279,7 @@ def _test_command_refusal_budget(
         return None
     if str(result.get("error") or "").strip() != "command_not_allowlisted":
         return None
-    from agent.services.tools.test_tools import _normalize_command
+    _normalize_command = default_context.normalize_test_command
 
     command = _normalize_command(arguments.get("command"))
     if not command:

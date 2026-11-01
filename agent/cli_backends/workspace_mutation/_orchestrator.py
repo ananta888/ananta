@@ -216,7 +216,7 @@ def run_ananta_worker_workspace_mutation(
     cfg = dict(config or get_workspace_mutation_config(workdir))
     # Bind this step's CodeCompass capability to the loop's own config, so
     # codecompass.* reads work instead of failing closed and forcing blind reads.
-    from agent.services.codecompass_task_capability import ensure_tool_context
+    ensure_tool_context = default_context.codecompass_ensure_tool_context
 
     cfg = ensure_tool_context(cfg, task_id)
     mode = str(cfg.get("resolved_mode") or "read_only")
@@ -240,7 +240,7 @@ def run_ananta_worker_workspace_mutation(
             max_diff_chars=int(cfg.get("max_diff_chars") or _max_diff_chars(cfg)),
         ),
     )
-    from agent.services._worker_workspace_context_writer import _align_declared_test_command
+    _align_declared_test_command = default_context.worker_workspace_align_declared_test_command
 
     # The assignment the model reads must quote a command the policy allows: the loop requires
     # test.run before final_answer, so a refused command can never be satisfied. It is bound to
