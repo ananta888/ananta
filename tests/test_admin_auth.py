@@ -7,7 +7,7 @@ from agent.ai_agent import create_app
 from agent.common.audit import log_audit
 from agent.database import engine
 from agent.repository import audit_repo, login_attempt_repo
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 @pytest.fixture

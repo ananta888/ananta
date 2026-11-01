@@ -2,7 +2,7 @@ import json
 import os
 
 import pytest
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 # Environment setzen bevor imports
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"

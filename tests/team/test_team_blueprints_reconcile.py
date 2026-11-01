@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from agent.database import engine
 from agent.db_models import AgentInfoDB, BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
 from agent.repository import audit_repo
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 @pytest.fixture(autouse=True)

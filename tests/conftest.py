@@ -90,7 +90,7 @@ os.environ["VOICE_DELETION_LEDGER_PATH"] = (
 os.environ.setdefault("INITIAL_ADMIN_USER", "admin")
 os.environ.setdefault("INITIAL_ADMIN_PASSWORD", "admin")
 
-from tests_support import admin_login_token, reset_auth_state
+from tests.support import admin_login_token, reset_auth_state
 
 _TEST_DB_READY = False
 

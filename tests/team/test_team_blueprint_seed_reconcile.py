@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 # Every blueprint the shipped catalog contains, with its artifact count.
 # The catalog had grown by eleven entries while this list stayed at ten, so

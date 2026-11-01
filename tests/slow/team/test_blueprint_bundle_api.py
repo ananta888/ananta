@@ -2,7 +2,7 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import AgentInfoDB, TeamBlueprintDB, TeamDB, TemplateDB
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 def _create_template(client, auth_header, name: str, prompt_template: str) -> dict:

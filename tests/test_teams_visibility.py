@@ -3,7 +3,7 @@ from sqlmodel import Session, delete
 from agent.database import engine
 from agent.db_models import AgentInfoDB, RoleDB, TeamDB, TeamMemberDB
 from agent.repository import agent_repo, role_repo
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 def test_create_and_list_team(client):

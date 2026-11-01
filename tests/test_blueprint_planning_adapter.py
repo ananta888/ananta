@@ -9,7 +9,7 @@ from agent.services.blueprint_planning_adapter import (
     BlueprintPlanningAdapter,
     _stable_topo_order,
 )
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 def _ensure_seed_blueprints(client) -> None:

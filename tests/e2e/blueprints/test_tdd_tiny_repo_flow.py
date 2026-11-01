@@ -7,7 +7,7 @@ import os
 import shutil
 from pathlib import Path
 
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 from typing import Any
 
 from tests.e2e.mock_llm import MockLLM

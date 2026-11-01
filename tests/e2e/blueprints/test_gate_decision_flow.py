@@ -32,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from tests_support import admin_login_token as _login_admin  # noqa: E402
+from tests.support import admin_login_token as _login_admin  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

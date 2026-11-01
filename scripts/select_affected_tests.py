@@ -65,7 +65,7 @@ _FULL_SUITE_TRIGGERS = (
     "tests/werkzeug_rule_cache.py",
     "tests/tiering.py",
     "tests/sharding.py",
-    "tests_support.py",
+    "tests/support.py",
     "pyproject.toml",
     "requirements.lock",
     "requirements-dev.lock",
