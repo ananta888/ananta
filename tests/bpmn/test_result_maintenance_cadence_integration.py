@@ -172,7 +172,20 @@ def integrated(tmp_path, monkeypatch, signed):  # noqa: F811 -- explicit importe
 
     def cadence():
         def retire_unstarted(reservation, *, lease):
-            reservations.finish(reservation, status="cancelled", now=now[0], lease=lease)
+            from agent.services.native_result_maintenance_policy import maintenance_request
+            from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+
+            def _lease_guard(session):
+                plan = maintenance_request(reservation.schedule, reservation.run_id).plan
+                if (
+                    lease.checkpoint.run_id != reservation.run_id
+                    or lease.checkpoint.tenant_id != plan.tenant_id
+                    or lease.checkpoint.plan_hash != plan.plan_hash
+                ):
+                    raise ValueError("native_maintenance_retirement_lease_mismatch")
+                validate_sqlalchemy_lease(session, lease, lease.checkpoint)
+
+            reservations.finish(reservation, status="cancelled", now=now[0], lease_guard=_lease_guard)
 
         return NativeResultMaintenanceCadence(
             store=SQLMaintenanceCadenceRepository(engine),

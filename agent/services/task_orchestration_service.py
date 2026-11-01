@@ -7,7 +7,6 @@ from typing import Any
 from flask import current_app, has_app_context
 
 from agent.models import TaskStatus
-from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.copilot_routing_advisor import (
     build_copilot_routing_prompt,
     extract_copilot_routing_hint,
@@ -18,6 +17,7 @@ from agent.services.knowledge_index_task_ingress_policy import (
 )
 from agent.services.memory_policy_gateway import MemoryAccessError
 from agent.services.memory_runtime import memory_result_context
+from agent.services.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.organization_research_delegation_policy_service import (
     OrganizationResearchDelegationPolicyError,
     OrganizationResearchDelegationPolicyService,

@@ -7,13 +7,14 @@ from sqlmodel import Session
 from agent.db_models import MemoryEntryDB, MemoryQuarantineEventDB
 from agent.repositories.memory import _engine
 from agent.repositories.result_memory_scope import result_memory_scope_query
-from agent.services.memory_storage_boundary import MemoryStorageBoundary
 from ananta_contracts.memory_access import MemoryOperation, MemoryScope
 
 
 class ResultMemoryQuarantineRepository:
-    def __init__(self):
-        self._boundary = MemoryStorageBoundary("hub-result-memory")
+    def __init__(self, boundary):
+        # CLN-047: the storage-boundary policy is injected by the caller
+        # (services layer); repositories must not import agent.services.
+        self._boundary = boundary
 
     def set_quarantine(self, entry_id, *, action, reason_code, scope=MemoryScope.task):
         if action not in {"quarantine", "release", "revoke"} or (

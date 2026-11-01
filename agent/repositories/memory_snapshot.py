@@ -13,10 +13,10 @@ from agent.db_models.tasks import TaskDB
 from agent.repositories.memory_audit import SQLMemoryAuditRepository, validate_memory_audit_event
 from agent.repositories.result_memory_snapshot_source import MemorySnapshotSourcePort, SQLResultMemorySnapshotSource
 from agent.repositories.sqlalchemy_support import SQLAlchemyStoreSupport
-from agent.services.memory_diff_service import memory_observation_digest
-from agent.services.memory_policy_codec import decode_policy
-from agent.services.memory_snapshot_service import snapshot_capture_grants, validate_snapshot_entries
 from ananta_contracts.memory_access import MemorySecurityMetadata, MemorySensitivity, require_memory_timestamp
+from ananta_contracts.memory_diff import memory_observation_digest
+from ananta_contracts.memory_policy_codec import decode_policy
+from ananta_contracts.memory_snapshot_policy import snapshot_capture_grants, validate_snapshot_entries
 
 
 class SQLMemorySnapshotRepository:

@@ -66,7 +66,7 @@ def exercise_dispatch(app, base, token):
 
     from bpmn_container.evidence import SyntheticTaskEvidence
 
-    from agent.routes.tasks.autopilot_native_dispatch import NATIVE_DISPATCH_PORTS, production_native_dispatch_ports
+    from agent.services.autopilot.native_dispatch import NATIVE_DISPATCH_PORTS, production_native_dispatch_ports
 
     evidence = SyntheticTaskEvidence(engine=engine, keys=get_workflow_authorization_key_ring)
     app.extensions["bpmn_synthetic_task_evidence"] = evidence

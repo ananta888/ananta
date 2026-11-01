@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
+from agent.services.autopilot.task_dispatcher_helpers import (
     _current_task_status,
     _effective_agent_cfg_for_task,
 )
@@ -75,7 +75,7 @@ def refresh_approval_lifecycle() -> Any | None:
         approval_lifecycle.reconcile_granted_domain_actions()
         return approval_lifecycle
     except Exception:
-        logging.getLogger("agent.routes.tasks.autopilot_tick_engine").warning(
+        logging.getLogger("agent.services.autopilot.tick_engine").warning(
             "approval lifecycle refresh failed during autopilot tick",
             exc_info=True,
         )
@@ -206,7 +206,7 @@ class StaleTaskRecovery:
                 )
             )
         except Exception:
-            logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
+            logging.getLogger("agent.services.autopilot.stale_task_recovery").debug(
                 "propose model timeout resolution failed; using the stale floor", exc_info=True
             )
             return PROPOSING_STALE_SECONDS
@@ -215,11 +215,11 @@ class StaleTaskRecovery:
     def _resolve_propose_forward_deadline(cfg: dict[str, Any]) -> int:
         """The Hub-side governed forward deadline for one proposal."""
         try:
-            from agent.routes.tasks.utils import _step_forward_deadline_seconds
+            from agent.services.task_forwarding_utils import _step_forward_deadline_seconds
 
             return int(_step_forward_deadline_seconds("/step/propose", cfg))
         except Exception:
-            logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
+            logging.getLogger("agent.services.autopilot.stale_task_recovery").debug(
                 "propose forward deadline resolution failed; using the stale floor", exc_info=True
             )
             return PROPOSING_STALE_SECONDS

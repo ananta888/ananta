@@ -18,7 +18,7 @@ from agent.tool_capabilities import build_capability_contract  # noqa: E402
 POLICY_PATHS = (
     Path("agent/runtime_policy.py"),
     Path("agent/routes/tasks/autopilot_dispatch_policy.py"),
-    Path("agent/routes/tasks/dependency_policy.py"),
+    Path("agent/services/dependency_policy.py"),
     Path("agent/services/execution_risk_policy_service.py"),
     Path("agent/services/exposure_policy_service.py"),
     Path("agent/services/remote_federation_policy_service.py"),

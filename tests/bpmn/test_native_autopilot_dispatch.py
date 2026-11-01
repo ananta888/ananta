@@ -8,7 +8,7 @@ import pytest
 from sqlmodel import Session
 
 from agent.db_models import TaskDB
-from agent.routes.tasks.autopilot_native_dispatch import (
+from agent.services.autopilot.native_dispatch import (
     NATIVE_DISPATCH_PORTS,
     NativeDispatchPorts,
     dispatch_native_task,
@@ -82,7 +82,7 @@ def dispatch(native, monkeypatch):  # noqa: F811
         journal=lambda: SQLAlchemyNativeDispatchJournal(native.engine),
     )
     # SQL fixture uses a deterministic 100-second authorization clock.
-    monkeypatch.setattr("agent.routes.tasks.autopilot_native_dispatch.time.time", lambda: 100)
+    monkeypatch.setattr("agent.services.autopilot.native_dispatch.time.time", lambda: 100)
     dependencies = SimpleNamespace(
         repository_registry=lambda _app: SimpleNamespace(task_repo=native.repository),
         current_task_status=lambda tid, **_kwargs: native.repository.get_by_id(tid).status,
@@ -189,7 +189,7 @@ def test_generic_tasks_continue_to_existing_dispatch_phases():
 
 
 def test_native_commands_are_never_replanned_by_the_context_splitter():
-    from agent.routes.tasks.autopilot_task_dispatcher import _split_if_beyond_context
+    from agent.services.autopilot.task_dispatcher import _split_if_beyond_context
 
     task = SimpleNamespace(worker_execution_context={"runtime_path": "native_graph_node"})
     assert (

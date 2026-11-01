@@ -325,7 +325,7 @@ def _maybe_recover_planned_goal_without_candidates(
     recovery_reason = "no_nonterminal_tasks" if not non_terminal else "no_dispatchable_candidates"
     recovery.setdefault("stall_since", now_ts)
     try:
-        from agent.routes.tasks.auto_planner import auto_planner
+        from agent.services.autopilot.auto_planner_engine import auto_planner
 
         team_id = str(getattr(goal, "team_id", "") or "").strip() or None
         context = getattr(goal, "context", None)
@@ -691,7 +691,7 @@ def _execute_proposed_step(
 
     if result.completed:
         try:
-            from agent.routes.tasks.auto_planner import auto_planner
+            from agent.services.autopilot.auto_planner_engine import auto_planner
 
             if auto_planner.auto_followup_enabled:
                 auto_planner.analyze_and_create_followups(
@@ -729,7 +729,7 @@ def _dispatch_one_task(
     try:
         _ctx = app.app_context() if app is not None else contextlib.nullcontext()
         with _ctx:
-            from agent.routes.tasks.autopilot_task_dispatcher import _dispatch_one_task_inner
+            from agent.services.autopilot.task_dispatcher import _dispatch_one_task_inner
 
             def execute():
                 return _dispatch_one_task_inner(

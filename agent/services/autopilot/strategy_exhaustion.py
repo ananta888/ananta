@@ -2,7 +2,7 @@
 
 Runs when no strategy candidate produced an executable proposal. Behavior is
 identical to the former inline block of
-:func:`agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner`.
+:func:`agent.services.autopilot.task_dispatcher._dispatch_one_task_inner`.
 """
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from agent.routes.tasks.autopilot_model_selector import _normalize_temperature_value
+from agent.services.autopilot.model_selector import _normalize_temperature_value
 
-from .autopilot_dispatch_context import DispatchContext
-from .autopilot_proposal_strategies import ProposalStrategyOutcome
-from .autopilot_task_dispatcher_helpers import (
+from .dispatch_context import DispatchContext
+from .proposal_strategies import ProposalStrategyOutcome
+from .task_dispatcher_helpers import (
     TaskDispatchResult,
     _effective_agent_cfg_for_task,
     _ensure_llm_profile_snapshot,

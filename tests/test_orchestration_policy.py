@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from agent.routes.tasks.orchestration_policy import (
+from agent.services.orchestration_policy import (
     DelegationPolicy,
     build_dispatch_queue,
     build_orchestration_read_model,

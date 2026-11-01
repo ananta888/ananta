@@ -16,12 +16,12 @@ from agent.config import settings
 from agent.db_models import AgentInfoDB
 from agent.models import TaskClaimRequest, TaskCreateRequest, TaskDelegationRequest
 from agent.repository import agent_repo
-from agent.routes.tasks.orchestration_policy import (
-    DelegationPolicy,
-)
 from agent.services.context_bundle_ingress_policy import (
     find_reserved_context_bundle_marker,
     reserved_context_bundle_ingress_error,
+)
+from agent.services.orchestration_policy import (
+    DelegationPolicy,
 )
 from agent.services.retrieval_vector_scope_ingress_policy import (
     find_reserved_retrieval_vector_scope_marker,

@@ -5,7 +5,7 @@ import hashlib
 from sqlalchemy import Column, Integer, LargeBinary, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 
 metadata = MetaData()
 sources = Table(

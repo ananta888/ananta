@@ -629,7 +629,7 @@ def test_worker_role_and_recursive_recovery_fail_closed():
 
 
 def test_autopilot_terminal_guard_covers_non_success_terminal_states():
-    from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
+    from agent.services.autopilot.task_dispatcher_helpers import (
         _is_terminal_status,
     )
 

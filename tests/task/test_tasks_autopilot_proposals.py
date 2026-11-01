@@ -11,8 +11,8 @@ from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, task_repo
 from agent.routes.tasks.auto_planner import auto_planner
 from agent.routes.tasks.autopilot import autonomous_loop
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
-from agent.routes.tasks.autopilot_tick_engine import (
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.services.autopilot.tick_engine import (
     _should_terminalize_no_executable_strategy,
 )
 from tests.knowledge.knowledge_index_execution_test_support import (
@@ -66,8 +66,8 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
     app,
     monkeypatch,
 ):
-    from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.autopilot.dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
     from agent.services.recovery_dispatch_gate_service import (
         RecoveryDispatchGateDecision,
         RecoveryDispatchLease,
@@ -1275,7 +1275,7 @@ def test_autopilot_skips_model_with_insufficient_context_window(app, monkeypatch
     )
 
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine._runtime_model_capabilities",
+        "agent.services.autopilot.tick_engine._runtime_model_capabilities",
         lambda _loop: {
             "runtime": {"default_provider": "lmstudio", "lmstudio": {"ok": True, "candidate_count": 1}},
             "models": {"model-small": {"provider": "lmstudio", "context_length": 256}},

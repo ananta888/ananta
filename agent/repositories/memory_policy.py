@@ -5,9 +5,9 @@ import time
 from sqlmodel import Session
 
 from agent.db_models import MemoryRunPolicyDB, TaskDB, WorkerJobDB, WorkerSlotLeaseDB
-from agent.services.memory_policy_codec import decode_policy, encode_policy
-from agent.services.task_status_service import TERMINAL_TASK_STATUSES, normalize_task_status
+from agent.models.task_status import TERMINAL_TASK_STATUSES, normalize_task_status
 from ananta_contracts.memory_access import MemoryActor, MemoryRunPolicy
+from ananta_contracts.memory_policy_codec import decode_policy, encode_policy
 
 
 class SQLMemoryRunPolicyRepository:

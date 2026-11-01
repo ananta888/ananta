@@ -19,7 +19,7 @@ from typing import Any
 from agent.auth import resolve_configured_agent_token
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.config import settings
-from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
+from agent.services.orchestration_policy import compute_retry_delay_seconds
 from agent.services.worker_forward_transport import (
     WorkerForwardDeadlineExceeded,
     WorkerTransportDeadline,
@@ -230,7 +230,7 @@ class AutopilotWorkerForwarder:
             ) from exc
 
     def _propose_timeout_seconds(self) -> int:
-        from agent.routes.tasks.utils import _step_forward_deadline_seconds
+        from agent.services.task_forwarding_utils import _step_forward_deadline_seconds
 
         config = self._app_config_provider() or {}
         # The effective policy lives under AGENT_CONFIG (same source the status

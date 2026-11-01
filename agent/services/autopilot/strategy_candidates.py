@@ -6,7 +6,7 @@ from typing import Any
 
 from agent.llm_benchmarks import recommend_models_for_context
 from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
-from agent.routes.tasks.autopilot_model_selector import (
+from agent.services.autopilot.model_selector import (
     _normalize_model_candidate,
     _normalize_model_list,
     _normalize_temperature_list,

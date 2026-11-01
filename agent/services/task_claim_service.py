@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from agent.routes.tasks.orchestration_policy import compute_lease_expiry, extract_active_lease, persist_policy_decision
-from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.knowledge_index_task_ingress_policy import (
     bound_knowledge_index_mutation_error,
 )
+from agent.services.orchestration_policy import compute_lease_expiry, extract_active_lease, persist_policy_decision
+from agent.services.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.repository_registry import get_repository_registry
 from agent.services.vector_task_admin_guard_service import (
     generic_vector_mutation_error,

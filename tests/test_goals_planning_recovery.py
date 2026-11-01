@@ -8,8 +8,8 @@ from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB
 from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo, team_repo
 from agent.routes.tasks.autopilot import autonomous_loop
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 from agent.routes.tasks.utils import _get_local_task_status
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 from tests.planning_collaborator_seam import install_repo_context_loader
 
 

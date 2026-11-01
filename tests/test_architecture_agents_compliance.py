@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_IMPORT_PREFIXES = (
     "agent.routes.tasks.autopilot",
     "agent.routes.tasks.orchestration",
-    "agent.routes.tasks.orchestration_policy",
+    "agent.services.orchestration_policy",
 )
 
 

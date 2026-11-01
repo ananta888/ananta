@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.routes.tasks.autopilot_proposal_strategies import _base_propose_payload
+from agent.services.autopilot.proposal_strategies import _base_propose_payload
 
 
 @pytest.mark.parametrize("configured", [None, "", "autopilot_no_human_review"])

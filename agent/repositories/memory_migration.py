@@ -117,7 +117,7 @@ class MemoryMetadataMigrationRepository:
         task = session.get(TaskDB, row.task_id) if row.task_id else None
         stored_namespace = metadata.get("memory_namespace")
         if isinstance(stored_namespace, dict) and stored_namespace.get("run_id"):
-            from agent.services.memory_policy_codec import decode_policy
+            from ananta_contracts.memory_policy_codec import decode_policy
 
             registered = session.get(MemoryRunPolicyDB, stored_namespace["run_id"])
             if registered is not None and registered.policy_digest == metadata.get("memory_policy_digest"):

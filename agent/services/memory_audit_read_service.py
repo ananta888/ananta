@@ -193,3 +193,22 @@ class MemoryAuditReadService:
             "security": asdict(target.security),
             "event_kind": payload["event_kind"],
         }
+
+
+def build_default_memory_audit_read_service(access) -> MemoryAuditReadService:
+    """Compose the read service from SQL repositories (hub composition seam).
+
+    Routes must not touch repositories directly (check_imports FORBIDDEN_DIRECT);
+    this factory keeps repository construction on the service layer.
+    """
+    from agent.database import engine
+    from agent.repositories.memory_audit import SQLMemoryAuditRepository
+    from agent.repositories.memory_quarantine_read import SQLMemoryQuarantineReadRepository
+    from agent.repositories.memory_snapshot import SQLMemorySnapshotRepository
+
+    return MemoryAuditReadService(
+        access=access,
+        repository=SQLMemoryAuditRepository(engine),
+        snapshots=SQLMemorySnapshotRepository(engine),
+        quarantine=SQLMemoryQuarantineReadRepository(),
+    )

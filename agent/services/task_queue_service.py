@@ -70,7 +70,7 @@ class TaskQueueService:
 
     def get_dispatch_queue(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Gibt die sortierte Liste der dispatch-bereiten Tasks zurueck."""
-        from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
+        from agent.services.orchestration_policy.routing import build_dispatch_queue
 
         gate = get_recovery_dispatch_gate_service()
         organization_gate = get_organization_task_dispatch_gate_service()
@@ -89,7 +89,7 @@ class TaskQueueService:
         team_id: Optional[str] = None,
         now: Optional[float] = None,
     ) -> List[Dict[str, Any]]:
-        from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
+        from agent.services.orchestration_policy.routing import build_dispatch_queue
 
         now = float(now or time.time())
         tasks = task_repo.get_all()

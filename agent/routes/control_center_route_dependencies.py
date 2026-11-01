@@ -12,8 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from agent.routes.route_dependency_seam import RouteDependencySeam
 from agent.services.repository_registry import get_repository_registry
+from agent.services.route_dependency_seam import RouteDependencySeam
 from agent.services.share_session_service import get_share_session_service
 
 

@@ -2,13 +2,13 @@
 required_capabilities, and blueprint_role_hints.
 
 These tests cover the routing path added to
-``agent.routes.tasks.orchestration_policy.routing`` and do not require
+``agent.services.orchestration_policy.routing`` and do not require
 any LLM workers to be online.
 """
 
 from __future__ import annotations
 
-from agent.routes.tasks.orchestration_policy.routing import (
+from agent.services.orchestration_policy.routing import (
     WORKFLOW_ROLE_TO_WORKER_ROLES,
     choose_worker_for_task,
 )

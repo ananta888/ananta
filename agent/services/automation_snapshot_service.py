@@ -16,7 +16,7 @@ class AutomationSnapshotService:
         except Exception:
             logging.getLogger(__name__).debug("build_snapshot: ignored Exception", exc_info=True)
         try:
-            from agent.routes.tasks.auto_planner import auto_planner
+            from agent.services.autopilot.auto_planner_engine import auto_planner
 
             snapshot["auto_planner"] = auto_planner.status()
         except Exception:

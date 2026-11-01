@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, request
 
 from agent.auth import check_auth, get_authenticated_source_control_principal
 from agent.common.errors import api_response
-from agent.services.memory_audit_read_service import MemoryAuditQuery, MemoryAuditReadService
+from agent.services.memory_audit_read_service import MemoryAuditQuery
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.memory_access import MemoryScope
 
@@ -18,17 +18,9 @@ def _service():
     access = current_app.extensions.get("project_access_authority")
     if access is None:
         raise RuntimeError("memory_audit_read_unavailable")
-    from agent.database import engine
-    from agent.repositories.memory_audit import SQLMemoryAuditRepository
-    from agent.repositories.memory_quarantine_read import SQLMemoryQuarantineReadRepository
-    from agent.repositories.memory_snapshot import SQLMemorySnapshotRepository
+    from agent.services.memory_audit_read_service import build_default_memory_audit_read_service
 
-    return MemoryAuditReadService(
-        access=access,
-        repository=SQLMemoryAuditRepository(engine),
-        snapshots=SQLMemorySnapshotRepository(engine),
-        quarantine=SQLMemoryQuarantineReadRepository(),
-    )
+    return build_default_memory_audit_read_service(access)
 
 
 @memory_audit_bp.get("/api/projects/<project_id>/memory-audit/events")

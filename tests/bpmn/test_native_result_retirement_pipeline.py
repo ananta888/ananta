@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from agent.db_models import AgentInfoDB
 from agent.db_models.native_result_retirement import NativeResultRetirementManifestDB, NativeResultRetirementMarkerDB
 from agent.db_models.workflow_runtime import WorkflowExecutionAttemptHistoryDB, WorkflowExecutionOwnershipDB
-from agent.routes.tasks.autopilot_native_dispatch import (
+from agent.services.autopilot.native_dispatch import (
     NATIVE_DISPATCH_PORTS,
     NativeDispatchPorts,
     dispatch_native_task,
@@ -139,7 +139,7 @@ def test_actual_autopilot_retirement_branch_persists_manifest_before_dispatch_an
         journal=lambda: integrated.journal,
         retirement=SimpleNamespace(prepare=prepare, confirm=integrated.retirement.confirm),
     )
-    monkeypatch.setattr("agent.routes.tasks.autopilot_native_dispatch.time.time", lambda: integrated.now[0])
+    monkeypatch.setattr("agent.services.autopilot.native_dispatch.time.time", lambda: integrated.now[0])
     ctx = SimpleNamespace(
         task=second,
         target_worker=worker,

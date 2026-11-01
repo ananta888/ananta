@@ -26,6 +26,7 @@ from agent.services.workflow_control_production_composition import (
 )
 from agent.services.workflow_control_release_selection import PROTECTED_RUNTIME_CAPABILITIES
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand, WorkflowCommandVerifier
+from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
 from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyCheckpointStore, SQLAlchemyEventStore
 from agent.services.workflow_runtime.sqlalchemy_ownership import SQLAlchemyExecutionOwnershipStore
 from agent.services.workflow_runtime.sqlalchemy_side_effects import SQLAlchemySideEffectLedger
@@ -202,7 +203,19 @@ def build_native_result_maintenance_cadence(app):
         )
 
     def retire_unstarted(reservation, *, lease):
-        reservations.finish(reservation, status="cancelled", now=time.time(), lease=lease)
+        # Lease policy lives on the service layer (CLN-047): plan identity plus
+        # fencing validation run inside the repo's own transaction via guard.
+        def _lease_guard(session):
+            plan = maintenance_request(reservation.schedule, reservation.run_id).plan
+            if (
+                lease.checkpoint.run_id != reservation.run_id
+                or lease.checkpoint.tenant_id != plan.tenant_id
+                or lease.checkpoint.plan_hash != plan.plan_hash
+            ):
+                raise ValueError("native_maintenance_retirement_lease_mismatch")
+            validate_sqlalchemy_lease(session, lease, lease.checkpoint)
+
+        reservations.finish(reservation, status="cancelled", now=time.time(), lease_guard=_lease_guard)
 
     runs = NativeMaintenanceRuns(
         runtime_factory=runtime,

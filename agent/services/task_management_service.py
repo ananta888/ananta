@@ -10,12 +10,6 @@ from agent.common.audit import log_audit
 from agent.common.governance_codes import GovernanceReasonCode
 from agent.metrics import TASK_RECEIVED
 from agent.research_backend import resolve_research_backend_config
-from agent.routes.tasks.orchestration_policy import (
-    derive_required_capabilities,
-    enforce_assignment_policy,
-    evaluate_worker_routing_policy,
-    persist_policy_decision,
-)
 from agent.services.commit_followup_service import maybe_create_git_commit_followup
 from agent.services.context_bundle_ingress_policy import (
     find_reserved_context_bundle_marker,
@@ -28,6 +22,12 @@ from agent.services.knowledge_index_task_ingress_policy import (
     find_reserved_knowledge_index_marker,
     has_bound_knowledge_index_job,
     reserved_knowledge_index_ingress_error,
+)
+from agent.services.orchestration_policy import (
+    derive_required_capabilities,
+    enforce_assignment_policy,
+    evaluate_worker_routing_policy,
+    persist_policy_decision,
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_vector_scope_ingress_policy import (

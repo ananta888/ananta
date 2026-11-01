@@ -7,8 +7,7 @@ from sqlalchemy import func, select, text
 
 from agent.db_models.native_maintenance import NativeMaintenanceCadenceDB
 from agent.repositories.sqlalchemy_support import SQLAlchemyStoreSupport, stable_row_id
-from agent.services.native_result_maintenance_policy import MaintenanceSchedule, maintenance_request
-from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+from ananta_contracts.native_result_maintenance import MaintenanceSchedule
 
 
 @dataclass(frozen=True)
@@ -136,22 +135,15 @@ class SQLMaintenanceCadenceRepository(SQLAlchemyStoreSupport):
             if row.current_run_id != run_id or row.policy_digest != schedule.digest:
                 raise ValueError("native_maintenance_reservation_not_current")
 
-    def finish(self, reservation, *, status, reason_code="", now, lease=None):
+    def finish(self, reservation, *, status, reason_code="", now, lease_guard=None):
         if status not in {"completed", "failed", "cancelled"}:
             raise ValueError("native_maintenance_journal_status_invalid")
         if type(now) not in (int, float) or not math.isfinite(now) or now < 0:
             raise ValueError("native_maintenance_clock_invalid")
         with self._transaction() as session:
             self._lock_sqlite(session)
-            if lease is not None:
-                plan = maintenance_request(reservation.schedule, reservation.run_id).plan
-                if (
-                    lease.checkpoint.run_id != reservation.run_id
-                    or lease.checkpoint.tenant_id != plan.tenant_id
-                    or lease.checkpoint.plan_hash != plan.plan_hash
-                ):
-                    raise ValueError("native_maintenance_retirement_lease_mismatch")
-                validate_sqlalchemy_lease(session, lease, lease.checkpoint)
+            if lease_guard is not None:
+                lease_guard(session)
             row = session.execute(
                 self._for_update(
                     select(NativeMaintenanceCadenceDB).where(

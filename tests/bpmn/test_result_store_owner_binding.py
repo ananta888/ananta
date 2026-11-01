@@ -14,8 +14,8 @@ from sqlmodel import Session
 
 from agent.db_models import AgentInfoDB
 from agent.repositories.core import AgentRepository
-from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
 from agent.services.agent_registry_service import AgentRegistryService
+from agent.services.autopilot.dispatch_policy import resolve_target_worker_for_task
 from agent.services.native_graph_orchestration_service import NativeGraphRequest
 from agent.services.native_result_maintenance_owner import require_registered_result_store_owner
 from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE

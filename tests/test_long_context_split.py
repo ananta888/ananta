@@ -178,7 +178,7 @@ def test_nothing_happens_in_shadow_mode_for_fitting_tasks_or_for_steps(app):
 def test_the_dispatcher_splits_only_in_active_mode(app, monkeypatch):
     from types import SimpleNamespace
 
-    from agent.routes.tasks import autopilot_task_dispatcher as dispatcher
+    from agent.services.autopilot import task_dispatcher as dispatcher
 
     calls = []
     monkeypatch.setattr(
@@ -335,7 +335,7 @@ def test_the_worker_workspace_gets_the_material_file(tmp_path):
 
 
 def test_overflow_failures_are_recognized():
-    from agent.routes.tasks.autopilot_task_dispatcher import _is_context_overflow
+    from agent.services.autopilot.task_dispatcher import _is_context_overflow
 
     assert _is_context_overflow([{"failure_type": "preflight_context_limit"}])
     assert _is_context_overflow(
@@ -365,7 +365,7 @@ def test_a_real_overflow_externalizes_even_what_the_estimate_thought_fits(app):
 def test_the_dispatcher_handles_overflow_only_in_active_mode(monkeypatch):
     from types import SimpleNamespace
 
-    from agent.routes.tasks import autopilot_task_dispatcher as dispatcher
+    from agent.services.autopilot import task_dispatcher as dispatcher
 
     seen = []
     monkeypatch.setattr(

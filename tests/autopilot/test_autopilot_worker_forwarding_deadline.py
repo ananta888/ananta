@@ -1,7 +1,7 @@
 """Propose forwards carry a bounded transport deadline (no tick-blocking retry)."""
 
-from agent.routes.tasks.autopilot_worker_forwarding import AutopilotWorkerForwarder
 from agent.routes.tasks.utils import _step_deadline_monotonic, _step_forward_deadline_seconds
+from agent.services.autopilot.worker_forwarding import AutopilotWorkerForwarder
 
 
 def test_step_forward_deadline_seconds_uses_phase_timeouts():

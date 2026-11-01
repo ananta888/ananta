@@ -8,7 +8,7 @@ class AutopilotRuntimeService:
     """Thin runtime facade around the hub-owned autonomous loop singleton."""
 
     def _loop(self):
-        from agent.routes.tasks.autopilot import autonomous_loop
+        from agent.services.autopilot.loop_manager import autonomous_loop
 
         return autonomous_loop
 

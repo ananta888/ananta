@@ -7,8 +7,8 @@ from types import SimpleNamespace
 from typing import Callable, Protocol
 
 from agent.common.native_task_result_binding import is_native_task
-from agent.routes.route_dependency_seam import RouteDependencySeam
-from agent.routes.tasks.autopilot_task_dispatcher_helpers import TaskDispatchResult
+from agent.services.autopilot.task_dispatcher_helpers import TaskDispatchResult
+from agent.services.route_dependency_seam import RouteDependencySeam
 from ananta_contracts.native_task_execution import sign_native_execution_request
 
 
@@ -49,7 +49,7 @@ def production_native_dispatch_ports():
     )
 
 
-NATIVE_DISPATCH_PORTS = RouteDependencySeam("ananta.autopilot_native_dispatch", production_native_dispatch_ports)
+NATIVE_DISPATCH_PORTS = RouteDependencySeam("ananta.native_dispatch", production_native_dispatch_ports)
 
 
 def dispatch_native_task(ctx, *, policy):

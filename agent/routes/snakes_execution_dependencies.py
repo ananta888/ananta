@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from agent.llm_integration import generate_text
-from agent.routes.route_dependency_seam import RouteDependencySeam
+from agent.services.route_dependency_seam import RouteDependencySeam
 
 from .snakes_chat_helpers import _append_room_ai_message
 from .snakes_chat_provider import _resolve_ai_snake_chat_provider

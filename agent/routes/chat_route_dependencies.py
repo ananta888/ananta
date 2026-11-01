@@ -11,13 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from agent.routes.route_dependency_seam import RouteDependencySeam
 from agent.services.chat_process_binding import (
     resolve_effective_process,
     runtime_overlay,
     signal_session_gate,
     start_session_process,
 )
+from agent.services.route_dependency_seam import RouteDependencySeam
 from client_surfaces.operator_tui.config.user_config_manager import get_manager
 
 

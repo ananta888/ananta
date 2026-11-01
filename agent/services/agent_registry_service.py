@@ -10,7 +10,7 @@ from flask import current_app
 
 from agent.db_models import AgentInfoDB
 from agent.models import AgentDirectoryEntryContract, AgentLivenessContract, WorkerExecutionLimitsContract
-from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
+from agent.services.orchestration_policy import normalize_capabilities, normalize_worker_roles
 
 if TYPE_CHECKING:
     from worker.core.runtime_target import WorkerCandidate

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from agent.routes.tasks.autopilot_proposal_strategies import _clear_stale_strategy_state
+from agent.services.autopilot.proposal_strategies import _clear_stale_strategy_state
 
 
 def test_a_valid_proposal_clears_the_accumulated_strategy_state():

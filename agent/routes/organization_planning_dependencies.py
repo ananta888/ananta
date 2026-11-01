@@ -19,12 +19,12 @@ from agent.routes.organization_route_support import (
     request_principal,
     require_organization_scope,
 )
-from agent.routes.route_dependency_seam import RouteDependencySeam
 from agent.services.organization_membership_service import OrganizationAccessPrincipal
 from agent.services.organization_planning_composition import (
     get_organization_planning_composition,
 )
 from agent.services.project_access_authority import ProjectCapability
+from agent.services.route_dependency_seam import RouteDependencySeam
 from agent.services.worker_result_capability_service import (
     WorkerResultCapabilityService,
 )

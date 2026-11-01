@@ -1,7 +1,7 @@
 from agent.config import settings
 from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, policy_decision_repo, task_repo
-from agent.routes.tasks.orchestration_policy import choose_worker_for_task
+from agent.services.orchestration_policy import choose_worker_for_task
 
 
 class TestWorkerRoutingAPI:

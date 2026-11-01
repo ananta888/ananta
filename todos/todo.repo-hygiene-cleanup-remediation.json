@@ -152,7 +152,7 @@
         "CLN-052",
         "CLN-053"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CLN-M8",
@@ -1095,7 +1095,7 @@
       "title": "19 aktive check_imports.py-Verstoesse beheben (Memory + self_development)",
       "description": "19 unbaselinierte Schichtverstoesse: memory_audit.py:22-24 (routes->repositories x3), repositories/memory_snapshot.py:16-18 (repo->services x3), memory_policy/memory_migration/result_memory_* etc. (repo->services x8), self_development/runtime.py:277,348 (services->routes x2). NICHT rebaseline - beheben. Pure Codecs/Validators nach agent/common/ oder agent/memory_contracts/ verschieben.",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M7",
@@ -1107,15 +1107,15 @@
         "Memory-Subsystem-Layering ist korrekt (repositories haengen nicht an services).",
         "self_development/runtime haengt nicht an routes."
       ],
-      "implementation_notes": "Verstoesse gegen eigenes Layering-Modell (SRP/DIP auf Modulebene). Nicht rebaseline - das waere kodierte Schuld. Hohe Prioritaet.",
-      "progress_percent": 0
+      "implementation_notes": "19 -> 0 check_imports-Verstoesse: memory_policy_codec/memory_diff/native_dispatch_binding/memory_snapshot_policy nach ananta_contracts, task_status nach agent.models (beides mit Compat-Shims), MemoryStorageBoundary via Constructor-Injection, finish()-Lease-Policy via lease_guard-Injection, build_default_memory_audit_read_service Factory. Kein Rebaseline.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-048",
       "title": "Autopilot-Engine aus agent/routes/tasks/ nach services extrahieren",
       "description": "agent/routes/tasks/ autopilot* + auto_planner = 6962 LOC reine Orchestrierung (Dispatch, Model-Selection, Stale-Recovery, Strategy-Exhaustion, Worker-Forwarding) im Presentation-Layer - der Kernfluss der Hub-Aufgabe. Nach agent/services/autopilot/ extrahieren, Routes bleiben duenn (parse->call->serialize).",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M7",
@@ -1128,8 +1128,8 @@
         "check_service_boundaries erlaubt keine services->routes mehr fuer autopilot.",
         "Testlauf gruen; Verhalten unveraendert."
       ],
-      "implementation_notes": "Hoechster Strukturwert der gesamten Bereinigung (A2). docs/status/architecture-source-map.md:8 nennt derzeit autopilot_tick_engine.py als Delegationsfluss-Heimat -> aktualisieren.",
-      "progress_percent": 0
+      "implementation_notes": "Autopilot-Engine (17 Module, inkl. AutonomousLoopManager/AutoPlanner/TriggerEngine-Klassen) von agent/routes/tasks/ nach agent/services/autopilot/ extrahiert; task_forwarding_utils + route_dependency_seam nach agent/services/; Routes sind duenne Handler mit Re-Exporten. check_imports=0, check_service_boundaries=0, ~3500 betroffene Tests gruen, Singleton-Freeze resynced.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-049",
@@ -1156,7 +1156,7 @@
       "title": "Services->Routes Allow-List aufloesen (orchestration_policy, dependency_policy)",
       "description": "check_service_boundaries.py erlaubt 13 invertierte Import-Paare (kodierte Schuld): task_queue_service->routes.tasks.orchestration_policy.routing, task_management_service->routes.tasks.dependency_policy etc. orchestration_policy/* und dependency_policy nach agent/services/orchestration_policy/ verschieben; Allow-List loeschen.",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M7",
@@ -1168,15 +1168,15 @@
         "check_service_boundaries-Allow-List ist leer (oder nur dokumentierte Ausnahmen mit Begruendung).",
         "Invertierte Abhaengigkeiten (business->presentation) sind aufgeloest (DIP)."
       ],
-      "implementation_notes": "Eine Allow-List invertierter Imports ist kodifizierte Schuld; nach Umzug loeschen.",
-      "progress_percent": 0
+      "implementation_notes": "orchestration_policy-Paket + dependency_policy.py nach agent/services/ verschoben; 9 Allow-List-Eintraege in check_imports + check_service_boundaries entfernt (zusammen mit CLN-048er 3 weiteren).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-051",
       "title": "self_development/runtime services->routes Verstoss beheben",
       "description": "agent/services/self_development/runtime.py:277 (from agent.routes.tasks.autopilot import autonomous_loop) und :348 (_background_threads_disabled) - ein Service startet die Route-Layer-Autopilot-Schleife. Verletzt check_service_boundaries selbst (nicht in Allow-List). In Service verlagern, Route delegiert.",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M7",
@@ -1188,8 +1188,8 @@
         "check_service_boundaries ohne diesen Verstoss.",
         "Autopilot-Loop-Start ist korrekt gekapselt."
       ],
-      "implementation_notes": "Teil der 19 check_imports-Verstoesse (2 davon); natuerlich nach CLN-048 (Autopilot-Extraktion).",
-      "progress_percent": 0
+      "implementation_notes": "self_development.runtime + autopilot_runtime_service importieren autonomous_loop/_background_threads_disabled aus agent.services.autopilot.loop_manager; letzte Exception-Rows entfernt.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-052",
@@ -1698,13 +1698,13 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 59,
+      "todo": 55,
       "in_progress": 0,
       "partial": 8,
       "blocked": 0,
-      "done": 8
+      "done": 12
     },
-    "progress_percent_done": 10.67,
+    "progress_percent_done": 16.0,
     "by_priority": {
       "P0": 5,
       "P1": 37,
@@ -1718,24 +1718,24 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 0,
-      "remaining": 18
+      "done": 2,
+      "remaining": 16
     },
     "milestones": {
       "total": 10,
-      "todo": 8,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 59,
+    "todo_remaining": 55,
     "in_progress": 0,
     "partial": 8,
     "blocked": 0,
-    "done": 8
+    "done": 12
   },
   "summary_notes": [
     "Planungsartefakt auf Basis der Saustall-Analyse 2026-11-01; keine Implementierung beansprucht (alle status=todo).",
@@ -1746,6 +1746,7 @@
     "Bewahren: hermetisches tests/conftest.py-Sandboxing, Tier/Shard-System, @pytest.mark.timeout-Disziplin (248 Dateien), meet_worker_boundaries (bereits sauber), check_complexity_suppressions-Muster.",
     "CLN-033 (118 test-only Services) und CLN-034 (412 except:pass) sind gross und brauchen verteilte, begruendete Entscheidungen; nicht blind automatisieren.",
     "Nicht rebaseline bei check_imports-Verstoesen (CLN-047) - Behebung statt kodierte Schuld.",
-    "M1-M5 umgesetzt 2026-11-01 (15 Commits): Secrets/Artefakte raus, Deps konsolidiert, Lint/Format/Timeout/Hotspot/Cycle/Worker-Boundary/Singleton-Gates scharf, di.py+ tote Blueprints+ 21 Waisen+ 23 tote Methoden+ 237 except:pass geloescht/geloggt. Partials mit Begruendung in den Tasks. Praexistente Test-Failures (3 Cluster) fuer CLN-040 dokumentiert."
+    "M1-M5 umgesetzt 2026-11-01 (15 Commits): Secrets/Artefakte raus, Deps konsolidiert, Lint/Format/Timeout/Hotspot/Cycle/Worker-Boundary/Singleton-Gates scharf, di.py+ tote Blueprints+ 21 Waisen+ 23 tote Methoden+ 237 except:pass geloescht/geloggt. Partials mit Begruendung in den Tasks. Praexistente Test-Failures (3 Cluster) fuer CLN-040 dokumentiert.",
+    "M7 2026-11-01: Autopilot-Engine nach agent/services/autopilot/ extrahiert (CLN-048), 19 Import-Verstoesse = 0 (CLN-047), Allow-Lists leer (CLN-050/051). 4. praeexistentes Test-Failure-Cluster (test_tasks_autopilot.py, 7 Failures auf HEAD) fuer CLN-040 dokumentiert."
   ]
 }

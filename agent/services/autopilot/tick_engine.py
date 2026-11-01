@@ -8,52 +8,27 @@ from typing import Any, Callable
 
 from agent.config import settings
 from agent.metrics import DISPATCH_WAIT_SECONDS, TASK_QUEUE_WAIT_SECONDS
-from agent.routes.tasks.autopilot_async_dispatch import AsyncDispatchState, async_dispatch_enabled
-from agent.routes.tasks.autopilot_dispatch_policy import (
+from agent.services.autopilot.async_dispatch import AsyncDispatchState, async_dispatch_enabled
+from agent.services.autopilot.dispatch_policy import (
     build_tick_debug_payload,
     classify_no_candidate_reason,
     dispatch_queue_positions,
     resolve_dispatch_hard_timeout,
     resolve_effective_concurrency,
-    resolve_target_worker_for_task,
 )
-from agent.routes.tasks.autopilot_model_selector import (
-    _normalize_model_candidate,
-    _normalize_model_list,
-    _normalize_override_map,
-    _normalize_temperature_list,
-    _normalize_temperature_value,
-    _preferred_benchmark_provider,
-    _select_model_for_task,
-)
-from agent.routes.tasks.autopilot_stale_task_recovery import (
+from agent.services.autopilot.stale_task_recovery import (
     StaleTaskRecovery,
     is_hub_managed_model_recovery_task,
     refresh_approval_lifecycle,
 )
-from agent.routes.tasks.autopilot_strategy_candidates import (
-    _extract_strategy_state,
-    _proposal_strategy_candidates,
+from agent.services.autopilot.strategy_candidates import (
     _runtime_model_capabilities,
-    _safe_context_length,
-    _strategy_cfg,
 )
-from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
+from agent.services.autopilot.task_dispatcher_helpers import (
     TaskDispatchResult,
-    _current_task_status,
     _dispatch_one_task,
-    _effective_agent_cfg_for_task,
-    _ensure_llm_profile_snapshot,
     _fallback_policy,
-    _is_terminal_status,
-    _is_transient_worker_transport_error,
     _maybe_recover_planned_goal_without_candidates,
-    _merged_last_proposal_snapshot,
-    _recent_strategy_attempts,
-    _resolve_autonomous_repair_budget,
-    _resolve_non_executable_terminal_status,
-    _should_terminalize_no_executable_strategy,
-    _task_log,
 )
 from agent.services.recovery_dispatch_gate_service import (
     get_recovery_dispatch_gate_service,
@@ -667,3 +642,15 @@ def execute_autopilot_tick(
             "effective_concurrency": int(effective_concurrency),
         },
     }
+
+
+# --- Test seams (CLN-048): re-exported for the test-suite facade surface
+from agent.services.autopilot.model_selector import (  # noqa: E402,F401
+    _select_model_for_task,
+)
+from agent.services.autopilot.task_dispatcher_helpers import (  # noqa: E402,F401
+    _effective_agent_cfg_for_task,
+    _ensure_llm_profile_snapshot,
+    _resolve_autonomous_repair_budget,  # noqa: E402,F401
+    _should_terminalize_no_executable_strategy,
+)

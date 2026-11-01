@@ -8,7 +8,7 @@ import pytest
 
 from agent.auth import resolve_configured_agent_token
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 from agent.services.model_recovery_signal import build_model_recovery_signal
 from agent.services.task_recovery_planning_service import (
     RECOVERY_MATERIALIZE_TOOL,

@@ -6,8 +6,8 @@ from agent.db_models import TaskDB
 from agent.metrics import TASK_SUCCESS_RATE, WORKER_BUSY_SECONDS, WORKER_PROPOSE_DURATION_SECONDS
 from agent.repository import task_repo
 from agent.routes.tasks.auto_planner import auto_planner
-from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
-from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
+from agent.services.autopilot.dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
+from agent.services.autopilot.tick_engine import _dispatch_one_task
 
 
 def _sample_value(metric, sample_name: str) -> float:

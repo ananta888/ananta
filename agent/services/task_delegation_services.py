@@ -5,12 +5,12 @@ from typing import Any
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.research_backend import resolve_research_backend_config
-from agent.routes.tasks.orchestration_policy import (
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.orchestration_policy import (
     derive_required_capabilities,
     evaluate_worker_routing_policy,
     persist_policy_decision,
 )
-from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.organization_research_delegation_policy_service import (
     OrganizationResearchDelegationPolicyError,
     OrganizationResearchDelegationPolicyService,

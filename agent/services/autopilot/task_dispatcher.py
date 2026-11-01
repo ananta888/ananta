@@ -3,20 +3,20 @@
 :func:`_dispatch_one_task_inner` orchestrates the dispatch phases, which live in
 single-responsibility siblings:
 
-* :mod:`.autopilot_dispatch_context` - the per-dispatch parameter object.
-* :mod:`.autopilot_dispatch_preflight` - gates, hand-off/throttling and
+* :mod:`.dispatch_context` - the per-dispatch parameter object.
+* :mod:`.dispatch_preflight` - gates, hand-off/throttling and
   execution-scope allocation.
-* :mod:`.autopilot_proposal_strategies` - propose guards and the strategy loop.
-* :mod:`.autopilot_strategy_exhaustion` - model recovery and retry scheduling
+* :mod:`.proposal_strategies` - propose guards and the strategy loop.
+* :mod:`.strategy_exhaustion` - model recovery and retry scheduling
   after all strategies failed.
-* :mod:`.autopilot_dispatch_dependencies` - the collaborators every phase
+* :mod:`.dispatch_dependencies` - the collaborators every phase
   delegates to, and their per-application override seam.
 
 This module keeps the long-context helpers, the propose-failure handling and the
 evaluation/execution of an accepted proposal. The coordinator resolves the
-:class:`.autopilot_dispatch_dependencies.DispatchDependencies` bundle once per
+:class:`.dispatch_dependencies.DispatchDependencies` bundle once per
 dispatch (or receives it explicitly) and passes it to every phase inside the
-:class:`.autopilot_dispatch_context.DispatchContext`.
+:class:`.dispatch_context.DispatchContext`.
 """
 
 from __future__ import annotations
@@ -25,20 +25,20 @@ import time
 from dataclasses import replace
 from typing import Any, Callable
 
-from .autopilot_dispatch_context import DispatchContext
-from .autopilot_dispatch_dependencies import (
+from .dispatch_context import DispatchContext
+from .dispatch_dependencies import (
     AUTOPILOT_DISPATCH_DEPENDENCIES,
     DispatchDependencies,
 )
-from .autopilot_dispatch_preflight import (
+from .dispatch_preflight import (
     allocate_execution_scope,
     evaluate_dispatch_gates,
     hand_off_assigned_task,
     throttle_repeated_propose,
 )
-from .autopilot_proposal_strategies import run_proposal_strategies
-from .autopilot_strategy_exhaustion import handle_strategy_exhaustion
-from .autopilot_task_dispatcher_helpers import (
+from .proposal_strategies import run_proposal_strategies
+from .strategy_exhaustion import handle_strategy_exhaustion
+from .task_dispatcher_helpers import (
     TaskDispatchResult,
     _effective_agent_cfg_for_task,
     _ensure_llm_profile_snapshot,
@@ -198,7 +198,7 @@ def _dispatch_one_task_inner(
     if stop_result is not None:
         return stop_result
 
-    from .autopilot_native_dispatch import dispatch_native_task
+    from .native_dispatch import dispatch_native_task
 
     native_result = dispatch_native_task(ctx, policy=policy)
     if native_result is not None:

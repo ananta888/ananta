@@ -13,11 +13,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from agent.routes.route_dependency_seam import RouteDependencySeam
 from agent.routes.semantic_media_contract_route_authority import (
     SemanticContractRouteAuthority,
     _require_semantic_capability,
 )
+from agent.services.route_dependency_seam import RouteDependencySeam
 from agent.services.semantic_compute_execution_service import (
     get_semantic_compute_execution_service,
 )

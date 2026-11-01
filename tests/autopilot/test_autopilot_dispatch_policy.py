@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from agent.routes.tasks.autopilot_dispatch_policy import (
+from agent.services.autopilot.dispatch_policy import (
     resolve_dispatch_hard_timeout,
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
@@ -295,7 +295,7 @@ def test_other_task_kinds_keep_round_robin_over_all_workers():
 
 
 def test_supervisor_waits_at_least_the_model_propose_timeout():
-    from agent.routes.tasks.autopilot_guardrails import resolve_security_policy
+    from agent.services.autopilot.guardrails import resolve_security_policy
 
     policy = resolve_security_policy(agent_config={"task_propose_timeout_seconds": 300}, security_level="safe")
     assert policy["propose_timeout"] == 300

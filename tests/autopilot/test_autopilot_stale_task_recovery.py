@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.routes.tasks import autopilot_stale_task_recovery as rec
+from agent.services.autopilot import stale_task_recovery as rec
 
 
 def _recovery(app_cfg):

@@ -1,6 +1,6 @@
 """Collaborators of the autonomous loop and their single per-application seam.
 
-:class:`.autopilot_worker_forwarding.AutopilotWorkerForwarder` applies retry,
+:class:`.worker_forwarding.AutopilotWorkerForwarder` applies retry,
 deadline and backoff policy; the raw HTTP call to a worker, the repository
 registry and the task trace sink are the collaborators in this bundle. The
 autonomous loop resolves them from the application it is bound to, so tests
@@ -14,10 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from agent.routes.route_dependency_seam import RouteDependencySeam
-from agent.routes.tasks.utils import _forward_to_worker
 from agent.services.repository_registry import get_repository_registry
+from agent.services.route_dependency_seam import RouteDependencySeam
 from agent.services.service_registry import get_core_services
+from agent.services.task_forwarding_utils import _forward_to_worker
 
 
 @dataclass(frozen=True)
@@ -44,6 +44,6 @@ def production_loop_dependencies() -> AutopilotLoopDependencies:
 
 
 AUTOPILOT_LOOP_DEPENDENCIES: RouteDependencySeam[AutopilotLoopDependencies] = RouteDependencySeam(
-    "ananta.autopilot_loop_dependencies",
+    "ananta.loop_dependencies",
     production_loop_dependencies,
 )

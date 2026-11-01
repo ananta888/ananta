@@ -187,7 +187,7 @@ def test_record_worker_failure_releases_routing_lock_before_counters_lock():
 
 def test_dispatch_one_task_opens_app_context_per_thread(app):
     """_dispatch_one_task must push an app_context in each worker thread."""
-    from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
+    from agent.services.autopilot.tick_engine import _dispatch_one_task
 
     app_contexts_entered = []
     lock = threading.Lock()
@@ -203,7 +203,7 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
         except RuntimeError:
             with lock:
                 app_contexts_entered.append(False)
-        from agent.routes.tasks.autopilot_tick_engine import TaskDispatchResult
+        from agent.services.autopilot.tick_engine import TaskDispatchResult
 
         return TaskDispatchResult(task_id=kwargs["task"].id)
 
@@ -214,7 +214,7 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
     loop._app = app
 
     with patch(
-        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
+        "agent.services.autopilot.task_dispatcher._dispatch_one_task_inner",
         side_effect=_fake_inner,
     ):
         _dispatch_one_task(
@@ -246,7 +246,7 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
 def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
     """When _dispatch_one_task_inner sleeps longer than the hard timeout,
     the task must be marked 'failed' with error='dispatch_timeout'."""
-    from agent.routes.tasks.autopilot_tick_engine import TaskDispatchResult, _dispatch_one_task
+    from agent.services.autopilot.tick_engine import TaskDispatchResult, _dispatch_one_task
 
     status_updates: list[tuple] = []
 
@@ -268,7 +268,7 @@ def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
     per_task_hard_timeout = 0.1  # very short for the test
 
     with patch(
-        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
+        "agent.services.autopilot.task_dispatcher._dispatch_one_task_inner",
         side_effect=_slow_inner,
     ):
         with cf.ThreadPoolExecutor(max_workers=1) as executor:
@@ -313,7 +313,7 @@ def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
 
 def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
     """N tasks dispatched in parallel: dispatched_count == N, (completed+failed) == N."""
-    from agent.routes.tasks.autopilot_tick_engine import TaskDispatchResult, _dispatch_one_task
+    from agent.services.autopilot.tick_engine import TaskDispatchResult, _dispatch_one_task
 
     n = 8
     loop = _fresh_loop()
@@ -332,7 +332,7 @@ def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
     workers = [_fake_worker("http://w0:5000")]
 
     with patch(
-        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
+        "agent.services.autopilot.task_dispatcher._dispatch_one_task_inner",
         side_effect=_fake_inner,
     ):
         import concurrent.futures as cf

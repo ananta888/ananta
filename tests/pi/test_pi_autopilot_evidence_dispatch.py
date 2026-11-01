@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from agent.db_models.evidence_identity import HubRunEvidenceIdentityDB
 from agent.db_models.native_dispatch import NativeDispatchDB
-from agent.routes.tasks.autopilot_native_dispatch import (
+from agent.services.autopilot.native_dispatch import (
     NATIVE_DISPATCH_PORTS,
     NativeDispatchPorts,
     dispatch_native_task,

@@ -9,7 +9,7 @@ from sqlmodel import SQLModel, create_engine
 
 from agent.db_models.evidence_identity import HubRunEvidenceIdentityDB, HubSourceEvidenceIdentityDB
 from agent.repositories.evidence_identity import SqlEvidenceIdentityRepository
-from agent.routes.tasks.autopilot_task_dispatcher_helpers import TaskDispatchResult
+from agent.services.autopilot.task_dispatcher_helpers import TaskDispatchResult
 from agent.services.hub_evidence_gate_service import HubEvidenceGateService
 from agent.services.hub_evidence_registry_service import HubEvidenceRegistryService
 from agent.services.self_development.contracts import form

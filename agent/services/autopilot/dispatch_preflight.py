@@ -2,7 +2,7 @@
 
 Each phase returns a :class:`TaskDispatchResult` when dispatch must stop, or
 ``None`` to continue. Behavior is identical to the former inline blocks of
-:func:`agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner`.
+:func:`agent.services.autopilot.task_dispatcher._dispatch_one_task_inner`.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from agent.services.organization_task_dispatch_gate_service import (
     get_organization_task_dispatch_gate_service,
 )
 
-from .autopilot_dispatch_context import DispatchContext
-from .autopilot_task_dispatcher_helpers import (
+from .dispatch_context import DispatchContext
+from .task_dispatcher_helpers import (
     TaskDispatchResult,
     _is_terminal_status,
     _recent_strategy_attempts,

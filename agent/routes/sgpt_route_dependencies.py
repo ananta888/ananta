@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from agent.routes.route_dependency_seam import RouteDependencySeam
+from agent.services.route_dependency_seam import RouteDependencySeam
 
 
 @dataclass(frozen=True)

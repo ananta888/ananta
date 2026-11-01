@@ -6,8 +6,8 @@ from sqlalchemy import Text, cast, func, select
 
 from agent.db_models.memory import MemoryEntryDB
 from agent.db_models.tasks import TaskDB
-from agent.services.memory_diff_service import memory_observation_digest
 from ananta_contracts.memory_access import MemorySecurityMetadata, MemorySensitivity
+from ananta_contracts.memory_diff import memory_observation_digest
 
 MAX_SNAPSHOT_ENTRIES = 1000
 MAX_SNAPSHOT_INPUT_CHARS = 4 * 1024 * 1024

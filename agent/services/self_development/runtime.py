@@ -274,7 +274,7 @@ def ensure_autopilot(app):
             return False
         if not any(i["status"] in {"ready", "running"} for i in state["items"].values()):
             return False
-        from agent.routes.tasks.autopilot import autonomous_loop
+        from agent.services.autopilot.loop_manager import autonomous_loop
 
         if autonomous_loop.running:
             return True
@@ -345,7 +345,7 @@ class AutopilotRearmWatchdog:
 
 def start_autopilot_watchdog(app):
     """Start the periodic re-arm watchdog once per app (no-op when threads are disabled)."""
-    from agent.routes.tasks.autopilot import _background_threads_disabled
+    from agent.services.autopilot.loop_manager import _background_threads_disabled
 
     if _background_threads_disabled(app):
         return None

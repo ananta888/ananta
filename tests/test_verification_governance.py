@@ -148,7 +148,7 @@ class TestVerificationGovernance:
         )
         policy_decisions = policy_decision_repo.get_by_task_id("vg-goal-task")
         if not policy_decisions:
-            from agent.routes.tasks.orchestration_policy import persist_policy_decision
+            from agent.services.orchestration_policy import persist_policy_decision
 
             persist_policy_decision(
                 decision_type="assignment",
@@ -328,7 +328,7 @@ class TestVerificationGovernance:
             )
         )
 
-        from agent.routes.tasks.orchestration_policy import persist_policy_decision
+        from agent.services.orchestration_policy import persist_policy_decision
 
         decision = persist_policy_decision(
             decision_type="assignment",

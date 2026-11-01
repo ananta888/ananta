@@ -4,7 +4,7 @@
 strategy candidate until one yields an executable step, the proposal budget is
 exhausted or a terminal model-chain signal is observed. Behavior is identical to
 the former inline block of
-:func:`agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner`.
+:func:`agent.services.autopilot.task_dispatcher._dispatch_one_task_inner`.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from agent.metrics import (
     STRATEGY_ATTEMPT_COUNT,
     WORKER_PROPOSE_DURATION_SECONDS,
 )
-from agent.routes.tasks.autopilot_model_selector import _normalize_temperature_value
-from agent.routes.tasks.autopilot_strategy_candidates import (
+from agent.services.autopilot.model_selector import _normalize_temperature_value
+from agent.services.autopilot.strategy_candidates import (
     _safe_context_length,
     _strategy_cfg,
 )
@@ -32,8 +32,8 @@ from ananta_contracts.model_recovery import (
     sanitize_terminal_model_recovery_signal,
 )
 
-from .autopilot_dispatch_context import DispatchContext
-from .autopilot_task_dispatcher_helpers import (
+from .dispatch_context import DispatchContext
+from .task_dispatcher_helpers import (
     TaskDispatchResult,
     _is_terminal_status,
     _recent_strategy_attempts,

@@ -2,7 +2,7 @@
 
 import time
 
-from agent.routes.tasks.autopilot_async_dispatch import AsyncDispatchState, async_dispatch_enabled
+from agent.services.autopilot.async_dispatch import AsyncDispatchState, async_dispatch_enabled
 
 
 def test_async_dispatch_enabled_reads_autopilot_config():

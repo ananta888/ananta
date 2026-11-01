@@ -5,8 +5,8 @@ from sqlalchemy import select
 from agent.db_models.native_dispatch import NativeDispatchDB
 from agent.db_models.pi_dispatch_evidence import PiDispatchEvidenceDB
 from agent.repositories.sqlalchemy_support import require_locked_row, stable_row_id
-from agent.services.native_dispatch_binding import native_dispatch_binding_digest
 from ananta_contracts.hub_evidence import validate_hub_evidence_assignment
+from ananta_contracts.native_dispatch_binding import native_dispatch_binding_digest
 
 
 class TransactionPiDispatchEvidenceRepository:
