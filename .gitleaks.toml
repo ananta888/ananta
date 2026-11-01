@@ -1,0 +1,54 @@
+# Gitleaks configuration for Ananta — https://github.com/gitleaks/gitleaks
+# Purpose: prevent secrets (keys, tokens, passwords) from re-entering the repo.
+# This file is intentionally TRACKED (see .gitignore !/.gitleaks.toml) so the
+# scan policy is reproducible in CI.
+
+title = "Ananta gitleaks config"
+
+[extend]
+# Reuse the curated upstream rule set as the baseline.
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for non-secret, documented test/fixture material"
+# Test fixtures and docs that reference placeholder/example values on purpose.
+paths = [
+  '''(^|/)tests/fixtures/''',
+  '''(^|/)docs/''',
+  '''(^|/).*\.md$''',
+  '''(^|/)\.env\.example$''',
+  '''(^|/)schemas/''',
+]
+
+[[rules]]
+id = "ananta-symmetric-secret-key-file"
+description = "Ananta local symmetric secret_key files must never be committed"
+# Matches the 43-byte base64 secret_key material used by frontend-angular/rag-helper.
+regex = '''(?i)(secret[_-]?key["']?\s*[:=]\s*["']?[A-Za-z0-9+/]{40,}={0,2})'''
+path = '''secret_key$'''
+tags = ["key", "ananta"]
+
+[[rules]]
+id = "ananta-openai-api-key"
+description = "OpenAI API key"
+regex = '''sk-proj-[A-Za-z0-9_-]{20,}'''
+tags = ["key", "openai"]
+
+[[rules]]
+id = "ananta-openrouter-api-key"
+description = "OpenRouter API key"
+regex = '''sk-or-v1-[A-Za-z0-9_-]{20,}'''
+tags = ["key", "openrouter"]
+
+[[rules]]
+id = "ananta-generic-password-assignment"
+description = "Hardcoded password/secret/token assignment in committed config"
+regex = '''(?i)(password|passwd|secret|api[_-]?key|access[_-]?token)\s*[:=]\s*["'][^"'\s]{8,}["']'''
+path = '''\.(json|ya?ml|env|py|js|ts)$'''
+tags = ["password", "ananta"]
+
+[[rules]]
+id = "ananta-private-key"
+description = "PEM private key block"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----'''
+tags = ["key", "private"]

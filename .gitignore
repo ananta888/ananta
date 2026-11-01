@@ -19,7 +19,36 @@
 mytoken.txt
 secrets/
 secrets/secret_key
+**/secrets/
+**/secrets/**
+!**/secrets/.gitkeep
 *.key
+login_payload.json
+
+# Runtime artefacts and build output (never committed — AGENTS.md Output Boundary)
+*.egg-info/
+*.egg-info
+/test.db
+*.sqlite
+*.sqlite3
+/user.json
+/ananta.runtime-profile.json
+/crash.txt
+/system_context.txt
+/running-copilot.chat.txt
+/set_llm_config.json
+/release-verification-report.json
+/tasks_review.md
+/nginx_dependencies.txt
+/nginx_error_logs.txt
+/nginx_user_check.txt
+
+# CI artefacts: keep intentional evidence JSONs, ignore local run output
+ci-artifacts/**/nohup.out
+ci-artifacts/**/rerun-summary.txt
+ci-artifacts/coverage-local/summary.txt
+ci-artifacts/e2e-compose-local/summary.txt
+ci-artifacts/compose/
 **/token.json
 
 # Logs
@@ -115,7 +144,6 @@ __pycache__/
 !secrets/.gitkeep
 /config/secrets/
 
-/.gitleaks.toml
 /.venv
 /.ollama/
 /data/ananta.db-shm
@@ -189,6 +217,7 @@ scripts/dyndns.conf
 /.coverage*
 /.*
 # Keep the memory security workflow reviewable without exposing other local dotfiles.
+!/.gitleaks.toml
 !/.github/
 /.github/*
 !/.github/workflows/
