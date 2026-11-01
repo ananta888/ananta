@@ -333,13 +333,13 @@ def test_split_db_worker_uses_fingerprint_bound_request_context_without_resync(
 
     from agent.config import settings
     from agent.models import TaskStepExecuteRequest
-    from agent.services._task_scoped_step_orchestrator import (
-        _admit_task_scoped_dispatch,
-        _apply_request_run_evidence_context,
-    )
     from agent.services.recovery_dispatch_gate_service import (
         RecoveryDispatchGateDecision,
         recovery_dispatch_request_fingerprint,
+    )
+    from agent.services.task_scoped.step_orchestrator import (
+        _admit_task_scoped_dispatch,
+        _apply_request_run_evidence_context,
     )
 
     hub_service = RecoveryHubRunEvidenceService(

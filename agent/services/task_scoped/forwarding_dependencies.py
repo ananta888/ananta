@@ -114,17 +114,6 @@ class TaskScopedForwardingDependencies:
 
     @classmethod
     def production(cls) -> "TaskScopedForwardingDependencies":
-        from agent.services._task_scoped_codecompass_dispatch import (
-            _authorize_codecompass_worker_dispatch,
-            _codecompass_execute_deadline,
-            _governed_source_control_index_job_service,
-            _prepare_codecompass_worker_dispatch,
-        )
-        from agent.services._task_scoped_dispatch_admission import _admit_task_scoped_dispatch
-        from agent.services._task_scoped_execute_step import _run_execute_step_admitted
-        from agent.services._task_scoped_forwarded_result_acceptance import (
-            _get_visual_process_assistant_service,
-        )
         from agent.services.forwarded_artifact_normalization import (
             normalize_forwarded_artifacts,
             normalize_recovery_forwarded_artifacts,
@@ -132,6 +121,17 @@ class TaskScopedForwardingDependencies:
         from agent.services.repository_registry import get_repository_registry
         from agent.services.service_registry import get_core_services
         from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.task_scoped.codecompass_dispatch import (
+            _authorize_codecompass_worker_dispatch,
+            _codecompass_execute_deadline,
+            _governed_source_control_index_job_service,
+            _prepare_codecompass_worker_dispatch,
+        )
+        from agent.services.task_scoped.dispatch_admission import _admit_task_scoped_dispatch
+        from agent.services.task_scoped.execute_step import _run_execute_step_admitted
+        from agent.services.task_scoped.forwarded_result_acceptance import (
+            _get_visual_process_assistant_service,
+        )
         from agent.services.worker_forward_outcome import get_worker_forward_outcome_recorder
 
         return cls(

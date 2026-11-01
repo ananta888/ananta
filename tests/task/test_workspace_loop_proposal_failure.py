@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from agent.services import _task_scoped_propose_single as proposals
+from agent.services.task_scoped import propose_single as proposals
 from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
 

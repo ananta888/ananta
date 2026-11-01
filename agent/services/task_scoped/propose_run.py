@@ -39,8 +39,8 @@ class ProposeCollaborators:
 
     @classmethod
     def load(cls) -> "ProposeCollaborators":
-        from agent.services._task_scoped_citation import build_flow_metrics_payload, update_task_flow_metrics
-        from agent.services._task_scoped_config_policy import (
+        from agent.services.task_scoped.citation import build_flow_metrics_payload, update_task_flow_metrics
+        from agent.services.task_scoped.config_policy import (
             compact_research_context,
             has_native_opencode_runtime,
             native_worker_runtime_enabled,
@@ -50,8 +50,8 @@ class ProposeCollaborators:
             resolve_interactive_retry_timeout,
             resolve_opencode_execution_mode,
         )
-        from agent.services._task_scoped_repair import build_llm_call_profile_entries, repair_task_proposal
-        from agent.services._task_scoped_runtime import (
+        from agent.services.task_scoped.repair import build_llm_call_profile_entries, repair_task_proposal
+        from agent.services.task_scoped.runtime import (
             build_research_result,
             build_review_state,
             build_task_propose_prompt,

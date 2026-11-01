@@ -144,7 +144,7 @@ def _prepare_codecompass_worker_dispatch(
     if not enabled:
         return
     if authorize is None:
-        from agent.services._task_scoped_forwarding_dependencies import (
+        from agent.services.task_scoped.forwarding_dependencies import (
             current_task_scoped_forwarding_dependencies,
         )
 
@@ -219,7 +219,7 @@ def _authorize_codecompass_worker_dispatch(
     index_job_service: Callable[[], Any] | None = None,
 ) -> None:
     if index_job_service is None:
-        from agent.services._task_scoped_forwarding_dependencies import (
+        from agent.services.task_scoped.forwarding_dependencies import (
             current_task_scoped_forwarding_dependencies,
         )
 

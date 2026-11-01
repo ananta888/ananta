@@ -1109,7 +1109,7 @@ def test_authoritative_vector_task_without_handler_fails_closed(
         )
     monkeypatch.setattr(settings, "role", "worker")
     monkeypatch.setattr(
-        "agent.services._task_scoped_adapters.get_task_handler_registry",
+        "agent.services.task_scoped.adapters.get_task_handler_registry",
         lambda: types.SimpleNamespace(resolve=lambda _kind: None),
     )
     shell_calls: list[object] = []
@@ -1158,7 +1158,7 @@ def test_authoritative_knowledge_index_without_handler_never_falls_back_to_llm(
         )
     monkeypatch.setattr(settings, "role", "worker")
     monkeypatch.setattr(
-        "agent.services._task_scoped_adapters.get_task_handler_registry",
+        "agent.services.task_scoped.adapters.get_task_handler_registry",
         lambda: types.SimpleNamespace(resolve=lambda _kind: None),
     )
 
@@ -1287,7 +1287,7 @@ def test_layer_build_propose_never_falls_back_to_an_llm_even_with_a_model(
         )
     monkeypatch.setattr(settings, "role", "worker")
     monkeypatch.setattr(
-        "agent.services._task_scoped_adapters.get_task_handler_registry",
+        "agent.services.task_scoped.adapters.get_task_handler_registry",
         lambda: types.SimpleNamespace(resolve=lambda _kind: None),
     )
 

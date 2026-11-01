@@ -1962,7 +1962,7 @@ def test_source_terminal_transition_and_recovery_admission_are_linearizable():
 
 
 def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution():
-    from agent.services import _task_scoped_step_orchestrator as orchestration
+    from agent.services.task_scoped import step_orchestrator as orchestration
 
     orchestration._RECOVERY_OUTCOME_CACHE.clear()
     token = "same-invocation-token"
@@ -2023,8 +2023,8 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
     forwarding_dependencies,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     lease_token = "recovery-propose-lease"
     worker_url = "http://worker-recovery:5001"
@@ -2139,8 +2139,8 @@ def test_task_scoped_recovery_forward_without_lease_fails_before_transport(
     monkeypatch,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2205,8 +2205,8 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2343,11 +2343,11 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
     monkeypatch,
     forwarding_dependencies,
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import (
         mail_task_service,
         recovery_worker_result_service,
     )
+    from agent.services.task_scoped import forwarding as forwarding
 
     task_id = "recovery-mail-persist"
     authoritative = Record(
@@ -2433,8 +2433,8 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2501,11 +2501,11 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import (
         recovery_dispatch_gate_service,
         vector_index_task_service,
     )
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2623,8 +2623,8 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
     from agent.services.worker_forward_transport import (
         WorkerTransportDeadline,
     )
@@ -2772,7 +2772,7 @@ def test_codecompass_forward_rejects_missing_governed_binding_or_worker(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
@@ -2798,8 +2798,8 @@ def test_public_codecompass_v1_keeps_legacy_forwarder_boundary(
     monkeypatch,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2856,7 +2856,7 @@ def test_codecompass_forward_rejects_local_hub_alias(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
@@ -2888,7 +2888,7 @@ def test_codecompass_worker_executes_its_bound_assignment_locally(
     monkeypatch,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "worker")
     monkeypatch.setattr(settings, "agent_url", "http://worker:5001")
@@ -2925,7 +2925,7 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
@@ -2991,8 +2991,8 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3072,11 +3072,11 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
     from agent.services.knowledge_index_job_service import (
         KnowledgeIndexCompletionProjectionPending,
     )
+    from agent.services.task_scoped import forwarding as forwarding
     from agent.services.worker_forward_transport import (
         WorkerTransportDeadline,
     )
@@ -3207,8 +3207,8 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
     from agent.services.worker_forward_transport import (
         WorkerTransportDeadline,
     )
@@ -3355,8 +3355,8 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3404,8 +3404,8 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3468,8 +3468,8 @@ def test_generic_remote_forward_without_worker_token_fails_before_transport(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod

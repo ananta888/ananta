@@ -19,14 +19,14 @@ from flask import current_app
 
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.runtime_policy import build_trace_record
-from agent.services._task_scoped_citation import (
+from agent.services.service_registry import get_core_services
+from agent.services.task_runtime_service import apply_artifact_first_completion, update_local_task_status
+from agent.services.task_scoped.citation import (
     build_flow_metrics_payload,
     extract_grounded_answer_payload,
 )
-from agent.services._task_scoped_config_policy import should_use_native_worker_runtime
-from agent.services._task_scoped_repair import is_command_not_found_failure, is_shell_meta_blocked_failure
-from agent.services.service_registry import get_core_services
-from agent.services.task_runtime_service import apply_artifact_first_completion, update_local_task_status
+from agent.services.task_scoped.config_policy import should_use_native_worker_runtime
+from agent.services.task_scoped.repair import is_command_not_found_failure, is_shell_meta_blocked_failure
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _log_terminal_entry
 

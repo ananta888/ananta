@@ -107,7 +107,7 @@ def _accept_visual_process_assistant_result(
         raise ValueError("visual_process_assistant_result_forwarding_fields_unknown")
     candidate = {field: response.get(field) for field in result_fields}
     if visual_process_assistant_service is None:
-        from agent.services._task_scoped_forwarding_dependencies import (
+        from agent.services.task_scoped.forwarding_dependencies import (
             current_task_scoped_forwarding_dependencies,
         )
 

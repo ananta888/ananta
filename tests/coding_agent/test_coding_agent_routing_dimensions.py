@@ -1,4 +1,4 @@
-from agent.services._task_scoped_runtime import routing_dimensions
+from agent.services.task_scoped.runtime import routing_dimensions
 
 
 def test_aider_routing_dimensions_report_client_independent_inference_target() -> None:

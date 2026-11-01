@@ -48,7 +48,7 @@ def test_opencode_follows_its_model():
 
 def test_a_failing_prediction_sizes_for_the_local_window(monkeypatch):
     monkeypatch.setattr(
-        "agent.services._task_scoped_runtime.resolve_task_cli_backend",
+        "agent.services.task_scoped.runtime.resolve_task_cli_backend",
         lambda **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     window = execution_window(TASK, _cfg("claude_code"))

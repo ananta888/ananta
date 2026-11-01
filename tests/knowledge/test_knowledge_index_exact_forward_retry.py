@@ -7,8 +7,8 @@ import pytest
 
 from agent.common.errors import WorkerForwardingError
 from agent.config import settings
-from agent.services import _task_scoped_forwarding as forwarding
-from agent.services._task_scoped_forwarding_dependencies import KnowledgeIndexRetryPolicy
+from agent.services.task_scoped import forwarding as forwarding
+from agent.services.task_scoped.forwarding_dependencies import KnowledgeIndexRetryPolicy
 from agent.services.worker_forward_transport import (
     WorkerForwardAmbiguousTransportError,
     WorkerForwardDeadlineExceeded,

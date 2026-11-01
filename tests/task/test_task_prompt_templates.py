@@ -7,7 +7,7 @@ from agent.services.task_scoped_execution_service import TaskScopedExecutionServ
 
 
 def test_workspace_loop_prompt_and_context_file_use_the_same_inner_protocol(app, tmp_path):
-    from agent.services._task_scoped_runtime import build_task_propose_prompt
+    from agent.services.task_scoped.runtime import build_task_propose_prompt
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {

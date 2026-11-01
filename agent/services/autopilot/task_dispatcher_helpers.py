@@ -619,7 +619,7 @@ def _execute_proposed_step(
         )
         if dispatch_lease.token:
             from agent.models import TaskStepExecuteRequest
-            from agent.services._task_scoped_forwarding import (
+            from agent.services.task_scoped.forwarding import (
                 persist_forwarded_execution,
             )
 

@@ -33,7 +33,7 @@ def test_goal_config_resolver_redacts_secret_fields():
 
 def test_create_goal_persists_goal_scoped_snapshot(client, admin_auth_header, monkeypatch):
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda **kwargs: '[{"title":"Plan","description":"Do work","priority":"Medium"}]',
     )
     install_repo_context_loader(client.application, lambda goal: None)

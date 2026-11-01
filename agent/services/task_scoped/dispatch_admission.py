@@ -8,7 +8,7 @@ propose or execute step may run. ``_task_scoped_step_orchestrator`` re-exports
 
 from __future__ import annotations
 
-from agent.services._task_scoped_step_policies import _dispatch_admission_error
+from agent.services.task_scoped.step_policies import _dispatch_admission_error
 
 
 def _admit_task_scoped_dispatch(

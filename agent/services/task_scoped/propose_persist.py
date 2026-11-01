@@ -16,15 +16,15 @@ from flask import current_app
 from agent.common.utils.structured_action_utils import extract_structured_action_fields
 from agent.pipeline_trace import append_stage
 from agent.runtime_policy import build_trace_record
-from agent.services._task_scoped_propose_run import (
+from agent.services.cli_session_service import get_cli_session_service
+from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
+from agent.services.service_registry import get_core_services
+from agent.services.task_scoped.propose_run import (
     INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
     ProposeRun,
     propose_flow_metrics,
     repair_proposal,
 )
-from agent.services.cli_session_service import get_cli_session_service
-from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
-from agent.services.service_registry import get_core_services
 from agent.utils import _extract_reason, _log_terminal_entry
 
 

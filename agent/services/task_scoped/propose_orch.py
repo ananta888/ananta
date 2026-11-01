@@ -84,8 +84,8 @@ def run_propose_orchestrator_path(
     get_system_prompt_for_task: Callable,
     allow_synthetic_llm_profile_fallback: Callable,
 ) -> "TaskScopedRouteResponse":
-    from agent.services._task_scoped_runtime import routing_dimensions
     from agent.services.propose_strategy_registry import build_strategy_registry
+    from agent.services.task_scoped.runtime import routing_dimensions
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
     from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
 
@@ -424,7 +424,7 @@ def run_propose_orchestrator_path(
         if isinstance(result_dict.get("command"), str)
         else (result.proposal.command if result.is_executable and result.proposal is not None else None)
     )
-    from agent.services._task_scoped_propose_persist import resolve_declared_command_if_missing
+    from agent.services.task_scoped.propose_persist import resolve_declared_command_if_missing
 
     resolved_command = resolve_declared_command_if_missing(proposed_command, task)
     _write_review_answer_artifact(task=tid, task_record=task, answer=resolved_reason)

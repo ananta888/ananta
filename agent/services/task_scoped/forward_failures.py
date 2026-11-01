@@ -31,7 +31,7 @@ def _resolve_outcome_recorder(
 ) -> Callable[[], Any]:
     if outcome_recorder is not None:
         return outcome_recorder
-    from agent.services._task_scoped_forwarding_dependencies import (
+    from agent.services.task_scoped.forwarding_dependencies import (
         current_task_scoped_forwarding_dependencies,
     )
 

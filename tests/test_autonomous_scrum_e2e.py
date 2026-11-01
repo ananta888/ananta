@@ -47,7 +47,7 @@ def test_e2e_autonomous_scrum_progress_with_followup_chain(app, monkeypatch):
             raise AssertionError(f"unexpected endpoint: {endpoint}")
 
         AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kwargs: "[]")
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", lambda **kwargs: "[]")
 
         # Tick 1: Parent wird erledigt, Child bleibt noch blocked.
         autonomous_loop.tick_once()
@@ -131,7 +131,7 @@ def test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks(client,
         ]
     )
 
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kwargs: llm_response)
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", lambda **kwargs: llm_response)
 
     # tasks.team_id references teams.id, so the team a plan is scoped to has to
     # exist before its tasks can be written. The test named one without

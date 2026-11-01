@@ -6,9 +6,6 @@ from typing import Any, Callable
 
 import pytest
 
-from agent.services._task_scoped_citation import (
-    build_source_catalog_from_execution_context,
-)
 from agent.services.recovery_grounding_verification_service import (
     RecoveryGroundingVerificationService,
 )
@@ -20,6 +17,9 @@ from agent.services.recovery_result_verification_service import (
 )
 from agent.services.recovery_worker_result_service import (
     RecoveryWorkerResultService,
+)
+from agent.services.task_scoped.citation import (
+    build_source_catalog_from_execution_context,
 )
 from agent.services.verification_service import VerificationService
 

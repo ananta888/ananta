@@ -24,19 +24,19 @@ from flask import current_app
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend
 from agent.runtime_policy import normalize_task_kind, runtime_routing_config
-from agent.services._task_scoped_propose_persist import (
+from agent.services.cli_session_service import get_cli_session_service
+from agent.services.task_scoped.propose_persist import (
     persist_command_proposal,
     persist_interactive_finalize_proposal,
     persist_research_proposal,
 )
-from agent.services._task_scoped_propose_run import (
+from agent.services.task_scoped.propose_run import (
     INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
     ProposeCollaborators,
     ProposeRun,
     propose_flow_metrics,
     repair_proposal,
 )
-from agent.services.cli_session_service import get_cli_session_service
 from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
 from agent.services.worker_workspace_service import get_worker_workspace_service
 

@@ -33,9 +33,9 @@ class NativeRetirementDispatchPort(Protocol):
 
 def production_native_dispatch_ports():
     from agent.common.gateways.worker_gateway import get_worker_gateway
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
     from agent.services.native_dispatch_journal import production_native_dispatch_journal
     from agent.services.native_result_task_projection import native_task_command
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
     from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
     from agent.services.workflow_worker_assignment_runtime import bind_dispatched_workflow_task
 

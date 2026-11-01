@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Callable
 from agent.llm_integration import normalize_llm_call_profile_entry
 
 if TYPE_CHECKING:
-    from agent.services._task_scoped_forwarding_dependencies import HubStatePorts
+    from agent.services.task_scoped.forwarding_dependencies import HubStatePorts
 
 
 def persist_forwarded_proposal(
@@ -30,7 +30,7 @@ def persist_forwarded_proposal(
     if not isinstance(response, dict):
         return
     if hub_state is None:
-        from agent.services._task_scoped_forwarding_dependencies import (
+        from agent.services.task_scoped.forwarding_dependencies import (
             current_task_scoped_forwarding_dependencies,
         )
 

@@ -1835,9 +1835,9 @@ def test_forwarding_uses_atomic_vector_result_acceptance(
     monkeypatch,
     forwarding_dependencies,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_result_verification_service, unsloth_worker_result_service
     from agent.services import vector_index_task_service as service_module
+    from agent.services.task_scoped import forwarding as forwarding
 
     accepted: list[dict] = []
 
@@ -1906,8 +1906,8 @@ def test_authoritative_vector_task_rejects_non_vector_worker_results_without_sid
     forwarding_dependencies,
     response,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import unsloth_worker_result_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     side_effects: list[str] = []
     forwarding_dependencies(
@@ -1950,7 +1950,7 @@ def test_non_vector_task_rejects_vector_result_schema(
     monkeypatch,
     forwarding_dependencies,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     updates: list[object] = []
     forwarding_dependencies(

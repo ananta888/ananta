@@ -63,7 +63,7 @@ def test_the_full_answer_comes_from_the_decision_when_the_proposal_lost_its_tool
 
 
 def test_hub_sized_steps_skip_the_propose_context_compactor():
-    from agent.services._task_scoped_propose_orch import _is_long_context_step
+    from agent.services.task_scoped.propose_orch import _is_long_context_step
 
     assert _is_long_context_step({"status_reason_details": {"long_context": {"role": "step", "kind": "chunk"}}})
     assert not _is_long_context_step({"status_reason_details": {"long_context": {"role": "parent"}}})

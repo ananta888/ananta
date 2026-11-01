@@ -11,10 +11,6 @@ from agent.common.recovery_result_write_boundary import (
     defer_task_status_mutation,
 )
 from agent.repositories.tasks import TaskRepository
-from agent.services._task_scoped_forwarding import (
-    persist_forwarded_execution,
-    persist_forwarded_proposal,
-)
 from agent.services.recovery_dispatch_gate_service import (
     RecoveryDispatchGateDecision,
     RecoveryDispatchGateService,
@@ -42,6 +38,10 @@ from agent.services.recovery_source_post_commit_service import (
 from agent.services.recovery_worker_result_service import (
     RecoveryWorkerResultError,
     RecoveryWorkerResultService,
+)
+from agent.services.task_scoped.forwarding import (
+    persist_forwarded_execution,
+    persist_forwarded_proposal,
 )
 from agent.services.verification_service import VerificationService
 from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture

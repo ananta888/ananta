@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.services import _task_scoped_propose_persist as mod
+from agent.services.task_scoped import propose_persist as mod
 
 MARKER_COMMAND = "python -m pytest -q --confcutdir=tests/self_development -o addopts= tests/self_development"
 

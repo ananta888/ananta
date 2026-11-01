@@ -174,7 +174,7 @@ class RecoveryGroundingVerificationService:
     def _hub_source_catalog(
         task: Any,
     ) -> tuple[dict[str, Any], str | None]:
-        from agent.services._task_scoped_citation import (
+        from agent.services.task_scoped.citation import (
             build_source_catalog_from_execution_context,
         )
 

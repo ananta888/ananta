@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from agent.services import _task_scoped_forwarding as forwarding
-from agent.services._task_scoped_forward_failures import _raise_if_no_worker_response
+from agent.services.task_scoped import forwarding as forwarding
+from agent.services.task_scoped.forward_failures import _raise_if_no_worker_response
 from agent.services.worker_forward_transport import (
     WorkerForwardAmbiguousTransportError,
     WorkerForwardDeadlineExceeded,

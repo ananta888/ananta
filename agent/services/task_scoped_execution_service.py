@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def _build_workspace_state_sync_record(*, task, materialization_manifest, workspace_artifact_refs, git_pushed):
-    from agent.services._task_scoped_workspace_sync import build_workspace_state_sync_record as _impl
+    from agent.services.task_scoped.workspace_sync import build_workspace_state_sync_record as _impl
 
     return _impl(
         task=task,
@@ -58,7 +58,7 @@ class TaskScopedExecutionService:
     def forwarding_dependencies(self) -> Any:
         if self._forwarding_dependencies is not None:
             return self._forwarding_dependencies
-        from agent.services._task_scoped_forwarding_dependencies import (
+        from agent.services.task_scoped.forwarding_dependencies import (
             current_task_scoped_forwarding_dependencies,
         )
 
@@ -68,8 +68,8 @@ class TaskScopedExecutionService:
     @staticmethod
     def _allow_synthetic_llm_profile_fallback() -> bool:
         # SPLIT-001p: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.allow_synthetic_llm_profile_fallback.
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.allow_synthetic_llm_profile_fallback.
+        from agent.services.task_scoped.config_policy import (
             allow_synthetic_llm_profile_fallback,
         )
 
@@ -78,8 +78,8 @@ class TaskScopedExecutionService:
     @staticmethod
     def _is_interactive_terminal_session(session_payload: dict | None) -> bool:
         # SPLIT-001p: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.is_interactive_terminal_session.
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.is_interactive_terminal_session.
+        from agent.services.task_scoped.config_policy import (
             is_interactive_terminal_session,
         )
 
@@ -88,24 +88,24 @@ class TaskScopedExecutionService:
     @staticmethod
     def _normalize_temperature(value: float | int | str | None) -> float | None:
         # Delegating wrapper for SPLIT-001b. Implementation lives in
-        # agent.services._task_scoped_config_policy.normalize_temperature.
-        from agent.services._task_scoped_config_policy import normalize_temperature
+        # agent.services.task_scoped.config_policy.normalize_temperature.
+        from agent.services.task_scoped.config_policy import normalize_temperature
 
         return normalize_temperature(value)
 
     @staticmethod
     def _default_model(agent_cfg: dict) -> str | None:
         # SPLIT-001p: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.default_model.
-        from agent.services._task_scoped_config_policy import default_model
+        # agent.services.task_scoped.config_policy.default_model.
+        from agent.services.task_scoped.config_policy import default_model
 
         return default_model(agent_cfg)
 
     @classmethod
     def _resolve_requested_model(cls, *, agent_cfg: dict, requested_model: str | None) -> str | None:
         # SPLIT-001p: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_requested_model.
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_requested_model.
+        from agent.services.task_scoped.config_policy import (
             resolve_requested_model,
         )
 
@@ -114,8 +114,8 @@ class TaskScopedExecutionService:
     @staticmethod
     def _resolve_task_propose_timeout(agent_cfg: dict, task_kind: str) -> int:
         # SPLIT-001p: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_task_propose_timeout.
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_task_propose_timeout.
+        from agent.services.task_scoped.config_policy import (
             resolve_task_propose_timeout,
         )
 
@@ -124,16 +124,16 @@ class TaskScopedExecutionService:
     @staticmethod
     def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
         # Delegating wrapper for SPLIT-001b. Implementation lives in
-        # agent.services._task_scoped_config_policy.bounded_int.
-        from agent.services._task_scoped_config_policy import bounded_int
+        # agent.services.task_scoped.config_policy.bounded_int.
+        from agent.services.task_scoped.config_policy import bounded_int
 
         return bounded_int(value, default=default, minimum=minimum, maximum=maximum)
 
     @staticmethod
     def _bounded_float(value: object, *, default: float, minimum: float, maximum: float) -> float:
         # Delegating wrapper for SPLIT-001b. Implementation lives in
-        # agent.services._task_scoped_config_policy.bounded_float.
-        from agent.services._task_scoped_config_policy import bounded_float
+        # agent.services.task_scoped.config_policy.bounded_float.
+        from agent.services.task_scoped.config_policy import bounded_float
 
         return bounded_float(value, default=default, minimum=minimum, maximum=maximum)
 
@@ -143,8 +143,8 @@ class TaskScopedExecutionService:
         *, command: str | None, workspace_dir: str | None
     ) -> tuple[str | None, dict | None]:
         # SPLIT-001v: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_workspace_runtime.rewrite_runtime_command_for_workspace_tools.
-        from agent.services._task_scoped_workspace_runtime import (
+        # agent.services.task_scoped.workspace_runtime.rewrite_runtime_command_for_workspace_tools.
+        from agent.services.task_scoped.workspace_runtime import (
             rewrite_runtime_command_for_workspace_tools,
         )
 
@@ -156,8 +156,8 @@ class TaskScopedExecutionService:
     @classmethod
     def _resolve_worker_semantic_output_correction_policy(cls, agent_cfg: dict | None) -> dict:
         # SPLIT-001c: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_worker_semantic_output_correction_policy
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_worker_semantic_output_correction_policy
+        from agent.services.task_scoped.config_policy import (
             resolve_worker_semantic_output_correction_policy,
         )
 
@@ -166,8 +166,8 @@ class TaskScopedExecutionService:
     @classmethod
     def _resolve_interactive_context_profile(cls, agent_cfg: dict | None, *, retry: bool = False) -> dict:
         # SPLIT-001c: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_interactive_context_profile
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_interactive_context_profile
+        from agent.services.task_scoped.config_policy import (
             resolve_interactive_context_profile,
         )
 
@@ -181,16 +181,16 @@ class TaskScopedExecutionService:
         profile: dict | None,
     ) -> dict | None:
         # SPLIT-001c: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.compact_research_context
-        from agent.services._task_scoped_config_policy import compact_research_context
+        # agent.services.task_scoped.config_policy.compact_research_context
+        from agent.services.task_scoped.config_policy import compact_research_context
 
         return compact_research_context(research_context, profile=profile)
 
     @staticmethod
     def _interactive_timeout_like_failure(*, rc: int, output: str, stderr: str) -> bool:
         # SPLIT-001q: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_repair.is_interactive_timeout_like_failure.
-        from agent.services._task_scoped_repair import (
+        # agent.services.task_scoped.repair.is_interactive_timeout_like_failure.
+        from agent.services.task_scoped.repair import (
             is_interactive_timeout_like_failure,
         )
 
@@ -199,8 +199,8 @@ class TaskScopedExecutionService:
     @classmethod
     def _resolve_interactive_propose_timeout(cls, agent_cfg: dict | None, *, fallback: int) -> int:
         # SPLIT-001c: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_interactive_propose_timeout
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_interactive_propose_timeout
+        from agent.services.task_scoped.config_policy import (
             resolve_interactive_propose_timeout,
         )
 
@@ -209,8 +209,8 @@ class TaskScopedExecutionService:
     @classmethod
     def _resolve_interactive_retry_timeout(cls, agent_cfg: dict | None, *, fallback: int) -> int:
         # SPLIT-001c: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_interactive_retry_timeout
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_interactive_retry_timeout
+        from agent.services.task_scoped.config_policy import (
             resolve_interactive_retry_timeout,
         )
 
@@ -219,7 +219,7 @@ class TaskScopedExecutionService:
     @staticmethod
     def _extract_retrieval_trace_link(context_payload: dict | None) -> dict[str, str | None]:
         # SPLIT-001j: delegating wrapper.
-        from agent.services._task_scoped_citation import extract_retrieval_trace_link
+        from agent.services.task_scoped.citation import extract_retrieval_trace_link
 
         return extract_retrieval_trace_link(context_payload)
 
@@ -232,7 +232,7 @@ class TaskScopedExecutionService:
         llm_scope: str = "local_only",
     ) -> dict | None:
         # SPLIT-001j: delegating wrapper.
-        from agent.services._task_scoped_citation import build_source_catalog_from_execution_context
+        from agent.services.task_scoped.citation import build_source_catalog_from_execution_context
 
         return build_source_catalog_from_execution_context(tid=tid, task=task, llm_scope=llm_scope)
 
@@ -243,7 +243,7 @@ class TaskScopedExecutionService:
         run_evidence_context: dict | None = None,
     ) -> str:
         # SPLIT-001j: delegating wrapper.
-        from agent.services._task_scoped_citation import render_citation_contract_prompt
+        from agent.services.task_scoped.citation import render_citation_contract_prompt
 
         return render_citation_contract_prompt(
             source_catalog,
@@ -253,15 +253,15 @@ class TaskScopedExecutionService:
     @staticmethod
     def _extract_grounded_answer_payload(output: str | None) -> dict | None:
         # SPLIT-001j: delegating wrapper.
-        from agent.services._task_scoped_citation import extract_grounded_answer_payload
+        from agent.services.task_scoped.citation import extract_grounded_answer_payload
 
         return extract_grounded_answer_payload(output)
 
     @staticmethod
     def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
         # SPLIT-001r: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_cli_invocation.invoke_cli_runner.
-        from agent.services._task_scoped_cli_invocation import invoke_cli_runner
+        # agent.services.task_scoped.cli_invocation.invoke_cli_runner.
+        from agent.services.task_scoped.cli_invocation import invoke_cli_runner
 
         return invoke_cli_runner(cli_runner, **cli_kwargs)
 
@@ -275,7 +275,7 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
-        from agent.services._task_scoped_step_orchestrator import run_propose_step
+        from agent.services.task_scoped.step_orchestrator import run_propose_step
 
         return run_propose_step(
             self,
@@ -296,7 +296,7 @@ class TaskScopedExecutionService:
         cli_runner: Callable | None = None,
         tool_definitions_resolver: Callable | None = None,
     ) -> TaskScopedRouteResponse:
-        from agent.services._task_scoped_step_orchestrator import run_execute_step
+        from agent.services.task_scoped.step_orchestrator import run_execute_step
 
         return run_execute_step(
             self,
@@ -312,19 +312,19 @@ class TaskScopedExecutionService:
     # --- cluster: domain_action (router, comparison, single-propose, goal-artifact-output) ---
     def _build_domain_action_router() -> DomainActionRouter:
         # SPLIT-001e-1: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_domain_action.build_domain_action_router.
+        # agent.services.task_scoped.domain_action.build_domain_action_router.
         # We import through ``self.__class__.__module__`` indirectly: tests
         # that monkeypatch ``TaskScopedExecutionService._build_domain_action_router``
         # continue to work because the patched attribute shadows this method
         # at call time, and the patched return value is returned.
-        from agent.services._task_scoped_domain_action import build_domain_action_router
+        from agent.services.task_scoped.domain_action import build_domain_action_router
 
         return build_domain_action_router()
 
     def _register_goal_artifact_outputs(self, *, task: dict, tid: str, artifact_refs: list[dict]) -> list[dict]:
         # SPLIT-001e-1: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_domain_action.register_goal_artifact_outputs
-        from agent.services._task_scoped_domain_action import register_goal_artifact_outputs
+        # agent.services.task_scoped.domain_action.register_goal_artifact_outputs
+        from agent.services.task_scoped.domain_action import register_goal_artifact_outputs
 
         return register_goal_artifact_outputs(
             task=task,
@@ -336,8 +336,8 @@ class TaskScopedExecutionService:
     @staticmethod
     def _resolve_domain_action_payload(*, task: dict, command: str | None) -> dict:
         # SPLIT-001e-1: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_domain_action.resolve_domain_action_payload
-        from agent.services._task_scoped_domain_action import resolve_domain_action_payload
+        # agent.services.task_scoped.domain_action.resolve_domain_action_payload
+        from agent.services.task_scoped.domain_action import resolve_domain_action_payload
 
         return resolve_domain_action_payload(task=task, command=command)
 
@@ -353,8 +353,8 @@ class TaskScopedExecutionService:
         execution_policy,
     ) -> TaskScopedRouteResponse:
         # SPLIT-001e-1: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_domain_action.execute_domain_action
-        from agent.services._task_scoped_domain_action import execute_domain_action
+        # agent.services.task_scoped.domain_action.execute_domain_action
+        from agent.services.task_scoped.domain_action import execute_domain_action
 
         return execute_domain_action(
             tid=tid,
@@ -379,7 +379,7 @@ class TaskScopedExecutionService:
         tool_definitions_resolver: Callable,
         allow_legacy_path: bool = False,
     ) -> "TaskScopedRouteResponse":
-        from agent.services._task_scoped_propose_single import propose_single_task_step
+        from agent.services.task_scoped.propose_single import propose_single_task_step
 
         return propose_single_task_step(
             tid=tid,
@@ -397,7 +397,7 @@ class TaskScopedExecutionService:
         )
 
     # --- cluster: forwarding_hub (remote forward, persist proposal/execution) ---
-    # SPLIT-001f: all four methods delegate to agent.services._task_scoped_forwarding.
+    # SPLIT-001f: all four methods delegate to agent.services.task_scoped.forwarding.
     def _forward_task_request_if_remote(
         self,
         *,
@@ -408,7 +408,7 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         on_success: Callable[[dict, dict], None],
     ) -> TaskScopedRouteResponse | None:
-        from agent.services._task_scoped_forwarding import forward_task_request_if_remote
+        from agent.services.task_scoped.forwarding import forward_task_request_if_remote
 
         return forward_task_request_if_remote(
             tid=tid,
@@ -421,7 +421,7 @@ class TaskScopedExecutionService:
         )
 
     def _persist_forwarded_proposal(self, response: dict, task: dict, request_payload: dict | None = None) -> None:
-        from agent.services._task_scoped_forwarding import persist_forwarded_proposal
+        from agent.services.task_scoped.forwarding import persist_forwarded_proposal
 
         return persist_forwarded_proposal(
             response,
@@ -440,7 +440,7 @@ class TaskScopedExecutionService:
         request_data,
         transport_deadline=None,
     ) -> None:
-        from agent.services._task_scoped_forwarding import persist_forwarded_execution
+        from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
         return persist_forwarded_execution(
             tid=tid,
@@ -454,7 +454,7 @@ class TaskScopedExecutionService:
     # ── HF-T019: Hermes propose path ─────────────────────────────────────────
 
     # --- cluster: adapters (hermes, handler) ---
-    # SPLIT-001g: all five methods delegate to agent.services._task_scoped_adapters.
+    # SPLIT-001g: all five methods delegate to agent.services.task_scoped.adapters.
     def _try_hermes_propose(
         self,
         *,
@@ -465,7 +465,7 @@ class TaskScopedExecutionService:
         research_context: object,
         cfg: dict,
     ) -> TaskScopedRouteResponse | None:
-        from agent.services._task_scoped_adapters import try_hermes_propose
+        from agent.services.task_scoped.adapters import try_hermes_propose
 
         return try_hermes_propose(
             tid=tid,
@@ -488,7 +488,7 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse | None:
-        from agent.services._task_scoped_adapters import try_handler_propose
+        from agent.services.task_scoped.adapters import try_handler_propose
 
         return try_handler_propose(
             tid=tid,
@@ -505,15 +505,15 @@ class TaskScopedExecutionService:
 
     def _require_task(self, tid: str) -> dict:
         # SPLIT-001s: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_task_lookup.require_task.
-        from agent.services._task_scoped_task_lookup import require_task
+        # agent.services.task_scoped.task_lookup.require_task.
+        from agent.services.task_scoped.task_lookup import require_task
 
         return require_task(tid)
 
     def _maybe_sync_task_from_hub(self, tid: str) -> dict | None:
         # SPLIT-001s: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_task_lookup.maybe_sync_task_from_hub.
-        from agent.services._task_scoped_task_lookup import maybe_sync_task_from_hub
+        # agent.services.task_scoped.task_lookup.maybe_sync_task_from_hub.
+        from agent.services.task_scoped.task_lookup import maybe_sync_task_from_hub
 
         return maybe_sync_task_from_hub(tid)
 
@@ -526,8 +526,8 @@ class TaskScopedExecutionService:
         required_capabilities: list[str] | None = None,
     ) -> tuple[str, str]:
         # SPLIT-001t: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_runtime.resolve_task_cli_backend.
-        from agent.services._task_scoped_runtime import resolve_task_cli_backend
+        # agent.services.task_scoped.runtime.resolve_task_cli_backend.
+        from agent.services.task_scoped.runtime import resolve_task_cli_backend
 
         return resolve_task_cli_backend(
             task_kind=task_kind,
@@ -539,16 +539,16 @@ class TaskScopedExecutionService:
     @staticmethod
     def _coalesce_cli_output(stdout: str | None, stderr: str | None) -> tuple[str, str]:
         # SPLIT-001u: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_cli_invocation.coalesce_cli_output.
-        from agent.services._task_scoped_cli_invocation import coalesce_cli_output
+        # agent.services.task_scoped.cli_invocation.coalesce_cli_output.
+        from agent.services.task_scoped.cli_invocation import coalesce_cli_output
 
         return coalesce_cli_output(stdout, stderr)
 
     @staticmethod
     def _normalize_tool_calls(tool_calls: object) -> list[dict] | None:
         # SPLIT-001u: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_cli_invocation.normalize_tool_calls.
-        from agent.services._task_scoped_cli_invocation import normalize_tool_calls
+        # agent.services.task_scoped.cli_invocation.normalize_tool_calls.
+        from agent.services.task_scoped.cli_invocation import normalize_tool_calls
 
         return normalize_tool_calls(tool_calls)
 
@@ -578,7 +578,7 @@ class TaskScopedExecutionService:
         session: dict | None = None,
         workdir: str | None = None,
     ) -> dict | None:
-        from agent.services._task_scoped_repair import repair_task_proposal
+        from agent.services.task_scoped.repair import repair_task_proposal
 
         return repair_task_proposal(
             cli_runner=cli_runner,
@@ -602,7 +602,7 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _estimate_tokens(value: str | None) -> int:
-        from agent.services._task_scoped_repair import estimate_tokens
+        from agent.services.task_scoped.repair import estimate_tokens
 
         return estimate_tokens(value)
 
@@ -622,7 +622,7 @@ class TaskScopedExecutionService:
         workspace_dir: str,
         exec_started_at: float | None,
     ) -> dict | None:
-        from agent.services._task_scoped_repair import attempt_repaired_execute_after_meta_block
+        from agent.services.task_scoped.repair import attempt_repaired_execute_after_meta_block
 
         return attempt_repaired_execute_after_meta_block(
             tid=tid,
@@ -655,23 +655,23 @@ class TaskScopedExecutionService:
         command: str | None,
         tool_calls: list[dict] | None,
     ) -> dict:
-        from agent.services._task_scoped_runtime import build_review_state
+        from agent.services.task_scoped.runtime import build_review_state
 
         return build_review_state(agent_cfg, backend, task_kind, command=command, tool_calls=tool_calls)
 
     @staticmethod
     def _cli_session_policy(agent_cfg: dict | None) -> dict:
         # SPLIT-001d: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_cli_session_policy
-        from agent.services._task_scoped_config_policy import resolve_cli_session_policy
+        # agent.services.task_scoped.config_policy.resolve_cli_session_policy
+        from agent.services.task_scoped.config_policy import resolve_cli_session_policy
 
         return resolve_cli_session_policy(agent_cfg)
 
     @staticmethod
     def _resolve_opencode_execution_mode(agent_cfg: dict | None) -> str:
         # SPLIT-001d: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_opencode_execution_mode
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_opencode_execution_mode
+        from agent.services.task_scoped.config_policy import (
             resolve_opencode_execution_mode,
         )
 
@@ -680,8 +680,8 @@ class TaskScopedExecutionService:
     @staticmethod
     def _resolve_opencode_interactive_launch_mode(agent_cfg: dict | None) -> str:
         # SPLIT-001d: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.resolve_opencode_interactive_launch_mode
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.resolve_opencode_interactive_launch_mode
+        from agent.services.task_scoped.config_policy import (
             resolve_opencode_interactive_launch_mode,
         )
 
@@ -690,8 +690,8 @@ class TaskScopedExecutionService:
     @staticmethod
     def _native_worker_runtime_enabled(agent_cfg: dict | None) -> bool:
         # SPLIT-001d: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.native_worker_runtime_enabled
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.native_worker_runtime_enabled
+        from agent.services.task_scoped.config_policy import (
             native_worker_runtime_enabled,
         )
 
@@ -701,8 +701,8 @@ class TaskScopedExecutionService:
         self, *, proposal_meta: dict | None, agent_cfg: dict | None, command: str | None
     ) -> bool:
         # SPLIT-001d: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.should_use_native_worker_runtime
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.should_use_native_worker_runtime
+        from agent.services.task_scoped.config_policy import (
             should_use_native_worker_runtime,
         )
 
@@ -713,15 +713,15 @@ class TaskScopedExecutionService:
         )
 
     def _resolve_task_session_scope(self, *, tid: str, task: dict, policy: dict) -> tuple[str, str, str | None]:
-        from agent.services._task_scoped_runtime import resolve_task_session_scope
+        from agent.services.task_scoped.runtime import resolve_task_session_scope
 
         return resolve_task_session_scope(tid=tid, task=task, policy=policy)
 
     @staticmethod
     def _has_native_opencode_runtime(session_payload: dict | None) -> bool:
         # SPLIT-001d: delegating wrapper. Implementation lives in
-        # agent.services._task_scoped_config_policy.has_native_opencode_runtime
-        from agent.services._task_scoped_config_policy import (
+        # agent.services.task_scoped.config_policy.has_native_opencode_runtime
+        from agent.services.task_scoped.config_policy import (
             has_native_opencode_runtime,
         )
 
@@ -736,7 +736,7 @@ class TaskScopedExecutionService:
         model: str | None,
         agent_cfg: dict | None,
     ) -> dict | None:
-        from agent.services._task_scoped_runtime import prepare_task_cli_session
+        from agent.services.task_scoped.runtime import prepare_task_cli_session
 
         return prepare_task_cli_session(tid=tid, task=task, backend=backend, model=model, agent_cfg=agent_cfg)
 
@@ -751,7 +751,7 @@ class TaskScopedExecutionService:
         interactive_terminal: bool = False,
         context_profile: dict | None = None,
     ) -> tuple[str, dict]:
-        from agent.services._task_scoped_runtime import build_task_propose_prompt
+        from agent.services.task_scoped.runtime import build_task_propose_prompt
 
         return build_task_propose_prompt(
             tid=tid,
@@ -764,7 +764,7 @@ class TaskScopedExecutionService:
         )
 
     def _get_system_prompt_for_task(self, tid: str) -> str | None:
-        from agent.services._task_scoped_runtime import get_system_prompt_for_task
+        from agent.services.task_scoped.runtime import get_system_prompt_for_task
 
         return get_system_prompt_for_task(tid)
 
@@ -779,7 +779,7 @@ class TaskScopedExecutionService:
         worker_profile: str | None = None,
         profile_source: str | None = None,
     ) -> dict:
-        from agent.services._task_scoped_runtime import routing_dimensions
+        from agent.services.task_scoped.runtime import routing_dimensions
 
         return routing_dimensions(
             backend_used=backend_used,
@@ -793,7 +793,7 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _terminal_parent_goal_guard(*, tid: str, task: dict, phase: str) -> TaskScopedRouteResponse | None:
-        from agent.services._task_scoped_runtime import terminal_parent_goal_guard
+        from agent.services.task_scoped.runtime import terminal_parent_goal_guard
 
         return terminal_parent_goal_guard(tid=tid, task=task, phase=phase)
 

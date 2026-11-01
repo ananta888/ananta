@@ -19,13 +19,6 @@ from agent.db_models import (
     TeamDB,
 )
 from agent.models import TaskStepExecuteRequest, TaskStepProposeRequest
-from agent.services._task_scoped_forwarding import (
-    forward_task_request_if_remote,
-)
-from agent.services._task_scoped_step_orchestrator import (
-    run_execute_step,
-    run_propose_step,
-)
 from agent.services.organization_instance_application_service import (
     OrganizationInstanceApplicationService,
 )
@@ -38,6 +31,13 @@ from agent.services.organization_task_dispatch_gate_service import (
 )
 from agent.services.organization_topology_lifecycle_service import (
     SqlOrganizationTopologyLifecycleService,
+)
+from agent.services.task_scoped.forwarding import (
+    forward_task_request_if_remote,
+)
+from agent.services.task_scoped.step_orchestrator import (
+    run_execute_step,
+    run_propose_step,
 )
 
 

@@ -273,8 +273,8 @@ def test_forwarded_worker_route_reaches_real_task_status_persistence(
     monkeypatch,
     forwarding_dependencies,  # noqa: F811 - imported pytest fixture
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import task_runtime_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     forwarding_dependencies(
         repositories=lambda: SimpleNamespace(task_repo=admission.repository),
@@ -299,7 +299,7 @@ def test_original_forwarding_response_cannot_bypass_pi_policy(
     forwarding_dependencies,
     change,  # noqa: F811 - imported pytest fixture
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     forwarding_dependencies(
         repositories=lambda: SimpleNamespace(task_repo=admission.repository),

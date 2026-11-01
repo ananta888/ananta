@@ -322,7 +322,7 @@ def test_the_profile_limits_local_runtimes_only(profile, window):
 
 
 def test_forwarded_steps_carry_the_hub_window_unless_leased():
-    from agent.services._task_scoped_forwarding import _with_hub_context_window
+    from agent.services.task_scoped.forwarding import _with_hub_context_window
 
     plain = _with_hub_context_window("/tasks/T/step/propose", {"task_id": "T"})
     assert plain["context_window"]["profile"] in PROFILES or plain["context_window"]["profile"] == "custom"

@@ -102,7 +102,7 @@ def invoke_hermes_adapter(
     hermes_cfg_raw: dict,
 ) -> dict | None:
     """Build envelope, context blocks, run HermesAdapter. HF-T019, T020, T021."""
-    from agent.services._task_scoped_hermes_context import build_hermes_context_blocks
+    from agent.services.task_scoped.hermes_context import build_hermes_context_blocks
     from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
     from worker.core.hermes_adapter import HermesAdapter
     from worker.core.hermes_adapter_config import HermesAdapterConfig

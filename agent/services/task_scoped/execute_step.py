@@ -13,14 +13,14 @@ import contextlib
 from typing import TYPE_CHECKING, Any, Callable
 
 from agent.runtime_policy import normalize_task_kind
-from agent.services._task_scoped_adapters import try_handler_execute
-from agent.services._task_scoped_domain_action import (
+from agent.services.task_scoped.adapters import try_handler_execute
+from agent.services.task_scoped.domain_action import (
     execute_domain_action,
     execute_research_artifact,
     finalize_interactive_terminal_execution,
 )
-from agent.services._task_scoped_execute_workspace import run_execute_workspace_path
-from agent.services._task_scoped_step_policies import (
+from agent.services.task_scoped.execute_workspace import run_execute_workspace_path
+from agent.services.task_scoped.step_policies import (
     _INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
     _apply_request_run_evidence_context,
     _cache_recovery_outcome,
@@ -34,7 +34,7 @@ from agent.services.task_scoped_execution_service import get_core_services, get_
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 if TYPE_CHECKING:
-    from agent.services._task_scoped_forwarding_dependencies import StepOrchestrationPorts
+    from agent.services.task_scoped.forwarding_dependencies import StepOrchestrationPorts
 
 
 def _resolve_step_ports(
@@ -42,7 +42,7 @@ def _resolve_step_ports(
 ) -> "StepOrchestrationPorts":
     if step_ports is not None:
         return step_ports
-    from agent.services._task_scoped_forwarding_dependencies import (
+    from agent.services.task_scoped.forwarding_dependencies import (
         current_task_scoped_forwarding_dependencies,
     )
 

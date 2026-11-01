@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services import _task_scoped_recovery_outcome_cache, _task_scoped_vector_step_policy
+from agent.services.task_scoped import (
+    recovery_outcome_cache as _task_scoped_recovery_outcome_cache,
+)
+from agent.services.task_scoped import (
+    vector_step_policy as _task_scoped_vector_step_policy,
+)
 
 _RECOVERY_OUTCOME_CACHE = _task_scoped_recovery_outcome_cache.RECOVERY_OUTCOME_CACHE
 _RECOVERY_OUTCOME_CACHE_LOCK = _task_scoped_recovery_outcome_cache.RECOVERY_OUTCOME_CACHE_LOCK

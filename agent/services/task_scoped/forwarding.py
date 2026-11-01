@@ -34,54 +34,6 @@ from flask import current_app
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import WorkerForwardingError
 from agent.config import settings
-
-# The names below are re-exported for callers and tests that import them
-# from this module; collaborators are injected, not looked up here.
-from agent.services._task_scoped_codecompass_dispatch import (  # noqa: F401
-    _attach_codecompass_capability,
-    _authorize_codecompass_worker_dispatch,
-    _codecompass_execute_deadline,
-    _governed_source_control_index_job_service,
-    _has_governed_codecompass_binding,
-    _has_public_codecompass_v1_binding,
-    _is_codecompass_index_task,
-    _permanent_codecompass_forwarding_error,
-    _prepare_codecompass_worker_dispatch,
-    _requires_governed_codecompass_transport,
-    _urls_resolve_same_runtime,
-)
-from agent.services._task_scoped_forward_failures import (  # noqa: F401
-    _completion_projection_pending_response,
-    _handle_forwarding_failure,
-    _is_completion_projection_pending,
-    _raise_forwarded_worker_http_error,
-    _raise_if_no_worker_response,
-    _record_forwarded_worker_failure,
-    _record_forwarded_worker_success,
-    _worker_404_hub_fallback_enabled,
-)
-from agent.services._task_scoped_forwarded_proposal import persist_forwarded_proposal  # noqa: F401
-from agent.services._task_scoped_forwarded_result_acceptance import (  # noqa: F401
-    _FORWARDED_HANDLER_FRAMEWORK_FIELDS,
-    _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS,
-    _VISUAL_PROCESS_ASSISTANT_RESULT_SCHEMAS,
-    _accept_codecompass_layer_result,
-    _accept_local_runtime_capability_result,
-    _accept_visual_process_assistant_result,
-    _get_visual_process_assistant_service,
-)
-from agent.services._task_scoped_forwarding_dependencies import (  # noqa: F401 - public seam
-    TaskScopedForwardingDependencies,
-    current_task_scoped_forwarding_dependencies,
-)
-from agent.services._task_scoped_knowledge_index_forwarding import (  # noqa: F401
-    _governed_knowledge_index_retry_expiries,
-    _invoke_governed_knowledge_index_forwarder,
-    _is_typed_knowledge_index_result_pending,
-    _materialize_forwarded_knowledge_index_result,
-    _publish_forwarded_bound_knowledge_index_result,
-    _require_governed_knowledge_index_retry_window,
-)
 from agent.services._vector_index_result_forwarding import (
     accept_bound_forwarded_vector_index_result,
     accept_forwarded_vector_index_result,
@@ -96,6 +48,54 @@ from agent.services.forwarded_artifact_normalization import (  # noqa: F401 - re
 )
 from agent.services.forwarded_artifact_normalization import (  # noqa: F401 - re-exported
     normalize_recovery_forwarded_artifacts as normalize_recovery_forwarded_artifacts,
+)
+
+# The names below are re-exported for callers and tests that import them
+# from this module; collaborators are injected, not looked up here.
+from agent.services.task_scoped.codecompass_dispatch import (  # noqa: F401
+    _attach_codecompass_capability,
+    _authorize_codecompass_worker_dispatch,
+    _codecompass_execute_deadline,
+    _governed_source_control_index_job_service,
+    _has_governed_codecompass_binding,
+    _has_public_codecompass_v1_binding,
+    _is_codecompass_index_task,
+    _permanent_codecompass_forwarding_error,
+    _prepare_codecompass_worker_dispatch,
+    _requires_governed_codecompass_transport,
+    _urls_resolve_same_runtime,
+)
+from agent.services.task_scoped.forward_failures import (  # noqa: F401
+    _completion_projection_pending_response,
+    _handle_forwarding_failure,
+    _is_completion_projection_pending,
+    _raise_forwarded_worker_http_error,
+    _raise_if_no_worker_response,
+    _record_forwarded_worker_failure,
+    _record_forwarded_worker_success,
+    _worker_404_hub_fallback_enabled,
+)
+from agent.services.task_scoped.forwarded_proposal import persist_forwarded_proposal  # noqa: F401
+from agent.services.task_scoped.forwarded_result_acceptance import (  # noqa: F401
+    _FORWARDED_HANDLER_FRAMEWORK_FIELDS,
+    _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS,
+    _VISUAL_PROCESS_ASSISTANT_RESULT_SCHEMAS,
+    _accept_codecompass_layer_result,
+    _accept_local_runtime_capability_result,
+    _accept_visual_process_assistant_result,
+    _get_visual_process_assistant_service,
+)
+from agent.services.task_scoped.forwarding_dependencies import (  # noqa: F401 - public seam
+    TaskScopedForwardingDependencies,
+    current_task_scoped_forwarding_dependencies,
+)
+from agent.services.task_scoped.knowledge_index_forwarding import (  # noqa: F401
+    _governed_knowledge_index_retry_expiries,
+    _invoke_governed_knowledge_index_forwarder,
+    _is_typed_knowledge_index_result_pending,
+    _materialize_forwarded_knowledge_index_result,
+    _publish_forwarded_bound_knowledge_index_result,
+    _require_governed_knowledge_index_retry_window,
 )
 from agent.services.worker_forward_transport import (
     DeadlineAwareWorkerForwarder,

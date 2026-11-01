@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.services import _task_scoped_adapters as adapters
+from agent.services.task_scoped import adapters as adapters
 
 
 def _task(*, bound: bool) -> dict:

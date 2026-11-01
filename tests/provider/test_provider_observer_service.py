@@ -304,7 +304,7 @@ def test_autopilot_status_uses_bounded_observer_without_detached_thread(
             },
         }
 
-    with patch("agent.routes.tasks.autopilot.get_provider_observer_service") as observer_factory:
+    with patch("agent.services.autopilot.loop_manager.get_provider_observer_service") as observer_factory:
         observer_factory.return_value.snapshot.side_effect = _bounded_snapshot
         started = time.time()
         res = client.get("/tasks/autopilot/status", headers=admin_auth_header)

@@ -179,7 +179,7 @@ class AcceptanceHub:
             )
 
     def collect(self, *, transform_result=None):
-        from agent.services._task_scoped_forwarding import persist_forwarded_execution
+        from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
         for task_id, future in tuple(self.pending.items()):
             if not future.done():

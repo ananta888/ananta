@@ -41,7 +41,7 @@ def test_tick_rearms_within_an_app_context(monkeypatch):
 
 def test_start_autopilot_watchdog_skips_when_threads_disabled(monkeypatch):
     app = _FakeApp()
-    monkeypatch.setattr("agent.routes.tasks.autopilot._background_threads_disabled", lambda _app=None: True)
+    monkeypatch.setattr("agent.services.autopilot.loop_manager._background_threads_disabled", lambda _app=None: True)
 
     assert runtime.start_autopilot_watchdog(app) is None
     assert runtime.WATCHDOG_EXTENSION_KEY not in app.extensions
@@ -49,7 +49,7 @@ def test_start_autopilot_watchdog_skips_when_threads_disabled(monkeypatch):
 
 def test_start_autopilot_watchdog_is_idempotent(monkeypatch):
     app = _FakeApp()
-    monkeypatch.setattr("agent.routes.tasks.autopilot._background_threads_disabled", lambda _app=None: False)
+    monkeypatch.setattr("agent.services.autopilot.loop_manager._background_threads_disabled", lambda _app=None: False)
     monkeypatch.setattr(runtime, "ensure_autopilot", lambda _app: True)
 
     first = runtime.start_autopilot_watchdog(app)

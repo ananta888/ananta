@@ -204,8 +204,8 @@ def test_actual_forwarding_preserves_only_verified_pi_artifact_references(
     monkeypatch,
     forwarding_dependencies,  # noqa: F811 - imported pytest fixture
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import task_runtime_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     admission = published.value.admission
     normalizer = Mock(side_effect=AssertionError("Pi receipt must not enter generic artifact registration"))

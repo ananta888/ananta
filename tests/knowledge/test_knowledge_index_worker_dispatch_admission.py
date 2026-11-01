@@ -337,7 +337,7 @@ def test_hub_builds_bounded_marker_without_forwarding_full_job(
     monkeypatch,
     phase,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     job = _job()
     manifest = _manifest(job)

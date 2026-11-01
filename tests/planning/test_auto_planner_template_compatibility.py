@@ -48,8 +48,8 @@ def test_template_resolution_avoids_llm_call_when_template_matches(app, monkeypa
     def _fail_if_called(*args, **kwargs):  # noqa: ANN002, ANN003
         raise AssertionError("LLM should not be called when template resolves")
 
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fail_if_called)
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", _fail_if_called)
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
     planner = AutoPlanner()
     planner.configure(auto_start_autopilot=False)
 
@@ -68,12 +68,12 @@ def test_template_resolution_avoids_llm_call_when_template_matches(app, monkeypa
 
 def test_fallback_to_llm_still_works_when_no_template_matches(app, monkeypatch) -> None:
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: json.dumps(
             [{"title": "Investigate", "description": "Analyze unknown objective", "priority": "High"}]
         ),
     )
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
     planner = AutoPlanner()
     planner.configure(auto_start_autopilot=False)
 

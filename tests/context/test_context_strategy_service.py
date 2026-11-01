@@ -97,7 +97,7 @@ def test_post_config_rejects_unknown_modes(client, admin_auth_header):
 
 
 def test_propose_records_a_decision_only_when_the_context_does_not_fit(monkeypatch):
-    from agent.services import _task_scoped_propose_orch as orch
+    from agent.services.task_scoped import propose_orch as orch
 
     events = []
     monkeypatch.setattr(orch, "record_product_event", lambda name, **kwargs: events.append((name, kwargs)))

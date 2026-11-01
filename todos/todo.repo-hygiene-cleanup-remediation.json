@@ -1295,7 +1295,7 @@
       "title": "TaskScopedExecutionService (80 Methoden) verantwortungsbasiert zerlegen",
       "description": "TaskScopedExecutionService (965 LOC, 80 Methoden) mixt Config-Policy, Timeouts, LLM-Profile-Aufloesung, Workspace-Rewriting, Metrics, Forwarding + 30 _task_scoped_*-Wrapper (10.109 LOC). Auf 3 oeffentliche Einstiegspunkte reduzieren, Rest hinter Ports; Facade deprecaten. SPLIT-001p-Kommentare zeigen begonnene Zerlegung - abschliessen.",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
@@ -1307,8 +1307,8 @@
         "3 oeffentliche Einstiegspunkte; Caller migriert; Compat-Facade deprecatet.",
         "Testlauf gruen; _task_scoped_*-Familie konsolidiert (Package agent/services/task_scoped/ statt 30 flache _files)."
       ],
-      "implementation_notes": "ISP: God-Interface-Fassade beibehalten ist der Fehler - schrumpfen nach Migration. Nach CLN-038 (tote Methoden raus).",
-      "progress_percent": 0
+      "implementation_notes": "_task_scoped_*-Familie (30 flache Module, 195 Referenzen in 47 Dateien) zu agent/services/task_scoped/ konsolidiert; interne Cross-Imports + externe Caller migriert; Test-Patch-Strings auf die neuen Modulpfade umgestellt; 3 oeffentliche Einstiegspunkte (propose_task_step, execute_task_step, forwarding_dependencies) halten (CLN-038). Batterie: 0 Regressionen vs HEAD, +11 Tests besser. OFFEN: verbleibende ~56 (meist private) Methoden schrittweise in task_scoped-Module verschieben, bis die Klasse nur noch orchestriert.",
+      "progress_percent": 75
     },
     {
       "id": "CLN-058",
@@ -1698,9 +1698,9 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 50,
+      "todo": 49,
       "in_progress": 0,
-      "partial": 9,
+      "partial": 10,
       "blocked": 0,
       "done": 16
     },
@@ -1731,9 +1731,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 50,
+    "todo_remaining": 49,
     "in_progress": 0,
-    "partial": 9,
+    "partial": 10,
     "blocked": 0,
     "done": 12
   },

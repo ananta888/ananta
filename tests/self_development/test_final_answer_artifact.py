@@ -83,7 +83,7 @@ def test_writer_skips_without_a_verdict_and_never_overwrites(tmp_path):
 
 
 def test_propose_hook_writes_the_artifact_after_a_successful_propose(monkeypatch, tmp_path):
-    from agent.services import _task_scoped_propose_persist as mod
+    from agent.services.task_scoped import propose_persist as mod
 
     calls = []
     monkeypatch.setattr(
@@ -101,7 +101,7 @@ def test_propose_hook_writes_the_artifact_after_a_successful_propose(monkeypatch
 
 
 def test_orchestrator_artifact_hook_uses_the_admission_workspace(monkeypatch, tmp_path):
-    from agent.services import _task_scoped_propose_orch as orch
+    from agent.services.task_scoped import propose_orch as orch
 
     calls = []
     monkeypatch.setattr(

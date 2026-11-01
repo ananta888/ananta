@@ -194,7 +194,7 @@ def test_verify_worker_analysis_accepts_the_written_report(tmp_path):
 def test_propose_hook_writes_only_after_a_successful_propose(monkeypatch):
     from types import SimpleNamespace
 
-    from agent.services import _task_scoped_propose_persist as persist_mod
+    from agent.services.task_scoped import propose_persist as persist_mod
 
     calls = []
     monkeypatch.setattr(

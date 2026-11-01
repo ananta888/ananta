@@ -15,7 +15,7 @@ from tests.planning_collaborator_seam import install_repo_context_loader
 
 def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda **kwargs: (
             '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]'
         ),

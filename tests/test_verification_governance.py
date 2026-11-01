@@ -262,7 +262,7 @@ class TestVerificationGovernance:
 
     def test_audit_log_records_hash_chain_for_goal_workflow(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda **kwargs: (
                 '[{"title":"Audit secure release","description":"Prepare release audit","priority":"High"}]'
             ),

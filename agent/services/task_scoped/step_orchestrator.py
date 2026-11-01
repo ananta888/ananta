@@ -18,22 +18,22 @@ the documented ``_task_scoped_forwarding_dependencies`` seam.
 
 from __future__ import annotations
 
-from agent.services._task_scoped_dispatch_admission import (  # noqa: F401
+from agent.services.task_scoped.dispatch_admission import (  # noqa: F401
     _admit_task_scoped_dispatch,
 )
-from agent.services._task_scoped_execute_step import (  # noqa: F401
+from agent.services.task_scoped.execute_step import (  # noqa: F401
     _publish_recovery_artifact_receipts,
     _run_execute_step_admitted,
     run_execute_step,
 )
-from agent.services._task_scoped_forwarding_dependencies import (  # noqa: F401 - public seam
+from agent.services.task_scoped.forwarding_dependencies import (  # noqa: F401 - public seam
     StepOrchestrationPorts,
 )
-from agent.services._task_scoped_propose_step import (  # noqa: F401
+from agent.services.task_scoped.propose_step import (  # noqa: F401
     _run_propose_step_admitted,
     run_propose_step,
 )
-from agent.services._task_scoped_step_policies import (  # noqa: F401
+from agent.services.task_scoped.step_policies import (  # noqa: F401
     _INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
     _RECOVERY_OUTCOME_CACHE,
     _RECOVERY_OUTCOME_CACHE_LOCK,

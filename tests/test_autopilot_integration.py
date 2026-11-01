@@ -42,7 +42,7 @@ class TestFullAutopilotLoop:
         from agent.routes.tasks.auto_planner import auto_planner
 
         auto_planner.configure(auto_start_autopilot=False)
-        with patch("agent.routes.tasks.auto_planner.generate_text") as mock_llm:
+        with patch("agent.services.autopilot.auto_planner_engine.generate_text") as mock_llm:
             mock_llm.return_value = """
             [
                 {"title": "Setup database", "description": "Configure PostgreSQL", "priority": "High"},

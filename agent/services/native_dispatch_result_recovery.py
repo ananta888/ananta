@@ -116,10 +116,10 @@ def recover_native_dispatch_results(*, ports, tenant_id: str, limit: int = 1, ta
 def production_native_result_recovery_ports():
     from flask import current_app
 
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
     from agent.services.native_dispatch_journal import production_native_dispatch_journal
     from agent.services.native_result_read_transport import NativeResultReadTransport
     from agent.services.repository_registry import get_repository_registry
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
     from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
     from agent.services.workflow_worker_assignment_runtime import get_workflow_worker_assignment_store
 

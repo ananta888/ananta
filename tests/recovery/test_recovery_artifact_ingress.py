@@ -896,9 +896,7 @@ def test_manifest_reader_rejects_oversized_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from agent.services import (
-        recovery_workspace_artifact_manifest_service as manifest_module,
-    )
+    from agent.services import recovery_workspace_artifact_manifest_service as manifest_module
 
     content = b"12345"
     (tmp_path / "result.txt").write_bytes(content)
@@ -1114,7 +1112,7 @@ class ArtifactGrounding:
 def test_hub_ingress_receipt_passes_result_verification_end_to_end(
     tmp_path: Path,
 ) -> None:
-    from agent.services._task_scoped_forwarding import (
+    from agent.services.task_scoped.forwarding import (
         normalize_recovery_forwarded_artifacts,
     )
 
@@ -1158,7 +1156,7 @@ def test_trusted_local_adapter_materializes_once_and_passes_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from agent.config import settings
-    from agent.services._task_scoped_forwarding import (
+    from agent.services.task_scoped.forwarding import (
         normalize_recovery_forwarded_artifacts,
     )
 
@@ -1467,7 +1465,8 @@ def test_execute_step_replaces_worker_local_refs_with_hub_receipts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from agent.config import settings
-    from agent.services import _task_scoped_step_orchestrator, recovery_worker_artifact_publisher
+    from agent.services import recovery_worker_artifact_publisher
+    from agent.services.task_scoped import step_orchestrator as _task_scoped_step_orchestrator
 
     receipt = {
         "kind": "workspace_file",
@@ -1542,9 +1541,9 @@ def test_execute_step_uses_trusted_local_adapter_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from agent.config import settings
-    from agent.services import (
-        _task_scoped_step_orchestrator,
-        recovery_trusted_local_artifact_adapter,
+    from agent.services import recovery_trusted_local_artifact_adapter
+    from agent.services.task_scoped import (
+        step_orchestrator as _task_scoped_step_orchestrator,
     )
 
     receipt = _receipt()

@@ -16,11 +16,12 @@ from flask import current_app, has_app_context
 
 from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.runtime_policy import normalize_task_kind
-from agent.services._task_scoped_adapters import try_handler_propose
-from agent.services._task_scoped_domain_action import propose_task_with_comparisons
-from agent.services._task_scoped_propose_orch import run_propose_orchestrator_path
-from agent.services._task_scoped_propose_single import propose_single_task_step
-from agent.services._task_scoped_step_policies import (
+from agent.services.propose_policy import get_task_kind_preset
+from agent.services.task_scoped.adapters import try_handler_propose
+from agent.services.task_scoped.domain_action import propose_task_with_comparisons
+from agent.services.task_scoped.propose_orch import run_propose_orchestrator_path
+from agent.services.task_scoped.propose_single import propose_single_task_step
+from agent.services.task_scoped.step_policies import (
     HANDLER_ONLY_TASK_KINDS,
     _apply_request_run_evidence_context,
     _cache_recovery_outcome,
@@ -32,7 +33,6 @@ from agent.services._task_scoped_step_policies import (
     _vector_index_domain_binding_error,
     _vector_index_handler_unavailable,
 )
-from agent.services.propose_policy import get_task_kind_preset
 from agent.services.task_scoped_execution_service import (
     get_goal_config_runtime_service,
     get_research_context_bridge_service,
@@ -41,7 +41,7 @@ from agent.services.worker_execution_profile_service import resolve_worker_execu
 from agent.services.worker_routing_policy_utils import derive_required_capabilities
 
 if TYPE_CHECKING:
-    from agent.services._task_scoped_forwarding_dependencies import StepOrchestrationPorts
+    from agent.services.task_scoped.forwarding_dependencies import StepOrchestrationPorts
 
 
 LEGACY_CLI_TASK_KINDS = frozenset(
@@ -67,7 +67,7 @@ def _resolve_step_ports(
 ) -> "StepOrchestrationPorts":
     if step_ports is not None:
         return step_ports
-    from agent.services._task_scoped_forwarding_dependencies import (
+    from agent.services.task_scoped.forwarding_dependencies import (
         current_task_scoped_forwarding_dependencies,
     )
 

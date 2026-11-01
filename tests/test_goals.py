@@ -8,7 +8,7 @@ from tests.planning_collaborator_seam import install_repo_context_loader
 
 def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda **kwargs: (
             '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]'
         ),
@@ -449,7 +449,7 @@ class TestGoalsAPI:
 
     def test_generic_software_goal_soft_quality_miss_does_not_fail(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            "agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal",
             lambda **_kwargs: {
                 "subtasks": [{"title": "x", "description": "y"}],
                 "created_task_ids": ["task-soft"],
@@ -473,7 +473,7 @@ class TestGoalsAPI:
 
     def test_generic_software_goal_hard_quality_fail_still_fails(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            "agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal",
             lambda **_kwargs: {
                 "subtasks": [{"title": "x", "description": "y"}],
                 "created_task_ids": ["task-hard"],
@@ -536,7 +536,7 @@ class TestGoalsAPI:
     def test_create_goal_from_admin_repair_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch, client.application)
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            "agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal",
             _mock_plan_goal("admin_repair"),
         )
         _bypass_quality(monkeypatch)
@@ -645,7 +645,7 @@ class TestGoalsAPI:
             calls.append(kwargs)
             return {"running": True}
 
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.auto_planner.plan_goal", _fake_plan_goal)
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal", _fake_plan_goal)
         monkeypatch.setattr(
             "agent.services.autopilot_runtime_service.AutopilotRuntimeService.start",
             lambda self, **kwargs: _fake_start(**kwargs),
@@ -666,7 +666,7 @@ class TestGoalsAPI:
     def test_create_goal_from_new_software_project_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch, client.application)
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            "agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal",
             _mock_plan_goal("new_software_project"),
         )
         res = client.post(
@@ -754,7 +754,7 @@ class TestGoalsAPI:
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch, client.application)
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            "agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal",
             _mock_plan_goal("project_evolution"),
         )
         res = client.post(

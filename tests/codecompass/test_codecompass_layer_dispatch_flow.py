@@ -14,8 +14,8 @@ import pytest
 from flask import Flask
 
 from agent.bootstrap.codecompass_layers import initialize_codecompass_layers
-from agent.services._task_scoped_forwarding import _accept_codecompass_layer_result
 from agent.services.codecompass_layer_hub_store import ContentBlobStore, SnapshotManifestStore
+from agent.services.task_scoped.forwarding import _accept_codecompass_layer_result
 from agent.services.workflow_worker_service_auth import CODECOMPASS_LAYER_JOB_SCOPE
 from ananta_contracts.codecompass_layer_job import CONTEXT_KEY, TASK_KIND, WORKER_SCOPE, partition_by_size
 from worker.incremental_index.chunk_builder import ChunkLayerBuilder

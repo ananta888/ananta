@@ -172,7 +172,7 @@ class TestAutoPlanner:
             wake=MagicMock(),
         )
         monkeypatch.setitem(
-            sys.modules, "agent.routes.tasks.autopilot", types.SimpleNamespace(autonomous_loop=fake_loop)
+            sys.modules, "agent.services.autopilot.loop_manager", types.SimpleNamespace(autonomous_loop=fake_loop)
         )
 
         class _Task:
@@ -181,7 +181,7 @@ class TestAutoPlanner:
         fake_repos = types.SimpleNamespace(
             task_repo=types.SimpleNamespace(get_by_goal_id=lambda goal_id: [_Task()] if goal_id == "old-goal" else [])
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner._repos", lambda: fake_repos)
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine._repos", lambda: fake_repos)
 
         with app.app_context():
             planner._ensure_autopilot_running(goal_id="new-goal", team_id=None)
@@ -260,10 +260,10 @@ class TestAutoPlanner:
         )
 
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -289,10 +289,10 @@ class TestAutoPlanner:
             ]
         )
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -320,12 +320,12 @@ class TestAutoPlanner:
 
     def test_plan_goal_marks_unstructured_llm_response(self, app, monkeypatch):
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: (
                 "assistant: sure, do things"
             ),
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -338,10 +338,10 @@ class TestAutoPlanner:
 
     def test_plan_goal_can_emit_minimal_non_llm_fallback_task_when_enabled(self, app, monkeypatch):
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: "unstructured text only",
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
 
@@ -384,8 +384,8 @@ class TestAutoPlanner:
         def _fake_generate_text(prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30):
             return next(responses)
 
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fake_generate_text)
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", _fake_generate_text)
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -400,8 +400,8 @@ class TestAutoPlanner:
         def _fail_if_called(*args, **kwargs):
             raise AssertionError("LLM should not be called for template strategy")
 
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fail_if_called)
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", _fail_if_called)
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -416,10 +416,10 @@ class TestAutoPlanner:
     def test_plan_goal_uses_llm_strategy_when_template_disabled(self, app, monkeypatch):
         mock_response = json.dumps([{"title": "Investigate", "description": "Analyze issue", "priority": "High"}])
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -443,7 +443,7 @@ class TestAutoPlanner:
 
         mock_response = json.dumps([{"title": "Investigate", "description": "Analyze issue", "priority": "High"}])
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
         from dataclasses import replace
@@ -460,10 +460,10 @@ class TestAutoPlanner:
             )
         )
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.get_planning_service",
+            "agent.services.autopilot.auto_planner_engine.get_planning_service",
             lambda: planning_with_fake_hub,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
 
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False)
@@ -486,10 +486,10 @@ class TestAutoPlanner:
             ]
         )
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False, max_subtasks_per_goal=10)
 
@@ -514,10 +514,10 @@ class TestAutoPlanner:
             ]
         )
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False, max_subtasks_per_goal=10)
 
@@ -545,10 +545,10 @@ class TestAutoPlanner:
             ]
         )
         monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
+            "agent.services.autopilot.auto_planner_engine.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
         planner = AutoPlanner()
         planner.configure(auto_start_autopilot=False, max_subtasks_per_goal=10)
 
@@ -854,7 +854,7 @@ class TestAutoPlannerAPI:
             captured.update(kwargs)
             return {"subtasks": [], "created_task_ids": [], "plan_id": "plan-1", "plan_node_ids": ["node-1"]}
 
-        monkeypatch.setattr("agent.routes.tasks.auto_planner.auto_planner.plan_goal", _fake_plan_goal)
+        monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.auto_planner.plan_goal", _fake_plan_goal)
         res = client.post(
             "/tasks/auto-planner/plan",
             headers=auth_headers,

@@ -81,7 +81,7 @@ def execution_window(task: Any, agent_cfg: Mapping[str, Any] | None = None) -> E
         from agent.cli_backends.budget import prompt_token_limit
         from agent.cli_backends.routing import PROFILE_CLI_BACKENDS
         from agent.runtime_policy import normalize_task_kind
-        from agent.services._task_scoped_runtime import resolve_task_cli_backend, routing_dimensions
+        from agent.services.task_scoped.runtime import resolve_task_cli_backend, routing_dimensions
         from agent.services.worker_routing_policy_utils import derive_required_capabilities
 
         data = _as_mapping(task)

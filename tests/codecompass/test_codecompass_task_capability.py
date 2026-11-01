@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import pytest
 
 from agent.cli_backends import tool_loop
-from agent.services import _task_scoped_forwarding as forwarding
 from agent.services import codecompass_task_capability as tc
 from agent.services.access_roles import BUILTIN_ROLES
+from agent.services.task_scoped import forwarding as forwarding
 
 pytestmark = pytest.mark.timeout(30)
 ROLES = {role_id: spec["grants"] for role_id, spec in BUILTIN_ROLES.items()}

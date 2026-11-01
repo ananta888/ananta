@@ -347,7 +347,7 @@ def test_worker_execution_composition_returns_canonical_verification() -> None:
 
 
 def test_forwarded_result_merges_native_verification_for_hub_polling(monkeypatch, forwarding_dependencies) -> None:
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
     updates = []
     dependencies = forwarding_dependencies(
@@ -389,7 +389,7 @@ def test_forwarded_result_merges_native_verification_for_hub_polling(monkeypatch
 
 
 def test_forwarded_knowledge_index_result_is_validated_and_persisted(monkeypatch, forwarding_dependencies) -> None:
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
     updates = []
     validated = []
@@ -458,7 +458,7 @@ def test_forwarded_knowledge_index_result_is_validated_and_persisted(monkeypatch
 
 
 def test_forwarded_visual_process_result_dispatches_to_hub_acceptance(monkeypatch, forwarding_dependencies) -> None:
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
     updates = []
     accepted_results = []
@@ -516,7 +516,7 @@ def test_forwarded_visual_process_result_dispatches_to_hub_acceptance(monkeypatc
 
 
 def test_forwarded_visual_process_inference_result_dispatches_by_contract(monkeypatch, forwarding_dependencies) -> None:
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
     updates = []
 
@@ -567,7 +567,7 @@ def test_forwarded_visual_process_inference_result_dispatches_by_contract(monkey
 def test_forwarded_visual_process_result_rejects_schema_kind_mismatch(monkeypatch, forwarding_dependencies) -> None:
     import pytest
 
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
     updates = []
     acceptance_calls = []
@@ -604,7 +604,7 @@ def test_forwarded_visual_process_result_rejects_schema_kind_mismatch(monkeypatc
 def test_rejected_visual_process_acceptance_never_persists_readmodel(monkeypatch, forwarding_dependencies) -> None:
     import pytest
 
-    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+    from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
     updates = []
 

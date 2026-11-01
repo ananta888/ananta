@@ -16,7 +16,7 @@ import time
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Callable
 
-from agent.services._task_scoped_codecompass_dispatch import _permanent_codecompass_forwarding_error
+from agent.services.task_scoped.codecompass_dispatch import _permanent_codecompass_forwarding_error
 from agent.services.worker_forward_transport import (
     WorkerForwardTransportError,
     WorkerTransportDeadline,
@@ -30,7 +30,7 @@ from ananta_contracts.knowledge_index_dispatch import (
 )
 
 if TYPE_CHECKING:
-    from agent.services._task_scoped_forwarding_dependencies import (
+    from agent.services.task_scoped.forwarding_dependencies import (
         GovernedIndexJobPorts,
         HubStatePorts,
         KnowledgeIndexRetryPolicy,
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 def _current_dependencies():
-    from agent.services._task_scoped_forwarding_dependencies import (
+    from agent.services.task_scoped.forwarding_dependencies import (
         current_task_scoped_forwarding_dependencies,
     )
 

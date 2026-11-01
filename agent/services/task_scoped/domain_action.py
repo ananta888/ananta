@@ -454,14 +454,14 @@ def propose_task_with_comparisons(
     resolve_task_propose_timeout: Callable,
 ) -> "TaskScopedRouteResponse":
     from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
-    from agent.services._task_scoped_citation import build_flow_metrics_payload
-    from agent.services._task_scoped_config_policy import normalize_temperature
-    from agent.services._task_scoped_repair import build_llm_call_profile_entries
-    from agent.services._task_scoped_runtime import (
+    from agent.services.task_scoped.citation import build_flow_metrics_payload
+    from agent.services.task_scoped.config_policy import normalize_temperature
+    from agent.services.task_scoped.repair import build_llm_call_profile_entries
+    from agent.services.task_scoped.runtime import (
         build_research_result,
         build_review_state,
     )
-    from agent.services._task_scoped_runtime import (
+    from agent.services.task_scoped.runtime import (
         routing_dimensions as _routing_dimensions,
     )
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
@@ -703,7 +703,7 @@ def finalize_interactive_terminal_execution(
     reason: str,
     execution_policy,
 ) -> "TaskScopedRouteResponse":
-    from agent.services._task_scoped_citation import build_flow_metrics_payload
+    from agent.services.task_scoped.citation import build_flow_metrics_payload
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
@@ -835,8 +835,8 @@ def execute_research_artifact(
     research_artifact: dict,
     execution_policy,
 ) -> "TaskScopedRouteResponse":
-    from agent.services._task_scoped_citation import build_flow_metrics_payload
-    from agent.services._task_scoped_runtime import verify_research_artifact
+    from agent.services.task_scoped.citation import build_flow_metrics_payload
+    from agent.services.task_scoped.runtime import verify_research_artifact
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     review = (proposal.get("review") or {}) if isinstance(proposal, dict) else {}

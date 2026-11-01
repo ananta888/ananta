@@ -71,7 +71,7 @@ def build_research_result(
     output_source: str = "stdout",
     research_context: dict | None = None,
 ) -> dict:
-    from agent.services._task_scoped_repair import build_llm_call_profile_entries
+    from agent.services.task_scoped.repair import build_llm_call_profile_entries
 
     artifact = normalize_research_artifact(
         raw_res,
@@ -175,7 +175,7 @@ def get_worker_execution_context(
     tid: str | None = None,
     base_prompt: str | None = None,
 ) -> dict:
-    from agent.services._task_scoped_config_policy import resolve_worker_semantic_output_correction_policy
+    from agent.services.task_scoped.config_policy import resolve_worker_semantic_output_correction_policy
 
     agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
     semantic_policy = resolve_worker_semantic_output_correction_policy(agent_cfg)
@@ -324,7 +324,7 @@ def prepare_task_cli_session(
     model: str | None,
     agent_cfg: dict | None,
 ) -> dict | None:
-    from agent.services._task_scoped_config_policy import (
+    from agent.services.task_scoped.config_policy import (
         resolve_cli_session_policy,
         resolve_opencode_execution_mode,
         resolve_opencode_interactive_launch_mode,
@@ -518,8 +518,8 @@ def build_task_propose_prompt(
     context_profile: dict | None = None,
     workspace_mutation_mode: str | None = None,
 ) -> tuple[str, dict]:
-    from agent.services._task_scoped_citation import extract_retrieval_trace_link
-    from agent.services._task_scoped_config_policy import bounded_int
+    from agent.services.task_scoped.citation import extract_retrieval_trace_link
+    from agent.services.task_scoped.config_policy import bounded_int
 
     execution_context = get_worker_execution_context(task, tid=tid, base_prompt=base_prompt)
     context_payload = dict(execution_context.get("context") or {})
@@ -788,7 +788,7 @@ def routing_dimensions(
     worker_profile: str | None = None,
     profile_source: str | None = None,
 ) -> dict:
-    from agent.services._task_scoped_config_policy import normalize_temperature
+    from agent.services.task_scoped.config_policy import normalize_temperature
 
     backend = str(backend_used or "").strip().lower()
     requested = str(requested_backend or "auto").strip().lower()

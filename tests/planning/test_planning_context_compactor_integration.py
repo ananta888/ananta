@@ -94,7 +94,7 @@ def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
     monkeypatch.setattr(svc, "_require_task", lambda tid: task)
     monkeypatch.setattr(svc, "_forward_task_request_if_remote", lambda **kwargs: None)
     monkeypatch.setattr(
-        "agent.services._task_scoped_propose_orch.get_goal_config_runtime_service",
+        "agent.services.task_scoped.propose_orch.get_goal_config_runtime_service",
         lambda: SimpleNamespace(
             get_effective_config=lambda **kwargs: SimpleNamespace(config={"propose_policy": {}}, source="test")
         ),
@@ -104,7 +104,7 @@ def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
         lambda: SimpleNamespace(build_context=lambda **kwargs: {"prompt_section": "security policy"}),
     )
     monkeypatch.setattr(
-        "agent.services._task_scoped_propose_orch.get_propose_policy_service",
+        "agent.services.task_scoped.propose_orch.get_propose_policy_service",
         lambda: SimpleNamespace(
             get_effective_policy=lambda **kwargs: ProposePolicy(
                 context_compaction_required=True, context_compactor_fail_open=False
@@ -112,7 +112,7 @@ def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "agent.services._task_scoped_propose_orch.get_planning_context_compactor_service",
+        "agent.services.task_scoped.propose_orch.get_planning_context_compactor_service",
         lambda: SimpleNamespace(
             compact=lambda **kwargs: SimpleNamespace(
                 payload={"goal_summary": "x"}, meta={"status": "failed", "error_classification": "x"}
@@ -120,7 +120,7 @@ def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "agent.services._task_scoped_propose_orch.record_product_event",
+        "agent.services.task_scoped.propose_orch.record_product_event",
         lambda *a, **kw: None,
     )
     with app.app_context():

@@ -8,7 +8,7 @@ model text — no loop, no enforced `final_answer` protocol.
 
 from __future__ import annotations
 
-from agent.services._task_scoped_propose_step import LEGACY_CLI_TASK_KINDS
+from agent.services.task_scoped.propose_step import LEGACY_CLI_TASK_KINDS
 
 
 def test_gate_review_reaches_the_cli_path():
