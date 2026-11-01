@@ -3,7 +3,6 @@
 # New violating files fail scripts/check_worker_boundaries.py. Prune entries as
 # CLN-054 moves shared contracts into ananta_contracts/ and injects dependencies.
 agent/services/codecompass_agentic_retrieval_service.py  # rule B
-agent/services/codecompass_claim_extraction_service.py  # rule B
 agent/services/codecompass_duckdb_analytics_service.py  # rule B
 agent/services/codecompass_layer_query_backend.py  # rule B
 agent/services/codecompass_rlm_service.py  # rule B
