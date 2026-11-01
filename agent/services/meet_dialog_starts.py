@@ -1,5 +1,6 @@
 """Optional Hub HTTP replay coordination; never a second Worker dispatcher."""
 
+import logging
 from typing import Protocol
 
 from agent.models.meet_dialog_start import DialogStartClaim, start_fingerprints, start_receipt
@@ -42,7 +43,7 @@ class MeetDialogStarts:
             try:
                 self.receipts.finish(claim)
             except Exception:
-                pass  # An uncertain write leaves the durable pending fence.
+                logging.getLogger(__name__).debug("start: ignored Exception", exc_info=True)
             raise
         if not self.receipts.finish(claim, receipt):
             raise MeetError("meet_dialog_start_outcome_uncertain", 503)

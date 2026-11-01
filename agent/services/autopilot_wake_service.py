@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from flask import has_app_context
@@ -22,4 +23,4 @@ def request_autopilot_wake(event_type: str, **details: Any) -> None:
                 **details,
             )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("request_autopilot_wake: ignored Exception", exc_info=True)

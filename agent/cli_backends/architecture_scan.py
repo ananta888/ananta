@@ -129,7 +129,7 @@ def _collect_research_context_blocks(
         data = json.loads(research_json.read_text(encoding="utf-8", errors="replace"))
         _blocks.collect_ref_blocks(_blocks.select_scope_refs(data), repo_root, budget, collector)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_collect_research_context_blocks: ignored Exception", exc_info=True)
     return collector.blocks
 
 

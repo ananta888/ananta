@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 
@@ -66,7 +67,9 @@ def collect_wiki_disk_state(data_dir: Path) -> dict:
                         try:
                             manifest = _json_cc.loads(rf.read_text(encoding="utf-8"))
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug(
+                                "collect_wiki_disk_state: ignored Exception", exc_info=True
+                            )
                         continue
                     info = _file_info(rf)
                     if info:
@@ -99,6 +102,6 @@ def collect_wiki_disk_state(data_dir: Path) -> dict:
                 data = _json.loads(f.read_text(encoding="utf-8"))
                 checkpoints.append({"file": f.name, **data})
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("collect_wiki_disk_state: ignored Exception", exc_info=True)
 
     return {"files": files, "checkpoints": checkpoints, "codecompass_outputs": cc_outputs}

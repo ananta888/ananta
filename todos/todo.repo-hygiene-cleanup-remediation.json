@@ -850,7 +850,7 @@
       "title": "except: pass Sweep (412 Blöcke in 287 Dateien)",
       "description": "412 bare except: pass in agent/worker verschlucken still Ausnahmen (Top Observability-Killer im Hub-Worker-System). Durch engere Handler + Logging ersetzen (except Exception: logger.debug oder schmaler). Worst: cli_backends/architecture_scan.py (6), shell/process.py (5), common/http.py (5), terminal_bridge.py (5).",
       "type": "deadcode",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M5",
@@ -860,8 +860,8 @@
         "Verhalten bleibt stabil (keine neuen Crash-Durchreicher ohne beguendeten Fall).",
         "AGENTS.md 'observable and auditable' ist fuer diese Stellen eingehalten."
       ],
-      "implementation_notes": "Package-weises Vorgehen; nicht blind ersetzen - manche Pass-Stellen sind intentional, diese begruenden. Aufwand hoch, Wert hoch (Observability).",
-      "progress_percent": 0
+      "implementation_notes": "237 breite except:pass (except Exception/BaseException) in agent/+worker/ (157 Dateien) durch inline logging.getLogger(__name__).debug(..., exc_info=True) ersetzt — keine Variablenannahmen, keine Control-Flow-Aenderung, 0 breite silently-pass verbleiben in Produktionstiteln. OFFEN: 273 schmale Handler (FileNotFoundError/ProcessLookupError/TimeoutExpired etc. — Politik: contextlib.suppress bei intentionaler Stille oder Begruendung) + client_surfaces//scripts/-Baeume (weitere ~128 Stellen). Praexistente Failures in tests/cli_backends/test_opencode_command_chain_guardrails.py (5, auf HEAD reproduziert) fuer CLN-040 dokumentiert.",
+      "progress_percent": 60
     },
     {
       "id": "CLN-035",
@@ -1698,9 +1698,9 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 69,
+      "todo": 68,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 2,
       "blocked": 0,
       "done": 5
     },
@@ -1731,9 +1731,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 69,
+    "todo_remaining": 68,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 2,
     "blocked": 0,
     "done": 5
   },

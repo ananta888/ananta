@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any, Optional
@@ -67,7 +68,7 @@ def append_event(
             db_session.add(db_event)
             db_session.commit()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("append_event: ignored Exception", exc_info=True)
     else:
         _events.append(event)
     return event

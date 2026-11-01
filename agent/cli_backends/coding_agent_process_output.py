@@ -1,5 +1,6 @@
 """Bounded line assembly and redacted events, independent of process control."""
 
+import logging
 from collections.abc import Sequence
 
 from agent.cli_backends.coding_agent_contract import CodingAgentEvent, EventSink
@@ -49,7 +50,7 @@ class ProcessOutput:
             try:
                 self.sink(CodingAgentEvent(self.sequence, stream, value.rstrip("\n")))
             except Exception:
-                pass  # Preserve the existing observational event-sink contract.
+                logging.getLogger(__name__).debug("_emit: ignored Exception", exc_info=True)
         return True
 
     def text(self, stream: str) -> str:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -237,7 +238,7 @@ class WorkerPoolSchedulerService:
                 slot_lease_id=str(slot_lease_id),
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("release_for_job: ignored Exception", exc_info=True)
 
     def cleanup_stale_leases(self) -> int:
         stale = worker_slot_lease_repo.list_expired()

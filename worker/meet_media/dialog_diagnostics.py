@@ -1,5 +1,6 @@
 """One optional terminal measurement, never a timer, scheduler or authority."""
 
+import logging
 import math
 import time
 from dataclasses import dataclass
@@ -60,7 +61,7 @@ class DialogRunDiagnostics:
             try:
                 self.started, self.baseline = self.clock(), self.usage()
             except Exception:
-                pass  # Missing measurements stay explicitly missing.
+                logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
 
     def _measure(self):
         if self.baseline is None:

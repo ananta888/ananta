@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Callable
@@ -246,7 +247,7 @@ class ThreeWorkerTrackExecutor:
             try:
                 session.post(f"{base_url}/config", headers=headers, json=restore_patch, timeout=30)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_run_task_scoped_track: ignored Exception", exc_info=True)
 
     def _load_config_ref_overrides(self, config_ref: str) -> dict[str, Any]:
         if not config_ref:

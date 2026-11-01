@@ -344,7 +344,7 @@ class TriggerEngine:
 
                 autonomous_loop.wake()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("process_webhook: ignored Exception", exc_info=True)
 
         return {
             "status": "processed",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -103,7 +104,7 @@ def _embedding_provider_config(policy: dict[str, Any]) -> dict[str, Any]:
         svc = EmbeddingProviderConfigService(global_config=provider_cfg)
         return svc.resolve_for_build("semantic_output_correction")
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_embedding_provider_config: ignored Exception", exc_info=True)
     # Inline fallback (no agent package available in pure-worker context)
     provider = str(provider_cfg.get("provider") or "local").strip().lower() or "local"
     config: dict[str, Any] = {

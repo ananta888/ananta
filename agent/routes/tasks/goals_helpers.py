@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from typing import Any
@@ -134,7 +135,7 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
                     readiness=dict(getattr(goal, "readiness", None) or {}),
                 )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_maybe_recover_stalled_planning_goal: ignored Exception", exc_info=True)
 
     tasks = [t for t in _repos().task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
     if tasks:
@@ -213,7 +214,7 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
 
             autonomous_loop.wake()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_maybe_recover_stalled_planning_goal: ignored Exception", exc_info=True)
         return goal
     except Exception as exc:
         recovery.update({"last_error": str(exc)[:240]})
@@ -275,11 +276,11 @@ def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
             try:
                 current_app.logger.warning("planning_preflight_stale_cancelled count=%s actor=%s", cancelled, actor)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_cancel_stale_planning_goals: ignored Exception", exc_info=True)
         return cancelled
     except Exception as exc:
         try:
             current_app.logger.exception("planning_preflight_stale_cancel_failed actor=%s error=%s", actor, exc)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_cancel_stale_planning_goals: ignored Exception", exc_info=True)
         return 0

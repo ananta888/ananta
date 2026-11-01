@@ -144,7 +144,7 @@ class TaskLifecycleService:
                     if _sync_mode:
                         goal_workspace_sync_mode = _sync_mode
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("materialize_from_plan_node: ignored Exception", exc_info=True)
             try:
                 from flask import current_app, has_app_context
 
@@ -162,7 +162,7 @@ class TaskLifecycleService:
                             "branch_strategy": global_git_ws.get("branch_strategy", "goal"),
                         }
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("materialize_from_plan_node: ignored Exception", exc_info=True)
         research_context_input = _merge_rag_sources(
             goal_rag_sources,
             task_kind,
@@ -664,7 +664,7 @@ class GoalLifecycleService:
                 if started_age <= 180:
                     return goal
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("recover_stalled_planning_goal: ignored Exception", exc_info=True)
         tasks = [t for t in task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
         if tasks:
             return goal

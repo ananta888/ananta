@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -255,7 +256,7 @@ class OperationsObservabilityService:
             chunks = store.list_jobs(limit=1)  # force db accessibility check
             _ = chunks  # no-op
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("build_memory_context_metrics: ignored Exception", exc_info=True)
 
         ratios: list[float] = []
         for log in logs:

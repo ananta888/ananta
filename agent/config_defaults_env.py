@@ -171,18 +171,18 @@ def _apply_worker_pool_env_values(
         try:
             model_defaults["max_parallel_requests"] = max(1, int(os.environ.get("ANANTA_OLLAMA_MAX_PARALLEL") or 4))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_apply_worker_pool_env_values: ignored Exception", exc_info=True)
     if "ANANTA_WORKER_MAX_PARALLEL_TASKS" in os.environ:
         try:
             worker_defaults["max_parallel_tasks"] = max(1, int(os.environ.get("ANANTA_WORKER_MAX_PARALLEL_TASKS") or 4))
             native_kind["max_parallel_tasks_per_container"] = worker_defaults["max_parallel_tasks"]
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_apply_worker_pool_env_values: ignored Exception", exc_info=True)
     if "ANANTA_SUBWORKER_MAX_CHILDREN" in os.environ:
         try:
             subworkers["max_children_per_parent"] = max(1, int(os.environ.get("ANANTA_SUBWORKER_MAX_CHILDREN") or 4))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_apply_worker_pool_env_values: ignored Exception", exc_info=True)
 
 
 def _apply_worker_parallelism_env(cfg: dict) -> None:

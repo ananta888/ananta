@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import ipaddress
+import logging
 import math
 import ssl
 from dataclasses import dataclass, field
@@ -386,7 +387,7 @@ class QdrantClientAdapter:
                     try:
                         close()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
                 raise
             except Exception as exc:
                 close = getattr(raw_client, "close", None)
@@ -394,7 +395,7 @@ class QdrantClientAdapter:
                     try:
                         close()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
                 raise _classify_error(
                     exc,
                     operation="configure_client",

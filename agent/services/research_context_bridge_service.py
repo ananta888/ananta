@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
 
@@ -132,7 +133,7 @@ class ResearchContextBridgeService:
                     or {}
                 )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_auto_index_cfg: ignored Exception", exc_info=True)
         return {}
 
     def _trigger_path_indexing(self, scope_id: str, *, profile: str) -> None:
@@ -144,7 +145,7 @@ class ResearchContextBridgeService:
                     scope_id, created_by="auto_index", profile_name=profile or None
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_run: ignored Exception", exc_info=True)
 
         threading.Thread(target=_run, daemon=True).start()
 

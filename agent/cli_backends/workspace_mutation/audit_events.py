@@ -8,6 +8,7 @@ Audit failures never break the loop (best effort, as before the split).
 from __future__ import annotations
 
 import hashlib
+import logging
 from typing import Any
 
 _VIOLATING_SOURCE_LINE_DECISIONS = {"blocked", "followup_required"}
@@ -85,7 +86,7 @@ def emit_evaluation_events(
                 source_line_policy_summary=source_line_summary,
             )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("emit_evaluation_events: ignored Exception", exc_info=True)
 
 
 def emit_final_answer_blocked(
@@ -123,4 +124,4 @@ def emit_final_answer_blocked(
             source_line_policy_summary=dict(source_line_dict.get("summary") or {}),
         )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("emit_final_answer_blocked: ignored Exception", exc_info=True)

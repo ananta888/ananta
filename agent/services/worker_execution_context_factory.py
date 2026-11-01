@@ -10,6 +10,7 @@ forwarding; ``TaskDelegationPlanner`` and ``TaskDelegationResultWriter`` in
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -383,7 +384,7 @@ class WorkerExecutionContextFactory:
             if goal:
                 return str((goal.execution_preferences or {}).get("output_dir") or "").strip()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_resolve_output_dir: ignored Exception", exc_info=True)
         return ""
 
     @staticmethod

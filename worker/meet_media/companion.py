@@ -11,6 +11,7 @@ how it produced them.
 import base64
 import hashlib
 import json
+import logging
 import os
 import re
 import tempfile
@@ -687,7 +688,7 @@ def run():
             try:
                 page.evaluate("() => window.anantaMachine.leave()")
             except Exception:  # noqa: BLE001
-                pass
+                logging.getLogger(__name__).debug("run: ignored Exception", exc_info=True)
             return outcome
         finally:
             try:

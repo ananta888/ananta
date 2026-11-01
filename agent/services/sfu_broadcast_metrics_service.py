@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import time
 from collections import deque
@@ -211,7 +212,7 @@ class SfuBroadcastMetricsService:
                 try:
                     close()
                 except Exception:  # noqa: BLE001 - shutdown remains bounded.
-                    pass
+                    logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
         self._pending.clear()
         self._pending_bytes = 0
         self._closed = True

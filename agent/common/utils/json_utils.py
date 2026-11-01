@@ -46,7 +46,7 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
                     fd = os.open(path, os.O_WRONLY | os.O_CREAT, chmod)
                     os.close(fd)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("write_json: ignored Exception", exc_info=True)
 
             with portalocker.Lock(
                 path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX | portalocker.LOCK_NB
@@ -56,7 +56,7 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
                     try:
                         os.chmod(path, chmod)
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("write_json: ignored Exception", exc_info=True)
                 return
         except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
             if i < retries - 1:

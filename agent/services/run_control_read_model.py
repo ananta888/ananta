@@ -7,6 +7,7 @@ by ``RunControlService``.  The service is supplied through the narrow
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Mapping, Protocol
 
@@ -144,7 +145,7 @@ class RunControlReadModel:
                 if task:
                     task_status = str(getattr(task, "status", "") or "") or None
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("get_control_state: ignored Exception", exc_info=True)
 
         svc = get_approval_request_service()
         svc.expire_old_requests()
@@ -232,7 +233,7 @@ class RunControlReadModel:
                 if str(getattr(t, "status", "") or "") in active_statuses:
                     task_ids.add(str(t.id))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("get_all_active_control_states: ignored Exception", exc_info=True)
 
         task_ids.discard("")
         result = []

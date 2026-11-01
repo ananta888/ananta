@@ -1,5 +1,6 @@
 """Execute a delegated utterance while the browser owner keeps checking authority."""
 
+import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -194,4 +195,4 @@ class DialogAudioPump:
         try:
             self.page.evaluate("window.anantaMachine.audio.close()")
         except Exception:
-            pass  # The browser may already be gone; native cleanup still runs.
+            logging.getLogger(__name__).debug("_close_browser: ignored Exception", exc_info=True)

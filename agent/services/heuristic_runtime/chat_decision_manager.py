@@ -18,6 +18,7 @@ chat_policy integration:
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Callable
 
@@ -185,4 +186,4 @@ class ChatDecisionManager:
         try:
             self._trace_repo.save(trace)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_finalize_trace: ignored Exception", exc_info=True)

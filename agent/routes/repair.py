@@ -6,6 +6,8 @@ DRR-T038: Operator view for deterministic repair path.
 
 from __future__ import annotations
 
+import logging
+
 from flask import Blueprint, request
 
 from agent.auth import admin_required, check_auth
@@ -78,7 +80,7 @@ def list_runtime_targets():
             try:
                 targets.append(rt_service.from_config(rt_data))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("list_runtime_targets: ignored Exception", exc_info=True)
 
     return api_response({"runtime_targets": [t.model_dump(mode="json") for t in targets], "count": len(targets)})
 
@@ -199,7 +201,7 @@ def preview_repair():
                 try:
                     runtime_targets.append(rt_service.from_config(rt_data))
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("preview_repair: ignored Exception", exc_info=True)
 
         explicit_required = (
             [
@@ -249,7 +251,7 @@ def preview_repair():
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("preview_repair: ignored Exception", exc_info=True)
 
         return api_response(
             {

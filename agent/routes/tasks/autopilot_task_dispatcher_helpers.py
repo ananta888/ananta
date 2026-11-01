@@ -273,7 +273,9 @@ def _maybe_recover_planned_goal_without_candidates(
                     reason="all_tasks_failed_no_recovery",
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug(
+                    "_maybe_recover_planned_goal_without_candidates: ignored Exception", exc_info=True
+                )
             return False
     now_ts = time.time()
     execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
@@ -305,7 +307,9 @@ def _maybe_recover_planned_goal_without_candidates(
                 goal.execution_preferences = execution_preferences
                 repos.goal_repo.save(goal)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug(
+                    "_maybe_recover_planned_goal_without_candidates: ignored Exception", exc_info=True
+                )
         else:
             recovery.update(
                 {

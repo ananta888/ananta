@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from typing import Any
@@ -191,7 +192,7 @@ def cmd_llm_log_tail(args: argparse.Namespace) -> int:
                     try:
                         rows.append(json.loads(line))
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("cmd_llm_log_tail: ignored Exception", exc_info=True)
             rows = rows[-limit:]
             if getattr(args, "json", False):
                 print(json.dumps(rows, indent=2))

@@ -653,7 +653,7 @@ class WorkerWorkspaceService:
             )
         except Exception:
             # Audit must never fail the refresh.
-            pass
+            logging.getLogger(__name__).debug("refresh_mutation_baseline: ignored Exception", exc_info=True)
         return meta
 
     def materialize_allowed_workspace_files(

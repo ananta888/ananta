@@ -98,7 +98,7 @@ def _pick_worker_for_ask(*, exclude_urls: set[str] | None = None) -> tuple[str, 
                 db_agent = get_repository_registry().agent_repo.get_by_url(worker_url)
                 token = str(getattr(db_agent, "token", "") or "").strip() or None
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_pick_worker_for_ask: ignored Exception", exc_info=True)
             return worker_url, token
         return "", None
     except Exception:

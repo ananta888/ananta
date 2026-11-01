@@ -26,7 +26,7 @@ def _configured_opencode_model() -> str:
             if configured:
                 return str(configured)
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("_configured_opencode_model: ignored Exception", exc_info=True)
     return str(getattr(settings, "opencode_default_model", "") or "")
 
 

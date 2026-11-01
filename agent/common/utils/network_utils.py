@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional
 
@@ -36,5 +37,5 @@ def get_host_gateway_ip() -> Optional[str]:
                     if gateway and "." in gateway:
                         return gateway
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("get_host_gateway_ip: ignored Exception", exc_info=True)
     return None

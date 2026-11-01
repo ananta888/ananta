@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 import uuid
@@ -152,7 +153,7 @@ class SfuBroadcastReconcilerScheduler:
             try:
                 self.run_once()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_loop: ignored Exception", exc_info=True)
             self._stop.wait(self._tick_seconds)
 
 

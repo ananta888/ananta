@@ -679,7 +679,7 @@ def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: i
                 prompt = prompt.replace("\nCONTEXT:\n", "\nKONTEXT:\n")
             return prompt
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("build_planning_prompt: ignored Exception", exc_info=True)
     prompt = (
         "Du bist ein Projektplanungs-Assistent. Analysiere das folgende Ziel und "
         "zerlege es in konkrete, ausfuehrbare Teilaufgaben.\n\n"
@@ -726,7 +726,7 @@ def build_planning_prompt_en(goal: str, context: Optional[str] = None, max_tasks
         if str(resolved.prompt or "").strip():
             return str(resolved.prompt)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("build_planning_prompt_en: ignored Exception", exc_info=True)
     try:
         from agent.services.system_prompt_catalog import get_system_prompt
 

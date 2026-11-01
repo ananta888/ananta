@@ -22,6 +22,7 @@ Collaborators (composed by ``RunControlService``):
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from copy import deepcopy
@@ -202,7 +203,7 @@ class RunControlService(RunControlTaskInterventionMixin):
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_emit_idempotency_conflict: ignored Exception", exc_info=True)
 
     # ── Command dispatch ───────────────────────────────────────────────────────
 
@@ -435,7 +436,7 @@ class RunControlService(RunControlTaskInterventionMixin):
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_store_instruction: ignored Exception", exc_info=True)
 
     def get_active_instruction(
         self,
@@ -531,7 +532,7 @@ class RunControlService(RunControlTaskInterventionMixin):
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_do_select_branch: ignored Exception", exc_info=True)
 
     def create_branch(
         self,
@@ -705,7 +706,7 @@ class RunControlService(RunControlTaskInterventionMixin):
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_emit_audit: ignored Exception", exc_info=True)
 
 
 _run_control_service: RunControlService | None = None

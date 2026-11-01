@@ -9,6 +9,7 @@ read and tested on its own; the engine only orchestrates them.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -167,7 +168,7 @@ def _anchor_content(repo_root: Path, anchor_path: str, symbol_summary: str) -> s
         if anchor_file.exists() and anchor_file.is_file():
             file_content = anchor_file.read_text(encoding="utf-8", errors="ignore")[:2000]
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_anchor_content: ignored Exception", exc_info=True)
     if not file_content and not symbol_summary:
         return None
     if not file_content:

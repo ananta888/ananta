@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
@@ -96,7 +97,7 @@ def planning_health():
                     elif status_val == "planning_queued":
                         by_profile[key]["queued"] = int(cnt)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("planning_health: ignored Exception", exc_info=True)
     except Exception as exc:
         return api_response(status="error", message=f"db_query_failed:{type(exc).__name__}", code=500)
 
@@ -200,7 +201,7 @@ def _set_planning_lease(goal_id: str, ttl_s: int = _PLANNING_LEASE_TTL_S) -> Non
         try:
             current_app.logger.exception("planning_lease_set_failed goal_id=%s error=%s", goal_id, exc)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_set_planning_lease: ignored Exception", exc_info=True)
 
 
 def _clear_planning_lease(goal_id: str) -> None:
@@ -226,7 +227,7 @@ def _clear_planning_lease(goal_id: str) -> None:
         try:
             current_app.logger.exception("planning_lease_clear_failed goal_id=%s error=%s", goal_id, exc)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_clear_planning_lease: ignored Exception", exc_info=True)
 
 
 def _start_planning_heartbeat(
@@ -269,7 +270,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         try:
             current_app.logger.warning("goal_planning_skip_duplicate_inflight goal_id=%s", goal_id)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_run_goal_planning_background_impl: ignored Exception", exc_info=True)
         return
     with _GOAL_ACTIVE_PLANNING_LOCK:
         _GOAL_ACTIVE_PLANNING_IDS.add(goal_id)
@@ -658,7 +659,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
 
             autonomous_loop.wake()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_run_goal_planning_background_impl: ignored Exception", exc_info=True)
 
         log_audit(
             "goal_created",

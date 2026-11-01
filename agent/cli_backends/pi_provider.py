@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from pathlib import Path
@@ -228,5 +229,5 @@ class PiCodingAgentProvider:
             try:
                 event_sink(CodingAgentEvent(sequence=1, stream="stdout", text=answer))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("run: ignored Exception", exc_info=True)
         return result(0, "completed", answer)

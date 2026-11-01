@@ -7,6 +7,7 @@ EW-T053: Audit event emission for every sensitive step.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -69,21 +70,21 @@ class WorkerDiagnosticsBuilder:
             try:
                 tools = [e["id"] for e in tool_registry.capability_catalog()]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         providers = []
         if provider_registry:
             try:
                 providers = provider_registry.provider_info()  # already safe (no secrets)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         skills = []
         if skill_registry:
             try:
                 skills = [e.manifest.id for e in skill_registry.enabled_skills()]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         active_caps = []
         policy_summary: dict[str, Any] = {}
@@ -97,7 +98,7 @@ class WorkerDiagnosticsBuilder:
                     "denied_operations": envelope.denied_operations,
                 }
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         return WorkerDiagnostics(
             worker_id=worker_id,

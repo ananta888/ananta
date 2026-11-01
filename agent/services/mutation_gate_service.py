@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import shlex
 import time
 from dataclasses import dataclass
@@ -97,7 +98,7 @@ class MutationGateService:
                     **details,
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_block: ignored Exception", exc_info=True)
             return MutationGateDecision(
                 classification="blocked",
                 reason_code=reason_code,
@@ -513,7 +514,7 @@ class MutationGateService:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_legacy_bypass: ignored Exception", exc_info=True)
 
     def _validate_scoped_approval(
         self,

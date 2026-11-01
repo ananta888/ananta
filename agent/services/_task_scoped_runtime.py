@@ -15,6 +15,7 @@ deprecation window, see todos/todo.refactor-large-files-split.json SPLIT-001).
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
@@ -233,7 +234,7 @@ def get_worker_execution_context(
                         execution_context["context"] = ctx
                         execution_context.setdefault("context_bundle_id", bundle.id)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("get_worker_execution_context: ignored Exception", exc_info=True)
         return execution_context
     if bundle is None and (tid or (task or {})):
         resolved = get_context_manager_service().ensure_task_context_bundle(

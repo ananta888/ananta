@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -38,7 +39,7 @@ def _extract_preferred_output_format(notes: Any) -> str:
                 if fmt in allowed:
                     return fmt
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_extract_preferred_output_format: ignored Exception", exc_info=True)
         if text.lower().startswith("preferred_output_format="):
             fmt = text.split("=", 1)[1].strip().lower()
             if fmt in allowed:

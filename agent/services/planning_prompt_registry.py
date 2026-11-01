@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -175,7 +176,7 @@ class PlanningPromptRegistry:
                 }
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("resolve: ignored Exception", exc_info=True)
         return ResolvedPlanningPrompt(
             prompt_version_id=str(selected.id),
             version=str(selected.version),

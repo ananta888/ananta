@@ -271,7 +271,7 @@ def _observe_queue_wait(task_assignments: list[tuple[Any, Any, bool]]) -> None:
             if created_at > 0:
                 TASK_QUEUE_WAIT_SECONDS.observe(max(0.0, time.time() - created_at))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_observe_queue_wait: ignored Exception", exc_info=True)
 
 
 def _cancel_task_requests(tid: str) -> Any:
@@ -575,7 +575,7 @@ def execute_autopilot_tick(
             try:
                 loop.wake()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("execute_autopilot_tick: ignored Exception", exc_info=True)
         return {
             "dispatched": len(submitted_ids),
             "completed": 0,
@@ -643,7 +643,7 @@ def execute_autopilot_tick(
         try:
             loop.wake()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("execute_autopilot_tick: ignored Exception", exc_info=True)
     return {
         "dispatched": dispatched,
         "completed": completed,

@@ -1,5 +1,6 @@
 """One delegated public-document page plus separate sanitized presentation surface."""
 
+import logging
 import math
 import time
 
@@ -148,7 +149,7 @@ class PublicDocumentWorkspace:
                 try:
                     resource.close()
                 except Exception:
-                    pass  # One dead browser target cannot retain the other surface.
+                    logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
 
     def discard_pending(self):
         if self.view is not None:

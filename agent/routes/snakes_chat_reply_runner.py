@@ -197,7 +197,7 @@ class SnakeChatReplyRunner:
                     ctx.rec.event("failed", "Fehler bei der Antwortgenerierung", status="failed", error=str(exc)[:300])
                     ctx.store.complete_trace(ctx.trace_id, status="failed")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("run: ignored Exception", exc_info=True)
             self._append_room_message(
                 text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.",
                 session_id=ctx.session_id,

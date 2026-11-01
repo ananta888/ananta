@@ -101,7 +101,7 @@ class TaskArtifactMaterializer:
                 if content is not None:
                     return content
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_fetch_artifact: ignored Exception", exc_info=True)
         return None
 
     @staticmethod
@@ -115,7 +115,7 @@ class TaskArtifactMaterializer:
                 if p.exists():
                     return p.read_bytes()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_try_local: ignored Exception", exc_info=True)
         return None
 
     @staticmethod
@@ -132,7 +132,7 @@ class TaskArtifactMaterializer:
             if resp.ok:
                 return resp.content
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_try_http: ignored Exception", exc_info=True)
         return None
 
 

@@ -285,7 +285,7 @@ class AnantaSshTerminalWrapper:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_denied: ignored Exception", exc_info=True)
 
     def _audit_started(self, ctx: WrapperContext, session_id: str) -> None:
         from agent.config import settings
@@ -306,7 +306,7 @@ class AnantaSshTerminalWrapper:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_started: ignored Exception", exc_info=True)
 
 
 def main() -> None:

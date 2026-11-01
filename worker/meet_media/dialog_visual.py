@@ -1,5 +1,6 @@
 """Consume only an exact Hub visual child assignment; never create or route tasks."""
 
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -95,7 +96,7 @@ class DialogVisualPump:
         try:
             self.page.evaluate("window.anantaMachine.visual.close()")
         except Exception:
-            pass  # Native cleanup still runs after a lost browser.
+            logging.getLogger(__name__).debug("_close_browser: ignored Exception", exc_info=True)
 
 
 def start_visual(page, hub, assignment, state, meet_session):

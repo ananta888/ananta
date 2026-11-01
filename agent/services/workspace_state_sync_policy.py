@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 VALID_SYNC_MODES = frozenset({"artifact_hub_sync", "git_hub_remote", "shared_goal_workspace_dev", "none"})
@@ -54,7 +55,7 @@ class WorkspaceStateSyncPolicy:
                 if global_ws.get("sync_mode"):
                     return cls.from_config(global_ws)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("resolve: ignored Exception", exc_info=True)
         return cls()
 
     def to_dict(self) -> dict:

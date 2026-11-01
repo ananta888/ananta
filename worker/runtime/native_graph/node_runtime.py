@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 import uuid
@@ -105,7 +106,7 @@ class NativeDelegatedNodeRuntime:
                         failure_code="native_handler_outcome_unknown",
                     )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("execute: ignored Exception", exc_info=True)
             return self._failed(
                 command,
                 hub_task_id,

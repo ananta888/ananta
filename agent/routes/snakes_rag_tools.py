@@ -132,7 +132,7 @@ def _tool_read_file(path: str, repo_root: Path, max_chars: int) -> str:
                     if len(candidates) >= 3:
                         break
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_tool_read_file: ignored Exception", exc_info=True)
         if len(candidates) == 1:
             resolved = _resolve_file(candidates[0], repo_root)
             if resolved is not None:

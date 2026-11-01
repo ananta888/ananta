@@ -13,6 +13,7 @@ deprecation window, see todos/todo.refactor-large-files-split.json SPLIT-001).
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Callable
 
 from flask import current_app
@@ -258,7 +259,7 @@ def try_handler_propose(
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("try_handler_propose: ignored Exception", exc_info=True)
     return TaskScopedRouteResponse(
         data=payload,
         status=coerced.status,

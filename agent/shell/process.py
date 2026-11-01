@@ -49,7 +49,7 @@ class PersistentShell:
                 try:
                     self.process.kill()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_start_process: ignored Exception", exc_info=True)
         cmd = [self.shell_cmd]
         if os.name == "nt":
             if self.shell_cmd == "cmd.exe":
@@ -195,12 +195,12 @@ class PersistentShell:
                 if self.process.stdin:
                     self.process.stdin.close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
             try:
                 if self.process.stdout:
                     self.process.stdout.close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
             try:
                 self.process.terminate()
                 self.process.wait(timeout=2)
@@ -218,4 +218,4 @@ class PersistentShell:
         try:
             self.close()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("__del__: ignored Exception", exc_info=True)

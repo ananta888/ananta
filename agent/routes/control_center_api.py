@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 import time
 import uuid
@@ -237,7 +238,7 @@ def _event_poll_loop(repository_provider: Callable[[], Any]) -> None:
                     _EVENT_LAST_POLICY_TS = created_at
         except Exception:
             # Keep stream infrastructure alive even if one poll cycle fails.
-            pass
+            logging.getLogger(__name__).debug("_event_poll_loop: ignored Exception", exc_info=True)
         _EVENT_POLL_STOP.wait(timeout=2.0)
 
 

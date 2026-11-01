@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -173,7 +174,7 @@ class _PtyProcess:
                 try:
                     self._proc.kill()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("terminate: ignored Exception", exc_info=True)
 
 
 class AuggieInteractiveBridge:

@@ -35,7 +35,7 @@ def _repo_root() -> Path:
         if rr:
             return Path(str(rr)).resolve()
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_repo_root: ignored Exception", exc_info=True)
     return Path(".").resolve()
 
 

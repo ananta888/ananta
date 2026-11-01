@@ -13,6 +13,7 @@ keyword-only constructor parameter:
 
 from __future__ import annotations
 
+import logging
 import shutil
 import tempfile
 from collections.abc import Mapping
@@ -552,7 +553,7 @@ class KnowledgeIndexWorkerArtifactService:
             if current:
                 token = current
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_worker_token: ignored Exception", exc_info=True)
         return token
 
     # Compatibility seams kept for existing callers of the former private API.

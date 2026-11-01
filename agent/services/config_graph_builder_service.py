@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -719,7 +720,7 @@ class ConfigGraphBuilderService:
                 for pid, pdata in (pm.get("profiles") or {}).items():
                     known_kinds.extend(pdata.get("allowed_task_kinds") or [pid])
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_add_planning_templates: ignored Exception", exc_info=True)
 
         processed: set[str] = set()
 

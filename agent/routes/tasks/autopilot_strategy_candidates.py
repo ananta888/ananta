@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -107,7 +108,7 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
                     "context_length": _safe_context_length((item or {}).get("context_length")),
                 }
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_runtime_model_capabilities: ignored Exception", exc_info=True)
 
     if ollama_url:
         try:
@@ -133,7 +134,7 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
                     "context_length": ctx,
                 }
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_runtime_model_capabilities: ignored Exception", exc_info=True)
 
     result = {"runtime": runtime, "models": capabilities}
     _runtime_caps_cache = result
@@ -217,7 +218,7 @@ def _proposal_strategy_candidates(
                 if model:
                     _queue_model(model, "benchmark_context_learning:ranked")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_proposal_strategy_candidates: ignored Exception", exc_info=True)
 
     for model in list(strategy_cfg["fallback_models"]):
         if model not in failed_models:

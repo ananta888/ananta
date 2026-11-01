@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 import time
@@ -375,7 +376,7 @@ class SourceControlPublicRemoteService:
                 binding_digest=binding_digest,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_record_denial: ignored Exception", exc_info=True)
 
     @staticmethod
     def _validation_view(

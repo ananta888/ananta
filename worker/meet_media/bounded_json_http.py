@@ -10,6 +10,7 @@ and headers; they must not re-implement these guarantees.
 """
 
 import json
+import logging
 import re
 import time
 import urllib.error
@@ -111,5 +112,5 @@ class BoundedJsonClient:
                 try:
                     error.close()
                 except Exception:
-                    pass  # Cleanup diagnostics must not replace the redacted failure.
+                    logging.getLogger(__name__).debug("exchange: ignored Exception", exc_info=True)
             raise ValueError("meet_llm_transport_failed") from None

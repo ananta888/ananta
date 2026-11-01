@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
 
@@ -135,7 +136,7 @@ class Handler:
                     return
             except Exception:
                 # Fallback to default SGPT implementation
-                pass
+                logging.getLogger(__name__).debug("get_completion: ignored Exception", exc_info=True)
 
         tool_call_id = name = arguments = ""
         is_shell_role = self.role.name == DefaultRoles.SHELL.value

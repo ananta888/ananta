@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -154,7 +155,7 @@ class HybridOrchestrator:
 
                     restricted_inference = RestrictedModelInferenceService()
                 except Exception:
-                    pass  # degrade gracefully — prefilter skipped if unavailable
+                    logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
 
             vector_encoding_config = {
                 "mode": getattr(settings, "codecompass_vector_encoding_mode", "off"),
@@ -313,7 +314,7 @@ class HybridOrchestrator:
 
                 self._compression_adapter = build_compression_adapter(compression_cfg)
             except Exception:
-                pass  # compression is always optional, degrade gracefully
+                logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
 
     def close(self) -> None:
         """Delegate cleanup through the optional narrow lifecycle port."""

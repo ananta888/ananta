@@ -11,6 +11,7 @@ Backwards compatibility preserved via delegating wrapper in
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 from flask import g, has_request_context
@@ -243,14 +244,14 @@ def run_propose_orchestrator_path(
                 try:
                     delattr(g, "llm_goal_id")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
             if had_llm_task_id:
                 g.llm_task_id = previous_llm_task_id
             else:
                 try:
                     delattr(g, "llm_task_id")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
 
     result_dict = result.to_dict()
     routing_contract = extract_model_routing_from_task(task)
@@ -331,7 +332,7 @@ def run_propose_orchestrator_path(
                 result_dict["backend"] = backend_used
                 result_dict["status"] = "executable"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
 
     _sgpt_routing = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
     _backend_map = (

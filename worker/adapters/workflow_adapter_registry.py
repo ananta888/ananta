@@ -66,7 +66,7 @@ def _load_defaults() -> None:
                 except Exception as exc:
                     logger.warning("langgraph provider config invalid, using default_off: %s", exc)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_load_defaults: ignored Exception", exc_info=True)
 
     try:
         from worker.adapters.langchain_adapter import LangChainAdapter

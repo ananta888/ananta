@@ -1,5 +1,6 @@
 """One Hub-assigned ephemeral browser. No human capture, profiles or task authority."""
 
+import logging
 import os
 import sys
 import time
@@ -56,7 +57,7 @@ def start_audio(page, hub, assignment, state, meet_session):
         try:
             page.evaluate("window.anantaMachine.audio.close()")
         except Exception:
-            pass  # A lost browser still fails the independent session/control loop.
+            logging.getLogger(__name__).debug("start_audio: ignored Exception", exc_info=True)
         return None  # The Hub reservation bounds retries; no alternative source is inferred.
 
 
@@ -276,7 +277,7 @@ def main():
         try:
             hub.call("finish", status=status)
         except Exception:
-            pass  # No contents, grants or upstream exception text in logs.
+            logging.getLogger(__name__).debug("main: ignored Exception", exc_info=True)
         finally:
             diagnostics.finish(
                 lambda report: bounded_terminal_report(lambda: hub.report_terminal(report), hub.deadline),

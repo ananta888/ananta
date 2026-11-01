@@ -156,7 +156,7 @@ def _fit_answer_to_chars(
         if compressed_text:
             value = compressed_text
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_fit_answer_to_chars: ignored Exception", exc_info=True)
 
     if never_truncate if never_truncate is not None else _chat_never_truncate_answers():
         return value

@@ -24,6 +24,7 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import logging
 import time
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Callable, Protocol
@@ -303,7 +304,7 @@ def forward_task_request_if_remote(
         if registered_worker_token:
             resolved_token = registered_worker_token
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("forward_task_request_if_remote: ignored Exception", exc_info=True)
     # Freeze the one governed deadline before authority preparation. This
     # prevents grant/lease checks performed during preparation from being
     # followed by a fresh full runtime window. Preparation, every POST retry,

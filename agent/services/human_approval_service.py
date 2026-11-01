@@ -44,6 +44,7 @@ Idempotency:
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -328,5 +329,5 @@ def submit_human_decision_via_repo(
     except Exception:  # noqa: BLE001
         # The audit log is best-effort; the decision is
         # already persisted.
-        pass
+        logging.getLogger(__name__).debug("submit_human_decision_via_repo: ignored Exception", exc_info=True)
     return block

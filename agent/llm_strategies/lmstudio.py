@@ -377,7 +377,7 @@ class LMStudioStrategy(LLMStrategy):
             try:
                 session.close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_post_lmstudio: ignored Exception", exc_info=True)
 
         if resp is not None and hasattr(resp, "status_code"):
             if 300 <= resp.status_code < 400:

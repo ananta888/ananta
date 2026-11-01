@@ -22,6 +22,7 @@ source unless direct_candidate_runtime_allowed = True (debug-only).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import time
@@ -225,7 +226,7 @@ class AutoActivator:
                         decisions_at_stage=0,
                     )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("tick_rollout: ignored Exception", exc_info=True)
 
         return state
 
@@ -269,7 +270,7 @@ class AutoActivator:
                 reason_code=reason_code,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_execute_rollback: ignored Exception", exc_info=True)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

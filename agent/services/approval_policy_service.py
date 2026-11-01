@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -257,7 +258,7 @@ class ApprovalPolicyService:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_legacy_bypass: ignored Exception", exc_info=True)
 
     @staticmethod
     def _normalize_action_classes(raw: Any, default: list[str]) -> list[str]:

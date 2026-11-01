@@ -23,6 +23,7 @@ svc.on_files_changed(["agent/services/foo.py"])
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -118,7 +119,7 @@ class ReferencedContextHintService:
                             if generated.is_safe_for_task(task):
                                 fresh_hints.append(generated)
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("hints_for_candidates: ignored Exception", exc_info=True)
 
         fresh_hints.sort(key=lambda h: -h.confidence.score)
         return [self._to_context_dict(h) for h in fresh_hints[: self._max]]
@@ -137,7 +138,7 @@ class ReferencedContextHintService:
         try:
             self._store.put(hint)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("generate_and_store: ignored Exception", exc_info=True)
         return hint
 
     def import_manual_hints(

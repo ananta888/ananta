@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import Any
@@ -34,7 +35,7 @@ def _load_dotenv_fallback() -> dict[str, str]:
             key, _, val = line.partition("=")
             result[key.strip()] = val.strip().strip('"').strip("'")
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_load_dotenv_fallback: ignored Exception", exc_info=True)
     return result
 
 

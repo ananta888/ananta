@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
@@ -262,7 +263,7 @@ class RecoveryResultVerificationService:
                 worker_url=worker_url,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_verify_artifact: ignored Exception", exc_info=True)
         stored_content_valid = (
             _stored_artifact_content_valid(
                 version=version,

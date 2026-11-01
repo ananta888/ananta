@@ -13,6 +13,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import sys
 import termios
 import tty
@@ -204,7 +205,7 @@ def fetch_goals(base_url: str, token: str, limit: int = 20) -> list[dict]:
             data = r.json().get("data") or []
             return data if isinstance(data, list) else []
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("fetch_goals: ignored Exception", exc_info=True)
     return []
 
 
@@ -225,5 +226,5 @@ def fetch_tasks(base_url: str, token: str, goal_id: str = "", limit: int = 30) -
             data = r.json().get("data") or []
             return data if isinstance(data, list) else []
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("fetch_tasks: ignored Exception", exc_info=True)
     return []

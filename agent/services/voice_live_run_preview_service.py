@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import time
 from dataclasses import dataclass
@@ -259,7 +260,7 @@ class VoiceLiveRunPreviewService:
             except Exception:
                 # The target is already durable and will be retried by normal
                 # runtime-cleanup maintenance.
-                pass
+                logging.getLogger(__name__).debug("_cleanup: ignored Exception", exc_info=True)
 
         if removed:
             self._audit(

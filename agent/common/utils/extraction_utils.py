@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Any, List, Optional
 
@@ -79,7 +80,7 @@ def extract_command(text: str) -> str:
             if isinstance(data, dict) and "command" in data:
                 return str(data["command"]).strip()
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("extract_command: ignored Exception", exc_info=True)
 
     # 2. Fallback auf Markdown Code-Blöcke
     for lang in ["bash", "sh", "shell", "powershell", "ps1", "cmd"]:
@@ -113,7 +114,7 @@ def extract_reason(text: str) -> str:
                     if key in data:
                         return str(data[key]).strip()
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("extract_reason: ignored Exception", exc_info=True)
 
     if "```" in text:
         reason = text.split("```")[0].strip()
@@ -141,5 +142,5 @@ def extract_tool_calls(text: str) -> Optional[List[dict]]:
             if isinstance(data, list) and all(isinstance(item, dict) for item in data):
                 return data
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("extract_tool_calls: ignored Exception", exc_info=True)
     return None

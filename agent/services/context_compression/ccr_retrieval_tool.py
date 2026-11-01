@@ -7,6 +7,7 @@ was replaced by a compression placeholder.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -145,7 +146,7 @@ class CCRRetrievalTool:
                 try:
                     diagnostics = dict(self._store.diagnostics() or {})
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("describe: ignored Exception", exc_info=True)
         return {
             "enabled": enabled,
             "store_path": store_path,

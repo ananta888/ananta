@@ -470,7 +470,7 @@ def _run_task_status_post_commit(
             status=normalized_status,
         )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_run_task_status_post_commit: ignored Exception", exc_info=True)
 
     if normalized_status in _TERMINAL_TASK_STATUSES:
         _cancel_recovery_children_for_terminal_source(

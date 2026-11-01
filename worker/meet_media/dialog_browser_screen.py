@@ -1,5 +1,6 @@
 """Execute one Hub browser job asynchronously; publish only its current safe view."""
 
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -172,7 +173,7 @@ class DialogBrowserScreen:
             try:
                 self.finish(self.job, "failed")
             except Exception:
-                pass  # Cleanup report failure cannot reopen a source or block other media.
+                logging.getLogger(__name__).debug("_fail: ignored Exception", exc_info=True)
 
     def _retire(self):
         self._fail()

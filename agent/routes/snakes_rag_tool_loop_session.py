@@ -218,7 +218,7 @@ class RagToolLoopSession:
                 state.max_search_calls = new_max_search_calls
                 state.trace["max_search_calls_effective"] = budget_label(new_max_search_calls)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_refresh_tool_budgets: ignored Exception", exc_info=True)
 
     def _search_only_exhausted(self) -> bool:
         state = self._state

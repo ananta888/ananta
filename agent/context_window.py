@@ -176,7 +176,7 @@ def record_truncation(
 
         CONTEXT_TRUNCATIONS_TOTAL.labels(site=_metric_site(site), kind=event.kind).inc()
     except Exception:  # noqa: BLE001 -- accounting never breaks a call
-        pass
+        logging.getLogger(__name__).debug("record_truncation: ignored Exception", exc_info=True)
     events = _EVENTS.get()
     if events is not None:
         events.append(event)
@@ -193,7 +193,7 @@ def record_expected_overflow(site: str, fit: ContextFit) -> None:
 
         CONTEXT_OVERFLOW_EXPECTED_TOTAL.labels(site=_metric_site(site)).inc()
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("record_expected_overflow: ignored Exception", exc_info=True)
 
 
 @contextmanager

@@ -1,5 +1,6 @@
 """Offline, task-owned CDP view. This adapter cannot attach to arbitrary tabs."""
 
+import logging
 import time
 
 
@@ -116,9 +117,9 @@ class OwnedDialogScreen:
             if self.cdp is not None:
                 self.cdp.send("Page.stopScreencast")
         except Exception:
-            pass  # A dead CDP target must not prevent its workspace teardown.
+            logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
         finally:
             try:
                 self.context.close()
             except Exception:
-                pass  # Browser/context shutdown may already have completed.
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)

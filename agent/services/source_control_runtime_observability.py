@@ -345,7 +345,7 @@ def _request_trace_id() -> str:
                 "trace",
             )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_request_trace_id: ignored Exception", exc_info=True)
     return "trace-internal"
 
 

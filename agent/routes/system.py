@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import threading
 import time
@@ -537,7 +538,7 @@ def register_agent():
 
         request_autopilot_wake("worker_registered", worker_url=str(agent.url or ""), worker_name=str(agent.name or ""))
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("register_agent: ignored Exception", exc_info=True)
     _log().info("Agent registriert: %s (%s)", agent.name, agent.url)
     return api_response(
         data={

@@ -15,6 +15,7 @@ register and audit. The work itself is delegated to focused collaborators
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import secrets
@@ -514,7 +515,7 @@ class WorkspaceSnapshotUploadService:
                 event,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit: ignored Exception", exc_info=True)
 
 
 __all__ = [

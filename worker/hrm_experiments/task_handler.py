@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import socket
 import ssl
@@ -144,7 +145,7 @@ class HttpHrmExperimentHubClient:
                 decoded = json.loads(exc.read(65_537).decode("utf-8"))
                 reason = str(decoded.get("reason_code") or ((decoded.get("error") or {}).get("code")) or reason)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_post: ignored Exception", exc_info=True)
             raise HrmExperimentHubClientError(reason) from exc
         except (OSError, TimeoutError, urllib.error.URLError) as exc:
             raise HrmExperimentHubClientError("hrm_hub_unavailable") from exc

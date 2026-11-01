@@ -231,7 +231,7 @@ class TuiToolRegistry:
                 if os.environ.get("TUI_ALLOW_ENVIRONMENT_EDITOR") is not None:
                     merged["allow_environment_editor"] = settings.tui_allow_environment_editor
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("load: ignored Exception", exc_info=True)
 
             try:
                 self._config = _parse_config(merged)

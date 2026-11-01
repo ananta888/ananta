@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from typing import Any
 
@@ -147,7 +148,7 @@ def _select_model_for_task(
                 else:
                     source = "benchmark_context_learning:excluded"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_select_model_for_task: ignored Exception", exc_info=True)
 
     return selected_model, {
         "selected_model": selected_model,

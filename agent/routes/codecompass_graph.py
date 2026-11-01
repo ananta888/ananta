@@ -11,6 +11,7 @@ GET /api/codecompass/self-graph?limit=<n>&kind=<filter>  — Ananta self-graph f
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from flask import Blueprint, g, request
@@ -195,7 +196,7 @@ def expand_graph():
             _ap = get_agent_profile_service().resolve_by_profile_id(_agent_profile_id)
             agent_profile_meta = _ap.to_metadata()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("expand_graph: ignored Exception", exc_info=True)
     projected = get_codecompass_graph_projection_service().project(
         nodes=nodes,
         edges=_edges_for_expansion(

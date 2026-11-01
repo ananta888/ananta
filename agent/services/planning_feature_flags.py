@@ -29,7 +29,7 @@ def get_goal_feature_flags() -> dict[str, bool]:
     try:
         logger.debug("get_goal_feature_flags: defaults=%s, stored=%s", defaults, stored.value_json if stored else None)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("get_goal_feature_flags: ignored Exception", exc_info=True)
 
     if not stored:
         return defaults
@@ -40,10 +40,10 @@ def get_goal_feature_flags() -> dict[str, bool]:
             try:
                 logger.debug("merged feature flags: %s", merged)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("get_goal_feature_flags: ignored Exception", exc_info=True)
             return merged
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("get_goal_feature_flags: ignored Exception", exc_info=True)
     return defaults
 
 

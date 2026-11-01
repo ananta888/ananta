@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import select
@@ -217,7 +218,7 @@ class PtyBridge:
             try:
                 self.process.terminate()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
         if self.master_fd is not None:
             # Capture and invalidate first, then close. This is the same
             # pattern used by subprocess.Popen._close_fds to avoid the
@@ -302,7 +303,7 @@ class PipeBridge:
             self.process.stdin.write(data.encode("utf-8", errors="ignore"))
             self.process.stdin.flush()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("write: ignored Exception", exc_info=True)
 
     def resize(self, cols: int, rows: int) -> None:
         _ = (cols, rows)
@@ -338,7 +339,7 @@ class PipeBridge:
             try:
                 self.process.terminate()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
 
 
 def build_terminal_bridge(

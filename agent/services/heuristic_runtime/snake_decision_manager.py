@@ -19,6 +19,7 @@ TUI fallback commands:
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -318,4 +319,4 @@ class SnakeDecisionManager:
         try:
             self._trace_repo.save(trace)
         except Exception:
-            pass  # trace persistence must not block decisions
+            logging.getLogger(__name__).debug("_finalize_trace: ignored Exception", exc_info=True)

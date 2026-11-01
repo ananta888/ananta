@@ -140,7 +140,7 @@ def _agent_config(agent_cfg: Mapping[str, Any] | None) -> Mapping[str, Any]:
         if has_app_context():
             return current_app.config.get("AGENT_CONFIG", {}) or {}
     except Exception:  # noqa: BLE001 -- outside Flask: environment only
-        pass
+        logging.getLogger(__name__).debug("_agent_config: ignored Exception", exc_info=True)
     return {}
 
 
@@ -324,7 +324,7 @@ def _provider_base_url(provider: str, agent_cfg: Mapping[str, Any]) -> str | Non
         if entry and entry.get("base_url"):
             return str(entry["base_url"])
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("_provider_base_url: ignored Exception", exc_info=True)
     try:
         from flask import current_app, has_app_context
 
@@ -333,7 +333,7 @@ def _provider_base_url(provider: str, agent_cfg: Mapping[str, Any]) -> str | Non
             if url:
                 return str(url)
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("_provider_base_url: ignored Exception", exc_info=True)
     llm = agent_cfg.get("llm_config") or {}
     if str(llm.get("provider") or "").strip().lower() == provider and llm.get("base_url"):
         return str(llm["base_url"])
@@ -356,7 +356,7 @@ def _declared_model_limit(agent_cfg: Mapping[str, Any], provider: str | None, mo
             if mapped is not None:
                 limits.append(mapped)
         except Exception:  # noqa: BLE001
-            pass
+            logging.getLogger(__name__).debug("_declared_model_limit: ignored Exception", exc_info=True)
     return min(limits) if limits else None
 
 

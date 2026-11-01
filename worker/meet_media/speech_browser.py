@@ -1,5 +1,6 @@
 """PCM browser boundary; no URL, credentials, capture or model port."""
 
+import logging
 import secrets
 import time
 
@@ -87,7 +88,7 @@ class BrowserSpeechPort:
                 try:
                     self.cancel_open(token)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("open: ignored Exception", exc_info=True)
             raise
 
     def begin_open(self, source_id, total_samples):
@@ -101,7 +102,7 @@ class BrowserSpeechPort:
             try:
                 self.cancel_open(token)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("begin_open: ignored Exception", exc_info=True)
             raise
 
     def poll_open(self, token):

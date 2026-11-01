@@ -98,7 +98,7 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
             risk = str(research_context.get("risk") or "") or None
             explicit_mode = str(research_context.get("mutation_mode") or "") or None
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("get_workspace_mutation_config: ignored Exception", exc_info=True)
     _mutation_policy_svc = default_context.ananta_workspace_mutation_policy_service
 
     resolved = _mutation_policy_svc.resolve_mutation_mode(

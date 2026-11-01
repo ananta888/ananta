@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -127,7 +128,7 @@ def finalize_trace_error(prompt_trace: Any, trace_service: Any, error_type: str,
         )
         trace_service.store(finalized)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("finalize_trace_error: ignored Exception", exc_info=True)
 
 
 def response_message(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:

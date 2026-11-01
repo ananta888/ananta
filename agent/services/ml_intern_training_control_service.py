@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -551,7 +552,7 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
                 try:
                     self._transition(principal, current, "failed", phase="admission_failed", progress_percent=100.0)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_create_job: ignored Exception", exc_info=True)
             raise MlInternTrainingContractError(
                 "task_materialization_failed",
                 "Hub task materialization failed; the training job was not scheduled",

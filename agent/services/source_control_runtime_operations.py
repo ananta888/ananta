@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 
 from agent.services.source_control_artifact_download import (
@@ -103,7 +104,7 @@ class SourceControlOperationGateway:
                     claim_token=claim.claim_token,
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("dispatch_operation: ignored Exception", exc_info=True)
             raise
         result = {
             "operation": operation,

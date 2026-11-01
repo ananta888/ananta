@@ -6,6 +6,7 @@ LLM port, and the runtime trace is ``companion_explanation``. The dialog
 never calls the browser or media stack.
 """
 
+import logging
 import re
 
 from worker.meet_media.companion_explanation import AnswerTrace, RepositorySource, explain
@@ -259,7 +260,7 @@ class CompanionDialog:
             try:
                 decision = self._routing(text, decision, codecompass_enabled=self._codecompass_enabled)
             except Exception:  # noqa: BLE001 -- the keyword rules always remain the answer
-                pass
+                logging.getLogger(__name__).debug("answer: ignored Exception", exc_info=True)
         trace = AnswerTrace(question=str(text or "")[:1000], route=decision.route)
         trace.observe(f"chat message received, route={decision.route} ({decision.reason})")
         if decision.route == SELF_EXPLANATION:

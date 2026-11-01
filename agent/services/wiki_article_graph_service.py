@@ -205,7 +205,7 @@ def build_index(output_dir: Path, *, force: bool = False) -> None:
             try:
                 db.unlink()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build_index: ignored Exception", exc_info=True)
 
 
 def search_articles(output_dir: Path, query: str, limit: int = 20) -> list[dict]:

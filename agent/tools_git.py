@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from flask import current_app, g, has_request_context
@@ -23,7 +24,7 @@ def _git_cwd() -> str | None:
             if wd:
                 return str(wd)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_git_cwd: ignored Exception", exc_info=True)
     return None
 
 
@@ -156,7 +157,7 @@ def git_commit_tool(message: str):
         if not result.valid:
             return {"error": "invalid_commit_message", "details": result.errors}
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("git_commit_tool: ignored Exception", exc_info=True)
 
     import subprocess
 

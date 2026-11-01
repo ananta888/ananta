@@ -94,13 +94,13 @@ def _close_global_shells():
         try:
             _shell_instance.close()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_close_global_shells: ignored Exception", exc_info=True)
         _shell_instance = None
     if _shell_pool is not None:
         try:
             _shell_pool.close_all()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_close_global_shells: ignored Exception", exc_info=True)
         _shell_pool = None
 
 

@@ -1,5 +1,6 @@
 """One generation of sanitized continuous frames; no source browser or Hub policy."""
 
+import logging
 import math
 import time
 
@@ -132,10 +133,10 @@ class SanitizedDocumentView:
             if self.cdp is not None:
                 self.cdp.send("Page.stopScreencast")
         except Exception:
-            pass  # An already dead target cannot prevent owned-context teardown.
+            logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
         finally:
             if self.context is not None:
                 try:
                     self.context.close()
                 except Exception:
-                    pass  # Browser teardown may have already closed this context.
+                    logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)

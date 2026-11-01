@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import logging
 import shlex
 import subprocess
 import time
@@ -444,5 +445,5 @@ def execute_custom_tool(
             failure_reason=str(result.get("error") or "") or None,
         )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("execute_custom_tool: ignored Exception", exc_info=True)
     return result

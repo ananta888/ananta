@@ -1,5 +1,6 @@
 """Validate delivery observations; Hub authority and synthesis stay outside this port."""
 
+import logging
 import time
 
 from ananta_contracts.meet_speech_source import source_progress, source_receipt
@@ -91,4 +92,4 @@ class BrowserSpeechPlayback:
             try:
                 self.feeder.close()
             except Exception:
-                pass  # The browser-local controller and source watchdogs remain bounded.
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)

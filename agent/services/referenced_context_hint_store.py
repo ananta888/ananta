@@ -11,6 +11,7 @@ never confused with authoritative source text.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -236,7 +237,7 @@ class ReferencedContextHintStore:
                     h = ReferencedContextHint.from_dict(d)
                     tmp[h.id] = h
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_load_kind: ignored Exception", exc_info=True)
         except (OSError, PermissionError):
             pass
         self._cache.update(tmp)

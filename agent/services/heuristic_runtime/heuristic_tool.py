@@ -6,6 +6,7 @@ Tool calls are logged to DecisionTrace.
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -158,7 +159,7 @@ class HeuristicTool:
         try:
             self._trace_repo.save(trace)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("execute: ignored Exception", exc_info=True)
 
         from agent.repositories.heuristic_lease_repo import _DOMAIN_TTL_DEFAULTS
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -90,7 +91,7 @@ def _resolve_ai_snake_chat_provider(
     except OpenAICredentialEndpointBindingError:
         raise
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_resolve_ai_snake_chat_provider: ignored Exception", exc_info=True)
 
     central = central_model_resolver(cfg)
     if central is not None:

@@ -10,6 +10,7 @@ import gc
 import hashlib
 import importlib.util
 import json
+import logging
 import re
 import threading
 import time
@@ -159,7 +160,7 @@ class PeftLoraModelExecutor:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("unload: ignored Exception", exc_info=True)
 
 
 @dataclass(frozen=True)

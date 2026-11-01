@@ -7,6 +7,7 @@ and pending candidates. Designed for use in TUI panels or CLI status output.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
@@ -148,7 +149,7 @@ class HeuristicFormatTuiView:
                     if fr.warnings:
                         file_warning_ids.add(fr.file)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
         model.validation_errors = validation_errors
 
         # Build rows from index

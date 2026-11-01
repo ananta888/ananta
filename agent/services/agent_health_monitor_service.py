@@ -69,7 +69,9 @@ class AgentHealthMonitorService:
                                     status=effective_status,
                                 )
                             except Exception:
-                                pass
+                                logging.getLogger(__name__).debug(
+                                    "check_all_agents_health: ignored Exception", exc_info=True
+                                )
                         if effective_status == "online":
                             agent_obj.last_seen = now
                             changed = True
@@ -129,7 +131,7 @@ class AgentHealthMonitorService:
                         if status_candidate in {"online", "busy", "degraded", "offline"}:
                             status = status_candidate
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("_health_check_url: ignored Exception", exc_info=True)
                     return status, None
             except Exception:
                 continue
@@ -173,9 +175,9 @@ class AgentHealthMonitorService:
                 try:
                     resources = stats_resp.json().get("resources")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_check_agent: ignored Exception", exc_info=True)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_check_agent: ignored Exception", exc_info=True)
 
         return agent_obj, (status if status in {"online", "busy", "degraded"} else "online", resources)
 

@@ -312,7 +312,7 @@ class SshCertificateIssuer:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_denied: ignored Exception", exc_info=True)
 
     @staticmethod
     def _audit_issued(result: SshCertificateIssueResult, user_id: str, target_type: str, principal: str) -> None:
@@ -333,7 +333,7 @@ class SshCertificateIssuer:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_issued: ignored Exception", exc_info=True)
 
 
 _INSTANCE: SshCertificateIssuer | None = None

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 
@@ -492,7 +493,7 @@ def llm_generate():
         try:
             log_llm_entry(event=event, request_id=request_id, **kwargs)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_log: ignored Exception", exc_info=True)
 
     raw_data = request.get_json()
     data = {} if raw_data is None else raw_data

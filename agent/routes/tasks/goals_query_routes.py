@@ -1,3 +1,5 @@
+import logging
+
 from flask import g, request
 
 from agent.auth import check_auth, check_strict_auth
@@ -273,7 +275,7 @@ def goal_workflow_status(goal_id: str):
                             if isinstance(prod, str):
                                 produced_artifact_keys.append(prod)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("goal_workflow_status: ignored Exception", exc_info=True)
     if str(request.args.get("debug") or "").strip() in {"1", "true", "yes"}:
         text = debug_workflow_status(
             goal_id=goal_id,

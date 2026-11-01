@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 import uuid
@@ -102,4 +103,4 @@ class HeuristicProposalStore:
                     if "content_hash" in data:
                         self._content_hashes.add(data["content_hash"])
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_load_existing_hashes: ignored Exception", exc_info=True)

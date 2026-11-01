@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -353,7 +354,7 @@ def _condition_from_metadata(flow: ET.Element, metadata: dict[str, Any]) -> Tran
         try:
             return TransitionCondition.model_validate(condition)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_condition_from_metadata: ignored Exception", exc_info=True)
     expression = flow.find("bpmn:conditionExpression", NS)
     if expression is not None and expression.text and expression.text.strip():
         return TransitionCondition(kind="expression", expression=expression.text.strip())

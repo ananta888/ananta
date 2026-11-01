@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -130,7 +131,7 @@ class TransactionalMailSyncStateStore:
             try:
                 transaction.rollback()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("apply_and_commit: ignored Exception", exc_info=True)
             if isinstance(exc, MailSyncStateStoreError):
                 raise
             raise MailSyncStateStoreError("mail_sync_transaction_failed") from exc

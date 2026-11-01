@@ -189,7 +189,7 @@ def dispatch_native_task(ctx, *, policy):
                     journal.settle(task=stored, claim=claim, accepted=False)
             except Exception:
                 # A surviving sending row still prevents a duplicate transport.
-                pass
+                logging.getLogger(__name__).debug("dispatch_native_task: ignored Exception", exc_info=True)
         if normalize_task_status(current) in TERMINAL_TASK_STATUSES and (
             not pi or (evidence_completed and journal_completed)
         ):
@@ -205,7 +205,7 @@ def dispatch_native_task(ctx, *, policy):
             except Exception:
                 # A corrupt authoritative row may itself fail the storage guard.
                 # Do not bypass that guard to fabricate a quarantine/terminal state.
-                pass
+                logging.getLogger(__name__).debug("dispatch_native_task: ignored Exception", exc_info=True)
         result.failed = True
         result.failure_type = "native_autopilot_dispatch_blocked"
         logging.getLogger(__name__).warning("Native Autopilot blocked in %s for task %s", phase, ctx.task.id)
@@ -214,5 +214,5 @@ def dispatch_native_task(ctx, *, policy):
                 ctx.task.id, "autopilot_native_dispatch_blocked", reason_code=result.failure_type, phase=phase
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("dispatch_native_task: ignored Exception", exc_info=True)
     return result

@@ -1,3 +1,5 @@
+import logging
+
 from flask import current_app, g, has_request_context
 
 from agent.tools_registry import registry
@@ -32,7 +34,7 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
                     if _within(abs_path, workspace_real):
                         allowed = True
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_check_file_access: ignored Exception", exc_info=True)
     if not allowed:
         return False, f"Zugriff auf Pfad '{path}' verweigert (außerhalb des Workspaces)."
 

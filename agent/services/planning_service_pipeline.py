@@ -163,14 +163,14 @@ def _run_selective_repair(
                 try:
                     delattr(g, "llm_goal_id")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_run_selective_repair: ignored Exception", exc_info=True)
             if had_llm_task_id:
                 g.llm_task_id = prev_llm_task_id
             else:
                 try:
                     delattr(g, "llm_task_id")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_run_selective_repair: ignored Exception", exc_info=True)
         repair_subtasks = parse_subtasks_from_llm_response(repair_resp, default_priority=planner.default_priority)
         if not repair_subtasks:
             break
@@ -353,7 +353,7 @@ def _run_last_resort_asks(
                             _seen.add(_k)
                             selective_repair_codes.append(f"last_resort_ask:{_cat}")
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_run_last_resort_asks: ignored Exception", exc_info=True)
         quality = get_planning_quality_service().evaluate(
             subtasks=subtasks,
             mode=mode,

@@ -1,6 +1,7 @@
 """One bounded Hub-assigned Companion session; no supervisor or task admission."""
 
 import base64
+import logging
 import os
 import sys
 import time
@@ -317,7 +318,7 @@ def main():
         try:
             hub.call("finish", status=status)
         except Exception:
-            pass  # Closed Hub lease rechecks may reject a cancelled/stale finish.
+            logging.getLogger(__name__).debug("main: ignored Exception", exc_info=True)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ On watchdog trigger:
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -209,7 +210,7 @@ class ShadowRunner:
                 value=value,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_trigger_watchdog: ignored Exception", exc_info=True)
         if self._on_watchdog_trigger:
             self._on_watchdog_trigger(self._state.candidate_id, trigger, value)
 
@@ -225,7 +226,7 @@ class ShadowRunner:
                 passed=True,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_emit_completed: ignored Exception", exc_info=True)
 
     def compute_candidate_action(
         self, heuristic: dict[str, Any], *, section: str, ai_status: str, artifact_present: bool

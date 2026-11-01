@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from typing import Any
@@ -92,7 +93,7 @@ def load_benchmarks(data_dir: str) -> dict[str, Any]:
             if isinstance(data, dict):
                 return data
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("load_benchmarks: ignored Exception", exc_info=True)
     return {"models": {}, "updated_at": None}
 
 

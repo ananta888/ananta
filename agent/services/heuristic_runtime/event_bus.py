@@ -9,6 +9,7 @@ normalized string values (hashed or truncated to 200 chars).
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from collections import deque
@@ -81,7 +82,7 @@ class HeuristicEventBus:
             try:
                 handler(event)
             except Exception:
-                pass  # bus never propagates subscriber exceptions
+                logging.getLogger(__name__).debug("publish: ignored Exception", exc_info=True)
 
     def get_recent(self, n: int) -> list[HeuristicEvent]:
         """Return up to n most-recent events (newest last)."""

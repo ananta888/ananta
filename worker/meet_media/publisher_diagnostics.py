@@ -6,6 +6,7 @@ publication. Off by default: nothing is installed, and ``note_failure`` is a no-
 """
 
 import json
+import logging
 import os
 
 DIAGNOSTICS_ENV = "MEET_PUBLISHER_DIAGNOSTICS"
@@ -98,7 +99,7 @@ class PublisherDiagnostics:
             label = phase.upper() + ("" if attempt is None else f"#{attempt}")
             self._write(f"{label} {json.dumps(state, default=str)[:1200]}")
         except Exception:  # noqa: BLE001 - best-effort diagnostics only
-            pass
+            logging.getLogger(__name__).debug("note_failure: ignored Exception", exc_info=True)
 
     def _write(self, text):
         try:

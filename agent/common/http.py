@@ -139,7 +139,7 @@ def _execute_guarded_request(
             try:
                 close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_close_response: ignored Exception", exc_info=True)
 
     def _abandon_request() -> None:
         with result_lock:
@@ -211,11 +211,11 @@ def close_http_response(response: Any) -> None:
 
                 release_session(tracked_key, session)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close_http_response: ignored Exception", exc_info=True)
             try:
                 session.close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close_http_response: ignored Exception", exc_info=True)
 
 
 def _classify_status(code: int) -> str:
@@ -499,11 +499,11 @@ class HttpClient:
 
                     release_session(tracked_key, tracked_session)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("post: ignored Exception", exc_info=True)
                 try:
                     tracked_session.close()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("post: ignored Exception", exc_info=True)
 
 
 # Singleton-Instanz mit Standardwerten

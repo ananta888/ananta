@@ -599,7 +599,7 @@ class AutoPlanner:
 
                 autonomous_loop.wake()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("analyze_and_create_followups: ignored Exception", exc_info=True)
 
         log_audit(
             "auto_planner_followups_created",

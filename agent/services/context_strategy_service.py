@@ -261,7 +261,7 @@ class ContextStrategyService:
                 decision.fit.to_mapping(),
             )
         except Exception:  # noqa: BLE001 -- recording never changes a decision
-            pass
+            logging.getLogger(__name__).debug("_record: ignored Exception", exc_info=True)
 
 
 def get_context_strategy_service(config: Mapping[str, Any] | None = None) -> ContextStrategyService:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from typing import Any, Callable, Iterable, Mapping, Protocol
 
@@ -443,7 +444,7 @@ def record_source_control_route_denial(
             record(event)
             return
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("record_source_control_route_denial: ignored Exception", exc_info=True)
     log_audit("source_control_access_denied", event)
 
 

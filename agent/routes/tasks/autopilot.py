@@ -733,7 +733,7 @@ def request_autopilot_wake(event_type: str, **details: Any) -> None:
         if details.get("task_id"):
             _append_trace_event(str(details.get("task_id")), f"autopilot_wake_{event_type}", **details)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("request_autopilot_wake: ignored Exception", exc_info=True)
 
 
 @autopilot_bp.route("/tasks/autopilot/start", methods=["POST"])

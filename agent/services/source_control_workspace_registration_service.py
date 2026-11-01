@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 import time
@@ -441,7 +442,7 @@ class SourceControlWorkspaceRegistrationService:
                 reason_code=reason_code,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_record_denial: ignored Exception", exc_info=True)
 
     @staticmethod
     def _view(record: WorkspaceRegistrationRecord) -> Mapping[str, object]:

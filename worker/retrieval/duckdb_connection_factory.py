@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
 from typing import Any
@@ -48,7 +49,7 @@ class DuckDBConnectionFactory:
                 try:
                     cache[key].close()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("connect: ignored Exception", exc_info=True)
                 del cache[key]
         key = (resolved, bool(read_only))
         connection = cache.get(key)
