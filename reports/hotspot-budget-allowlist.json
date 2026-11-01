@@ -1,4 +1,4 @@
 {
   "agent/ai_agent.py": "Monolithische Startup-Registrierung; Zerlegung in agent/bootstrap/* laeuft unter todos/todo.repo-hygiene-cleanup-remediation.json CLN-048 (Autopilot-Extraktion) und der SPLIT-*-Serie. Budget-Rueckkehr: <=250 Zeilen pro Modul.",
-  "agent/services/service_registry.py": "54 Service-Felder als Any; Typisierung und Entzerren geplant unter CLN-061 desselben Cleanup-Tracks. Budget-Rueckkehr: <=250 Zeilen."
+  "agent/services/service_registry.py": "Kompositions-Registry: 54 Service-Felder sind seit CLN-061 ueber TYPE_CHECKING typisiert (Any 58->5); der TYPE_CHECKING-Importblock haelt das Modul ueber dem 250-Zeilen-Budget. Gruppen-Aufspaltung in Teilmodule ist moeglich, bringt aber keinen Isolationsgewinn — Eintrag bleibt als begruendete Ausnahme bestehen."
 }
