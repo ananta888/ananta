@@ -17,64 +17,15 @@ from __future__ import annotations
 
 import re
 import shlex
-import subprocess
-import time
 
 from flask import Blueprint, jsonify, request
 
+from agent.services.safe_shell_execution import (
+    is_blocked,
+    run_shell,
+)
+
 det_run_bp = Blueprint("det_run", __name__, url_prefix="/api/deterministic")
-
-_BLOCKED_PATTERNS = [
-    r"rm\s+-[rf]",
-    r"\bdd\b.*of=",
-    r"\bmkfs\b",
-    r":\(\)\{",  # fork bomb
-    r">\s*/dev/sd",
-    r"chmod\s+000",
-    r"curl\s+.*\|\s*(ba)?sh",
-    r"wget\s+.*\|\s*(ba)?sh",
-    r"\bsudo\b",
-]
-_BLOCKED_RE = [re.compile(p, re.IGNORECASE) for p in _BLOCKED_PATTERNS]
-
-_SAFE_WORKDIR = "/project-workspaces"
-
-
-def _is_blocked(cmd: str) -> str | None:
-    for pattern in _BLOCKED_RE:
-        if pattern.search(cmd):
-            return f"Blocked pattern: {pattern.pattern}"
-    return None
-
-
-def _run_shell(cmd: str, timeout: int) -> dict:
-    t0 = time.monotonic()
-    try:
-        result = subprocess.run(
-            ["bash", "-c", cmd],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=_SAFE_WORKDIR,
-        )
-        duration = int((time.monotonic() - t0) * 1000)
-        return {
-            "exit_code": result.returncode,
-            "stdout": result.stdout[:4096],
-            "stderr": result.stderr[:2048],
-            "duration_ms": duration,
-            "success": result.returncode == 0,
-        }
-    except subprocess.TimeoutExpired:
-        return {
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": "Timeout expired",
-            "duration_ms": timeout * 1000,
-            "success": False,
-        }
-    except Exception as exc:
-        return {"exit_code": -1, "stdout": "", "stderr": str(exc), "duration_ms": 0, "success": False}
 
 
 @det_run_bp.post("/run")
@@ -89,19 +40,19 @@ def run_det_step():
         return jsonify({"error": "command_required"}), 400
 
     # Safety gate
-    blocked = _is_blocked(command)
+    blocked = is_blocked(command)
     if blocked:
         return jsonify({"error": "command_blocked", "reason": blocked, "success": False}), 403
 
     if subtype == "script":
-        result = _run_shell(command, timeout)
+        result = run_shell(command, timeout)
 
     elif subtype == "api-call":
         # command is the URL; build safe curl invocation
         if not command.startswith("http"):
             return jsonify({"error": "api-call requires http/https URL"}), 400
         curl_cmd = f"curl -s -o /dev/null -w '%{{http_code}}' --max-time {timeout} {shlex.quote(command)}"
-        result = _run_shell(curl_cmd, timeout + 2)
+        result = run_shell(curl_cmd, timeout + 2)
         http_code = result.get("stdout", "").strip()
         result["http_code"] = http_code
         if expected and http_code:
@@ -109,7 +60,7 @@ def run_det_step():
 
     elif subtype == "regex-check":
         # command is a shell command; expected is the regex pattern
-        result = _run_shell(command, timeout)
+        result = run_shell(command, timeout)
         if expected and result.get("stdout"):
             matched = bool(re.search(expected, result["stdout"], re.MULTILINE))
             result["regex_match"] = matched
@@ -119,11 +70,11 @@ def run_det_step():
         # command is the file/dir path; expected is optional regex on content
         path = command
         check_cmd = f"test -e {shlex.quote(path)} && echo EXISTS || echo MISSING"
-        result = _run_shell(check_cmd, 5)
+        result = run_shell(check_cmd, 5)
         result["path"] = path
         if expected and result.get("stdout", "").strip() == "EXISTS":
             grep_cmd = f"grep -c {shlex.quote(expected)} {shlex.quote(path)} 2>/dev/null"
-            grep_result = _run_shell(grep_cmd, 5)
+            grep_result = run_shell(grep_cmd, 5)
             result["pattern_match"] = grep_result["exit_code"] == 0
             result["success"] = grep_result["exit_code"] == 0
         else:
@@ -131,7 +82,7 @@ def run_det_step():
 
     elif subtype == "python":
         py_cmd = f"python3 -c {shlex.quote(command)}"
-        result = _run_shell(py_cmd, timeout)
+        result = run_shell(py_cmd, timeout)
 
     else:
         return jsonify({"error": f"unknown_subtype: {subtype}"}), 400

@@ -17,53 +17,24 @@ from __future__ import annotations
 
 import json
 import logging
-import pathlib as _pl
 import re
-import time as _time
 from typing import Any
 
 from agent.services.snake_chat_cancellation import is_chat_cancelled
+from agent.services.ui_guide_maintenance import (
+    REPO_ROOT as _REPO_ROOT,
+)
+from agent.services.ui_guide_maintenance import (
+    UI_GUIDE_PATH as _UI_GUIDE_PATH,
+)
+from agent.services.ui_guide_maintenance import (
+    ensure_ui_guide,
+)
 
 _log = logging.getLogger(__name__)
-_REPO_ROOT = _pl.Path(__file__).parent.parent.parent
-_UI_GUIDE_PATH = _REPO_ROOT / "docs" / "ananta-ui-guide.md"
-_UI_GUIDE_SCRIPT = _REPO_ROOT / "scripts" / "generate_ui_guide.py"
 _MAX_TOOL_RESULT_CHARS = 6000
-_GUIDE_MAX_AGE_SECONDS = 86_400  # regenerate guide if older than 24 h
 
 # ── Guide generation / freshness ──────────────────────────────────────────────
-
-
-def ensure_ui_guide(force: bool = False) -> str:
-    """Return the UI guide markdown, generating it when missing or stale."""
-    needs_regen = force
-    if not needs_regen:
-        if not _UI_GUIDE_PATH.exists():
-            needs_regen = True
-        else:
-            age = _time.time() - _UI_GUIDE_PATH.stat().st_mtime
-            if age > _GUIDE_MAX_AGE_SECONDS:
-                needs_regen = True
-
-    if needs_regen:
-        try:
-            import subprocess
-            import sys
-
-            subprocess.run(
-                [sys.executable, str(_UI_GUIDE_SCRIPT)],
-                check=False,
-                timeout=30,
-                cwd=str(_REPO_ROOT),
-            )
-            _log.info("UI guide regenerated: %s", _UI_GUIDE_PATH)
-        except Exception as exc:
-            _log.warning("UI guide generation failed: %s", exc)
-
-    try:
-        return _UI_GUIDE_PATH.read_text(encoding="utf-8")
-    except Exception:
-        return ""
 
 
 # ── Tool schemas ──────────────────────────────────────────────────────────────

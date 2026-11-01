@@ -1136,7 +1136,7 @@
       "title": "Route-Layer von Business-Logik, DB-Zugriff und subprocess befreien",
       "description": "36 Route-Files greifen direkt auf Repositories/DB zu (memory_audit, system.py:915, goals_planning_routes). Business-Logik in Routen: knowledge.py:358-541 (Reconciliation ~180 LOC), system.py analyze_audit_logs/register_agent/probe_registered_agent. subprocess in routes (deterministic_run.py:19, snakes_ananta_config_tool_loop.py:48). In Services verschieben.",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M7",
@@ -1148,8 +1148,8 @@
         "Keine direkten Repositoriy-/DB-/subprocess-Zugriffe in routes (check_imports erzwingt).",
         "Reconciliation-/Audit-Logik liegt in services (z.B. knowledge_index_job_service, memory_audit_read_service)."
       ],
-      "implementation_notes": "memory_audit_read_service existiert bereits und wird in memory_audit.py:7 korrekt genutzt - nur :22-24 Repo-Import ist der Leck. orchestration_policy/persistence.py ist ein persistence-Modul im routes-Tree (mit CLN-050).",
-      "progress_percent": 0
+      "implementation_notes": "Subprocess-Auszug aus routes fertig: agent/services/safe_shell_execution.py (deterministic_run-Guardrails+Run) und agent/services/ui_guide_maintenance.py (snakes UI-Guide-Regen); orchestration_policy/persistence.py bereits via CLN-050 ins services-Layer. OFFEN: knowledge.py Reconciliation (~180 LOC -> knowledge_index_job_service) und system.py (analyze_audit_logs/register_agent/probe_registered_agent -> Services) sowie weiterer Repo-Zugriff per Service-Locator in 36 Routes (kein Regelverstoss, aber SRP-Schuld).",
+      "progress_percent": 50
     },
     {
       "id": "CLN-050",
@@ -1196,7 +1196,7 @@
       "title": "cli_backends/context.py Bypasses schliessen",
       "description": "5 Stellen importieren agent.services direkt statt ueber default_context: workspace_mutation/_orchestrator.py:218,242, tool_routing.py:105,157, tool_actions.py:271, session.py:238, opencode_codecompass_mcp.py:26. Brechen den Monkeypatch-Seam (default_context.x=fake wirkt dort nicht). Ueber default_context leiten.",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M7",
@@ -1206,15 +1206,15 @@
         "Monkeypatch-Seam funktioniert fuer alle Pfade (Test).",
         "Detektor verbietet agent.services-Imports in cli_backends ausser context.py."
       ],
-      "implementation_notes": "DIP/Testability; mechanischer Refactor. tasks/execution.py run_llm_cli_command duerftig durch task_scoped_execution_service funneln (optional).",
-      "progress_percent": 0
+      "implementation_notes": "7 direkte agent.services-Imports in cli_backends ueber default_context-Accessoren geleitet; scripts/check_cli_backend_context_seam.py als Detektor in der Pipeline + 3 Tests (inkl. Monkeypatch-Seam).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-053",
       "title": "LLM-Interceptor Blueprint aus services nach routes verschieben",
       "description": "agent/services/llm_interceptor/openai_compat_server.py:7,67-82 definiert ein Blueprint (llm_interceptor_openai_compat) mit @bp.route im Service-Layer. Nach agent/routes/ verschieben; Domain-Logik im Service lassen (SRP/DIP).",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M7",
@@ -1226,8 +1226,8 @@
         "Domain-Logik bleibt im Service; Route ist duenn.",
         "check_service_boundaries/check_imports sind gruen."
       ],
-      "implementation_notes": "Blueprints gehoeren in routes/; Service-Blueprint ist Schichtverstoss.",
-      "progress_percent": 0
+      "implementation_notes": "OpenAI-Compat-Blueprint nach agent/routes/llm_interceptor_openai_compat.py; Domain-Logik als chat_completion/health_payload im Service; Komposition (create_interceptor_app/run_interceptor_server) in routes; 56 Tests in HEAD-Paritaet.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-054",
@@ -1698,13 +1698,13 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 55,
+      "todo": 52,
       "in_progress": 0,
-      "partial": 8,
+      "partial": 9,
       "blocked": 0,
-      "done": 12
+      "done": 14
     },
-    "progress_percent_done": 16.0,
+    "progress_percent_done": 18.67,
     "by_priority": {
       "P0": 5,
       "P1": 37,
@@ -1731,9 +1731,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 55,
+    "todo_remaining": 52,
     "in_progress": 0,
-    "partial": 8,
+    "partial": 9,
     "blocked": 0,
     "done": 12
   },
