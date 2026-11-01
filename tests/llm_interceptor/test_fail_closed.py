@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent.routes.llm_interceptor_openai_compat import create_interceptor_app
 from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
 from agent.services.llm_interceptor.openai_compat_server import OpenAICompatInterceptorServer
 
@@ -23,7 +24,7 @@ def _cfg(cloud: bool = False) -> LlmInterceptorConfig:
 
 def test_policy_engine_failure_denies_by_default():
     server = OpenAICompatInterceptorServer(_cfg())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._policy.evaluate = lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
     client = app.test_client()
     resp = client.post(
@@ -35,7 +36,7 @@ def test_policy_engine_failure_denies_by_default():
 
 def test_redactor_failure_blocks_cloud_forwarding():
     server = OpenAICompatInterceptorServer(_cfg(cloud=True))
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._redactor.redact_messages = lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom"))
     client = app.test_client()
     resp = client.post(
@@ -47,7 +48,7 @@ def test_redactor_failure_blocks_cloud_forwarding():
 
 def test_context_gate_failure_drops_context_not_request():
     server = OpenAICompatInterceptorServer(_cfg())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     seen = {}
 
     def _fake_forward_chat(*, payload, envelope=None):

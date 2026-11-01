@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from agent.routes.llm_interceptor_openai_compat import create_interceptor_app
 from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
 from agent.services.llm_interceptor.openai_compat_server import OpenAICompatInterceptorServer
 
@@ -31,7 +32,7 @@ def _cfg() -> LlmInterceptorConfig:
 
 
 def test_health_exposes_active_upstream_ids_without_secrets():
-    app = OpenAICompatInterceptorServer(_cfg()).create_app()
+    app = create_interceptor_app(OpenAICompatInterceptorServer(_cfg()))
     client = app.test_client()
     resp = client.get("/v1/health")
     assert resp.status_code == 200
@@ -41,7 +42,7 @@ def test_health_exposes_active_upstream_ids_without_secrets():
 
 
 def test_chat_completions_rejects_invalid_json():
-    app = OpenAICompatInterceptorServer(_cfg()).create_app()
+    app = create_interceptor_app(OpenAICompatInterceptorServer(_cfg()))
     client = app.test_client()
     resp = client.post("/v1/chat/completions", data="{bad", content_type="application/json")
     assert resp.status_code == 400
@@ -50,7 +51,7 @@ def test_chat_completions_rejects_invalid_json():
 
 
 def test_chat_completions_rejects_missing_messages_or_model():
-    app = OpenAICompatInterceptorServer(_cfg()).create_app()
+    app = create_interceptor_app(OpenAICompatInterceptorServer(_cfg()))
     client = app.test_client()
     resp = client.post("/v1/chat/completions", json={"messages": []})
     assert resp.status_code == 400
@@ -63,7 +64,7 @@ def test_chat_completions_rejects_missing_messages_or_model():
 
 def test_chat_completions_accepts_valid_body_and_returns_openai_shape():
     server = OpenAICompatInterceptorServer(_cfg())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._router.forward_chat = lambda **_kwargs: {
         "id": "chatcmpl-1",
         "object": "chat.completion",
@@ -89,7 +90,7 @@ def test_chat_completions_accepts_valid_body_and_returns_openai_shape():
 
 def test_streaming_passthrough_returns_sse():
     server = OpenAICompatInterceptorServer(_cfg())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._router.forward_chat_stream = lambda **_kwargs: iter(['data: {"id":"1"}\n\n', "data: [DONE]\n\n"])
     client = app.test_client()
     resp = client.post(
@@ -104,7 +105,7 @@ def test_streaming_passthrough_returns_sse():
 
 def test_streaming_invalid_chunk_gets_safe_terminal_error():
     server = OpenAICompatInterceptorServer(_cfg())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._router.forward_chat_stream = lambda **_kwargs: iter(['{"bad":1}\n\n'])
     client = app.test_client()
     resp = client.post(
@@ -118,7 +119,7 @@ def test_streaming_invalid_chunk_gets_safe_terminal_error():
 
 def test_non_stream_invalid_upstream_response_repaired_once():
     server = OpenAICompatInterceptorServer(_cfg())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._router.forward_chat = lambda **_kwargs: {"text": "hello from malformed"}
     client = app.test_client()
     resp = client.post(

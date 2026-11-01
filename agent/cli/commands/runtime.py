@@ -182,11 +182,9 @@ def _cmd_recommend(parsed) -> int:
 def _cmd_llm_interceptor(parsed) -> int:
     import sys
 
+    from agent.routes.llm_interceptor_openai_compat import run_interceptor_server
     from agent.services.llm_interceptor.config_schema import load_llm_interceptor_config
-    from agent.services.llm_interceptor.openai_compat_server import (
-        OpenAICompatInterceptorServer,
-        run_interceptor_server,
-    )
+    from agent.services.llm_interceptor.openai_compat_server import OpenAICompatInterceptorServer
 
     try:
         cfg = load_llm_interceptor_config(parsed.config)

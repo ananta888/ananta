@@ -6,7 +6,6 @@ from agent.services.llm_interceptor.context_gate import ContextGate
 from agent.services.llm_interceptor.model_profiles import load_model_profiles
 from agent.services.llm_interceptor.openai_compat_server import (
     OpenAICompatInterceptorServer,
-    create_interceptor_app,
 )
 from agent.services.llm_interceptor.policy_engine import PolicyEngine
 from agent.services.llm_interceptor.prompt_adapter import PromptAdapter
@@ -29,6 +28,5 @@ __all__ = [
     "SecretRedactor",
     "load_model_profiles",
     "build_request_envelope",
-    "create_interceptor_app",
     "load_llm_interceptor_config",
 ]
