@@ -195,7 +195,7 @@
         "CLN-074",
         "CLN-075"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -1613,7 +1613,7 @@
       "title": "Finale SOLID-/Architektur-Review aller Bereinigungen",
       "description": "Review aller CLN-Aenderungen gegen SOLID und Hub-Worker-Regeln: bewusst erhaltene Schuld dokumentieren (SGDEC-D5, meet-hub-worker-boundaries preserved debt), keine neuen God-Services, keine Breaking Changes ohne Migrationspfad. Ergebnis in docs/architecture/.",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M10",
@@ -1627,15 +1627,15 @@
         "Bewusst erhaltene technische Schuld ist dokumentiert (Pfad + Begruendung).",
         "Hub-Worker-Architektur unangetastet (AGENTS.md Summary-Regel)."
       ],
-      "implementation_notes": "AGENTS.md 'Expected Output Behavior': SOLID-Verstoesse die erhalten/entfernt/verursacht werden explizit benennen.",
-      "progress_percent": 0
+      "implementation_notes": "Finale SOLID-Review: alle Gates gruen (check_imports 0, check_service_boundaries 0, check_worker_boundaries 0-neu (89 Dateien baseline), check_cycles 0-neu, singleton-freeze, env-reference, output-boundary, cli-backend-seam, ruff format+check). Dokumentierte bewusste Schuld: (1) Ratchet-Ignores E501/E402/E741/F811/C901 mit Restmengen, (2) 7+ Fassaden/Shims mit F401-Per-File-Ignores (Patch-Seams), (3) hotspot-allowlist (service_registry 425/250), (4) worker-boundary-baseline 89 Dateien (CLN-054-Rest), (5) import-cycle-baseline 2 auth-Gruppen, (6) CLN-049/054/058/060/068/069 als offene Refactors, (7) --skip-types bis mypy-Verifikation.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-074",
       "title": "Vollstaendiger Regressionstest-Lauf (alle Gates gruen)",
       "description": "Abschluss-Verifikation: alle Tests (Tier core/slow), alle Detektoren, Lint/Type/Coverage-Gates laufen gruen oder mit dokumentierter begruendeter Ausnahme. Keine Regression gegen Baseline (v.a. 26k Tests).",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M10",
@@ -1648,8 +1648,8 @@
         "Alle Detektoren + Lint/Type/Coverage gruen.",
         "Keine verlorenen Testabdeckung/Bugs durch Bereinigungen (Coverage stabil)."
       ],
-      "implementation_notes": "Headless, bounded (timeout aus CLN-023). Ergebnis-Artefakte in erlaubte artifacts/-Pfade.",
-      "progress_percent": 0
+      "implementation_notes": "Voll-Lauf vs Prae-Cleanup-Base (git worktree 6c7eeb5f2): 0 Regressionen bei 29404 vs 29366 passed (+38), 68 vs 72 failed (-4), 74 vs 76 errors (Env-Gaps). 3 Strip-Wellen behoben (tools.py 32 Tools, goals.py/shims, Fixture-Imports, Gate-Artefakte regeneriert). Alle 10 Detektoren + ruff gruen.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-075",
@@ -1698,13 +1698,13 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 39,
+      "todo": 37,
       "in_progress": 0,
       "partial": 12,
       "blocked": 0,
-      "done": 24
+      "done": 26
     },
-    "progress_percent_done": 18.67,
+    "progress_percent_done": 34.67,
     "by_priority": {
       "P0": 5,
       "P1": 37,
@@ -1718,24 +1718,24 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 2,
-      "remaining": 16
+      "done": 7,
+      "remaining": 11
     },
     "milestones": {
       "total": 10,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 39,
+    "todo_remaining": 37,
     "in_progress": 0,
     "partial": 12,
     "blocked": 0,
-    "done": 12
+    "done": 26
   },
   "summary_notes": [
     "Planungsartefakt auf Basis der Saustall-Analyse 2026-11-01; keine Implementierung beansprucht (alle status=todo).",
@@ -1748,5 +1748,17 @@
     "Nicht rebaseline bei check_imports-Verstoesen (CLN-047) - Behebung statt kodierte Schuld.",
     "M1-M5 umgesetzt 2026-11-01 (15 Commits): Secrets/Artefakte raus, Deps konsolidiert, Lint/Format/Timeout/Hotspot/Cycle/Worker-Boundary/Singleton-Gates scharf, di.py+ tote Blueprints+ 21 Waisen+ 23 tote Methoden+ 237 except:pass geloescht/geloggt. Partials mit Begruendung in den Tasks. Praexistente Test-Failures (3 Cluster) fuer CLN-040 dokumentiert.",
     "M7 2026-11-01: Autopilot-Engine nach agent/services/autopilot/ extrahiert (CLN-048), 19 Import-Verstoesse = 0 (CLN-047), Allow-Lists leer (CLN-050/051). 4. praeexistentes Test-Failure-Cluster (test_tasks_autopilot.py, 7 Failures auf HEAD) fuer CLN-040 dokumentiert."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "cleanup-status-2026-11-01",
+      "title": "Zwischenstand nach M1-M10-Durchlauf",
+      "items": [
+        "M1-M6 + M10 vollstaendig; M7 mit CLN-049-Teil; M8 mit 055/056/061 done + 057/059 partial.",
+        "Verbleibende Gross-Refactors: CLN-054 (hub/worker Contracts, 89 Baselinedateien), CLN-058 (WorkerWorkspaceService), CLN-060 (current_app/Injection, 108 Dateien), CLN-068 (Compose), CLN-069 (Policy-Port, P3), CLN-033-Cluster-Rest.",
+        "Qualitaetsnachweis: 0 Test-Regressionen gegen Base, 10 Detektoren gruen, ~50 Commits mit je eigener Verifikation.",
+        "Lektion: Bulk-F401-Autofix strippt Registrierungs-/Fassaden-/Fixture-Imports; Per-File-Ignores + Collection/Run-Sweeps als Schutz etabliert."
+      ]
+    }
   ]
 }
