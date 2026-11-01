@@ -1413,7 +1413,7 @@
       "title": "Config-Orphans und Runtime-State-Dateien bereinigen",
       "description": "set_llm_config.json (nichts liest es), config/config.example.json (orphan), ananta.runtime-profile.json (Maschinen-Output mit host-spezifischem created_at/hardware), user.json (27KB Shell-History - siehe CLN-007). hub_benchmark_config.json + scenario_lmstudio.json nach config/ oder tests/fixtures/.",
       "type": "hygiene",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M9",
@@ -1425,15 +1425,15 @@
         "Runtime-State (ananta.runtime-profile.json, user.json) ist nicht getrackt (gitignore).",
         "Dev-/Test-Fixtures liegen an passendem Ort (config/ oder tests/fixtures/)."
       ],
-      "implementation_notes": "user.json/ananta.runtime-profile.json teils in CLN-007; hier config-spezifische Orphans + Platzierung.",
-      "progress_percent": 0
+      "implementation_notes": "set_llm_config.json (schon in M2 geflogen) + config/config.example.json geloescht; hub_benchmark_config.json + scenario_lmstudio.json nach config/ verschoben (CLI-Defaults angepasst; 25 Tests gruen).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-064",
       "title": "Copilot-Citationen aus config.json bereinigen",
       "description": "config.json (9.4KB, wird von hub_benchmark/hybrid_repository_scan/caseflow gelesen) enthaelt 13 ':contentReference[oaicite]...' Copilot-Citationen - ein AI-Draft der als Live-Config committed wurde. Citations entfernen und aus dokumentierter Quelle regenerieren.",
       "type": "hygiene",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M9",
@@ -1443,8 +1443,8 @@
         "Wert ist saubere, konsumierbare Config (von 3 Modulen gelesen).",
         "Ggf. Quelle/Doku fuer die Config dokumentiert."
       ],
-      "implementation_notes": "AI-Draft-Reste in Live-Config sind ein Hygiene-/Korrektheitsproblem.",
-      "progress_percent": 0
+      "implementation_notes": "13 Copilot-Citations aus config.json entfernt, JSON valid.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-065",
@@ -1471,7 +1471,7 @@
       "title": "Redundantes .env.template und .env.bak-* entfernen",
       "description": ".env.template (67 Vars) ist strikte Teilmenge von .env.example (redundant, stale seit Sep 14). .env.bak-20261018 ist Backup-Rest. Entfernen; ein .env.example als Referenz behalten.",
       "type": "hygiene",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M9",
@@ -1482,15 +1482,15 @@
         "Nur ein .env.example existiert; .env.template/.env.bak-* entfernt.",
         "Keine redundanten Env-Vorlagen mehr."
       ],
-      "implementation_notes": "Klein; Teil der Env-SSOT-Bereinigung.",
-      "progress_percent": 0
+      "implementation_notes": ".env.template geloescht (nur docs/compose-profiles.md referenzierte es -> auf .env.example umgestellt).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-067",
       "title": "docker/old_way archivieren und brokenen Makefile-Target fixen",
       "description": "docker/old_way/ (23 compose-Dateien) ist Legacy (README sagt es), wird aber noch referenziert; Makefile worker-standalone-build zeigt auf nicht-existierendes Dockerfile. Archivieren (legacy-branch/tag oder loeschen) und Makefile-Target fixen/entfernen (Kombi CLN-021).",
       "type": "hygiene",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M9",
@@ -1502,8 +1502,8 @@
         "Makefile-Target zeigt auf existierendes Dockerfile oder ist entfernt.",
         "Keine toten Legacy-Referenzen mehr."
       ],
-      "implementation_notes": "README deklariert compose-next als einzigen gueltigen Pfad; old_way ist tote Flaeche.",
-      "progress_percent": 0
+      "implementation_notes": "Makefile-Target bereits in M3 entfernt. ARCHIVIERUNG von docker/old_way BLOCKIERT durch LIVE-Referenzen: .github/workflows/e2e-compose.yml (faehrt old_way-Stack: docker-compose.base+lite+github-ci), harness-evolution-contracts.yml, agent/services/ops_registry_service.py, scripts/collect_e2e_compose_diagnostics.sh, compose-test-stack.sh, release_gate.py. Migration der e2e-Workflows auf compose-next-Aequivalente ist Voraussetzung und braucht CI-Verifikation.",
+      "progress_percent": 40
     },
     {
       "id": "CLN-068",
@@ -1551,7 +1551,7 @@
       "title": "Ueberlappende/ tote Top-Level-Verzeichnisse bereinigen",
       "description": "web/ + website/ ueberlappen (site.css in beiden, Inhalt verschieden) -> mergen. experiments/ (4 tote Spike-READMEs) -> archivieren. tools/fairphone_voxtral_offline/ (geraetespezifische Shell-Scripts) -> examples/. config/cli_backends/pi/ (Node-Runtime in config/) -> worker/ oder services/.",
       "type": "hygiene",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M10",
@@ -1561,8 +1561,8 @@
         "experiments/ archiviert; fairphone-Skripte unter examples/.",
         "Node-Runtime pi/ liegt nicht mehr unter config/."
       ],
-      "implementation_notes": "Struktur-Hygiene; geringes Risiko, verbessert Uebersicht.",
-      "progress_percent": 0
+      "implementation_notes": "web/+website/ mergen: website/ war 0-referenz-Dublette; Inhalt als web/www/about.html + assets/about.css in den Deploy-Baum ueberfuehrt (pages-www.yml bleibt einziges Deploy). experiments/: 3 tote operator_tui-Spikes geloescht, dmoe bleibt (HRM-Gate-referenziert). fairphone_voxtral_offline -> examples/. config/cli_backends/pi -> worker/cli_backends/pi (Dockerfile.pi-worker COPY aktualisiert).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-071",
@@ -1698,11 +1698,11 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 48,
+      "todo": 43,
       "in_progress": 0,
-      "partial": 11,
+      "partial": 12,
       "blocked": 0,
-      "done": 16
+      "done": 20
     },
     "progress_percent_done": 18.67,
     "by_priority": {
@@ -1731,9 +1731,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 48,
+    "todo_remaining": 43,
     "in_progress": 0,
-    "partial": 11,
+    "partial": 12,
     "blocked": 0,
     "done": 12
   },

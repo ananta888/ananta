@@ -12,7 +12,6 @@ from typing import Any
 
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.runtime_policy import build_trace_record
-from agent.services._task_scoped_cli_invocation import invoke_cli_runner
 from agent.services.organization_research_delegation_policy_service import (
     context_bundle_integrity_digest,
 )
@@ -22,6 +21,7 @@ from agent.services.task_context_bundle_access_service import (
     get_task_context_bundle_access_service,
 )
 from agent.services.task_execution_policy_service import resolve_execution_policy
+from agent.services.task_scoped.cli_invocation import invoke_cli_runner
 from worker.planning.organization_category_research_contracts import (
     OrganizationCategoryResearchExecutionError,
 )

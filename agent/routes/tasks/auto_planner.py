@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from flask import Blueprint, request
 
 from agent.auth import admin_required, check_auth
@@ -14,10 +16,14 @@ from agent.models import (
 from agent.services.autopilot.auto_planner_engine import (
     AutoPlanner,
     _build_followup_prompt,
-    _log,
+    _build_planning_prompt,
+    _parse_followup_analysis,
+    _parse_subtasks_from_llm_response,
     auto_planner,
 )
 from agent.services.service_registry import get_core_services
+
+log = logging.getLogger(__name__)
 
 auto_planner_bp = Blueprint("tasks_auto_planner", __name__)
 
@@ -26,7 +32,7 @@ def init_auto_planner():
     try:
         auto_planner.restore()
     except Exception as e:
-        _log().warning("Auto planner restore failed: %s", e)
+        log.warning("Auto planner restore failed: %s", e)
 
 
 @auto_planner_bp.route("/tasks/auto-planner/status", methods=["GET"])
@@ -113,4 +119,7 @@ __all__ = [
     "init_auto_planner",
     "AutoPlanner",
     "_build_followup_prompt",
+    "_build_planning_prompt",
+    "_parse_followup_analysis",
+    "_parse_subtasks_from_llm_response",
 ]

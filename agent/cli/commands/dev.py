@@ -86,7 +86,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  ananta dev acceptance --scenario-file scenario_lmstudio.json --sla-seconds 900 --password test123\n"
+            "  ananta dev acceptance --scenario-file config/scenario_lmstudio.json --sla-seconds 900 --password test123\n"
             "  ananta dev check pipeline\n"
             "  ananta dev check cycles\n"
             "  ananta dev audit client-surface\n"
@@ -112,7 +112,7 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
         help="Run first-goal acceptance test (replaces scripts/first_goal_acceptance_runner.py).",
     )
     acc_p.add_argument(
-        "--scenario-file", dest="scenario_file", default="scenario_lmstudio.json", help="Path to scenario JSON file."
+        "--scenario-file", dest="scenario_file", default="config/scenario_lmstudio.json", help="Path to scenario JSON file."
     )
     acc_p.add_argument("--sla-seconds", dest="sla_seconds", type=int, default=900, help="SLA timeout in seconds.")
     acc_p.add_argument("--password", default="test123", help="Hub admin password.")

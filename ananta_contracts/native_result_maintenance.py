@@ -9,6 +9,11 @@ MAINTENANCE_TOOL = "native.result.expire"
 RESULT_STORE_BINDING_LIMIT = "native_result_store_binding_id"
 
 
+from dataclasses import dataclass
+
+from ananta_contracts.native_context_bundle import native_context_digest
+
+
 def require_result_store_identifier(value):
     if not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", value) is None:
         raise ValueError("native_result_store_binding_invalid")
@@ -71,3 +76,59 @@ def require_maintenance_recipient(task, *, worker_id, worker_url):
         or worker_url.rstrip("/") != owner["worker_url"]
     ):
         raise ValueError("native_result_store_recipient_mismatch")
+
+
+@dataclass(frozen=True)
+class MaintenanceSchedule:
+    schedule_id: str
+    tenant_id: str
+    project_id: str
+    control_task_id: str
+    owner: dict
+    interval_seconds: int
+    batch_size: int
+    policy_revision: str
+    retire_expired: bool = False
+
+    def to_mapping(self):
+        value = {
+            "schedule_id": self.schedule_id,
+            "tenant_id": self.tenant_id,
+            "project_id": self.project_id,
+            "control_task_id": self.control_task_id,
+            "owner": dict(self.owner),
+            "interval_seconds": self.interval_seconds,
+            "batch_size": self.batch_size,
+            "policy_revision": self.policy_revision,
+        }
+        if self.retire_expired:
+            value["retire_expired"] = True
+        return value
+
+    @property
+    def digest(self):
+        return native_context_digest(self.to_mapping())
+
+    @classmethod
+    def from_mapping(cls, value):
+        fields = {
+            "schedule_id",
+            "tenant_id",
+            "project_id",
+            "control_task_id",
+            "owner",
+            "interval_seconds",
+            "batch_size",
+            "policy_revision",
+        }
+        if not isinstance(value, dict) or set(value) not in (fields, fields | {"retire_expired"}):
+            raise ValueError("native_maintenance_schedule_invalid")
+        if type(value.get("retire_expired", False)) is not bool:
+            raise ValueError("native_maintenance_schedule_invalid")
+        for name in fields - {"owner", "interval_seconds", "batch_size"}:
+            require_result_store_identifier(value[name])
+        interval = value["interval_seconds"]
+        if type(interval) is not int or not 600 <= interval <= 86400:
+            raise ValueError("native_maintenance_interval_invalid")
+        batch, owner = maintenance_input({"batch_size": value["batch_size"], "result_store_owner": value["owner"]})
+        return cls(**{**value, "batch_size": batch, "owner": owner})
