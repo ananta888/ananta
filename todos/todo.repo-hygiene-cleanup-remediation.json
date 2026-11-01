@@ -11,9 +11,24 @@
   "goal": "Ein sauberes, wartbares Repo ohne getrackte Secrets/Artefakte, ohne tote Flaechen, mit aktivierten Lint-/Type-/Coverage-Gates, behebten Schichtverstoesen und dokumentierten, detektor-verankerten Architekturregeln - ohne Regression der bestehenden Hub-Worker-Architektur.",
   "priority": "P0",
   "status": "todo",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "sources": [
     "Konsolidierte Saustall-Analyse 2026-11-01 (read-only, 4 Teilstudien: Dead-Code/Duplikate, Architektur/SOLID, Tests/Gates, Deps/Config/Env)",
     "AGENTS.md (Output Boundary, hub-worker Trennung, SOLID, Evidence Identity, headless tests)",
@@ -40,61 +55,146 @@
     {
       "id": "CLN-M1",
       "title": "Sicherheit und Secrets-Bereinigung (P0)",
-      "task_ids": ["CLN-001", "CLN-002", "CLN-003", "CLN-004", "CLN-005", "CLN-006"],
+      "task_ids": [
+        "CLN-001",
+        "CLN-002",
+        "CLN-003",
+        "CLN-004",
+        "CLN-005",
+        "CLN-006"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M2",
       "title": "Git-Hygiene und getrackte Artefakte (P0/P1)",
-      "task_ids": ["CLN-007", "CLN-008", "CLN-009", "CLN-010", "CLN-011", "CLN-012", "CLN-013", "CLN-014"],
+      "task_ids": [
+        "CLN-007",
+        "CLN-008",
+        "CLN-009",
+        "CLN-010",
+        "CLN-011",
+        "CLN-012",
+        "CLN-013",
+        "CLN-014"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M3",
       "title": "Dependency- und Manifest-Konsolidierung (P1)",
-      "task_ids": ["CLN-015", "CLN-016", "CLN-017", "CLN-018", "CLN-019", "CLN-020", "CLN-021"],
+      "task_ids": [
+        "CLN-015",
+        "CLN-016",
+        "CLN-017",
+        "CLN-018",
+        "CLN-019",
+        "CLN-020",
+        "CLN-021"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M4",
       "title": "Quality-Gates und CI-Haertung (P0/P1)",
-      "task_ids": ["CLN-022", "CLN-023", "CLN-024", "CLN-025", "CLN-026", "CLN-027", "CLN-028", "CLN-029"],
+      "task_ids": [
+        "CLN-022",
+        "CLN-023",
+        "CLN-024",
+        "CLN-025",
+        "CLN-026",
+        "CLN-027",
+        "CLN-028",
+        "CLN-029"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M5",
       "title": "Toter Code und tote Flaechen (P1/P2)",
-      "task_ids": ["CLN-030", "CLN-031", "CLN-032", "CLN-033", "CLN-034", "CLN-035", "CLN-036", "CLN-037", "CLN-038"],
-      "status": "todo"
+      "task_ids": [
+        "CLN-030",
+        "CLN-031",
+        "CLN-032",
+        "CLN-033",
+        "CLN-034",
+        "CLN-035",
+        "CLN-036",
+        "CLN-037",
+        "CLN-038"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "CLN-M6",
       "title": "Testlandschaft strukturieren (P1/P2)",
-      "task_ids": ["CLN-039", "CLN-040", "CLN-041", "CLN-042", "CLN-043", "CLN-044", "CLN-045", "CLN-046"],
+      "task_ids": [
+        "CLN-039",
+        "CLN-040",
+        "CLN-041",
+        "CLN-042",
+        "CLN-043",
+        "CLN-044",
+        "CLN-045",
+        "CLN-046"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M7",
       "title": "Architektur Teil 1: Import-Grenzen und Schichtverstoesse (P1)",
-      "task_ids": ["CLN-047", "CLN-048", "CLN-049", "CLN-050", "CLN-051", "CLN-052", "CLN-053"],
+      "task_ids": [
+        "CLN-047",
+        "CLN-048",
+        "CLN-049",
+        "CLN-050",
+        "CLN-051",
+        "CLN-052",
+        "CLN-053"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M8",
       "title": "Architektur Teil 2: God-Services und Hub-Worker-Entkopplung (P2)",
-      "task_ids": ["CLN-054", "CLN-055", "CLN-056", "CLN-057", "CLN-058", "CLN-059", "CLN-060", "CLN-061"],
+      "task_ids": [
+        "CLN-054",
+        "CLN-055",
+        "CLN-056",
+        "CLN-057",
+        "CLN-058",
+        "CLN-059",
+        "CLN-060",
+        "CLN-061"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M9",
       "title": "Config, Env und Compose Single-Source-of-Truth (P2/P3)",
-      "task_ids": ["CLN-062", "CLN-063", "CLN-064", "CLN-065", "CLN-066", "CLN-067", "CLN-068", "CLN-069"],
+      "task_ids": [
+        "CLN-062",
+        "CLN-063",
+        "CLN-064",
+        "CLN-065",
+        "CLN-066",
+        "CLN-067",
+        "CLN-068",
+        "CLN-069"
+      ],
       "status": "todo"
     },
     {
       "id": "CLN-M10",
       "title": "Verifikation, Abschluss und Verankerung (P1)",
-      "task_ids": ["CLN-070", "CLN-071", "CLN-072", "CLN-073", "CLN-074", "CLN-075"],
+      "task_ids": [
+        "CLN-070",
+        "CLN-071",
+        "CLN-072",
+        "CLN-073",
+        "CLN-074",
+        "CLN-075"
+      ],
       "status": "todo"
     }
   ],
@@ -145,7 +245,9 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "CLN-M1",
-      "depends_on": ["CLN-001"],
+      "depends_on": [
+        "CLN-001"
+      ],
       "acceptance_criteria": [
         "Echte Keys sind rotiert; .env ist weiterhin gitignored und nie in History (git log --all -- .env bleibt leer).",
         "Private Keys liegen ausserhalb des Docker-Build-Context (data/secrets/ oder Vault).",
@@ -163,7 +265,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M1",
-      "depends_on": ["CLN-001"],
+      "depends_on": [
+        "CLN-001"
+      ],
       "acceptance_criteria": [
         ".gitleaks.toml ist getrackt und im Repo sichtbar.",
         "Secret-Scan-Job im CI nutzt die getrackte Policy und laeuft reproduzierbar.",
@@ -181,7 +285,10 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M1",
-      "depends_on": ["CLN-002", "CLN-003"],
+      "depends_on": [
+        "CLN-002",
+        "CLN-003"
+      ],
       "acceptance_criteria": [
         "Audit-Report listet alle getrackten Credential-Funde mit Pfad und Behandlung (rotiert/entfernt/Platzhalter).",
         "Fixture-Werte sind klar als solche markiert und von echten Defaults unterscheidbar.",
@@ -199,7 +306,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M1",
-      "depends_on": ["CLN-004"],
+      "depends_on": [
+        "CLN-004"
+      ],
       "acceptance_criteria": [
         "Automatisierter Test schlaegt an, wenn secret_key/credentials wieder getrackt werden.",
         "Gitignore-Muster fuer verschachtelte secrets/ sind per Test verifiziert.",
@@ -217,7 +326,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-002"],
+      "depends_on": [
+        "CLN-002"
+      ],
       "acceptance_criteria": [
         "Alle genannten Dateien sind nicht mehr getrackt (git ls-files root zeigt sie nicht).",
         "Gitignore deckt sie ab (falls erneutes Auftreten verhindert werden soll).",
@@ -235,7 +346,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-007"],
+      "depends_on": [
+        "CLN-007"
+      ],
       "acceptance_criteria": [
         "test.db, test-reports/**, test-results/** sind nicht mehr getrackt.",
         "Repo-Groesse verringert (Clone-Bloat entfernt); .gitignore regelt weiterhin die Pfade.",
@@ -253,7 +366,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-007"],
+      "depends_on": [
+        "CLN-007"
+      ],
       "acceptance_criteria": [
         "Keine egg-info-Dateien mehr getrackt.",
         "*.egg-info/ ist in .gitignore.",
@@ -271,7 +386,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-008"],
+      "depends_on": [
+        "CLN-008"
+      ],
       "acceptance_criteria": [
         "Junk (nohup.out, lokale Rerun-Reste) ist nicht getrackt.",
         "Bewusste Evidence-JSONs bleiben getrackt via !-Ausnahmen.",
@@ -289,7 +406,9 @@
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-008"],
+      "depends_on": [
+        "CLN-008"
+      ],
       "acceptance_criteria": [
         "Keine UTF-16-kodierte Ignore-Datei mehr im Repo.",
         "Ignore-Verhalten fuer test-reports/ ist korrekt (verifiziert ueber git check-ignore)."
@@ -306,7 +425,9 @@
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-008"],
+      "depends_on": [
+        "CLN-008"
+      ],
       "acceptance_criteria": [
         "Modul liegt unter tests/, Root enthaelt keine Test-Helfer mehr.",
         "Alle Importe sind aktualisiert; Testlauf bleibt gruen.",
@@ -324,7 +445,11 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-001", "CLN-009", "CLN-010"],
+      "depends_on": [
+        "CLN-001",
+        "CLN-009",
+        "CLN-010"
+      ],
       "acceptance_criteria": [
         "Alle identifizierten Luecken sind geschlossen; git check-ignore verifiziert fuer Repraesentativ-Pfade.",
         "Keine uebermaessig breiten Muster die legitime Source verstecken (z.B. /.* betroffen pruefen).",
@@ -342,7 +467,11 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M2",
-      "depends_on": ["CLN-007", "CLN-008", "CLN-009"],
+      "depends_on": [
+        "CLN-007",
+        "CLN-008",
+        "CLN-009"
+      ],
       "acceptance_criteria": [
         "Check faengt getrackte Runtime-Artefakte und faelscht im CI.",
         "Check ist in CI/Release-Gate eingebunden.",
@@ -378,7 +507,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M3",
-      "depends_on": ["CLN-015"],
+      "depends_on": [
+        "CLN-015"
+      ],
       "acceptance_criteria": [
         "llama-index ist optionales extra; Kern-Installation ohne es.",
         "Feature bleibt bei gesetztem extra + Flag funktionsfaehig.",
@@ -396,7 +527,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M3",
-      "depends_on": ["CLN-015"],
+      "depends_on": [
+        "CLN-015"
+      ],
       "acceptance_criteria": [
         "Datei ist entfernt oder regeneriert und konsistent zu pyproject.toml.",
         "Kein Docker-Build nutzt mehr die inkorrekte Datei.",
@@ -414,7 +547,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M3",
-      "depends_on": ["CLN-017"],
+      "depends_on": [
+        "CLN-017"
+      ],
       "acceptance_criteria": [
         "requirements-dev.txt ist entfernt.",
         "CI baut aus pyproject + locks; keine Referenz auf die entfernte Datei.",
@@ -432,7 +567,10 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M3",
-      "depends_on": ["CLN-017", "CLN-018"],
+      "depends_on": [
+        "CLN-017",
+        "CLN-018"
+      ],
       "acceptance_criteria": [
         "Check erkennt Abweichungen zwischen Manifesten und faelscht im CI.",
         "Negativ-Test: absichtliche Abweichung wird gemeldet.",
@@ -450,7 +588,9 @@
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M3",
-      "depends_on": ["CLN-015"],
+      "depends_on": [
+        "CLN-015"
+      ],
       "acceptance_criteria": [
         "Version-Spezifikationen sind konsistent oder Abweichung explizit begruendet dokumentiert.",
         "Keine stillen Konflikte zwischen Subpackages."
@@ -521,7 +661,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M4",
-      "depends_on": ["CLN-022"],
+      "depends_on": [
+        "CLN-022"
+      ],
       "acceptance_criteria": [
         "Genau ein Linter/Stylesheet ist verbindlich; kein Widerspruch mehr.",
         "Konfiguration ist dokumentiert; CI nutzt den gewaehlten Linter."
@@ -538,7 +680,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M4",
-      "depends_on": ["CLN-022"],
+      "depends_on": [
+        "CLN-022"
+      ],
       "acceptance_criteria": [
         "Coverage laeuft bei jedem PR (oder mit sinnvollen paths-filtern).",
         "--cov-fail-under spiegelt global_min_percent; Regressionen faelschen frueh.",
@@ -556,7 +700,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M4",
-      "depends_on": ["CLN-022"],
+      "depends_on": [
+        "CLN-022"
+      ],
       "acceptance_criteria": [
         "CI faelscht bei Budget-Ueberschreitung (oder erlaubt nur dokumentierte Ausnahmen).",
         "ai_agent.py/service_registry.py werden via CLN-048/CLN-061 unter Budget gebracht oder bewusst begruendet.",
@@ -574,7 +720,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M4",
-      "depends_on": ["CLN-028"],
+      "depends_on": [
+        "CLN-028"
+      ],
       "acceptance_criteria": [
         "Check ist lauffaehig und erkennt echte Import-Zyklen (inkl. agent.services<->worker.core).",
         "Check ist in CI verankert.",
@@ -592,7 +740,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M4",
-      "depends_on": ["CLN-018"],
+      "depends_on": [
+        "CLN-018"
+      ],
       "acceptance_criteria": [
         "Alle architektur-relevanten check_*.py sind in der Check-Umgebung lauffaehig.",
         "Fehlende Deps sind in requirements-dev.lock ergaenzt.",
@@ -610,7 +760,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M4",
-      "depends_on": ["CLN-022"],
+      "depends_on": [
+        "CLN-022"
+      ],
       "acceptance_criteria": [
         "worker->agent.services (ausser *_ports/*_contract/config/auth/ananta_contracts) wird gefangen.",
         "agent.services<->worker.* Verstoesse werden gemeldet.",
@@ -678,18 +830,20 @@
       "title": "118 test-only Services triagieren (wire-or-delete)",
       "description": "118 agent/services-Module (17,2k LOC) werden ausschliesslich von tests/ referenziert, nie von Prod. Cluster: knowledge_expert_* (8), webrtc_turn_* (5, u.a. 488 LOC HMAC-Creds), imap_*/mail_* (7, 460 LOC mail_migration), verification_* (5), specialist_*/dspy_* (5). Pro Modul entscheiden: verdrahten (bootstrap) ODER nach experimental/tests verschieben ODER loeschen.",
       "type": "deadcode",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M5",
-      "depends_on": ["CLN-032"],
+      "depends_on": [
+        "CLN-032"
+      ],
       "acceptance_criteria": [
         "Jedes der 118 Module hat eine dokumentierte Entscheidung (wire/move/delete).",
         "Geloeschte Module samt ihren Tests sind entfernt; verdrahtete sind ueber bootstrap erreichbar.",
         "Keine Prod-dark-Module mehr im live namespace (LSP: in services/ = wired)."
       ],
-      "implementation_notes": "Grosse Triage; clusterweise vorgehen (knowledge_expert_*, webrtc_turn_*, imap_* zuerst - ausgelaufene Feature-Wellen). 154 Test-Referenzen mit betroffen.",
-      "progress_percent": 0
+      "implementation_notes": "Teilumsetzung 2026-11-01: webrtc_turn_*-Cluster (5 Services + 5 Tests) geloescht — sorgfaeltig verifiziert dunkel (Routes sind via sfu_broadcast_final_composition mit injizierten Handlern verwired, die Services waren nie integriert). BEHALTEN mit Begruendung: knowledge_expert_* (teilweise wired: routes/knowledge_experts.py + bootstrap/knowledge_expert_rollout.py + String-Dispatch via config/security/memory-channels.v1.json), dspy_* (bootstrap/dspy_optimization.py + Dockerfile.dspy-optimization-worker), imap_*/mail_*/jmap_* (live via worker-Imports = CLN-054-Baseline, nicht tot), specialist_* (quer-referenziert via decision_providers — inkonsistente Evidenz, manuelles Audit noetig). WICHTIG: automatisierte Import-Reachability (417-520 'dunkle' Services) hat FALSE POSITIVES durch String-Registries/Config-Wiring/Composition-Injection — der Restbestand braucht Cluster-fuer-Cluster-Produktentscheidung mit der sorgfaeltigen git-grep-Methode, nicht Blindloeschung. Kandidatenliste: /tmp/opencode/test_only_services.txt (fluechtig).",
+      "progress_percent": 30
     },
     {
       "id": "CLN-034",
@@ -718,7 +872,9 @@
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M5",
-      "depends_on": ["CLN-030"],
+      "depends_on": [
+        "CLN-030"
+      ],
       "acceptance_criteria": [
         "Ein kanonisches DI/Singleton-Pattern ist in AGENTS.md dokumentiert.",
         "Neue get_*_service() Zugaenge sind via Detektor begrenzt (Freeze).",
@@ -736,7 +892,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M5",
-      "depends_on": ["CLN-035"],
+      "depends_on": [
+        "CLN-035"
+      ],
       "acceptance_criteria": [
         "team_blueprint_service-Shim ist entfernt (0 Importer verifiziert).",
         "Uebrige Fassaden haben Deprecation-Pfad; Import-Graph-Oberflaeche verkleinert.",
@@ -825,7 +983,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M6",
-      "depends_on": ["CLN-012"],
+      "depends_on": [
+        "CLN-012"
+      ],
       "acceptance_criteria": [
         "meet_*-Helper liegen unter tests/meet/; Root-Flaeche spuerbar reduziert.",
         "Alle Importe korrekt; Testlauf gruen.",
@@ -843,7 +1003,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M6",
-      "depends_on": ["CLN-043"],
+      "depends_on": [
+        "CLN-043"
+      ],
       "acceptance_criteria": [
         "Geteilte app/client/auth-Fixtures sind zentral; Datei-lokale Duplikate reduziert.",
         "Per-Domain conftest.py existieren fuer die grossen Subdirs (workflow, task).",
@@ -897,7 +1059,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M6",
-      "depends_on": ["CLN-023"],
+      "depends_on": [
+        "CLN-023"
+      ],
       "acceptance_criteria": [
         "Keine In-test-Sleeps >=5s ausserhalb tests/slow/ und Child-Script-Strings.",
         "Thread-Exception-Warning-Filter ist auf betroffene Module begrenzt (nicht global).",
@@ -915,7 +1079,9 @@
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M6",
-      "depends_on": ["CLN-039"],
+      "depends_on": [
+        "CLN-039"
+      ],
       "acceptance_criteria": [
         "Line-Limit-Gate deckt tests/ ab; neue God-Tests werden gefangen.",
         "Budget ist realistisch (1200) und dokumentiert.",
@@ -933,7 +1099,9 @@
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M7",
-      "depends_on": ["CLN-022"],
+      "depends_on": [
+        "CLN-022"
+      ],
       "acceptance_criteria": [
         "check_imports.py ist gruen ohne Rebaseline (baseline nicht erweitert).",
         "Memory-Subsystem-Layering ist korrekt (repositories haengen nicht an services).",
@@ -951,7 +1119,9 @@
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M7",
-      "depends_on": ["CLN-047"],
+      "depends_on": [
+        "CLN-047"
+      ],
       "acceptance_criteria": [
         "Autopilot-Orchestrierung liegt in services/ (nicht routes/); Routes sind duenn (<~40 Zeilen Handler).",
         "Delegationsfluss (Hub-Kernaufgabe) ist im Service-Layer.",
@@ -970,7 +1140,9 @@
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M7",
-      "depends_on": ["CLN-048"],
+      "depends_on": [
+        "CLN-048"
+      ],
       "acceptance_criteria": [
         "Route-Handler sind duenn (parse->call service->serialize, ~<=40 Zeilen).",
         "Keine direkten Repositoriy-/DB-/subprocess-Zugriffe in routes (check_imports erzwingt).",
@@ -988,7 +1160,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M7",
-      "depends_on": ["CLN-049"],
+      "depends_on": [
+        "CLN-049"
+      ],
       "acceptance_criteria": [
         "orchestration_policy/ und dependency_policy liegen im services-layer.",
         "check_service_boundaries-Allow-List ist leer (oder nur dokumentierte Ausnahmen mit Begruendung).",
@@ -1006,7 +1180,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M7",
-      "depends_on": ["CLN-048"],
+      "depends_on": [
+        "CLN-048"
+      ],
       "acceptance_criteria": [
         "self_development/runtime haengt nicht an routes; autonomous_loop liegt im services-layer.",
         "check_service_boundaries ohne diesen Verstoss.",
@@ -1042,7 +1218,9 @@
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M7",
-      "depends_on": ["CLN-049"],
+      "depends_on": [
+        "CLN-049"
+      ],
       "acceptance_criteria": [
         "Kein Blueprint mehr im services-layer (nur routes/ definiert Blueprints).",
         "Domain-Logik bleibt im Service; Route ist duenn.",
@@ -1060,7 +1238,9 @@
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-029"],
+      "depends_on": [
+        "CLN-029"
+      ],
       "acceptance_criteria": [
         "Worker haengen an abstrakten Contracts (ananta_contracts/*), nicht an konkreten agent.services.",
         "agent.services haengen nicht an worker.*-Implementierungen; Strategies werden injiziert.",
@@ -1078,7 +1258,9 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-029"],
+      "depends_on": [
+        "CLN-029"
+      ],
       "acceptance_criteria": [
         "Check faengt worker->agent.services Konkrete und agent.services->worker.* Verstoesse.",
         "Whitelist nur erlaubte Contracts; Negativ-Test (absichtlicher Verstoss) gemeldet.",
@@ -1096,7 +1278,10 @@
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-054", "CLN-027"],
+      "depends_on": [
+        "CLN-054",
+        "CLN-027"
+      ],
       "acceptance_criteria": [
         "Kein agent.services<->worker.core Modulzyklus (check_cycles bestaetigt).",
         "Geteilte Datentypen liegen in ananta_contracts/ (beide Seiten importieren dort).",
@@ -1114,7 +1299,9 @@
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-038"],
+      "depends_on": [
+        "CLN-038"
+      ],
       "acceptance_criteria": [
         "Klasse hat fokussierte Verantwortungen (SRP); keine 80-Methoden-Fassade.",
         "3 oeffentliche Einstiegspunkte; Caller migriert; Compat-Facade deprecatet.",
@@ -1132,7 +1319,9 @@
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-057"],
+      "depends_on": [
+        "CLN-057"
+      ],
       "acceptance_criteria": [
         "SRP: FS/Persistence, Policy, Context, Transport getrennt ueber Ports.",
         "Kein Flask-Request-Kontext in Domain-Logik (DIP).",
@@ -1150,7 +1339,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-057"],
+      "depends_on": [
+        "CLN-057"
+      ],
       "acceptance_criteria": [
         "VectorIndexTaskService-Interface schrumpft auf benoetigte Methoden (ISP); Fassade deprecatet.",
         "plan_goal ist in kleinere, testbare Funktionen zerlegt (SRP).",
@@ -1168,7 +1359,9 @@
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-035"],
+      "depends_on": [
+        "CLN-035"
+      ],
       "acceptance_criteria": [
         "Heisse Services nutzen injizierte Abstraktionen statt current_app-Location.",
         "Services sind ohne App-Context testbar.",
@@ -1186,7 +1379,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M8",
-      "depends_on": ["CLN-026"],
+      "depends_on": [
+        "CLN-026"
+      ],
       "acceptance_criteria": [
         "CoreServiceRegistry-Felder sind typisiert (Protocols/konkrete Klassen statt Any).",
         "check_hotspot_guardrails: service_registry.py unter Budget (370-><=250) oder begruendete Ausnahme.",
@@ -1222,7 +1417,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M9",
-      "depends_on": ["CLN-007"],
+      "depends_on": [
+        "CLN-007"
+      ],
       "acceptance_criteria": [
         "Orphan-Config-Dateien sind entfernt (nichts liest sie).",
         "Runtime-State (ananta.runtime-profile.json, user.json) ist nicht getrackt (gitignore).",
@@ -1258,7 +1455,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M9",
-      "depends_on": ["CLN-062"],
+      "depends_on": [
+        "CLN-062"
+      ],
       "acceptance_criteria": [
         "Env-Referenz ist aus Code generiert (os.getenv + pydantic validation_alias).",
         "9 Orphan-Vars entfernt; 723 undokumentierte ergaenzt oder bereinigt.",
@@ -1276,7 +1475,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M9",
-      "depends_on": ["CLN-065"],
+      "depends_on": [
+        "CLN-065"
+      ],
       "acceptance_criteria": [
         "Nur ein .env.example existiert; .env.template/.env.bak-* entfernt.",
         "Keine redundanten Env-Vorlagen mehr."
@@ -1293,7 +1494,9 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M9",
-      "depends_on": ["CLN-021"],
+      "depends_on": [
+        "CLN-021"
+      ],
       "acceptance_criteria": [
         "docker/old_way ist archiviert/entfernt; compose-next ist der einzige Pfad.",
         "Makefile-Target zeigt auf existierendes Dockerfile oder ist entfernt.",
@@ -1311,7 +1514,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M9",
-      "depends_on": ["CLN-067"],
+      "depends_on": [
+        "CLN-067"
+      ],
       "acceptance_criteria": [
         "8 persona-Dateien sind auf parametrisierte Overlays reduziert.",
         "jeff-cuda ist Profile/Override (nicht Root-File); jeff ggf. zu decision-inference dokumentiert/umbenannt.",
@@ -1329,7 +1534,10 @@
       "priority": "P3",
       "risk": "high",
       "milestone_id": "CLN-M9",
-      "depends_on": ["CLN-062", "CLN-035"],
+      "depends_on": [
+        "CLN-062",
+        "CLN-035"
+      ],
       "acceptance_criteria": [
         "Policy-Aufloesung laeuft ueber einen definierten Port (nicht O(100) Singletons).",
         "Konsolidierung ist inkrementell (keine Big-Bang); pro Domain nachziehbar.",
@@ -1365,7 +1573,9 @@
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M10",
-      "depends_on": ["CLN-001"],
+      "depends_on": [
+        "CLN-001"
+      ],
       "acceptance_criteria": [
         "rag-helper/ hat kein eigenes CI/kein committed Secret mehr.",
         "Dokumentiert als Subpackage; Build-Tree (out/) ignoriert.",
@@ -1383,7 +1593,13 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M10",
-      "depends_on": ["CLN-014", "CLN-019", "CLN-027", "CLN-029", "CLN-055"],
+      "depends_on": [
+        "CLN-014",
+        "CLN-019",
+        "CLN-027",
+        "CLN-029",
+        "CLN-055"
+      ],
       "acceptance_criteria": [
         "Check-Katalog dokumentiert: Skript, was es schuetzt, CI-Status.",
         "Alle Architektur-Gates laufen im CI und faelschen korrekt.",
@@ -1401,7 +1617,11 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M10",
-      "depends_on": ["CLN-048", "CLN-054", "CLN-057"],
+      "depends_on": [
+        "CLN-048",
+        "CLN-054",
+        "CLN-057"
+      ],
       "acceptance_criteria": [
         "SRP/DIP/ISP/OCP/LSP-Einhaltung der Aenderungen ist belegt.",
         "Bewusst erhaltene technische Schuld ist dokumentiert (Pfad + Begruendung).",
@@ -1419,7 +1639,10 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M10",
-      "depends_on": ["CLN-072", "CLN-073"],
+      "depends_on": [
+        "CLN-072",
+        "CLN-073"
+      ],
       "acceptance_criteria": [
         "Testlauf (core+slow) gruen oder Verstoesse dokumentiert + begruendet.",
         "Alle Detektoren + Lint/Type/Coverage gruen.",
@@ -1437,7 +1660,12 @@
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M10",
-      "depends_on": ["CLN-014", "CLN-035", "CLN-062", "CLN-072"],
+      "depends_on": [
+        "CLN-014",
+        "CLN-035",
+        "CLN-062",
+        "CLN-072"
+      ],
       "acceptance_criteria": [
         "Neue Regeln sind in AGENTS.md/docs dokumentiert und mit Detektoren verankert.",
         "Kuenftige Aenderungen haben klare Regeln (kein Rueckfall in alten Wildwuchs).",
@@ -1470,9 +1698,9 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 75,
+      "todo": 74,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 0
     },
@@ -1495,17 +1723,17 @@
     },
     "milestones": {
       "total": 10,
-      "todo": 10,
-      "in_progress": 0,
+      "todo": 9,
+      "in_progress": 1,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 75,
+    "state": "in_progress",
+    "todo_remaining": 74,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
     "done": 0
   },
