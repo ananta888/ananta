@@ -22,6 +22,7 @@ einen Produktionskonsumenten. Übrig bleibt der **kanonische DI-Seam**:
 # agent/services/di.py (vollständig verkürzt)
 def get_repository_registry() -> Any:
     import agent.repository as registry
+
     return registry
 
 
@@ -40,6 +41,7 @@ class ResultMemoryService:
     @property
     def _memory_entry_repo(self):
         from agent.services.di import get_memory_entry_repository
+
         return get_memory_entry_repository()
 ```
 
