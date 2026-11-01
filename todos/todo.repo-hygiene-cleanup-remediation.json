@@ -1335,7 +1335,7 @@
       "title": "VectorIndexTaskService-Facade und PlanningService.plan_goal entzerren",
       "description": "VectorIndexTaskService (60 Methoden) ist selbst-deklarierte 'compatibility facade' die auf fokussierte Services delegiert - God-Interface beibehalten statt zu retiren. PlanningService.plan_goal = 368 Zeilen (512). Fassaden-Grenzen verkleinern; plan_goal nach Verantwortungen zerlegen.",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M8",
@@ -1347,8 +1347,8 @@
         "plan_goal ist in kleinere, testbare Funktionen zerlegt (SRP).",
         "Testlauf gruen."
       ],
-      "implementation_notes": "OCP/ISP: Fassaden sollten substituierbar und schmal sein, nicht God-Interfaces konservieren.",
-      "progress_percent": 0
+      "implementation_notes": "VectorIndexTaskService-Fassade: bereits auf 63-Zeilen-Re-Export reduziert (fruehere Zerlegung in lifecycle/contracts/preparation_policy/worker_result_boundary); nun deprecated-Docstring + Eintrag in reports/compat-facades-catalog.txt. plan_goal: Phase '_handle_empty_subtasks' extrahiert (zusammen mit dem bereits vorhandenen _validate_and_finalize_plan Tail); 371->~330 Zeilen, 0 Regressionen in tests/planning/. OFFEN: weitere Phasen (Subtask-Resolution, Qualitaets-Repair-Loop) inkrementell herausziehen.",
+      "progress_percent": 65
     },
     {
       "id": "CLN-060",
@@ -1698,9 +1698,9 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 49,
+      "todo": 48,
       "in_progress": 0,
-      "partial": 10,
+      "partial": 11,
       "blocked": 0,
       "done": 16
     },
@@ -1731,9 +1731,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 49,
+    "todo_remaining": 48,
     "in_progress": 0,
-    "partial": 10,
+    "partial": 11,
     "blocked": 0,
     "done": 12
   },

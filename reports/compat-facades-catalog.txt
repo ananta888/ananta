@@ -83,6 +83,7 @@ agent/services/workflow_transition_outbox_vocabulary.py
 agent/sgpt/__main__.py
 agent/tui/workflow_stream_client.py
 
+agent/services/vector_index_task_service.py
 # PART 2 — package __init__ re-exports (legitimate packaging, not debt):
 # listed for completeness; no action required.
 

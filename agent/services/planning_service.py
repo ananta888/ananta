@@ -850,44 +850,22 @@ class PlanningService:
             )
 
         if not subtasks:
-            scoped_cfg = dict(getattr(planner, "_goal_effective_config", {}) or {})
-            raw_planning_policy = (
-                scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+            subtasks, limits, early_result = self._handle_empty_subtasks(
+                planner=planner,
+                goal=goal,
+                mode=mode,
+                limits=limits,
+                telemetry_run=telemetry_run,
+                raw_response=raw_response,
+                planning_origin=planning_origin,
+                repair_strategy_used=repair_strategy_used,
+                repair_attempt_count=repair_attempt_count,
+                parse_mode=parse_mode,
+                planning_policy=planning_policy,
+                planner_selection=planner_selection,
             )
-            allow_non_llm_fallback = bool(raw_planning_policy.get("allow_non_llm_minimal_task_fallback", False))
-            if allow_non_llm_fallback:
-                subtasks = [
-                    self._build_minimal_non_llm_fallback_subtask(
-                        goal=goal,
-                        mode=mode,
-                    )
-                ]
-                limits = dict(limits or {})
-                limits["fallback_task_generated"] = True
-                limits["fallback_task_reason"] = "unstructured_llm_response"
-            else:
-                telemetry_run = get_planning_telemetry_service().update_run(
-                    telemetry_run,
-                    validation_success=False,
-                    validation_errors=["unstructured_llm_response"],
-                    error_classification="unstructured_llm_response",
-                    status="failed",
-                )
-                self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
-                self._update_profile_learning_state(telemetry_run=telemetry_run)
-                return {
-                    "subtasks": [],
-                    "created_task_ids": [],
-                    "raw_response": raw_response,
-                    "planning_origin": planning_origin,
-                    "repair_strategy_used": repair_strategy_used,
-                    "repair_attempt_count": repair_attempt_count,
-                    "parse_mode": parse_mode,
-                    "error_classification": "unstructured_llm_response",
-                    "planning_policy": planning_policy,
-                    "planner_selection": planner_selection,
-                    "planning_run_id": telemetry_run.id,
-                }
+            if early_result is not None:
+                return early_result
 
         return _validate_and_finalize_plan(
             service=self,
@@ -921,6 +899,69 @@ class PlanningService:
             parent_task_id=parent_task_id,
             initial_plan_rationale=initial_plan_rationale,
         )
+
+    def _handle_empty_subtasks(
+        self,
+        *,
+        planner,
+        goal: str,
+        mode: str,
+        limits,
+        telemetry_run,
+        raw_response,
+        planning_origin,
+        repair_strategy_used,
+        repair_attempt_count,
+        parse_mode,
+        planning_policy,
+        planner_selection,
+    ) -> tuple[list, dict, dict | None]:
+        """Resolve the unstructured-LLM fallback path (CLN-059 phase split).
+
+        Returns ``(subtasks, limits, early_result)``; a non-None early_result
+        terminates plan_goal with that payload.
+        """
+        subtasks: list = []
+        scoped_cfg = dict(getattr(planner, "_goal_effective_config", {}) or {})
+        raw_planning_policy = (
+            scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+        )
+        allow_non_llm_fallback = bool(raw_planning_policy.get("allow_non_llm_minimal_task_fallback", False))
+        if allow_non_llm_fallback:
+            subtasks = [
+                self._build_minimal_non_llm_fallback_subtask(
+                    goal=goal,
+                    mode=mode,
+                )
+            ]
+            limits = dict(limits or {})
+            limits["fallback_task_generated"] = True
+            limits["fallback_task_reason"] = "unstructured_llm_response"
+        else:
+            telemetry_run = get_planning_telemetry_service().update_run(
+                telemetry_run,
+                validation_success=False,
+                validation_errors=["unstructured_llm_response"],
+                error_classification="unstructured_llm_response",
+                status="failed",
+            )
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+            self._update_profile_learning_state(telemetry_run=telemetry_run)
+            early_result = {
+                "subtasks": [],
+                "created_task_ids": [],
+                "raw_response": raw_response,
+                "planning_origin": planning_origin,
+                "repair_strategy_used": repair_strategy_used,
+                "repair_attempt_count": repair_attempt_count,
+                "parse_mode": parse_mode,
+                "error_classification": "unstructured_llm_response",
+                "planning_policy": planning_policy,
+                "planner_selection": planner_selection,
+                "planning_run_id": telemetry_run.id,
+            }
+            return [], limits, early_result
+        return subtasks, limits, None
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         repos = self._repositories()

@@ -1,4 +1,12 @@
-"""Public facade for Hub-owned vector-index mutation task services."""
+"""Public facade for Hub-owned vector-index mutation task services.
+
+.. deprecated::
+    Import from the focused modules instead (vector_index_task_lifecycle_service,
+    vector_index_task_contracts, vector_index_preparation_policy,
+    vector_index_worker_result_boundary). This re-export surface exists for
+    backward compatibility only and will be removed after consumer migration
+    (CLN-036 catalog).
+"""
 
 from __future__ import annotations
 
