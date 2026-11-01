@@ -2,7 +2,7 @@ import threading
 import time
 from typing import Any
 
-from flask import current_app, g
+from flask import current_app, g, request
 
 from agent.auth import check_auth, get_authenticated_source_control_principal
 from agent.common.audit import log_audit
@@ -11,6 +11,9 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalProvisionRequest
 from agent.routes.tasks.goals_blueprint import (  # noqa: E402
+    _PLANNING_SLOTS,
+    _PLANNING_SLOTS_CAPACITY,
+    _PLANNING_SLOTS_LOCK,
     goals_bp,
 )
 from agent.routes.tasks.goals_helpers import (
@@ -33,6 +36,8 @@ from agent.services.project_access_authority import (
     ProjectAccessError,
     ProjectCapability,
 )
+from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
 
@@ -75,6 +80,8 @@ def _plan_quality_from_task_ids(
 
 
 # Import sub-modules so their route decorators register on goals_bp
+import agent.routes.tasks.goals_planning_routes  # noqa: E402
+import agent.routes.tasks.goals_query_routes  # noqa: E402
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
@@ -435,6 +442,28 @@ def create_goal():
 
 # ── Re-exports for test compatibility ──────────────────────────────
 
+from agent.routes.tasks.goals_helpers import (  # noqa: E402
+    _GOAL_ACTIVE_PLANNING_IDS,
+    _GOAL_ACTIVE_PLANNING_LOCK,
+    _can_access_goal,
+    _is_soft_planning_quality_failure,
+    _looks_like_software_goal,
+    _mark_started_planning_runs_failed,
+    _maybe_recover_stalled_planning_goal,
+    _team_scope_allows,
+)
 from agent.routes.tasks.goals_planning_routes import (  # noqa: E402
+    _acquire_planning_slot,
+    _clear_planning_lease,
+    _normalize_planning_slot_capacity,
+    _planning_slot_capacity_from_config,
+    _release_planning_slot,
     _run_goal_planning_background,
+    _run_goal_planning_background_impl,
+    _set_planning_lease,
+    _start_planning_heartbeat,
+)
+from agent.routes.tasks.goals_query_routes import (  # noqa: E402
+    goal_gate_human_decision,
+    goal_workflow_status,
 )

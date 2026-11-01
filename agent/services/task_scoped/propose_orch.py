@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING, Any, Callable
 from flask import g, has_request_context
 
 from agent.llm_integration import normalize_llm_call_profile_entry
+from agent.services.goal_config_runtime_service import (  # noqa: F401  (test monkeypatch seam)
+    get_goal_config_runtime_service,
+)
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.model_routing_contract import (
     extract_model_routing_from_task,

@@ -1,4 +1,5 @@
 import logging
+import time  # noqa: F401  (test monkeypatch seam on the shared time module)
 from typing import Any
 
 from flask import Blueprint, has_app_context, request

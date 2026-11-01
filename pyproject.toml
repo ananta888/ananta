@@ -304,6 +304,18 @@ max-complexity = 30
 "client_surfaces/operator_tui/chat_state.py" = ["F401"]
 "client_surfaces/operator_tui/animation3d/backends.py" = ["F401"]
 "agent/services/editor_tui_surface_state.py" = ["F401"]
+# Split-shim route modules: re-export surfaces are the API (CLN-040 follow-up).
+"agent/routes/tasks/goals.py" = ["F401"]
+# task_scoped patch seams: tests monkeypatch module-level service lookups.
+"agent/services/task_scoped/propose_orch.py" = ["F401"]
+"agent/services/task_scoped/runtime.py" = ["F401"]
+"agent/services/task_scoped/adapters.py" = ["F401"]
+"agent/services/task_scoped/domain_action.py" = ["F401"]
+# Engine-shim route modules: tests patch module attributes (time, log, ...).
+"agent/routes/tasks/autopilot.py" = ["F401"]
+"agent/routes/tasks/triggers.py" = ["F401"]
+# Tool registration aggregator: imports are registration side effects (CLN-040).
+"agent/tools.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.10"

@@ -5,6 +5,7 @@ import pytest
 
 from agent.common.http import HttpTransportResponseLost
 from agent.routes.tasks import utils as task_utils
+from agent.services import task_forwarding_utils
 from agent.services.worker_forward_transport import (
     WorkerForwardAmbiguousTransportError,
     WorkerForwardDeadlineExceeded,
@@ -30,7 +31,7 @@ def test_update_local_task_status_delegates_to_runtime_service(monkeypatch):
         captured["status"] = status
         captured["kwargs"] = dict(kwargs)
 
-    monkeypatch.setattr(task_utils, "update_local_task_status", _fake_update_local_task_status)
+    monkeypatch.setattr(task_forwarding_utils, "update_local_task_status", _fake_update_local_task_status)
     task_utils._update_local_task_status("T-1", "in_progress", title="Test task")
 
     assert captured["tid"] == "T-1"
@@ -45,7 +46,7 @@ def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
         calls.append({"url": url, "data": data, "headers": headers or {}, "timeout": timeout})
         return {"ok": True}
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
     result = task_utils._forward_to_worker(
         "http://worker.local/",
         "/step/execute",
@@ -67,7 +68,7 @@ def test_forward_to_worker_never_reads_shorter_than_the_governed_step_deadline(m
         calls.append({"url": url, "timeout": timeout})
         return {"ok": True}
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -99,7 +100,7 @@ def test_forward_to_worker_keeps_the_read_budget_when_it_is_the_longer_one(monke
         calls.append(timeout)
         return {"ok": True}
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -181,7 +182,7 @@ def test_recovery_forward_streams_and_bounds_body_before_json_parse(
         return response
 
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         fake_http_post,
     )
@@ -221,7 +222,7 @@ def test_vector_forward_streams_and_bounds_body_before_json_parse(
         calls.append({"url": url, **kwargs})
         return response
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
 
     result = task_utils._forward_to_worker(
         "http://worker.local",
@@ -241,13 +242,13 @@ def test_vector_forward_rejects_oversized_and_malformed_streams(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "MAX_VECTOR_INDEX_WORKER_RESULT_BYTES",
         8,
     )
     oversized = StreamingResponse([b'{"data"', b':"oversized"}'])
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda _url, **_kwargs: oversized,
     )
@@ -267,13 +268,13 @@ def test_vector_forward_rejects_oversized_and_malformed_streams(
     assert oversized.closed is True
 
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "MAX_VECTOR_INDEX_WORKER_RESULT_BYTES",
         65_536,
     )
     malformed = StreamingResponse([b"{not-json"])
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda _url, **_kwargs: malformed,
     )
@@ -307,7 +308,7 @@ def test_codecompass_forward_streams_and_bounds_body_before_json_parse(
         calls.append({"url": url, **kwargs})
         return response
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
 
     result = task_utils._forward_to_worker(
         "http://worker.local",
@@ -339,7 +340,7 @@ def test_codecompass_forward_uses_hub_trusted_runtime_timeout(
         calls.append({"url": url, **kwargs})
         return response
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -362,7 +363,7 @@ def test_codecompass_forward_uses_hub_trusted_runtime_timeout(
     assert calls[0]["raise_on_transport_error"] is True
 
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(HttpTransportResponseLost("http_transport_response_lost")),
     )
@@ -387,7 +388,7 @@ def test_codecompass_stream_stops_at_absolute_deadline(monkeypatch):
 
     response = SlowStreamingResponse([])
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda _url, **_kwargs: response,
     )
@@ -413,13 +414,13 @@ def test_codecompass_stream_stops_at_absolute_deadline(monkeypatch):
 def test_codecompass_non_object_json_is_permanent(monkeypatch):
     response = StreamingResponse([b"[]"])
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda _url, **_kwargs: response,
     )
 
     with pytest.raises(
-        task_utils.WorkerForwardPermanentTransportError,
+        task_forwarding_utils.WorkerForwardPermanentTransportError,
         match="knowledge_index_worker_response_json_invalid",
     ) as error:
         task_utils._forward_to_worker(
@@ -437,13 +438,13 @@ def test_codecompass_forward_rejects_oversized_stream_and_legacy_fallback(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "MAX_KNOWLEDGE_INDEX_WORKER_RESULT_BYTES",
         8,
     )
     oversized = StreamingResponse([b'{"data"', b':"oversized"}'])
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda _url, **_kwargs: oversized,
     )
@@ -467,7 +468,7 @@ def test_codecompass_forward_rejects_oversized_stream_and_legacy_fallback(
         legacy_calls.append((url, data, headers, timeout))
         return {"status": "success"}
 
-    monkeypatch.setattr(task_utils, "_http_post", legacy_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", legacy_http_post)
     with pytest.raises(
         RuntimeError,
         match="worker_forward_secure_transport_unsupported",
@@ -493,7 +494,7 @@ def test_worker_forward_rejects_redirect_without_following_it(
         calls.append((url, kwargs))
         return redirect
 
-    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+    monkeypatch.setattr(task_forwarding_utils, "_http_post", fake_http_post)
 
     with pytest.raises(
         ValueError,
@@ -515,13 +516,13 @@ def test_recovery_forward_rejects_oversized_stream_before_json_parse(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "MAX_RECOVERY_FORWARD_RESPONSE_BYTES",
         8,
     )
     response = StreamingResponse([b'{"data"', b':"oversized"}'])
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "_http_post",
         lambda _url, **_kwargs: response,
     )

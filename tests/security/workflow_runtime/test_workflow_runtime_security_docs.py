@@ -173,7 +173,7 @@ def test_worker_runtimes_do_not_import_hub_control_or_persistence_implementation
 
 def test_hub_native_compatibility_paths_cannot_execute_worker_code() -> None:
     facade = ROOT / "agent/services/native_worker_runtime_service.py"
-    execute_path = ROOT / "agent/services/_task_scoped_execute_workspace.py"
+    execute_path = ROOT / "agent/services/task_scoped/execute_workspace.py"
 
     facade_tree = ast.parse(facade.read_text(encoding="utf-8"), filename=str(facade))
     facade_imports: list[str] = []

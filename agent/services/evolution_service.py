@@ -38,6 +38,7 @@ from agent.services.evolution_run_service import (
     failure_metric_status,
     metric_label,
 )
+from agent.services.mutation_gate_service import get_mutation_gate_service  # noqa: F401  (test monkeypatch seam)
 from agent.services.repository_registry import get_repository_registry
 
 

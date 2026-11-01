@@ -10,7 +10,9 @@ from agent.repository import (
     agent_repo,
     audit_repo,
     config_repo,
+    goal_repo,
     role_repo,
+    task_repo,
     team_member_repo,
     team_repo,
     team_type_repo,
@@ -796,6 +798,10 @@ def set_autopilot_state_tool(
 
 # Action pack tool registrations — imported from submodules for decorator side effects
 from agent import tools_ops as _tools_ops  # noqa: F401
+from agent.tools_answer import final_answer_tool
+from agent.tools_browser import web_fetch_tool, web_search_tool
+from agent.tools_document import doc_extract_tool
+from agent.tools_file import file_list_tool, file_patch_tool, file_read_tool, file_write_tool
 from agent.tools_git import (
     _check_git_access,
     _git_cwd,
@@ -815,6 +821,7 @@ from agent.tools_git import (
 from agent.tools_git import (
     git_status_tool as _git_status_tool_impl,
 )
+from agent.tools_shell import shell_execute_tool
 
 
 def _with_git_patch_points(func, *args, **kwargs):

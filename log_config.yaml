@@ -2,6 +2,9 @@ version: 1
 formatters:
   simple:
     format: "[%(asctime)s] %(levelname)s in %(name)s: %(message)s (cid: %(correlation_id)s)"
+    # Tolerant against records without a correlation id (library debug logs).
+    defaults:
+      correlation_id: ""
   json:
     class: agent.common.logging.JsonFormatter
 handlers:

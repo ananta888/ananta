@@ -17,6 +17,7 @@ from agent.models import (
 )
 from agent.pipeline_trace import append_stage
 from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.execution_risk_policy_service import evaluate_execution_risk  # noqa: F401  (test monkeypatch seam)
 from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy
 from agent.services.task_execution_context_builder import (
     LocalExecutionResult,

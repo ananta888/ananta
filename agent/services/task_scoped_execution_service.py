@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
+from agent.cli_backends.sgpt import run_sgpt_command  # noqa: F401  (test monkeypatch seam)
 from agent.common.utils.structured_action_utils import (
     extract_structured_action_fields,
     locally_repair_structured_action_output,
