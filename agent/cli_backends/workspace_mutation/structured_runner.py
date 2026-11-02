@@ -18,8 +18,10 @@ Signature compatible with the ``llm_runner`` seam of
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -40,6 +42,8 @@ log = logging.getLogger(__name__)
 MUTATION_SCHEMA_NAME = "ananta_worker_mutation"
 STRUCTURED_OUTPUT_TEMPERATURE = 0.2
 _BEARER_PLACEHOLDER = "sk-no-key-needed"
+_TRANSPORT_ATTEMPTS = 3
+_TRANSPORT_RETRY_DELAY_SECONDS = 2.0
 
 MUTATION_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -268,19 +272,33 @@ def run_structured_mutation_llm(
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(request, timeout=max(1, int(timeout))) as response:
-                document = json.load(response)
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:500] if hasattr(exc, "read") else ""
-            log.warning("structured_output http_error=%s detail=%s", exc.code, detail)
-            return -1, "", f"structured_output_http_error:{exc.code}:{detail}"
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            log.warning("structured_output request_failed: %s", exc)
-            return -1, "", f"structured_output_request_failed:{exc}"
-        except (json.JSONDecodeError, ValueError) as exc:
-            log.warning("structured_output malformed_document: %s", exc)
-            return -1, "", f"structured_output_malformed_document:{exc}"
+        transport_errors = (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            http.client.HTTPException,
+        )
+        document = None
+        last_transport_error = ""
+        for attempt in range(_TRANSPORT_ATTEMPTS):
+            if attempt:
+                time.sleep(_TRANSPORT_RETRY_DELAY_SECONDS * attempt)
+            try:
+                with urllib.request.urlopen(request, timeout=max(1, int(timeout))) as response:
+                    document = json.load(response)
+                break
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")[:500] if hasattr(exc, "read") else ""
+                log.warning("structured_output http_error=%s detail=%s", exc.code, detail)
+                return -1, "", f"structured_output_http_error:{exc.code}:{detail}"
+            except transport_errors as exc:
+                last_transport_error = str(exc)
+                log.warning("structured_output request_failed attempt=%s/%s: %s", attempt + 1, _TRANSPORT_ATTEMPTS, exc)
+            except (json.JSONDecodeError, ValueError) as exc:
+                log.warning("structured_output malformed_document: %s", exc)
+                return -1, "", f"structured_output_malformed_document:{exc}"
+        if document is None:
+            return -1, "", f"structured_output_request_failed:{last_transport_error}"
 
     try:
         content = document["choices"][0]["message"]["content"]
