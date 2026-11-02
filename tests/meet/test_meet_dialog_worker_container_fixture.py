@@ -86,7 +86,7 @@ def fixture(
 
 def test_gpu_profile_adds_only_explicit_resource_port_and_memory_budget(tmp_path, monkeypatch):
     resources = Mock(return_value=["--env=LD_LIBRARY_PATH=/host-nvidia"])
-    monkeypatch.setattr("tests.meet_dialog_gpu_resources.receive_gpu_arguments", resources)
+    monkeypatch.setattr("tests.meet.meet_dialog_gpu_resources.receive_gpu_arguments", resources)
     f = fixture(tmp_path, monkeypatch, gpu=True)
     try:
         f.worker.start(f.key, f.cert, PIN)
@@ -166,7 +166,7 @@ def test_failed_health_is_bounded_and_cleans_owned_container(tmp_path, monkeypat
     f = fixture(tmp_path, monkeypatch, health=health)
     ticks = iter([0, 1, 21])
     monkeypatch.setattr(
-        "tests.meet_dialog_worker_container.time",
+        "tests.meet.meet_dialog_worker_container.time",
         SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _seconds: None),
     )
     reason = "test_worker_stopped_before_health" if not health["Running"] else "test_worker_start_timeout"

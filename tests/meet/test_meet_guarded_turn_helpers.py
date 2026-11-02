@@ -157,7 +157,7 @@ def test_relay_console_observer_retains_only_eight_fixed_numeric_codes(tmp_path,
         assert value == "/state/relay-diagnostic.json"
         return destination
 
-    monkeypatch.setattr("tests.meet_worker_relay_context.Path", diagnostic_path)
+    monkeypatch.setattr("tests.meet.meet_worker_relay_context.Path", diagnostic_path)
     for text in [
         "private secret",
         "test_relay_ice_error:1000",

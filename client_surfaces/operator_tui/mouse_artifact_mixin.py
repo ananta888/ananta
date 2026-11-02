@@ -15,19 +15,20 @@ public symbols for backward compatibility.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, IntentConfidence
-from client_surfaces.operator_tui.audit_nav import audit_nav_items
 from client_surfaces.operator_tui.chat_long_message import (
     configure_middle_view_for_history_entry,
+    is_showing_chat_long_message,
     long_message_history_rows,
+    refresh_rendered_view,
 )
 from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.mouse_event_handler import (
     clamp_down,
     handle_left_click,
@@ -42,13 +43,15 @@ from client_surfaces.operator_tui.mouse_event_handler import (
     shortcut_action_display_map,
     trigger_shortcut_action,
 )
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.plugins import resolve_item_reference
-from client_surfaces.operator_tui.region_index import RegionTarget
+from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.audit_nav import audit_nav_items
 from client_surfaces.operator_tui.template_nav import template_nav_items
 
 if TYPE_CHECKING:
-    pass
+    from client_surfaces.operator_tui.chat_state import ChatState
 
 
 class MouseArtifactMixin:

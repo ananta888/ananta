@@ -5,6 +5,7 @@ from typing import Any
 
 from rag_helper.extractors.csharp_type_resolution import uniq_keep_order
 from rag_helper.utils.text_normalization import normalize_ws
+from rag_helper.extractors.java_ast_helpers import make_relation  # noqa: F401  (re-export, tests)
 
 
 def node_text(src: bytes, node) -> str:

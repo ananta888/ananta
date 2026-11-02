@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import math
 import os
+import re
 import shutil
+import time
+import urllib.error
+import urllib.request
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlparse
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
@@ -29,45 +37,114 @@ from client_surfaces.operator_tui.adapters import (
     merge_panel_state,
     merge_section_result,
 )
+from client_surfaces.operator_tui.ai_snake_config_view import (
+    ai_snake_config_filter_options,
+    ai_snake_config_items,
+    ai_snake_config_options,
+    apply_ai_snake_config_value,
+    refresh_chat_backend_models,
+)
+from client_surfaces.operator_tui.ai_snake_context import (
+    artifact_ref_from_game,
+    build_context_envelope_ref,
+    compact_observation_summary,
+    default_ai_context,
+    load_codecompass_artifact,
+    relevance_refs_for_intent,
+    set_ai_context,
+    training_profile_envelope,
+)
+from client_surfaces.operator_tui.ai_snake_follow import (
+    apply_worker_follow_update,
+    make_follow_state,
+    step_follow_state,
+)
+from client_surfaces.operator_tui.ai_snake_learning import (
+    apply_prediction_feedback,
+    merge_patterns,
+    mine_patterns_from_events,
+)
 from client_surfaces.operator_tui.ai_snake_lm_budget import AiSnakeLmBudget
 from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
-from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate
+from client_surfaces.operator_tui.ai_snake_policy import apply_policy_to_payload
+from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, build_prediction_trace, quick_predict
 from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
 from client_surfaces.operator_tui.ai_snake_training_recorder import AiSnakeTrainingRecorder
 from client_surfaces.operator_tui.ai_snake_training_store import (
+    append_behavior_event,
     read_active_profile,
+    read_events,
+    read_patterns,
+    save_patterns,
 )
 from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
 from client_surfaces.operator_tui.app import load_active_section
-from client_surfaces.operator_tui.artifact_intent import ArtifactIntentDetector
+from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
+from client_surfaces.operator_tui.audit_cleanup import run_audit_cleanup_action
+from client_surfaces.operator_tui.chat_long_message import (
+    configure_middle_view_for_history_entry,
+    configure_middle_view_for_message,
+    is_showing_chat_long_message,
+    latest_long_message_for_channel,
+    long_message_history_rows,
+    refresh_rendered_view,
+    toggle_render_mode,
+)
 from client_surfaces.operator_tui.chat_mixin import ChatMixin
+from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.dashboard_autoload import DashboardSectionAutoloader
 from client_surfaces.operator_tui.dashboard_live_lifecycle import (
     DashboardLiveSyncLifecycle,
 )
 from client_surfaces.operator_tui.header_snake_mixin import HeaderSnakeMixin
-from client_surfaces.operator_tui.keybindings_config import keybinding_conflicts
+from client_surfaces.operator_tui.keybindings_config import key_for_action, keybinding_conflicts
+from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.mouse import (
+    MouseEventType as NormalizedMouseEventType,
+)
 from client_surfaces.operator_tui.mouse import (
     MouseState,
     detect_mouse_support,
+    normalize_mouse_state,
 )
 from client_surfaces.operator_tui.mouse_artifact_mixin import MouseArtifactMixin
-from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
-from client_surfaces.operator_tui.region_index import RegionTarget
+from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
+from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.renderer import render_operator_shell
-from client_surfaces.operator_tui.sections import SECTIONS
+from client_surfaces.operator_tui.sections import SECTIONS, get_section
 from client_surfaces.operator_tui.snake_heuristic_mixin import SnakeHeuristicMixin
 from client_surfaces.operator_tui.snake_ops_mixin import SnakeOpsMixin
 from client_surfaces.operator_tui.snake_tick_mixin import SnakeTickMixin
+from client_surfaces.operator_tui.tui_snapshot import rendered_tui_snapshot_text, write_tui_snapshot
 from client_surfaces.operator_tui.tutorial_ai_mixin import TutorialAiMixin
+from client_surfaces.operator_tui.visual.adapters.ansi_adapter import AnsiOutputAdapter
+from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
+from client_surfaces.operator_tui.visual.adapters.noop_adapter import NoopDiagnosticsAdapter
+from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
 from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisualCapabilities
+from client_surfaces.operator_tui.visual.renderers.ansi_renderer import AnsiBlocksRenderer
+from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
+from client_surfaces.operator_tui.visual.renderers.svg_raster_renderer import SvgRasterRenderer
 from client_surfaces.operator_tui.visual.runtime.config import VisualViewportConfig
+from client_surfaces.operator_tui.visual.runtime.registry import OutputAdapterRegistry, RendererRegistry, ViewRegistry
 from client_surfaces.operator_tui.visual.runtime.visual_runtime import VisualRuntime
+from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion, derive_pixel_size
+from client_surfaces.operator_tui.visual.views.artifact_preview_view import ArtifactPreviewView
+from client_surfaces.operator_tui.visual.views.logo_animation_view import LogoAnimationView
+from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
+from client_surfaces.operator_tui.visual.views.renderer_diagnostics_view import RendererDiagnosticsView
+from client_surfaces.operator_tui.visual.views.snake_debug_view import SnakeDebugView
+from client_surfaces.operator_tui.visual.views.strategy_map_preview_view import StrategyMapPreviewView
+from client_surfaces.operator_tui.windowing.backends.wslg_webview_backend import WslgWebviewBackend
+from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
 from client_surfaces.operator_tui.windowing.external_window_controller import ExternalWindowController
+from client_surfaces.operator_tui.windowing.view_models.ai_snake_window_model import build_ai_snake_window_model
+from client_surfaces.operator_tui.windowing.view_models.center_window_model import build_center_window_model
+from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine
+    from agent.cli.splash import SplashMachine, SplashState
     from client_surfaces.operator_tui.dashboard_surfaces import DashboardSurfaceController
 
 
@@ -753,7 +830,7 @@ class InteractiveOperatorTui(
             return
         game["oidc_token"] = token
         set_share_oidc_token(token, rendezvous_base_url())
-        str(cached.get("issuer") or "")
+        issuer = str(cached.get("issuer") or "")
         username = str(cached.get("username") or "")
         game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
         self.state = self.state.with_updates(

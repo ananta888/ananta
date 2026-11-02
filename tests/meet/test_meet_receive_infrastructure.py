@@ -14,7 +14,7 @@ def test_invalid_source_fails_before_bridge_or_build_access(tmp_path, monkeypatc
 
     launch, build = Mock(), Mock()
     monkeypatch.setattr(tests.meet.meet_receive_infrastructure.subprocess, "Popen", launch)
-    monkeypatch.setattr(tests.meet_companion_build, "require_current_browser_build", build)
+    monkeypatch.setattr(tests.meet.meet_companion_build, "require_current_browser_build", build)
     with pytest.raises(ValueError, match="test_receive_source_invalid"):
         with private_receive(tmp_path, source=source):
             pytest.fail("invalid source was admitted")

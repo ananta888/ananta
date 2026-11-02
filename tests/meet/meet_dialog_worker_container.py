@@ -85,25 +85,25 @@ class DialogWorkerContainer:
             require_private_hub_endpoint(self.command, self.network, self.hub_url, hub_identity)
         if self.command("image", "inspect", self.image, "--format", "{{.Id}}") != self.image:
             raise ValueError("test_worker_image_mismatch")
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         namespace = None
         if self.network_namespace is not None:
             from tests.meet.meet_dialog_egress_guard import namespace_info
 
             namespace = namespace_info(self.command, self.network_namespace, self.network)
         mounts = [
-            (root / "tests/meet_worker_container_sitecustomize.py", "/test/sitecustomize.py"),
+            (root / "tests/meet/meet_worker_container_sitecustomize.py", "/test/sitecustomize.py"),
             (Path(key), "/test/worker-key"),
             (Path(certificate), "/test/meet-ca.pem"),
         ]
         if self.control_diagnostics:
             mounts += [
-                (root / ("tests/" + name), "/test/" + name)
+                (root / ("tests/meet/" + name), "/test/" + name)
                 for name in ("meet_dialog_control_observer.py", "meet_dialog_rpc_observer.py")
             ]
         if self.relay_url is not None:
             mounts += [
-                (root / "tests/meet_worker_relay_context.py", "/test/meet_worker_relay_context.py"),
+                (root / "tests/meet/meet_worker_relay_context.py", "/test/meet_worker_relay_context.py"),
                 (root.parent / "webrtc-minimize-server/test/helpers/machine-forced-relay.js", "/test/forced-relay.js"),
             ]
         for path, _ in mounts:

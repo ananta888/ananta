@@ -15,7 +15,7 @@ def test_bounded_screen_cadence_observer_preserves_exact_pump_behavior(monkeypat
     tick = Mock(side_effect=error if fails else None, return_value="actual")
     monkeypatch.setattr(DialogScreenPump, "tick", tick)
     for name in ("DialogRpcObserver", "DialogControlObserver", "DialogTransportObserver", "DialogBrowserCostObserver"):
-        monkeypatch.setattr("tests.meet_dialog_soak_observer." + name, Mock())
+        monkeypatch.setattr("tests.meet.meet_dialog_soak_observer." + name, Mock())
     now = [100.0]
     observer = DialogSoakObserver(monkeypatch, clock=lambda: now[0])
     pump = SimpleNamespace(sequence=9, frames=SimpleNamespace(busy=True), failed=False, content="PRIVATE")

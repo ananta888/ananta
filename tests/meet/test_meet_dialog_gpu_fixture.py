@@ -191,7 +191,7 @@ def test_preload_has_no_prompt_and_requires_pinned_gpu_residency(change, monkeyp
     instance.model_vram_bytes_after_preload = 999
     connection = Mock()
     connection.getresponse.side_effect = [first, second]
-    monkeypatch.setattr("tests.meet_dialog_gpu_fixture.http.client.HTTPConnection", Mock(return_value=connection))
+    monkeypatch.setattr("tests.meet.meet_dialog_gpu_fixture.http.client.HTTPConnection", Mock(return_value=connection))
     if change:
         with pytest.raises(ValueError):
             instance.preload()

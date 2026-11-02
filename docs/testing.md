@@ -1,5 +1,27 @@
 # Testing Guide
 
+## Standard: vollständiger Backend-Testlauf (kanonisch)
+
+Der verbindliche Weg für komplette Testläufe ist **Docker, gepinntes Test-Image, xdist-parallel — ca. 15 Minuten**:
+
+```bash
+make test-full                       # = scripts/test_full_docker.sh
+scripts/test_full_docker.sh --tier core   # nur die schnelle Stufe
+scripts/test_full_docker.sh tests/task/   # Untermenge, Argumente gehen an pytest
+```
+
+Warum nicht lokales `pytest tests/`:
+- das Host-System hat die gepinnten Abhängigkeiten nicht (alembic, playwright, hypothesis, crosshair, temporalio …) — Sammlungsfehler und Env-Gaps sind die Folge;
+- ein lokaler Einzelprozess braucht 35+ Minuten, das Test-Image mit `pytest -n 4` braucht ~15.
+
+`scripts/test_full_docker.sh` baut `ananta-backend-tests:local` aus
+`docker/compose-next/Dockerfile.tests-backend` bei Bedarf automatisch und
+startet die Suite mit derselben Umgebung wie `compose.tests-backend-base.yml`
+(Mock-Provider, hermetische SQLite-Sandbox aus `tests/conftest.py`).
+Schnelle Einzelchecks (`python3 -m pytest <datei>`) bleiben für die
+Entwicklung erlaubt — nur Komplettläufe laufen über Docker.
+
+
 ## Kanonischer UI-Hauptprozess (Testvertrag)
 
 Der zentrale Frontend-Flow fuer die Plattform wird als verbindlicher Testvertrag behandelt:

@@ -275,6 +275,18 @@ All AI agents, automation tools, and contributors must apply the **SOLID princip
 - When working with existing code, explicitly call out SOLID violations that are being preserved, introduced, or cleaned up.
 - If a requested change conflicts with SOLID, name the conflict explicitly and propose a cleaner alternative.
 
+## Test-Ausführung (kanonischer Pfad)
+
+- **Vollständiger Backend-Testlauf: `make test-full` bzw. `scripts/test_full_docker.sh` (~15 Min).**
+  Der Lauf erfolgt im gepinnten Test-Image (`docker/compose-next/Dockerfile.tests-backend`)
+  mit allen Lockfile-Abhängigkeiten und `pytest -n 4 --tier all` — exakt wie CI.
+- **Nicht** für Komplettläufe ein lokales Einzelprozess-`pytest tests/` starten: das
+  Host-System hat die gepinnten Deps nicht (alembic, playwright, hypothesis, ...) und
+  ein Prozess braucht 35+ Minuten. Lokales `python3 -m pytest <gezielte Dateien>` bleibt
+  für schnelle Einzelchecks erlaubt.
+- Untermenge/Filter: Argumente werden an pytest durchgereicht
+  (`scripts/test_full_docker.sh tests/task/ --tier core`).
+
 ## Expected Output Behavior For Agents
 
 When proposing or implementing code changes:

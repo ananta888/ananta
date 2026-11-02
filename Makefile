@@ -1,13 +1,17 @@
-.PHONY: help check check-fast check-deep format release-gate
+.PHONY: help check check-fast check-deep test-full format release-gate
 
 help:
 	@echo "Ananta Development Makefile"
 	@echo "Usage:"
+	@echo "  make test-full    - FULL backend test suite in Docker, ~15 min (canonical; scripts/test_full_docker.sh)"
 	@echo "  make check        - Run standard check pipeline (format, lint, types, arch, fast tests)"
 	@echo "  make check-fast   - Run fast check pipeline (format, lint only)"
 	@echo "  make check-deep   - Run deep check pipeline (all checks + deep tests)"
 	@echo "  make release-gate - Check if repo is ready for release"
 	@echo "  make format       - Format code with ruff"
+
+test-full:
+	scripts/test_full_docker.sh
 
 check:
 	python scripts/check_pipeline.py --mode standard
